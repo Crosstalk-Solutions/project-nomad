@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# dotenv environment variables file
+.env
+
+# Build / Dist
+dist
+build
+tmp
+
+# macOS Metafiles
+.DS_Store
+
+# Fonts
+.ttf
+
+# Runtime-generated Files
+server/public
+server/temp
+
+# IDE Files
+.vscode
+.idea
+
+# Frontend assets compiled code
+admin/public/assets

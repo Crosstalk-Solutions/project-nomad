@@ -1,0 +1,304 @@
+#!/bin/bash
+
+# Project N.O.M.A.D. Installation Script
+
+###################################################################################################################################################################################################
+
+# Script                | Project N.O.M.A.D. Installation Script
+# Version               | 1.0.0
+# Author                | Crosstalk Solutions, LLC
+# Website               | https://crosstalksolutions.com
+
+###################################################################################################################################################################################################
+#                                                                                                                                                                                                 #
+#                                                                                           Color Codes                                                                                           #
+#                                                                                                                                                                                                 #
+###################################################################################################################################################################################################
+
+RESET='\033[0m'
+YELLOW='\033[1;33m'
+WHITE_R='\033[39m' # Same as GRAY_R for terminals with white background.
+GRAY_R='\033[39m'
+RED='\033[1;31m' # Light Red.
+GREEN='\033[1;32m' # Light Green.
+
+###################################################################################################################################################################################################
+#                                                                                                                                                                                                 #
+#                                                                                  Constants & Variables                                                                                          #
+#                                                                                                                                                                                                 #
+###################################################################################################################################################################################################
+
+WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
+MANAGEMENT_COMPOSE_FILE_URL="http://192.168.1.53:8000/management_compose.yaml"
+ENTRYPOINT_SCRIPT_URL="http://192.168.1.53:8000/entrypoint.sh"
+WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
+
+script_option_debug='true'
+install_actions=''
+nomad_dir="/opt/project-nomad"
+
+
+###################################################################################################################################################################################################
+#                                                                                                                                                                                                 #
+#                                                                                           Functions                                                                                             #
+#                                                                                                                                                                                                 #
+###################################################################################################################################################################################################
+
+header() {
+  if [[ "${script_option_debug}" != 'true' ]]; then clear; clear; fi
+  echo -e "${GREEN}#########################################################################${RESET}\\n"
+}
+
+header_red() {
+  if [[ "${script_option_debug}" != 'true' ]]; then clear; clear; fi
+  echo -e "${RED}#########################################################################${RESET}\\n"
+}
+
+check_has_sudo() {
+  if sudo -n true 2>/dev/null; then
+    echo -e "${GREEN}#${RESET} User has sudo permissions.\\n"
+  else
+    echo "User does not have sudo permissions"
+    header_red
+    echo -e "${RED}#${RESET} This script requires sudo permissions to run. Please run the script with sudo.\\n"
+    echo -e "${RED}#${RESET} For example: sudo bash $(basename "$0")"
+    exit 1
+  fi
+}
+
+check_is_bash() {
+  if [[ -z "$BASH_VERSION" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} This script requires bash to run. Please run the script using bash.\\n"
+    echo -e "${RED}#${RESET} For example: bash $(basename "$0")"
+    exit 1
+  fi
+    echo -e "${GREEN}#${RESET} This script is running in bash.\\n"
+}
+
+check_is_debian_based() {
+  if [[ ! -f /etc/debian_version ]]; then
+    header_red
+    echo -e "${RED}#${RESET} This script is designed to run on Debian-based systems only.\\n"
+    echo -e "${RED}#${RESET} Please run this script on a Debian-based system and try again."
+    exit 1
+  fi
+    echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
+}
+
+check_is_debug_mode(){
+  # Check if the script is being run in debug mode
+  if [[ "${script_option_debug}" == 'true' ]]; then
+    echo -e "${YELLOW}#${RESET} Debug mode is enabled, the script will not clear the screen...\\n"
+  else
+    clear; clear
+  fi
+}
+
+ensure_docker_installed() {
+  if ! command -v docker &> /dev/null; then
+    echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
+    
+    # Update package database
+    sudo apt-get update
+    
+    # Install prerequisites
+    sudo apt-get install -y ca-certificates curl
+    
+    # Create directory for keyrings
+    # sudo install -m 0755 -d /etc/apt/keyrings
+    
+    # # Download Docker's official GPG key
+    # sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    # sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+    # # Add the repository to Apt sources
+    # echo \
+    #   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    #   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    #   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    # # Update the package database with the Docker packages from the newly added repo
+    # sudo apt-get update
+
+    # # Install Docker packages
+    # sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    # Download the Docker convenience script
+    curl -fsSL https://get.docker.com -o get-docker.sh
+
+    # Run the Docker installation script
+    sudo sh get-docker.sh
+
+    # Check if Docker was installed successfully
+    if ! command -v docker &> /dev/null; then
+      echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."
+      exit 1
+    fi
+    
+    echo -e "${GREEN}#${RESET} Docker installation completed.\\n"
+  else
+    echo -e "${GREEN}#${RESET} Docker is already installed.\\n"
+    
+    # Check if Docker service is running
+    if ! systemctl is-active --quiet docker; then
+      echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
+      sudo systemctl start docker
+      if ! systemctl is-active --quiet docker; then
+        echo -e "${RED}#${RESET} Failed to start Docker. Please check the Docker service status and try again."
+        exit 1
+      else
+        echo -e "${GREEN}#${RESET} Docker service started successfully.\\n"
+      fi
+    else
+      echo -e "${GREEN}#${RESET} Docker service is already running.\\n"
+    fi
+  fi
+}
+
+ensure_whiptail_installed() {
+  if ! command -v whiptail &> /dev/null; then
+    header_red
+    echo -e "${GRAY_R}#${RESET} whiptail is not installed, attempting to install it...\\n"
+    if command -v apt &> /dev/null; then
+      apt update && apt install -y whiptail
+    else
+      echo -e "${RED}#${RESET} Unsupported package manager. Please install whiptail manually."
+      exit 1
+    fi
+  fi
+}
+
+get_install_confirmation(){
+  if whiptail --title "$WHIPTAIL_TITLE"  --yesno "This script will install/update Project N.O.M.A.D. and its dependencies on your machine.\\n\\n Are you sure you want to continue?\\n\\nInfo:\\nVersion 1.0.0\\nAuthor: Crosstalk Solutions, LLC\\nWebsite: https://crosstalksolutions.com" 15 70; then
+      echo -e "${GREEN}#${RESET} User chose to continue with the installation."
+  else
+      echo -e "${RED}#${RESET} User chose not to continue with the installation."
+      exit 0
+  fi
+}
+
+get_install_directory() {
+  # Prompt user for installation directory
+  nomad_dir=$(whiptail --title "$WHIPTAIL_TITLE" --inputbox "Enter the installation directory for Project N.O.M.A.D. (default: /opt/project-nomad):" 10 60 "$nomad_dir" 3>&1 1>&2 2>&3)
+
+  if [[ $? -ne 0 ]]; then
+    echo -e "${RED}#${RESET} Installation cancelled by user."
+    exit 1
+  fi
+
+  # Validate the directory
+  if [[ ! -d "$nomad_dir" ]]; then
+    echo -e "${YELLOW}#${RESET} Directory $nomad_dir does not exist. It will be attempted to be created during the installation process.\\n"
+  fi
+}
+
+create_nomad_directory(){
+  if [[ ! -d "$nomad_dir" ]]; then
+    echo -e "${YELLOW}#${RESET} Creating directory for Project N.O.M.A.D at $nomad_dir...\\n"
+    sudo mkdir -p "$nomad_dir"
+    sudo chown "$(whoami):$(whoami)" "$nomad_dir"
+    echo -e "${GREEN}#${RESET} Directory created successfully.\\n"
+  else
+    echo -e "${GREEN}#${RESET} Directory $nomad_dir already exists.\\n"
+  fi
+}
+
+download_management_compose_file() {
+  local compose_file_path="${nomad_dir}/docker-compose-management.yml"
+
+  echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
+  if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
+    echo -e "${RED}#${RESET} Failed to download the docker compose file. Please check the URL and try again."
+    exit 1
+  fi
+  echo -e "${GREEN}#${RESET} Docker compose file downloaded successfully to $compose_file_path.\\n"
+}
+
+download_wait_for_it_script() {
+  local wait_for_it_script_path="${nomad_dir}/wait-for-it.sh"
+
+  echo -e "${YELLOW}#${RESET} Downloading wait-for-it script...\\n"
+  if ! curl -fsSL "$WAIT_FOR_IT_SCRIPT_URL" -o "$wait_for_it_script_path"; then
+    echo -e "${RED}#${RESET} Failed to download the wait-for-it script. Please check the URL and try again."
+    exit 1
+  fi
+  chmod +x "$wait_for_it_script_path"
+  echo -e "${GREEN}#${RESET} wait-for-it script downloaded successfully to $wait_for_it_script_path.\\n"
+}
+
+download_entrypoint_script() {
+  local entrypoint_script_path="${nomad_dir}/entrypoint.sh"
+
+  echo -e "${YELLOW}#${RESET} Downloading entrypoint script...\\n"
+  if ! curl -fsSL "$ENTRYPOINT_SCRIPT_URL" -o "$entrypoint_script_path"; then
+    echo -e "${RED}#${RESET} Failed to download the entrypoint script. Please check the URL and try again."
+    exit 1
+  fi
+  chmod +x "$entrypoint_script_path"
+  echo -e "${GREEN}#${RESET} entrypoint script downloaded successfully to $entrypoint_script_path.\\n"
+}
+
+start_management_containers() {
+  echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
+  if ! sudo docker compose -f "${nomad_dir}/docker-compose-management.yml" up -d; then
+    echo -e "${RED}#${RESET} Failed to start management containers. Please check the logs and try again."
+    exit 1
+  fi
+  echo -e "${GREEN}#${RESET} Management containers started successfully.\\n"
+}
+
+###################################################################################################################################################################################################
+#                                                                                                                                                                                                 #
+#                                                                                           Main Script                                                                                           #
+#                                                                                                                                                                                                 #
+###################################################################################################################################################################################################
+
+# Pre-flight checks
+check_is_debian_based
+check_is_bash
+check_has_sudo
+check_is_debug_mode
+ensure_whiptail_installed
+
+# Main install
+get_install_confirmation
+ensure_docker_installed
+#get_install_directory
+create_nomad_directory
+download_wait_for_it_script
+download_entrypoint_script
+download_management_compose_file
+start_management_containers
+
+# free_space_check() {
+#   if [[ "$(df -B1 / | awk 'NR==2{print $4}')" -le '5368709120' ]]; then
+#     header_red
+#     echo -e "${YELLOW}#${RESET} You only have $(df -B1 / | awk 'NR==2{print $4}' | awk '{ split( "B KB MB GB TB PB EB ZB YB" , v ); s=1; while( $1>1024 && s<9 ){ $1/=1024; s++ } printf "%.1f %s", $1, v[s] }') of disk space available on \"/\"... \\n"
+#     while true; do
+#       read -rp $'\033[39m#\033[0m Do you want to proceed with running the script? (y/N) ' yes_no
+#       case "$yes_no" in
+#          [Nn]*|"")
+#             free_space_check_response="Cancel script"
+#             free_space_check_date="$(date +%s)"
+#             echo -e "${YELLOW}#${RESET} OK... Please free up disk space before running the script again..."
+#             cancel_script
+#             break;;
+#          [Yy]*)
+#             free_space_check_response="Proceed at own risk"
+#             free_space_check_date="$(date +%s)"
+#             echo -e "${YELLOW}#${RESET} OK... Proceeding with the script.. please note that failures may occur due to not enough disk space... \\n"; sleep 10
+#             break;;
+#          *) echo -e "\\n${RED}#${RESET} Invalid input, please answer Yes or No (y/n)...\\n"; sleep 3;;
+#       esac
+#     done
+#     if [[ -n "$(command -v jq)" ]]; then
+#       if [[ "$(dpkg-query --showformat='${version}' --show jq 2> /dev/null | sed -e 's/.*://' -e 's/-.*//g' -e 's/[^0-9.]//g' -e 's/\.//g' | sort -V | tail -n1)" -ge "16" && -e "${eus_dir}/db/db.json" ]]; then
+#         jq '.scripts."'"${script_name}"'" += {"warnings": {"low-free-disk-space": {"response": "'"${free_space_check_response}"'", "detected-date": "'"${free_space_check_date}"'"}}}' "${eus_dir}/db/db.json" > "${eus_dir}/db/db.json.tmp" 2>> "${eus_dir}/logs/eus-database-management.log"
+#       else
+#         jq '.scripts."'"${script_name}"'" = (.scripts."'"${script_name}"'" | . + {"warnings": {"low-free-disk-space": {"response": "'"${free_space_check_response}"'", "detected-date": "'"${free_space_check_date}"'"}}})' "${eus_dir}/db/db.json" > "${eus_dir}/db/db.json.tmp" 2>> "${eus_dir}/logs/eus-database-management.log"
+#       fi
+#       eus_database_move
+#     fi
+#   fi
+# }

@@ -1,0 +1,55 @@
+services:
+  admin:
+    image: jturnercosmistack/projectnomad:admin-latest
+    pull_policy: always
+    container_name: nomad_admin
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /opt/project-nomad/data:/data
+      - /opt/project-nomad/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
+      - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - LOG_LEVEL=debug
+      - DRIVE_DISK=fs
+      - APP_KEY=secretlongpasswordsecret
+      - HOST=0.0.0.0
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=nomad
+      - DB_USER=nomad_user
+      - DB_PASSWORD=nomad_password
+      - DB_NAME=nomad
+      - DB_SSL=false
+    depends_on:
+      mysql:
+        condition: service_healthy
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  mysql:
+    image: mysql:8.0
+    container_name: nomad_mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=secretpassword
+      - MYSQL_DATABASE=nomad
+      - MYSQL_USER=nomad_user
+      - MYSQL_PASSWORD=nomad_password
+    volumes:
+      - /opt/project-nomad/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-desert-white: #f6f6f4;
+  --color-desert-green-light: #babaaa;
+  --color-desert-green: #424420;
+  --color-desert-orange: #a84a12;
+  --color-desert-sand: #f7eedc
+}
+
+body {
+  background-color: var(--color-desert-sand);
+}
