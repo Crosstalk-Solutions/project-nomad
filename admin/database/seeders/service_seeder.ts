@@ -12,6 +12,14 @@ export default class ServiceSeeder extends BaseSeeder {
       ui_location: '8090',
       installed: false,
     },
+    {
+      service_name: 'openstreetmap',
+      container_image: 'overv/openstreetmap-tile-server',
+      container_command: 'run',
+      container_config: "{\"HostConfig\":{\"Binds\":[\"/opt/project-nomad/storage/osm/db:/data/database\",\"/opt/project-nomad/storage/osm/tiles:/data/tiles\"],\"PortBindings\":{\"80/tcp\":[{\"HostPort\":\"9000\"}]}}}",
+      ui_location: '9000',
+      installed: false,
+    }
   ]
 
   async run() {

@@ -4,7 +4,9 @@ import drive from '@adonisjs/drive/services/main'
 import axios from 'axios';
 import logger from '@adonisjs/core/services/logger'
 import transmit from '@adonisjs/transmit/services/main'
+import { inject } from "@adonisjs/core";
 
+@inject()
 export class DockerService {
   private docker: Docker;
 
@@ -72,32 +74,27 @@ export class DockerService {
    */
   async _createContainer(service: Service, containerConfig: any): Promise<void> {
 
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'starting',
-    })
+    function sendBroadcastAndLog(status: string, message: string) {
+      transmit.broadcast('service-installation', {
+        service_name: service.service_name,
+        timestamp: new Date().toISOString(),
+        status,
+        message,
+      });
+      logger.info(`[DockerService] [${service.service_name}] ${status}: ${message}`);
+    }
+
+    sendBroadcastAndLog('initializing', '');
 
     // Start pulling the Docker image and wait for it to complete
     const pullStream = await this.docker.pull(service.container_image);
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'pulling',
-      message: `Pulling Docker image ${service.container_image}...`,
-    });
+    sendBroadcastAndLog('pulling', `Pulling Docker image ${service.container_image}...`);
 
     await new Promise(res => this.docker.modem.followProgress(pullStream, res));
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'pulled',
-      message: `Docker image ${service.container_image} pulled successfully.`,
-    });
 
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'creating',
-      message: `Creating Docker container for service ${service.service_name}...`,
-    });
-    
+    sendBroadcastAndLog('pulled', `Docker image ${service.container_image} pulled successfully.`);
+    sendBroadcastAndLog('creating', `Creating Docker container for service ${service.service_name}...`);
+
     const container = await this.docker.createContainer({
       Image: service.container_image,
       Cmd: service.container_command.split(' '),
@@ -107,54 +104,24 @@ export class DockerService {
       ExposedPorts: containerConfig?.ExposedPorts || undefined,
     });
 
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'created',
-      message: `Docker container for service ${service.service_name} created successfully.`,
-    });
+    sendBroadcastAndLog('created', `Docker container for service ${service.service_name} created successfully.`);
 
     if (service.service_name === 'kiwix-serve') {
-      transmit.broadcast('service-installation', {
-        service_name: service.service_name,
-        status: 'preinstall',
-        message: `Running pre-install actions for Kiwix Serve...`,
-      });
-
+      sendBroadcastAndLog('preinstall', `Running pre-install actions for Kiwix Serve...`);
       await this._runPreinstallActions__KiwixServe();
-
-      transmit.broadcast('service-installation', {
-        service_name: service.service_name,
-        status: 'preinstall-complete',
-        message: `Pre-install actions for Kiwix Serve completed successfully.`,
-      });
+      sendBroadcastAndLog('preinstall-complete', `Pre-install actions for Kiwix Serve completed successfully.`);
     }
 
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'starting',
-      message: `Starting Docker container for service ${service.service_name}...`,
-    });
+    sendBroadcastAndLog('starting', `Starting Docker container for service ${service.service_name}...`);
     await container.start();
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'started',
-      message: `Docker container for service ${service.service_name} started successfully.`,
-    });
+    sendBroadcastAndLog('started', `Docker container for service ${service.service_name} started successfully.`);
 
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'finalizing',
-      message: `Finalizing installation of service ${service.service_name}...`,
-    });
+    sendBroadcastAndLog('finalizing', `Finalizing installation of service ${service.service_name}...`);
 
     service.installed = true;
     await service.save();
 
-    transmit.broadcast('service-installation', {
-      service_name: service.service_name,
-      status: 'completed',
-      message: `Service ${service.service_name} installed successfully.`,
-    });
+    sendBroadcastAndLog('completed', `Service ${service.service_name} installation completed successfully.`);
   }
 
   async _checkIfServiceContainerExists(serviceName: string): Promise<boolean> {
@@ -208,5 +175,18 @@ export class DockerService {
 
 
     logger.info(`Downloaded Wikipedia ZIM file to /zim/wikipedia_en_100_mini_2025-06.zim`);
+  }
+
+  async simulateSSE(): Promise<void> {
+    // This is just a simulation of the server-sent events for testing purposes
+    for (let i = 0; i <= 10; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      transmit.broadcast('service-installation', {
+        service_name: 'test-service',
+        timestamp: new Date().toISOString(),
+        status: i === 10 ? 'completed' : 'in-progress',
+        message: `Test message ${i}`,
+      });
+    }
   }
 }

@@ -14,7 +14,7 @@ export function getServiceLink(ui_location: string): string {
     const parsedPort = parseInt(ui_location, 10);
     if (!isNaN(parsedPort)) {
         // If it's a port number, return a link to the service on that port
-        return `http://localhost:${parsedPort}`;
+        return `http://${window.location.origin}:${parsedPort}`;
     }
     // Otherwise, treat it as a path
     return `/${ui_location}`;

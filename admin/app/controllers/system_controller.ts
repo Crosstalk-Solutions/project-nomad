@@ -21,9 +21,14 @@ export default class SystemController {
 
         const result = await this.dockerService.createContainerPreflight(payload.service_name);
         if (result.success) {
-            response.send({ message: result.message });
+            response.send({ success: true, message: result.message });
         } else {
             response.status(400).send({ error: result.message });
         }
+    }
+
+    async simulateSSE({ response }: HttpContext) {
+        this.dockerService.simulateSSE();
+        response.send({ message: 'Started simulation of SSE' })
     }
 }

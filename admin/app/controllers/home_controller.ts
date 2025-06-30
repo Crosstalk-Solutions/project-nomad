@@ -8,7 +8,12 @@ export default class HomeController {
         private systemService: SystemService,
     ) { }
 
-    async index({ inertia }: HttpContext) {
+    async index({ response }: HttpContext) {
+        // Redirect / to /home
+        return response.redirect().toPath('/home');
+    }
+
+    async home({ inertia }: HttpContext) {
         const services = await this.systemService.getServices();
         return inertia.render('home', {
             system: {

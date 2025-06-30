@@ -1,0 +1,49 @@
+import axios from "axios";
+
+export function capitalizeFirstLetter(str?: string | null): string {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export async function testInternetConnection(): Promise<boolean> {
+    try {
+        const response = await axios.get('https://1.1.1.1/cdn-cgi/trace', {
+            timeout: 5000,
+            headers: {
+                'Cache-Control': 'no-cache',
+            }
+        });
+        return response.status === 200;
+    } catch (error) {
+        console.error("Error testing internet connection:", error);
+        return false;
+    }
+}
+
+export function generateRandomString(length: number): string {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+}
+
+export function generateUUID(): string {
+  const arr = new Uint8Array(16);
+  if (window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(arr);
+  } else {
+    // Fallback for non-secure contexts where window.crypto is not available
+    // This is not cryptographically secure, but can be used for non-critical purposes
+    for (let i = 0; i < 16; i++) {
+      arr[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  
+  arr[6] = (arr[6] & 0x0f) | 0x40; // Version 4
+  arr[8] = (arr[8] & 0x3f) | 0x80; // Variant bits
+  
+  const hex = Array.from(arr, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}

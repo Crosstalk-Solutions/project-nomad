@@ -198,6 +198,13 @@ create_nomad_directory(){
     echo -e "${YELLOW}#${RESET} Creating directory for Project N.O.M.A.D at $nomad_dir...\\n"
     sudo mkdir -p "$nomad_dir"
     sudo chown "$(whoami):$(whoami)" "$nomad_dir"
+
+    # Also ensure the directory has a /storage/logs/ subdirectory
+    sudo mkdir -p "${nomad_dir}/storage/logs"
+
+    # Create a admin.log file in the logs directory
+    sudo touch "${nomad_dir}/storage/logs/admin.log"
+
     echo -e "${GREEN}#${RESET} Directory created successfully.\\n"
   else
     echo -e "${GREEN}#${RESET} Directory $nomad_dir already exists.\\n"
