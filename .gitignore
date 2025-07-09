@@ -38,3 +38,6 @@ server/temp
 
 # Frontend assets compiled code
 admin/public/assets
+
+# Admin specific development files
+admin/storage

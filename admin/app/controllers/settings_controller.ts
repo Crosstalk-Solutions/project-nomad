@@ -18,11 +18,19 @@ export default class SettingsController {
     }
 
     async apps({ inertia }: HttpContext) {
-        const services = await this.systemService.getServices();
+        const services = await this.systemService.getServices({ installedOnly: false });
         return inertia.render('settings/apps', {
             system: {
                 services
             }
         });
+    }
+
+    async zim({ inertia }: HttpContext) {
+        return inertia.render('settings/zim/index')
+    }
+
+    async zimRemote({ inertia }: HttpContext) {
+        return inertia.render('settings/zim/remote-explorer');
     }
 }

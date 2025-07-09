@@ -15,7 +15,7 @@ export class DockerService {
   }
 
   async createContainerPreflight(serviceName: string): Promise<{ success: boolean; message: string }> {
-    const service = await Service.findBy('service_name', serviceName);
+    const service = await Service.query().where('service_name', serviceName).first();
     if (!service) {
       return {
         success: false,
@@ -33,29 +33,17 @@ export class DockerService {
     // Check if a service wasn't marked as installed but has an existing container
     // This can happen if the service was created but not properly installed
     // or if the container was removed manually without updating the service status.
-    if (await this._checkIfServiceContainerExists(serviceName)) {
-      const removeResult = await this._removeServiceContainer(serviceName);
-      if (!removeResult.success) {
-        return {
-          success: false,
-          message: `Failed to remove existing container for service ${serviceName}: ${removeResult.message}`,
-        };
-      }
-    }
+    // if (await this._checkIfServiceContainerExists(serviceName)) {
+    //   const removeResult = await this._removeServiceContainer(serviceName);
+    //   if (!removeResult.success) {
+    //     return {
+    //       success: false,
+    //       message: `Failed to remove existing container for service ${serviceName}: ${removeResult.message}`,
+    //     };
+    //   }
+    // }
 
-    // Attempt to parse any special container configuration
-    let containerConfig;
-    if (service.container_config) {
-      try {
-        containerConfig = JSON.parse(JSON.stringify(service.container_config));
-      } catch (error) {
-        return {
-          success: false,
-          message: `Failed to parse container configuration for service ${service.service_name}: ${error.message}`,
-        };
-      }
-    }
-
+    const containerConfig = this._parseContainerConfig(service.container_config);
     this._createContainer(service, containerConfig);  // Don't await this method - we will use server-sent events to notify the client of progress
 
     return {
@@ -72,56 +60,75 @@ export class DockerService {
    * @param serviceName 
    * @returns 
    */
-  async _createContainer(service: Service, containerConfig: any): Promise<void> {
+  async _createContainer(service: Service & { dependencies?: Service[] }, containerConfig: any): Promise<void> {
+    try {
+      this._broadcastAndLog(service.service_name, 'initializing', '');
 
-    function sendBroadcastAndLog(status: string, message: string) {
-      transmit.broadcast('service-installation', {
-        service_name: service.service_name,
-        timestamp: new Date().toISOString(),
-        status,
-        message,
+      let dependencies = [];
+      if (service.depends_on) {
+        const dependency = await Service.query().where('service_name', service.depends_on).first();
+        if (dependency) {
+          dependencies.push(dependency);
+        }
+      }
+
+      console.log('dependencies for service', service.service_name)
+      console.log(dependencies)
+
+      // First, check if the service has any dependencies that need to be installed first
+      if (dependencies && dependencies.length > 0) {
+        this._broadcastAndLog(service.service_name, 'checking-dependencies', `Checking dependencies for service ${service.service_name}...`);
+        for (const dependency of dependencies) {
+          if (!dependency.installed) {
+            this._broadcastAndLog(service.service_name, 'dependency-not-installed', `Dependency service ${dependency.service_name} is not installed. Installing it first...`);
+            await this._createContainer(dependency, this._parseContainerConfig(dependency.container_config));
+          } else {
+            this._broadcastAndLog(service.service_name, 'dependency-installed', `Dependency service ${dependency.service_name} is already installed.`);
+          }
+        }
+      }
+
+      // Start pulling the Docker image and wait for it to complete
+      const pullStream = await this.docker.pull(service.container_image);
+      this._broadcastAndLog(service.service_name, 'pulling', `Pulling Docker image ${service.container_image}...`);
+      await new Promise(res => this.docker.modem.followProgress(pullStream, res));
+      this._broadcastAndLog(service.service_name, 'pulled', `Docker image ${service.container_image} pulled successfully.`);
+
+      this._broadcastAndLog(service.service_name, 'creating', `Creating Docker container for service ${service.service_name}...`);
+      const container = await this.docker.createContainer({
+        Image: service.container_image,
+        name: service.service_name,
+        HostConfig: containerConfig?.HostConfig || undefined,
+        WorkingDir: containerConfig?.WorkingDir || undefined,
+        ExposedPorts: containerConfig?.ExposedPorts || undefined,
+        ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
+        ...(service.service_name === 'open-webui' ? { Env: ['WEBUI_AUTH=False'] } : {}), // Special case for Open WebUI to disable authentication
       });
-      logger.info(`[DockerService] [${service.service_name}] ${status}: ${message}`);
+
+      this._broadcastAndLog(service.service_name, 'created', `Docker container for service ${service.service_name} created successfully.`);
+
+      if (service.service_name === 'kiwix-serve') {
+        await this._runPreinstallActions__KiwixServe();
+        this._broadcastAndLog(service.service_name, 'preinstall-complete', `Pre-install actions for Kiwix Serve completed successfully.`);
+      } else if (service.service_name === 'openstreetmap') {
+        await this._runPreinstallActions__OpenStreetMap(containerConfig);
+        this._broadcastAndLog(service.service_name, 'preinstall-complete', `Pre-install actions for OpenStreetMap completed successfully.`);
+      }
+
+      this._broadcastAndLog(service.service_name, 'starting', `Starting Docker container for service ${service.service_name}...`);
+      await container.start();
+      this._broadcastAndLog(service.service_name, 'started', `Docker container for service ${service.service_name} started successfully.`);
+
+      this._broadcastAndLog(service.service_name, 'finalizing', `Finalizing installation of service ${service.service_name}...`);
+
+      service.installed = true;
+      await service.save();
+
+      this._broadcastAndLog(service.service_name, 'completed', `Service ${service.service_name} installation completed successfully.`);
+    } catch (error) {
+      this._broadcastAndLog(service.service_name, 'error', `Error installing service ${service.service_name}: ${error.message}`);
+      throw new Error(`Failed to install service ${service.service_name}: ${error.message}`);
     }
-
-    sendBroadcastAndLog('initializing', '');
-
-    // Start pulling the Docker image and wait for it to complete
-    const pullStream = await this.docker.pull(service.container_image);
-    sendBroadcastAndLog('pulling', `Pulling Docker image ${service.container_image}...`);
-
-    await new Promise(res => this.docker.modem.followProgress(pullStream, res));
-
-    sendBroadcastAndLog('pulled', `Docker image ${service.container_image} pulled successfully.`);
-    sendBroadcastAndLog('creating', `Creating Docker container for service ${service.service_name}...`);
-
-    const container = await this.docker.createContainer({
-      Image: service.container_image,
-      Cmd: service.container_command.split(' '),
-      name: service.service_name,
-      HostConfig: containerConfig?.HostConfig || undefined,
-      WorkingDir: containerConfig?.WorkingDir || undefined,
-      ExposedPorts: containerConfig?.ExposedPorts || undefined,
-    });
-
-    sendBroadcastAndLog('created', `Docker container for service ${service.service_name} created successfully.`);
-
-    if (service.service_name === 'kiwix-serve') {
-      sendBroadcastAndLog('preinstall', `Running pre-install actions for Kiwix Serve...`);
-      await this._runPreinstallActions__KiwixServe();
-      sendBroadcastAndLog('preinstall-complete', `Pre-install actions for Kiwix Serve completed successfully.`);
-    }
-
-    sendBroadcastAndLog('starting', `Starting Docker container for service ${service.service_name}...`);
-    await container.start();
-    sendBroadcastAndLog('started', `Docker container for service ${service.service_name} started successfully.`);
-
-    sendBroadcastAndLog('finalizing', `Finalizing installation of service ${service.service_name}...`);
-
-    service.installed = true;
-    await service.save();
-
-    sendBroadcastAndLog('completed', `Service ${service.service_name} installation completed successfully.`);
   }
 
   async _checkIfServiceContainerExists(serviceName: string): Promise<boolean> {
@@ -153,13 +160,16 @@ export class DockerService {
     }
   }
 
-  async _runPreinstallActions__KiwixServe(): Promise<void> {
+  private async _runPreinstallActions__KiwixServe(): Promise<void> {
     /**
      * At least one .zim file must be available before we can start the kiwix container.
      * We'll download the lightweight mini Wikipedia Top 100 zim file for this purpose.
      **/
     const WIKIPEDIA_ZIM_URL = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_100_mini_2025-06.zim"
+    const PATH = '/zim/wikipedia_en_100_mini_2025-06.zim';
 
+    this._broadcastAndLog('kiwix-serve', 'preinstall', `Running pre-install actions for Kiwix Serve...`);
+    this._broadcastAndLog('kiwix-serve', 'preinstall', `Downloading Wikipedia ZIM file from ${WIKIPEDIA_ZIM_URL}. This may take some time...`);
     const response = await axios.get(WIKIPEDIA_ZIM_URL, {
       responseType: 'stream',
     });
@@ -171,10 +181,89 @@ export class DockerService {
     });
 
     const disk = drive.use('fs');
-    await disk.putStream('/zim/wikipedia_en_100_mini_2025-06.zim', stream);
+    await disk.putStream(PATH, stream);
 
+    this._broadcastAndLog('kiwix-serve', 'preinstall', `Downloaded Wikipedia ZIM file to ${PATH}`);
+  }
 
-    logger.info(`Downloaded Wikipedia ZIM file to /zim/wikipedia_en_100_mini_2025-06.zim`);
+  /**
+   * Largely follows the install instructions here: https://github.com/Overv/openstreetmap-tile-server/blob/master/README.md
+   */
+  private async _runPreinstallActions__OpenStreetMap(containerConfig: any): Promise<void> {
+    const FILE_NAME = 'us-pacific-latest.osm.pbf';
+    const OSM_PBF_URL = `https://download.geofabrik.de/north-america/${FILE_NAME}`; // Download a small subregion for initial import
+    const PATH = `/osm/${FILE_NAME}`;
+
+    this._broadcastAndLog('openstreetmap', 'preinstall', `Running pre-install actions for OpenStreetMap Tile Server...`);
+    this._broadcastAndLog('openstreetmap', 'preinstall', `Downloading OpenStreetMap PBF file from ${OSM_PBF_URL}. This may take some time...`);
+    const response = await axios.get(OSM_PBF_URL, {
+      responseType: 'stream',
+    });
+
+    const stream = response.data;
+    stream.on('error', (error: Error) => {
+      logger.error(`Error downloading OpenStreetMap PBF file: ${error.message}`);
+      throw error;
+    });
+
+    const disk = drive.use('fs');
+    await disk.putStream(PATH, stream);
+    this._broadcastAndLog('openstreetmap', 'preinstall', `Downloaded OpenStreetMap PBF file to ${PATH}`);
+
+    // Do initial import of OSM data into the tile server DB
+    // We'll use the same containerConfig as the actual container, just with the command set to "import"
+    this._broadcastAndLog('openstreetmap', 'importing', `Processing initial import of OSM data. This may take some time...`);
+    const data = await new Promise((resolve, reject) => {
+      this.docker.run(containerConfig.Image, ['import'], process.stdout, containerConfig?.HostConfig || {}, {},
+        // @ts-ignore  
+        (err: any, data: any, container: any) => {
+          if (err) {
+            logger.error(`Error running initial import for OpenStreetMap Tile Server: ${err.message}`);
+            return reject(err);
+          }
+          resolve(data);
+        });
+    });
+
+    const [output, container] = data as [any, any];
+    if (output?.StatusCode === 0) {
+      this._broadcastAndLog('openstreetmap', 'imported', `OpenStreetMap data imported successfully.`);
+      await container.remove();
+    } else {
+      const errorMessage = `Failed to import OpenStreetMap data. Status code: ${output?.StatusCode}. Output: ${output?.Output || 'No output'}`;
+      this._broadcastAndLog('openstreetmap', 'error', errorMessage);
+      logger.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }
+
+  private _broadcastAndLog(service: string, status: string, message: string) {
+    transmit.broadcast('service-installation', {
+      service_name: service,
+      timestamp: new Date().toISOString(),
+      status,
+      message,
+    });
+    logger.info(`[DockerService] [${service}] ${status}: ${message}`);
+  }
+
+  private _parseContainerConfig(containerConfig: any): any {
+    if (!containerConfig) {
+      return {};
+    }
+
+    try {
+      // Handle the case where containerConfig is returned as an object by DB instead of a string
+      let toParse = containerConfig;
+      if (typeof containerConfig === 'object') {
+        toParse = JSON.stringify(containerConfig);
+      }
+
+      return JSON.parse(toParse);
+    } catch (error) {
+      logger.error(`Failed to parse container configuration: ${error.message}`);
+      throw new Error(`Invalid container configuration: ${error.message}`);
+    }
   }
 
   async simulateSSE(): Promise<void> {

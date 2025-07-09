@@ -10,6 +10,7 @@ import DocsController from '#controllers/docs_controller'
 import HomeController from '#controllers/home_controller'
 import SettingsController from '#controllers/settings_controller'
 import SystemController from '#controllers/system_controller'
+import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
 
@@ -22,6 +23,8 @@ router.on('/about').renderInertia('about')
 router.group(() => {
     router.get('/system', [SettingsController, 'system'])
     router.get('/apps', [SettingsController, 'apps'])
+    router.get('/zim', [SettingsController, 'zim'])
+    router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
 }).prefix('/settings')
 
 router.group(() => {
@@ -43,3 +46,10 @@ router.group(() => {
     router.post('/services/install', [SystemController, 'installService'])
     router.post('/simulate-sse', [SystemController, 'simulateSSE'])
 }).prefix('/api/system')
+
+router.group(() => {
+    router.get('/list', [ZimController, 'list'])
+    router.get('/list-remote', [ZimController, 'listRemote'])
+    router.post('/download-remote', [ZimController, 'downloadRemote'])
+    router.delete('/:key', [ZimController, 'delete'])
+}).prefix('/api/zim')

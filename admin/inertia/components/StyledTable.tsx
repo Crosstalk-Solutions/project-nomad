@@ -1,10 +1,14 @@
 import { capitalizeFirstLetter } from '~/lib/util'
 import classNames from '~/lib/classNames'
 import LoadingSpinner from '~/components/LoadingSpinner'
+import React, { RefObject } from 'react'
 
-interface StyledTableProps<T = Record<string, unknown>> {
+export type StyledTableProps<T extends { [key: string]: any }> = {
   loading?: boolean
   tableProps?: React.HTMLAttributes<HTMLTableElement>
+  tableRowStyle?: React.CSSProperties
+  tableBodyClassName?: string
+  tableBodyStyle?: React.CSSProperties
   data?: T[]
   noDataText?: string
   onRowClick?: (record: T) => void
@@ -16,18 +20,30 @@ interface StyledTableProps<T = Record<string, unknown>> {
   }[]
   className?: string
   rowLines?: boolean
+  ref?: RefObject<HTMLDivElement | null>
+  containerProps?: React.HTMLAttributes<HTMLDivElement>
+  compact?: boolean
 }
 
-function StyledTable<T>({
+function StyledTable<T extends { [key: string]: any }>({
   loading = false,
   tableProps = {},
+  tableRowStyle = {},
+  tableBodyClassName = '',
+  tableBodyStyle = {},
   data = [],
   noDataText = 'No records found',
   onRowClick,
   columns = [],
   className = '',
+  ref,
+  containerProps = {},
+  rowLines = true,
+  compact = false,
 }: StyledTableProps<T>) {
   const { className: tableClassName, ...restTableProps } = tableProps
+
+  const leftPadding = compact ? 'pl-2' : 'pl-4 sm:pl-6'
 
   return (
     <div
@@ -35,36 +51,51 @@ function StyledTable<T>({
         'w-full overflow-x-auto bg-white mt-10 ring-1 ring-gray-300 sm:mx-0 sm:rounded-lg p-3 shadow-md',
         className
       )}
+      ref={ref}
+      {...containerProps}
     >
-      <table className="min-w-full" {...restTableProps}>
-        <thead>
+      <table className="min-w-full overflow-auto" {...restTableProps}>
+        <thead className='border-b border-gray-200 '>
           <tr>
             {columns.map((column, index) => (
               <th
                 key={index}
-                className="whitespace-nowrap text-left py-3.5 pl-4 pr-3text-sm font-semibold text-gray-900 sm:pl-6"
+                className={classNames(
+                  'whitespace-nowrap text-left text-sm font-semibold text-gray-900',
+                  compact ? `${leftPadding} py-2` : `${leftPadding} py-4  pr-3`
+                )}
               >
                 {column.title ?? capitalizeFirstLetter(column.accessor.toString())}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className={tableBodyClassName} style={tableBodyStyle}>
           {!loading &&
             data.length !== 0 &&
             data.map((record, recordIdx) => (
               <tr
-                key={crypto.randomUUID()}
+                data-index={'index' in record ? record.index : recordIdx}
+                key={record.id || recordIdx}
                 onClick={() => onRowClick?.(record)}
-                className={onRowClick ? `cursor-pointer hover:bg-gray-100 ` : ''}
+                style={{
+                  ...tableRowStyle,
+                  height: 'height' in record ? record.height : 'auto',
+                  transform:
+                    'translateY' in record ? 'translateY(' + record.transformY + 'px)' : undefined,
+                }}
+                className={classNames(
+                  rowLines ? 'border-b border-gray-200' : '',
+                  onRowClick ? `cursor-pointer hover:bg-gray-100 ` : ''
+                )}
               >
                 {columns.map((column, index) => (
                   <td
                     key={index}
                     className={classNames(
-                      recordIdx === 0 ? '' : 'border-t border-transparent',
-                      'relative py-4 pl-4 pr-3 text-sm sm:pl-6 whitespace-nowrap max-w-72 truncate break-words',
-                      column.className || ''
+                      'relative text-sm whitespace-nowrap max-w-72 truncate break-words text-left',
+                      column.className || '',
+                      compact ? `${leftPadding} py-2` : `${leftPadding} py-4 pr-3`
                     )}
                   >
                     {column.render

@@ -1,32 +1,41 @@
 import axios from "axios";
 
 export function capitalizeFirstLetter(str?: string | null): string {
-    if (!str) return "";
-    return str.charAt(0).toUpperCase() + str.slice(1);
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function formatBytes(bytes: number, decimals = 2): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 export async function testInternetConnection(): Promise<boolean> {
-    try {
-        const response = await axios.get('https://1.1.1.1/cdn-cgi/trace', {
-            timeout: 5000,
-            headers: {
-                'Cache-Control': 'no-cache',
-            }
-        });
-        return response.status === 200;
-    } catch (error) {
-        console.error("Error testing internet connection:", error);
-        return false;
-    }
+  try {
+    const response = await axios.get('https://1.1.1.1/cdn-cgi/trace', {
+      timeout: 5000,
+      headers: {
+        'Cache-Control': 'no-cache',
+      }
+    });
+    return response.status === 200;
+  } catch (error) {
+    console.error("Error testing internet connection:", error);
+    return false;
+  }
 }
 
 export function generateRandomString(length: number): string {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
 }
 
 export function generateUUID(): string {
@@ -40,10 +49,10 @@ export function generateUUID(): string {
       arr[i] = Math.floor(Math.random() * 256);
     }
   }
-  
+
   arr[6] = (arr[6] & 0x0f) | 0x40; // Version 4
   arr[8] = (arr[8] & 0x3f) | 0x80; // Variant bits
-  
+
   const hex = Array.from(arr, byte => byte.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

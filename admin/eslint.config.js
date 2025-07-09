@@ -1,2 +1,3 @@
 import { configApp } from '@adonisjs/eslint-config'
-export default configApp()
+import pluginQuery from '@tanstack/eslint-plugin-query'
+export default configApp(...pluginQuery.configs['flat/recommended'])

@@ -7,7 +7,6 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /opt/project-nomad/data:/data
       - /opt/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh

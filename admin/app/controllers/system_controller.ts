@@ -11,9 +11,8 @@ export default class SystemController {
         private dockerService: DockerService
     ) { }
 
-    async getServices({ response }: HttpContext) {
-        const services = await this.systemService.getServices();
-        response.send(services);
+    async getServices({ }: HttpContext) {
+        return await this.systemService.getServices({ installedOnly: true });
     }
 
     async installService({ request, response }: HttpContext) {

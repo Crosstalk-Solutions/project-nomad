@@ -8,8 +8,10 @@ import { resolvePageComponent } from '@adonisjs/inertia/helpers'
 import ModalsProvider from '~/providers/ModalProvider'
 import { TransmitProvider } from 'react-adonis-transmit'
 import { generateUUID } from '~/lib/util'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const appName = import.meta.env.VITE_APP_NAME || 'Project N.O.M.A.D.'
+const queryClient = new QueryClient()
 
 // Patch the global crypto object for non-HTTPS/localhost contexts
 if (!window.crypto?.randomUUID) {
@@ -20,7 +22,7 @@ if (!window.crypto?.randomUUID) {
 }
 
 createInertiaApp({
-  progress: { color: '#5468FF' },
+  progress: { color: '#424420' },
 
   title: (title) => `${title} - ${appName}`,
 
@@ -30,11 +32,13 @@ createInertiaApp({
 
   setup({ el, App, props }) {
     createRoot(el).render(
-      <TransmitProvider baseUrl={window.location.origin} enableLogging={true}>
-        <ModalsProvider>
-          <App {...props} />
-        </ModalsProvider>
-      </TransmitProvider>
+      <QueryClientProvider client={queryClient}>
+        <TransmitProvider baseUrl={window.location.origin} enableLogging={true}>
+          <ModalsProvider>
+            <App {...props} />
+          </ModalsProvider>
+        </TransmitProvider>
+      </QueryClientProvider>
     )
   },
 })

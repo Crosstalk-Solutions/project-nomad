@@ -1,58 +1,8 @@
-import {
-  IconBook,
-  IconBrandWikipedia,
-  IconCalculator,
-  IconHelp,
-  IconMapRoute,
-  IconMessageCircleSearch,
-  IconPlus,
-  IconSettings,
-  IconWifiOff,
-} from '@tabler/icons-react'
-import { Head, Link } from '@inertiajs/react'
+import { IconHelp, IconPlus, IconSettings, IconWifiOff } from '@tabler/icons-react'
+import { Head } from '@inertiajs/react'
 import BouncingLogo from '~/components/BouncingLogo'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
-
-const NAV_ITEMS = [
-  {
-    label: 'AI Chat',
-    to: '/ai-chat',
-    description: 'Chat with local AI models',
-    icon: <IconMessageCircleSearch size={48} />,
-  },
-  {
-    label: 'Calculators',
-    to: '/calculators',
-    description: 'Perform various calculations',
-    icon: <IconCalculator size={48} />,
-  },
-  {
-    label: 'Ebooks',
-    to: '/ebooks',
-    description: 'Explore our collection of eBooks',
-    icon: <IconBook size={48} />,
-  },
-  {
-    label: 'Kiwix (Offline Browser)',
-    to: '/kiwix',
-    description: 'Access offline content with Kiwix',
-    icon: <IconWifiOff size={48} />,
-  },
-  {
-    label: 'OpenStreetMap',
-    to: '/openstreetmap',
-    description: 'View maps and geospatial data',
-    icon: <IconMapRoute size={48} />,
-  },
-
-  {
-    label: 'Wikipedia',
-    to: '/wikipedia',
-    description: 'Browse an offline Wikipedia snapshot',
-    icon: <IconBrandWikipedia size={48} />,
-  },
-]
 
 const STATIC_ITEMS = [
   {
@@ -87,6 +37,8 @@ export default function Home(props: {
   }
 }) {
   const items = []
+  
+  console.log(props.system.services)
   props.system.services.map((service) => {
     items.push({
       label: service.service_name,

@@ -36,7 +36,8 @@ WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/
 script_option_debug='true'
 install_actions=''
 nomad_dir="/opt/project-nomad"
-
+accepted_terms='false'
+local_ip=''
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -156,26 +157,53 @@ ensure_docker_installed() {
   fi
 }
 
-ensure_whiptail_installed() {
-  if ! command -v whiptail &> /dev/null; then
-    header_red
-    echo -e "${GRAY_R}#${RESET} whiptail is not installed, attempting to install it...\\n"
-    if command -v apt &> /dev/null; then
-      apt update && apt install -y whiptail
-    else
-      echo -e "${RED}#${RESET} Unsupported package manager. Please install whiptail manually."
-      exit 1
-    fi
-  fi
-}
-
 get_install_confirmation(){
-  if whiptail --title "$WHIPTAIL_TITLE"  --yesno "This script will install/update Project N.O.M.A.D. and its dependencies on your machine.\\n\\n Are you sure you want to continue?\\n\\nInfo:\\nVersion 1.0.0\\nAuthor: Crosstalk Solutions, LLC\\nWebsite: https://crosstalksolutions.com" 15 70; then
+  # Make this a regular bash prompt instead of whiptail
+  read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/n): " choice
+  case "$choice" in
+    y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the installation."
-  else
+      ;;
+    n|N )
       echo -e "${RED}#${RESET} User chose not to continue with the installation."
       exit 0
-  fi
+      ;;
+    * )
+      echo "Invalid Response"
+      echo "User chose not to continue with the installation."
+      exit 0
+      ;;
+  esac
+}
+
+accept_terms() {
+  printf "\n\n"
+  echo "License Agreement & Terms of Use"
+  echo "__________________________"
+  printf "\n\n"
+  echo "Copyright 2025 Crosstalk Solutions, LLC"
+  printf "\n"
+  echo "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:"
+  printf "\n"
+  echo "The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+  printf "\n"
+  echo "THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+  echo -e "\n\n"
+  read -p "I have read and accept License Agreement & Terms of Use (y/n)? " choice
+  case "$choice" in
+    y|Y )
+      accepted_terms='true'
+      ;;
+    n|N )
+      echo "License Agreement & Terms of Use not accepted. Installation cannot continue."
+      exit 1
+      ;;
+    * )
+      echo "Invalid Response"
+      echo "License Agreement & Terms of Use not accepted. Installation cannot continue."
+      exit 1
+      ;;
+  esac
 }
 
 get_install_directory() {
@@ -255,6 +283,21 @@ start_management_containers() {
   echo -e "${GREEN}#${RESET} Management containers started successfully.\\n"
 }
 
+get_local_ip() {
+  local_ip_address=$(hostname -I | awk '{print $1}')
+  if [[ -z "$local_ip_address" ]]; then
+    echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
+    # Don't exit if we can't determine the local IP address, it's not critical for the installation
+  fi
+}
+
+success_message() {
+  echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
+  echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
+  echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
+  echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
+}
+
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
 #                                                                                           Main Script                                                                                           #
@@ -266,10 +309,10 @@ check_is_debian_based
 check_is_bash
 check_has_sudo
 check_is_debug_mode
-ensure_whiptail_installed
 
 # Main install
 get_install_confirmation
+accept_terms
 ensure_docker_installed
 #get_install_directory
 create_nomad_directory
@@ -277,6 +320,8 @@ download_wait_for_it_script
 download_entrypoint_script
 download_management_compose_file
 start_management_containers
+get_local_ip
+success_message
 
 # free_space_check() {
 #   if [[ "$(df -B1 / | awk 'NR==2{print $4}')" -le '5368709120' ]]; then

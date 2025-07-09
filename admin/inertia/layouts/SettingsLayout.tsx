@@ -1,9 +1,20 @@
-import { Cog6ToothIcon, CommandLineIcon, FolderIcon } from '@heroicons/react/24/outline'
+import {
+  Cog6ToothIcon,
+  CommandLineIcon,
+  FolderIcon,
+  MagnifyingGlassIcon,
+} from '@heroicons/react/24/outline'
 import StyledSidebar from '~/components/StyledSidebar'
 
 const navigation = [
   { name: 'Apps', href: '/settings/apps', icon: CommandLineIcon, current: false },
-  { name: 'ZIM Explorer', href: '/settings/zim', icon: FolderIcon, current: false },
+  { name: 'ZIM Manager', href: '/settings/zim', icon: FolderIcon, current: false },
+  {
+    name: 'Zim Remote Explorer',
+    href: '/settings/zim/remote-explorer',
+    icon: MagnifyingGlassIcon,
+    current: false,
+  },
   { name: 'System', href: '/settings/system', icon: Cog6ToothIcon, current: true },
 ]
 

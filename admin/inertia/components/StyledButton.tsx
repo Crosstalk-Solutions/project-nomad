@@ -1,7 +1,7 @@
 import * as Icons from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
 
-interface StyledButtonProps extends React.HTMLAttributes<HTMLButtonElement> {
+export interface StyledButtonProps extends React.HTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode
   // icon should be one of the HeroIcon names, e.g. ArrowTopRightOnSquareIcon
   icon?: keyof typeof Icons
