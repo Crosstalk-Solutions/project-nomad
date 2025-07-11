@@ -9,6 +9,7 @@ import ModalsProvider from '~/providers/ModalProvider'
 import { TransmitProvider } from 'react-adonis-transmit'
 import { generateUUID } from '~/lib/util'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 const appName = import.meta.env.VITE_APP_NAME || 'Project N.O.M.A.D.'
 const queryClient = new QueryClient()
@@ -36,6 +37,7 @@ createInertiaApp({
         <TransmitProvider baseUrl={window.location.origin} enableLogging={true}>
           <ModalsProvider>
             <App {...props} />
+            <ReactQueryDevtools initialIsOpen={false} />
           </ModalsProvider>
         </TransmitProvider>
       </QueryClientProvider>

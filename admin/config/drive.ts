@@ -16,6 +16,11 @@ const driveConfig = defineConfig({
       routeBasePath: '/storage',
       visibility: 'public',
     }),
+    docs: services.fs({
+      location: app.makePath('docs'),
+      serveFiles: false, // Don't serve files directly - we handle this via routes/Inertia
+      visibility: 'public',
+    }),
   },
 })
 

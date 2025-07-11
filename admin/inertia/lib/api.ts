@@ -15,8 +15,8 @@ class API {
 
     async listDocs() {
         try {
-            const response = await this.client.get<{ articles: Array<{ title: string; slug: string }> }>("/docs/list");
-            return response.data.articles;
+            const response = await this.client.get<Array<{ title: string; slug: string }>>("/docs/list");
+            return response.data;
         } catch (error) {
             console.error("Error listing docs:", error);
             throw error;

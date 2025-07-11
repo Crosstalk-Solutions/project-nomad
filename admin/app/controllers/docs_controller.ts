@@ -9,15 +9,13 @@ export default class DocsController {
     ) { }
 
     async list({ }: HttpContext) {
-        const docs = await this.docsService.getDocs();
-        return { articles: docs };
+        return await this.docsService.getDocs();
     }
 
     async show({ params, inertia }: HttpContext) {
-        const content = await this.docsService.parseFile(`${params.slug}.md`);
+        const content = await this.docsService.parseFile(params.slug);
         return inertia.render('docs/show', {
             content,
-            title: "Documentation"
         });
     }
 }

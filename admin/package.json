@@ -74,6 +74,7 @@
     "@tabler/icons-react": "^3.34.0",
     "@tailwindcss/vite": "^4.1.10",
     "@tanstack/react-query": "^5.81.5",
+    "@tanstack/react-query-devtools": "^5.83.0",
     "@tanstack/react-virtual": "^3.13.12",
     "@vinejs/vine": "^3.0.1",
     "@vitejs/plugin-react": "^4.6.0",

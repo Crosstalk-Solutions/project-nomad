@@ -9,7 +9,7 @@ interface StyledSidebarProps {
   items: Array<{
     name: string
     href: string
-    icon: React.ElementType
+    icon?: React.ElementType
     current: boolean
   }>
 }
@@ -25,7 +25,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
   const ListItem = (item: {
     name: string
     href: string
-    icon: React.ElementType
+    icon?: React.ElementType
     current: boolean
   }) => {
     return (
@@ -39,7 +39,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
             'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
           )}
         >
-          <item.icon aria-hidden="true" className="size-6 shrink-0" />
+          {item.icon && <item.icon aria-hidden="true" className="size-6 shrink-0" />}
           {item.name}
         </a>
       </li>

@@ -1,17 +1,28 @@
+import drive from '@adonisjs/drive/services/main';
 import Markdoc from '@markdoc/markdoc';
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { streamToString } from '../../util/docs.js';
 
 export class DocsService {
   async getDocs() {
-    const docsPath = join(process.cwd(), '/docs');
-    console.log(`Resolving docs path: ${docsPath}`);
+    const disk = drive.use('docs');
+    if (!disk) {
+      throw new Error('Docs disk not configured');
+    }
 
-    const files = await readdir(docsPath, { withFileTypes: true });
-    const docs = files
-      .filter(file => file.isFile() && file.name.endsWith('.md'))
-      .map(file => file.name);
-    return docs;
+    const contents = await disk.listAll('/');
+    const files: Array<{ title: string; slug: string }> = [];
+
+    for (const item of contents.objects) {
+      if (item.isFile && item.name.endsWith('.md')) {
+        const cleaned = this.prettify(item.name);
+        files.push({
+          title: cleaned,
+          slug: item.name.replace(/\.md$/, '')
+        });
+      }
+    }
+
+    return files.sort((a, b) => a.title.localeCompare(b.title));
   }
 
   parse(content: string) {
@@ -26,11 +37,34 @@ export class DocsService {
     return Markdoc.transform(ast, config);
   }
 
-  async parseFile(filename: string) {
-    const fullPath = join(process.cwd(), '/docs', filename);
-    console.log(`Resolving file path: ${fullPath}`);
-    const content = await readFile(fullPath, 'utf-8')
+  async parseFile(_filename: string) {
+    const disk = drive.use('docs');
+    if (!disk) {
+      throw new Error('Docs disk not configured');
+    }
+
+    if (!_filename) {
+      throw new Error('Filename is required');
+    }
+
+    const filename = _filename.endsWith('.md') ? _filename : `${_filename}.md`;
+
+    const fileExists = await disk.exists(filename);
+    if (!fileExists) {
+      throw new Error(`File not found: ${filename}`);
+    }
+
+    const fileStream = await disk.getStream(filename);
+    if (!fileStream) {
+      throw new Error(`Failed to read file stream: ${filename}`);
+    }
+    const content = await streamToString(fileStream);
     return this.parse(content);
+  }
+
+  private prettify(filename: string) {
+    const cleaned = filename.replace(/_/g, ' ').replace(/\.md$/, '');
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
   }
 
   private getConfig() {
