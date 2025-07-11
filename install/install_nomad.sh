@@ -29,8 +29,8 @@ GREEN='\033[1;32m' # Light Green.
 ###################################################################################################################################################################################################
 
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
-MANAGEMENT_COMPOSE_FILE_URL="http://192.168.1.53:8000/management_compose.yaml"
-ENTRYPOINT_SCRIPT_URL="http://192.168.1.53:8000/entrypoint.sh"
+MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/management_compose.yaml"
+ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/entrypoint.sh"
 WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
 
 script_option_debug='true'

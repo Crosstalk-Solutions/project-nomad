@@ -1,6 +1,6 @@
 services:
   admin:
-    image: jturnercosmistack/projectnomad:admin-latest
+    image: ghcr.io/crosstalk-solutions/project-nomad-admin:1.0.0
     pull_policy: always
     container_name: nomad_admin
     restart: unless-stopped

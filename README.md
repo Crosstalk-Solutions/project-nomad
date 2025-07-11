@@ -1,3 +1,4 @@
+# *NOTE: Project N.O.M.A.D. is still in active development and should not be considered stable!*
 # Project N.O.M.A.D. (Node for Offline Media, Archives, and Data)
 Project N.O.M.A.D., is a self-contained, offline survival computer packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
 
@@ -9,7 +10,7 @@ Project N.O.M.A.D. can be installed on any Debian-based operating system (we rec
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh
 
-sudo bash ./install_nomad.sh
+sudo bash install_nomad.sh
 ```
 
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
