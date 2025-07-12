@@ -102,7 +102,7 @@ export class DockerService {
         WorkingDir: containerConfig?.WorkingDir || undefined,
         ExposedPorts: containerConfig?.ExposedPorts || undefined,
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
-        ...(service.service_name === 'open-webui' ? { Env: ['WEBUI_AUTH=False'] } : {}), // Special case for Open WebUI to disable authentication
+        ...(service.service_name === 'open-webui' ? { Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434'] } : {}), // Special case for Open WebUI
       });
 
       this._broadcastAndLog(service.service_name, 'created', `Docker container for service ${service.service_name} created successfully.`);

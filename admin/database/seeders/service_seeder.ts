@@ -38,7 +38,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: 'open-webui',
       container_image: 'ghcr.io/open-webui/open-webui:main',
       container_command: null,
-      container_config: "{\"HostConfig\":{\"Env\":[\"WEBUI_AUTH=False\"],\"Binds\":[\"/opt/project-nomad/storage/open-webui:/app/backend/data\"],\"PortBindings\": {\"8080/tcp\": [{\"HostPort\": \"3000\"}]}},\"ExposedPorts\":{\"8080/tcp\": {}}}",
+      container_config: "{\"HostConfig\":{\"NetworkMode\":\"host\",\"Binds\":[\"/opt/project-nomad/storage/open-webui:/app/backend/data\"]}}",
       ui_location: '3000',
       installed: false,
       is_dependency_service: false,

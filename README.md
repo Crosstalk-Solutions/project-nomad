@@ -9,7 +9,9 @@ Project N.O.M.A.D. can be installed on any Debian-based operating system (we rec
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh
+```
 
+```bash
 sudo bash install_nomad.sh
 ```
 
