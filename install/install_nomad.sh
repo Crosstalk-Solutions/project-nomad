@@ -31,6 +31,8 @@ GREEN='\033[1;32m' # Light Green.
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/management_compose.yaml"
 ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/entrypoint.sh"
+START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/start_nomad.sh"
+STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/stop_nomad.sh"
 WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
 
 script_option_debug='true'
@@ -274,6 +276,26 @@ download_entrypoint_script() {
   echo -e "${GREEN}#${RESET} entrypoint script downloaded successfully to $entrypoint_script_path.\\n"
 }
 
+download_start_stop_scripts() {
+  local start_script_path="${nomad_dir}/start_nomad.sh"
+  local stop_script_path="${nomad_dir}/stop_nomad.sh"
+
+  echo -e "${YELLOW}#${RESET} Downloading start and stop scripts...\\n"
+  if ! curl -fsSL "$START_SCRIPT_URL" -o "$start_script_path"; then
+    echo -e "${RED}#${RESET} Failed to download the start script. Please check the URL and try again."
+    exit 1
+  fi
+  chmod +x "$start_script_path"
+
+  if ! curl -fsSL "$STOP_SCRIPT_URL" -o "$stop_script_path"; then
+    echo -e "${RED}#${RESET} Failed to download the stop script. Please check the URL and try again."
+    exit 1
+  fi
+  chmod +x "$stop_script_path"
+
+  echo -e "${GREEN}#${RESET} Start and stop scripts downloaded successfully to $start_script_path and $stop_script_path.\\n"
+}
+
 start_management_containers() {
   echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
   if ! sudo docker compose -f "${nomad_dir}/docker-compose-management.yml" up -d; then
@@ -294,6 +316,7 @@ get_local_ip() {
 success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
+  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
 }
@@ -318,6 +341,7 @@ ensure_docker_installed
 create_nomad_directory
 download_wait_for_it_script
 download_entrypoint_script
+download_start_stop_scripts
 download_management_compose_file
 start_management_containers
 get_local_ip
