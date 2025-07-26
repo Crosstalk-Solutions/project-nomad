@@ -9,6 +9,10 @@ import { inject } from "@adonisjs/core";
 @inject()
 export class DockerService {
   private docker: Docker;
+  public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve';
+  public static OPENSTREETMAP_SERVICE_NAME = 'nomad_openstreetmap';
+  public static OLLAMA_SERVICE_NAME = 'nomad_ollama';
+  public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui';
 
   constructor() {
     this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -107,10 +111,10 @@ export class DockerService {
 
       this._broadcastAndLog(service.service_name, 'created', `Docker container for service ${service.service_name} created successfully.`);
 
-      if (service.service_name === 'kiwix-serve') {
+      if (service.service_name === DockerService.KIWIX_SERVICE_NAME) {
         await this._runPreinstallActions__KiwixServe();
         this._broadcastAndLog(service.service_name, 'preinstall-complete', `Pre-install actions for Kiwix Serve completed successfully.`);
-      } else if (service.service_name === 'openstreetmap') {
+      } else if (service.service_name === DockerService.OPENSTREETMAP_SERVICE_NAME) {
         await this._runPreinstallActions__OpenStreetMap(containerConfig);
         this._broadcastAndLog(service.service_name, 'preinstall-complete', `Pre-install actions for OpenStreetMap completed successfully.`);
       }
