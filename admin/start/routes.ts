@@ -43,6 +43,7 @@ router.group(() => {
 
 router.group(() => {
     router.get('/services', [SystemController, 'getServices'])
+    router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])
     router.post('/simulate-sse', [SystemController, 'simulateSSE'])
 }).prefix('/api/system')

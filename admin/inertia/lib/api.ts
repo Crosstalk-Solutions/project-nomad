@@ -34,6 +34,16 @@ class API {
         }
     }
 
+    async affectService(service_name: string, action: "start" | "stop" | "restart") {
+        try {
+            const response = await this.client.post<{ success: boolean; message: string }>("/system/services/affect", { service_name, action });
+            return response.data;
+        } catch (error) {
+            console.error("Error affecting service:", error);
+            throw error;
+        }
+    }
+
     async listZimFiles() {
         return await this.client.get<ListZimFilesResponse>("/zim/list");
     }

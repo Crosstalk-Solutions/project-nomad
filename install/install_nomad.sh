@@ -33,6 +33,7 @@ MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutio
 ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/entrypoint.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/stop_nomad.sh"
+UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/update_nomad.sh"
 WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
 
 script_option_debug='true'
@@ -160,7 +161,6 @@ ensure_docker_installed() {
 }
 
 get_install_confirmation(){
-  # Make this a regular bash prompt instead of whiptail
   read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/n): " choice
   case "$choice" in
     y|Y )
@@ -276,11 +276,12 @@ download_entrypoint_script() {
   echo -e "${GREEN}#${RESET} entrypoint script downloaded successfully to $entrypoint_script_path.\\n"
 }
 
-download_start_stop_scripts() {
+download_helper_scripts() {
   local start_script_path="${nomad_dir}/start_nomad.sh"
   local stop_script_path="${nomad_dir}/stop_nomad.sh"
+  local update_script_path="${nomad_dir}/update_nomad.sh"
 
-  echo -e "${YELLOW}#${RESET} Downloading start and stop scripts...\\n"
+  echo -e "${YELLOW}#${RESET} Downloading helper scripts...\\n"
   if ! curl -fsSL "$START_SCRIPT_URL" -o "$start_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the start script. Please check the URL and try again."
     exit 1
@@ -293,7 +294,12 @@ download_start_stop_scripts() {
   fi
   chmod +x "$stop_script_path"
 
-  echo -e "${GREEN}#${RESET} Start and stop scripts downloaded successfully to $start_script_path and $stop_script_path.\\n"
+  if ! curl -fsSL "$UPDATE_SCRIPT_URL" -o "$update_script_path"; then
+    echo -e "${RED}#${RESET} Failed to download the update script. Please check the URL and try again."
+    exit 1
+  fi
+
+  echo -e "${GREEN}#${RESET} Helper scripts downloaded successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
 }
 
 start_management_containers() {
@@ -341,7 +347,7 @@ ensure_docker_installed
 create_nomad_directory
 download_wait_for_it_script
 download_entrypoint_script
-download_start_stop_scripts
+download_helper_scripts
 download_management_compose_file
 start_management_containers
 get_local_ip

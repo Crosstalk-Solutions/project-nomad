@@ -18,7 +18,7 @@ sudo bash install_nomad.sh
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
 
 ## How It Works
-From a technical standpoint, N.O.M.A.D. is primarily a management UI and API that orchestrates a goodie basket of containerized offline archive tools and resources such as 
+From a technical standpoint, N.O.M.A.D. is primarily a management UI ("Command Center") and API that orchestrates a goodie basket of containerized offline archive tools and resources such as 
 [Kiwix](https://kiwix.org/), [OpenStreetMap](https://www.openstreetmap.org/), [Ollama](https://ollama.com/), [OpenWebUI](https://openwebui.com/), and more.
 
 By abstracting the installation of each of these awesome tools, N.O.M.A.D. makes getting your offline survival computer up and running a breeze! N.O.M.A.D. also includes some additional built-in handy tools, such as a ZIM library managment interface, calculators, and more.
@@ -57,3 +57,25 @@ To test internet connectivity, N.O.M.A.D. attempts to make a request to Cloudfla
 
 ## About Security
 By design, Project N.O.M.A.D. is intended to be open and available without hurdles - it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access it's resources), you can block/open ports to control which services are exposed.
+
+# Helper Scripts
+Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
+
+###
+
+###### Start Script - Starts all installed project containers
+```bash
+sudo bash /opt/project-nomad/start_nomad.sh
+```
+###
+
+###### Stop Script - Stops all installed project containers
+```bash
+sudo bash /opt/project-nomad/start_nomad.sh
+```
+###
+
+###### Update Script - Attempts to pull the latest images for the Command Center and its dependencies (i.e. mysql) and recreate the containers. Note: this *only* updates the Command Center containers. It does not update the installable application containers - that should be done through the Command Center UI
+```bash
+sudo bash /opt/project-nomad/update_nomad.sh
+```
