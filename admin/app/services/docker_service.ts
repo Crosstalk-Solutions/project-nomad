@@ -5,6 +5,7 @@ import axios from 'axios';
 import logger from '@adonisjs/core/services/logger'
 import transmit from '@adonisjs/transmit/services/main'
 import { inject } from "@adonisjs/core";
+import { ServiceStatus } from "../../types/services.js";
 
 @inject()
 export class DockerService {
@@ -16,6 +17,108 @@ export class DockerService {
 
   constructor() {
     this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+  }
+
+  async affectContainer(serviceName: string, action: 'start' | 'stop' | 'restart'): Promise<{ success: boolean; message: string }> {
+    try {
+      const service = await Service.query().where('service_name', serviceName).first();
+      if (!service || !service.installed) {
+        return {
+          success: false,
+          message: `Service ${serviceName} not found or not installed`,
+        };
+      }
+
+      const containers = await this.docker.listContainers({ all: true });
+      const container = containers.find(c => c.Names.includes(`/${serviceName}`));
+      if (!container) {
+        return {
+          success: false,
+          message: `Container for service ${serviceName} not found`,
+        };
+      }
+
+      const dockerContainer = this.docker.getContainer(container.Id);
+      if (action === 'stop') {
+        await dockerContainer.stop();
+        return {
+          success: true,
+          message: `Service ${serviceName} stopped successfully`,
+        };
+      }
+
+      if (action === 'restart') {
+        await dockerContainer.restart();
+        return {
+          success: true,
+          message: `Service ${serviceName} restarted successfully`,
+        };
+      }
+
+      if (action === 'start') {
+        if (container.State === 'running') {
+          return {
+            success: true,
+            message: `Service ${serviceName} is already running`,
+          };
+        }
+        await dockerContainer.start();
+      }
+
+      return {
+        success: false,
+        message: `Invalid action: ${action}. Use 'start', 'stop', or 'restart'.`,
+      }
+    } catch (error) {
+      console.error(`Error starting service ${serviceName}: ${error.message}`);
+      return {
+        success: false,
+        message: `Failed to start service ${serviceName}: ${error.message}`,
+      };
+    }
+  }
+
+  async getServicesStatus(): Promise<{
+    service_name: string;
+    status: ServiceStatus;
+  }[]> {
+    try {
+      const services = await Service.query().where('installed', true);
+      if (!services || services.length === 0) {
+        return [];
+      }
+
+      const containers = await this.docker.listContainers({ all: true });
+      const containerMap = new Map<string, Docker.ContainerInfo>();
+      containers.forEach(container => {
+        const name = container.Names[0].replace('/', '');
+        if (name.startsWith('nomad_')) {
+          containerMap.set(name, container);
+        }
+      });
+
+      const getStatus = (state: string): ServiceStatus => {
+        switch (state) {
+          case 'running':
+            return 'running';
+          case 'exited':
+          case 'created':
+          case 'paused':
+            return 'stopped';
+          default:
+            return 'unknown';
+        }
+      };
+
+
+      return Array.from(containerMap.entries()).map(([name, container]) => ({
+        service_name: name,
+        status: getStatus(container.State),
+      }));
+    } catch (error) {
+      console.error(`Error fetching services status: ${error.message}`);
+      return [];
+    }
   }
 
   async createContainerPreflight(serviceName: string): Promise<{ success: boolean; message: string }> {

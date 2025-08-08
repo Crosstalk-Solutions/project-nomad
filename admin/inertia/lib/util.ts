@@ -18,9 +18,6 @@ export async function testInternetConnection(): Promise<boolean> {
   try {
     const response = await axios.get('https://1.1.1.1/cdn-cgi/trace', {
       timeout: 5000,
-      headers: {
-        'Cache-Control': 'no-cache',
-      }
     });
     return response.status === 200;
   } catch (error) {
