@@ -7,10 +7,13 @@ import api from '~/lib/api'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
+import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
+import Alert from '~/components/Alert'
 
 export default function ZimPage() {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
+  const { isInstalled } = useServiceInstalledStatus('nomad_kiwix_serve')
   const { data, isLoading } = useQuery<ZimFilesEntry[]>({
     queryKey: ['zim-files'],
     queryFn: getFiles,
@@ -55,19 +58,23 @@ export default function ZimPage() {
       <Head title="ZIM Manager | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-4">ZIM Manager</h1>
-              <p className="text-gray-500 mb-4">
-                Manage your stored ZIM files and download new ones!
+              <h1 className="text-4xl font-semibold mb-2">ZIM Manager</h1>
+              <p className="text-gray-500">
+                Manage your stored ZIM files.
               </p>
             </div>
-            <Link href="/settings/zim/remote-explorer">
-              <StyledButton icon={'MagnifyingGlassIcon'}>Remote Explorer</StyledButton>
-            </Link>
           </div>
+          {!isInstalled && (
+            <Alert
+              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
+              type="warning"
+              className="!mt-6"
+            />
+          )}
           <StyledTable<ZimFilesEntry & { actions?: any }>
-            className="font-semibold"
+            className="font-semibold mt-4"
             rowLines={true}
             loading={isLoading}
             compact

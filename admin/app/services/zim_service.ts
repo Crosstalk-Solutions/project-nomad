@@ -1,10 +1,22 @@
 import drive from "@adonisjs/drive/services/main";
-import { ListRemoteZimFilesResponse, RawRemoteZimFileEntry, RemoteZimFileEntry, ZimFilesEntry } from "../../types/zim.js";
+import { DownloadOptions, DownloadProgress, ListRemoteZimFilesResponse, RawRemoteZimFileEntry, RemoteZimFileEntry, ZimFilesEntry } from "../../types/zim.js";
 import axios from "axios";
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from "../../util/zim.js";
+import transmit from "@adonisjs/transmit/services/main";
+import { Transform } from "stream";
+import logger from "@adonisjs/core/services/logger";
+import { DockerService } from "./docker_service.js";
+import { inject } from "@adonisjs/core";
 
+@inject()
 export class ZimService {
+  private activeDownloads = new Map<string, AbortController>();
+
+  constructor(
+    private dockerService: DockerService
+  ) {}
+
   async list() {
     const disk = drive.use('fs');
     const contents = await disk.listAll('/zim')
@@ -99,29 +111,41 @@ export class ZimService {
     };
   }
 
-  async downloadRemote(url: string): Promise<void> {
+  async downloadRemote(url: string, opts: DownloadOptions = {}): Promise<string> {
     if (!url.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`);
     }
 
-    const disk = drive.use('fs');
-    const response = await axios.get(url, {
-      responseType: 'stream'
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`Failed to download remote ZIM file from ${url}`);
+    const existing = this.activeDownloads.get(url);
+    if (existing) {
+      throw new Error(`Download already in progress for URL ${url}`);
     }
 
     // Extract the filename from the URL
     const filename = url.split('/').pop() || `downloaded-${Date.now()}.zim`;
     const path = `/zim/${filename}`;
 
-    await disk.putStream(path, response.data);
+    this._runDownload(url, path, opts); // Don't await - let run in background
+
+    return filename;
+  }
+
+  getActiveDownloads(): string[] {
+    return Array.from(this.activeDownloads.keys());
+  }
+
+  cancelDownload(url: string): boolean {
+    const entry = this.activeDownloads.get(url);
+    if (entry) {
+      entry.abort();
+      this.activeDownloads.delete(url);
+      transmit.broadcast(`zim-downloads`, { url, status: 'cancelled' });
+      return true;
+    }
+    return false;
   }
 
   async delete(key: string): Promise<void> {
-    console.log('Deleting ZIM file with key:', key);
     let fileName = key;
     if (!fileName.endsWith('.zim')) {
       fileName += '.zim';
@@ -135,5 +159,216 @@ export class ZimService {
     }
 
     await disk.delete(fileName);
+  }
+
+  private async _runDownload(url: string, path: string, opts: DownloadOptions = {}): Promise<string> {
+    try {
+      const {
+        max_retries = 3,
+        retry_delay = 2000,
+        timeout = 30000,
+        onError,
+      }: DownloadOptions = opts;
+
+      let attempt = 0;
+      while (attempt < max_retries) {
+        try {
+          const abortController = new AbortController();
+          this.activeDownloads.set(url, abortController);
+
+          await this._attemptDownload(
+            url,
+            path,
+            abortController.signal,
+            timeout,
+          );
+
+          transmit.broadcast('zim-downloads', { url, path, status: 'completed', progress: { downloaded_bytes: 0, total_bytes: 0, percentage: 100, speed: '0 B/s', time_remaining: 0 } });
+          await this.dockerService.affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart').catch((error) => {
+            logger.error(`Failed to restart KIWIX container:`, error); // Don't stop the download completion, just log the error.
+          });
+
+          break; // Exit loop on success
+        } catch (error) {
+          attempt++;
+
+          const isAborted = error.name === 'AbortError' || error.code === 'ABORT_ERR';
+          const isNetworkError = error.code === 'ECONNRESET' ||
+            error.code === 'ENOTFOUND' ||
+            error.code === 'ETIMEDOUT';
+
+          onError?.(error);
+          if (isAborted) {
+            throw new Error(`Download aborted for URL: ${url}`);
+          }
+
+          if (attempt < max_retries && isNetworkError) {
+            await this.delay(retry_delay);
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`Failed to download ${url}:`, error);
+      transmit.broadcast('zim-downloads', { url, error: error.message, status: 'failed' });
+    } finally {
+      this.activeDownloads.delete(url);
+      return url;
+    }
+  }
+
+  private async _attemptDownload(
+    url: string,
+    path: string,
+    signal: AbortSignal,
+    timeout: number,
+  ): Promise<string> {
+    const disk = drive.use('fs');
+
+    // Check if partial file exists for resume
+    let startByte = 0;
+    let appendMode = false;
+
+    if (await disk.exists(path)) {
+      const stats = await disk.getMetaData(path);
+      startByte = stats.contentLength;
+      appendMode = true;
+    }
+
+    // Get file info with HEAD request first
+    const headResponse = await axios.head(url, {
+      signal,
+      timeout
+    });
+
+    const totalBytes = parseInt(headResponse.headers['content-length'] || '0');
+    const supportsRangeRequests = headResponse.headers['accept-ranges'] === 'bytes';
+
+    // If file is already complete
+    if (startByte === totalBytes && totalBytes > 0) {
+      logger.info(`File ${path} is already complete`);
+      return path;
+    }
+
+    // If server doesn't support range requests and we have a partial file, delete it
+    if (!supportsRangeRequests && startByte > 0) {
+      await disk.delete(path);
+      startByte = 0;
+      appendMode = false;
+    }
+
+    const headers: Record<string, string> = {};
+    if (supportsRangeRequests && startByte > 0) {
+      headers.Range = `bytes=${startByte}-`;
+    }
+
+    const response = await axios.get(url, {
+      responseType: 'stream',
+      headers,
+      signal,
+      timeout
+    });
+
+    if (response.status !== 200 && response.status !== 206) {
+      throw new Error(`Failed to download: HTTP ${response.status}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      let downloadedBytes = startByte;
+      let lastProgressTime = Date.now();
+      let lastDownloadedBytes = startByte;
+
+      // Progress tracking stream to monitor data flow
+      const progressStream = new Transform({
+        transform(chunk: Buffer, _: any, callback: Function) {
+          downloadedBytes += chunk.length;
+          this.push(chunk);
+          callback();
+        }
+      });
+
+      // Update progress every 500ms
+      const progressInterval = setInterval(() => {
+        this.updateProgress({
+          downloadedBytes,
+          totalBytes,
+          lastProgressTime,
+          lastDownloadedBytes,
+          url
+        });
+      }, 500);
+
+      // Handle errors and cleanup
+      const cleanup = (error?: Error) => {
+        clearInterval(progressInterval);
+        progressStream.destroy();
+        response.data.destroy();
+        if (error) {
+          reject(error);
+        }
+      };
+
+      response.data.on('error', cleanup);
+      progressStream.on('error', cleanup);
+
+      signal.addEventListener('abort', () => {
+        cleanup(new Error('Download aborted'));
+      });
+
+      // Pipe through progress stream and then to disk
+      const sourceStream = response.data.pipe(progressStream);
+
+      // Use disk.putStream with append mode for resumable downloads
+      disk.putStream(path, sourceStream, { append: appendMode })
+        .then(() => {
+          clearInterval(progressInterval);
+          resolve(path);
+        })
+        .catch(cleanup);
+    });
+  }
+
+  private updateProgress({
+    downloadedBytes,
+    totalBytes,
+    lastProgressTime,
+    lastDownloadedBytes,
+    url
+  }: {
+    downloadedBytes: number;
+    totalBytes: number;
+    lastProgressTime: number;
+    lastDownloadedBytes: number;
+    url: string;
+  }) {
+    const now = Date.now();
+    const timeDiff = (now - lastProgressTime) / 1000;
+    const bytesDiff = downloadedBytes - lastDownloadedBytes;
+    const rawSpeed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
+    const timeRemaining = rawSpeed > 0 ? (totalBytes - downloadedBytes) / rawSpeed : 0;
+    const speed = this.formatSpeed(rawSpeed);
+
+    const progress: DownloadProgress = {
+      downloaded_bytes: downloadedBytes,
+      total_bytes: totalBytes,
+      percentage: totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0,
+      speed,
+      time_remaining: timeRemaining
+    };
+
+    transmit.broadcast('zim-downloads', { url, progress, status: "in_progress" });
+
+    lastProgressTime = now;
+    lastDownloadedBytes = downloadedBytes;
+  };
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private formatSpeed(bytesPerSecond: number): string {
+    if (bytesPerSecond < 1024) return `${bytesPerSecond.toFixed(0)} B/s`;
+    if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(1)} KB/s`;
+    return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
   }
 }

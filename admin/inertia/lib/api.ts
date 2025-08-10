@@ -1,5 +1,6 @@
 import axios from "axios";
-import { ListRemoteZimFilesResponse, ListZimFilesResponse, RemoteZimFileEntry } from "../../types/zim";
+import { ListRemoteZimFilesResponse, ListZimFilesResponse } from "../../types/zim";
+import { ServiceSlim } from "../../types/services";
 
 class API {
     private client;
@@ -19,6 +20,16 @@ class API {
             return response.data;
         } catch (error) {
             console.error("Error listing docs:", error);
+            throw error;
+        }
+    }
+
+    async listServices() {
+        try {
+            const response = await this.client.get<Array<ServiceSlim>>("/system/services");
+            return response.data;
+        } catch (error) {
+            console.error("Error listing services:", error);
             throw error;
         }
     }
@@ -57,7 +68,11 @@ class API {
         });
     }
 
-    async downloadRemoteZimFile(url: string) {
+    async downloadRemoteZimFile(url: string): Promise<{
+        message: string;
+        filename: string;
+        url: string;
+    }> {
         try {
             const response = await this.client.post("/zim/download-remote", { url });
             return response.data;
