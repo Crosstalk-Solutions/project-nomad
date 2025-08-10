@@ -35,10 +35,4 @@ export default class SystemController {
         }
         response.send({ success: result.success, message: result.message });
     }
-
-
-    async simulateSSE({ response }: HttpContext) {
-        this.dockerService.simulateSSE();
-        response.send({ message: 'Started simulation of SSE' })
-    }
 }
