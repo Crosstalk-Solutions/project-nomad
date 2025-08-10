@@ -19,10 +19,12 @@ export default class ZimController {
 
     async downloadRemote({ request, response }: HttpContext) {
         const { url } = request.body()
-        await this.zimService.downloadRemote(url);
+        const filename = await this.zimService.downloadRemote(url);
 
         response.status(200).send({
-            message: 'Download started successfully'
+            message: 'Download started successfully',
+            filename,
+            url
         });
     }
 

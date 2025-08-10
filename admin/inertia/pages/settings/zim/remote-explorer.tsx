@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import api from '~/lib/api'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
@@ -10,10 +10,24 @@ import { formatBytes } from '~/lib/util'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
+import { useTransmit } from 'react-adonis-transmit'
+import ProgressBar from '~/components/ProgressBar'
+import { useNotifications } from '~/context/NotificationContext'
+import useInternetStatus from '~/hooks/useInternetStatus'
+import Alert from '~/components/Alert'
+import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 
 export default function ZimRemoteExplorer() {
   const tableParentRef = useRef<HTMLDivElement>(null)
+  const { subscribe } = useTransmit()
   const { openModal, closeAllModals } = useModals()
+  const { addNotification } = useNotifications()
+  const { isOnline } = useInternetStatus()
+  const { isInstalled } = useServiceInstalledStatus('nomad_kiwix_serve')
+  const [activeDownloads, setActiveDownloads] = useState<
+    Map<string, { status: string; progress: number; speed: string }>
+  >(new Map<string, { status: string; progress: number; speed: string }>())
+
   const { data, fetchNextPage, isFetching, isLoading } =
     useInfiniteQuery<ListRemoteZimFilesResponse>({
       queryKey: ['remote-zim-files'],
@@ -78,12 +92,37 @@ export default function ZimRemoteExplorer() {
       >
         <p className="text-gray-700">
           Are you sure you want to download <strong>{record.title}</strong>? It may take some time
-          for it to be available depending on the file size and your internet connection.
+          for it to be available depending on the file size and your internet connection. The Kiwix
+          application will be restarted after the download is complete.
         </p>
       </StyledModal>,
       'confirm-download-file-modal'
     )
   }
+
+  useEffect(() => {
+    const unsubscribe = subscribe('zim-downloads', (data: any) => {
+      if (data.url && data.progress?.percentage) {
+        setActiveDownloads((prev) =>
+          new Map(prev).set(data.url, {
+            status: data.status,
+            progress: data.progress.percentage || 0,
+            speed: data.progress.speed || '0 KB/s',
+          })
+        )
+        if (data.status === 'completed') {
+          addNotification({
+            message: `The download for ${data.url} has completed successfully.`,
+            type: 'success',
+          })
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   async function downloadFile(record: RemoteZimFileEntry) {
     try {
@@ -93,15 +132,38 @@ export default function ZimRemoteExplorer() {
     }
   }
 
+  const EntryProgressBar = useCallback(
+    ({ url }: { url: string }) => {
+      const entry = activeDownloads.get(url)
+      return <ProgressBar progress={entry?.progress || 0} speed={entry?.speed} />
+    },
+    [activeDownloads]
+  )
+
   return (
     <SettingsLayout>
       <Head title="ZIM Remote Explorer | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-4">ZIM Remote Explorer</h1>
-          <p className="text-gray-500 mb-2">
+          <h1 className="text-4xl font-semibold mb-2">ZIM Remote Explorer</h1>
+          <p className="text-gray-500">
             Browse and download remote ZIM files from the Kiwix repository!
           </p>
+          {!isOnline && (
+            <Alert
+              title="No internet connection. You may not be able to download files."
+              message=""
+              type="warning"
+              className="!mt-6"
+            />
+          )}
+          {!isInstalled && (
+            <Alert
+              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
+              type="warning"
+              className="!mt-6"
+            />
+          )}
           <StyledTable<RemoteZimFileEntry & { actions?: any }>
             data={flatData.map((i, idx) => {
               const row = virtualizer.getVirtualItems().find((v) => v.index === idx)
@@ -133,29 +195,34 @@ export default function ZimRemoteExplorer() {
               },
               {
                 accessor: 'size_bytes',
+                title: 'Size',
                 render(record) {
                   return formatBytes(record.size_bytes)
                 },
               },
               {
                 accessor: 'actions',
-                render(record, index) {
+                render(record) {
+                  const isDownloading = activeDownloads.has(record.download_url)
                   return (
                     <div className="flex space-x-2">
-                      <StyledButton
-                        icon={'ArrowDownTrayIcon'}
-                        onClick={() => {
-                          confirmDownload(record)
-                        }}
-                      >
-                        Download
-                      </StyledButton>
+                      {!isDownloading && (
+                        <StyledButton
+                          icon={'ArrowDownTrayIcon'}
+                          onClick={() => {
+                            confirmDownload(record)
+                          }}
+                        >
+                          Download
+                        </StyledButton>
+                      )}
+                      {isDownloading && <EntryProgressBar url={record.download_url} />}
                     </div>
                   )
                 },
               },
             ]}
-            className="relative overflow-x-auto overflow-y-auto h-[600px] w-full "
+            className="relative overflow-x-auto overflow-y-auto h-[600px] w-full mt-4"
             tableBodyStyle={{
               position: 'relative',
               height: `${virtualizer.getTotalSize()}px`,

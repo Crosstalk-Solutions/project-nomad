@@ -48,7 +48,7 @@ function StyledTable<T extends { [key: string]: any }>({
   return (
     <div
       className={classNames(
-        'w-full overflow-x-auto bg-white mt-10 ring-1 ring-gray-300 sm:mx-0 sm:rounded-lg p-3 shadow-md',
+        'w-full overflow-x-auto bg-white ring-1 ring-gray-300 sm:mx-0 sm:rounded-lg p-3 shadow-md',
         className
       )}
       ref={ref}

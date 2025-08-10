@@ -372,17 +372,4 @@ export class DockerService {
       throw new Error(`Invalid container configuration: ${error.message}`);
     }
   }
-
-  async simulateSSE(): Promise<void> {
-    // This is just a simulation of the server-sent events for testing purposes
-    for (let i = 0; i <= 10; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      transmit.broadcast('service-installation', {
-        service_name: 'test-service',
-        timestamp: new Date().toISOString(),
-        status: i === 10 ? 'completed' : 'in-progress',
-        message: `Test message ${i}`,
-      });
-    }
-  }
 }
