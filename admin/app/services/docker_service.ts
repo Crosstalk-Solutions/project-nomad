@@ -12,6 +12,7 @@ export class DockerService {
   private docker: Docker;
   public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve';
   public static OPENSTREETMAP_SERVICE_NAME = 'nomad_openstreetmap';
+  public static OPENSTREETMAP_IMPORT_SERVICE_NAME = 'nomad_openstreetmap_import';
   public static OLLAMA_SERVICE_NAME = 'nomad_ollama';
   public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui';
 
@@ -179,9 +180,6 @@ export class DockerService {
         }
       }
 
-      console.log('dependencies for service', service.service_name)
-      console.log(dependencies)
-
       // First, check if the service has any dependencies that need to be installed first
       if (dependencies && dependencies.length > 0) {
         this._broadcastAndLog(service.service_name, 'checking-dependencies', `Checking dependencies for service ${service.service_name}...`);
@@ -199,38 +197,37 @@ export class DockerService {
       const pullStream = await this.docker.pull(service.container_image);
       this._broadcastAndLog(service.service_name, 'pulling', `Pulling Docker image ${service.container_image}...`);
       await new Promise(res => this.docker.modem.followProgress(pullStream, res));
-      this._broadcastAndLog(service.service_name, 'pulled', `Docker image ${service.container_image} pulled successfully.`);
 
       this._broadcastAndLog(service.service_name, 'creating', `Creating Docker container for service ${service.service_name}...`);
       const container = await this.docker.createContainer({
         Image: service.container_image,
         name: service.service_name,
-        HostConfig: containerConfig?.HostConfig || undefined,
-        WorkingDir: containerConfig?.WorkingDir || undefined,
-        ExposedPorts: containerConfig?.ExposedPorts || undefined,
+        ...(containerConfig?.HostConfig && { HostConfig: containerConfig.HostConfig }),
+        ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
+        ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         ...(service.service_name === 'open-webui' ? { Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434'] } : {}), // Special case for Open WebUI
       });
-
-      this._broadcastAndLog(service.service_name, 'created', `Docker container for service ${service.service_name} created successfully.`);
 
       if (service.service_name === DockerService.KIWIX_SERVICE_NAME) {
         await this._runPreinstallActions__KiwixServe();
         this._broadcastAndLog(service.service_name, 'preinstall-complete', `Pre-install actions for Kiwix Serve completed successfully.`);
       } else if (service.service_name === DockerService.OPENSTREETMAP_SERVICE_NAME) {
-        await this._runPreinstallActions__OpenStreetMap(containerConfig);
+        await this._runPreinstallActions__OpenStreetMap(service.container_image, containerConfig);
         this._broadcastAndLog(service.service_name, 'preinstall-complete', `Pre-install actions for OpenStreetMap completed successfully.`);
       }
 
+      console.log("GOT HERE")
+
       this._broadcastAndLog(service.service_name, 'starting', `Starting Docker container for service ${service.service_name}...`);
       await container.start();
-      this._broadcastAndLog(service.service_name, 'started', `Docker container for service ${service.service_name} started successfully.`);
 
+      console.log("GOT HERE 2")
       this._broadcastAndLog(service.service_name, 'finalizing', `Finalizing installation of service ${service.service_name}...`);
-
       service.installed = true;
       await service.save();
 
+      console.log("GOT HERE 3")
       this._broadcastAndLog(service.service_name, 'completed', `Service ${service.service_name} installation completed successfully.`);
     } catch (error) {
       this._broadcastAndLog(service.service_name, 'error', `Error installing service ${service.service_name}: ${error.message}`);
@@ -275,8 +272,8 @@ export class DockerService {
     const WIKIPEDIA_ZIM_URL = "https://download.kiwix.org/zim/wikipedia/wikipedia_en_100_mini_2025-06.zim"
     const PATH = '/zim/wikipedia_en_100_mini_2025-06.zim';
 
-    this._broadcastAndLog('kiwix-serve', 'preinstall', `Running pre-install actions for Kiwix Serve...`);
-    this._broadcastAndLog('kiwix-serve', 'preinstall', `Downloading Wikipedia ZIM file from ${WIKIPEDIA_ZIM_URL}. This may take some time...`);
+    this._broadcastAndLog(DockerService.KIWIX_SERVICE_NAME, 'preinstall', `Running pre-install actions for Kiwix Serve...`);
+    this._broadcastAndLog(DockerService.KIWIX_SERVICE_NAME, 'preinstall', `Downloading Wikipedia ZIM file from ${WIKIPEDIA_ZIM_URL}. This may take some time...`);
     const response = await axios.get(WIKIPEDIA_ZIM_URL, {
       responseType: 'stream',
     });
@@ -290,55 +287,83 @@ export class DockerService {
     const disk = drive.use('fs');
     await disk.putStream(PATH, stream);
 
-    this._broadcastAndLog('kiwix-serve', 'preinstall', `Downloaded Wikipedia ZIM file to ${PATH}`);
+    this._broadcastAndLog(DockerService.KIWIX_SERVICE_NAME, 'preinstall', `Downloaded Wikipedia ZIM file to ${PATH}`);
   }
 
   /**
    * Largely follows the install instructions here: https://github.com/Overv/openstreetmap-tile-server/blob/master/README.md
    */
-  private async _runPreinstallActions__OpenStreetMap(containerConfig: any): Promise<void> {
+  private async _runPreinstallActions__OpenStreetMap(image: string, containerConfig: any): Promise<void> {
     const FILE_NAME = 'us-pacific-latest.osm.pbf';
     const OSM_PBF_URL = `https://download.geofabrik.de/north-america/${FILE_NAME}`; // Download a small subregion for initial import
     const PATH = `/osm/${FILE_NAME}`;
-
-    this._broadcastAndLog('openstreetmap', 'preinstall', `Running pre-install actions for OpenStreetMap Tile Server...`);
-    this._broadcastAndLog('openstreetmap', 'preinstall', `Downloading OpenStreetMap PBF file from ${OSM_PBF_URL}. This may take some time...`);
-    const response = await axios.get(OSM_PBF_URL, {
-      responseType: 'stream',
-    });
-
-    const stream = response.data;
-    stream.on('error', (error: Error) => {
-      logger.error(`Error downloading OpenStreetMap PBF file: ${error.message}`);
-      throw error;
-    });
-
+    const IMPORT_BIND = `${PATH}:/data/region.osm.pbf`;
     const disk = drive.use('fs');
-    await disk.putStream(PATH, stream);
-    this._broadcastAndLog('openstreetmap', 'preinstall', `Downloaded OpenStreetMap PBF file to ${PATH}`);
+
+    this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', `Running pre-install actions for OpenStreetMap Tile Server...`);
+
+    const fileExists = await disk.exists(PATH);
+    if (!fileExists) {
+      this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', `Downloading OpenStreetMap PBF file from ${OSM_PBF_URL}. This may take some time...`);
+      const response = await axios.get(OSM_PBF_URL, {
+        responseType: 'stream',
+      });
+
+      const stream = response.data;
+      stream.on('error', (error: Error) => {
+        logger.error(`Error downloading OpenStreetMap PBF file: ${error.message}`);
+        throw error;
+      });
+
+      await disk.putStream(PATH, stream);
+      this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', `Downloaded OpenStreetMap PBF file to ${PATH}`);
+    } else {
+      this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', `OpenStreetMap PBF file already exists at ${PATH}. Skipping download.`);
+    }
 
     // Do initial import of OSM data into the tile server DB
-    // We'll use the same containerConfig as the actual container, just with the command set to "import"
-    this._broadcastAndLog('openstreetmap', 'importing', `Processing initial import of OSM data. This may take some time...`);
-    const data = await new Promise((resolve, reject) => {
-      this.docker.run(containerConfig.Image, ['import'], process.stdout, containerConfig?.HostConfig || {}, {},
-        // @ts-ignore  
-        (err: any, data: any, container: any) => {
+    // We need to add the initial osm.pbf file as another volume bind so we can import it
+    const configWithImportBind = containerConfig.HostConfig || {};
+    const bindsArray: string[] = []
+    if (Array.isArray(configWithImportBind.Binds)) {
+      bindsArray.push(...configWithImportBind.Binds, IMPORT_BIND);
+    } else {
+      bindsArray.push(IMPORT_BIND);
+    }
+    configWithImportBind.Binds = bindsArray;
+
+    this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'importing', `Processing initial import of OSM data. This may take some time...`);
+
+
+    const result = await new Promise((resolve, reject) => {
+      this.docker.run(image,
+        ['import'],
+        process.stdout,
+        configWithImportBind,
+        {},
+        {},
+        // @ts-ignore
+        (err: any, data: any, container: Docker.Container) => {
           if (err) {
             logger.error(`Error running initial import for OpenStreetMap Tile Server: ${err.message}`);
             return reject(err);
           }
           resolve(data);
         });
+    }).catch((error) => {
+      logger.error(`Error during OpenStreetMap data import: ${error.message}`);
+      return null;
     });
 
-    const [output, container] = data as [any, any];
+    logger.log('debug', `OpenStreetMap data import result: ${JSON.stringify(result)}`);
+
+    const [output, container] = result ? result as [any, any] : [null, null];
     if (output?.StatusCode === 0) {
-      this._broadcastAndLog('openstreetmap', 'imported', `OpenStreetMap data imported successfully.`);
+      this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'imported', `OpenStreetMap data imported successfully.`);
       await container.remove();
     } else {
       const errorMessage = `Failed to import OpenStreetMap data. Status code: ${output?.StatusCode}. Output: ${output?.Output || 'No output'}`;
-      this._broadcastAndLog('openstreetmap', 'error', errorMessage);
+      this._broadcastAndLog(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'error', errorMessage);
       logger.error(errorMessage);
       throw new Error(errorMessage);
     }

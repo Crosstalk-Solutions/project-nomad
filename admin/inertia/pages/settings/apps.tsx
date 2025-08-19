@@ -64,6 +64,8 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         open={true}
         confirmText="Install"
         cancelText="Cancel"
+        confirmVariant='primary'
+        icon='ArrowDownTrayIcon'
       >
         <p className="text-gray-700">
           Are you sure you want to install {service.service_name}? This will start the service and
@@ -101,7 +103,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         <div className="flex space-x-2">
           <StyledButton
             icon={'ArrowDownTrayIcon'}
-            variant="action"
+            variant="primary"
             onClick={() => handleInstallService(record)}
             disabled={isInstalling || !isOnline}
             loading={isInstalling}

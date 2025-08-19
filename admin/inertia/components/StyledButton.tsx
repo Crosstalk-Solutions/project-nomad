@@ -30,7 +30,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   const getBgColors = () => {
     // if primary, use desert-green
     if (variant === 'primary') {
-      return 'bg-desert-green hover:bg-desert-green-light text-white'
+      return 'bg-desert-green hover:bg-desert-green-light text-white hover:shadow-lg transition-all duration-200'
     }
     // if secondary, use outlined styles
     if (variant === 'secondary') {
