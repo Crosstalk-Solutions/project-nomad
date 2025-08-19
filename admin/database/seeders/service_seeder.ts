@@ -26,7 +26,7 @@ export default class ServiceSeeder extends BaseSeeder {
     {
       service_name: DockerService.OPENSTREETMAP_SERVICE_NAME,
       container_image: 'overv/openstreetmap-tile-server',
-      container_command: 'run --shm-size="192m"',
+      container_command: 'run',
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
