@@ -26,6 +26,10 @@ export default class SettingsController {
         });
     }
 
+    async legal({ inertia }: HttpContext) {
+        return inertia.render('settings/legal');
+    }
+
     async zim({ inertia }: HttpContext) {
         return inertia.render('settings/zim/index')
     }
