@@ -4,7 +4,6 @@ import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { ModelAttributes } from '@adonisjs/lucid/types/model'
 
 export default class ServiceSeeder extends BaseSeeder {
-  private static NOMAD_STORAGE_DIR = '/opt/project-nomad/storage'
   private static DEFAULT_SERVICES: Omit<ModelAttributes<Service>, 'created_at' | 'updated_at' | 'metadata' | 'id'>[] = [
     {
       service_name: DockerService.KIWIX_SERVICE_NAME,
@@ -13,7 +12,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_DIR}/zim:/data`],
+          Binds: [`${DockerService.NOMAD_STORAGE_DIR}/zim:/data`],
           PortBindings: { '8080/tcp': [{ HostPort: '8090' }] }
         },
         ExposedPorts: { '8080/tcp': {} }
@@ -31,8 +30,8 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: [
-            `${ServiceSeeder.NOMAD_STORAGE_DIR}/osm/db:/data/database`,
-            `${ServiceSeeder.NOMAD_STORAGE_DIR}/osm/tiles:/data/tiles`
+            `${DockerService.NOMAD_STORAGE_DIR}/osm/db:/data/database:rw`,
+            `${DockerService.NOMAD_STORAGE_DIR}/osm/tiles:/data/tiles:rw`
           ],
           PortBindings: { '80/tcp': [{ HostPort: '9000' }] }
         }
@@ -49,7 +48,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_DIR}/ollama:/root/.ollama`],
+          Binds: [`${DockerService.NOMAD_STORAGE_DIR}/ollama:/root/.ollama`],
           PortBindings: { '11434/tcp': [{ HostPort: '11434' }] }
         },
         ExposedPorts: { '11434/tcp': {} }
@@ -67,7 +66,7 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: 'host',
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_DIR}/open-webui:/app/backend/data`]
+          Binds: [`${DockerService.NOMAD_STORAGE_DIR}/open-webui:/app/backend/data`]
         }
       }),
       ui_location: '3000',

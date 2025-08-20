@@ -15,7 +15,6 @@ export default class HomeController {
 
     async home({ inertia }: HttpContext) {
         const services = await this.systemService.getServices({ installedOnly: true });
-        console.log(services)
         return inertia.render('home', {
             system: {
                 services
