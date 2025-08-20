@@ -23,6 +23,7 @@ router.on('/about').renderInertia('about')
 router.group(() => {
     router.get('/system', [SettingsController, 'system'])
     router.get('/apps', [SettingsController, 'apps'])
+    router.get('/legal', [SettingsController, 'legal'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
 }).prefix('/settings')
