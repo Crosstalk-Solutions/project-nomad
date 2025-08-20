@@ -37,9 +37,7 @@ export default function Home(props: {
   }
 }) {
   const items = []
-  
-  console.log(props.system.services)
-  props.system.services.map((service) => {
+    props.system.services.map((service) => {
     items.push({
       label: service.service_name,
       to: getServiceLink(service.ui_location),

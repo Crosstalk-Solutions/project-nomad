@@ -25,7 +25,6 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
   useEffect(() => {
     const unsubscribe = subscribe('service-installation', (data: any) => {
-      console.log('Received service installation message:', data)
       setInstallActivity((prev) => [
         ...prev,
         {
