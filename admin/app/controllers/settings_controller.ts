@@ -9,11 +9,11 @@ export default class SettingsController {
     ) { }
 
     async system({ inertia }: HttpContext) {
-        // const services = await this.systemService.getServices();
+        const systemInfo = await this.systemService.getSystemInfo();
         return inertia.render('settings/system', {
-            // system: {
-            //     services
-            // }
+            system: {
+                info: systemInfo
+            }
         });
     }
 

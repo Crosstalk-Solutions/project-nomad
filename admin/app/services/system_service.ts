@@ -2,6 +2,9 @@ import Service from "#models/service"
 import { inject } from "@adonisjs/core";
 import { DockerService } from "#services/docker_service";
 import { ServiceSlim } from "../../types/services.js";
+import logger from "@adonisjs/core/services/logger";
+import si from 'systeminformation';
+import { SystemInformationResponse } from "../../types/system.js";
 
 @inject()
 export class SystemService {
@@ -40,5 +43,26 @@ export class SystemService {
 
     return toReturn;
 
+  }
+
+  async getSystemInfo(): Promise<SystemInformationResponse | undefined> {
+    try {
+      const [cpu, mem, os, disk] = await Promise.all([
+        si.cpu(),
+        si.mem(),
+        si.osInfo(),
+        si.diskLayout()
+      ]);;
+
+      return {
+        cpu,
+        mem,
+        os,
+        disk
+      };
+    } catch (error) {
+      logger.error('Error getting system info:', error);
+      return undefined;
+    }
   }
 }
