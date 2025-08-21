@@ -1,7 +1,6 @@
 import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
-import { IconPaperclip } from '@tabler/icons-react'
 import { formatBytes } from '~/lib/util'
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => {
@@ -27,7 +26,6 @@ const Row = ({ label, value }: { label: string; value: string | number | undefin
 export default function SettingsPage(props: {
   system: { info: SystemInformationResponse | undefined }
 }) {
-  console.log(props.system.info)
   return (
     <SettingsLayout>
       <Head title="Settings | Project N.O.M.A.D." />

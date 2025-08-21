@@ -63,8 +63,11 @@ export class DocsService {
   }
 
   private prettify(filename: string) {
-    const cleaned = filename.replace(/_/g, ' ').replace(/\.md$/, '');
-    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    // Remove hyphens, underscores, and file extension
+    const cleaned = filename.replace(/_/g, ' ').replace(/\.md$/, '').replace(/-/g, ' ');
+    // Convert to Title Case
+    const titleCased = cleaned.replace(/\b\w/g, char => char.toUpperCase());
+    return titleCased.charAt(0).toUpperCase() + titleCased.slice(1);
   }
 
   private getConfig() {
