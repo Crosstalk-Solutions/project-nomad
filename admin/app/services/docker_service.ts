@@ -295,7 +295,7 @@ export class DockerService {
    * Largely follows the install instructions here: https://github.com/Overv/openstreetmap-tile-server/blob/master/README.md
    */
   private async _runPreinstallActions__OpenStreetMap(image: string, containerConfig: any): Promise<void> {
-    const OSM_PBF_URL = 'https://download.geofabrik.de/north-america/us-pacific-latest.osm.pbf'; // Download a small subregion for initial import
+    const OSM_PBF_URL = 'https://download.geofabrik.de/north-america-latest.osm.pbf'; // Download North America latest for initial import
     const IMPORT_FILE = 'region.osm.pbf';
     const PATH = `${DockerService.NOMAD_STORAGE_DIR}/osm/${IMPORT_FILE}`;
     const IMPORT_BIND = `${PATH}:/data/${IMPORT_FILE}:rw`;
