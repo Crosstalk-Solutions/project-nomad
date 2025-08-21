@@ -43,6 +43,7 @@ router.group(() => {
 }).prefix('/api/docs')
 
 router.group(() => {
+    router.get('/info', [SystemController, 'getSystemInfo'])
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])

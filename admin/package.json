@@ -92,6 +92,7 @@
     "react-adonis-transmit": "^1.0.1",
     "react-dom": "^19.1.0",
     "reflect-metadata": "^0.2.2",
+    "systeminformation": "^5.27.7",
     "tailwindcss": "^4.1.10",
     "yaml": "^2.8.0"
   },
