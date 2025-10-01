@@ -79,3 +79,12 @@ sudo bash /opt/project-nomad/start_nomad.sh
 ```bash
 sudo bash /opt/project-nomad/update_nomad.sh
 ```
+
+###### Uninstall Script - Need to start fresh? Use the uninstall script to make your life easy. Note: this cannot be undone!
+```bash
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/uninstall_nomad.sh -o uninstall_nomad.sh
+```
+
+```bash
+sudo bash uninstall_nomad.sh
+```
