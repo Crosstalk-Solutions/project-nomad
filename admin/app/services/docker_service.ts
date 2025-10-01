@@ -341,6 +341,7 @@ export class DockerService {
     });
 
     this._broadcast(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'importing', `Processing initial import of OSM data. This may take some time...`);
+    await disk.put(LOG_PATH, 'Beginning OpenStreetMap data import...\n');
 
     const container = await this.docker.createContainer({
       Image: image,
@@ -363,6 +364,10 @@ export class DockerService {
 
     const data = await container.wait();
     logger.debug(`OpenStreetMap data import result: ${JSON.stringify(data)}`);
+
+    if (data.StatusCode !== 0) {
+      throw new Error(`OpenStreetMap data import failed with status code ${data.StatusCode}. Check the log file at ${LOG_PATH} for details.`);
+    }
 
     await container.remove();
   }
