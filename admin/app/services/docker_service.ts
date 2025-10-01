@@ -13,7 +13,6 @@ import fs from 'fs'
 @inject()
 export class DockerService {
   private docker: Docker;
-  public static NOMAD_STORAGE_DIR = '/opt/project-nomad/storage';
   public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve';
   public static OPENSTREETMAP_SERVICE_NAME = 'nomad_openstreetmap';
   public static OPENSTREETMAP_IMPORT_SERVICE_NAME = 'nomad_openstreetmap_import';
@@ -297,9 +296,10 @@ export class DockerService {
   private async _runPreinstallActions__OpenStreetMap(image: string, containerConfig: any): Promise<void> {
     const OSM_PBF_URL = 'https://download.geofabrik.de/north-america/us-pacific-latest.osm.pbf'; // Download US Pacific sub-region for initial import
     const IMPORT_FILE = 'region.osm.pbf';
-    const PATH = `${DockerService.NOMAD_STORAGE_DIR}/osm/${IMPORT_FILE}`;
-    const IMPORT_BIND = `${PATH}:/data/${IMPORT_FILE}:rw`;
-    const LOG_PATH = `${DockerService.NOMAD_STORAGE_DIR}/logs/${DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME}.log`;
+    const PATH = `/osm/${IMPORT_FILE}`;
+    const HOST_PATH = `/opt/project-nomad/storage${PATH}`;
+    const IMPORT_BIND = `${HOST_PATH}:/data/${IMPORT_FILE}:rw`;
+    const LOG_PATH = `/logs/${DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME}.log`;
     const disk = drive.use('fs');
 
     this._broadcast(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', `Running pre-install actions for OpenStreetMap Tile Server...`);
@@ -308,14 +308,14 @@ export class DockerService {
     this._broadcast(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', 'Ensuring OSM directory permissions are set correctly...');
 
     // Ensure directories exist
-    await fs.promises.mkdir(`${DockerService.NOMAD_STORAGE_DIR}/osm/db`, { recursive: true });
-    await fs.promises.mkdir(`${DockerService.NOMAD_STORAGE_DIR}/osm/tiles`, { recursive: true });
+    await fs.promises.mkdir('/osm/db', { recursive: true });
+    await fs.promises.mkdir('/osm/tiles', { recursive: true });
 
-    await chmodRecursive(`${DockerService.NOMAD_STORAGE_DIR}/osm/db`, 0o755, 0o755); // Must be able to read directories and read/write files inside
-    await chownRecursive(`${DockerService.NOMAD_STORAGE_DIR}/osm/db`, 1000, 1000);
+    await chmodRecursive('/osm/db', 0o755, 0o755); // Must be able to read directories and read/write files inside
+    await chownRecursive('/osm/db', 1000, 1000);
 
-    await chmodRecursive(`${DockerService.NOMAD_STORAGE_DIR}/osm/tiles`, 0o755, 0o755); // Must be able to read directories and read/write files inside
-    await chownRecursive(`${DockerService.NOMAD_STORAGE_DIR}/osm/tiles`, 1000, 1000);
+    await chmodRecursive('/osm/tiles', 0o755, 0o755); // Must be able to read directories and read/write files inside
+    await chownRecursive('/osm/tiles', 1000, 1000);
 
 
     // If the initial import file already exists, delete it so we can ensure it is a good download
@@ -326,9 +326,9 @@ export class DockerService {
 
     this._broadcast(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', `Downloading OpenStreetMap PBF file from ${OSM_PBF_URL}. This may take some time...`);
     const response = await axios.get(OSM_PBF_URL, {
-      responseType: 'stream',
+      responseType: 'arraybuffer',
     });
-    await disk.putStream(PATH, response.data);
+    await disk.put(PATH, response.data);
 
     // Do initial import of OSM data into the tile server DB
     // We need to add the initial osm.pbf file as another volume bind so we can import it
