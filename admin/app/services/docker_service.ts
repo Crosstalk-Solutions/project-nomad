@@ -19,6 +19,7 @@ export class DockerService {
   public static OLLAMA_SERVICE_NAME = 'nomad_ollama';
   public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui';
   public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef';
+  public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes';
   public static NOMAD_STORAGE_ABS_PATH = '/opt/project-nomad/storage';
 
   constructor() {
@@ -219,8 +220,8 @@ export class DockerService {
         ...(containerConfig?.HostConfig && { HostConfig: containerConfig.HostConfig }),
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
+        ...(containerConfig?.Env && { Env: containerConfig.Env }),
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
-        ...(service.service_name === 'open-webui' ? { Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434'] } : {}), // Special case for Open WebUI
       });
 
       this._broadcast(service.service_name, 'starting', `Starting Docker container for service ${service.service_name}...`);
