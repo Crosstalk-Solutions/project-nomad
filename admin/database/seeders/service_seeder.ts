@@ -67,7 +67,8 @@ export default class ServiceSeeder extends BaseSeeder {
           RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: 'host',
           Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`]
-        }
+        },
+        Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434']
       }),
       ui_location: '3000',
       installed: false,
@@ -86,6 +87,24 @@ export default class ServiceSeeder extends BaseSeeder {
         ExposedPorts: { '80/tcp': {} }
       }),
       ui_location: '8100',
+      installed: false,
+      is_dependency_service: false,
+      depends_on: null,
+    },
+    {
+      service_name: DockerService.FLATNOTES_SERVICE_NAME,
+      container_image: 'dullage/flatnotes:latest',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8080/tcp': [{ HostPort: '8200' }] },
+          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/flatnotes:/data`]
+        },
+        ExposedPorts: { '8080/tcp': {} },
+        Env: ['FLATNOTES_AUTH_TYPE=none']
+      }),
+      ui_location: '8200',
       installed: false,
       is_dependency_service: false,
       depends_on: null,
