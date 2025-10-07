@@ -12,7 +12,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          Binds: ['/zim:/data'],
+          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/zim:/data`],
           PortBindings: { '8080/tcp': [{ HostPort: '8090' }] }
         },
         ExposedPorts: { '8080/tcp': {} }
@@ -30,8 +30,8 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: [
-            '/osm/db:/data/database:rw',
-            '/osm/tiles:/data/tiles:rw'
+            `${DockerService.NOMAD_STORAGE_ABS_PATH}/osm/db:/data/database:rw`,
+            `${DockerService.NOMAD_STORAGE_ABS_PATH}/osm/tiles:/data/tiles:rw`
           ],
           PortBindings: { '80/tcp': [{ HostPort: '9000' }] }
         }
@@ -48,7 +48,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          Binds: ['/ollama:/root/.ollama'],
+          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/ollama:/root/.ollama`],
           PortBindings: { '11434/tcp': [{ HostPort: '11434' }] }
         },
         ExposedPorts: { '11434/tcp': {} }
@@ -66,7 +66,7 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: 'host',
-          Binds: ['/open-webui:/app/backend/data']
+          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`]
         }
       }),
       ui_location: '3000',
