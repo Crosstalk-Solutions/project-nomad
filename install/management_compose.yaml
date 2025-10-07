@@ -34,6 +34,17 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: nomad_dozzle
+    restart: unless-stopped
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Allows Dozzle to read logs from the Host's Docker daemon
+    environment:
+      - DOZZLE_ENABLE_ACTIONS=true # Enables the action buttons (restart, stop, etc.)
+      - DOZZLE_ENABLE_SHELL=true  # Enables web-based shell access
   mysql:
     image: mysql:8.0
     container_name: nomad_mysql
