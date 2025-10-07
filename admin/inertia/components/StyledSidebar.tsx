@@ -4,14 +4,17 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import classNames from '~/lib/classNames'
 import { IconArrowLeft } from '@tabler/icons-react'
 
+type SidebarItem = {
+  name: string
+  href: string
+  icon?: React.ElementType
+  current: boolean
+  target?: string
+}
+
 interface StyledSidebarProps {
   title: string
-  items: Array<{
-    name: string
-    href: string
-    icon?: React.ElementType
-    current: boolean
-  }>
+  items: SidebarItem[]
 }
 
 const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
@@ -22,16 +25,12 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
     return window.location.pathname
   }, [])
 
-  const ListItem = (item: {
-    name: string
-    href: string
-    icon?: React.ElementType
-    current: boolean
-  }) => {
+  const ListItem = (item: SidebarItem) => {
     return (
       <li key={item.name}>
         <a
           href={item.href}
+          target={item.target}
           className={classNames(
             item.current
               ? 'bg-desert-green text-white'
