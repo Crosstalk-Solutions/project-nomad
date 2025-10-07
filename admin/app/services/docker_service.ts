@@ -18,6 +18,7 @@ export class DockerService {
   public static OPENSTREETMAP_IMPORT_SERVICE_NAME = 'nomad_openstreetmap_import';
   public static OLLAMA_SERVICE_NAME = 'nomad_ollama';
   public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui';
+  public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef';
   public static NOMAD_STORAGE_ABS_PATH = '/opt/project-nomad/storage';
 
   constructor() {

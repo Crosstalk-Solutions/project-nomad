@@ -13,6 +13,7 @@ import { useTransmit } from 'react-adonis-transmit'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import useErrorNotification from '~/hooks/useErrorNotification'
 import useInternetStatus from '~/hooks/useInternetStatus'
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 
 export default function SettingsPage(props: { system: { services: ServiceSlim[] } }) {
   const { openModal, closeAllModals } = useModals()
@@ -64,7 +65,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         confirmText="Install"
         cancelText="Cancel"
         confirmVariant='primary'
-        icon='ArrowDownTrayIcon'
+        icon={<ArrowDownTrayIcon className="h-12 w-12 text-desert-green" />}
       >
         <p className="text-gray-700">
           Are you sure you want to install {service.service_name}? This will start the service and

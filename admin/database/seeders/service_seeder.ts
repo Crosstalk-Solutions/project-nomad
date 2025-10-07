@@ -74,6 +74,22 @@ export default class ServiceSeeder extends BaseSeeder {
       is_dependency_service: false,
       depends_on: DockerService.OLLAMA_SERVICE_NAME,
     },
+    {
+      service_name: DockerService.CYBERCHEF_SERVICE_NAME,
+      container_image: 'ghcr.io/gchq/cyberchef:latest',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '80/tcp': [{ HostPort: '8100' }] }
+        },
+        ExposedPorts: { '80/tcp': {} }
+      }),
+      ui_location: '8100',
+      installed: false,
+      is_dependency_service: false,
+      depends_on: null,
+    },
   ]
 
   async run() {
