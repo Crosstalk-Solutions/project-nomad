@@ -29,6 +29,7 @@ GREEN='\033[1;32m' # Light Green.
 ###################################################################################################################################################################################################
 
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
+NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/management_compose.yaml"
 ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/entrypoint.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/start_nomad.sh"
@@ -37,8 +38,6 @@ UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project
 WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
 
 script_option_debug='true'
-install_actions=''
-nomad_dir="/opt/project-nomad"
 accepted_terms='false'
 local_ip=''
 
@@ -208,41 +207,27 @@ accept_terms() {
   esac
 }
 
-get_install_directory() {
-  # Prompt user for installation directory
-  nomad_dir=$(whiptail --title "$WHIPTAIL_TITLE" --inputbox "Enter the installation directory for Project N.O.M.A.D. (default: /opt/project-nomad):" 10 60 "$nomad_dir" 3>&1 1>&2 2>&3)
-
-  if [[ $? -ne 0 ]]; then
-    echo -e "${RED}#${RESET} Installation cancelled by user."
-    exit 1
-  fi
-
-  # Validate the directory
-  if [[ ! -d "$nomad_dir" ]]; then
-    echo -e "${YELLOW}#${RESET} Directory $nomad_dir does not exist. It will be attempted to be created during the installation process.\\n"
-  fi
-}
-
 create_nomad_directory(){
-  if [[ ! -d "$nomad_dir" ]]; then
-    echo -e "${YELLOW}#${RESET} Creating directory for Project N.O.M.A.D at $nomad_dir...\\n"
-    sudo mkdir -p "$nomad_dir"
-    sudo chown "$(whoami):$(whoami)" "$nomad_dir"
-
-    # Also ensure the directory has a /storage/logs/ subdirectory
-    sudo mkdir -p "${nomad_dir}/storage/logs"
-
-    # Create a admin.log file in the logs directory
-    sudo touch "${nomad_dir}/storage/logs/admin.log"
+  # Ensure the main installation directory exists
+  if [[ ! -d "$NOMAD_DIR" ]]; then
+    echo -e "${YELLOW}#${RESET} Creating directory for Project N.O.M.A.D at $NOMAD_DIR...\\n"
+    sudo mkdir -p "$NOMAD_DIR"
+    sudo chown "$(whoami):$(whoami)" "$NOMAD_DIR"
 
     echo -e "${GREEN}#${RESET} Directory created successfully.\\n"
   else
-    echo -e "${GREEN}#${RESET} Directory $nomad_dir already exists.\\n"
+    echo -e "${GREEN}#${RESET} Directory $NOMAD_DIR already exists.\\n"
   fi
+
+  # Also ensure the directory has a /storage/logs/ subdirectory
+  sudo mkdir -p "${NOMAD_DIR}/storage/logs"
+
+  # Create a admin.log file in the logs directory
+  sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
 }
 
 download_management_compose_file() {
-  local compose_file_path="${nomad_dir}/docker-compose-management.yml"
+  local compose_file_path="${NOMAD_DIR}/docker-compose-management.yml"
 
   echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
   if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
@@ -253,7 +238,7 @@ download_management_compose_file() {
 }
 
 download_wait_for_it_script() {
-  local wait_for_it_script_path="${nomad_dir}/wait-for-it.sh"
+  local wait_for_it_script_path="${NOMAD_DIR}/wait-for-it.sh"
 
   echo -e "${YELLOW}#${RESET} Downloading wait-for-it script...\\n"
   if ! curl -fsSL "$WAIT_FOR_IT_SCRIPT_URL" -o "$wait_for_it_script_path"; then
@@ -265,7 +250,7 @@ download_wait_for_it_script() {
 }
 
 download_entrypoint_script() {
-  local entrypoint_script_path="${nomad_dir}/entrypoint.sh"
+  local entrypoint_script_path="${NOMAD_DIR}/entrypoint.sh"
 
   echo -e "${YELLOW}#${RESET} Downloading entrypoint script...\\n"
   if ! curl -fsSL "$ENTRYPOINT_SCRIPT_URL" -o "$entrypoint_script_path"; then
@@ -277,9 +262,9 @@ download_entrypoint_script() {
 }
 
 download_helper_scripts() {
-  local start_script_path="${nomad_dir}/start_nomad.sh"
-  local stop_script_path="${nomad_dir}/stop_nomad.sh"
-  local update_script_path="${nomad_dir}/update_nomad.sh"
+  local start_script_path="${NOMAD_DIR}/start_nomad.sh"
+  local stop_script_path="${NOMAD_DIR}/stop_nomad.sh"
+  local update_script_path="${NOMAD_DIR}/update_nomad.sh"
 
   echo -e "${YELLOW}#${RESET} Downloading helper scripts...\\n"
   if ! curl -fsSL "$START_SCRIPT_URL" -o "$start_script_path"; then
@@ -304,7 +289,7 @@ download_helper_scripts() {
 
 start_management_containers() {
   echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
-  if ! sudo docker compose -f "${nomad_dir}/docker-compose-management.yml" up -d; then
+  if ! sudo docker compose -f "${NOMAD_DIR}/docker-compose-management.yml" up -d; then
     echo -e "${RED}#${RESET} Failed to start management containers. Please check the logs and try again."
     exit 1
   fi
@@ -322,7 +307,7 @@ get_local_ip() {
 success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
+  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
 }
@@ -343,7 +328,6 @@ check_is_debug_mode
 get_install_confirmation
 accept_terms
 ensure_docker_installed
-#get_install_directory
 create_nomad_directory
 download_wait_for_it_script
 download_entrypoint_script
