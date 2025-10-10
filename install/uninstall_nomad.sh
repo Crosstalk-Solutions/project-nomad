@@ -16,7 +16,7 @@
 ###################################################################################################################################################################################################
 
 NOMAD_DIR="/opt/project-nomad"
-MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/docker-compose-management.yaml"
+MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/docker-compose-management.yml"
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -87,7 +87,7 @@ uninstall_nomad() {
     docker ps -a --filter "name=^nomad_" --format "{{.Names}}" | xargs -r docker rm -f
     echo "Allowing some time for app containers to stop..."
     sleep 5
-    
+
     echo "Containers should be stopped now."
 
     echo "Removing Project N.O.M.A.D. files..."
