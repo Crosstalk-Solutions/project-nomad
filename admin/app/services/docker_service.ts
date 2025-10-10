@@ -56,6 +56,11 @@ export class DockerService {
 
       if (action === 'restart') {
         await dockerContainer.restart();
+
+        if (service.service_name === DockerService.OPENSTREETMAP_SERVICE_NAME) {
+          await this._fixOSMPermissions();
+        }
+
         return {
           success: true,
           message: `Service ${serviceName} restarted successfully`,
@@ -69,7 +74,17 @@ export class DockerService {
             message: `Service ${serviceName} is already running`,
           };
         }
+
         await dockerContainer.start();
+
+        if (service.service_name === DockerService.OPENSTREETMAP_SERVICE_NAME) {
+          await this._fixOSMPermissions();
+        }
+
+        return {
+          success: true,
+          message: `Service ${serviceName} started successfully`,
+        };
       }
 
       return {
@@ -227,6 +242,11 @@ export class DockerService {
       this._broadcast(service.service_name, 'starting', `Starting Docker container for service ${service.service_name}...`);
       await container.start();
 
+      // Ensure OSM directories have correct permissions after install+start
+      if (service.service_name === DockerService.OPENSTREETMAP_SERVICE_NAME) {
+        await this._fixOSMPermissions();
+      }
+
       this._broadcast(service.service_name, 'finalizing', `Finalizing installation of service ${service.service_name}...`);
       service.installed = true;
       await service.save();
@@ -311,17 +331,8 @@ export class DockerService {
     // Ensure osm directory has proper perms for OSM container to write cached files to
     this._broadcast(DockerService.OPENSTREETMAP_IMPORT_SERVICE_NAME, 'preinstall', 'Ensuring OSM directory permissions are set correctly...');
 
-    // Ensure directories exist
-    await fs.promises.mkdir(`/osm/db`, { recursive: true });
-    await fs.promises.mkdir(`/osm/tiles`, { recursive: true });
-
-    // Must be able to read directories and read/write files inside
-    await chmodRecursive(`/osm/db`, 0o755, 0o755);
-    await chownRecursive(`/osm/db`, 1000, 1000);
-
-    // Must be able to read directories and read/write files inside
-    await chmodRecursive(`/osm/tiles`, 0o755, 0o755);
-    await chownRecursive(`/osm/tiles`, 1000, 1000);
+    // Ensure the /osm directories exist and have correct permissions
+    await this._fixOSMPermissions();
 
     // If the initial import file already exists, delete it so we can ensure it is a good download
     const fileExists = await disk.exists(IMPORT_FILE_PATH);
@@ -373,16 +384,29 @@ export class DockerService {
     const statusCode = data.StatusCode;
     await container.remove();
 
-    // Set perms again to ensure they are correct after import process
-    await chmodRecursive(`/osm/db`, 0o755, 0o755);
-    await chownRecursive(`/osm/db`, 1000, 1000);
-
-    await chmodRecursive(`/osm/tiles`, 0o755, 0o755);
-    await chownRecursive(`/osm/tiles`, 1000, 1000);
-
+    // Run permission fix again in case the import changed perms
+    await this._fixOSMPermissions();
 
     if (statusCode !== 0) {
       throw new Error(`OpenStreetMap data import failed with status code ${statusCode}. Check the log file at ${LOG_PATH} for details.`);
+    }
+  }
+
+  private async _fixOSMPermissions(): Promise<void> {
+    try {
+      // Ensure directories exist
+      await fs.promises.mkdir(`/osm/db`, { recursive: true });
+      await fs.promises.mkdir(`/osm/tiles`, { recursive: true });
+
+      // Must be able to read directories and read/write files inside
+      await chmodRecursive(`/osm/db`, 0o755, 0o755);
+      await chownRecursive(`/osm/db`, 1000, 1000);
+
+      // Must be able to read directories and read/write files inside
+      await chmodRecursive(`/osm/tiles`, 0o755, 0o755);
+      await chownRecursive(`/osm/tiles`, 1000, 1000);
+    } catch (error) {
+      logger.error(`Error fixing OSM permissions: ${error.message}`);
     }
   }
 
