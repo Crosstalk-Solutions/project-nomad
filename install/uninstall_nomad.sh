@@ -24,6 +24,18 @@ MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/docker-compose-management.yaml"
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
+check_has_sudo() {
+  if sudo -n true 2>/dev/null; then
+    echo -e "${GREEN}#${RESET} User has sudo permissions.\\n"
+  else
+    echo "User does not have sudo permissions"
+    header_red
+    echo -e "${RED}#${RESET} This script requires sudo permissions to run. Please run the script with sudo.\\n"
+    echo -e "${RED}#${RESET} For example: sudo bash $(basename "$0")"
+    exit 1
+  fi
+}
+
 check_current_directory(){
   if [ "$(pwd)" == "${NOMAD_DIR}" ]; then
     echo "Please run this script from a directory other than ${NOMAD_DIR}."
@@ -64,11 +76,18 @@ ensure_docker_installed() {
 }
 
 uninstall_nomad() {
-    echo "Stopping and removing Project N.O.M.A.D. containers..."
+    echo "Stopping and removing Project N.O.M.A.D. management containers..."
     docker compose -f "${MANAGEMENT_COMPOSE_FILE}" down
+    echo "Allowing some time for management containers to stop..."
+    sleep 5
 
-    echo "Allowing some time for containers to stop..."
-    sleep 15
+
+    # Stop and remove all containers where name starts with "nomad_"
+    echo "Stopping and removing all Project N.O.M.A.D. app containers..."
+    docker ps -a --filter "name=^nomad_" --format "{{.Names}}" | xargs -r docker rm -f
+    echo "Allowing some time for app containers to stop..."
+    sleep 5
+    
     echo "Containers should be stopped now."
 
     echo "Removing Project N.O.M.A.D. files..."
@@ -82,6 +101,7 @@ uninstall_nomad() {
 #                                                                                       Main                                                                                                      #
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
+check_has_sudo
 check_current_directory
 ensure_management_compose_file_exists
 ensure_docker_installed
