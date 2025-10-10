@@ -1,4 +1,9 @@
 # *NOTE: Project N.O.M.A.D. is still in active development and should not be considered stable!*
+
+<div style="width: 100;text-align: center;margin-bottom: 25px;">
+<img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/admin/public/project_nomad_logo.png" width="200" height="200"/>
+</div>
+
 # Project N.O.M.A.D. (Node for Offline Media, Archives, and Data)
 Project N.O.M.A.D., is a self-contained, offline survival computer packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
 
