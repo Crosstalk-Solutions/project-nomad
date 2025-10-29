@@ -79,7 +79,7 @@
     "@vinejs/vine": "^3.0.1",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
-    "axios": "^1.10.0",
+    "axios": "^1.13.1",
     "better-sqlite3": "^12.1.1",
     "dockerode": "^4.0.7",
     "edge.js": "^6.2.1",
