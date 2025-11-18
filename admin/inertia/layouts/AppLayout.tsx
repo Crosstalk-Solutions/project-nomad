@@ -1,3 +1,5 @@
+import Footer from "~/components/Footer";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
@@ -17,6 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         className="text-desert-orange font-semibold text-sm italic"
         >A project by Crosstalk Solutions</p>
       </div> */}
+      <Footer />
     </div>
   )
 }

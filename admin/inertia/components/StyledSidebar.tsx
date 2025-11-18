@@ -3,6 +3,8 @@ import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from '@headlessu
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import classNames from '~/lib/classNames'
 import { IconArrowLeft } from '@tabler/icons-react'
+import { usePage } from '@inertiajs/react'
+import { UsePageProps } from '../../types/system'
 
 type SidebarItem = {
   name: string
@@ -19,6 +21,7 @@ interface StyledSidebarProps {
 
 const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { appVersion } = usePage().props as unknown as UsePageProps
 
   const currentPath = useMemo(() => {
     if (typeof window === 'undefined') return ''
@@ -72,6 +75,9 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
             </li>
           </ul>
         </nav>
+        <div className="mb-4 text-center text-sm text-gray-600">
+          <p>Project N.O.M.A.D. Command Center v{appVersion}</p>
+        </div>
       </div>
     )
   }

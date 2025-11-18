@@ -11,7 +11,13 @@ import { getServiceLink } from '~/lib/navigation'
 const navigation = [
   { name: 'Apps', href: '/settings/apps', icon: CommandLineIcon, current: false },
   { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
-  { name: 'Service Logs & Metrics', href: getServiceLink('9999'), icon: IconDashboard, current: false, target: '_blank' },
+  {
+    name: 'Service Logs & Metrics',
+    href: getServiceLink('9999'),
+    icon: IconDashboard,
+    current: false,
+    target: '_blank',
+  },
   { name: 'ZIM Manager', href: '/settings/zim', icon: FolderIcon, current: false },
   {
     name: 'Zim Remote Explorer',

@@ -63,7 +63,12 @@ To test internet connectivity, N.O.M.A.D. attempts to make a request to Cloudfla
 ## About Security
 By design, Project N.O.M.A.D. is intended to be open and available without hurdles - it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access it's resources), you can block/open ports to control which services are exposed.
 
-# Helper Scripts
+## Versioning
+This project uses semantic versioning. The version is managed in the root `package.json` 
+and automatically updated by semantic-release. For simplicity's sake, the "project-nomad" container
+uses the same version defined there instead of the version in `admin/package.json` (stays at 0.0.0), as it's the only container derived from the code.
+
+## Helper Scripts
 Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
 
 ###

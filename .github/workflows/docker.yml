@@ -9,22 +9,6 @@ on:
         type: string
 
 jobs:
-  debug:
-    name: Debugging information
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: List repository root contents
-        run: |
-          echo "Repository root contents:"
-          ls -la
-          echo "Looking for admin directory:"
-          ls -la admin/ || echo "admin directory not found"
-      - name: Print GitHub context
-        run: echo "${{ toJson(github) }}"
-      - name: Print workflow inputs
-        run: echo "${{ toJson(inputs) }}"
   check_authorization:
     name: Check authorization to publish new Docker image
     runs-on: ubuntu-latest
@@ -54,9 +38,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./admin
-          file: ./admin/Dockerfile
           push: true
           tags: |
-            ghcr.io/crosstalk-solutions/project-nomad-admin:${{ inputs.version }}
-            ghcr.io/crosstalk-solutions/project-nomad-admin:latest
+            ghcr.io/crosstalk-solutions/project-nomad:${{ inputs.version }}
+            ghcr.io/crosstalk-solutions/project-nomad:latest
