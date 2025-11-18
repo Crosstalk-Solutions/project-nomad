@@ -16,7 +16,7 @@ export class SystemService {
   }: {
     installedOnly?: boolean
   }): Promise<ServiceSlim[]> {
-    const query = Service.query().orderBy('service_name', 'asc').select('id', 'service_name', 'installed', 'ui_location').where('is_dependency_service', false)
+    const query = Service.query().orderBy('friendly_name', 'asc').select('id', 'service_name', 'installed', 'ui_location', 'friendly_name', 'description').where('is_dependency_service', false)
     if (installedOnly) {
       query.where('installed', true);
     }
@@ -35,6 +35,8 @@ export class SystemService {
       toReturn.push({
         id: service.id,
         service_name: service.service_name,
+        friendly_name: service.friendly_name,
+        description: service.description,
         installed: service.installed,
         status: status ? status.status : 'unknown',
         ui_location: service.ui_location || ''

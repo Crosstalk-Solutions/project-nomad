@@ -61,7 +61,7 @@ function StyledTable<T extends { [key: string]: any }>({
               <th
                 key={index}
                 className={classNames(
-                  'whitespace-nowrap text-left text-sm font-semibold text-gray-900',
+                  'whitespace-nowrap text-left font-semibold text-gray-900',
                   compact ? `${leftPadding} py-2` : `${leftPadding} py-4  pr-3`
                 )}
               >

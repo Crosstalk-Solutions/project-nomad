@@ -14,6 +14,7 @@ import LoadingSpinner from '~/components/LoadingSpinner'
 import useErrorNotification from '~/hooks/useErrorNotification'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { IconCheck } from '@tabler/icons-react'
 
 export default function SettingsPage(props: { system: { services: ServiceSlim[] } }) {
   const { openModal, closeAllModals } = useModals()
@@ -64,12 +65,13 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         open={true}
         confirmText="Install"
         cancelText="Cancel"
-        confirmVariant='primary'
+        confirmVariant="primary"
         icon={<ArrowDownTrayIcon className="h-12 w-12 text-desert-green" />}
       >
         <p className="text-gray-700">
-          Are you sure you want to install {service.service_name}? This will start the service and
-          make it available in your Project N.O.M.A.D. instance. It may take some time to complete.
+          Are you sure you want to install {service.friendly_name || service.service_name}? This
+          will start the service and make it available in your Project N.O.M.A.D. instance. It may
+          take some time to complete.
         </p>
       </StyledModal>,
       'install-service-modal'
@@ -220,10 +222,21 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
               className="font-semibold"
               rowLines={true}
               columns={[
-                { accessor: 'service_name', title: 'Name' },
+                {
+                  accessor: 'friendly_name',
+                  title: 'Name',
+                  render(record) {
+                    return (
+                      <div className='flex flex-col'>
+                        <p>{record.friendly_name || record.service_name}</p>
+                        <p className="text-sm text-gray-500">{record.description}</p>
+                      </div>
+                    )
+                  },
+                },
                 {
                   accessor: 'ui_location',
-                  title: 'Location',
+                  title: 'Port',
                   render: (record) => (
                     <a
                       href={getServiceLink(record.ui_location || 'unknown')}
@@ -237,8 +250,8 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                 },
                 {
                   accessor: 'installed',
-                  title: 'Installed?',
-                  render: (record) => (record.installed ? 'Yes' : 'No'),
+                  title: 'Installed',
+                  render: (record) => (record.installed ? <IconCheck className="h-6 w-6 text-desert-green" /> : ''),
                 },
                 {
                   accessor: 'actions',

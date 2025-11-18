@@ -20,6 +20,12 @@ export default class Service extends BaseModel {
   @column()
   declare container_config: string | null
 
+  @column()
+  declare friendly_name: string | null
+
+  @column()
+  declare description: string | null
+
   @column({
     serialize(value) {
       return Boolean(value)
