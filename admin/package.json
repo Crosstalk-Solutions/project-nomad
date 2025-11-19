@@ -52,7 +52,7 @@
     "prettier": "^3.5.3",
     "ts-node-maintained": "^10.9.5",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.4.1"
   },
   "dependencies": {
     "@adonisjs/auth": "^9.4.0",
