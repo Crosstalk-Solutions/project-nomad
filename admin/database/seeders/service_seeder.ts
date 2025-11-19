@@ -121,6 +121,25 @@ export default class ServiceSeeder extends BaseSeeder {
       is_dependency_service: false,
       depends_on: null,
     },
+    {
+      service_name: DockerService.KOLIBRI_SERVICE_NAME,
+      friendly_name: 'Kolibri',
+      description: 'An offline-first education platform for schools and learners',
+      container_image: 'treehouses/kolibri:latest',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8080/tcp': [{ HostPort: '8300' }] },
+          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/kolibri:/root/.kolibri`]
+        },
+        ExposedPorts: { '8080/tcp': {} },
+      }),
+      ui_location: '8300',
+      installed: false,
+      is_dependency_service: false,
+      depends_on: null,
+    },
   ]
 
   async run() {
