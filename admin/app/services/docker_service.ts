@@ -20,6 +20,7 @@ export class DockerService {
   public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui';
   public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef';
   public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes';
+  public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri';
   public static NOMAD_STORAGE_ABS_PATH = '/opt/project-nomad/storage';
 
   constructor() {
