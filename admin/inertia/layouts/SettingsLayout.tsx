@@ -4,13 +4,14 @@ import {
   FolderIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
-import { IconDashboard, IconGavel } from '@tabler/icons-react'
+import { IconDashboard, IconGavel, IconMapRoute } from '@tabler/icons-react'
 import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 
 const navigation = [
   { name: 'Apps', href: '/settings/apps', icon: CommandLineIcon, current: false },
   { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
+  { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
   {
     name: 'Service Logs & Metrics',
     href: getServiceLink('9999'),

@@ -209,7 +209,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
   return (
     <SettingsLayout>
-      <Head title="App Settings | Project N.O.M.A.D." />
+      <Head title="App Settings" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">Apps</h1>

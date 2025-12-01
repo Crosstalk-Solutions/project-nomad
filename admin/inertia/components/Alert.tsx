@@ -2,13 +2,14 @@ import { ExclamationTriangleIcon, XCircleIcon } from '@heroicons/react/24/solid'
 import { IconCircleCheck } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 
-interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
+export type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
   title: string
   message?: string
   type: 'warning' | 'error' | 'success'
+  children?: React.ReactNode
 }
 
-export default function Alert({ title, message, type, ...props }: AlertProps) {
+export default function Alert({ title, message, type, children, ...props }: AlertProps) {
   const getIcon = () => {
     const Icon =
       type === 'warning'
@@ -43,16 +44,19 @@ export default function Alert({ title, message, type, ...props }: AlertProps) {
         'border border-gray-200 rounded-md p-3 shadow-xs'
       )}
     >
-      <div className="flex">
-        <div className="shrink-0">{getIcon()}</div>
-        <div className="ml-3">
-          <h3 className={`text-sm font-medium ${getTextColor()}`}>{title}</h3>
-          {message && (
-            <div className={`mt-2 text-sm ${getTextColor()}`}>
-              <p>{message}</p>
-            </div>
-          )}
+      <div className="flex flex-row justify-between items-center">
+        <div className="flex flex-row">
+          <div className="shrink-0">{getIcon()}</div>
+          <div className="ml-3">
+            <h3 className={`text-sm font-medium ${getTextColor()}`}>{title}</h3>
+            {message && (
+              <div className={`mt-2 text-sm ${getTextColor()}`}>
+                <p>{message}</p>
+              </div>
+            )}
+          </div>
         </div>
+        {children}
       </div>
     </div>
   )

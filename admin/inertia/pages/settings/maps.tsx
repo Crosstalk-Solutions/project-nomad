@@ -1,27 +1,43 @@
-import { Head } from '@inertiajs/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Head, router } from '@inertiajs/react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
-import api from '~/lib/api'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
-import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
-import Alert from '~/components/Alert'
-import { FileEntry } from '../../../../types/files'
+import { FileEntry } from '../../../types/files'
+import MissingBaseAssetsAlert from '~/components/layout/MissingBaseAssetsAlert'
+import { useNotifications } from '~/context/NotificationContext'
+import { useState } from 'react'
+import api from '~/lib/api'
 
-export default function ZimPage() {
-  const queryClient = useQueryClient()
+export default function MapsManager(props: {
+  maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
+}) {
   const { openModal, closeAllModals } = useModals()
-  const { isInstalled } = useServiceInstalledStatus('nomad_kiwix_serve')
-  const { data, isLoading } = useQuery<FileEntry[]>({
-    queryKey: ['zim-files'],
-    queryFn: getFiles,
-  })
+  const { addNotification } = useNotifications()
+  const [downloading, setDownloading] = useState(false)
 
-  async function getFiles() {
-    const res = await api.listZimFiles()
-    return res.data.files
+  async function downloadBaseAssets() {
+    try {
+      setDownloading(true)
+
+      const res = await api.downloadBaseMapAssets()
+      if (res.success) {
+        addNotification({
+          type: 'success',
+          message: 'Base map assets downloaded successfully.',
+        })
+        router.reload()
+      }
+    } catch (error) {
+      console.error('Error downloading base assets:', error)
+      addNotification({
+        type: 'error',
+        message: 'An error occurred while downloading the base map assets. Please try again.',
+      })
+    } finally {
+      setDownloading(false)
+    }
   }
 
   async function confirmDeleteFile(file: FileEntry) {
@@ -29,7 +45,6 @@ export default function ZimPage() {
       <StyledModal
         title="Confirm Delete?"
         onConfirm={() => {
-          deleteFileMutation.mutateAsync(file)
           closeAllModals()
         }}
         onCancel={closeAllModals}
@@ -46,37 +61,32 @@ export default function ZimPage() {
     )
   }
 
-  const deleteFileMutation = useMutation({
-    mutationFn: async (file: FileEntry) => api.deleteZimFile(file.name.replace('.zim', '')),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['zim-files'] })
-    },
-  })
-
   return (
     <SettingsLayout>
-      <Head title="ZIM Manager | Project N.O.M.A.D." />
+      <Head title="Maps Manager" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">ZIM Manager</h1>
-              <p className="text-gray-500">
-                Manage your stored ZIM files.
-              </p>
+              <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
+              <p className="text-gray-500">Manage your stored map data files.</p>
             </div>
+            <StyledButton
+              variant="primary"
+              onClick={downloadBaseAssets}
+              loading={downloading}
+              icon='CloudArrowDownIcon'
+            >
+              Download New Map File
+            </StyledButton>
           </div>
-          {!isInstalled && (
-            <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
-              type="warning"
-              className="!mt-6"
-            />
+          {!props.maps.baseAssetsExist && (
+            <MissingBaseAssetsAlert loading={downloading} onClickDownload={downloadBaseAssets} />
           )}
           <StyledTable<FileEntry & { actions?: any }>
             className="font-semibold mt-4"
             rowLines={true}
-            loading={isLoading}
+            loading={false}
             compact
             columns={[
               { accessor: 'name', title: 'Name' },
@@ -98,7 +108,7 @@ export default function ZimPage() {
                 ),
               },
             ]}
-            data={data || []}
+            data={props.maps.regionFiles || []}
           />
         </main>
       </div>

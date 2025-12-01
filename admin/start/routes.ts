@@ -8,50 +8,75 @@
 */
 import DocsController from '#controllers/docs_controller'
 import HomeController from '#controllers/home_controller'
+import MapsController from '#controllers/maps_controller'
 import SettingsController from '#controllers/settings_controller'
 import SystemController from '#controllers/system_controller'
 import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
 
-transmit.registerRoutes();
+transmit.registerRoutes()
 
-router.get('/', [HomeController, 'index']);
-router.get('/home', [HomeController, 'home']);
+router.get('/', [HomeController, 'index'])
+router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
 
-router.group(() => {
+router
+  .group(() => {
     router.get('/system', [SettingsController, 'system'])
     router.get('/apps', [SettingsController, 'apps'])
     router.get('/legal', [SettingsController, 'legal'])
+    router.get('/maps', [SettingsController, 'maps'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
-}).prefix('/settings')
+  })
+  .prefix('/settings')
 
-router.group(() => {
+router
+  .group(() => {
     router.get('/:slug', [DocsController, 'show'])
     router.get('/', ({ inertia }) => {
-        return inertia.render('Docs/Index', {
-            title: "Documentation",
-            content: "Welcome to the documentation!"
-        });
-    });
-}).prefix('/docs')
+      return inertia.render('Docs/Index', {
+        title: 'Documentation',
+        content: 'Welcome to the documentation!',
+      })
+    })
+  })
+  .prefix('/docs')
 
-router.group(() => {
+router.get('/maps', [MapsController, 'index'])
+
+router
+  .group(() => {
+    router.get('/regions', [MapsController, 'listRegions'])
+    router.get('/styles', [MapsController, 'styles'])
+    router.get('/preflight', [MapsController, 'checkBaseAssets'])
+    router.post('/download-base-assets', [MapsController, 'downloadBaseAssets'])
+    router.post('/download-remote', [MapsController, 'downloadRemote'])
+    router.delete('/:filename', [MapsController, 'delete'])
+  })
+  .prefix('/api/maps')
+
+router
+  .group(() => {
     router.get('/list', [DocsController, 'list'])
-}).prefix('/api/docs')
+  })
+  .prefix('/api/docs')
 
-router.group(() => {
+router
+  .group(() => {
     router.get('/info', [SystemController, 'getSystemInfo'])
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])
-}).prefix('/api/system')
+  })
+  .prefix('/api/system')
 
-router.group(() => {
+router
+  .group(() => {
     router.get('/list', [ZimController, 'list'])
     router.get('/list-remote', [ZimController, 'listRemote'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])
-    router.delete('/:key', [ZimController, 'delete'])
-}).prefix('/api/zim')
+    router.delete('/:filename', [ZimController, 'delete'])
+  })
+  .prefix('/api/zim')

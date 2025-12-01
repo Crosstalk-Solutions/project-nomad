@@ -1,4 +1,4 @@
-import { IconHelp, IconPlus, IconSettings, IconWifiOff } from '@tabler/icons-react'
+import { IconHelp, IconMapRoute, IconPlus, IconSettings, IconWifiOff } from '@tabler/icons-react'
 import { Head } from '@inertiajs/react'
 import BouncingLogo from '~/components/BouncingLogo'
 import AppLayout from '~/layouts/AppLayout'
@@ -19,6 +19,14 @@ const STATIC_ITEMS = [
     target: '',
     description: 'Read Project N.O.M.A.D. manuals and guides',
     icon: <IconHelp size={48} />,
+    installed: true,
+  },
+  {
+    label: 'Maps',
+    to: '/maps',
+    target: '',
+    description: 'View offline maps',
+    icon: <IconMapRoute size={48} />,
     installed: true,
   },
   {
@@ -52,7 +60,7 @@ export default function Home(props: {
 
   return (
     <AppLayout>
-      <Head title="Project N.O.M.A.D Command Center" />
+      <Head title="Command Center" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {items.map((item) => (
           <a key={item.label} href={item.to} target={item.target}>

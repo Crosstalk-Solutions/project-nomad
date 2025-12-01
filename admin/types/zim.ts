@@ -1,16 +1,7 @@
-export type ZimFilesEntry =
-    {
-        type: 'file'
-        key: string;
-        name: string;
-    } | {
-        type: 'directory';
-        prefix: string;
-        name: string;
-    }
+import { FileEntry } from './files.js'
 
 export type ListZimFilesResponse = {
-    files: ZimFilesEntry[]
+    files: FileEntry[]
     next?: string
 }
 
@@ -65,21 +56,4 @@ export type RemoteZimFileEntry = {
     download_url: string;
     author: string;
     file_name: string;
-}
-
-export type DownloadProgress = {
-    downloaded_bytes: number;
-    total_bytes: number;
-    percentage: number;
-    speed: string;
-    time_remaining: number;
-}
-
-export type DownloadOptions = {
-    max_retries?: number;
-    retry_delay?: number;
-    chunk_size?: number;
-    timeout?: number;
-    onError?: (error: Error) => void;
-    onComplete?: (filepath: string) => void;
 }

@@ -64,7 +64,7 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
                 <Icon type={notification.type} />
               </div>
               <div>
-                <p className="">{notification.message}</p>
+                <p className="break-all">{notification.message}</p>
               </div>
             </div>
           </div>
