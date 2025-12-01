@@ -154,6 +154,7 @@ export default function ZimRemoteExplorer() {
               title="No internet connection. You may not be able to download files."
               message=""
               type="warning"
+              variant="solid"
               className="!mt-6"
             />
           )}
@@ -161,6 +162,7 @@ export default function ZimRemoteExplorer() {
             <Alert
               title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
               type="warning"
+              variant="solid"
               className="!mt-6"
             />
           )}

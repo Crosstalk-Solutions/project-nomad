@@ -125,13 +125,15 @@ export class MapService {
       throw new Error('Base styles file not found in storage/maps')
     }
 
-    const localUrl = env.get('URL')
     const rawStyles = JSON.parse(baseStyle.toString()) as BaseStylesFile
 
     const regions = (await this.listRegions()).files
     const sources = this.generateSourcesArray(regions)
 
-    const baseUrl = urlJoin(localUrl, this.mapStoragePath, this.basemapsAssetsDir)
+    const localUrl = env.get('URL')
+    const withProtocol = localUrl.startsWith('http') ? localUrl : `http://${localUrl}`
+    const baseUrlPath = urlJoin(this.mapStoragePath, this.basemapsAssetsDir)
+    const baseUrl = new URL(baseUrlPath, withProtocol).toString()
 
     const styles = await this.generateStylesFile(
       rawStyles,
@@ -173,10 +175,15 @@ export class MapService {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
         const regionName = region.name.replace('.pmtiles', '')
         const source: BaseStylesFile['sources'] = {}
+        const sourceUrl = new URL(
+          urlJoin(this.mapStoragePath, 'pmtiles', region.name),
+          localUrl.startsWith('http') ? localUrl : `http://${localUrl}`
+        ).toString()
+
         source[regionName] = {
           type: 'vector',
           attribution: PMTILES_ATTRIBUTION,
-          url: `pmtiles://http://${urlJoin(localUrl, this.mapStoragePath, 'pmtiles', region.name)}`,
+          url: `pmtiles://${sourceUrl}`,
         }
         sources.push(source)
       }

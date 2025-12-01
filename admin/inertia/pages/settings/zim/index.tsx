@@ -70,6 +70,7 @@ export default function ZimPage() {
             <Alert
               title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
               type="warning"
+              variant='solid'
               className="!mt-6"
             />
           )}

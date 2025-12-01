@@ -2,11 +2,38 @@
 
 @theme {
   --color-desert-white: #f6f6f4;
-  --color-desert-green-light: #babaaa;
-  --color-desert-green: #424420;
-  --color-desert-orange: #a84a12;
   --color-desert-sand: #f7eedc;
-  /* --color-desert-sand: #E2DAC2; */
+  
+  --color-desert-green-darker: #2a2a15;
+  --color-desert-green-dark: #353518;
+  --color-desert-green: #424420;
+  --color-desert-green-light: #babaaa;
+  --color-desert-green-lighter: #d4d4c8;
+  
+  --color-desert-orange-dark: #8a3d0f;
+  --color-desert-orange: #a84a12;
+  --color-desert-orange-light: #c85815;
+  --color-desert-orange-lighter: #e69556;
+  
+  --color-desert-tan-dark: #6b5d4f;
+  --color-desert-tan: #8b7355;
+  --color-desert-tan-light: #a8927a;
+  --color-desert-tan-lighter: #c9b99f;
+  
+  --color-desert-red-dark: #7a2e2e;
+  --color-desert-red: #994444;
+  --color-desert-red-light: #b05555;
+  --color-desert-red-lighter: #d88989;
+  
+  --color-desert-olive-dark: #5a5c3a;
+  --color-desert-olive: #6d7042;
+  --color-desert-olive-light: #858a55;
+  --color-desert-olive-lighter: #a5ab7d;
+  
+  --color-desert-stone-dark: #5c5c54;
+  --color-desert-stone: #75756a;
+  --color-desert-stone-light: #8f8f82;
+  --color-desert-stone-lighter: #afafa5;
 }
 
 body {
