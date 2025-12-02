@@ -1,0 +1,13 @@
+{
+    "collections": [
+        {
+            "name": "Medicine Essentials",
+            "description": "A comprehensive collection of medical textbooks and resources covering various fields of medicine, including anatomy, physiology, pharmacology, pathology, and clinical practice. Ideal for medical students, healthcare professionals, and anyone interested in medical knowledge.",
+            "urls": [
+                "https://download.kiwix.org/zim/other/zimgit-medicine_en_2024-08.zim",
+                "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
+                "https://download.kiwix.org/zim/zimit/nhs.uk_en_medicines_2025-09.zim"
+            ]
+        }
+    ]
+}
