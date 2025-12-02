@@ -11,6 +11,7 @@ import { generateUUID } from '~/lib/util'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import NotificationsProvider from '~/providers/NotificationProvider'
+import { UsePageProps } from '../../types/system'
 
 const appName = import.meta.env.VITE_APP_NAME || 'Project N.O.M.A.D.'
 const queryClient = new QueryClient()
@@ -33,13 +34,15 @@ createInertiaApp({
   },
 
   setup({ el, App, props }) {
+    const environment = (props.initialPage.props as unknown as UsePageProps).environment
+    const showDevtools = ['development', 'staging'].includes(environment)
     createRoot(el).render(
       <QueryClientProvider client={queryClient}>
         <TransmitProvider baseUrl={window.location.origin} enableLogging={true}>
           <NotificationsProvider>
             <ModalsProvider>
               <App {...props} />
-              <ReactQueryDevtools initialIsOpen={false} />
+              {showDevtools && <ReactQueryDevtools initialIsOpen={false} />}
             </ModalsProvider>
           </NotificationsProvider>
         </TransmitProvider>

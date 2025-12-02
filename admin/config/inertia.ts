@@ -13,6 +13,7 @@ const inertiaConfig = defineConfig({
    */
   sharedData: {
     appVersion: () => SystemService.getAppVersion(),
+    environment: process.env.NODE_ENV || 'production',
   },
 
   /**

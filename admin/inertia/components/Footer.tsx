@@ -1,7 +1,8 @@
 import { usePage } from '@inertiajs/react'
+import { UsePageProps } from '../../types/system'
 
 export default function Footer() {
-  const { appVersion } = usePage().props as unknown as { appVersion: string }
+  const { appVersion } = usePage().props as unknown as UsePageProps
   return (
     <footer className="">
       <div className="flex justify-center border-t border-gray-900/10 py-4">

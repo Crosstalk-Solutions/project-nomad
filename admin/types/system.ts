@@ -14,4 +14,5 @@ export type SystemInformationResponse = {
 // Type inferrence is not working properly with usePage and shared props, so we define this type manually
 export type UsePageProps = {
     appVersion: string
+    environment: string
 }
