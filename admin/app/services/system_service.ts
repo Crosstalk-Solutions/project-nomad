@@ -75,11 +75,14 @@ export class SystemService {
 
   async getSystemInfo(): Promise<SystemInformationResponse | undefined> {
     try {
-      const [cpu, mem, os, disk] = await Promise.all([
+      const [cpu, mem, os, disk, currentLoad, fsSize, uptime] = await Promise.all([
         si.cpu(),
         si.mem(),
         si.osInfo(),
         si.diskLayout(),
+        si.currentLoad(),
+        si.fsSize(),
+        si.time(),
       ])
 
       return {
@@ -87,6 +90,9 @@ export class SystemService {
         mem,
         os,
         disk,
+        currentLoad,
+        fsSize,
+        uptime,
       }
     } catch (error) {
       logger.error('Error getting system info:', error)

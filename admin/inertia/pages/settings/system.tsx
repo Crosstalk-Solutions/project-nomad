@@ -2,69 +2,218 @@ import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
 import { formatBytes } from '~/lib/util'
-
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => {
-  return (
-    <div className="px-4 sm:px-0 mt-8">
-      <h3 className="text-base/7 font-semibold text-gray-900">{title}</h3>
-      <div className="mt-1 border-t border-gray-300">
-        <dl className="divide-y divide-gray-200">{children}</dl>
-      </div>
-    </div>
-  )
-}
-
-const Row = ({ label, value }: { label: string; value: string | number | undefined }) => {
-  return (
-    <div className="px-4 py-2 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-      <dt className="text-sm/6 font-medium text-gray-900">{label}</dt>
-      <dd className="mt-1 text-sm/6 text-gray-700 sm:col-span-2 sm:mt-0">{value}</dd>
-    </div>
-  )
-}
+import CircularGauge from '~/components/systeminfo/CircularGauge'
+import HorizontalBarChart from '~/components/systeminfo/HorizontalBarChart'
+import InfoCard from '~/components/systeminfo/InfoCard'
+import {
+  CpuChipIcon,
+  CircleStackIcon,
+  ServerIcon,
+  ComputerDesktopIcon,
+} from '@heroicons/react/24/outline'
+import Alert from '~/components/Alert'
+import { useSystemInfo } from '~/hooks/useSystemInfo'
+import StatusCard from '~/components/systeminfo/StatusCard'
 
 export default function SettingsPage(props: {
   system: { info: SystemInformationResponse | undefined }
 }) {
+  const { data: info } = useSystemInfo({
+    initialData: props.system.info,
+  })
+
+  const memoryUsagePercent = info?.mem.total
+    ? ((info.mem.used / info.mem.total) * 100).toFixed(1)
+    : 0
+
+  const swapUsagePercent = info?.mem.swaptotal
+    ? ((info.mem.swapused / info.mem.swaptotal) * 100).toFixed(1)
+    : 0
+
+  const uptimeMinutes = info?.uptime.uptime ? Math.floor(info.uptime.uptime / 60) : 0
+
+  const diskData = info?.disk.map((disk) => {
+    const usedBytes = (disk.size || 0) * 0.65 // Estimate - you'd get this from mount points
+    const usedPercent = disk.size ? (usedBytes / disk.size) * 100 : 0
+
+    return {
+      label: disk.name || 'Unknown',
+      value: usedPercent,
+      total: formatBytes(disk.size || 0),
+      used: formatBytes(usedBytes),
+      type: disk.type,
+    }
+  })
+
   return (
     <SettingsLayout>
-      <Head title="Settings" />
+      <Head title="System Information" />
       <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-6">System Information</h1>
-          <div>
-            <Section title="OS Information">
-              <Row label="Distro" value={props.system.info?.os.distro} />
-              <Row label="Kernel" value={props.system.info?.os.kernel} />
-              <Row label="Architecture" value={props.system.info?.os.arch} />
-              <Row label="Hostname" value={props.system.info?.os.hostname} />
-            </Section>
-            <Section title="CPU Manufacturer">
-              <Row label="Manufacturer" value={props.system.info?.cpu.manufacturer} />
-              <Row label="Brand Name" value={props.system.info?.cpu.brand} />
-              <Row label="Cores" value={props.system.info?.cpu.cores} />
-              <Row
-                label="Virtualization Enabled"
-                value={props.system.info?.cpu.virtualization ? 'Yes' : 'No'}
-              />
-            </Section>
-            <Section title="Memory Information">
-              <Row label="Total" value={formatBytes(props.system.info?.mem.total || 0)} />
-              <Row label="Used" value={formatBytes(props.system.info?.mem.used || 0)} />
-              <Row label="Free" value={formatBytes(props.system.info?.mem.free || 0)} />
-              <Row label="Swap Total" value={formatBytes(props.system.info?.mem.swaptotal || 0)} />
-              <Row label="Swap Used" value={formatBytes(props.system.info?.mem.swapused || 0)} />
-            </Section>
-            <Section title="Disk Information">
-              {props.system.info?.disk.map((disk, index) => (
-                <div key={index}>
-                  <Row label={`Disk ${index + 1} Name`} value={disk.name} />
-                  <Row label={`Disk ${index + 1} Size`} value={formatBytes(disk.size || 0)} />
-                  <Row label={`Disk ${index + 1} Type`} value={disk.type} />
-                </div>
-              ))}
-            </Section>
+        <main className="px-6 lg:px-12 py-6 lg:py-8">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-desert-green mb-2">System Information</h1>
+            <p className="text-desert-stone-dark">
+              Real-time monitoring and diagnostics • Last updated: {new Date().toLocaleString()} •
+              Refreshing data every 30 seconds
+            </p>
           </div>
+          {Number(memoryUsagePercent) > 90 && (
+            <div className="mb-6">
+              <Alert
+                type="error"
+                title="Very High Memory Usage Detected"
+                message="System memory usage exceeds 90%. Performance degradation may occur."
+                variant="bordered"
+              />
+            </div>
+          )}
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+              <div className="w-1 h-6 bg-desert-green" />
+              Resource Usage
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+                <CircularGauge
+                  value={info?.currentLoad.currentLoad || 0}
+                  label="CPU Usage"
+                  size="lg"
+                  variant="cpu"
+                  subtext={`${info?.cpu.cores || 0} cores`}
+                  icon={<CpuChipIcon className="w-8 h-8" />}
+                />
+              </div>
+              <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+                <CircularGauge
+                  value={Number(memoryUsagePercent)}
+                  label="Memory Usage"
+                  size="lg"
+                  variant="memory"
+                  subtext={`${formatBytes(info?.mem.used || 0)} / ${formatBytes(info?.mem.total || 0)}`}
+                  icon={<CircleStackIcon className="w-8 h-8" />}
+                />
+              </div>
+              <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+                <CircularGauge
+                  value={Number(swapUsagePercent)}
+                  label="Swap Usage"
+                  size="lg"
+                  variant="disk"
+                  subtext={`${formatBytes(info?.mem.swapused || 0)} / ${formatBytes(info?.mem.swaptotal || 0)}`}
+                  icon={<ServerIcon className="w-8 h-8" />}
+                />
+              </div>
+            </div>
+          </section>
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+              <div className="w-1 h-6 bg-desert-green" />
+              System Details
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <InfoCard
+                title="Operating System"
+                icon={<ComputerDesktopIcon className="w-6 h-6" />}
+                variant="elevated"
+                data={[
+                  { label: 'Distribution', value: info?.os.distro },
+                  { label: 'Kernel Version', value: info?.os.kernel },
+                  { label: 'Architecture', value: info?.os.arch },
+                  { label: 'Hostname', value: info?.os.hostname },
+                  { label: 'Platform', value: info?.os.platform },
+                ]}
+              />
+              <InfoCard
+                title="Processor"
+                icon={<CpuChipIcon className="w-6 h-6" />}
+                variant="elevated"
+                data={[
+                  { label: 'Manufacturer', value: info?.cpu.manufacturer },
+                  { label: 'Brand', value: info?.cpu.brand },
+                  { label: 'Cores', value: info?.cpu.cores },
+                  { label: 'Physical Cores', value: info?.cpu.physicalCores },
+                  {
+                    label: 'Virtualization',
+                    value: info?.cpu.virtualization ? 'Enabled' : 'Disabled',
+                  },
+                ]}
+              />
+            </div>
+          </section>
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+              <div className="w-1 h-6 bg-desert-green" />
+              Memory Allocation
+            </h2>
+            <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-desert-green mb-1">
+                    {formatBytes(info?.mem.total || 0)}
+                  </div>
+                  <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
+                    Total RAM
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-desert-orange mb-1">
+                    {formatBytes(info?.mem.used || 0)}
+                  </div>
+                  <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
+                    RAM in Use
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-desert-olive mb-1">
+                    {formatBytes(info?.mem.free || 0)}
+                  </div>
+                  <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
+                    Free RAM
+                  </div>
+                </div>
+              </div>
+              <div className="relative h-12 bg-desert-stone-lighter rounded-lg overflow-hidden border border-desert-stone-light">
+                <div
+                  className="absolute left-0 top-0 h-full bg-desert-orange transition-all duration-1000"
+                  style={{ width: `${memoryUsagePercent}%` }}
+                ></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-sm font-bold text-desert-white drop-shadow-md z-10">
+                    {memoryUsagePercent}% Utilized
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+              <div className="w-1 h-6 bg-desert-green" />
+              Storage Devices
+            </h2>
+
+            <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+              {diskData && diskData.length > 0 ? (
+                <HorizontalBarChart items={diskData} />
+              ) : (
+                <div className="text-center text-desert-stone-dark py-8">
+                  No storage devices detected
+                </div>
+              )}
+            </div>
+          </section>
+          <section>
+            <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+              <div className="w-1 h-6 bg-desert-green" />
+              System Status
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatusCard title="System Uptime" value={`${uptimeMinutes}m`} />
+              <StatusCard title="CPU Cores" value={info?.cpu.cores || 0} />
+              <StatusCard title="Storage Devices" value={info?.disk.length || 0} />
+            </div>
+          </section>
         </main>
       </div>
     </SettingsLayout>

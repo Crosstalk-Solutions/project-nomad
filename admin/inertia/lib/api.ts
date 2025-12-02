@@ -1,10 +1,11 @@
-import axios from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
+import { SystemInformationResponse } from '../../types/system'
 
 class API {
-  private client
+  private client: AxiosInstance
 
   constructor() {
     this.client = axios.create({
@@ -114,6 +115,16 @@ class API {
       return response.data
     } catch (error) {
       console.error('Error deleting ZIM file:', error)
+      throw error
+    }
+  }
+
+  async getSystemInfo() {
+    try {
+      const response = await this.client.get<SystemInformationResponse>('/system/info')
+      return response.data
+    } catch (error) {
+      console.error('Error fetching system info:', error)
       throw error
     }
   }
