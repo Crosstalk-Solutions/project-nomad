@@ -9,6 +9,7 @@ import MissingBaseAssetsAlert from '~/components/layout/MissingBaseAssetsAlert'
 import { useNotifications } from '~/context/NotificationContext'
 import { useState } from 'react'
 import api from '~/lib/api'
+import DownloadURLModal from '~/components/DownloadURLModal'
 
 export default function MapsManager(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
@@ -61,6 +62,17 @@ export default function MapsManager(props: {
     )
   }
 
+  async function openDownloadModal() {
+    openModal(
+      <DownloadURLModal
+        title="Download Map File"
+        suggestedURL="https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/"
+        onCancel={() => closeAllModals()}
+      />,
+      'download-map-file-modal'
+    )
+  }
+
   return (
     <SettingsLayout>
       <Head title="Maps Manager" />
@@ -73,9 +85,9 @@ export default function MapsManager(props: {
             </div>
             <StyledButton
               variant="primary"
-              onClick={downloadBaseAssets}
+              onClick={openDownloadModal}
               loading={downloading}
-              icon='CloudArrowDownIcon'
+              icon="CloudArrowDownIcon"
             >
               Download New Map File
             </StyledButton>

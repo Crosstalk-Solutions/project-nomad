@@ -12,6 +12,7 @@ import {
 } from '../utils/fs.js'
 import { join } from 'path'
 import urlJoin from 'url-join'
+import axios from 'axios'
 
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
@@ -112,6 +113,36 @@ export class MapService {
     })
 
     return filename
+  }
+
+  async downloadRemotePreflight(
+    url: string
+  ): Promise<{ filename: string; size: number } | { message: string }> {
+    try {
+      const parsed = new URL(url)
+      if (!parsed.pathname.endsWith('.pmtiles')) {
+        throw new Error(`Invalid PMTiles file URL: ${url}. URL must end with .pmtiles`)
+      }
+
+      const filename = url.split('/').pop()
+      if (!filename) {
+        throw new Error('Could not determine filename from URL')
+      }
+
+      // Perform a HEAD request to get the content length
+      const response = await axios.head(url)
+
+      if (response.status !== 200) {
+        throw new Error(`Failed to fetch file info: ${response.status} ${response.statusText}`)
+      }
+
+      const contentLength = response.headers['content-length']
+      const size = contentLength ? parseInt(contentLength, 10) : 0
+
+      return { filename, size }
+    } catch (error) {
+      return { message: `Preflight check failed: ${error.message}` }
+    }
   }
 
   async generateStylesJSON() {

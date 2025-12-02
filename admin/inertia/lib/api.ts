@@ -46,6 +46,31 @@ class API {
     }
   }
 
+  async downloadRemoteMapRegion(url: string) {
+    try {
+      const response = await this.client.post<{ message: string; filename: string; url: string }>(
+        '/maps/download-remote',
+        { url }
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error downloading remote map region:', error)
+      throw error
+    }
+  }
+
+  async downloadRemoteMapRegionPreflight(url: string) {
+    try {
+      const response = await this.client.post<
+        { filename: string; size: number } | { message: string }
+      >('/maps/download-remote-preflight', { url })
+      return response.data
+    } catch (error) {
+      console.error('Error preflighting remote map region download:', error)
+      throw error
+    }
+  }
+
   async listServices() {
     try {
       const response = await this.client.get<Array<ServiceSlim>>('/system/services')
@@ -86,13 +111,32 @@ class API {
     return await this.client.get<ListZimFilesResponse>('/zim/list')
   }
 
-  async listRemoteZimFiles({ start = 0, count = 12 }: { start?: number; count?: number }) {
+  async listRemoteZimFiles({
+    start = 0,
+    count = 12,
+    query,
+  }: {
+    start?: number
+    count?: number
+    query?: string
+  }) {
     return await this.client.get<ListRemoteZimFilesResponse>('/zim/list-remote', {
       params: {
         start,
         count,
+        query,
       },
     })
+  }
+
+  async listActiveZimDownloads(): Promise<string[]> {
+    try {
+      const response = await this.client.get<string[]>('/zim/active-downloads')
+      return response.data
+    } catch (error) {
+      console.error('Error listing active ZIM downloads:', error)
+      throw error
+    }
   }
 
   async downloadRemoteZimFile(url: string): Promise<{

@@ -48,7 +48,7 @@ function StyledTable<T extends { [key: string]: any }>({
   return (
     <div
       className={classNames(
-        'w-full overflow-x-auto bg-white ring-1 ring-gray-300 sm:mx-0 sm:rounded-lg p-3 shadow-md',
+        'w-full overflow-x-auto bg-white ring-1 ring-gray-300 sm:mx-0 sm:rounded-lg p-1 shadow-md',
         className
       )}
       ref={ref}
@@ -107,7 +107,7 @@ function StyledTable<T extends { [key: string]: any }>({
             ))}
           {!loading && data.length === 0 && (
             <tr>
-              <td colSpan={columns.length} className="!text-center ">
+              <td colSpan={columns.length} className="!text-center py-8 text-gray-500">
                 {noDataText}
               </td>
             </tr>

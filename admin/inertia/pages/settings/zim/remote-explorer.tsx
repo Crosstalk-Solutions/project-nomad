@@ -16,6 +16,9 @@ import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import Alert from '~/components/Alert'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
+import Input from '~/components/inputs/Input'
+import { IconSearch } from '@tabler/icons-react'
+import useDebounce from '~/hooks/useDebounce'
 
 export default function ZimRemoteExplorer() {
   const tableParentRef = useRef<HTMLDivElement>(null)
@@ -24,17 +27,26 @@ export default function ZimRemoteExplorer() {
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
   const { isInstalled } = useServiceInstalledStatus('nomad_kiwix_serve')
+  const { debounce } = useDebounce()
+
+  const [query, setQuery] = useState('')
+  const [queryUI, setQueryUI] = useState('')
+
   const [activeDownloads, setActiveDownloads] = useState<
     Map<string, { status: string; progress: number; speed: string }>
   >(new Map<string, { status: string; progress: number; speed: string }>())
 
+  const debouncedSetQuery = debounce((val: string) => {
+    setQuery(val)
+  }, 400)
+
   const { data, fetchNextPage, isFetching, isLoading } =
     useInfiniteQuery<ListRemoteZimFilesResponse>({
-      queryKey: ['remote-zim-files'],
+      queryKey: ['remote-zim-files', query],
       queryFn: async ({ pageParam = 0 }) => {
         const pageParsed = parseInt((pageParam as number).toString(), 10)
         const start = isNaN(pageParsed) ? 0 : pageParsed * 12
-        const res = await api.listRemoteZimFiles({ start, count: 12 })
+        const res = await api.listRemoteZimFiles({ start, count: 12, query: query || undefined })
         return res.data
       },
       initialPageParam: 0,
@@ -166,6 +178,20 @@ export default function ZimRemoteExplorer() {
               className="!mt-6"
             />
           )}
+          <div className="flex justify-start mt-4">
+            <Input
+              name="search"
+              label=""
+              placeholder="Search available ZIM files..."
+              value={queryUI}
+              onChange={(e) => {
+                setQueryUI(e.target.value)
+                debouncedSetQuery(e.target.value)
+              }}
+              className="w-1/3"
+              leftIcon={<IconSearch className="w-5 h-5 text-gray-400" />}
+            />
+          </div>
           <StyledTable<RemoteZimFileEntry & { actions?: any }>
             data={flatData.map((i, idx) => {
               const row = virtualizer.getVirtualItems().find((v) => v.index === idx)

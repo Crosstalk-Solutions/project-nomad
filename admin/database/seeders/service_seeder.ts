@@ -25,27 +25,6 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
     },
     {
-      service_name: DockerService.OPENSTREETMAP_SERVICE_NAME,
-      friendly_name: 'OpenStreetMap Tile Server',
-      description: 'Self-hosted OpenStreetMap tile server',
-      container_image: 'overv/openstreetmap-tile-server',
-      container_command: 'run',
-      container_config: JSON.stringify({
-        HostConfig: {
-          RestartPolicy: { Name: 'unless-stopped' },
-          Binds: [
-            `${DockerService.NOMAD_STORAGE_ABS_PATH}/osm/db:/data/database:rw`,
-            `${DockerService.NOMAD_STORAGE_ABS_PATH}/osm/tiles:/data/tiles:rw`
-          ],
-          PortBindings: { '80/tcp': [{ HostPort: '9000' }] }
-        }
-      }),
-      ui_location: '9000',
-      installed: false,
-      is_dependency_service: false,
-      depends_on: null,
-    },
-    {
       service_name: DockerService.OLLAMA_SERVICE_NAME,
       friendly_name: 'Ollama',
       description: 'Run local LLMs (AI models) with ease on your own hardware',

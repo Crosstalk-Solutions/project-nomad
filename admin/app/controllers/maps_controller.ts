@@ -36,6 +36,14 @@ export default class MapsController {
     }
   }
 
+  // For providing a "preflight" check in the UI before actually starting a background download
+  async downloadRemotePreflight({ request }: HttpContext) {
+    const payload = await request.validateUsing(remoteDownloadValidator)
+    console.log(payload)
+    const info = await this.mapService.downloadRemotePreflight(payload.url)
+    return info
+  }
+
   async listRegions({}: HttpContext) {
     return await this.mapService.listRegions()
   }

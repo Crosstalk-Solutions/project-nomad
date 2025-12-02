@@ -44,9 +44,11 @@ export class ZimService {
   async listRemote({
     start,
     count,
+    query,
   }: {
     start: number
     count: number
+    query?: string
   }): Promise<ListRemoteZimFilesResponse> {
     const LIBRARY_BASE_URL = 'https://browse.library.kiwix.org/catalog/v2/entries'
 
@@ -55,6 +57,7 @@ export class ZimService {
         start: start,
         count: count,
         lang: 'eng',
+        ...(query ? { q: query } : {}),
       },
       responseType: 'text',
     })
@@ -71,7 +74,8 @@ export class ZimService {
       throw new Error('Invalid response format from remote library')
     }
 
-    const filtered = result.feed.entry.filter((entry: any) => {
+    const entries = Array.isArray(result.feed.entry) ? result.feed.entry : [result.feed.entry]
+    const filtered = entries.filter((entry: any) => {
       return isRawRemoteZimFileEntry(entry)
     })
 
@@ -166,7 +170,7 @@ export class ZimService {
     return filename
   }
 
-  getActiveDownloads(): string[] {
+  listActiveDownloads(): string[] {
     return Array.from(this.activeDownloads.keys())
   }
 

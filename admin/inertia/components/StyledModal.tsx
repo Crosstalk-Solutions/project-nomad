@@ -3,11 +3,13 @@ import StyledButton, { StyledButtonProps } from './StyledButton'
 import React from 'react'
 import classNames from '~/lib/classNames'
 
-interface StyledModalProps {
+export type StyledModalProps = {
   onClose?: () => void
   title: string
   cancelText?: string
+  cancelIcon?: StyledButtonProps['icon']
   confirmText?: string
+  confirmIcon?: StyledButtonProps['icon']
   confirmVariant?: StyledButtonProps['variant']
   open: boolean
   onCancel?: () => void
@@ -23,7 +25,9 @@ const StyledModal: React.FC<StyledModalProps> = ({
   open,
   onClose,
   cancelText = 'Cancel',
+  cancelIcon,
   confirmText = 'Confirm',
+  confirmIcon,
   confirmVariant = 'action',
   onCancel,
   onConfirm,
@@ -68,10 +72,11 @@ const StyledModal: React.FC<StyledModalProps> = ({
             <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
               {cancelText && onCancel && (
                 <StyledButton
-                  variant="secondary"
+                  variant="outline"
                   onClick={() => {
                     if (onCancel) onCancel()
                   }}
+                  icon={cancelIcon}
                 >
                   {cancelText}
                 </StyledButton>
@@ -82,6 +87,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
                   onClick={() => {
                     if (onConfirm) onConfirm()
                   }}
+                  icon={confirmIcon}
                 >
                   {confirmText}
                 </StyledButton>

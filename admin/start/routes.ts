@@ -53,6 +53,7 @@ router
     router.get('/preflight', [MapsController, 'checkBaseAssets'])
     router.post('/download-base-assets', [MapsController, 'downloadBaseAssets'])
     router.post('/download-remote', [MapsController, 'downloadRemote'])
+    router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight'])
     router.delete('/:filename', [MapsController, 'delete'])
   })
   .prefix('/api/maps')
@@ -76,6 +77,7 @@ router
   .group(() => {
     router.get('/list', [ZimController, 'list'])
     router.get('/list-remote', [ZimController, 'listRemote'])
+    router.get('/active-downloads', [ZimController, 'listActiveDownloads'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])
     router.delete('/:filename', [ZimController, 'delete'])
   })

@@ -2,13 +2,17 @@ import vine from '@vinejs/vine'
 
 export const remoteDownloadValidator = vine.compile(
   vine.object({
-    url: vine.string().url().trim(),
+    url: vine.string().url({
+      require_tld: false, // Allow local URLs
+    }).trim(),
   })
 )
 
 export const remoteDownloadValidatorOptional = vine.compile(
   vine.object({
-    url: vine.string().url().trim().optional(),
+    url: vine.string().url({
+      require_tld: false, // Allow local URLs
+    }).trim().optional(),
   })
 )
 
