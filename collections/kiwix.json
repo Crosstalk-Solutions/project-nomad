@@ -1,16 +1,31 @@
 {
-    "collections": [
-        {
-            "name": "Medicine Essentials",
-            "slug": "medicine-essentials",
-            "description": "A comprehensive collection of medical textbooks and resources covering various fields of medicine, including anatomy, physiology, pharmacology, pathology, and clinical practice. Ideal for medical students, healthcare professionals, and anyone interested in medical knowledge.",
-            "icon": "IconStethoscope",
-            "language": "en",
-            "urls": [
-                "https://download.kiwix.org/zim/other/zimgit-medicine_en_2024-08.zim",
-                "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
-                "https://download.kiwix.org/zim/zimit/nhs.uk_en_medicines_2025-09.zim"
-            ]
-        }
-    ]
+  "collections": [
+    {
+      "name": "Medicine Essentials",
+      "slug": "medicine-essentials",
+      "description": "A comprehensive collection of medical textbooks and resources covering various fields of medicine, including anatomy, physiology, pharmacology, pathology, and clinical practice. Ideal for medical students, healthcare professionals, and anyone interested in medical knowledge.",
+      "icon": "IconStethoscope",
+      "language": "en",
+      "urls": [
+        "https://download.kiwix.org/zim/other/zimgit-medicine_en_2024-08.zim",
+        "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
+        "https://download.kiwix.org/zim/zimit/nhs.uk_en_medicines_2025-09.zim"
+      ]
+    },
+    {
+      "name": "Prepper's Library",
+      "slug": "preppers-library",
+      "description": "A curated collection of resources for preppers and survivalists, including guides on emergency preparedness, self-sufficiency, first aid, food storage, and survival skills. Perfect for individuals looking to enhance their readiness for various scenarios.",
+      "icon": "IconShieldCheck",
+      "language": "en",
+      "urls": [
+        "https://download.kiwix.org/zim/videos/canadian_prepper_winterprepping_en_2025-11.zim",
+        "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
+        "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2025-11.zim",
+        "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
+        "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutconcepts_en_2025-11.zim",
+        "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim"
+      ]
+    }
+  ]
 }
