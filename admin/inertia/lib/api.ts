@@ -3,6 +3,7 @@ import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zi
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { SystemInformationResponse } from '../../types/system'
+import { CuratedCollectionWithStatus } from '../../types/downloads'
 
 class API {
   private client: AxiosInstance
@@ -129,6 +130,18 @@ class API {
     })
   }
 
+  async listCuratedZimCollections() {
+    try {
+      const response = await this.client.get<CuratedCollectionWithStatus[]>(
+        '/zim/curated-collections'
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error listing curated ZIM collections:', error)
+      throw error
+    }
+  }
+
   async listActiveZimDownloads(): Promise<string[]> {
     try {
       const response = await this.client.get<string[]>('/zim/active-downloads')
@@ -149,6 +162,30 @@ class API {
       return response.data
     } catch (error) {
       console.error('Error downloading remote ZIM file:', error)
+      throw error
+    }
+  }
+
+  async downloadZimCollection(slug: string): Promise<{
+    message: string
+    slug: string
+    resource_count: number
+  }> {
+    try {
+      const response = await this.client.post('/zim/download-collection', { slug })
+      return response.data
+    } catch (error) {
+      console.error('Error downloading ZIM collection:', error)
+      throw error
+    }
+  }
+
+  async fetchLatestZimCollections(): Promise<{ success: boolean }> {
+    try {
+      const response = await this.client.post<{ success: boolean }>('/zim/fetch-latest-collections')
+      return response.data
+    } catch (error) {
+      console.error('Error fetching latest ZIM collections:', error)
       throw error
     }
   }

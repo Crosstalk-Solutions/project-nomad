@@ -98,6 +98,26 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     }
   }
 
+  async function handleAffectAction(record: ServiceSlim, action: 'start' | 'stop' | 'restart') {
+    try {
+      setLoading(true)
+      const response = await api.affectService(record.service_name, action)
+      if (!response.success) {
+        throw new Error(response.message)
+      }
+
+      closeAllModals()
+
+      setTimeout(() => {
+        setLoading(false)
+        window.location.reload() // Reload the page to reflect changes
+      }, 3000) // Add small delay to allow for the action to complete
+    } catch (error) {
+      console.error(`Error affecting service ${record.service_name}:`, error)
+      showError(`Failed to ${action} service: ${error.message || 'Unknown error'}`)
+    }
+  }
+
   const AppActions = ({ record }: { record: ServiceSlim }) => {
     if (!record) return null
     if (!record.installed) {
@@ -114,26 +134,6 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
           </StyledButton>
         </div>
       )
-    }
-
-    async function handleAffectAction(action: 'start' | 'stop' | 'restart') {
-      try {
-        setLoading(true)
-        const response = await api.affectService(record.service_name, action)
-        if (!response.success) {
-          throw new Error(response.message)
-        }
-
-        closeAllModals()
-
-        setTimeout(() => {
-          setLoading(false)
-          window.location.reload() // Reload the page to reflect changes
-        }, 3000) // Add small delay to allow for the action to complete
-      } catch (error) {
-        console.error(`Error affecting service ${record.service_name}:`, error)
-        showError(`Failed to ${action} service: ${error.message || 'Unknown error'}`)
-      }
     }
 
     return (
@@ -156,7 +156,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   <StyledModal
                     title={`${record.status === 'running' ? 'Stop' : 'Start'} Service?`}
                     onConfirm={() =>
-                      handleAffectAction(record.status === 'running' ? 'stop' : 'start')
+                      handleAffectAction(record, record.status === 'running' ? 'stop' : 'start')
                     }
                     onCancel={closeAllModals}
                     open={true}
@@ -183,7 +183,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   openModal(
                     <StyledModal
                       title={'Restart Service?'}
-                      onConfirm={() => handleAffectAction('restart')}
+                      onConfirm={() => handleAffectAction(record, 'restart')}
                       onCancel={closeAllModals}
                       open={true}
                       confirmText={'Restart'}
@@ -227,7 +227,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   title: 'Name',
                   render(record) {
                     return (
-                      <div className='flex flex-col'>
+                      <div className="flex flex-col">
                         <p>{record.friendly_name || record.service_name}</p>
                         <p className="text-sm text-gray-500">{record.description}</p>
                       </div>
@@ -251,7 +251,8 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                 {
                   accessor: 'installed',
                   title: 'Installed',
-                  render: (record) => (record.installed ? <IconCheck className="h-6 w-6 text-desert-green" /> : ''),
+                  render: (record) =>
+                    record.installed ? <IconCheck className="h-6 w-6 text-desert-green" /> : '',
                 },
                 {
                   accessor: 'actions',

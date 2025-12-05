@@ -10,6 +10,7 @@ const MissingBaseAssetsAlert = (props: MissingBaseAssetsAlertProps) => {
     <AlertWithButton
       title="The base map assets have not been installed. Please download them first to enable map functionality."
       type="warning"
+      variant="solid"
       className="!mt-6"
       buttonProps={{
         variant: 'secondary',

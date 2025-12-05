@@ -1,5 +1,9 @@
 import { ZimService } from '#services/zim_service'
-import { filenameValidator, remoteDownloadValidator } from '#validators/common'
+import {
+  downloadCollectionValidator,
+  filenameValidator,
+  remoteDownloadValidator,
+} from '#validators/common'
 import { listRemoteZimValidator } from '#validators/zim'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -29,8 +33,28 @@ export default class ZimController {
     }
   }
 
+  async downloadCollection({ request }: HttpContext) {
+    const payload = await request.validateUsing(downloadCollectionValidator)
+    const resource_count = await this.zimService.downloadCollection(payload.slug)
+
+    return {
+      message: 'Download started successfully',
+      slug: payload.slug,
+      resource_count,
+    }
+  }
+
   async listActiveDownloads({}: HttpContext) {
     return this.zimService.listActiveDownloads()
+  }
+
+  async listCuratedCollections({}: HttpContext) {
+    return this.zimService.listCuratedCollections()
+  }
+
+  async fetchLatestCollections({}: HttpContext) {
+    const success = await this.zimService.fetchLatestCollections()
+    return { success }
   }
 
   async delete({ request, response }: HttpContext) {

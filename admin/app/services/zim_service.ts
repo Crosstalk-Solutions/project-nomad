@@ -18,9 +18,16 @@ import {
   listDirectoryContents,
 } from '../utils/fs.js'
 import { join } from 'path'
+import { CuratedCollectionWithStatus, CuratedCollectionsFile } from '../../types/downloads.js'
+import vine from '@vinejs/vine'
+import { curatedCollectionsFileSchema } from '#validators/curated_collections'
+import CuratedCollection from '#models/curated_collection'
+import CuratedCollectionResource from '#models/curated_collection_resource'
+import { BROADCAST_CHANNELS } from '../../util/broadcast_channels.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const BROADCAST_CHANNEL = 'zim-downloads'
+const COLLECTIONS_URL =
+  'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/kiwix.json'
 
 @inject()
 export class ZimService {
@@ -34,7 +41,8 @@ export class ZimService {
 
     await ensureDirectoryExists(dirPath)
 
-    const files = await listDirectoryContents(dirPath)
+    const all = await listDirectoryContents(dirPath)
+    const files = all.filter((item) => item.name.endsWith('.zim'))
 
     return {
       files,
@@ -74,7 +82,12 @@ export class ZimService {
       throw new Error('Invalid response format from remote library')
     }
 
-    const entries = Array.isArray(result.feed.entry) ? result.feed.entry : [result.feed.entry]
+    const entries = result.feed.entry
+      ? Array.isArray(result.feed.entry)
+        ? result.feed.entry
+        : [result.feed.entry]
+      : []
+
     const filtered = entries.filter((entry: any) => {
       return isRawRemoteZimFileEntry(entry)
     })
@@ -138,36 +151,95 @@ export class ZimService {
       throw new Error(`Download already in progress for URL ${url}`)
     }
 
-    await ensureDirectoryExists(join(process.cwd(), this.zimStoragePath))
-
     // Extract the filename from the URL
     const filename = url.split('/').pop()
     if (!filename) {
       throw new Error('Could not determine filename from URL')
     }
 
-    const path = join(process.cwd(), this.zimStoragePath, filename)
+    const filepath = join(process.cwd(), this.zimStoragePath, filename)
 
     // Don't await the download, run it in the background
     doBackgroundDownload({
       url,
-      path,
-      channel: BROADCAST_CHANNEL,
+      filepath,
+      channel: BROADCAST_CHANNELS.ZIM,
       activeDownloads: this.activeDownloads,
       allowedMimeTypes: ZIM_MIME_TYPES,
       timeout: 30000,
       forceNew: true,
-      onComplete: async () => {
-        // Restart KIWIX container to pick up new ZIM file
-        await this.dockerService
-          .affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart')
-          .catch((error) => {
-            logger.error(`Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
-          })
-      },
+      onComplete: (url, filepath) => this._downloadRemoteSuccessCallback([url], filepath),
     })
 
     return filename
+  }
+
+  async downloadCollection(slug: string): Promise<string[] | null> {
+    const collection = await CuratedCollection.find(slug)
+    if (!collection) {
+      return null
+    }
+
+    const resources = await collection.related('resources').query().where('downloaded', false)
+    if (resources.length === 0) {
+      return null
+    }
+
+    const downloadUrls = resources.map((res) => res.url)
+    const downloadFilenames: string[] = []
+
+    for (const [idx, url] of downloadUrls.entries()) {
+      const existing = this.activeDownloads.get(url)
+      if (existing) {
+        logger.warn(`Download already in progress for URL ${url}, skipping.`)
+        continue
+      }
+
+      // Extract the filename from the URL
+      const filename = url.split('/').pop()
+      if (!filename) {
+        logger.warn(`Could not determine filename from URL ${url}, skipping.`)
+        continue
+      }
+
+      const filepath = join(process.cwd(), this.zimStoragePath, filename)
+      downloadFilenames.push(filename)
+
+      const isLastDownload = idx === downloadUrls.length - 1
+
+      // Don't await the download, run it in the background
+      doBackgroundDownload({
+        url,
+        filepath,
+        channel: BROADCAST_CHANNELS.ZIM,
+        activeDownloads: this.activeDownloads,
+        allowedMimeTypes: ZIM_MIME_TYPES,
+        timeout: 30000,
+        forceNew: true,
+        onComplete: (url, filepath) =>
+          this._downloadRemoteSuccessCallback([url], filepath, isLastDownload),
+      })
+    }
+
+    return downloadFilenames.length > 0 ? downloadFilenames : null
+  }
+
+  async _downloadRemoteSuccessCallback(urls: string[], filepath: string, restart = true) {
+    // Restart KIWIX container to pick up new ZIM file
+    if (restart) {
+      await this.dockerService
+        .affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart')
+        .catch((error) => {
+          logger.error(`Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
+        })
+    }
+
+    // Mark any curated collection resources with this download URL as downloaded
+    const resources = await CuratedCollectionResource.query().whereIn('url', urls)
+    for (const resource of resources) {
+      resource.downloaded = true
+      await resource.save()
+    }
   }
 
   listActiveDownloads(): string[] {
@@ -179,10 +251,50 @@ export class ZimService {
     if (entry) {
       entry.abort()
       this.activeDownloads.delete(url)
-      transmit.broadcast(BROADCAST_CHANNEL, { url, status: 'cancelled' })
+      transmit.broadcast(BROADCAST_CHANNELS.ZIM, { url, status: 'cancelled' })
       return true
     }
     return false
+  }
+
+  async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
+    const collections = await CuratedCollection.query().preload('resources')
+    return collections.map((collection) => ({
+      ...(collection.serialize() as CuratedCollection),
+      all_downloaded: collection.resources.every((res) => res.downloaded),
+    }))
+  }
+
+  async fetchLatestCollections(): Promise<boolean> {
+    try {
+      const response = await axios.get<CuratedCollectionsFile>(COLLECTIONS_URL)
+
+      const validated = await vine.validate({
+        schema: curatedCollectionsFileSchema,
+        data: response.data,
+      })
+
+      for (const collection of validated.collections) {
+        const collectionResult = await CuratedCollection.updateOrCreate(
+          { slug: collection.slug },
+          {
+            ...collection,
+            type: 'zim',
+          }
+        )
+        logger.info(`Upserted curated collection: ${collection.slug}`)
+
+        await collectionResult.related('resources').createMany(collection.resources)
+        logger.info(
+          `Upserted ${collection.resources.length} resources for collection: ${collection.slug}`
+        )
+      }
+
+      return true
+    } catch (error) {
+      logger.error('Failed to download latest Kiwix collections:', error)
+      return false
+    }
   }
 
   async delete(file: string): Promise<void> {

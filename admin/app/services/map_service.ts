@@ -9,17 +9,18 @@ import {
   getFileStatsIfExists,
   deleteFileIfExists,
   getFile,
+  ensureDirectoryExists,
 } from '../utils/fs.js'
 import { join } from 'path'
 import urlJoin from 'url-join'
 import axios from 'axios'
+import { BROADCAST_CHANNELS } from '../../util/broadcast_channels.js'
 
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
   'application/x-gzip',
   'application/octet-stream',
 ]
-const BROADCAST_CHANNEL = 'map-downloads'
 
 const PMTILES_ATTRIBUTION =
   '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>'
@@ -30,6 +31,7 @@ export class MapService {
   private readonly baseStylesFile = 'nomad-base-styles.json'
   private readonly basemapsAssetsDir = 'basemaps-assets'
   private readonly baseAssetsTarFile = 'base-assets.tar.gz'
+  private readonly baseDirPath = join(process.cwd(), this.mapStoragePath)
   private activeDownloads = new Map<string, AbortController>()
 
   async listRegions() {
@@ -43,7 +45,7 @@ export class MapService {
   }
 
   async downloadBaseAssets(url?: string) {
-    const tempTarPath = join(process.cwd(), this.mapStoragePath, this.baseAssetsTarFile)
+    const tempTarPath = join(this.baseDirPath, this.baseAssetsTarFile)
 
     const defaultTarFileURL = new URL(
       this.baseAssetsTarFile,
@@ -54,15 +56,10 @@ export class MapService {
     const resolvedURL = url ? new URL(url) : defaultTarFileURL
     await doResumableDownloadWithRetry({
       url: resolvedURL.toString(),
-      path: tempTarPath,
+      filepath: tempTarPath,
       timeout: 30000,
       max_retries: 2,
       allowedMimeTypes: BASE_ASSETS_MIME_TYPES,
-      onProgress(progress) {
-        console.log(
-          `Downloading: ${progress.downloadedBytes.toFixed(2)}b / ${progress.totalBytes.toFixed(2)}b`
-        )
-      },
       onAttemptError(error, attempt) {
         console.error(`Attempt ${attempt} to download tar file failed: ${error.message}`)
       },
@@ -99,16 +96,16 @@ export class MapService {
       throw new Error('Could not determine filename from URL')
     }
 
-    const path = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
+    const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
     // Don't await the download, run it in the background
     doBackgroundDownload({
       url,
-      path,
+      filepath,
       timeout: 30000,
       allowedMimeTypes: PMTILES_MIME_TYPES,
       forceNew: true,
-      channel: BROADCAST_CHANNEL,
+      channel: BROADCAST_CHANNELS.MAP,
       activeDownloads: this.activeDownloads,
     })
 
@@ -150,7 +147,7 @@ export class MapService {
       throw new Error('Base map assets are missing from storage/maps')
     }
 
-    const baseStylePath = join(process.cwd(), this.mapStoragePath, this.baseStylesFile)
+    const baseStylePath = join(this.baseDirPath, this.baseStylesFile)
     const baseStyle = await getFile(baseStylePath, 'string')
     if (!baseStyle) {
       throw new Error('Base styles file not found in storage/maps')
@@ -189,13 +186,13 @@ export class MapService {
   }
 
   private async listMapStorageItems(): Promise<FileEntry[]> {
-    const dirPath = join(process.cwd(), this.mapStoragePath)
-    return await listDirectoryContents(dirPath)
+    await ensureDirectoryExists(this.baseDirPath)
+    return await listDirectoryContents(this.baseDirPath)
   }
 
   private async listAllMapStorageItems(): Promise<FileEntry[]> {
-    const dirPath = join(process.cwd(), this.mapStoragePath)
-    return await listDirectoryContentsRecursive(dirPath)
+    await ensureDirectoryExists(this.baseDirPath)
+    return await listDirectoryContentsRecursive(this.baseDirPath)
   }
 
   private generateSourcesArray(regions: FileEntry[]): BaseStylesFile['sources'][] {
@@ -261,7 +258,7 @@ export class MapService {
       fileName += '.zim'
     }
 
-    const fullPath = join(process.cwd(), this.mapStoragePath, fileName)
+    const fullPath = join(this.baseDirPath, fileName)
 
     const exists = await getFileStatsIfExists(fullPath)
     if (!exists) {
