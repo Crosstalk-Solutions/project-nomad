@@ -168,7 +168,7 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       timeout: 30000,
       forceNew: true,
-      onComplete: (url, filepath) => this._downloadRemoteSuccessCallback([url], filepath),
+      onComplete: (url) => this._downloadRemoteSuccessCallback([url]),
     })
 
     return filename
@@ -216,15 +216,15 @@ export class ZimService {
         allowedMimeTypes: ZIM_MIME_TYPES,
         timeout: 30000,
         forceNew: true,
-        onComplete: (url, filepath) =>
-          this._downloadRemoteSuccessCallback([url], filepath, isLastDownload),
+        onComplete: (url) =>
+          this._downloadRemoteSuccessCallback([url], isLastDownload),
       })
     }
 
     return downloadFilenames.length > 0 ? downloadFilenames : null
   }
 
-  async _downloadRemoteSuccessCallback(urls: string[], filepath: string, restart = true) {
+  async _downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Restart KIWIX container to pick up new ZIM file
     if (restart) {
       await this.dockerService
