@@ -18,6 +18,7 @@ services:
       - DRIVE_DISK=fs
       - APP_KEY=secretlongpasswordsecret
       - HOST=0.0.0.0
+      - URL=$HOST$PORT
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=nomad
