@@ -95,15 +95,15 @@ ensure_docker_installed_and_running() {
 }
 
 ensure_docker_compose_file_exists() {
-  if [ ! -f "/opt/project-nomad/docker-compose-management.yml" ]; then
-    echo -e "${RED}#${RESET} docker-compose-management.yml file not found. Please ensure it exists at /opt/project-nomad/docker-compose-management.yml."
+  if [ ! -f "/opt/project-nomad/compose.yml" ]; then
+    echo -e "${RED}#${RESET} compose.yml file not found. Please ensure it exists at /opt/project-nomad/compose.yml."
     exit 1
   fi
 }
 
 force_recreate() {
   echo -e "${YELLOW}#${RESET} Forcing recreation of containers..."
-  docker-compose -f /opt/project-nomad/docker-compose-management.yml up -d --force-recreate
+  docker-compose -f /opt/project-nomad/compose.yml up -d --force-recreate
 }
 
 get_local_ip() {

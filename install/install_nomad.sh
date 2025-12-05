@@ -227,7 +227,7 @@ create_nomad_directory(){
 }
 
 download_management_compose_file() {
-  local compose_file_path="${NOMAD_DIR}/docker-compose-management.yml"
+  local compose_file_path="${NOMAD_DIR}/compose.yml"
 
   echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
   if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
@@ -289,7 +289,7 @@ download_helper_scripts() {
 
 start_management_containers() {
   echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
-  if ! sudo docker compose -f "${NOMAD_DIR}/docker-compose-management.yml" up -d; then
+  if ! sudo docker compose -f "${NOMAD_DIR}/compose.yml" up -d; then
     echo -e "${RED}#${RESET} Failed to start management containers. Please check the logs and try again."
     exit 1
   fi
