@@ -1,13 +1,21 @@
 import { RawListRemoteZimFilesResponse, RawRemoteZimFileEntry } from '../types/zim.js'
 
 export function isRawListRemoteZimFilesResponse(obj: any): obj is RawListRemoteZimFilesResponse {
-  return (
-    obj &&
-    typeof obj === 'object' &&
-    'feed' in obj &&
-    'entry' in obj.feed &&
-    typeof obj.feed.entry === 'object' // could be array or single object but typeof array is technically 'object'
-  )
+  if (!(obj && typeof obj === 'object' && 'feed' in obj)) {
+    return false
+  }
+  if (!obj.feed || typeof obj.feed !== 'object') {
+    return false
+  }
+  if (!('entry' in obj.feed)) {
+    return true // entry is optional and may be missing if there are no results
+  }
+
+  if ('entry' in obj.feed && typeof obj.feed.entry !== 'object') {
+    return false // If entry exists, it must be an object or array
+  }
+
+  return true
 }
 
 export function isRawRemoteZimFileEntry(obj: any): obj is RawRemoteZimFileEntry {

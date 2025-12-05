@@ -1,4 +1,10 @@
-import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import api from '~/lib/api'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -19,9 +25,17 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Input from '~/components/inputs/Input'
 import { IconSearch } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
+import CuratedCollectionCard from '~/components/CuratedCollectionCard'
+import StyledSectionHeader from '~/components/StyledSectionHeader'
+import { CuratedCollectionWithStatus } from '../../../../types/downloads'
+import { BROADCAST_CHANNELS } from '../../../../util/broadcast_channels'
+
+const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
 
 export default function ZimRemoteExplorer() {
+  const queryClient = useQueryClient()
   const tableParentRef = useRef<HTMLDivElement>(null)
+
   const { subscribe } = useTransmit()
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
@@ -31,7 +45,6 @@ export default function ZimRemoteExplorer() {
 
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
-
   const [activeDownloads, setActiveDownloads] = useState<
     Map<string, { status: string; progress: number; speed: string }>
   >(new Map<string, { status: string; progress: number; speed: string }>())
@@ -39,6 +52,36 @@ export default function ZimRemoteExplorer() {
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
   }, 400)
+
+  useEffect(() => {
+    const unsubscribe = subscribe(BROADCAST_CHANNELS.ZIM, (data: any) => {
+      if (data.url && data.progress?.percentage) {
+        setActiveDownloads((prev) =>
+          new Map(prev).set(data.url, {
+            status: data.status,
+            progress: data.progress.percentage || 0,
+            speed: data.progress.speed || '0 KB/s',
+          })
+        )
+        if (data.status === 'completed') {
+          addNotification({
+            message: `The download for ${data.url} has completed successfully.`,
+            type: 'success',
+          })
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  const { data: curatedCollections } = useQuery({
+    queryKey: [CURATED_COLLECTIONS_KEY],
+    queryFn: () => api.listCuratedZimCollections(),
+    refetchOnWindowFocus: false,
+  })
 
   const { data, fetchNextPage, isFetching, isLoading } =
     useInfiniteQuery<ListRemoteZimFilesResponse>({
@@ -68,12 +111,17 @@ export default function ZimRemoteExplorer() {
       if (parentRef) {
         const { scrollHeight, scrollTop, clientHeight } = parentRef
         //once the user has scrolled within 200px of the bottom of the table, fetch more data if we can
-        if (scrollHeight - scrollTop - clientHeight < 200 && !isFetching && hasMore) {
+        if (
+          scrollHeight - scrollTop - clientHeight < 200 &&
+          !isFetching &&
+          hasMore &&
+          flatData.length > 0
+        ) {
           fetchNextPage()
         }
       }
     },
-    [fetchNextPage, isFetching, hasMore]
+    [fetchNextPage, isFetching, hasMore, flatData.length]
   )
 
   const virtualizer = useVirtualizer({
@@ -88,12 +136,24 @@ export default function ZimRemoteExplorer() {
     fetchOnBottomReached(tableParentRef.current)
   }, [fetchOnBottomReached])
 
-  async function confirmDownload(record: RemoteZimFileEntry) {
+  async function confirmDownload(record: RemoteZimFileEntry | CuratedCollectionWithStatus) {
+    const isCollection = 'resources' in record
     openModal(
       <StyledModal
         title="Confirm Download?"
         onConfirm={() => {
-          downloadFile(record)
+          if (isCollection) {
+            if (record.all_downloaded) {
+              addNotification({
+                message: `All resources in the collection "${record.name}" have already been downloaded.`,
+                type: 'info',
+              })
+              return
+            }
+            downloadCollection(record)
+          } else {
+            downloadFile(record)
+          }
           closeAllModals()
         }}
         onCancel={closeAllModals}
@@ -103,8 +163,9 @@ export default function ZimRemoteExplorer() {
         confirmVariant="primary"
       >
         <p className="text-gray-700">
-          Are you sure you want to download <strong>{record.title}</strong>? It may take some time
-          for it to be available depending on the file size and your internet connection. The Kiwix
+          Are you sure you want to download{' '}
+          <strong>{isCollection ? record.name : record.title}</strong>? It may take some time for it
+          to be available depending on the file size and your internet connection. The Kiwix
           application will be restarted after the download is complete.
         </p>
       </StyledModal>,
@@ -112,35 +173,19 @@ export default function ZimRemoteExplorer() {
     )
   }
 
-  useEffect(() => {
-    const unsubscribe = subscribe('zim-downloads', (data: any) => {
-      if (data.url && data.progress?.percentage) {
-        setActiveDownloads((prev) =>
-          new Map(prev).set(data.url, {
-            status: data.status,
-            progress: data.progress.percentage || 0,
-            speed: data.progress.speed || '0 KB/s',
-          })
-        )
-        if (data.status === 'completed') {
-          addNotification({
-            message: `The download for ${data.url} has completed successfully.`,
-            type: 'success',
-          })
-        }
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
-
   async function downloadFile(record: RemoteZimFileEntry) {
     try {
       await api.downloadRemoteZimFile(record.download_url)
     } catch (error) {
       console.error('Error downloading file:', error)
+    }
+  }
+
+  async function downloadCollection(record: CuratedCollectionWithStatus) {
+    try {
+      await api.downloadZimCollection(record.slug)
+    } catch (error) {
+      console.error('Error downloading collection:', error)
     }
   }
 
@@ -152,15 +197,35 @@ export default function ZimRemoteExplorer() {
     [activeDownloads]
   )
 
+  const fetchLatestCollections = useMutation({
+    mutationFn: () => api.fetchLatestZimCollections(),
+    onSuccess: () => {
+      addNotification({
+        message: 'Successfully fetched the latest ZIM collections.',
+        type: 'success',
+      })
+      queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
+    },
+  })
+
   return (
     <SettingsLayout>
       <Head title="ZIM Remote Explorer | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-2">ZIM Remote Explorer</h1>
-          <p className="text-gray-500">
-            Browse and download remote ZIM files from the Kiwix repository!
-          </p>
+          <div className="flex justify-between items-center">
+            <div className="flex flex-col">
+              <h1 className="text-4xl font-semibold mb-2">ZIM Remote Explorer</h1>
+              <p className="text-gray-500">Browse and download ZIM files for offline reading!</p>
+            </div>
+            <StyledButton
+              onClick={() => fetchLatestCollections.mutate()}
+              disabled={fetchLatestCollections.isPending}
+              icon="CloudArrowDownIcon"
+            >
+              Fetch Latest Collections
+            </StyledButton>
+          </div>
           {!isOnline && (
             <Alert
               title="No internet connection. You may not be able to download files."
@@ -178,6 +243,17 @@ export default function ZimRemoteExplorer() {
               className="!mt-6"
             />
           )}
+          <StyledSectionHeader title="Curated ZIM Collections" className="mt-8 mb-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {curatedCollections?.map((collection) => (
+              <CuratedCollectionCard
+                key={collection.slug}
+                collection={collection}
+                onClick={(collection) => confirmDownload(collection)}
+              />
+            ))}
+          </div>
+          <StyledSectionHeader title="Browse the Kiwix Library" className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">
             <Input
               name="search"

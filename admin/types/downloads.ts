@@ -1,6 +1,13 @@
+export type DoSimpleDownloadParams = {
+  url: string
+  filepath: string
+  timeout: number
+  signal?: AbortSignal
+}
+
 export type DoResumableDownloadParams = {
   url: string
-  path: string
+  filepath: string
   timeout: number
   allowedMimeTypes: string[]
   signal?: AbortSignal
@@ -29,4 +36,26 @@ export type DoBackgroundDownloadParams = Omit<
   channel: string
   activeDownloads: Map<string, AbortController>
   onComplete?: (url: string, path: string) => void | Promise<void>
+}
+
+export type CuratedCollection = {
+  name: string
+  slug: string
+  description: string
+  icon: string
+  language: string
+  resources: {
+    title: string
+    description: string
+    size_mb: number
+    url: string
+  }[]
+}
+
+export type CuratedCollectionWithStatus = CuratedCollection & {
+  all_downloaded: boolean
+}
+
+export type CuratedCollectionsFile = {
+  collections: CuratedCollection[]
 }

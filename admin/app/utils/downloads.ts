@@ -3,15 +3,44 @@ import {
   DoResumableDownloadParams,
   DoResumableDownloadProgress,
   DoResumableDownloadWithRetryParams,
+  DoSimpleDownloadParams,
 } from '../../types/downloads.js'
 import axios from 'axios'
 import { Transform } from 'stream'
-import { deleteFileIfExists, getFileStatsIfExists } from './fs.js'
+import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from './fs.js'
 import { createWriteStream } from 'fs'
 import { formatSpeed } from './misc.js'
 import { DownloadProgress } from '../../types/files.js'
 import transmit from '@adonisjs/transmit/services/main'
 import logger from '@adonisjs/core/services/logger'
+import path from 'path'
+
+export async function doSimpleDownload({
+  url,
+  filepath,
+  timeout = 30000,
+  signal,
+}: DoSimpleDownloadParams): Promise<string> {
+  const dirname = path.dirname(filepath)
+  await ensureDirectoryExists(dirname)
+
+  const response = await axios.get(url, {
+    responseType: 'stream',
+    signal,
+    timeout,
+  })
+  const writer = createWriteStream(filepath)
+  response.data.pipe(writer)
+
+  return new Promise((resolve, reject) => {
+    writer.on('finish', () => {
+      resolve(filepath)
+    })
+    writer.on('error', (error) => {
+      reject(error)
+    })
+  })
+}
 
 /**
  * Perform a resumable download with progress tracking
@@ -21,20 +50,21 @@ import logger from '@adonisjs/core/services/logger'
  */
 export async function doResumableDownload({
   url,
-  path,
+  filepath,
   timeout = 30000,
   signal,
   onProgress,
   forceNew = false,
   allowedMimeTypes,
 }: DoResumableDownloadParams): Promise<string> {
+  const dirname = path.dirname(filepath)
+  await ensureDirectoryExists(dirname)
+
   // Check if partial file exists for resume
   let startByte = 0
   let appendMode = false
 
-  console.log(`Starting download from ${url} to ${path}`)
-  console.log('Checking for existing file to resume...')
-  const existingStats = await getFileStatsIfExists(path)
+  const existingStats = await getFileStatsIfExists(filepath)
   if (existingStats && !forceNew) {
     startByte = existingStats.size
     appendMode = true
@@ -58,14 +88,14 @@ export async function doResumableDownload({
     }
   }
 
-  // If file is already complete and not forcing overwrite just return path
+  // If file is already complete and not forcing overwrite just return filepath
   if (startByte === totalBytes && totalBytes > 0 && !forceNew) {
-    return path
+    return filepath
   }
 
   // If server doesn't support range requests and we have a partial file, delete it
   if (!supportsRangeRequests && startByte > 0) {
-    await deleteFileIfExists(path)
+    await deleteFileIfExists(filepath)
     startByte = 0
     appendMode = false
   }
@@ -115,7 +145,7 @@ export async function doResumableDownload({
       },
     })
 
-    const writeStream = createWriteStream(path, {
+    const writeStream = createWriteStream(filepath, {
       flags: appendMode ? 'a' : 'w',
     })
 
@@ -148,7 +178,7 @@ export async function doResumableDownload({
           url,
         })
       }
-      resolve(path)
+      resolve(filepath)
     })
 
     // Pipe: response -> progressStream -> writeStream
@@ -158,7 +188,7 @@ export async function doResumableDownload({
 
 export async function doResumableDownloadWithRetry({
   url,
-  path,
+  filepath,
   signal,
   timeout = 30000,
   onProgress,
@@ -167,6 +197,9 @@ export async function doResumableDownloadWithRetry({
   onAttemptError,
   allowedMimeTypes,
 }: DoResumableDownloadWithRetryParams): Promise<string> {
+  const dirname = path.dirname(filepath)
+  await ensureDirectoryExists(dirname)
+
   let attempt = 0
   let lastError: Error | null = null
 
@@ -174,7 +207,7 @@ export async function doResumableDownloadWithRetry({
     try {
       const result = await doResumableDownload({
         url,
-        path,
+        filepath,
         signal,
         timeout,
         allowedMimeTypes,
@@ -212,15 +245,18 @@ export async function doResumableDownloadWithRetry({
 }
 
 export async function doBackgroundDownload(params: DoBackgroundDownloadParams): Promise<void> {
-  const { url, path, channel, activeDownloads, onComplete, ...restParams } = params
+  const { url, filepath, channel, activeDownloads, onComplete, ...restParams } = params
 
   try {
+    const dirname = path.dirname(filepath)
+    await ensureDirectoryExists(dirname)
+
     const abortController = new AbortController()
     activeDownloads.set(url, abortController)
 
     await doResumableDownloadWithRetry({
       url,
-      path,
+      filepath,
       signal: abortController.signal,
       ...restParams,
       onProgress: (progressData) => {
@@ -228,10 +264,10 @@ export async function doBackgroundDownload(params: DoBackgroundDownloadParams): 
       },
     })
 
-    sendCompletedBroadcast(channel, url, path)
+    sendCompletedBroadcast(channel, url, filepath)
 
     if (onComplete) {
-      await onComplete(url, path)
+      await onComplete(url, filepath)
     }
   } catch (error) {
     logger.error(`Background download failed for ${url}: ${error.message}`)

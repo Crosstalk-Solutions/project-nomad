@@ -43,7 +43,7 @@ export type RawListRemoteZimFilesResponse = {
     totalResults: number
     startIndex: number
     itemsPerPage: number
-    entry: RawRemoteZimFileEntry | RawRemoteZimFileEntry[]
+    entry?: RawRemoteZimFileEntry | RawRemoteZimFileEntry[]
   }
 }
 
