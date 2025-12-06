@@ -16,14 +16,14 @@ services:
       - PORT=8080
       - LOG_LEVEL=debug
       - DRIVE_DISK=fs
-      - APP_KEY=secretlongpasswordsecret
-      - HOST=0.0.0.0
-      - URL=http://localhost:8080
+      - APP_KEY=replaceme
+      - HOST=replaceme
+      - URL=replaceme
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
-      - DB_PASSWORD=nomad_password
+      - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
     depends_on:
@@ -53,10 +53,10 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=secretpassword
+      - MYSQL_ROOT_PASSWORD=replaceme
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
-      - MYSQL_PASSWORD=nomad_password
+      - MYSQL_PASSWORD=replaceme
     volumes:
       - /opt/project-nomad/mysql:/var/lib/mysql
     healthcheck:
