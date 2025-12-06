@@ -1,11 +1,11 @@
 import Service from '#models/service'
 import Docker from 'dockerode'
-import drive from '@adonisjs/drive/services/main'
-import axios from 'axios'
 import logger from '@adonisjs/core/services/logger'
 import { inject } from '@adonisjs/core'
 import { ServiceStatus } from '../../types/services.js'
 import transmit from '@adonisjs/transmit/services/main'
+import { doSimpleDownload } from '../utils/downloads.js'
+import path from 'path'
 
 @inject()
 export class DockerService {
@@ -330,8 +330,9 @@ export class DockerService {
      * We'll download the lightweight mini Wikipedia Top 100 zim file for this purpose.
      **/
     const WIKIPEDIA_ZIM_URL =
-      'https://github.com/Crosstalk-Solutions/project-nomad/blob/master/install/wikipedia_en_100_mini_2025-06.zim'
-    const PATH = '/zim/wikipedia_en_100_mini_2025-06.zim'
+      'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/install/wikipedia_en_100_mini_2025-06.zim'
+    const zimPath = '/zim/wikipedia_en_100_mini_2025-06.zim'
+    const filepath = path.join(DockerService.NOMAD_STORAGE_ABS_PATH, zimPath)
 
     this._broadcast(
       DockerService.KIWIX_SERVICE_NAME,
@@ -343,23 +344,17 @@ export class DockerService {
       'preinstall',
       `Downloading Wikipedia ZIM file from ${WIKIPEDIA_ZIM_URL}. This may take some time...`
     )
-    const response = await axios.get(WIKIPEDIA_ZIM_URL, {
-      responseType: 'stream',
-    })
 
-    const stream = response.data
-    stream.on('error', (error: Error) => {
-      logger.error(`Error downloading Wikipedia ZIM file: ${error.message}`)
-      throw error
+    await doSimpleDownload({
+      url: WIKIPEDIA_ZIM_URL,
+      filepath,
+      timeout: 60000,
     })
-
-    const disk = drive.use('fs')
-    await disk.putStream(PATH, stream)
 
     this._broadcast(
       DockerService.KIWIX_SERVICE_NAME,
       'preinstall',
-      `Downloaded Wikipedia ZIM file to ${PATH}`
+      `Downloaded Wikipedia ZIM file to ${filepath}`
     )
   }
 
