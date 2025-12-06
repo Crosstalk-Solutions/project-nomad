@@ -39,7 +39,7 @@ WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/
 
 script_option_debug='true'
 accepted_terms='false'
-local_ip=''
+local_ip_address=''
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -96,6 +96,16 @@ check_is_debug_mode(){
   else
     clear; clear
   fi
+}
+
+generateRandomPass() {
+  local length="${1:-32}"  # Default to 32
+  local password
+  
+  # Generate random password using /dev/urandom
+  password=$(tr -dc 'A-Za-z0-9!@#$%^&*()_+=-' < /dev/urandom | head -c "$length")
+  
+  echo "$password"
 }
 
 ensure_docker_installed() {
@@ -235,6 +245,22 @@ download_management_compose_file() {
     exit 1
   fi
   echo -e "${GREEN}#${RESET} Docker compose file downloaded successfully to $compose_file_path.\\n"
+
+  local app_key=$(generateRandomPass 32)
+  local db_root_password=$(generateRandomPass 16)
+  local db_user_password=$(generateRandomPass 16)
+
+  # Inject dynamic env values into the compose file
+  echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
+  sed -i "s|HOST=replaceme|HOST=${local_ip_address}|g" "$compose_file_path"
+  sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
+  sed -i "s|APP_KEY=replaceme|APP_KEY=${app_key}|g" "$compose_file_path"
+  
+  sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
+  sed -i "s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g" "$compose_file_path"
+  sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
+  
+  echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
 
 download_wait_for_it_script() {
@@ -300,7 +326,7 @@ get_local_ip() {
   local_ip_address=$(hostname -I | awk '{print $1}')
   if [[ -z "$local_ip_address" ]]; then
     echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
-    # Don't exit if we can't determine the local IP address, it's not critical for the installation
+    exit 1
   fi
 }
 
@@ -328,13 +354,13 @@ check_is_debug_mode
 get_install_confirmation
 accept_terms
 ensure_docker_installed
+get_local_ip
 create_nomad_directory
 download_wait_for_it_script
 download_entrypoint_script
 download_helper_scripts
 download_management_compose_file
 start_management_containers
-get_local_ip
 success_message
 
 # free_space_check() {
