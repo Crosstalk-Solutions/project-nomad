@@ -333,6 +333,7 @@ export class DockerService {
       'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/install/wikipedia_en_100_mini_2025-06.zim'
     const zimPath = '/zim/wikipedia_en_100_mini_2025-06.zim'
     const filepath = path.join(DockerService.NOMAD_STORAGE_ABS_PATH, zimPath)
+    logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
 
     this._broadcast(
       DockerService.KIWIX_SERVICE_NAME,
@@ -345,17 +346,26 @@ export class DockerService {
       `Downloading Wikipedia ZIM file from ${WIKIPEDIA_ZIM_URL}. This may take some time...`
     )
 
-    await doSimpleDownload({
-      url: WIKIPEDIA_ZIM_URL,
-      filepath,
-      timeout: 60000,
-    })
+    try {
+      await doSimpleDownload({
+        url: WIKIPEDIA_ZIM_URL,
+        filepath,
+        timeout: 60000,
+      })
 
-    this._broadcast(
-      DockerService.KIWIX_SERVICE_NAME,
-      'preinstall',
-      `Downloaded Wikipedia ZIM file to ${filepath}`
-    )
+      this._broadcast(
+        DockerService.KIWIX_SERVICE_NAME,
+        'preinstall',
+        `Downloaded Wikipedia ZIM file to ${filepath}`
+      )
+    } catch (error) {
+      this._broadcast(
+        DockerService.KIWIX_SERVICE_NAME,
+        'preinstall-error',
+        `Failed to download Wikipedia ZIM file: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
   }
 
   private _broadcast(service: string, status: string, message: string) {
