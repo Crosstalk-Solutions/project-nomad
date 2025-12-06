@@ -252,7 +252,6 @@ download_management_compose_file() {
 
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
-  sed -i "s|HOST=replaceme|HOST=${local_ip_address}|g" "$compose_file_path"
   sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
   sed -i "s|APP_KEY=replaceme|APP_KEY=${app_key}|g" "$compose_file_path"
   

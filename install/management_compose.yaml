@@ -17,7 +17,7 @@ services:
       - LOG_LEVEL=debug
       - DRIVE_DISK=fs
       - APP_KEY=replaceme
-      - HOST=replaceme
+      - HOST=0.0.0.0
       - URL=replaceme
       - DB_HOST=mysql
       - DB_PORT=3306
