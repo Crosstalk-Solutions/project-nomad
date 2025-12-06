@@ -103,7 +103,7 @@ generateRandomPass() {
   local password
   
   # Generate random password using /dev/urandom
-  password=$(tr -dc 'A-Za-z0-9!@#$%^&*()_+=-' < /dev/urandom | head -c "$length")
+  password=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
   
   echo "$password"
 }
@@ -246,9 +246,9 @@ download_management_compose_file() {
   fi
   echo -e "${GREEN}#${RESET} Docker compose file downloaded successfully to $compose_file_path.\\n"
 
-  local app_key=$(generateRandomPass 32)
-  local db_root_password=$(generateRandomPass 16)
-  local db_user_password=$(generateRandomPass 16)
+  local app_key=$(generateRandomPass)
+  local db_root_password=$(generateRandomPass)
+  local db_user_password=$(generateRandomPass)
 
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
