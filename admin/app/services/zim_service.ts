@@ -6,11 +6,9 @@ import {
 import axios from 'axios'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
-import transmit from '@adonisjs/transmit/services/main'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
 import { inject } from '@adonisjs/core'
-import { doBackgroundDownload } from '../utils/downloads.js'
 import {
   deleteFileIfExists,
   ensureDirectoryExists,
@@ -23,7 +21,7 @@ import vine from '@vinejs/vine'
 import { curatedCollectionsFileSchema } from '#validators/curated_collections'
 import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
-import { BROADCAST_CHANNELS } from '../../util/broadcast_channels.js'
+import { RunDownloadJob } from '#jobs/run_download_job'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const COLLECTIONS_URL =
@@ -32,7 +30,6 @@ const COLLECTIONS_URL =
 @inject()
 export class ZimService {
   private zimStoragePath = '/storage/zim'
-  private activeDownloads = new Map<string, AbortController>()
 
   constructor(private dockerService: DockerService) {}
 
@@ -140,15 +137,15 @@ export class ZimService {
     }
   }
 
-  async downloadRemote(url: string): Promise<string> {
+  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`)
     }
 
-    const existing = this.activeDownloads.get(url)
+    const existing = await RunDownloadJob.getByUrl(url)
     if (existing) {
-      throw new Error(`Download already in progress for URL ${url}`)
+      throw new Error('A download for this URL is already in progress')
     }
 
     // Extract the filename from the URL
@@ -159,19 +156,26 @@ export class ZimService {
 
     const filepath = join(process.cwd(), this.zimStoragePath, filename)
 
-    // Don't await the download, run it in the background
-    doBackgroundDownload({
+    // Dispatch a background download job
+    const result = await RunDownloadJob.dispatch({
       url,
       filepath,
-      channel: BROADCAST_CHANNELS.ZIM,
-      activeDownloads: this.activeDownloads,
-      allowedMimeTypes: ZIM_MIME_TYPES,
       timeout: 30000,
+      allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
-      onComplete: (url) => this._downloadRemoteSuccessCallback([url]),
+      filetype: 'zim',
     })
 
-    return filename
+    if (!result || !result.job) {
+      throw new Error('Failed to dispatch download job')
+    }
+
+    logger.info(`[ZimService] Dispatched background download job for ZIM file: ${filename}`)
+
+    return {
+      filename,
+      jobId: result.job.id,
+    }
   }
 
   async downloadCollection(slug: string): Promise<string[] | null> {
@@ -188,49 +192,43 @@ export class ZimService {
     const downloadUrls = resources.map((res) => res.url)
     const downloadFilenames: string[] = []
 
-    for (const [idx, url] of downloadUrls.entries()) {
-      const existing = this.activeDownloads.get(url)
+    for (const url of downloadUrls) {
+      const existing = await RunDownloadJob.getByUrl(url)
       if (existing) {
-        logger.warn(`Download already in progress for URL ${url}, skipping.`)
+        logger.warn(`[ZimService] Download already in progress for URL ${url}, skipping.`)
         continue
       }
 
       // Extract the filename from the URL
       const filename = url.split('/').pop()
       if (!filename) {
-        logger.warn(`Could not determine filename from URL ${url}, skipping.`)
+        logger.warn(`[ZimService] Could not determine filename from URL ${url}, skipping.`)
         continue
       }
 
-      const filepath = join(process.cwd(), this.zimStoragePath, filename)
       downloadFilenames.push(filename)
+      const filepath = join(process.cwd(), this.zimStoragePath, filename)
 
-      const isLastDownload = idx === downloadUrls.length - 1
-
-      // Don't await the download, run it in the background
-      doBackgroundDownload({
+      await RunDownloadJob.dispatch({
         url,
         filepath,
-        channel: BROADCAST_CHANNELS.ZIM,
-        activeDownloads: this.activeDownloads,
-        allowedMimeTypes: ZIM_MIME_TYPES,
         timeout: 30000,
+        allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
-        onComplete: (url) =>
-          this._downloadRemoteSuccessCallback([url], isLastDownload),
+        filetype: 'zim',
       })
     }
 
     return downloadFilenames.length > 0 ? downloadFilenames : null
   }
 
-  async _downloadRemoteSuccessCallback(urls: string[], restart = true) {
+  async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Restart KIWIX container to pick up new ZIM file
     if (restart) {
       await this.dockerService
         .affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart')
         .catch((error) => {
-          logger.error(`Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
+          logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
         })
     }
 
@@ -240,21 +238,6 @@ export class ZimService {
       resource.downloaded = true
       await resource.save()
     }
-  }
-
-  listActiveDownloads(): string[] {
-    return Array.from(this.activeDownloads.keys())
-  }
-
-  cancelDownload(url: string): boolean {
-    const entry = this.activeDownloads.get(url)
-    if (entry) {
-      entry.abort()
-      this.activeDownloads.delete(url)
-      transmit.broadcast(BROADCAST_CHANNELS.ZIM, { url, status: 'cancelled' })
-      return true
-    }
-    return false
   }
 
   async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
@@ -282,17 +265,17 @@ export class ZimService {
             type: 'zim',
           }
         )
-        logger.info(`Upserted curated collection: ${collection.slug}`)
+        logger.info(`[ZimService] Upserted curated collection: ${collection.slug}`)
 
         await collectionResult.related('resources').createMany(collection.resources)
         logger.info(
-          `Upserted ${collection.resources.length} resources for collection: ${collection.slug}`
+          `[ZimService] Upserted ${collection.resources.length} resources for collection: ${collection.slug}`
         )
       }
 
       return true
     } catch (error) {
-      logger.error('Failed to download latest Kiwix collections:', error)
+      logger.error(`[ZimService] Failed to download latest Kiwix collections:`, error)
       return false
     }
   }

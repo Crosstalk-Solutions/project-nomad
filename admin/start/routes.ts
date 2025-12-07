@@ -7,6 +7,7 @@
 |
 */
 import DocsController from '#controllers/docs_controller'
+import DownloadsController from '#controllers/downloads_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
 import SettingsController from '#controllers/settings_controller'
@@ -66,6 +67,13 @@ router
 
 router
   .group(() => {
+    router.get('/jobs', [DownloadsController, 'index'])
+    router.get('/jobs/:filetype', [DownloadsController, 'filetype'])
+  })
+  .prefix('/api/downloads')
+
+router
+  .group(() => {
     router.get('/info', [SystemController, 'getSystemInfo'])
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
@@ -77,7 +85,6 @@ router
   .group(() => {
     router.get('/list', [ZimController, 'list'])
     router.get('/list-remote', [ZimController, 'listRemote'])
-    router.get('/active-downloads', [ZimController, 'listActiveDownloads'])
     router.get('/curated-collections', [ZimController, 'listCuratedCollections'])
     router.post('/fetch-latest-collections', [ZimController, 'fetchLatestCollections'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])

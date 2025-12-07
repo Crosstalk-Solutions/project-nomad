@@ -1,6 +1,6 @@
 import { MapService } from '#services/map_service'
 import {
-  filenameValidator,
+  filenameParamValidator,
   remoteDownloadValidator,
   remoteDownloadValidatorOptional,
 } from '#validators/common'
@@ -53,14 +53,14 @@ export default class MapsController {
   }
 
   async delete({ request, response }: HttpContext) {
-    const payload = await request.validateUsing(filenameValidator)
+    const payload = await request.validateUsing(filenameParamValidator)
 
     try {
-      await this.mapService.delete(payload.filename)
+      await this.mapService.delete(payload.params.filename)
     } catch (error) {
       if (error.message === 'not_found') {
         return response.status(404).send({
-          message: `Map file with key ${payload.filename} not found`,
+          message: `Map file with key ${payload.params.filename} not found`,
         })
       }
       throw error // Re-throw any other errors and let the global error handler catch

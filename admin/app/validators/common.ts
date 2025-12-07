@@ -23,9 +23,11 @@ export const remoteDownloadValidatorOptional = vine.compile(
   })
 )
 
-export const filenameValidator = vine.compile(
+export const filenameParamValidator = vine.compile(
   vine.object({
-    filename: vine.string().trim().minLength(1).maxLength(4096),
+    params: vine.object({
+      filename: vine.string().trim().minLength(1).maxLength(4096),
+    }),
   })
 )
 

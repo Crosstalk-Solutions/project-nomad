@@ -3,7 +3,7 @@ import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zi
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { SystemInformationResponse } from '../../types/system'
-import { CuratedCollectionWithStatus } from '../../types/downloads'
+import { CuratedCollectionWithStatus, DownloadJobWithProgress } from '../../types/downloads'
 
 class API {
   private client: AxiosInstance
@@ -142,16 +142,6 @@ class API {
     }
   }
 
-  async listActiveZimDownloads(): Promise<string[]> {
-    try {
-      const response = await this.client.get<string[]>('/zim/active-downloads')
-      return response.data
-    } catch (error) {
-      console.error('Error listing active ZIM downloads:', error)
-      throw error
-    }
-  }
-
   async downloadRemoteZimFile(url: string): Promise<{
     message: string
     filename: string
@@ -206,6 +196,17 @@ class API {
       return response.data
     } catch (error) {
       console.error('Error fetching system info:', error)
+      throw error
+    }
+  }
+
+  async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
+    try {
+      const endpoint = filetype ? `/downloads/jobs/${filetype}` : '/downloads/jobs'
+      const response = await this.client.get<DownloadJobWithProgress[]>(endpoint)
+      return response.data
+    } catch (error) {
+      console.error('Error listing download jobs:', error)
       throw error
     }
   }

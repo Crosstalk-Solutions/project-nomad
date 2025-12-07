@@ -15,7 +15,6 @@ services:
       - NODE_ENV=production
       - PORT=8080
       - LOG_LEVEL=debug
-      - DRIVE_DISK=fs
       - APP_KEY=replaceme
       - HOST=0.0.0.0
       - URL=replaceme
@@ -28,6 +27,8 @@ services:
       - DB_SSL=false
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     healthcheck:
@@ -61,6 +62,19 @@ services:
       - /opt/project-nomad/mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  redis:
+    image: redis:7-alpine
+    container_name: nomad_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - /opt/project-nomad/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3

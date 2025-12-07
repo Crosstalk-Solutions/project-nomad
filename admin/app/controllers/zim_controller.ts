@@ -1,7 +1,7 @@
 import { ZimService } from '#services/zim_service'
 import {
   downloadCollectionValidator,
-  filenameValidator,
+  filenameParamValidator,
   remoteDownloadValidator,
 } from '#validators/common'
 import { listRemoteZimValidator } from '#validators/zim'
@@ -24,11 +24,12 @@ export default class ZimController {
 
   async downloadRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadValidator)
-    const filename = await this.zimService.downloadRemote(payload.url)
+    const { filename, jobId } = await this.zimService.downloadRemote(payload.url)
 
     return {
       message: 'Download started successfully',
       filename,
+      jobId,
       url: payload.url,
     }
   }
@@ -44,10 +45,6 @@ export default class ZimController {
     }
   }
 
-  async listActiveDownloads({}: HttpContext) {
-    return this.zimService.listActiveDownloads()
-  }
-
   async listCuratedCollections({}: HttpContext) {
     return this.zimService.listCuratedCollections()
   }
@@ -58,14 +55,14 @@ export default class ZimController {
   }
 
   async delete({ request, response }: HttpContext) {
-    const payload = await request.validateUsing(filenameValidator)
+    const payload = await request.validateUsing(filenameParamValidator)
 
     try {
-      await this.zimService.delete(payload.filename)
+      await this.zimService.delete(payload.params.filename)
     } catch (error) {
       if (error.message === 'not_found') {
         return response.status(404).send({
-          message: `ZIM file with key ${payload.filename} not found`,
+          message: `ZIM file with key ${payload.params.filename} not found`,
         })
       }
       throw error // Re-throw any other errors and let the global error handler catch

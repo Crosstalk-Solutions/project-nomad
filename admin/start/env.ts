@@ -26,13 +26,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   */
   //SESSION_DRIVER: Env.schema.enum(['cookie', 'memory'] as const),
 
-  /*
-  |----------------------------------------------------------
-  | Variables for configuring the drive package
-  |----------------------------------------------------------
-  */
-  DRIVE_DISK: Env.schema.enum(['fs'] as const),
-
 
   /*
   |----------------------------------------------------------
@@ -45,4 +38,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   DB_PASSWORD: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string(),
   DB_SSL: Env.schema.boolean.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring the Redis connection
+  |----------------------------------------------------------
+  */
+  REDIS_HOST: Env.schema.string({ format: 'host' }),
+  REDIS_PORT: Env.schema.number(),
 })

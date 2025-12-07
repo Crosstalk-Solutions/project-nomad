@@ -4,7 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import { inject } from '@adonisjs/core'
 import { ServiceStatus } from '../../types/services.js'
 import transmit from '@adonisjs/transmit/services/main'
-import { doSimpleDownload } from '../utils/downloads.js'
+import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import path from 'path'
 
 @inject()
@@ -347,10 +347,15 @@ export class DockerService {
     )
 
     try {
-      await doSimpleDownload({
+      await doResumableDownloadWithRetry({
         url: WIKIPEDIA_ZIM_URL,
         filepath,
         timeout: 60000,
+        allowedMimeTypes: [
+          'application/x-zim',
+          'application/x-openzim',
+          'application/octet-stream',
+        ],
       })
 
       this._broadcast(

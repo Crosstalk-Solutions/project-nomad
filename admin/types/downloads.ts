@@ -12,6 +12,7 @@ export type DoResumableDownloadParams = {
   allowedMimeTypes: string[]
   signal?: AbortSignal
   onProgress?: (progress: DoResumableDownloadProgress) => void
+  onComplete?: (url: string, path: string) => void | Promise<void>
   forceNew?: boolean
 }
 
@@ -27,15 +28,6 @@ export type DoResumableDownloadProgress = {
   lastProgressTime: number
   lastDownloadedBytes: number
   url: string
-}
-
-export type DoBackgroundDownloadParams = Omit<
-  DoResumableDownloadWithRetryParams,
-  'onProgress' | 'onAttemptError' | 'signal'
-> & {
-  channel: string
-  activeDownloads: Map<string, AbortController>
-  onComplete?: (url: string, path: string) => void | Promise<void>
 }
 
 export type CuratedCollection = {
@@ -58,4 +50,19 @@ export type CuratedCollectionWithStatus = CuratedCollection & {
 
 export type CuratedCollectionsFile = {
   collections: CuratedCollection[]
+}
+
+export type RunDownloadJobParams = Omit<
+  DoResumableDownloadParams,
+  'onProgress' | 'onComplete' | 'signal'
+> & {
+  filetype: string
+}
+
+export type DownloadJobWithProgress = {
+  jobId: string
+  url: string
+  progress: number
+  filepath: string
+  filetype: string
 }

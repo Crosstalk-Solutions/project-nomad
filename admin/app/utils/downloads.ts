@@ -1,7 +1,5 @@
 import {
-  DoBackgroundDownloadParams,
   DoResumableDownloadParams,
-  DoResumableDownloadProgress,
   DoResumableDownloadWithRetryParams,
   DoSimpleDownloadParams,
 } from '../../types/downloads.js'
@@ -9,9 +7,6 @@ import axios, { AxiosResponse } from 'axios'
 import { Transform } from 'stream'
 import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from './fs.js'
 import { createWriteStream } from 'fs'
-import { formatSpeed } from './misc.js'
-import { DownloadProgress } from '../../types/files.js'
-import transmit from '@adonisjs/transmit/services/main'
 import logger from '@adonisjs/core/services/logger'
 import path from 'path'
 
@@ -86,6 +81,7 @@ export async function doResumableDownload({
   timeout = 30000,
   signal,
   onProgress,
+  onComplete,
   forceNew = false,
   allowedMimeTypes,
 }: DoResumableDownloadParams): Promise<string> {
@@ -200,7 +196,7 @@ export async function doResumableDownload({
       cleanup(new Error('Download aborted'))
     })
 
-    writeStream.on('finish', () => {
+    writeStream.on('finish', async () => {
       if (onProgress) {
         onProgress({
           downloadedBytes,
@@ -209,6 +205,9 @@ export async function doResumableDownload({
           lastDownloadedBytes: downloadedBytes,
           url,
         })
+      }
+      if (onComplete) {
+        await onComplete(url, filepath)
       }
       resolve(filepath)
     })
@@ -274,82 +273,6 @@ export async function doResumableDownloadWithRetry({
 
   // should not reach here, but TypeScript needs a return
   throw lastError || new Error('Unknown error during download')
-}
-
-export async function doBackgroundDownload(params: DoBackgroundDownloadParams): Promise<void> {
-  const { url, filepath, channel, activeDownloads, onComplete, ...restParams } = params
-
-  try {
-    const dirname = path.dirname(filepath)
-    await ensureDirectoryExists(dirname)
-
-    const abortController = new AbortController()
-    activeDownloads.set(url, abortController)
-
-    await doResumableDownloadWithRetry({
-      url,
-      filepath,
-      signal: abortController.signal,
-      ...restParams,
-      onProgress: (progressData) => {
-        sendProgressBroadcast(channel, progressData)
-      },
-    })
-
-    sendCompletedBroadcast(channel, url, filepath)
-
-    if (onComplete) {
-      await onComplete(url, filepath)
-    }
-  } catch (error) {
-    logger.error(`Background download failed for ${url}: ${error.message}`)
-    sendErrorBroadcast(channel, url, error.message)
-  } finally {
-    activeDownloads.delete(url)
-  }
-}
-
-export function sendProgressBroadcast(
-  channel: string,
-  progressData: DoResumableDownloadProgress,
-  status = 'in_progress'
-) {
-  const { downloadedBytes, totalBytes, lastProgressTime, lastDownloadedBytes, url } = progressData
-  const now = Date.now()
-  const timeDiff = (now - lastProgressTime) / 1000
-  const bytesDiff = downloadedBytes - lastDownloadedBytes
-  const rawSpeed = timeDiff > 0 ? bytesDiff / timeDiff : 0
-  const timeRemaining = rawSpeed > 0 ? (totalBytes - downloadedBytes) / rawSpeed : 0
-  const speed = formatSpeed(rawSpeed)
-
-  const progress: DownloadProgress = {
-    downloaded_bytes: downloadedBytes,
-    total_bytes: totalBytes,
-    percentage: totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0,
-    speed,
-    time_remaining: timeRemaining,
-  }
-
-  transmit.broadcast(channel, { url, progress, status })
-}
-
-export function sendCompletedBroadcast(channel: string, url: string, path: string) {
-  transmit.broadcast(channel, {
-    url,
-    path,
-    status: 'completed',
-    progress: {
-      downloaded_bytes: 0,
-      total_bytes: 0,
-      percentage: 100,
-      speed: '0 B/s',
-      time_remaining: 0,
-    },
-  })
-}
-
-export function sendErrorBroadcast(channel: string, url: string, errorMessage: string) {
-  transmit.broadcast(channel, { url, error: errorMessage, status: 'failed' })
 }
 
 async function delay(ms: number): Promise<void> {

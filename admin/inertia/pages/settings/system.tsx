@@ -3,7 +3,7 @@ import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
 import { formatBytes } from '~/lib/util'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
-import HorizontalBarChart from '~/components/systeminfo/HorizontalBarChart'
+import HorizontalBarChart from '~/components/HorizontalBarChart'
 import InfoCard from '~/components/systeminfo/InfoCard'
 import {
   CpuChipIcon,
@@ -195,7 +195,27 @@ export default function SettingsPage(props: {
 
             <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
               {diskData && diskData.length > 0 ? (
-                <HorizontalBarChart items={diskData} />
+                <HorizontalBarChart
+                  items={diskData}
+                  progressiveBarColor={true}
+                  statuses={[
+                    {
+                      label: 'Normal',
+                      min_threshold: 0,
+                      color_class: 'bg-desert-olive',
+                    },
+                    {
+                      label: 'Warning - Usage High',
+                      min_threshold: 75,
+                      color_class: 'bg-desert-orange',
+                    },
+                    {
+                      label: 'Critical - Disk Almost Full',
+                      min_threshold: 90,
+                      color_class: 'bg-desert-red',
+                    },
+                  ]}
+                />
               ) : (
                 <div className="text-center text-desert-stone-dark py-8">
                   No storage devices detected

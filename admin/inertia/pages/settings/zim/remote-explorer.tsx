@@ -16,8 +16,6 @@ import { formatBytes } from '~/lib/util'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
-import { useTransmit } from 'react-adonis-transmit'
-import ProgressBar from '~/components/ProgressBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import Alert from '~/components/Alert'
@@ -28,7 +26,8 @@ import useDebounce from '~/hooks/useDebounce'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { CuratedCollectionWithStatus } from '../../../../types/downloads'
-import { BROADCAST_CHANNELS } from '../../../../util/broadcast_channels'
+import useDownloads from '~/hooks/useDownloads'
+import HorizontalBarChart from '~/components/HorizontalBarChart'
 
 const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
 
@@ -36,7 +35,6 @@ export default function ZimRemoteExplorer() {
   const queryClient = useQueryClient()
   const tableParentRef = useRef<HTMLDivElement>(null)
 
-  const { subscribe } = useTransmit()
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
@@ -45,42 +43,20 @@ export default function ZimRemoteExplorer() {
 
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
-  const [activeDownloads, setActiveDownloads] = useState<
-    Map<string, { status: string; progress: number; speed: string }>
-  >(new Map<string, { status: string; progress: number; speed: string }>())
 
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
   }, 400)
 
-  useEffect(() => {
-    const unsubscribe = subscribe(BROADCAST_CHANNELS.ZIM, (data: any) => {
-      if (data.url && data.progress?.percentage) {
-        setActiveDownloads((prev) =>
-          new Map(prev).set(data.url, {
-            status: data.status,
-            progress: data.progress.percentage || 0,
-            speed: data.progress.speed || '0 KB/s',
-          })
-        )
-        if (data.status === 'completed') {
-          addNotification({
-            message: `The download for ${data.url} has completed successfully.`,
-            type: 'success',
-          })
-        }
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
-
   const { data: curatedCollections } = useQuery({
     queryKey: [CURATED_COLLECTIONS_KEY],
     queryFn: () => api.listCuratedZimCollections(),
     refetchOnWindowFocus: false,
+  })
+
+  const { data: downloads, invalidate: invalidateDownloads } = useDownloads({
+    filetype: 'zim',
+    enabled: true,
   })
 
   const { data, fetchNextPage, isFetching, isLoading } =
@@ -103,7 +79,17 @@ export default function ZimRemoteExplorer() {
       placeholderData: keepPreviousData,
     })
 
-  const flatData = useMemo(() => data?.pages.flatMap((page) => page.items) || [], [data])
+  const flatData = useMemo(() => {
+    const mapped = data?.pages.flatMap((page) => page.items) || []
+    // remove items that are currently downloading
+    return mapped.filter((item) => {
+      const isDownloading = downloads?.some((download) => {
+        const filename = item.download_url.split('/').pop()
+        return filename && download.filepath.endsWith(filename)
+      })
+      return !isDownloading
+    })
+  }, [data, downloads])
   const hasMore = useMemo(() => data?.pages[data.pages.length - 1]?.has_more || false, [data])
 
   const fetchOnBottomReached = useCallback(
@@ -176,6 +162,7 @@ export default function ZimRemoteExplorer() {
   async function downloadFile(record: RemoteZimFileEntry) {
     try {
       await api.downloadRemoteZimFile(record.download_url)
+      invalidateDownloads()
     } catch (error) {
       console.error('Error downloading file:', error)
     }
@@ -184,18 +171,11 @@ export default function ZimRemoteExplorer() {
   async function downloadCollection(record: CuratedCollectionWithStatus) {
     try {
       await api.downloadZimCollection(record.slug)
+      invalidateDownloads()
     } catch (error) {
       console.error('Error downloading collection:', error)
     }
   }
-
-  const EntryProgressBar = useCallback(
-    ({ url }: { url: string }) => {
-      const entry = activeDownloads.get(url)
-      return <ProgressBar progress={entry?.progress || 0} speed={entry?.speed} />
-    },
-    [activeDownloads]
-  )
 
   const fetchLatestCollections = useMutation({
     mutationFn: () => api.fetchLatestZimCollections(),
@@ -207,6 +187,17 @@ export default function ZimRemoteExplorer() {
       queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
     },
   })
+
+  const extractFileName = (path: string) => {
+    if (!path) return ''
+    if (path.includes('/')) {
+      return path.substring(path.lastIndexOf('/') + 1)
+    }
+    if (path.includes('\\')) {
+      return path.substring(path.lastIndexOf('\\') + 1)
+    }
+    return path
+  }
 
   return (
     <SettingsLayout>
@@ -307,20 +298,16 @@ export default function ZimRemoteExplorer() {
               {
                 accessor: 'actions',
                 render(record) {
-                  const isDownloading = activeDownloads.has(record.download_url)
                   return (
                     <div className="flex space-x-2">
-                      {!isDownloading && (
-                        <StyledButton
-                          icon={'ArrowDownTrayIcon'}
-                          onClick={() => {
-                            confirmDownload(record)
-                          }}
-                        >
-                          Download
-                        </StyledButton>
-                      )}
-                      {isDownloading && <EntryProgressBar url={record.download_url} />}
+                      <StyledButton
+                        icon={'ArrowDownTrayIcon'}
+                        onClick={() => {
+                          confirmDownload(record)
+                        }}
+                      >
+                        Download
+                      </StyledButton>
                     </div>
                   )
                 },
@@ -337,6 +324,28 @@ export default function ZimRemoteExplorer() {
             compact
             rowLines
           />
+          <StyledSectionHeader title="Active Downloads" className="mt-12 mb-4" />
+          <div className="space-y-4">
+            {downloads && downloads.length > 0 ? (
+              downloads.map((download) => (
+                <div className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+                  <HorizontalBarChart
+                    items={[
+                      {
+                        label: extractFileName(download.filepath) || download.url,
+                        value: download.progress,
+                        total: '100%',
+                        used: `${download.progress}%`,
+                        type: download.filetype,
+                      },
+                    ]}
+                  />
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">No active downloads</p>
+            )}
+          </div>
         </main>
       </div>
     </SettingsLayout>

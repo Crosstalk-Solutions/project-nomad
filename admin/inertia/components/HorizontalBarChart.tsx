@@ -8,11 +8,23 @@ interface HorizontalBarChartProps {
     used: string
     type?: string
   }>
-  maxValue?: number
+  statuses?: Array<{
+    label: string
+    min_threshold: number
+    color_class: string
+  }>
+  progressiveBarColor?: boolean
 }
 
-export default function HorizontalBarChart({ items, maxValue = 100 }: HorizontalBarChartProps) {
+export default function HorizontalBarChart({
+  items,
+  statuses,
+  progressiveBarColor = false,
+}: HorizontalBarChartProps) {
+  const sortedStatus = statuses?.sort((a, b) => b.min_threshold - a.min_threshold) || []
+
   const getBarColor = (value: number) => {
+    if (!progressiveBarColor) return 'bg-desert-green'
     if (value >= 90) return 'bg-desert-red'
     if (value >= 75) return 'bg-desert-orange'
     if (value >= 50) return 'bg-desert-tan'
@@ -24,6 +36,26 @@ export default function HorizontalBarChart({ items, maxValue = 100 }: Horizontal
     if (value >= 75) return 'shadow-desert-orange/50'
     if (value >= 50) return 'shadow-desert-tan/50'
     return 'shadow-desert-olive/50'
+  }
+
+  const getStatusLabel = (value: number) => {
+    if (sortedStatus.length === 0) return ''
+    for (const status of sortedStatus) {
+      if (value >= status.min_threshold) {
+        return status.label
+      }
+    }
+    return ''
+  }
+
+  const getStatusColor = (value: number) => {
+    if (sortedStatus.length === 0) return ''
+    for (const status of sortedStatus) {
+      if (value >= status.min_threshold) {
+        return status.color_class
+      }
+    }
+    return ''
   }
 
   return (
@@ -56,28 +88,7 @@ export default function HorizontalBarChart({ items, maxValue = 100 }: Horizontal
                   width: `${item.value}%`,
                   animationDelay: `${index * 100}ms`,
                 }}
-              >
-                {/* Animated shine effect */}
-                {/* <div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-shimmer"
-                  style={{
-                    animation: 'shimmer 3s infinite',
-                    animationDelay: `${index * 0.5}s`,
-                  }}
-                /> */}
-                {/* <div
-                  className="absolute inset-0 opacity-10"
-                  style={{
-                    backgroundImage: `repeating-linear-gradient(
-                      90deg,
-                      transparent,
-                      transparent 10px,
-                      rgba(255, 255, 255, 0.1) 10px,
-                      rgba(255, 255, 255, 0.1) 11px
-                    )`,
-                  }}
-                /> */}
-              </div>
+              ></div>
             </div>
             <div
               className={classNames(
@@ -90,25 +101,17 @@ export default function HorizontalBarChart({ items, maxValue = 100 }: Horizontal
               {Math.round(item.value)}%
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={classNames(
-                'w-2 h-2 rounded-full animate-pulse',
-                item.value >= 90
-                  ? 'bg-desert-red'
-                  : item.value >= 75
-                    ? 'bg-desert-orange'
-                    : 'bg-desert-olive'
-              )}
-            />
-            <span className="text-xs text-desert-stone">
-              {item.value >= 90
-                ? 'Critical - Disk Almost Full'
-                : item.value >= 75
-                  ? 'Warning - Usage High'
-                  : 'Normal'}
-            </span>
-          </div>
+          {getStatusLabel(item.value) && (
+            <div className="flex items-center gap-2">
+              <div
+                className={classNames(
+                  'w-2 h-2 rounded-full animate-pulse',
+                  getStatusColor(item.value)
+                )}
+              />
+              <span className="text-xs text-desert-stone">{getStatusLabel(item.value)}</span>
+            </div>
+          )}
         </div>
       ))}
     </div>

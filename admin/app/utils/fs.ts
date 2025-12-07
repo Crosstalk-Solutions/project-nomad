@@ -1,9 +1,7 @@
 import { mkdir, readdir, readFile, stat, unlink } from 'fs/promises'
 import { join } from 'path'
-import { DriveDisks } from '@adonisjs/drive/types'
-import driveConfig from '#config/drive'
-import app from '@adonisjs/core/services/app'
 import { FileEntry } from '../../types/files.js'
+import { createReadStream } from 'fs'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
@@ -56,14 +54,22 @@ export async function ensureDirectoryExists(path: string): Promise<void> {
 }
 
 export async function getFile(path: string, returnType: 'buffer'): Promise<Buffer | null>
+export async function getFile(
+  path: string,
+  returnType: 'stream'
+): Promise<NodeJS.ReadableStream | null>
 export async function getFile(path: string, returnType: 'string'): Promise<string | null>
-export async function getFile(path: string, returnType: 'buffer' | 'string' = 'buffer'): Promise<Buffer | string | null> {
+export async function getFile(
+  path: string,
+  returnType: 'buffer' | 'string' | 'stream' = 'buffer'
+): Promise<Buffer | string | NodeJS.ReadableStream | null> {
   try {
-    if (returnType === 'buffer') {
-      return await readFile(path)
-    } else {
+    if (returnType === 'string') {
       return await readFile(path, 'utf-8')
+    } else if (returnType === 'stream') {
+      return createReadStream(path)
     }
+    return await readFile(path)
   } catch (error) {
     if (error.code === 'ENOENT') {
       return null
@@ -97,19 +103,4 @@ export async function deleteFileIfExists(path: string): Promise<void> {
       throw error
     }
   }
-}
-
-export async function getFullDrivePath(diskName: keyof DriveDisks): Promise<string> {
-  const config = await driveConfig.resolver(app)
-  const serviceConfig = config.config.services[diskName]
-  const resolved = serviceConfig()
-  if (!resolved) {
-    throw new Error(`Disk ${diskName} not configured`)
-  }
-
-  let path = resolved.options.location
-  if (path instanceof URL) {
-    return path.pathname
-  }
-  return path
 }

@@ -1,6 +1,6 @@
 import { BaseStylesFile, MapLayer } from '../../types/maps.js'
 import { FileEntry } from '../../types/files.js'
-import { doBackgroundDownload, doResumableDownloadWithRetry } from '../utils/downloads.js'
+import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { extract } from 'tar'
 import env from '#start/env'
 import {
@@ -14,7 +14,8 @@ import {
 import { join } from 'path'
 import urlJoin from 'url-join'
 import axios from 'axios'
-import { BROADCAST_CHANNELS } from '../../util/broadcast_channels.js'
+import { RunDownloadJob } from '#jobs/run_download_job'
+import logger from '@adonisjs/core/services/logger'
 
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
@@ -32,7 +33,6 @@ export class MapService {
   private readonly basemapsAssetsDir = 'basemaps-assets'
   private readonly baseAssetsTarFile = 'base-assets.tar.gz'
   private readonly baseDirPath = join(process.cwd(), this.mapStoragePath)
-  private activeDownloads = new Map<string, AbortController>()
 
   async listRegions() {
     const files = (await this.listAllMapStorageItems()).filter(
@@ -80,13 +80,13 @@ export class MapService {
     return true
   }
 
-  async downloadRemote(url: string): Promise<string> {
+  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.pmtiles')) {
       throw new Error(`Invalid PMTiles file URL: ${url}. URL must end with .pmtiles`)
     }
 
-    const existing = this.activeDownloads.get(url)
+    const existing = await RunDownloadJob.getByUrl(url)
     if (existing) {
       throw new Error(`Download already in progress for URL ${url}`)
     }
@@ -98,18 +98,26 @@ export class MapService {
 
     const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
-    // Don't await the download, run it in the background
-    doBackgroundDownload({
+    // Dispatch background job
+    const result = await RunDownloadJob.dispatch({
       url,
       filepath,
       timeout: 30000,
       allowedMimeTypes: PMTILES_MIME_TYPES,
       forceNew: true,
-      channel: BROADCAST_CHANNELS.MAP,
-      activeDownloads: this.activeDownloads,
+      filetype: 'pmtiles',
     })
 
-    return filename
+    if (!result.job) {
+      throw new Error('Failed to dispatch download job')
+    }
+
+    logger.info(`[MapService] Dispatched download job ${result.job.id} for URL ${url}`)
+
+    return {
+      filename,
+      jobId: result.job?.id,
+    }
   }
 
   async downloadRemotePreflight(
