@@ -25,6 +25,8 @@ services:
       - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
     depends_on:
       mysql:
         condition: service_healthy
