@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, stat, unlink } from 'fs/promises'
 import { join } from 'path'
 import { FileEntry } from '../../types/files.js'
 import { createReadStream } from 'fs'
+import { LSBlockDevice, NomadDiskInfoRaw } from '../../types/system.js'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
@@ -103,4 +104,48 @@ export async function deleteFileIfExists(path: string): Promise<void> {
       throw error
     }
   }
+}
+
+export function getAllFilesystems(
+  device: LSBlockDevice,
+  fsSize: NomadDiskInfoRaw['fsSize']
+): NomadDiskInfoRaw['fsSize'] {
+  const filesystems: NomadDiskInfoRaw['fsSize'] = []
+  const seen = new Set()
+
+  function traverse(dev: LSBlockDevice) {
+    // Try to find matching filesystem
+    const fs = fsSize.find((f) => matchesDevice(f.fs, dev.name))
+
+    if (fs && !seen.has(fs.fs)) {
+      filesystems.push(fs)
+      seen.add(fs.fs)
+    }
+
+    // Traverse children recursively
+    if (dev.children) {
+      dev.children.forEach((child) => traverse(child))
+    }
+  }
+
+  traverse(device)
+  return filesystems
+}
+
+export function matchesDevice(fsPath: string, deviceName: string): boolean {
+  // Remove /dev/ and /dev/mapper/ prefixes
+  const normalized = fsPath.replace('/dev/mapper/', '').replace('/dev/', '')
+
+  // Direct match
+  if (normalized === deviceName) {
+    return true
+  }
+
+  // LVM volumes use dashes instead of slashes
+  // e.g., ubuntu--vg-ubuntu--lv matches the device name
+  if (fsPath.includes(deviceName)) {
+    return true
+  }
+
+  return false
 }

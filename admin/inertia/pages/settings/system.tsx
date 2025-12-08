@@ -32,19 +32,6 @@ export default function SettingsPage(props: {
 
   const uptimeMinutes = info?.uptime.uptime ? Math.floor(info.uptime.uptime / 60) : 0
 
-  const diskData = info?.disk.map((disk) => {
-    const usedBytes = (disk.size || 0) * 0.65 // Estimate - you'd get this from mount points
-    const usedPercent = disk.size ? (usedBytes / disk.size) * 100 : 0
-
-    return {
-      label: disk.name || 'Unknown',
-      value: usedPercent,
-      total: formatBytes(disk.size || 0),
-      used: formatBytes(usedBytes),
-      type: disk.type,
-    }
-  })
-
   return (
     <SettingsLayout>
       <Head title="System Information" />
@@ -194,9 +181,17 @@ export default function SettingsPage(props: {
             </h2>
 
             <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
-              {diskData && diskData.length > 0 ? (
+              {info?.disk && info.disk.length > 0 ? (
                 <HorizontalBarChart
-                  items={diskData}
+                  items={info.disk.map((disk) => ({
+                    label: disk.name || 'Unknown',
+                    value: disk.percentUsed || 0,
+                    total: disk.totalSize ? formatBytes(disk.totalSize) : 'N/A',
+                    used: disk.totalUsed ? formatBytes(disk.totalUsed) : 'N/A',
+                    subtext: `${formatBytes(disk.totalUsed || 0)} / ${formatBytes(
+                      disk.totalSize || 0
+                    )}`,
+                  }))}
                   progressiveBarColor={true}
                   statuses={[
                     {
