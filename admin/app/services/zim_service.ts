@@ -14,6 +14,7 @@ import {
   ensureDirectoryExists,
   getFileStatsIfExists,
   listDirectoryContents,
+  ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
 import { join } from 'path'
 import { CuratedCollectionWithStatus, CuratedCollectionsFile } from '../../types/downloads.js'
@@ -29,13 +30,10 @@ const COLLECTIONS_URL =
 
 @inject()
 export class ZimService {
-  private zimStoragePath = '/storage/zim'
-
   constructor(private dockerService: DockerService) {}
 
   async list() {
-    const dirPath = join(process.cwd(), this.zimStoragePath)
-
+    const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
     await ensureDirectoryExists(dirPath)
 
     const all = await listDirectoryContents(dirPath)
@@ -154,7 +152,7 @@ export class ZimService {
       throw new Error('Could not determine filename from URL')
     }
 
-    const filepath = join(process.cwd(), this.zimStoragePath, filename)
+    const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
     // Dispatch a background download job
     const result = await RunDownloadJob.dispatch({
@@ -207,7 +205,7 @@ export class ZimService {
       }
 
       downloadFilenames.push(filename)
-      const filepath = join(process.cwd(), this.zimStoragePath, filename)
+      const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
       await RunDownloadJob.dispatch({
         url,
@@ -286,7 +284,7 @@ export class ZimService {
       fileName += '.zim'
     }
 
-    const fullPath = join(process.cwd(), this.zimStoragePath, fileName)
+    const fullPath = join(process.cwd(), ZIM_STORAGE_PATH, fileName)
 
     const exists = await getFileStatsIfExists(fullPath)
     if (!exists) {

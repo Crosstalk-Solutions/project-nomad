@@ -4,6 +4,8 @@ import { FileEntry } from '../../types/files.js'
 import { createReadStream } from 'fs'
 import { LSBlockDevice, NomadDiskInfoRaw } from '../../types/system.js'
 
+export const ZIM_STORAGE_PATH = '/storage/zim'
+
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
   const results: FileEntry[] = []
