@@ -4,17 +4,18 @@ import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { ModelAttributes } from '@adonisjs/lucid/types/model'
 
 export default class ServiceSeeder extends BaseSeeder {
+  private static NOMAD_STORAGE_ABS_PATH = '/opt/project-nomad/storage'
   private static DEFAULT_SERVICES: Omit<ModelAttributes<Service>, 'created_at' | 'updated_at' | 'metadata' | 'id'>[] = [
     {
       service_name: DockerService.KIWIX_SERVICE_NAME,
       friendly_name: 'Kiwix',
       description: 'Offline Wikipedia, eBooks, and more',
-      container_image: 'ghcr.io/kiwix/kiwix-serve',
-      container_command: '*.zim --address=0.0.0.0',
+      container_image: 'ghcr.io/kiwix/kiwix-serve:3.8.1',
+      container_command: '*.zim --address=all',
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/zim:/data`],
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/zim:/data`],
           PortBindings: { '8080/tcp': [{ HostPort: '8090' }] }
         },
         ExposedPorts: { '8080/tcp': {} }
@@ -33,7 +34,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/ollama:/root/.ollama`],
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/ollama:/root/.ollama`],
           PortBindings: { '11434/tcp': [{ HostPort: '11434' }] }
         },
         ExposedPorts: { '11434/tcp': {} }
@@ -53,7 +54,7 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: 'host',
-          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`]
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`]
         },
         Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434']
       }),
@@ -90,7 +91,7 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { '8080/tcp': [{ HostPort: '8200' }] },
-          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/flatnotes:/data`]
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/flatnotes:/data`]
         },
         ExposedPorts: { '8080/tcp': {} },
         Env: ['FLATNOTES_AUTH_TYPE=none']
@@ -110,7 +111,7 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { '8080/tcp': [{ HostPort: '8300' }] },
-          Binds: [`${DockerService.NOMAD_STORAGE_ABS_PATH}/kolibri:/root/.kolibri`]
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/kolibri:/root/.kolibri`]
         },
         ExposedPorts: { '8080/tcp': {} },
       }),

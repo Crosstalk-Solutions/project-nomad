@@ -1,73 +1,12 @@
 import {
   DoResumableDownloadParams,
   DoResumableDownloadWithRetryParams,
-  DoSimpleDownloadParams,
 } from '../../types/downloads.js'
-import axios, { AxiosResponse } from 'axios'
+import axios from 'axios'
 import { Transform } from 'stream'
 import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from './fs.js'
 import { createWriteStream } from 'fs'
-import logger from '@adonisjs/core/services/logger'
 import path from 'path'
-
-export async function doSimpleDownload({
-  url,
-  filepath,
-  timeout = 30000,
-  signal,
-}: DoSimpleDownloadParams): Promise<string> {
-  return new Promise(async (resolve, reject) => {
-    let response: AxiosResponse<any> | undefined
-    let writer: ReturnType<typeof createWriteStream> | undefined
-
-    const cleanup = (err?: Error) => {
-      try {
-        response?.data?.destroy?.()
-      } catch {}
-      try {
-        writer?.destroy?.()
-      } catch {}
-      if (err) {
-        try {
-          logger.error(`Download failed for ${url}: ${err.message}`)
-        } catch {}
-        reject(err)
-      }
-    }
-
-    try {
-      const dirname = path.dirname(filepath)
-      await ensureDirectoryExists(dirname)
-
-      response = await axios.get(url, {
-        responseType: 'stream',
-        signal,
-        timeout,
-      })
-
-      writer = createWriteStream(filepath)
-      response?.data.pipe(writer)
-
-      response?.data.on('error', cleanup)
-      writer?.on('error', cleanup)
-
-      writer?.on('finish', () => {
-        cleanup()
-        resolve(filepath)
-      })
-
-      signal?.addEventListener(
-        'abort',
-        () => {
-          cleanup(new Error('Download aborted'))
-        },
-        { once: true }
-      )
-    } catch (error) {
-      cleanup(error as Error)
-    }
-  })
-}
 
 /**
  * Perform a resumable download with progress tracking

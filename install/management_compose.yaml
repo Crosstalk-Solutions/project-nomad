@@ -1,7 +1,6 @@
 services:
   admin:
     image: ghcr.io/crosstalk-solutions/project-nomad:latest
-    pull_policy: always
     container_name: nomad_admin
     restart: unless-stopped
     ports:
@@ -25,7 +24,7 @@ services:
       - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
-      - REDIS_HOST=localhost
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
       mysql:

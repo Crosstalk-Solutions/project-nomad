@@ -1,10 +1,3 @@
-export type DoSimpleDownloadParams = {
-  url: string
-  filepath: string
-  timeout: number
-  signal?: AbortSignal
-}
-
 export type DoResumableDownloadParams = {
   url: string
   filepath: string

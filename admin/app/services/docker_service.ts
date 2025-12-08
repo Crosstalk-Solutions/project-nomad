@@ -16,7 +16,7 @@ export class DockerService {
   public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef'
   public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes'
   public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri'
-  public static NOMAD_STORAGE_ABS_PATH = '/opt/project-nomad/storage'
+  public static NOMAD_STORAGE_PATH = '/storage'
 
   constructor() {
     this.docker = new Docker({ socketPath: '/var/run/docker.sock' })
@@ -167,7 +167,7 @@ export class DockerService {
     // }
 
     const containerConfig = this._parseContainerConfig(service.container_config)
-    this._createContainer(service, containerConfig) // Don't await this method - we will use server-sent events to notify the client of progress
+    await this._createContainer(service, containerConfig)
 
     return {
       success: true,
@@ -178,8 +178,7 @@ export class DockerService {
   /**
    * Handles the long-running process of creating a Docker container for a service.
    * NOTE: This method should not be called directly. Instead, use `createContainerPreflight` to check prerequisites first
-   * and return an HTTP response to the client, if needed. This method will then transmit server-sent events to the client
-   * to notify them of the progress.
+   * This method will also transmit server-sent events to the client to notify of progress.
    * @param serviceName
    * @returns
    */
@@ -332,7 +331,7 @@ export class DockerService {
     const WIKIPEDIA_ZIM_URL =
       'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/install/wikipedia_en_100_mini_2025-06.zim'
     const zimPath = '/zim/wikipedia_en_100_mini_2025-06.zim'
-    const filepath = path.join(DockerService.NOMAD_STORAGE_ABS_PATH, zimPath)
+    const filepath = path.join(process.cwd(), DockerService.NOMAD_STORAGE_PATH, zimPath)
     logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
 
     this._broadcast(
