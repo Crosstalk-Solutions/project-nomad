@@ -98,7 +98,7 @@
     "react-dom": "^19.1.0",
     "react-map-gl": "^8.1.0",
     "reflect-metadata": "^0.2.2",
-    "systeminformation": "^5.27.7",
+    "systeminformation": "^5.27.14",
     "tailwindcss": "^4.1.10",
     "tar": "^7.5.2",
     "url-join": "^5.0.0",
