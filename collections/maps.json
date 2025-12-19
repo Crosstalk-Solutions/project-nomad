@@ -1,0 +1,385 @@
+{
+  "collections": [
+    {
+      "name": "Pacific Region",
+      "slug": "pacific",
+      "description": "Map assets for the Pacific region, including Alaska, California, Hawaii, Oregon, and Washington.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Alaska",
+          "description": "Topographic maps for the state of Alaska.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/alaska.pmtiles",
+          "size_mb": 684
+        },
+        {
+          "title": "California",
+          "description": "Topographic maps for the state of California.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/california.pmtiles",
+          "size_mb": 1100
+        },
+        {
+          "title": "Hawaii",
+          "description": "Topographic maps for the state of Hawaii.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/hawaii.pmtiles",
+          "size_mb": 28
+        },
+        {
+          "title": "Oregon",
+          "description": "Topographic maps for the state of Oregon.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/oregon.pmtiles",
+          "size_mb": 379
+        },
+        {
+          "title": "Washington",
+          "description": "Topographic maps for the state of Washington.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/washington.pmtiles",
+          "size_mb": 466
+        }
+      ]
+    },
+    {
+      "name": "Mountain Region",
+      "slug": "mountain",
+      "description": "Map assets for the Mountain region, including Arizona, Colorado, Idaho, Montana, Nevada, New Mexico, Utah, and Wyoming.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Arizona",
+          "description": "Topographic maps for the state of Arizona.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/arizona.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Colorado",
+          "description": "Topographic maps for the state of Colorado.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/colorado.pmtiles",
+          "size_mb": 450
+        },
+        {
+          "title": "Idaho",
+          "description": "Topographic maps for the state of Idaho.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/idaho.pmtiles",
+          "size_mb": 220
+        },
+        {
+          "title": "Montana",
+          "description": "Topographic maps for the state of Montana.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/montana.pmtiles",
+          "size_mb": 270
+        },
+        {
+          "title": "Nevada",
+          "description": "Topographic maps for the state of Nevada.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/nevada.pmtiles",
+          "size_mb": 200
+        },
+        {
+          "title": "New Mexico",
+          "description": "Topographic maps for the state of New Mexico.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_mexico.pmtiles",
+          "size_mb": 230
+        },
+        {
+          "title": "Utah",
+          "description": "Topographic maps for the state of Utah.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/utah.pmtiles",
+          "size_mb": 240
+        },
+        {
+          "title": "Wyoming",
+          "description": "Topographic maps for the state of Wyoming.",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/wyoming.pmtiles",
+          "size_mb": 210
+        }
+      ]
+    },
+    {
+      "title": "West South Central",
+      "slug": "west-south-central",
+      "description": "Map assets for the West South Central region, including Arkansas, Louisiana, Oklahoma, and Texas.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Arkansas",
+          "description": "Topographic maps for the state of Arkansas",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/arkansas.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Oklahoma",
+          "description": "Topographic maps for the state of Oklahoma",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/oklahoma.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Louisiana",
+          "description": "Topographic maps for the state of Louisiana",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/louisiana.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Texas",
+          "description": "Topographic maps for the state of Texas",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/texas.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    },
+    {
+      "title": "East South Central",
+      "slug": "east-south-central",
+      "description": "Map assets for the East South Central region, including Alabama, Kentucky, Mississippi, and Tennessee.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Alabama",
+          "description": "Topographic maps for the state of Alabama",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/alabama.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Kentucky",
+          "description": "Topographic maps for the state of Kentucky",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/kentucky.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Mississippi",
+          "description": "Topographic maps for the state of Mississippi",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/mississippi.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Tennessee",
+          "description": "Topographic maps for the state of Tennessee",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/tennessee.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    },
+    {
+      "title": "South Atlantic",
+      "slug": "south-atlantic",
+      "description": "Map assets for the South Atlantic region, including Delaware, Florida, Georgia, Maryland, North Carolina, South Carolina, Virginia, and West Virginia.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Delaware",
+          "description": "Topographic maps for the state of Delaware",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/delaware.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "District_Of_Columbia",
+          "description": "Topographic maps for the state of District_Of_Columbia",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/district_of_columbia.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Florida",
+          "description": "Topographic maps for the state of Florida",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/florida.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Georgia",
+          "description": "Topographic maps for the state of Georgia",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/georgia.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Maryland",
+          "description": "Topographic maps for the state of Maryland",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/maryland.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "North_Carolina",
+          "description": "Topographic maps for the state of North_Carolina",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/north_carolina.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "South_Carolina",
+          "description": "Topographic maps for the state of South_Carolina",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/south_carolina.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Virginia",
+          "description": "Topographic maps for the state of Virginia",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/virginia.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "West_Virginia",
+          "description": "Topographic maps for the state of West_Virginia",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/west_virginia.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    },
+    {
+      "title": "West North Central",
+      "slug": "west-north-central",
+      "description": "Map assets for the West North Central region, including Iowa, Kansas, Minnesota, Missouri, Nebraska, North Dakota, and South Dakota.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Iowa",
+          "description": "Topographic maps for the state of Iowa",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/iowa.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Kansas",
+          "description": "Topographic maps for the state of Kansas",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/kansas.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Minnesota",
+          "description": "Topographic maps for the state of Minnesota",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/minnesota.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Missouri",
+          "description": "Topographic maps for the state of Missouri",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/missouri.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Nebraska",
+          "description": "Topographic maps for the state of Nebraska",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/nebraska.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "North_Dakota",
+          "description": "Topographic maps for the state of North_Dakota",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/north_dakota.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "South_Dakota",
+          "description": "Topographic maps for the state of South_Dakota",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/south_dakota.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    },
+    {
+      "title": "East North Central",
+      "slug": "east-north-central",
+      "description": "Map assets for the East North Central region, including Illinois, Indiana, Michigan, Ohio, and Wisconsin.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Illinois",
+          "description": "Topographic maps for the state of Illinois",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/illinois.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Indianamichigan",
+          "description": "Topographic maps for the state of Indianamichigan",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/indianamichigan.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Ohio",
+          "description": "Topographic maps for the state of Ohio",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/ohio.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Wisconsin",
+          "description": "Topographic maps for the state of Wisconsin",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/wisconsin.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    },
+    {
+      "title": "Mid-Atlantic",
+      "slug": "mid-atlantic",
+      "description": "Map assets for the Mid-Atlantic region, including New Jersey, New York, and Pennsylvania.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "New_Jersey",
+          "description": "Topographic maps for the state of New_Jersey",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_jersey.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "New_York",
+          "description": "Topographic maps for the state of New_York",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_york.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Pennsylvania",
+          "description": "Topographic maps for the state of Pennsylvania",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/pennsylvania.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    },
+    {
+      "title": "New England",
+      "slug": "new-england",
+      "description": "Map assets for the New England region, including Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, and Vermont.",
+      "icon": "IconMap",
+      "language": "en",
+      "resources": [
+        {
+          "title": "Connecticut",
+          "description": "Topographic maps for the state of Connecticut",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/connecticut.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Maine",
+          "description": "Topographic maps for the state of Maine",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/maine.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Massachusetts",
+          "description": "Topographic maps for the state of Massachusetts",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/massachusetts.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "New_Hampshire",
+          "description": "Topographic maps for the state of New_Hampshire",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_hampshire.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Rhode_Island",
+          "description": "Topographic maps for the state of Rhode_Island",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/rhode_island.pmtiles",
+          "size_mb": 400
+        },
+        {
+          "title": "Vermont",
+          "description": "Topographic maps for the state of Vermont",
+          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/vermont.pmtiles",
+          "size_mb": 400
+        }
+      ]
+    }
+  ]
+}
