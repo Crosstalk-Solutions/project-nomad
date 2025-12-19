@@ -97,7 +97,7 @@
       ]
     },
     {
-      "title": "West South Central",
+      "name": "West South Central",
       "slug": "west-south-central",
       "description": "Map assets for the West South Central region, including Arkansas, Louisiana, Oklahoma, and Texas.",
       "icon": "IconMap",
@@ -130,7 +130,7 @@
       ]
     },
     {
-      "title": "East South Central",
+      "name": "East South Central",
       "slug": "east-south-central",
       "description": "Map assets for the East South Central region, including Alabama, Kentucky, Mississippi, and Tennessee.",
       "icon": "IconMap",
@@ -163,7 +163,7 @@
       ]
     },
     {
-      "title": "South Atlantic",
+      "name": "South Atlantic",
       "slug": "south-atlantic",
       "description": "Map assets for the South Atlantic region, including Delaware, Florida, Georgia, Maryland, North Carolina, South Carolina, Virginia, and West Virginia.",
       "icon": "IconMap",
@@ -226,7 +226,7 @@
       ]
     },
     {
-      "title": "West North Central",
+      "name": "West North Central",
       "slug": "west-north-central",
       "description": "Map assets for the West North Central region, including Iowa, Kansas, Minnesota, Missouri, Nebraska, North Dakota, and South Dakota.",
       "icon": "IconMap",
@@ -277,7 +277,7 @@
       ]
     },
     {
-      "title": "East North Central",
+      "name": "East North Central",
       "slug": "east-north-central",
       "description": "Map assets for the East North Central region, including Illinois, Indiana, Michigan, Ohio, and Wisconsin.",
       "icon": "IconMap",
@@ -310,7 +310,7 @@
       ]
     },
     {
-      "title": "Mid-Atlantic",
+      "name": "Mid-Atlantic",
       "slug": "mid-atlantic",
       "description": "Map assets for the Mid-Atlantic region, including New Jersey, New York, and Pennsylvania.",
       "icon": "IconMap",
@@ -337,7 +337,7 @@
       ]
     },
     {
-      "title": "New England",
+      "name": "New England",
       "slug": "new-england",
       "description": "Map assets for the New England region, including Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, and Vermont.",
       "icon": "IconMap",
