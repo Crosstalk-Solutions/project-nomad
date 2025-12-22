@@ -1,5 +1,6 @@
 import { MapService } from '#services/map_service'
 import {
+  downloadCollectionValidator,
   filenameParamValidator,
   remoteDownloadValidator,
   remoteDownloadValidatorOptional,
@@ -36,11 +37,30 @@ export default class MapsController {
     }
   }
 
+  async downloadCollection({ request }: HttpContext) {
+    const payload = await request.validateUsing(downloadCollectionValidator)
+    const resources = await this.mapService.downloadCollection(payload.slug)
+    return {
+      message: 'Collection download started successfully',
+      slug: payload.slug,
+      resources,
+    }
+  }
+
   // For providing a "preflight" check in the UI before actually starting a background download
   async downloadRemotePreflight({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadValidator)
     const info = await this.mapService.downloadRemotePreflight(payload.url)
     return info
+  }
+
+  async fetchLatestCollections({}: HttpContext) {
+    const success = await this.mapService.fetchLatestCollections()
+    return { success }
+  }
+
+  async listCuratedCollections({}: HttpContext) {
+    return await this.mapService.listCuratedCollections()
   }
 
   async listRegions({}: HttpContext) {

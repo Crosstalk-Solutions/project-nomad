@@ -12,7 +12,7 @@ import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { Head } from '@inertiajs/react'
 import { ListRemoteZimFilesResponse, RemoteZimFileEntry } from '../../../../types/zim'
-import { formatBytes } from '~/lib/util'
+import { extractFileName, formatBytes } from '~/lib/util'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
@@ -187,17 +187,6 @@ export default function ZimRemoteExplorer() {
       queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
     },
   })
-
-  const extractFileName = (path: string) => {
-    if (!path) return ''
-    if (path.includes('/')) {
-      return path.substring(path.lastIndexOf('/') + 1)
-    }
-    if (path.includes('\\')) {
-      return path.substring(path.lastIndexOf('\\') + 1)
-    }
-    return path
-  }
 
   return (
     <SettingsLayout>

@@ -36,12 +36,12 @@ export default class ZimController {
 
   async downloadCollection({ request }: HttpContext) {
     const payload = await request.validateUsing(downloadCollectionValidator)
-    const resource_count = await this.zimService.downloadCollection(payload.slug)
+    const resources = await this.zimService.downloadCollection(payload.slug)
 
     return {
       message: 'Download started successfully',
       slug: payload.slug,
-      resource_count,
+      resources,
     }
   }
 

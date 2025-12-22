@@ -10,19 +10,44 @@ import { useNotifications } from '~/context/NotificationContext'
 import { useState } from 'react'
 import api from '~/lib/api'
 import DownloadURLModal from '~/components/DownloadURLModal'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import useDownloads from '~/hooks/useDownloads'
+import StyledSectionHeader from '~/components/StyledSectionHeader'
+import HorizontalBarChart from '~/components/HorizontalBarChart'
+import { extractFileName } from '~/lib/util'
+import CuratedCollectionCard from '~/components/CuratedCollectionCard'
+import { CuratedCollectionWithStatus } from '../../../types/downloads'
+
+const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 
 export default function MapsManager(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
 }) {
+  const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
   const [downloading, setDownloading] = useState(false)
+
+  const { data: curatedCollections } = useQuery({
+    queryKey: [CURATED_COLLECTIONS_KEY],
+    queryFn: () => api.listCuratedMapCollections(),
+    refetchOnWindowFocus: false,
+  })
+
+  const { data: downloads, invalidate: invalidateDownloads } = useDownloads({
+    filetype: 'map',
+    enabled: true,
+  })
 
   async function downloadBaseAssets() {
     try {
       setDownloading(true)
 
       const res = await api.downloadBaseMapAssets()
+      if (!res) {
+        throw new Error('An unknown error occurred while downloading base assets.')
+      }
+
       if (res.success) {
         addNotification({
           type: 'success',
@@ -38,6 +63,24 @@ export default function MapsManager(props: {
       })
     } finally {
       setDownloading(false)
+    }
+  }
+
+  async function downloadFile(record: string) {
+    try {
+      //await api.downloadRemoteZimFile(record.download_url)
+      invalidateDownloads()
+    } catch (error) {
+      console.error('Error downloading file:', error)
+    }
+  }
+
+  async function downloadCollection(record: CuratedCollectionWithStatus) {
+    try {
+      await api.downloadMapCollection(record.slug)
+      invalidateDownloads()
+    } catch (error) {
+      console.error('Error downloading collection:', error)
     }
   }
 
@@ -62,6 +105,42 @@ export default function MapsManager(props: {
     )
   }
 
+  async function confirmDownload(record: CuratedCollectionWithStatus) {
+    const isCollection = 'resources' in record
+    openModal(
+      <StyledModal
+        title="Confirm Download?"
+        onConfirm={() => {
+          if (isCollection) {
+            if (record.all_downloaded) {
+              addNotification({
+                message: `All resources in the collection "${record.name}" have already been downloaded.`,
+                type: 'info',
+              })
+              return
+            }
+            downloadCollection(record)
+          } else {
+            downloadFile(record)
+          }
+          closeAllModals()
+        }}
+        onCancel={closeAllModals}
+        open={true}
+        confirmText="Download"
+        cancelText="Cancel"
+        confirmVariant="primary"
+      >
+        <p className="text-gray-700">
+          Are you sure you want to download <strong>{isCollection ? record.name : record}</strong>?
+          It may take some time for it to be available depending on the file size and your internet
+          connection.
+        </p>
+      </StyledModal>,
+      'confirm-download-file-modal'
+    )
+  }
+
   async function openDownloadModal() {
     openModal(
       <DownloadURLModal
@@ -73,6 +152,17 @@ export default function MapsManager(props: {
     )
   }
 
+  const fetchLatestCollections = useMutation({
+    mutationFn: () => api.fetchLatestMapCollections(),
+    onSuccess: () => {
+      addNotification({
+        message: 'Successfully fetched the latest map collections.',
+        type: 'success',
+      })
+      queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
+    },
+  })
+
   return (
     <SettingsLayout>
       <Head title="Maps Manager" />
@@ -81,20 +171,40 @@ export default function MapsManager(props: {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
-              <p className="text-gray-500">Manage your stored map data files.</p>
+              <p className="text-gray-500">Manage your stored map files and explore new regions!</p>
             </div>
-            <StyledButton
-              variant="primary"
-              onClick={openDownloadModal}
-              loading={downloading}
-              icon="CloudArrowDownIcon"
-            >
-              Download New Map File
-            </StyledButton>
+            <div className="flex space-x-4">
+              <StyledButton
+                variant="primary"
+                onClick={openDownloadModal}
+                loading={downloading}
+                icon="CloudArrowDownIcon"
+              >
+                Download Custom Map File
+              </StyledButton>
+              <StyledButton
+                onClick={() => fetchLatestCollections.mutate()}
+                disabled={fetchLatestCollections.isPending}
+                icon="CloudArrowDownIcon"
+              >
+                Fetch Latest Collections
+              </StyledButton>
+            </div>
           </div>
           {!props.maps.baseAssetsExist && (
             <MissingBaseAssetsAlert loading={downloading} onClickDownload={downloadBaseAssets} />
           )}
+          <StyledSectionHeader title="Curated Map Collections" className="mt-8 mb-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {curatedCollections?.map((collection) => (
+              <CuratedCollectionCard
+                key={collection.slug}
+                collection={collection}
+                onClick={(collection) => confirmDownload(collection)}
+              />
+            ))}
+          </div>
+          <StyledSectionHeader title="Stored Map Files" className="mt-12 mb-4" />
           <StyledTable<FileEntry & { actions?: any }>
             className="font-semibold mt-4"
             rowLines={true}
@@ -122,6 +232,28 @@ export default function MapsManager(props: {
             ]}
             data={props.maps.regionFiles || []}
           />
+          <StyledSectionHeader title="Active Downloads" className="mt-12 mb-4" />
+          <div className="space-y-4">
+            {downloads && downloads.length > 0 ? (
+              downloads.map((download) => (
+                <div className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+                  <HorizontalBarChart
+                    items={[
+                      {
+                        label: extractFileName(download.filepath) || download.url,
+                        value: download.progress,
+                        total: '100%',
+                        used: `${download.progress}%`,
+                        type: download.filetype,
+                      },
+                    ]}
+                  />
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">No active downloads</p>
+            )}
+          </div>
         </main>
       </div>
     </SettingsLayout>

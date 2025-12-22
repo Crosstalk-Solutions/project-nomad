@@ -5,6 +5,7 @@ import { doResumableDownload } from '../utils/downloads.js'
 import { createHash } from 'crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
+import { MapService } from '#services/map_service'
 
 export class RunDownloadJob {
   static get queue() {
@@ -23,9 +24,9 @@ export class RunDownloadJob {
     const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype } =
       job.data as RunDownloadJobParams
 
-    //   console.log("Simulating delay for job for URL:", url)
-    // await new Promise((resolve) => setTimeout(resolve, 30000)) // Simulate initial delay
-    // console.log("Starting download for URL:", url)
+    //    console.log("Simulating delay for job for URL:", url)
+    //  await new Promise((resolve) => setTimeout(resolve, 30000)) // Simulate initial delay
+    //  console.log("Starting download for URL:", url)
 
     // // simulate progress updates for demonstration
     // for (let progress = 0; progress <= 100; progress += 10) {
@@ -45,17 +46,20 @@ export class RunDownloadJob {
         job.updateProgress(Math.floor(progressPercent))
       },
       async onComplete(url) {
-        if (filetype === 'zim') {
-          try {
+        try {
+          if (filetype === 'zim') {
             const dockerService = new DockerService()
             const zimService = new ZimService(dockerService)
             await zimService.downloadRemoteSuccessCallback([url], true)
-          } catch (error) {
-            console.error(
-              `[RunDownloadJob] Error in ZIM download success callback for URL ${url}:`,
-              error
-            )
+          } else if (filetype === 'map') {
+            const mapsService = new MapService()
+            await mapsService.downloadRemoteSuccessCallback([url], false)
           }
+        } catch (error) {
+          console.error(
+            `[RunDownloadJob] Error in ZIM download success callback for URL ${url}:`,
+            error
+          )
         }
         job.updateProgress(100)
       },
