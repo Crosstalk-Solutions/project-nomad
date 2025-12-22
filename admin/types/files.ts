@@ -28,3 +28,6 @@ export type DownloadOptions = {
   onError?: (error: Error) => void
   onComplete?: (filepath: string) => void
 }
+
+export type DownloadCollectionOperation = (slug: string) => Promise<string[] | null>
+export type DownloadRemoteSuccessCallback = (urls: string[], restart: boolean) => Promise<void>

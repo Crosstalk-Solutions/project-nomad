@@ -1,5 +1,9 @@
 import { BaseStylesFile, MapLayer } from '../../types/maps.js'
-import { FileEntry } from '../../types/files.js'
+import {
+  DownloadCollectionOperation,
+  DownloadRemoteSuccessCallback,
+  FileEntry,
+} from '../../types/files.js'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { extract } from 'tar'
 import env from '#start/env'
@@ -16,6 +20,11 @@ import urlJoin from 'url-join'
 import axios from 'axios'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import logger from '@adonisjs/core/services/logger'
+import { CuratedCollectionsFile, CuratedCollectionWithStatus } from '../../types/downloads.js'
+import CuratedCollection from '#models/curated_collection'
+import vine from '@vinejs/vine'
+import { curatedCollectionsFileSchema } from '#validators/curated_collections'
+import CuratedCollectionResource from '#models/curated_collection_resource'
 
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
@@ -23,11 +32,19 @@ const BASE_ASSETS_MIME_TYPES = [
   'application/octet-stream',
 ]
 
+const COLLECTIONS_URL =
+  'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/maps.json'
+
 const PMTILES_ATTRIBUTION =
   '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>'
 const PMTILES_MIME_TYPES = ['application/vnd.pmtiles', 'application/octet-stream']
 
-export class MapService {
+interface IMapService {
+  downloadCollection: DownloadCollectionOperation
+  downloadRemoteSuccessCallback: DownloadRemoteSuccessCallback
+}
+
+export class MapService implements IMapService {
   private readonly mapStoragePath = '/storage/maps'
   private readonly baseStylesFile = 'nomad-base-styles.json'
   private readonly basemapsAssetsDir = 'basemaps-assets'
@@ -80,6 +97,62 @@ export class MapService {
     return true
   }
 
+  async downloadCollection(slug: string) {
+    const collection = await CuratedCollection.query()
+      .where('slug', slug)
+      .andWhere('type', 'map')
+      .first()
+    if (!collection) {
+      return null
+    }
+
+    const resources = await collection.related('resources').query().where('downloaded', false)
+    if (resources.length === 0) {
+      return null
+    }
+
+    const downloadUrls = resources.map((res) => res.url)
+    const downloadFilenames: string[] = []
+
+    for (const url of downloadUrls) {
+      const existing = await RunDownloadJob.getByUrl(url)
+      if (existing) {
+        logger.warn(`[MapService] Download already in progress for URL ${url}, skipping.`)
+        continue
+      }
+
+      // Extract the filename from the URL
+      const filename = url.split('/').pop()
+      if (!filename) {
+        logger.warn(`[MapService] Could not determine filename from URL ${url}, skipping.`)
+        continue
+      }
+
+      downloadFilenames.push(filename)
+      const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
+
+      await RunDownloadJob.dispatch({
+        url,
+        filepath,
+        timeout: 30000,
+        allowedMimeTypes: PMTILES_MIME_TYPES,
+        forceNew: true,
+        filetype: 'map',
+      })
+    }
+
+    return downloadFilenames.length > 0 ? downloadFilenames : null
+  }
+
+  async downloadRemoteSuccessCallback(urls: string[], _: boolean) {
+    const resources = await CuratedCollectionResource.query().whereIn('url', urls)
+    for (const resource of resources) {
+      resource.downloaded = true
+      await resource.save()
+      logger.info(`[MapService] Marked resource as downloaded: ${resource.url}`)
+    }
+  }
+
   async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.pmtiles')) {
@@ -105,7 +178,7 @@ export class MapService {
       timeout: 30000,
       allowedMimeTypes: PMTILES_MIME_TYPES,
       forceNew: true,
-      filetype: 'pmtiles',
+      filetype: 'map',
     })
 
     if (!result.job) {
@@ -191,6 +264,47 @@ export class MapService {
     )
 
     return !!baseStyleItem && !!basemapsAssetsItem
+  }
+
+  async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
+    const collections = await CuratedCollection.query().where('type', 'map').preload('resources')
+    return collections.map((collection) => ({
+      ...(collection.serialize() as CuratedCollection),
+      all_downloaded: collection.resources.every((res) => res.downloaded),
+    }))
+  }
+
+  async fetchLatestCollections(): Promise<boolean> {
+    try {
+      const response = await axios.get<CuratedCollectionsFile>(COLLECTIONS_URL)
+
+      const validated = await vine.validate({
+        schema: curatedCollectionsFileSchema,
+        data: response.data,
+      })
+
+      for (const collection of validated.collections) {
+        const collectionResult = await CuratedCollection.updateOrCreate(
+          { slug: collection.slug },
+          {
+            ...collection,
+            type: 'map',
+          }
+        )
+        logger.info(`[MapService] Upserted curated collection: ${collection.slug}`)
+
+        await collectionResult.related('resources').createMany(collection.resources)
+        logger.info(
+          `[MapService] Upserted ${collection.resources.length} resources for collection: ${collection.slug}`
+        )
+      }
+
+      return true
+    } catch (error) {
+      console.error(error)
+      logger.error(`[MapService] Failed to download latest Kiwix collections:`, error)
+      return false
+    }
   }
 
   private async listMapStorageItems(): Promise<FileEntry[]> {

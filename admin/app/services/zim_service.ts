@@ -23,13 +23,20 @@ import { curatedCollectionsFileSchema } from '#validators/curated_collections'
 import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
 import { RunDownloadJob } from '#jobs/run_download_job'
+import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const COLLECTIONS_URL =
   'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/kiwix.json'
 
+
+interface IZimService {
+  downloadCollection: DownloadCollectionOperation
+  downloadRemoteSuccessCallback: DownloadRemoteSuccessCallback
+}
+
 @inject()
-export class ZimService {
+export class ZimService implements IZimService {
   constructor(private dockerService: DockerService) {}
 
   async list() {
@@ -176,8 +183,8 @@ export class ZimService {
     }
   }
 
-  async downloadCollection(slug: string): Promise<string[] | null> {
-    const collection = await CuratedCollection.find(slug)
+  async downloadCollection(slug: string) {
+    const collection = await CuratedCollection.query().where('slug', slug).andWhere('type', 'zim').first()
     if (!collection) {
       return null
     }
@@ -218,7 +225,7 @@ export class ZimService {
     }
 
     return downloadFilenames.length > 0 ? downloadFilenames : null
-  }
+  } 
 
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Restart KIWIX container to pick up new ZIM file
@@ -239,7 +246,7 @@ export class ZimService {
   }
 
   async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
-    const collections = await CuratedCollection.query().preload('resources')
+    const collections = await CuratedCollection.query().where('type', 'zim').preload('resources')
     return collections.map((collection) => ({
       ...(collection.serialize() as CuratedCollection),
       all_downloaded: collection.resources.every((res) => res.downloaded),

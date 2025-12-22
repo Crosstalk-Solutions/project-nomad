@@ -12,7 +12,8 @@
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "work:downloads": "node ace queue:work --queue=downloads"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",
