@@ -8,5 +8,5 @@
       "~/*": ["./*"],
     },
   },
-  "include": ["./**/*.ts", "./**/*.tsx"],
+  "include": ["./**/*.ts", "./**/*.tsx", "components/markdoc/nodes/heading.markdoc.js"],
 }

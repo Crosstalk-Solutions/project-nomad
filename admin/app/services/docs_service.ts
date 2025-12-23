@@ -2,6 +2,7 @@ import Markdoc from '@markdoc/markdoc'
 import { streamToString } from '../../util/docs.js'
 import { getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
 import path from 'path'
+import InternalServerErrorException from '#exceptions/internal_server_error_exception'
 
 export class DocsService {
   private docsPath = path.join(process.cwd(), 'docs')
@@ -23,35 +24,47 @@ export class DocsService {
   }
 
   parse(content: string) {
-    const ast = Markdoc.parse(content)
-    const config = this.getConfig()
-    const errors = Markdoc.validate(ast, config)
+    try {
+      const ast = Markdoc.parse(content)
+      const config = this.getConfig()
+      const errors = Markdoc.validate(ast, config)
 
-    if (errors.length > 0) {
-      throw new Error(`Markdoc validation errors: ${errors.map((e) => e.error).join(', ')}`)
+      // Filter out attribute-undefined errors which may be caused by emojis and special characters
+      const criticalErrors = errors.filter((e) => e.error.id !== 'attribute-undefined')
+      if (criticalErrors.length > 0) {
+        console.error('Markdoc validation errors:', errors.map((e) => JSON.stringify(e.error)).join(', '))
+        throw new Error('Markdoc validation failed')
+      }
+
+      return Markdoc.transform(ast, config)
+    } catch (error) {
+      console.log('Error parsing Markdoc content:', error)
+      throw new InternalServerErrorException(`Error parsing content: ${(error as Error).message}`)
     }
-
-    return Markdoc.transform(ast, config)
   }
 
   async parseFile(_filename: string) {
-    if (!_filename) {
-      throw new Error('Filename is required')
-    }
+    try {
+      if (!_filename) {
+        throw new Error('Filename is required')
+      }
 
-    const filename = _filename.endsWith('.md') ? _filename : `${_filename}.md`
+      const filename = _filename.endsWith('.md') ? _filename : `${_filename}.md`
 
-    const fileExists = await getFileStatsIfExists(path.join(this.docsPath, filename))
-    if (!fileExists) {
-      throw new Error(`File not found: ${filename}`)
-    }
+      const fileExists = await getFileStatsIfExists(path.join(this.docsPath, filename))
+      if (!fileExists) {
+        throw new Error(`File not found: ${filename}`)
+      }
 
-    const fileStream = await getFile(path.join(this.docsPath, filename), 'stream')
-    if (!fileStream) {
-      throw new Error(`Failed to read file stream: ${filename}`)
+      const fileStream = await getFile(path.join(this.docsPath, filename), 'stream')
+      if (!fileStream) {
+        throw new Error(`Failed to read file stream: ${filename}`)
+      }
+      const content = await streamToString(fileStream)
+      return this.parse(content)
+    } catch (error) {
+      throw new InternalServerErrorException(`Error parsing file: ${(error as Error).message}`)
     }
-    const content = await streamToString(fileStream)
-    return this.parse(content)
   }
 
   private prettify(filename: string) {
@@ -86,6 +99,21 @@ export class DocsService {
             level: { type: Number, required: true },
             id: { type: String },
           },
+        },
+        list: {
+          render: 'List',
+          attributes: {
+            ordered: { type: Boolean },
+            start: { type: Number },
+          },
+        },
+        list_item: {
+          render: 'ListItem',
+          attributes: {
+            marker: { type: String },
+            className: { type: String },
+            class: { type: String }
+          }
         },
       },
     }
