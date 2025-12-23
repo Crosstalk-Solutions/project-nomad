@@ -1,5 +1,8 @@
-import React, { JSX } from 'react'
+import React from 'react'
 import Markdoc from '@markdoc/markdoc'
+import { Heading } from './markdoc/Heading'
+import { List } from './markdoc/List'
+import { ListItem } from './markdoc/ListItem'
 
 // Custom components for Markdoc tags
 const Callout = ({
@@ -27,37 +30,12 @@ const Callout = ({
   )
 }
 
-const Heading = ({
-  level,
-  id,
-  children,
-}: {
-  level: number
-  id: string
-  children: React.ReactNode
-}) => {
-  const Tag = `h${level}` as keyof JSX.IntrinsicElements
-  const sizes = {
-    1: 'text-3xl font-bold',
-    2: 'text-2xl font-semibold',
-    3: 'text-xl font-semibold',
-    4: 'text-lg font-semibold',
-    5: 'text-base font-semibold',
-    6: 'text-sm font-semibold',
-  }
-
-  return (
-    // @ts-ignore
-    <Tag id={id} className={`${sizes[level]} mb-4 mt-6`}>
-      {children}
-    </Tag>
-  )
-}
-
 // Component mapping for Markdoc
 const components = {
   Callout,
   Heading,
+  List,
+  ListItem,
 }
 
 interface MarkdocRendererProps {
@@ -65,11 +43,9 @@ interface MarkdocRendererProps {
 }
 
 const MarkdocRenderer: React.FC<MarkdocRendererProps> = ({ content }) => {
-  return (
-    <div className="prose prose-lg max-w-none">
-      {Markdoc.renderers.react(content, React, { components })}
-    </div>
-  )
+  console.log('Markdoc content:', content)
+
+  return <div className="tracking-wide">{Markdoc.renderers.react(content, React, { components })}</div>
 }
 
 export default MarkdocRenderer
