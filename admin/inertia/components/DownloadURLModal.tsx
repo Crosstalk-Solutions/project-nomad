@@ -16,14 +16,19 @@ const DownloadURLModal: React.FC<DownloadURLModalProps> = ({
   onPreflightSuccess,
   ...modalProps
 }) => {
-  const [url, setUrl] = useState<string>(suggestedURL || '')
+  const [url, setUrl] = useState<string>('')
   const [messages, setMessages] = useState<string[]>([])
-  const [passedPreflight, setPassedPreflight] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(false)
 
   async function runPreflightCheck(downloadUrl: string) {
     try {
+      setLoading(true)
       setMessages([`Running preflight check for URL: ${downloadUrl}`])
       const res = await api.downloadRemoteMapRegionPreflight(downloadUrl)
+      if (!res) {
+        throw new Error('An unknown error occurred during the preflight check.')
+      }
+
       if ('message' in res) {
         throw new Error(res.message)
       }
@@ -32,11 +37,15 @@ const DownloadURLModal: React.FC<DownloadURLModalProps> = ({
         ...prev,
         `Preflight check passed. Filename: ${res.filename}, Size: ${(res.size / (1024 * 1024)).toFixed(2)} MB`,
       ])
-      setPassedPreflight(true)
+
+      if (onPreflightSuccess) {
+        onPreflightSuccess(downloadUrl)
+      }
     } catch (error) {
       console.error('Preflight check failed:', error)
       setMessages((prev) => [...prev, `Preflight check failed: ${error.message}`])
-      setPassedPreflight(false)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -49,6 +58,8 @@ const DownloadURLModal: React.FC<DownloadURLModalProps> = ({
       confirmIcon="ArrowDownTrayIcon"
       cancelText="Cancel"
       confirmVariant="primary"
+      confirmLoading={loading}
+      cancelLoading={loading}
       large
     >
       <div className="flex flex-col pb-4">
