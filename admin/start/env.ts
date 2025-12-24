@@ -18,6 +18,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   HOST: Env.schema.string({ format: 'host' }),
   URL: Env.schema.string(),
   LOG_LEVEL: Env.schema.string(),
+  INTERNET_STATUS_TEST_URL: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------
@@ -25,7 +26,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   //SESSION_DRIVER: Env.schema.enum(['cookie', 'memory'] as const),
-
 
   /*
   |----------------------------------------------------------

@@ -1,4 +1,3 @@
-import axios from 'axios'
 
 export function capitalizeFirstLetter(str?: string | null): string {
   if (!str) return ''
@@ -12,18 +11,6 @@ export function formatBytes(bytes: number, decimals = 2): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
-}
-
-export async function testInternetConnection(): Promise<boolean> {
-  try {
-    const response = await axios.get('https://1.1.1.1/cdn-cgi/trace', {
-      timeout: 5000,
-    })
-    return response.status === 200
-  } catch (error) {
-    console.error('Error testing internet connection:', error)
-    return false
-  }
 }
 
 export function generateRandomString(length: number): string {

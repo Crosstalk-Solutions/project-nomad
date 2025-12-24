@@ -8,6 +8,8 @@ import { NomadDiskInfo, NomadDiskInfoRaw, SystemInformationResponse } from '../.
 import { readFileSync } from 'fs'
 import path, { join } from 'path'
 import { getAllFilesystems, getFile } from '../utils/fs.js'
+import axios from 'axios'
+import env from '#start/env'
 
 @inject()
 export class SystemService {
@@ -15,6 +17,45 @@ export class SystemService {
   private static diskInfoFile = '/storage/nomad-disk-info.json'
 
   constructor(private dockerService: DockerService) {}
+
+  async getInternetStatus(): Promise<boolean> {
+    const DEFAULT_TEST_URL = 'https://1.1.1.1/cdn-cgi/trace'
+    const MAX_ATTEMPTS = 3
+
+    let testUrl = DEFAULT_TEST_URL
+    let customTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
+
+    // check that customTestUrl is a valid URL, if provided
+    if (customTestUrl && customTestUrl !== '') {
+      try {
+        new URL(customTestUrl)
+        testUrl = customTestUrl
+      } catch (error) {
+        logger.warn(
+          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrl}. Falling back to default URL.`
+        )
+      }
+    }
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const res = await axios.get(testUrl, { timeout: 5000 })
+        return res.status === 200
+      } catch (error) {
+        logger.warn(
+          `Internet status check attempt ${attempt}/${MAX_ATTEMPTS} failed: ${error instanceof Error ? error.message : error}`
+        )
+
+        if (attempt < MAX_ATTEMPTS) {
+          // delay before next attempt
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+      }
+    }
+
+    logger.warn('All internet status check attempts failed.')
+    return false
+  }
 
   async getServices({ installedOnly = true }: { installedOnly?: boolean }): Promise<ServiceSlim[]> {
     const query = Service.query()
