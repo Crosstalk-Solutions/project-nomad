@@ -43,8 +43,6 @@ interface MarkdocRendererProps {
 }
 
 const MarkdocRenderer: React.FC<MarkdocRendererProps> = ({ content }) => {
-  console.log('Markdoc content:', content)
-
   return <div className="tracking-wide">{Markdoc.renderers.react(content, React, { components })}</div>
 }
 

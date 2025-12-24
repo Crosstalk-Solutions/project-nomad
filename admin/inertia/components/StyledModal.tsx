@@ -8,9 +8,11 @@ export type StyledModalProps = {
   title: string
   cancelText?: string
   cancelIcon?: StyledButtonProps['icon']
+  cancelLoading?: boolean
   confirmText?: string
   confirmIcon?: StyledButtonProps['icon']
   confirmVariant?: StyledButtonProps['variant']
+  confirmLoading?: boolean
   open: boolean
   onCancel?: () => void
   onConfirm?: () => void
@@ -26,9 +28,11 @@ const StyledModal: React.FC<StyledModalProps> = ({
   onClose,
   cancelText = 'Cancel',
   cancelIcon,
+  cancelLoading = false,
   confirmText = 'Confirm',
   confirmIcon,
   confirmVariant = 'action',
+  confirmLoading = false,
   onCancel,
   onConfirm,
   icon,
@@ -77,6 +81,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
                     if (onCancel) onCancel()
                   }}
                   icon={cancelIcon}
+                  loading={cancelLoading}
                 >
                   {cancelText}
                 </StyledButton>
@@ -88,6 +93,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
                     if (onConfirm) onConfirm()
                   }}
                   icon={confirmIcon}
+                  loading={confirmLoading}
                 >
                   {confirmText}
                 </StyledButton>

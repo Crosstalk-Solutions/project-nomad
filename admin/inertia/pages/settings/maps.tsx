@@ -66,21 +66,29 @@ export default function MapsManager(props: {
     }
   }
 
-  async function downloadFile(record: string) {
-    try {
-      //await api.downloadRemoteZimFile(record.download_url)
-      invalidateDownloads()
-    } catch (error) {
-      console.error('Error downloading file:', error)
-    }
-  }
-
   async function downloadCollection(record: CuratedCollectionWithStatus) {
     try {
       await api.downloadMapCollection(record.slug)
       invalidateDownloads()
+      addNotification({
+        type: 'success',
+        message: `Download for collection "${record.name}" has been queued.`,
+      })
     } catch (error) {
       console.error('Error downloading collection:', error)
+    }
+  }
+
+  async function downloadCustomFile(url: string) {
+    try {
+      await api.downloadRemoteMapRegion(url)
+      invalidateDownloads()
+      addNotification({
+        type: 'success',
+        message: 'Download has been queued.',
+      })
+    } catch (error) {
+      console.error('Error downloading custom file:', error)
     }
   }
 
@@ -120,8 +128,6 @@ export default function MapsManager(props: {
               return
             }
             downloadCollection(record)
-          } else {
-            downloadFile(record)
           }
           closeAllModals()
         }}
@@ -145,8 +151,12 @@ export default function MapsManager(props: {
     openModal(
       <DownloadURLModal
         title="Download Map File"
-        suggestedURL="https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/"
+        suggestedURL="e.g. https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/california.pmtiles"
         onCancel={() => closeAllModals()}
+        onPreflightSuccess={async (url) => {
+          await downloadCustomFile(url)
+          closeAllModals()
+        }}
       />,
       'download-map-file-modal'
     )
