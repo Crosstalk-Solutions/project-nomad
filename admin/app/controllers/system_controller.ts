@@ -11,6 +11,10 @@ export default class SystemController {
         private dockerService: DockerService
     ) { }
 
+    async getInternetStatus({ }: HttpContext) {
+        return await this.systemService.getInternetStatus();
+    }
+
     async getSystemInfo({ }: HttpContext) {
         return await this.systemService.getSystemInfo();
     }

@@ -78,6 +78,7 @@ router
 router
   .group(() => {
     router.get('/info', [SystemController, 'getSystemInfo'])
+    router.get('/internet-status', [SystemController, 'getInternetStatus'])
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])

@@ -1,18 +1,18 @@
 // Helper hook to check internet connection status
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { testInternetConnection } from '~/lib/util';
+import api from '~/lib/api';
 
 const useInternetStatus = () => {
     const [isOnline, setIsOnline] = useState<boolean>(false);
     const { data } = useQuery<boolean>({
         queryKey: ['internetStatus'],
-        queryFn: testInternetConnection,
+        queryFn: async () => (await api.getInternetStatus()) ?? false,
         refetchOnWindowFocus: false, // Don't refetch on window focus
-        refetchOnReconnect: false, // Refetch when the browser reconnects
+        refetchOnReconnect: true, // Refetch when the browser reconnects
         refetchOnMount: false, // Don't refetch when the component mounts
-        retry: 2, // Retry up to 2 times on failure
-        staleTime: 1000 * 60 * 10, // Data is fresh for 10 minutes
+        retry: 0, // Retry already handled in backend
+        staleTime: 1000 * 60 * 5, // Data is fresh for 5 minutes
     });
 
     // Update the online status when data changes

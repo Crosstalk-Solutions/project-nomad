@@ -92,6 +92,13 @@ class API {
     })()
   }
 
+  async getInternetStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<boolean>('/system/internet-status')
+      return response.data
+    })()
+  }
+
   async getSystemInfo() {
     return catchInternal(async () => {
       const response = await this.client.get<SystemInformationResponse>('/system/info')
