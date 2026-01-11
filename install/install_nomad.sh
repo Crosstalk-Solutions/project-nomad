@@ -327,6 +327,7 @@ download_helper_scripts() {
     echo -e "${RED}#${RESET} Failed to download the update script. Please check the URL and try again."
     exit 1
   fi
+  chmod +x "$update_script_path"
 
   echo -e "${GREEN}#${RESET} Helper scripts downloaded successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
 }
