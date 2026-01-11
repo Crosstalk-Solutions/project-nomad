@@ -7,7 +7,7 @@ services:
       - "8080:8080"
     volumes:
       - /opt/project-nomad/storage:/app/storage
-      - /tmp/nomad-disk-info.json:/app/storage/disk-info.json
+      - /tmp/nomad-disk-info.json:/app/storage/nomad-disk-info.json
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
       - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
