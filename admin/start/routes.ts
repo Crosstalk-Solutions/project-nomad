@@ -75,6 +75,10 @@ router
   })
   .prefix('/api/downloads')
 
+router.get('/api/health', () => {
+  return { status: 'ok' }
+})
+
 router
   .group(() => {
     router.get('/info', [SystemController, 'getSystemInfo'])
