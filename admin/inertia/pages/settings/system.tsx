@@ -23,7 +23,7 @@ export default function SettingsPage(props: {
   })
 
   const memoryUsagePercent = info?.mem.total
-    ? ((info.mem.used / info.mem.total) * 100).toFixed(1)
+    ? (((info.mem.total - info.mem.available) / info.mem.total) * 100).toFixed(1)
     : 0
 
   const swapUsagePercent = info?.mem.swaptotal
@@ -145,15 +145,15 @@ export default function SettingsPage(props: {
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-desert-orange mb-1">
+                  <div className="text-3xl font-bold text-desert-green mb-1">
                     {formatBytes(info?.mem.used || 0)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
-                    RAM in Use
+                    Used RAM
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-desert-olive mb-1">
+                  <div className="text-3xl font-bold text-desert-green mb-1">
                     {formatBytes(info?.mem.free || 0)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
