@@ -54,7 +54,8 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: 'host',
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`]
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`],
+          PortBindings: { '8080/tcp': [{ HostPort: '3000' }] }
         },
         Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434']
       }),
