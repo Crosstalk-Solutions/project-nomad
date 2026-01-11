@@ -103,7 +103,10 @@ ensure_docker_compose_file_exists() {
 
 force_recreate() {
   echo -e "${YELLOW}#${RESET} Forcing recreation of containers..."
-  docker-compose -f /opt/project-nomad/compose.yml up -d --force-recreate
+  if ! docker compose -f /opt/project-nomad/compose.yml up -d --force-recreate; then
+    echo -e "${RED}#${RESET} Failed to recreate containers. Please check the Docker logs for more details."
+    exit 1
+  fi
 }
 
 get_local_ip() {
