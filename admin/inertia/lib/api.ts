@@ -76,6 +76,16 @@ class API {
     })()
   }
 
+  async downloadRemoteZimFile(url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; filename: string; url: string }>(
+        '/zim/download-remote',
+        { url }
+      )
+      return response.data
+    })()
+  }
+
   async fetchLatestMapCollections(): Promise<{ success: boolean } | undefined> {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean }>(
