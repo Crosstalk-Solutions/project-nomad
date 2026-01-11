@@ -66,9 +66,8 @@ export class MapService implements IMapService {
 
     const defaultTarFileURL = new URL(
       this.baseAssetsTarFile,
-      'https://github.com/Crosstalk-Solutions/project-nomad-maps/blob/master'
+      'https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/'
     )
-    defaultTarFileURL.searchParams.append('raw', 'true')
 
     const resolvedURL = url ? new URL(url) : defaultTarFileURL
     await doResumableDownloadWithRetry({
