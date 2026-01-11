@@ -58,6 +58,8 @@ export class SystemService {
   }
 
   async getServices({ installedOnly = true }: { installedOnly?: boolean }): Promise<ServiceSlim[]> {
+    await this._syncContainersWithDatabase() // Sync up before fetching to ensure we have the latest status
+
     const query = Service.query()
       .orderBy('friendly_name', 'asc')
       .select('id', 'service_name', 'installed', 'ui_location', 'friendly_name', 'description')
@@ -152,6 +154,44 @@ export class SystemService {
     } catch (error) {
       logger.error('Error getting system info:', error)
       return undefined
+    }
+  }
+
+  /**
+   * Checks the current state of Docker containers against the database records and updates the database accordingly.
+   * It will mark services as not installed if their corresponding containers are not running, and can also handle cleanup of any orphaned records.
+   * Handles cases where a container might have been manually removed or is in an unexpected state, ensuring the database reflects the actual state of containers.
+   */
+  private async _syncContainersWithDatabase() {
+    try {
+      const allServices = await Service.all();
+      const serviceStatusList = await this.dockerService.getServicesStatus()
+
+      for (const service of allServices) {
+        const status = serviceStatusList.find((s) => s.service_name === service.service_name)
+        if (service.installed) {
+          if (!status || status.status !== 'running') {
+            logger.warn(
+              `Service ${service.service_name} is marked as installed but container is not running. Marking as not installed.`
+            )
+            service.installed = false
+            service.installation_status = 'idle'
+            await service.save()
+          }
+        } else {
+          if (status && status.status === 'running') {
+            logger.warn(
+              `Service ${service.service_name} is marked as not installed but container is running. Marking as installed.`
+            )
+            service.installed = true
+            service.installation_status = 'idle'
+            await service.save()
+          }
+        }
+      }
+
+    } catch (error) {
+      logger.error('Error syncing containers with database:', error)
     }
   }
 
