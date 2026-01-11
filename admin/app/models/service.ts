@@ -34,6 +34,9 @@ export default class Service extends BaseModel {
   declare installed: boolean
 
   @column()
+  declare installation_status: 'idle' | 'installing' | 'error'
+
+  @column()
   declare depends_on: string | null
 
   // For services that are dependencies for other services - not intended to be installed directly by users

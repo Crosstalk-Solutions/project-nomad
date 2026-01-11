@@ -87,6 +87,9 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
       setIsInstalling(true)
       const response = await api.installService(serviceName)
+      if (!response) {
+        throw new Error('An internal error occurred while trying to install the service.')
+      }
       if (!response.success) {
         throw new Error(response.message)
       }
@@ -102,6 +105,9 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     try {
       setLoading(true)
       const response = await api.affectService(record.service_name, action)
+      if (!response) {
+        throw new Error('An internal error occurred while trying to affect the service.')
+      }
       if (!response.success) {
         throw new Error(response.message)
       }

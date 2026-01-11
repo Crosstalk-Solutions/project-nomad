@@ -11,6 +11,7 @@ import { ZIM_STORAGE_PATH } from '../utils/fs.js'
 @inject()
 export class DockerService {
   private docker: Docker
+  private activeInstallations: Set<string> = new Set()
   public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve'
   public static OLLAMA_SERVICE_NAME = 'nomad_ollama'
   public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui'
@@ -153,6 +154,27 @@ export class DockerService {
       }
     }
 
+    // Check if installation is already in progress (database-level)
+    if (service.installation_status === 'installing') {
+      return {
+        success: false,
+        message: `Service ${serviceName} installation is already in progress`,
+      }
+    }
+
+    // Double-check with in-memory tracking (race condition protection)
+    if (this.activeInstallations.has(serviceName)) {
+      return {
+        success: false,
+        message: `Service ${serviceName} installation is already in progress`,
+      }
+    }
+
+    // Mark installation as in progress
+    this.activeInstallations.add(serviceName)
+    service.installation_status = 'installing'
+    await service.save()
+
     // Check if a service wasn't marked as installed but has an existing container
     // This can happen if the service was created but not properly installed
     // or if the container was removed manually without updating the service status.
@@ -167,7 +189,13 @@ export class DockerService {
     // }
 
     const containerConfig = this._parseContainerConfig(service.container_config)
-    await this._createContainer(service, containerConfig)
+    
+    // Execute installation asynchronously and handle cleanup
+    this._createContainer(service, containerConfig)
+      .catch(async (error) => {
+        logger.error(`Installation failed for ${serviceName}: ${error.message}`)
+        await this._cleanupFailedInstallation(serviceName)
+      })
 
     return {
       success: true,
@@ -272,7 +300,11 @@ export class DockerService {
         `Finalizing installation of service ${service.service_name}...`
       )
       service.installed = true
+      service.installation_status = 'idle'
       await service.save()
+
+      // Remove from active installs tracking
+      this.activeInstallations.delete(service.service_name)
 
       this._broadcast(
         service.service_name,
@@ -285,6 +317,8 @@ export class DockerService {
         'error',
         `Error installing service ${service.service_name}: ${error.message}`
       )
+      // Mark install as failed and cleanup
+      await this._cleanupFailedInstallation(service.service_name)
       throw new Error(`Failed to install service ${service.service_name}: ${error.message}`)
     }
   }
@@ -369,6 +403,20 @@ export class DockerService {
         `Failed to download Wikipedia ZIM file: ${error.message}`
       )
       throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  private async _cleanupFailedInstallation(serviceName: string): Promise<void> {
+    try {
+      const service = await Service.query().where('service_name', serviceName).first()
+      if (service) {
+        service.installation_status = 'error'
+        await service.save()
+      }
+      this.activeInstallations.delete(serviceName)
+      logger.info(`[DockerService] Cleaned up failed installation for ${serviceName}`)
+    } catch (error) {
+      logger.error(`[DockerService] Failed to cleanup installation for ${serviceName}: ${error.message}`)
     }
   }
 
