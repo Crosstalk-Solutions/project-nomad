@@ -18,6 +18,7 @@
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 COLLECT_DISK_INFO_PID="/var/run/nomad-collect-disk-info.pid"
+DISK_INFO_FILE="/tmp/nomad-disk-info.json"
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -86,6 +87,14 @@ try_remove_disk_info_script() {
     fi
 }
 
+try_remove_disk_info_file() {
+    if [ -f "$DISK_INFO_FILE" ]; then
+        echo "Removing disk info file..."
+        rm -f "$DISK_INFO_FILE"
+        echo "Disk info file removed."
+    fi
+}
+
 uninstall_nomad() {
     echo "Stopping and removing Project N.O.M.A.D. management containers..."
     docker compose -f "${MANAGEMENT_COMPOSE_FILE}" down
@@ -103,6 +112,9 @@ uninstall_nomad() {
 
     # Try to stop the collect-disk-info script if it's running
     try_remove_disk_info_script
+
+    # Try to remove the disk info file if it exists
+    try_remove_disk_info_file
 
     echo "Removing Project N.O.M.A.D. files..."
     rm -rf "${NOMAD_DIR}"
