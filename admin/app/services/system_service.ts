@@ -129,18 +129,25 @@ export class SystemService {
         si.time(),
       ])
 
-      const diskInfoRawString = await getFile(
-        path.join(process.cwd(), SystemService.diskInfoFile),
-        'string'
-      )
+      let diskInfo: NomadDiskInfoRaw | undefined
+      let disk: NomadDiskInfo[] = []
 
-      const diskInfo = (
-        diskInfoRawString
-          ? JSON.parse(diskInfoRawString.toString())
-          : { diskLayout: { blockdevices: [] }, fsSize: [] }
-      ) as NomadDiskInfoRaw
+      try {
+        const diskInfoRawString = await getFile(
+          path.join(process.cwd(), SystemService.diskInfoFile),
+          'string'
+        )
 
-      const disk = this.calculateDiskUsage(diskInfo)
+        diskInfo = (
+          diskInfoRawString
+            ? JSON.parse(diskInfoRawString.toString())
+            : { diskLayout: { blockdevices: [] }, fsSize: [] }
+        ) as NomadDiskInfoRaw
+
+        disk = this.calculateDiskUsage(diskInfo)
+      } catch (error) {
+        logger.error('Error reading disk info file:', error)
+      }
 
       return {
         cpu,
@@ -164,7 +171,7 @@ export class SystemService {
    */
   private async _syncContainersWithDatabase() {
     try {
-      const allServices = await Service.all();
+      const allServices = await Service.all()
       const serviceStatusList = await this.dockerService.getServicesStatus()
 
       for (const service of allServices) {
@@ -189,7 +196,6 @@ export class SystemService {
           }
         }
       }
-
     } catch (error) {
       logger.error('Error syncing containers with database:', error)
     }
