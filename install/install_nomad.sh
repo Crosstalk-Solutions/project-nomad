@@ -237,6 +237,12 @@ create_nomad_directory(){
   sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
 }
 
+create_disk_info_file() {
+  # Disk info file MUST be created before the admin container starts.
+  # Otherwise, Docker will assume we meant to mount a directory and will create an empty directory at the mount point
+  echo '{}' > /tmp/nomad-disk-info.json
+}
+
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
 
