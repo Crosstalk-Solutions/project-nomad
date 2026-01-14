@@ -1,6 +1,7 @@
 services:
   admin:
     image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    pull_policy: always
     container_name: nomad_admin
     restart: unless-stopped
     ports:
