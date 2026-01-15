@@ -198,13 +198,6 @@ export default function ZimRemoteExplorer() {
               <h1 className="text-4xl font-semibold mb-2">ZIM Remote Explorer</h1>
               <p className="text-gray-500">Browse and download ZIM files for offline reading!</p>
             </div>
-            <StyledButton
-              onClick={() => fetchLatestCollections.mutate()}
-              disabled={fetchLatestCollections.isPending}
-              icon="CloudArrowDownIcon"
-            >
-              Fetch Latest Collections
-            </StyledButton>
           </div>
           {!isOnline && (
             <Alert
@@ -223,16 +216,26 @@ export default function ZimRemoteExplorer() {
               className="!mt-6"
             />
           )}
-          <StyledSectionHeader title="Curated ZIM Collections" className="mt-8 mb-4" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <StyledSectionHeader title="Curated ZIM Collections" className="mt-8 !mb-4" />
+          <StyledButton
+            onClick={() => fetchLatestCollections.mutate()}
+            disabled={fetchLatestCollections.isPending}
+            icon="CloudArrowDownIcon"
+          >
+            Fetch Latest Collections
+          </StyledButton>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {curatedCollections?.map((collection) => (
               <CuratedCollectionCard
                 key={collection.slug}
                 collection={collection}
                 onClick={(collection) => confirmDownload(collection)}
-                size='large'
+                size="large"
               />
             ))}
+            {curatedCollections && curatedCollections.length === 0 && (
+              <p className="text-gray-500">No curated collections available.</p>
+            )}
           </div>
           <StyledSectionHeader title="Browse the Kiwix Library" className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">

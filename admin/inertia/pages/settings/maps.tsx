@@ -191,20 +191,20 @@ export default function MapsManager(props: {
               >
                 Download Custom Map File
               </StyledButton>
-              <StyledButton
-                onClick={() => fetchLatestCollections.mutate()}
-                disabled={fetchLatestCollections.isPending}
-                icon="CloudArrowDownIcon"
-              >
-                Fetch Latest Collections
-              </StyledButton>
             </div>
           </div>
           {!props.maps.baseAssetsExist && (
             <MissingBaseAssetsAlert loading={downloading} onClickDownload={downloadBaseAssets} />
           )}
-          <StyledSectionHeader title="Curated Map Collections" className="mt-8 mb-4" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <StyledSectionHeader title="Curated Map Collections" className="mt-8 !mb-4" />
+          <StyledButton
+            onClick={() => fetchLatestCollections.mutate()}
+            disabled={fetchLatestCollections.isPending}
+            icon="CloudArrowDownIcon"
+          >
+            Fetch Latest Collections
+          </StyledButton>
+          <div className="!mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {curatedCollections?.map((collection) => (
               <CuratedCollectionCard
                 key={collection.slug}
@@ -212,6 +212,9 @@ export default function MapsManager(props: {
                 onClick={(collection) => confirmDownload(collection)}
               />
             ))}
+            {curatedCollections && curatedCollections.length === 0 && (
+              <p className="text-gray-500">No curated collections available.</p>
+            )}
           </div>
           <StyledSectionHeader title="Stored Map Files" className="mt-12 mb-4" />
           <StyledTable<FileEntry & { actions?: any }>
