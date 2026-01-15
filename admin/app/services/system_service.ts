@@ -62,7 +62,16 @@ export class SystemService {
 
     const query = Service.query()
       .orderBy('friendly_name', 'asc')
-      .select('id', 'service_name', 'installed', 'installation_status', 'ui_location', 'friendly_name', 'description', 'icon')
+      .select(
+        'id',
+        'service_name',
+        'installed',
+        'installation_status',
+        'ui_location',
+        'friendly_name',
+        'description',
+        'icon'
+      )
       .where('is_dependency_service', false)
     if (installedOnly) {
       query.where('installed', true)
@@ -163,6 +172,52 @@ export class SystemService {
     } catch (error) {
       logger.error('Error getting system info:', error)
       return undefined
+    }
+  }
+
+  async checkLatestVersion(): Promise<{
+    success: boolean
+    updateAvailable: boolean
+    currentVersion: string
+    latestVersion: string
+    message?: string
+  }> {
+    try {
+      const response = await axios.get(
+        'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases/latest',
+        {
+          headers: { Accept: 'application/vnd.github+json' },
+          timeout: 5000,
+        }
+      )
+
+      if (!response || !response.data?.tag_name) {
+        throw new Error('Invalid response from GitHub API')
+      }
+
+      const latestVersion = response.data.tag_name.replace(/^v/, '') // Remove leading 'v' if present
+      const currentVersion = SystemService.getAppVersion()
+
+      logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
+
+      // NOTE: this will always return true in dev environment! See getAppVersion()
+      const updateAvailable = latestVersion !== currentVersion
+
+      return {
+        success: true,
+        updateAvailable,
+        currentVersion,
+        latestVersion,
+      }
+    } catch (error) {
+      logger.error('Error checking latest version:', error)
+      return {
+        success: false,
+        updateAvailable: false,
+        currentVersion: '',
+        latestVersion: '',
+        message: `Failed to check latest version: ${error instanceof Error ? error.message : error}`,
+      }
     }
   }
 

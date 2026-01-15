@@ -60,3 +60,10 @@ export type NomadDiskInfo = {
     percentUsed: number
   }[]
 }
+
+export type SystemUpdateStatus = {
+  stage: 'idle' | 'starting' | 'pulling' | 'pulled' | 'recreating' | 'complete' | 'error'
+  progress: number
+  message: string
+  timestamp: string
+}

@@ -1,5 +1,6 @@
 import { DockerService } from '#services/docker_service';
 import { SystemService } from '#services/system_service'
+import { SystemUpdateService } from '#services/system_update_service'
 import { affectServiceValidator, installServiceValidator } from '#validators/system';
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -8,7 +9,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class SystemController {
     constructor(
         private systemService: SystemService,
-        private dockerService: DockerService
+        private dockerService: DockerService,
+        private systemUpdateService: SystemUpdateService
     ) { }
 
     async getInternetStatus({ }: HttpContext) {
@@ -42,5 +44,52 @@ export default class SystemController {
             return;
         }
         response.send({ success: result.success, message: result.message });
+    }
+
+    async checkLatestVersion({ }: HttpContext) {
+        return await this.systemService.checkLatestVersion();
+    }
+
+    async requestSystemUpdate({ response }: HttpContext) {
+        if (!this.systemUpdateService.isSidecarAvailable()) {
+            response.status(503).send({
+                success: false,
+                error: 'Update sidecar is not available. Ensure the updater container is running.',
+            });
+            return;
+        }
+
+        const result = await this.systemUpdateService.requestUpdate();
+
+        if (result.success) {
+            response.send({
+                success: true,
+                message: result.message,
+                note: 'Monitor update progress via GET /api/system/update/status. The connection may drop during container restart.',
+            });
+        } else {
+            response.status(409).send({
+                success: false,
+                error: result.message,
+            });
+        }
+    }
+
+    async getSystemUpdateStatus({ response }: HttpContext) {
+        const status = this.systemUpdateService.getUpdateStatus();
+
+        if (!status) {
+            response.status(500).send({
+                error: 'Failed to retrieve update status',
+            });
+            return;
+        }
+
+        response.send(status);
+    }
+
+    async getSystemUpdateLogs({ response }: HttpContext) {
+        const logs = this.systemUpdateService.getUpdateLogs();
+        response.send({ logs });
     }
 }

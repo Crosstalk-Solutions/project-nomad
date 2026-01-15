@@ -1,3 +1,4 @@
+name: project-nomad
 services:
   admin:
     image: ghcr.io/crosstalk-solutions/project-nomad:latest
@@ -12,6 +13,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
       - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
+      - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
       - PORT=8080
@@ -81,3 +83,17 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+  updater:
+    build:
+      context: ./sidecar-updater
+      dockerfile: Dockerfile
+    container_name: nomad_updater
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
+      - /opt/project-nomad/compose.yml:/opt/project-nomad/compose.yml:ro
+      - nomad-update-shared:/shared # Shared volume for communication with admin container
+
+volumes:
+  nomad-update-shared:
+    driver: local

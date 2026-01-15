@@ -43,6 +43,17 @@ export default class SettingsController {
         });
     }
 
+    async update({ inertia }: HttpContext) {
+        const updateInfo = await this.systemService.checkLatestVersion();
+        return inertia.render('settings/update', {
+            system: {
+                updateAvailable: updateInfo.updateAvailable,
+                latestVersion: updateInfo.latestVersion,
+                currentVersion: updateInfo.currentVersion
+            }
+        });
+    }
+
     async zim({ inertia }: HttpContext) {
         return inertia.render('settings/zim/index')
     }

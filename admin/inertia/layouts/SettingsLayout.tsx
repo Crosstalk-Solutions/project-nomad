@@ -4,7 +4,7 @@ import {
   FolderIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
-import { IconDashboard, IconGavel, IconMapRoute } from '@tabler/icons-react'
+import { IconArrowBigUpLines, IconDashboard, IconGavel, IconMapRoute } from '@tabler/icons-react'
 import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 
@@ -24,6 +24,12 @@ const navigation = [
     name: 'Zim Remote Explorer',
     href: '/settings/zim/remote-explorer',
     icon: MagnifyingGlassIcon,
+    current: false,
+  },
+  {
+    name: 'Check for Updates',
+    href: '/settings/update',
+    icon: IconArrowBigUpLines,
     current: false,
   },
   { name: 'System', href: '/settings/system', icon: Cog6ToothIcon, current: true },
