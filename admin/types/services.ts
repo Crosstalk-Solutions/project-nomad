@@ -10,4 +10,5 @@ export type ServiceSlim = Pick<
   | 'ui_location'
   | 'friendly_name'
   | 'description'
+  | 'icon'
 > & { status?: ServiceStatus }

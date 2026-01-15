@@ -62,7 +62,7 @@ export class SystemService {
 
     const query = Service.query()
       .orderBy('friendly_name', 'asc')
-      .select('id', 'service_name', 'installed', 'ui_location', 'friendly_name', 'description')
+      .select('id', 'service_name', 'installed', 'installation_status', 'ui_location', 'friendly_name', 'description', 'icon')
       .where('is_dependency_service', false)
     if (installedOnly) {
       query.where('installed', true)
@@ -84,6 +84,7 @@ export class SystemService {
         service_name: service.service_name,
         friendly_name: service.friendly_name,
         description: service.description,
+        icon: service.icon,
         installed: service.installed,
         installation_status: service.installation_status,
         status: status ? status.status : 'unknown',

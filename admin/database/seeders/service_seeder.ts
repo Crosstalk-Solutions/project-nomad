@@ -10,6 +10,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: DockerService.KIWIX_SERVICE_NAME,
       friendly_name: 'Kiwix',
       description: 'Offline Wikipedia, eBooks, and more',
+      icon: 'IconBooks',
       container_image: 'ghcr.io/kiwix/kiwix-serve:3.8.1',
       container_command: '*.zim --address=all',
       container_config: JSON.stringify({
@@ -30,6 +31,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: DockerService.OLLAMA_SERVICE_NAME,
       friendly_name: 'Ollama',
       description: 'Run local LLMs (AI models) with ease on your own hardware',
+      icon: 'IconRobot',
       container_image: 'ollama/ollama:latest',
       container_command: 'serve',
       container_config: JSON.stringify({
@@ -50,6 +52,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: DockerService.OPEN_WEBUI_SERVICE_NAME,
       friendly_name: 'Open WebUI',
       description: 'A web interface for interacting with local AI models served by Ollama',
+      icon: 'IconWand',
       container_image: 'ghcr.io/open-webui/open-webui:main',
       container_command: null,
       container_config: JSON.stringify({
@@ -71,6 +74,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: DockerService.CYBERCHEF_SERVICE_NAME,
       friendly_name: 'CyberChef',
       description: 'The Cyber Swiss Army Knife - a web app for encryption, encoding, and data analysis',
+      icon: 'IconChefHat',
       container_image: 'ghcr.io/gchq/cyberchef:latest',
       container_command: null,
       container_config: JSON.stringify({
@@ -90,6 +94,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: DockerService.FLATNOTES_SERVICE_NAME,
       friendly_name: 'FlatNotes',
       description: 'A simple note-taking app that stores all files locally',
+      icon: 'IconNotes',
       container_image: 'dullage/flatnotes:latest',
       container_command: null,
       container_config: JSON.stringify({
@@ -111,6 +116,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: DockerService.KOLIBRI_SERVICE_NAME,
       friendly_name: 'Kolibri',
       description: 'An offline-first education platform for schools and learners',
+      icon: 'IconSchool',
       container_image: 'treehouses/kolibri:latest',
       container_command: null,
       container_config: JSON.stringify({
