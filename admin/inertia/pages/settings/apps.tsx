@@ -8,40 +8,22 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import api from '~/lib/api'
 import { useEffect, useState } from 'react'
-import InstallActivityFeed, { InstallActivityFeedProps } from '~/components/InstallActivityFeed'
-import { useTransmit } from 'react-adonis-transmit'
+import InstallActivityFeed from '~/components/InstallActivityFeed'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import useErrorNotification from '~/hooks/useErrorNotification'
 import useInternetStatus from '~/hooks/useInternetStatus'
+import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { IconCheck } from '@tabler/icons-react'
 
 export default function SettingsPage(props: { system: { services: ServiceSlim[] } }) {
   const { openModal, closeAllModals } = useModals()
-  const { subscribe } = useTransmit()
   const { showError } = useErrorNotification()
   const { isOnline } = useInternetStatus()
-  const [installActivity, setInstallActivity] = useState<InstallActivityFeedProps['activity']>([])
+  const installActivity = useServiceInstallationActivity()
+
   const [isInstalling, setIsInstalling] = useState(false)
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    const unsubscribe = subscribe('service-installation', (data: any) => {
-      setInstallActivity((prev) => [
-        ...prev,
-        {
-          service_name: data.service_name ?? 'unknown',
-          type: data.status ?? 'unknown',
-          timestamp: new Date().toISOString(),
-          message: data.message ?? 'No message provided',
-        },
-      ])
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
 
   useEffect(() => {
     if (installActivity.length === 0) return
@@ -270,7 +252,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
             />
           )}
           {installActivity.length > 0 && (
-            <InstallActivityFeed activity={installActivity} className="mt-8" />
+            <InstallActivityFeed activity={installActivity} className="mt-8" withHeader />
           )}
         </main>
       </div>

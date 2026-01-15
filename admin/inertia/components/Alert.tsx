@@ -89,7 +89,7 @@ export default function Alert({
               : type === 'success'
                 ? 'bg-desert-olive text-desert-white border-desert-olive-dark'
                 : type === 'info'
-                  ? 'bg-desert-stone text-desert-white border-desert-stone-dark'
+                  ? 'bg-desert-green text-desert-white border-desert-green-dark'
                   : ''
         )
         return classNames(baseStyles, 'shadow-sm', ...variantStyles)
@@ -102,7 +102,7 @@ export default function Alert({
               : type === 'success'
                 ? 'bg-desert-olive-lighter bg-opacity-20 border-desert-olive-light'
                 : type === 'info'
-                  ? 'bg-desert-stone-lighter bg-opacity-20 border-desert-stone-light'
+                  ? 'bg-desert-green bg-opacity-20 border-desert-green-light'
                   : ''
         )
         return classNames(baseStyles, 'border shadow-sm', ...variantStyles)

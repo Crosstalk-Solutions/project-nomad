@@ -85,6 +85,7 @@ export class SystemService {
         friendly_name: service.friendly_name,
         description: service.description,
         installed: service.installed,
+        installation_status: service.installation_status,
         status: status ? status.status : 'unknown',
         ui_location: service.ui_location || '',
       })

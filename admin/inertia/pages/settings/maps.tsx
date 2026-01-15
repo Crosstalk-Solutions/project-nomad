@@ -13,10 +13,9 @@ import DownloadURLModal from '~/components/DownloadURLModal'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import useDownloads from '~/hooks/useDownloads'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import HorizontalBarChart from '~/components/HorizontalBarChart'
-import { extractFileName } from '~/lib/util'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import { CuratedCollectionWithStatus } from '../../../types/downloads'
+import ActiveDownloads from '~/components/ActiveDownloads'
 
 const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 
@@ -34,7 +33,7 @@ export default function MapsManager(props: {
     refetchOnWindowFocus: false,
   })
 
-  const { data: downloads, invalidate: invalidateDownloads } = useDownloads({
+  const { invalidate: invalidateDownloads } = useDownloads({
     filetype: 'map',
     enabled: true,
   })
@@ -242,28 +241,7 @@ export default function MapsManager(props: {
             ]}
             data={props.maps.regionFiles || []}
           />
-          <StyledSectionHeader title="Active Downloads" className="mt-12 mb-4" />
-          <div className="space-y-4">
-            {downloads && downloads.length > 0 ? (
-              downloads.map((download) => (
-                <div className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
-                  <HorizontalBarChart
-                    items={[
-                      {
-                        label: extractFileName(download.filepath) || download.url,
-                        value: download.progress,
-                        total: '100%',
-                        used: `${download.progress}%`,
-                        type: download.filetype,
-                      },
-                    ]}
-                  />
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500">No active downloads</p>
-            )}
-          </div>
+          <ActiveDownloads filetype="map" withHeader />
         </main>
       </div>
     </SettingsLayout>

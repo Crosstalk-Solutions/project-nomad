@@ -6,10 +6,11 @@ import { IconCircleCheck } from '@tabler/icons-react'
 
 export interface CuratedCollectionCardProps {
   collection: CuratedCollectionWithStatus
-  onClick?: (collection: CuratedCollectionWithStatus) => void
+  onClick?: (collection: CuratedCollectionWithStatus) => void;
+  size?: 'small' | 'large'
 }
 
-const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collection, onClick }) => {
+const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collection, onClick, size = 'small' }) => {
   const totalSizeBytes = collection.resources?.reduce(
     (acc, resource) => acc + resource.size_mb * 1024 * 1024,
     0
@@ -18,7 +19,8 @@ const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collectio
     <div
       className={classNames(
         'flex flex-col bg-desert-green rounded-lg p-6 text-white border border-b-desert-green shadow-sm hover:shadow-lg transition-shadow cursor-pointer',
-        { 'opacity-65 cursor-not-allowed !hover:shadow-sm': collection.all_downloaded }
+        { 'opacity-65 cursor-not-allowed !hover:shadow-sm': collection.all_downloaded },
+        { 'h-56': size === 'small', 'h-80': size === 'large' }
       )}
       onClick={() => {
         if (collection.all_downloaded) {

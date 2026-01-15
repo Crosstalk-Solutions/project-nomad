@@ -20,12 +20,13 @@ export type InstallActivityFeedProps = {
     message: string
   }>
   className?: string
+  withHeader?: boolean
 }
 
-const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, className }) => {
+const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, className, withHeader = false }) => {
   return (
     <div className={classNames('bg-white shadow-sm rounded-lg p-6', className)}>
-      <h2 className="text-lg font-semibold text-gray-900">Installation Activity</h2>
+      {withHeader && <h2 className="text-lg font-semibold text-gray-900">Installation Activity</h2>}
       <ul role="list" className="mt-6 space-y-6 text-desert-green">
         {activity.map((activityItem, activityItemIdx) => (
           <li key={activityItem.timestamp} className="relative flex gap-x-4">

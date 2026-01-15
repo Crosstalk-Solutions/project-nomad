@@ -8,6 +8,7 @@
 */
 import DocsController from '#controllers/docs_controller'
 import DownloadsController from '#controllers/downloads_controller'
+import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
 import SettingsController from '#controllers/settings_controller'
@@ -21,6 +22,9 @@ transmit.registerRoutes()
 router.get('/', [HomeController, 'index'])
 router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
+
+router.get('/easy-setup', [EasySetupController, 'index'])
+router.get('/easy-setup/complete', [EasySetupController, 'complete'])
 
 router
   .group(() => {
