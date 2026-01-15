@@ -66,6 +66,9 @@ export default function ZimRemoteExplorer() {
         const pageParsed = parseInt((pageParam as number).toString(), 10)
         const start = isNaN(pageParsed) ? 0 : pageParsed * 12
         const res = await api.listRemoteZimFiles({ start, count: 12, query: query || undefined })
+        if (!res) {
+          throw new Error('Failed to fetch remote ZIM files.')
+        }
         return res.data
       },
       initialPageParam: 0,

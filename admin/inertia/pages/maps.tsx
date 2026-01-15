@@ -3,8 +3,18 @@ import { Head, Link } from '@inertiajs/react'
 import MapComponent from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft } from '@tabler/icons-react'
+import { FileEntry } from '../../types/files'
+import AlertWithButton from '~/components/AlertWithButton'
 
-export default function Maps() {
+export default function Maps(props: {
+  maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
+}) {
+  const alertMessage = !props.maps.baseAssetsExist
+    ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
+    : props.maps.regionFiles.length === 0
+      ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
+      : null
+
   return (
     <MapsLayout>
       <Head title="Maps" />
@@ -19,7 +29,23 @@ export default function Maps() {
           </StyledButton>
         </Link>
       </div>
-      <div className="w-full h-full flex p-4 justify-center items-center">
+      <div className="w-full min-h-screen flex flex-col items-center justify-center py-4 mx-4">
+        {alertMessage && (
+          <AlertWithButton
+            title={alertMessage}
+            type="warning"
+            variant="solid"
+            className="w-full !mb-4"
+            buttonProps={{
+              variant: 'secondary',
+              children: 'Go to Map Settings',
+              icon: 'Cog6ToothIcon',
+              onClick: () => {
+                window.location.href = '/settings/maps'
+              },
+            }}
+          />
+        )}
         <MapComponent />
       </div>
     </MapsLayout>

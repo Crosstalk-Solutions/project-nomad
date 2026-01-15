@@ -5,7 +5,6 @@ import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import { FileEntry } from '../../../types/files'
-import MissingBaseAssetsAlert from '~/components/layout/MissingBaseAssetsAlert'
 import { useNotifications } from '~/context/NotificationContext'
 import { useState } from 'react'
 import api from '~/lib/api'
@@ -16,6 +15,7 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import { CuratedCollectionWithStatus } from '../../../types/downloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
+import AlertWithButton from '~/components/AlertWithButton'
 
 const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 
@@ -194,7 +194,19 @@ export default function MapsManager(props: {
             </div>
           </div>
           {!props.maps.baseAssetsExist && (
-            <MissingBaseAssetsAlert loading={downloading} onClickDownload={downloadBaseAssets} />
+            <AlertWithButton
+              title="The base map assets have not been installed. Please download them first to enable map functionality."
+              type="warning"
+              variant="solid"
+              className="my-4"
+              buttonProps={{
+                variant: 'secondary',
+                children: 'Download Base Assets',
+                icon: 'ArrowDownTrayIcon',
+                loading: downloading,
+                onClick: () => downloadBaseAssets(),
+              }}
+            />
           )}
           <StyledSectionHeader title="Curated Map Collections" className="mt-8 !mb-4" />
           <StyledButton

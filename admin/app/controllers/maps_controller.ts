@@ -13,7 +13,14 @@ export default class MapsController {
   constructor(private mapService: MapService) {}
 
   async index({ inertia }: HttpContext) {
-    return inertia.render('maps')
+    const baseAssetsCheck = await this.mapService.checkBaseAssetsExist()
+    const regionFiles = await this.mapService.listRegions()
+    return inertia.render('maps', {
+      maps: {
+        baseAssetsExist: baseAssetsCheck,
+        regionFiles: regionFiles.files,
+      },
+    })
   }
 
   async checkBaseAssets({}: HttpContext) {
