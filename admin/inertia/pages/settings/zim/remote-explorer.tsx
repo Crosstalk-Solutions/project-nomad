@@ -12,7 +12,7 @@ import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { Head } from '@inertiajs/react'
 import { ListRemoteZimFilesResponse, RemoteZimFileEntry } from '../../../../types/zim'
-import { extractFileName, formatBytes } from '~/lib/util'
+import { formatBytes } from '~/lib/util'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
@@ -27,7 +27,7 @@ import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { CuratedCollectionWithStatus } from '../../../../types/downloads'
 import useDownloads from '~/hooks/useDownloads'
-import HorizontalBarChart from '~/components/HorizontalBarChart'
+import ActiveDownloads from '~/components/ActiveDownloads'
 
 const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
 
@@ -313,28 +313,7 @@ export default function ZimRemoteExplorer() {
             compact
             rowLines
           />
-          <StyledSectionHeader title="Active Downloads" className="mt-12 mb-4" />
-          <div className="space-y-4">
-            {downloads && downloads.length > 0 ? (
-              downloads.map((download) => (
-                <div className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
-                  <HorizontalBarChart
-                    items={[
-                      {
-                        label: extractFileName(download.filepath) || download.url,
-                        value: download.progress,
-                        total: '100%',
-                        used: `${download.progress}%`,
-                        type: download.filetype,
-                      },
-                    ]}
-                  />
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500">No active downloads</p>
-            )}
-          </div>
+          <ActiveDownloads filetype="zim" withHeader />
         </main>
       </div>
     </SettingsLayout>

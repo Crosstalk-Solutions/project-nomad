@@ -1,10 +1,18 @@
-import { IconHelp, IconMapRoute, IconPlus, IconSettings, IconWifiOff } from '@tabler/icons-react'
+import { IconBolt, IconHelp, IconMapRoute, IconPlus, IconSettings, IconWifiOff } from '@tabler/icons-react'
 import { Head } from '@inertiajs/react'
 import BouncingLogo from '~/components/BouncingLogo'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 
 const STATIC_ITEMS = [
+  {
+    label: 'Easy Setup',
+    to: '/easy-setup',
+    target: '',
+    description: "Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!",
+    icon: <IconBolt size={48} />,
+    installed: true,
+  },
   {
     label: 'Install Apps',
     to: '/settings/apps',
@@ -66,11 +74,11 @@ export default function Home(props: {
           <a key={item.label} href={item.to} target={item.target}>
             <div
               key={item.label}
-              className="rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-black text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer"
+              className="rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-black text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4"
             >
               <div className="flex items-center justify-center mb-2">{item.icon}</div>
               <h3 className="font-bold text-2xl">{item.label}</h3>
-              <p className="text-lg mt-2">{item.description}</p>
+              <p className="xl:text-lg mt-2">{item.description}</p>
             </div>
           </a>
         ))}
