@@ -97,7 +97,7 @@ try_remove_disk_info_file() {
 
 uninstall_nomad() {
     echo "Stopping and removing Project N.O.M.A.D. management containers..."
-    docker compose -f "${MANAGEMENT_COMPOSE_FILE}" down
+    docker compose -p project-nomad -f "${MANAGEMENT_COMPOSE_FILE}" down
     echo "Allowing some time for management containers to stop..."
     sleep 5
 

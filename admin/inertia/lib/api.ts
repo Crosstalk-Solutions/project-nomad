@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
-import { SystemInformationResponse } from '../../types/system'
+import { SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { CuratedCollectionWithStatus, DownloadJobWithProgress } from '../../types/downloads'
 import { catchInternal } from './util'
 
@@ -116,6 +116,29 @@ class API {
     })()
   }
 
+  async getSystemUpdateStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<SystemUpdateStatus>('/system/update/status')
+      return response.data
+    })()
+  }
+
+  async getSystemUpdateLogs() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ logs: string }>('/system/update/logs')
+      return response.data
+    })()
+  }
+
+  async healthCheck() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ status: string }>('/health', {
+        timeout: 5000,
+      })
+      return response.data
+    })()
+  }
+
   async installService(service_name: string) {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(
@@ -195,6 +218,15 @@ class API {
     return catchInternal(async () => {
       const endpoint = filetype ? `/downloads/jobs/${filetype}` : '/downloads/jobs'
       const response = await this.client.get<DownloadJobWithProgress[]>(endpoint)
+      return response.data
+    })()
+  }
+
+  async startSystemUpdate() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/update'
+      )
       return response.data
     })()
   }

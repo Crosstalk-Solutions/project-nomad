@@ -32,6 +32,7 @@ router
     router.get('/apps', [SettingsController, 'apps'])
     router.get('/legal', [SettingsController, 'legal'])
     router.get('/maps', [SettingsController, 'maps'])
+    router.get('/update', [SettingsController, 'update'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
   })
@@ -90,6 +91,10 @@ router
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])
+    router.get('/latest-version', [SystemController, 'checkLatestVersion'])
+    router.post('/update', [SystemController, 'requestSystemUpdate'])
+    router.get('/update/status', [SystemController, 'getSystemUpdateStatus'])
+    router.get('/update/logs', [SystemController, 'getSystemUpdateLogs'])
   })
   .prefix('/api/system')
 
