@@ -1,15 +1,25 @@
-import { IconBolt, IconHelp, IconMapRoute, IconPlus, IconSettings, IconWifiOff } from '@tabler/icons-react'
+import {
+  IconBolt,
+  IconHelp,
+  IconMapRoute,
+  IconPlus,
+  IconSettings,
+  IconWifiOff,
+} from '@tabler/icons-react'
 import { Head } from '@inertiajs/react'
 import BouncingLogo from '~/components/BouncingLogo'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
+import { ServiceSlim } from '../../types/services'
+import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 
 const STATIC_ITEMS = [
   {
     label: 'Easy Setup',
     to: '/easy-setup',
     target: '',
-    description: "Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!",
+    description:
+      'Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!',
     icon: <IconBolt size={48} />,
     installed: true,
   },
@@ -49,17 +59,23 @@ const STATIC_ITEMS = [
 
 export default function Home(props: {
   system: {
-    services: { id: number; service_name: string; installed: boolean; ui_location: string }[]
+    services: ServiceSlim[]
   }
 }) {
   const items = []
-    props.system.services.map((service) => {
+  props.system.services.map((service) => {
     items.push({
-      label: service.service_name,
-      to: getServiceLink(service.ui_location),
+      label: service.friendly_name || service.service_name,
+      to: service.ui_location ? getServiceLink(service.ui_location) : '#',
       target: '_blank',
-      description: `Access ${service.service_name} content`,
-      icon: <IconWifiOff size={48} />,
+      description:
+        service.description ||
+        `Access the ${service.friendly_name || service.service_name} application`,
+      icon: service.icon ? (
+        <DynamicIcon icon={service.icon as DynamicIconName} className="!size-12" />
+      ) : (
+        <IconWifiOff size={48} />
+      ),
       installed: service.installed,
     })
   })

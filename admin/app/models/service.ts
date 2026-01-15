@@ -26,6 +26,9 @@ export default class Service extends BaseModel {
   @column()
   declare description: string | null
 
+  @column()
+  declare icon: string | null // must be a TablerIcons name to be properly rendered in the UI (e.g. "IconBrandDocker")
+
   @column({
     serialize(value) {
       return Boolean(value)
