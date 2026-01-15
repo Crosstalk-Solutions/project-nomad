@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react'
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import AppLayout from '~/layouts/AppLayout'
 import StyledButton from '~/components/StyledButton'
 import api from '~/lib/api'
@@ -42,9 +42,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     refetchOnWindowFocus: false,
   })
 
-  const availableServices = useMemo(() => {
-    return props.system.services.filter((service) => !service.installed)
-  }, [props.system.services])
+  const availableServices = props.system.services.filter(
+    (service) => !service.installed && service.installation_status !== 'installing'
+  )
 
   const toggleServiceSelection = (serviceName: string) => {
     setSelectedServices((prev) =>
@@ -97,26 +97,23 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
     try {
       // All of these ops don't actually wait for completion, they just kick off the process, so we can run them in parallel without awaiting each one sequentially
-      // const installPromises = selectedServices.map((serviceName) => api.installService(serviceName))
+      const installPromises = selectedServices.map((serviceName) => api.installService(serviceName))
 
-      // await Promise.all(installPromises)
+      await Promise.all(installPromises)
 
-      // const downloadPromises = [
-      //   ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
-      //   ...selectedZimCollections.map((slug) => api.downloadZimCollection(slug)),
-      // ]
+      const downloadPromises = [
+        ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
+        ...selectedZimCollections.map((slug) => api.downloadZimCollection(slug)),
+      ]
 
-      // await Promise.all(downloadPromises)
+      await Promise.all(downloadPromises)
 
       addNotification({
         type: 'success',
         message: 'Setup wizard completed! Your selections are being processed.',
       })
 
-      // Wait a moment then redirect to completion page to show progress
-      setTimeout(() => {
-        router.visit('/easy-setup/complete')
-      }, 2000)
+      router.visit('/easy-setup/complete')
     } catch (error) {
       console.error('Error during setup:', error)
       addNotification({
@@ -226,26 +223,17 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {availableServices.map((service) => {
-            const selectedOrInstalled =
-              selectedServices.includes(service.service_name) ||
-              service.installed ||
-              service.installation_status === 'installing'
-
-            const installedOrInstalling =
-              service.installed || service.installation_status === 'installing'
+            const selected = selectedServices.includes(service.service_name)
 
             return (
               <div
                 key={service.id}
-                onClick={() =>
-                  !installedOrInstalling && toggleServiceSelection(service.service_name)
-                }
+                onClick={() => toggleServiceSelection(service.service_name)}
                 className={classNames(
                   'p-6 rounded-lg border-2 cursor-pointer transition-all',
-                  selectedOrInstalled
+                  selected
                     ? 'border-desert-green bg-desert-green bg-opacity-10 shadow-md text-white'
-                    : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm',
-                  installedOrInstalling ? 'opacity-50 cursor-not-allowed' : ''
+                    : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm'
                 )}
               >
                 <div className="flex items-start justify-between">
@@ -256,7 +244,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     <p
                       className={classNames(
                         'text-sm mt-1',
-                        selectedOrInstalled ? 'text-white' : 'text-gray-600'
+                        selected ? 'text-white' : 'text-gray-600'
                       )}
                     >
                       {service.description}
@@ -265,12 +253,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                   <div
                     className={classNames(
                       'ml-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all',
-                      selectedOrInstalled
-                        ? 'border-desert-green bg-desert-green'
-                        : 'border-desert-stone'
+                      selected ? 'border-desert-green bg-desert-green' : 'border-desert-stone'
                     )}
                   >
-                    {selectedOrInstalled ? (
+                    {selected ? (
                       <IconCheck size={20} className="text-white" />
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-transparent" />

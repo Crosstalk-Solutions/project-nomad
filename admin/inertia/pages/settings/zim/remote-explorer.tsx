@@ -230,6 +230,7 @@ export default function ZimRemoteExplorer() {
                 key={collection.slug}
                 collection={collection}
                 onClick={(collection) => confirmDownload(collection)}
+                size='large'
               />
             ))}
           </div>

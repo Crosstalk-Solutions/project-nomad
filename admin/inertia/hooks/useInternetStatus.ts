@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '~/lib/api';
 
 const useInternetStatus = () => {
-    const [isOnline, setIsOnline] = useState<boolean>(false);
+    const [isOnline, setIsOnline] = useState<boolean>(true); // Initialize true to avoid "offline" flicker on load
     const { data } = useQuery<boolean>({
         queryKey: ['internetStatus'],
         queryFn: async () => (await api.getInternetStatus()) ?? false,
