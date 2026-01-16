@@ -1,7 +1,37 @@
-FROM node:22.16.0-alpine3.22 AS base
+FROM node:22-slim AS base
 
 # Install bash & curl for entrypoint script compatibility
-RUN apk add --no-cache bash curl
+# as well as dependencies for Playwright Chromium
+RUN apt-get update && apt-get install -y \
+    bash \
+    curl \
+    wget \
+    ca-certificates \
+    fonts-liberation \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libgbm1 \
+    libasound2 \
+    libxcb-shm0 \
+    libx11-xcb1 \
+    libxrandr2 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxi6 \
+    libgtk-3-0t64 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libatk1.0-0t64 \
+    libcairo-gobject2 \
+    libcairo2 \
+    libgdk-pixbuf-2.0-0 \
+    libxrender1 \
+    libasound2t64
+    && rm -rf /var/lib/apt/lists/*
 
 # All deps stage
 FROM base AS deps
