@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node bin/server.js",
     "build": "node ace build",
+    "postinstall": "playwright install chromium --with-deps",
     "dev": "node ace serve --hmr",
     "test": "node ace test",
     "lint": "eslint .",
@@ -91,6 +92,7 @@
     "maplibre-gl": "^4.7.1",
     "mysql2": "^3.14.1",
     "pino-pretty": "^13.0.0",
+    "playwright": "^1.57.0",
     "pmtiles": "^4.3.0",
     "postcss": "^8.5.6",
     "react": "^19.1.0",
