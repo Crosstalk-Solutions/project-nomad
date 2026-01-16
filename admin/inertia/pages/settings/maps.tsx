@@ -6,7 +6,7 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import { FileEntry } from '../../../types/files'
 import { useNotifications } from '~/context/NotificationContext'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import api from '~/lib/api'
 import DownloadURLModal from '~/components/DownloadURLModal'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -171,6 +171,17 @@ export default function MapsManager(props: {
       queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
     },
   })
+
+  // Auto-fetch latest collections if the list is empty
+  useEffect(() => {
+    if (
+      curatedCollections &&
+      curatedCollections.length === 0 &&
+      !fetchLatestCollections.isPending
+    ) {
+      fetchLatestCollections.mutate()
+    }
+  }, [curatedCollections, fetchLatestCollections])
 
   return (
     <SettingsLayout>

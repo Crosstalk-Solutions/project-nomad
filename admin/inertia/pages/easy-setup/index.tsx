@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react'
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import AppLayout from '~/layouts/AppLayout'
 import StyledButton from '~/components/StyledButton'
 import api from '~/lib/api'
@@ -15,6 +15,9 @@ import classNames from 'classnames'
 
 type WizardStep = 1 | 2 | 3 | 4
 
+const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
+const CURATED_ZIM_COLLECTIONS_KEY = 'curated-zim-collections'
+
 export default function EasySetupWizard(props: { system: { services: ServiceSlim[] } }) {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
@@ -24,6 +27,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
+  const queryClient = useQueryClient()
 
   const anySelectionMade =
     selectedServices.length > 0 ||
@@ -31,13 +35,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     selectedZimCollections.length > 0
 
   const { data: mapCollections, isLoading: isLoadingMaps } = useQuery({
-    queryKey: ['curated-map-collections'],
+    queryKey: [CURATED_MAP_COLLECTIONS_KEY],
     queryFn: () => api.listCuratedMapCollections(),
     refetchOnWindowFocus: false,
   })
 
   const { data: zimCollections, isLoading: isLoadingZims } = useQuery({
-    queryKey: ['curated-zim-collections'],
+    queryKey: [CURATED_ZIM_COLLECTIONS_KEY],
     queryFn: () => api.listCuratedZimCollections(),
     refetchOnWindowFocus: false,
   })
@@ -124,6 +128,41 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       setIsProcessing(false)
     }
   }
+
+  const fetchLatestMapCollections = useMutation({
+    mutationFn: () => api.fetchLatestMapCollections(),
+    onSuccess: () => {
+      addNotification({
+        message: 'Successfully fetched the latest map collections.',
+        type: 'success',
+      })
+      queryClient.invalidateQueries({ queryKey: [CURATED_MAP_COLLECTIONS_KEY] })
+    },
+  })
+
+  const fetchLatestZIMCollections = useMutation({
+    mutationFn: () => api.fetchLatestZimCollections(),
+    onSuccess: () => {
+      addNotification({
+        message: 'Successfully fetched the latest ZIM collections.',
+        type: 'success',
+      })
+      queryClient.invalidateQueries({ queryKey: [CURATED_ZIM_COLLECTIONS_KEY] })
+    },
+  })
+
+  // Auto-fetch latest collections if the list is empty
+  useEffect(() => {
+    if (mapCollections && mapCollections.length === 0 && !fetchLatestMapCollections.isPending) {
+      fetchLatestMapCollections.mutate()
+    }
+  }, [mapCollections, fetchLatestMapCollections])
+
+  useEffect(() => {
+    if (zimCollections && zimCollections.length === 0 && !fetchLatestZIMCollections.isPending) {
+      fetchLatestZIMCollections.mutate()
+    }
+  }, [zimCollections, fetchLatestZIMCollections])
 
   const renderStepIndicator = () => {
     const steps = [

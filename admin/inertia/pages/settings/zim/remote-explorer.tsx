@@ -191,6 +191,13 @@ export default function ZimRemoteExplorer() {
     },
   })
 
+  // Auto-fetch latest collections if the list is empty
+  useEffect(() => {
+    if (curatedCollections && curatedCollections.length === 0 && !fetchLatestCollections.isPending) {
+      fetchLatestCollections.mutate()
+    }
+  }, [curatedCollections, fetchLatestCollections])
+
   return (
     <SettingsLayout>
       <Head title="ZIM Remote Explorer | Project N.O.M.A.D." />
