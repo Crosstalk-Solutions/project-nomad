@@ -1,4 +1,5 @@
 import { MapService } from '#services/map_service';
+import { OpenWebUIService } from '#services/openwebui_service';
 import { SystemService } from '#services/system_service';
 import { inject } from '@adonisjs/core';
 import type { HttpContext } from '@adonisjs/core/http'
@@ -7,7 +8,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class SettingsController {
     constructor(
         private systemService: SystemService,
-        private mapService: MapService
+        private mapService: MapService,
+        private openWebUIService: OpenWebUIService
     ) { }
 
     async system({ inertia }: HttpContext) {
@@ -39,6 +41,15 @@ export default class SettingsController {
             maps: {
                 baseAssetsExist: baseAssetsCheck,
                 regionFiles: regionFiles.files
+            }
+        });
+    }
+
+    async models({ inertia }: HttpContext) {
+        const installedModels = await this.openWebUIService.getInstalledModels();
+        return inertia.render('settings/models', {
+            models: {
+                installedModels: installedModels || []
             }
         });
     }

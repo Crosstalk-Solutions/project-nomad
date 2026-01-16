@@ -33,6 +33,7 @@ router
     router.get('/apps', [SettingsController, 'apps'])
     router.get('/legal', [SettingsController, 'legal'])
     router.get('/maps', [SettingsController, 'maps'])
+    router.get('/models', [SettingsController, 'models'])
     router.get('/update', [SettingsController, 'update'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
