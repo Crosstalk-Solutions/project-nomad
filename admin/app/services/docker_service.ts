@@ -2,7 +2,6 @@ import Service from '#models/service'
 import Docker from 'dockerode'
 import logger from '@adonisjs/core/services/logger'
 import { inject } from '@adonisjs/core'
-import { ServiceStatus } from '../../types/services.js'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
@@ -92,18 +91,16 @@ export class DockerService {
     }
   }
 
+  /**
+   * Fetches the status of all Docker containers related to Nomad services. (those prefixed with 'nomad_')
+   */
   async getServicesStatus(): Promise<
     {
       service_name: string
-      status: ServiceStatus
+      status: string
     }[]
   > {
     try {
-      const services = await Service.query().where('installed', true)
-      if (!services || services.length === 0) {
-        return []
-      }
-
       const containers = await this.docker.listContainers({ all: true })
       const containerMap = new Map<string, Docker.ContainerInfo>()
       containers.forEach((container) => {
@@ -113,22 +110,9 @@ export class DockerService {
         }
       })
 
-      const getStatus = (state: string): ServiceStatus => {
-        switch (state) {
-          case 'running':
-            return 'running'
-          case 'exited':
-          case 'created':
-          case 'paused':
-            return 'stopped'
-          default:
-            return 'unknown'
-        }
-      }
-
       return Array.from(containerMap.entries()).map(([name, container]) => ({
         service_name: name,
-        status: getStatus(container.State),
+        status: container.State,
       }))
     } catch (error) {
       console.error(`Error fetching services status: ${error.message}`)
@@ -189,13 +173,12 @@ export class DockerService {
     // }
 
     const containerConfig = this._parseContainerConfig(service.container_config)
-    
+
     // Execute installation asynchronously and handle cleanup
-    this._createContainer(service, containerConfig)
-      .catch(async (error) => {
-        logger.error(`Installation failed for ${serviceName}: ${error.message}`)
-        await this._cleanupFailedInstallation(serviceName)
-      })
+    this._createContainer(service, containerConfig).catch(async (error) => {
+      logger.error(`Installation failed for ${serviceName}: ${error.message}`)
+      await this._cleanupFailedInstallation(serviceName)
+    })
 
     return {
       success: true,
@@ -416,7 +399,9 @@ export class DockerService {
       this.activeInstallations.delete(serviceName)
       logger.info(`[DockerService] Cleaned up failed installation for ${serviceName}`)
     } catch (error) {
-      logger.error(`[DockerService] Failed to cleanup installation for ${serviceName}: ${error.message}`)
+      logger.error(
+        `[DockerService] Failed to cleanup installation for ${serviceName}: ${error.message}`
+      )
     }
   }
 
