@@ -223,8 +223,9 @@ export class SystemService {
 
   /**
    * Checks the current state of Docker containers against the database records and updates the database accordingly.
-   * It will mark services as not installed if their corresponding containers are not running, and can also handle cleanup of any orphaned records.
-   * Handles cases where a container might have been manually removed or is in an unexpected state, ensuring the database reflects the actual state of containers.
+   * It will mark services as not installed if their corresponding containers do not exist, regardless of their running state.
+   * Handles cases where a container might have been manually removed, ensuring the database reflects the actual existence of containers.
+   * Containers that exist but are stopped, paused, or restarting will still be considered installed.
    */
   private async _syncContainersWithDatabase() {
     try {
@@ -232,20 +233,25 @@ export class SystemService {
       const serviceStatusList = await this.dockerService.getServicesStatus()
 
       for (const service of allServices) {
-        const status = serviceStatusList.find((s) => s.service_name === service.service_name)
+        const containerExists = serviceStatusList.find(
+          (s) => s.service_name === service.service_name
+        )
+        
         if (service.installed) {
-          if (!status || status.status !== 'running') {
+          // If marked as installed but container doesn't exist, mark as not installed
+          if (!containerExists) {
             logger.warn(
-              `Service ${service.service_name} is marked as installed but container is not running. Marking as not installed.`
+              `Service ${service.service_name} is marked as installed but container does not exist. Marking as not installed.`
             )
             service.installed = false
             service.installation_status = 'idle'
             await service.save()
           }
         } else {
-          if (status && status.status === 'running') {
+          // If marked as not installed but container exists (any state), mark as installed
+          if (containerExists) {
             logger.warn(
-              `Service ${service.service_name} is marked as not installed but container is running. Marking as installed.`
+              `Service ${service.service_name} is marked as not installed but container exists. Marking as installed.`
             )
             service.installed = true
             service.installation_status = 'idle'

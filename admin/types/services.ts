@@ -1,6 +1,5 @@
 import Service from '#models/service'
 
-export type ServiceStatus = 'unknown' | 'running' | 'stopped'
 export type ServiceSlim = Pick<
   Service,
   | 'id'
@@ -11,4 +10,4 @@ export type ServiceSlim = Pick<
   | 'friendly_name'
   | 'description'
   | 'icon'
-> & { status?: ServiceStatus }
+> & { status?: string }
