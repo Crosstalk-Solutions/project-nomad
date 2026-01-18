@@ -1,71 +1,67 @@
-# Lorem Ipsum Markdown Showcase
+# Welcome to Project N.O.M.A.D.
+
+Your personal offline knowledge server is ready to use.
+
+## What is N.O.M.A.D.?
+
+**N.O.M.A.D.** stands for **Node for Offline Media, Archives, and Data**. It's your personal server for accessing knowledge, education, and AI assistance — even when you have no internet connection.
+
+Think of it as having Wikipedia, Khan Academy, an AI assistant, and offline maps all in one place, running on hardware you control.
+
+## What Can You Do?
+
+### Browse Offline Knowledge
+Access millions of Wikipedia articles, medical references, how-to guides, and ebooks — all stored locally on your server. No internet required.
+
+**[Open Kiwix →](/kiwix)**
+
+### Learn Something New
+Khan Academy courses covering math, science, economics, and more. Complete with videos and exercises, all available offline.
+
+**[Open Kolibri →](/kolibri)**
+
+### Chat with AI
+Ask questions, get explanations, brainstorm ideas, or get help with writing. Your local AI assistant works completely offline.
+
+**[Open AI Chat →](/openwebui)**
+
+### View Offline Maps
+Navigate and explore maps without an internet connection. Download regions you need before going offline.
+
+**[Open Maps →](/maps)**
 
 ---
 
-## Introduction
+## Getting Started
 
-This document serves as a comprehensive example of **Markdown's various formatting possibilities**, using the classic *Lorem Ipsum* text as its content. From basic text styling to lists, code blocks, and tables, you'll find a demonstration of common Markdown features here.
+**New to N.O.M.A.D.?** Use the Easy Setup wizard to configure your server and download content collections.
 
----
+**[Run Easy Setup →](/easy-setup)**
 
-## Basic Text Formatting
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-* This text is **bold**.
-* This text is *italic*.
-* This text is ***bold and italic***.
-* This text is ~~struck through~~.
-* You can also use `backticks` for `inline code`.
+Or explore the **[Getting Started Guide](/docs/getting-started)** for a walkthrough of all features.
 
 ---
 
-## Headers
+## Quick Links
 
-Markdown supports up to six levels of headers.
-
-# Header 1
-## Header 2
-### Header 3
-#### Header 4
-##### Header 5
-###### Header 6
-
----
-
-## Lists
-
-### Unordered List
-
-* Lorem ipsum dolor sit amet.
-    * Consectetur adipiscing elit.
-        * Sed do eiusmod tempor.
-* Incididunt ut labore et dolore magna.
-* Aliqua ut enim ad minim veniam.
-
-### Ordered List
-
-1.  Quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-2.  Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-3.  Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+| I want to... | Go here |
+|--------------|---------|
+| Download more content | [Install Apps](/apps) |
+| Add Wikipedia/reference content | [ZIM Manager](/settings/zim-manager) |
+| Download map regions | [Maps Manager](/settings/maps-manager) |
+| Check for updates | [System Update](/settings/updates) |
+| View system status | [Settings](/settings) |
 
 ---
 
-## Blockquotes
+## Keeping Your Server Updated
 
-> "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
->
-> — John Doe, *Lorem Ipsum Anthology*
+N.O.M.A.D. works best when kept up to date while you have internet access. This ensures you have the latest:
+- Software features and bug fixes
+- Wikipedia and reference content
+- Educational materials
+- AI model improvements
 
----
+When you go offline, you'll have everything you need — the last synced versions of all your content.
 
-## Code Blocks
-
-```python
-def fibonacci(n):
-    a, b = 0, 1
-    for i in range(n):
-        print(a, end=" ")
-        a, b = b, a + b
-
-fibonacci(10)
+**[Check for Updates →](/settings/updates)**
