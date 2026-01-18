@@ -22,7 +22,7 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const removeNotification = (id: string) => {
-    setNotifications(notifications.filter((n) => n.id !== id))
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
   const removeAllNotifications = () => {
