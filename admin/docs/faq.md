@@ -141,6 +141,33 @@ The system is designed to recover gracefully. If an update fails:
 2. Try the update again later
 3. Check Settings → System for error messages
 
+### Command-Line Maintenance
+
+For advanced troubleshooting or when you can't access the web interface, N.O.M.A.D. includes helper scripts in `/opt/project-nomad`:
+
+**Start all services:**
+```bash
+sudo bash /opt/project-nomad/start_nomad.sh
+```
+
+**Stop all services:**
+```bash
+sudo bash /opt/project-nomad/stop_nomad.sh
+```
+
+**Update Command Center:**
+```bash
+sudo bash /opt/project-nomad/update_nomad.sh
+```
+*Note: This updates the Command Center only, not individual apps. Update apps through the web interface.*
+
+**Uninstall N.O.M.A.D.:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/uninstall_nomad.sh -o uninstall_nomad.sh
+sudo bash uninstall_nomad.sh
+```
+*Warning: This cannot be undone. All data will be deleted.*
+
 ---
 
 ## Privacy and Security
