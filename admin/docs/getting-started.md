@@ -1,8 +1,61 @@
 # Getting Started with N.O.M.A.D.
 
-This guide will help you set up your N.O.M.A.D. server and start using it effectively.
+This guide will help you install and set up your N.O.M.A.D. server.
 
-## First Steps
+---
+
+## Installation
+
+### System Requirements
+
+N.O.M.A.D. runs on any **Debian-based Linux** system (Ubuntu recommended). The installation is terminal-based, and everything is accessed through a web browser — no desktop environment needed.
+
+**Minimum Specs** (Command Center only):
+- 2 GHz dual-core processor
+- 4 GB RAM
+- 5 GB free storage
+- Internet connection (for initial install)
+
+**Recommended Specs** (with AI features):
+- AMD Ryzen 7 / Intel Core i7 or better
+- 32 GB RAM
+- NVIDIA RTX 3060 or better (more VRAM = larger AI models)
+- 250 GB+ free storage (SSD preferred)
+
+The Command Center itself is lightweight — your hardware requirements depend on which tools and content you choose to install.
+
+### Install N.O.M.A.D.
+
+Open a terminal and run these two commands:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh
+```
+
+```bash
+sudo bash install_nomad.sh
+```
+
+That's it. Once the install finishes, open a browser and go to:
+
+- **Same machine:** `http://localhost:8080`
+- **Other devices on your network:** `http://YOUR_SERVER_IP:8080`
+
+### About Internet & Privacy
+
+N.O.M.A.D. is designed for offline use. Internet is only needed:
+- During initial installation
+- When downloading additional content
+
+There is **zero telemetry** — your data stays on your device.
+
+### About Security
+
+N.O.M.A.D. has no built-in authentication — it's designed to be open and accessible. If you expose it on a network, consider using firewall rules to control which ports are accessible.
+
+---
+
+## After Installation
 
 ### 1. Run the Easy Setup Wizard
 
