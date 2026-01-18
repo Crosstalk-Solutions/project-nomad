@@ -1,0 +1,85 @@
+{
+  "categories": [
+    {
+      "name": "Medicine",
+      "slug": "medicine",
+      "icon": "IconStethoscope",
+      "description": "Medical references, guides, and encyclopedias for healthcare information and emergency preparedness.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "medicine-essential",
+          "description": "Core medical references for first aid, medications, and emergency care. Start here.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "Medical Library",
+              "description": "Field and emergency medicine books and guides",
+              "url": "https://download.kiwix.org/zim/other/zimgit-medicine_en_2024-08.zim",
+              "size_mb": 67
+            },
+            {
+              "title": "NHS Medicines A to Z",
+              "description": "How medicines work, dosages, side effects, and interactions",
+              "url": "https://download.kiwix.org/zim/zimit/nhs.uk_en_medicines_2025-12.zim",
+              "size_mb": 16
+            },
+            {
+              "title": "Military Medicine",
+              "description": "Tactical and field medicine manuals",
+              "url": "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
+              "size_mb": 78
+            },
+            {
+              "title": "CDC Health Information",
+              "description": "Disease prevention, travel health, and outbreak information",
+              "url": "https://download.kiwix.org/zim/zimit/wwwnc.cdc.gov_en_all_2024-11.zim",
+              "size_mb": 170
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "medicine-standard",
+          "description": "Comprehensive medical encyclopedia with detailed health information. Includes everything in Essential.",
+          "includesTier": "medicine-essential",
+          "resources": [
+            {
+              "title": "MedlinePlus",
+              "description": "NIH's consumer health encyclopedia - diseases, conditions, drugs, supplements",
+              "url": "https://download.kiwix.org/zim/zimit/medlineplus.gov_en_all_2025-01.zim",
+              "size_mb": 1800
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "medicine-comprehensive",
+          "description": "Professional-level medical references and textbooks. Includes everything in Standard.",
+          "includesTier": "medicine-standard",
+          "resources": [
+            {
+              "title": "Wikipedia Medicine",
+              "description": "Curated medical articles from Wikipedia with images",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-01.zim",
+              "size_mb": 2000
+            },
+            {
+              "title": "LibreTexts Medicine",
+              "description": "Open-source medical textbooks and educational content",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_med_2025-01.zim",
+              "size_mb": 1100
+            },
+            {
+              "title": "LibrePathology",
+              "description": "Pathology reference for disease identification",
+              "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2025-09.zim",
+              "size_mb": 76
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
