@@ -59,3 +59,33 @@ export type DownloadJobWithProgress = {
   filepath: string
   filetype: string
 }
+
+// Tiered category types for curated collections UI
+export type CategoryResource = {
+  title: string
+  description: string
+  size_mb: number
+  url: string
+}
+
+export type CategoryTier = {
+  name: string
+  slug: string
+  description: string
+  recommended?: boolean
+  includesTier?: string
+  resources: CategoryResource[]
+}
+
+export type CuratedCategory = {
+  name: string
+  slug: string
+  icon: string
+  description: string
+  language: string
+  tiers: CategoryTier[]
+}
+
+export type CuratedCategoriesFile = {
+  categories: CuratedCategory[]
+}
