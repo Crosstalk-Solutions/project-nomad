@@ -1,0 +1,325 @@
+{
+  "categories": [
+    {
+      "name": "Medicine",
+      "slug": "medicine",
+      "icon": "IconStethoscope",
+      "description": "Medical references, guides, and encyclopedias for healthcare information and emergency preparedness.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "medicine-essential",
+          "description": "Core medical references for first aid, medications, and emergency care. Start here.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "Medical Library",
+              "description": "Field and emergency medicine books and guides",
+              "url": "https://download.kiwix.org/zim/other/zimgit-medicine_en_2024-08.zim",
+              "size_mb": 67
+            },
+            {
+              "title": "NHS Medicines A to Z",
+              "description": "How medicines work, dosages, side effects, and interactions",
+              "url": "https://download.kiwix.org/zim/zimit/nhs.uk_en_medicines_2025-12.zim",
+              "size_mb": 16
+            },
+            {
+              "title": "Military Medicine",
+              "description": "Tactical and field medicine manuals",
+              "url": "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
+              "size_mb": 78
+            },
+            {
+              "title": "CDC Health Information",
+              "description": "Disease prevention, travel health, and outbreak information",
+              "url": "https://download.kiwix.org/zim/zimit/wwwnc.cdc.gov_en_all_2024-11.zim",
+              "size_mb": 170
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "medicine-standard",
+          "description": "Comprehensive medical encyclopedia with detailed health information. Includes everything in Essential.",
+          "includesTier": "medicine-essential",
+          "resources": [
+            {
+              "title": "MedlinePlus",
+              "description": "NIH's consumer health encyclopedia - diseases, conditions, drugs, supplements",
+              "url": "https://download.kiwix.org/zim/zimit/medlineplus.gov_en_all_2025-01.zim",
+              "size_mb": 1800
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "medicine-comprehensive",
+          "description": "Professional-level medical references and textbooks. Includes everything in Standard.",
+          "includesTier": "medicine-standard",
+          "resources": [
+            {
+              "title": "Wikipedia Medicine",
+              "description": "Curated medical articles from Wikipedia with images",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-01.zim",
+              "size_mb": 2000
+            },
+            {
+              "title": "LibreTexts Medicine",
+              "description": "Open-source medical textbooks and educational content",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_med_2025-01.zim",
+              "size_mb": 1100
+            },
+            {
+              "title": "LibrePathology",
+              "description": "Pathology reference for disease identification",
+              "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2025-09.zim",
+              "size_mb": 76
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Survival & Preparedness",
+      "slug": "survival",
+      "icon": "IconShieldCheck",
+      "description": "Emergency preparedness, self-sufficiency, food storage, and practical survival skills.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "survival-essential",
+          "description": "Core food preparation and cooking guides. Lightweight text-based resources to get started.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "Food for Preppers",
+              "description": "Recipes and techniques for food preservation and preparation",
+              "url": "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
+              "size_mb": 98
+            },
+            {
+              "title": "FOSS Cooking",
+              "description": "Quick and easy cooking guides and recipes",
+              "url": "https://download.kiwix.org/zim/zimit/foss.cooking_en_all_2025-11.zim",
+              "size_mb": 24
+            },
+            {
+              "title": "Based.Cooking",
+              "description": "Simple, practical recipes from the community",
+              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2025-11.zim",
+              "size_mb": 16
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "survival-standard",
+          "description": "Video guides for winter survival, bug-out gear, plus gardening and cooking Q&A. Includes Essential.",
+          "includesTier": "survival-essential",
+          "resources": [
+            {
+              "title": "Canadian Prepper: Winter Prepping",
+              "description": "Video guides for winter survival and cold weather emergencies",
+              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_winterprepping_en_2025-11.zim",
+              "size_mb": 1340
+            },
+            {
+              "title": "Canadian Prepper: Bug Out Roll",
+              "description": "Essential gear selection for your bug-out bag",
+              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim",
+              "size_mb": 975
+            },
+            {
+              "title": "Gardening Q&A",
+              "description": "Stack Exchange Q&A for growing your own food",
+              "url": "https://download.kiwix.org/zim/stack_exchange/gardening.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 923
+            },
+            {
+              "title": "Cooking Q&A",
+              "description": "Stack Exchange Q&A for cooking techniques and food safety",
+              "url": "https://download.kiwix.org/zim/stack_exchange/cooking.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 236
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "survival-comprehensive",
+          "description": "Full prepper video library plus repair guides and DIY skills. Includes Standard.",
+          "includesTier": "survival-standard",
+          "resources": [
+            {
+              "title": "Urban Prepper",
+              "description": "Comprehensive urban emergency preparedness video series",
+              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2025-11.zim",
+              "size_mb": 2240
+            },
+            {
+              "title": "Canadian Prepper: Prepping Food",
+              "description": "Long-term food storage and survival meal preparation",
+              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
+              "size_mb": 2160
+            },
+            {
+              "title": "Canadian Prepper: Bug Out Concepts",
+              "description": "Strategies and planning for emergency evacuation",
+              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutconcepts_en_2025-11.zim",
+              "size_mb": 2890
+            },
+            {
+              "title": "Learning Self-Reliance",
+              "description": "Prepping, survival skills, beekeeping, and homesteading",
+              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
+              "size_mb": 3970
+            },
+            {
+              "title": "iFixit Repair Guides",
+              "description": "Step-by-step repair guides for electronics, appliances, and vehicles",
+              "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
+              "size_mb": 3570
+            },
+            {
+              "title": "DIY & Home Improvement Q&A",
+              "description": "Stack Exchange Q&A for home repairs and construction",
+              "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 1900
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Education & Reference",
+      "slug": "education",
+      "icon": "IconSchool",
+      "description": "Encyclopedias, textbooks, tutorials, and educational videos for self-directed learning.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "education-essential",
+          "description": "Core reference materials - Wikipedia's best articles and open textbooks. Lightweight, text-focused.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "Wikipedia Top 45,000 Articles",
+              "description": "The 45,000 best Wikipedia articles, optimized for size (no images)",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2025-12.zim",
+              "size_mb": 1880
+            },
+            {
+              "title": "Wikibooks",
+              "description": "Open-content textbooks covering math, science, computing, and more",
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_nopic_2025-10.zim",
+              "size_mb": 3100
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "education-standard",
+          "description": "Adds educational videos, university-level tutorials, and STEM textbooks. Includes Essential.",
+          "includesTier": "education-essential",
+          "resources": [
+            {
+              "title": "TED-Ed",
+              "description": "Educational video lessons on science, history, literature, and more",
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-ed_2025-07.zim",
+              "size_mb": 5610
+            },
+            {
+              "title": "Wikiversity",
+              "description": "Tutorials, courses, and learning materials for all levels",
+              "url": "https://download.kiwix.org/zim/wikiversity/wikiversity_en_all_maxi_2025-11.zim",
+              "size_mb": 2370
+            },
+            {
+              "title": "LibreTexts Mathematics",
+              "description": "Open-source math textbooks from algebra to calculus",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_math_2025-01.zim",
+              "size_mb": 831
+            },
+            {
+              "title": "LibreTexts Physics",
+              "description": "Physics courses and textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_phys_2025-01.zim",
+              "size_mb": 560
+            },
+            {
+              "title": "LibreTexts Chemistry",
+              "description": "Chemistry courses and textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_chem_2025-01.zim",
+              "size_mb": 2180
+            },
+            {
+              "title": "LibreTexts Biology",
+              "description": "Biology courses and textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_bio_2025-01.zim",
+              "size_mb": 2240
+            },
+            {
+              "title": "Project Gutenberg: Education",
+              "description": "Classic educational texts and resources",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_education_2025-12.zim",
+              "size_mb": 606
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "education-comprehensive",
+          "description": "Complete educational library with full Wikipedia, enhanced textbooks, and TED talks. Includes Standard.",
+          "includesTier": "education-standard",
+          "resources": [
+            {
+              "title": "Wikipedia (Full, No Images)",
+              "description": "Complete English Wikipedia - over 6 million articles",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2025-12.zim",
+              "size_mb": 11400
+            },
+            {
+              "title": "Wikibooks (With Images)",
+              "description": "Open textbooks with full illustrations and diagrams",
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_maxi_2025-10.zim",
+              "size_mb": 5400
+            },
+            {
+              "title": "TED Conference",
+              "description": "Main TED conference talks on ideas worth spreading",
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-conference_2025-08.zim",
+              "size_mb": 16500
+            },
+            {
+              "title": "LibreTexts Humanities",
+              "description": "Literature, philosophy, history, and social sciences",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_human_2025-01.zim",
+              "size_mb": 3730
+            },
+            {
+              "title": "LibreTexts Geosciences",
+              "description": "Earth science, geology, and environmental studies",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_geo_2025-01.zim",
+              "size_mb": 1190
+            },
+            {
+              "title": "LibreTexts Engineering",
+              "description": "Engineering courses and technical references",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_eng_2025-01.zim",
+              "size_mb": 678
+            },
+            {
+              "title": "LibreTexts Business",
+              "description": "Business, economics, and management textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_biz_2025-01.zim",
+              "size_mb": 840
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
