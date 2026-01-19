@@ -2,9 +2,11 @@ import Service from '#models/service'
 import { DockerService } from '#services/docker_service'
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { ModelAttributes } from '@adonisjs/lucid/types/model'
+import env from '#start/env'
 
 export default class ServiceSeeder extends BaseSeeder {
-  private static NOMAD_STORAGE_ABS_PATH = '/opt/project-nomad/storage'
+  // Use environment variable with fallback to production default
+  private static NOMAD_STORAGE_ABS_PATH = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
   private static DEFAULT_SERVICES: Omit<ModelAttributes<Service>, 'created_at' | 'updated_at' | 'metadata' | 'id'>[] = [
     {
       service_name: DockerService.KIWIX_SERVICE_NAME,

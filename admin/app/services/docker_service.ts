@@ -19,7 +19,15 @@ export class DockerService {
   public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri'
 
   constructor() {
-    this.docker = new Docker({ socketPath: '/var/run/docker.sock' })
+    // Support both Linux (production) and Windows (development with Docker Desktop)
+    const isWindows = process.platform === 'win32'
+    if (isWindows) {
+      // Windows Docker Desktop uses named pipe
+      this.docker = new Docker({ socketPath: '//./pipe/docker_engine' })
+    } else {
+      // Linux uses Unix socket
+      this.docker = new Docker({ socketPath: '/var/run/docker.sock' })
+    }
   }
 
   async affectContainer(
