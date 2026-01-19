@@ -3,7 +3,7 @@ import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zi
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
-import { CuratedCollectionWithStatus, DownloadJobWithProgress } from '../../types/downloads'
+import { CuratedCategory, CuratedCollectionWithStatus, DownloadJobWithProgress } from '../../types/downloads'
 import { catchInternal } from './util'
 
 class API {
@@ -162,6 +162,15 @@ class API {
     return catchInternal(async () => {
       const response = await this.client.get<CuratedCollectionWithStatus[]>(
         '/zim/curated-collections'
+      )
+      return response.data
+    })()
+  }
+
+  async listCuratedCategories() {
+    return catchInternal(async () => {
+      const response = await this.client.get<CuratedCategory[]>(
+        '/easy-setup/curated-categories'
       )
       return response.data
     })()

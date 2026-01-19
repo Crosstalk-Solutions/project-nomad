@@ -25,6 +25,7 @@ router.on('/about').renderInertia('about')
 
 router.get('/easy-setup', [EasySetupController, 'index'])
 router.get('/easy-setup/complete', [EasySetupController, 'complete'])
+router.get('/api/easy-setup/curated-categories', [EasySetupController, 'listCuratedCategories'])
 
 router
   .group(() => {

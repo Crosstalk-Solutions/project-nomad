@@ -108,8 +108,6 @@ type WizardStep = 1 | 2 | 3 | 4
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_ZIM_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
-const CATEGORIES_URL =
-  'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/feature/tiered-collections/collections/kiwix-categories.json'
 
 // Helper to get all resources for a tier (including inherited resources)
 const getAllResourcesForTier = (tier: CategoryTier, allTiers: CategoryTier[]): CategoryResource[] => {
@@ -159,23 +157,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     refetchOnWindowFocus: false,
   })
 
-  // All services for display purposes
-  const allServices = props.system.services
-
-  // Services that can still be installed (not already installed)
   // Fetch curated categories with tiers
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
     queryKey: [CURATED_CATEGORIES_KEY],
-    queryFn: async () => {
-      const response = await fetch(CATEGORIES_URL)
-      if (!response.ok) {
-        throw new Error('Failed to fetch categories')
-      }
-      const data = await response.json()
-      return data.categories as CuratedCategory[]
-    },
+    queryFn: () => api.listCuratedCategories(),
     refetchOnWindowFocus: false,
   })
+
+  // All services for display purposes
+  const allServices = props.system.services
 
   const availableServices = props.system.services.filter(
     (service) => !service.installed && service.installation_status !== 'installing'
@@ -185,12 +175,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const installedServices = props.system.services.filter(
     (service) => service.installed
   )
-
-  const toggleServiceSelection = (serviceName: string) => {
-    setSelectedServices((prev) =>
-      prev.includes(serviceName) ? prev.filter((s) => s !== serviceName) : [...prev, serviceName]
-    )
-  }
 
   const toggleMapCollection = (slug: string) => {
     setSelectedMapCollections((prev) =>
@@ -248,7 +232,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
     // Add tier resources
     const tierResources = getSelectedTierResources()
-    totalBytes += tierResources.reduce((sum, r) => sum + r.size_mb * 1024 * 1024, 0)
+    totalBytes += tierResources.reduce((sum, r) => sum + (r.size_mb ?? 0) * 1024 * 1024, 0)
 
     // Add map collections
     if (mapCollections) {

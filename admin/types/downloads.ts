@@ -64,7 +64,7 @@ export type DownloadJobWithProgress = {
 export type CategoryResource = {
   title: string
   description: string
-  size_mb: number
+  size_mb?: number
   url: string
 }
 
