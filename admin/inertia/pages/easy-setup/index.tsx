@@ -22,7 +22,7 @@ const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_ZIM_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const CATEGORIES_URL =
-  'https://cdn.jsdelivr.net/gh/Crosstalk-Solutions/project-nomad@feature/tiered-collections/collections/kiwix-categories.json?v=2'
+  'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/feature/tiered-collections/collections/kiwix-categories.json'
 
 // Helper to get all resources for a tier (including inherited resources)
 const getAllResourcesForTier = (tier: CategoryTier, allTiers: CategoryTier[]): CategoryResource[] => {
