@@ -17,17 +17,19 @@ import {
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
 import { join } from 'path'
-import { CuratedCollectionWithStatus, CuratedCollectionsFile } from '../../types/downloads.js'
+import { CuratedCategory, CuratedCollectionWithStatus, CuratedCollectionsFile } from '../../types/downloads.js'
 import vine from '@vinejs/vine'
-import { curatedCollectionsFileSchema } from '#validators/curated_collections'
+import { curatedCategoriesFileSchema, curatedCollectionsFileSchema } from '#validators/curated_collections'
 import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
+const CATEGORIES_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/collections/kiwix-categories.json'
 const COLLECTIONS_URL =
   'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/kiwix.json'
+
 
 
 interface IZimService {
@@ -242,6 +244,23 @@ export class ZimService implements IZimService {
     for (const resource of resources) {
       resource.downloaded = true
       await resource.save()
+    }
+  }
+
+  async listCuratedCategories(): Promise<CuratedCategory[]> {
+    try {
+      const response = await axios.get(CATEGORIES_URL)
+      const data = response.data
+
+      const validated = await vine.validate({
+        schema: curatedCategoriesFileSchema,
+        data,
+      });
+
+      return validated.categories
+    } catch (error) {
+      logger.error(`[ZimService] Failed to fetch curated categories:`, error)
+      throw new Error('Failed to fetch curated categories or invalid format was received')
     }
   }
 

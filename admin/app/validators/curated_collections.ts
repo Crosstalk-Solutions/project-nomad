@@ -19,3 +19,29 @@ export const curatedCollectionValidator = vine.object({
 export const curatedCollectionsFileSchema = vine.object({
   collections: vine.array(curatedCollectionValidator).minLength(1),
 })
+
+/**
+ * For validating the categories file, which has a different structure than the collections file
+ * since it includes tiers within each category. 
+ */
+export const curatedCategoriesFileSchema = vine.object({
+  categories: vine.array(
+    vine.object({
+      name: vine.string(),
+      slug: vine.string(),
+      icon: vine.string(),
+      description: vine.string(),
+      language: vine.string().minLength(2).maxLength(5),
+      tiers: vine.array(
+        vine.object({
+          name: vine.string(),
+          slug: vine.string(),
+          description: vine.string(),
+          recommended: vine.boolean().optional(),
+          includesTier: vine.string().optional(),
+          resources: vine.array(curatedCollectionResourceValidator),
+        })
+      ),
+    })
+  ),
+})
