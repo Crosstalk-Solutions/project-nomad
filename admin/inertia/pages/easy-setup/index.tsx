@@ -291,7 +291,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     const steps = [
       { number: 1, label: 'Apps' },
       { number: 2, label: 'Maps' },
-      { number: 3, label: 'ZIM Files' },
+      { number: 3, label: 'Content' },
       { number: 4, label: 'Review' },
     ]
 
