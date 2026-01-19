@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import AppLayout from '~/layouts/AppLayout'
 import StyledButton from '~/components/StyledButton'
 import api from '~/lib/api'
@@ -10,9 +10,11 @@ import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
+import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { IconCheck } from '@tabler/icons-react'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
+import { useSystemInfo } from '~/hooks/useSystemInfo'
 import classNames from 'classnames'
 import { CuratedCategory, CategoryTier, CategoryResource } from '../../../types/downloads'
 
@@ -51,6 +53,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
   const queryClient = useQueryClient()
+  const { data: systemInfo } = useSystemInfo({ enabled: true })
 
   const anySelectionMade =
     selectedServices.length > 0 ||
@@ -143,6 +146,47 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     })
     return resources
   }
+
+  // Calculate total projected storage from all selections
+  const projectedStorageBytes = useMemo(() => {
+    let totalBytes = 0
+
+    // Add tier resources
+    const tierResources = getSelectedTierResources()
+    totalBytes += tierResources.reduce((sum, r) => sum + r.size_mb * 1024 * 1024, 0)
+
+    // Add map collections
+    if (mapCollections) {
+      selectedMapCollections.forEach((slug) => {
+        const collection = mapCollections.find((c) => c.slug === slug)
+        if (collection) {
+          totalBytes += collection.resources.reduce((sum, r) => sum + r.size_mb * 1024 * 1024, 0)
+        }
+      })
+    }
+
+    // Add ZIM collections
+    if (zimCollections) {
+      selectedZimCollections.forEach((slug) => {
+        const collection = zimCollections.find((c) => c.slug === slug)
+        if (collection) {
+          totalBytes += collection.resources.reduce((sum, r) => sum + r.size_mb * 1024 * 1024, 0)
+        }
+      })
+    }
+
+    return totalBytes
+  }, [selectedTiers, selectedMapCollections, selectedZimCollections, categories, mapCollections, zimCollections])
+
+  // Get primary disk/filesystem info for storage projection
+  // Try disk array first (Linux/production), fall back to fsSize (Windows/dev)
+  const primaryDisk = systemInfo?.disk?.[0]
+  const primaryFs = systemInfo?.fsSize?.[0]
+  const storageInfo = primaryDisk
+    ? { totalSize: primaryDisk.totalSize, totalUsed: primaryDisk.totalUsed }
+    : primaryFs
+    ? { totalSize: primaryFs.size, totalUsed: primaryFs.used }
+    : null
 
   const canProceedToNextStep = () => {
     if (!isOnline) return false // Must be online to proceed
@@ -657,6 +701,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white rounded-md shadow-md">
           {renderStepIndicator()}
+          {storageInfo && (
+            <div className="px-6 pt-4">
+              <StorageProjectionBar
+                totalSize={storageInfo.totalSize}
+                currentUsed={storageInfo.totalUsed}
+                projectedAddition={projectedStorageBytes}
+              />
+            </div>
+          )}
           <div className="p-6 min-h-fit">
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
