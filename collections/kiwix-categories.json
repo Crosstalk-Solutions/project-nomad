@@ -191,6 +191,135 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Education & Reference",
+      "slug": "education",
+      "icon": "IconSchool",
+      "description": "Encyclopedias, textbooks, tutorials, and educational videos for self-directed learning.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "education-essential",
+          "description": "Core reference materials - Wikipedia's best articles and open textbooks. Lightweight, text-focused.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "Wikipedia Top 45,000 Articles",
+              "description": "The 45,000 best Wikipedia articles, optimized for size (no images)",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2025-12.zim",
+              "size_mb": 1880
+            },
+            {
+              "title": "Wikibooks",
+              "description": "Open-content textbooks covering math, science, computing, and more",
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_nopic_2025-10.zim",
+              "size_mb": 3100
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "education-standard",
+          "description": "Adds educational videos, university-level tutorials, and STEM textbooks. Includes Essential.",
+          "includesTier": "education-essential",
+          "resources": [
+            {
+              "title": "TED-Ed",
+              "description": "Educational video lessons on science, history, literature, and more",
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-ed_2025-07.zim",
+              "size_mb": 5610
+            },
+            {
+              "title": "Wikiversity",
+              "description": "Tutorials, courses, and learning materials for all levels",
+              "url": "https://download.kiwix.org/zim/wikiversity/wikiversity_en_all_maxi_2025-11.zim",
+              "size_mb": 2370
+            },
+            {
+              "title": "LibreTexts Mathematics",
+              "description": "Open-source math textbooks from algebra to calculus",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_math_2025-01.zim",
+              "size_mb": 831
+            },
+            {
+              "title": "LibreTexts Physics",
+              "description": "Physics courses and textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_phys_2025-01.zim",
+              "size_mb": 560
+            },
+            {
+              "title": "LibreTexts Chemistry",
+              "description": "Chemistry courses and textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_chem_2025-01.zim",
+              "size_mb": 2180
+            },
+            {
+              "title": "LibreTexts Biology",
+              "description": "Biology courses and textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_bio_2025-01.zim",
+              "size_mb": 2240
+            },
+            {
+              "title": "Project Gutenberg: Education",
+              "description": "Classic educational texts and resources",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_education_2025-12.zim",
+              "size_mb": 606
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "education-comprehensive",
+          "description": "Complete educational library with full Wikipedia, enhanced textbooks, and TED talks. Includes Standard.",
+          "includesTier": "education-standard",
+          "resources": [
+            {
+              "title": "Wikipedia (Full, No Images)",
+              "description": "Complete English Wikipedia - over 6 million articles",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2025-12.zim",
+              "size_mb": 11400
+            },
+            {
+              "title": "Wikibooks (With Images)",
+              "description": "Open textbooks with full illustrations and diagrams",
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_maxi_2025-10.zim",
+              "size_mb": 5400
+            },
+            {
+              "title": "TED Conference",
+              "description": "Main TED conference talks on ideas worth spreading",
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-conference_2025-08.zim",
+              "size_mb": 16500
+            },
+            {
+              "title": "LibreTexts Humanities",
+              "description": "Literature, philosophy, history, and social sciences",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_human_2025-01.zim",
+              "size_mb": 3730
+            },
+            {
+              "title": "LibreTexts Geosciences",
+              "description": "Earth science, geology, and environmental studies",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_geo_2025-01.zim",
+              "size_mb": 1190
+            },
+            {
+              "title": "LibreTexts Engineering",
+              "description": "Engineering courses and technical references",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_eng_2025-01.zim",
+              "size_mb": 678
+            },
+            {
+              "title": "LibreTexts Business",
+              "description": "Business, economics, and management textbooks",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_biz_2025-01.zim",
+              "size_mb": 840
+            }
+          ]
+        }
+      ]
     }
   ]
 }
