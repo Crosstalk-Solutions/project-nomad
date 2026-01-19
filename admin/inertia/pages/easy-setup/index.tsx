@@ -10,13 +10,98 @@ import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
+import { IconCheck, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
-import { IconCheck } from '@tabler/icons-react'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import classNames from 'classnames'
 import { CuratedCategory, CategoryTier, CategoryResource } from '../../../types/downloads'
+
+// Capability definitions - maps user-friendly categories to services
+interface Capability {
+  id: string
+  name: string
+  technicalName: string
+  description: string
+  features: string[]
+  services: string[] // service_name values that this capability installs
+  icon: string
+}
+
+const CORE_CAPABILITIES: Capability[] = [
+  {
+    id: 'information',
+    name: 'Information Library',
+    technicalName: 'Kiwix',
+    description: 'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
+    features: [
+      'Complete Wikipedia offline',
+      'Medical references and first aid guides',
+      'WikiHow articles and tutorials',
+      'Project Gutenberg books and literature',
+    ],
+    services: ['nomad_kiwix_serve'],
+    icon: 'IconBooks',
+  },
+  {
+    id: 'education',
+    name: 'Education Platform',
+    technicalName: 'Kolibri',
+    description: 'Interactive learning platform with video courses and exercises',
+    features: [
+      'Khan Academy math and science courses',
+      'K-12 curriculum content',
+      'Interactive exercises and quizzes',
+      'Progress tracking for learners',
+    ],
+    services: ['nomad_kolibri'],
+    icon: 'IconSchool',
+  },
+  {
+    id: 'ai',
+    name: 'AI Assistant',
+    technicalName: 'Open WebUI + Ollama',
+    description: 'Local AI chat that runs entirely on your hardware - no internet required',
+    features: [
+      'Private conversations that never leave your device',
+      'No internet connection needed after setup',
+      'Ask questions, get help with writing, brainstorm ideas',
+      'Runs on your own hardware with local AI models',
+    ],
+    services: ['nomad_open_webui'], // ollama is auto-installed as dependency
+    icon: 'IconRobot',
+  },
+]
+
+const ADDITIONAL_TOOLS: Capability[] = [
+  {
+    id: 'notes',
+    name: 'Notes',
+    technicalName: 'FlatNotes',
+    description: 'Simple note-taking app with local storage',
+    features: [
+      'Markdown support',
+      'All notes stored locally',
+      'No account required',
+    ],
+    services: ['nomad_flatnotes'],
+    icon: 'IconNotes',
+  },
+  {
+    id: 'datatools',
+    name: 'Data Tools',
+    technicalName: 'CyberChef',
+    description: 'Swiss Army knife for data encoding, encryption, and analysis',
+    features: [
+      'Encode/decode data (Base64, hex, etc.)',
+      'Encryption and hashing tools',
+      'Data format conversion',
+    ],
+    services: ['nomad_cyberchef'],
+    icon: 'IconChefHat',
+  },
+]
 
 type WizardStep = 1 | 2 | 3 | 4
 
@@ -44,6 +129,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
   const [selectedZimCollections, setSelectedZimCollections] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showAdditionalTools, setShowAdditionalTools] = useState(false)
 
   // Category/tier selection state
   const [selectedTiers, setSelectedTiers] = useState<Map<string, CategoryTier>>(new Map())
@@ -73,6 +159,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     refetchOnWindowFocus: false,
   })
 
+  // All services for display purposes
+  const allServices = props.system.services
+
+  // Services that can still be installed (not already installed)
   // Fetch curated categories with tiers
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
     queryKey: [CURATED_CATEGORIES_KEY],
@@ -89,6 +179,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const availableServices = props.system.services.filter(
     (service) => !service.installed && service.installation_status !== 'installing'
+  )
+
+  // Services that are already installed
+  const installedServices = props.system.services.filter(
+    (service) => service.installed
   )
 
   const toggleServiceSelection = (serviceName: string) => {
@@ -363,75 +458,198 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     )
   }
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Apps to Install</h2>
-        <p className="text-gray-600">
-          Select the applications you'd like to install. You can always add more later.
-        </p>
-      </div>
-      {availableServices.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600 text-lg">All available apps are already installed!</p>
-          <StyledButton
-            variant="primary"
-            className="mt-4"
-            onClick={() => router.visit('/settings/apps')}
-          >
-            Manage Apps
-          </StyledButton>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {availableServices.map((service) => {
-            const selected = selectedServices.includes(service.service_name)
+  // Check if a capability is selected (all its services are in selectedServices)
+  const isCapabilitySelected = (capability: Capability) => {
+    return capability.services.every((service) => selectedServices.includes(service))
+  }
 
-            return (
-              <div
-                key={service.id}
-                onClick={() => toggleServiceSelection(service.service_name)}
+  // Check if a capability is already installed (all its services are installed)
+  const isCapabilityInstalled = (capability: Capability) => {
+    return capability.services.every((service) =>
+      installedServices.some((s) => s.service_name === service)
+    )
+  }
+
+  // Check if a capability exists in the system (has at least one matching service)
+  const capabilityExists = (capability: Capability) => {
+    return capability.services.some((service) =>
+      allServices.some((s) => s.service_name === service)
+    )
+  }
+
+  // Toggle all services for a capability (only if not already installed)
+  const toggleCapability = (capability: Capability) => {
+    // Don't allow toggling installed capabilities
+    if (isCapabilityInstalled(capability)) return
+
+    const isSelected = isCapabilitySelected(capability)
+    if (isSelected) {
+      // Deselect all services in this capability
+      setSelectedServices((prev) =>
+        prev.filter((s) => !capability.services.includes(s))
+      )
+    } else {
+      // Select all available services in this capability
+      const servicesToAdd = capability.services.filter((service) =>
+        availableServices.some((s) => s.service_name === service)
+      )
+      setSelectedServices((prev) => [...new Set([...prev, ...servicesToAdd])])
+    }
+  }
+
+  const renderCapabilityCard = (capability: Capability, isCore: boolean = true) => {
+    const selected = isCapabilitySelected(capability)
+    const installed = isCapabilityInstalled(capability)
+    const exists = capabilityExists(capability)
+
+    if (!exists) return null
+
+    // Determine visual state: installed (locked), selected (user chose it), or default
+    const isChecked = installed || selected
+
+    return (
+      <div
+        key={capability.id}
+        onClick={() => toggleCapability(capability)}
+        className={classNames(
+          'p-6 rounded-lg border-2 transition-all',
+          installed
+            ? 'border-desert-green bg-desert-green/20 cursor-default'
+            : selected
+              ? 'border-desert-green bg-desert-green shadow-md cursor-pointer'
+              : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm cursor-pointer'
+        )}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3
                 className={classNames(
-                  'p-6 rounded-lg border-2 cursor-pointer transition-all',
-                  selected
-                    ? 'border-desert-green bg-desert-green bg-opacity-10 shadow-md text-white'
-                    : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm'
+                  'text-xl font-bold',
+                  installed ? 'text-gray-700' : selected ? 'text-white' : 'text-gray-900'
                 )}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold">
-                      {service.friendly_name || service.service_name}
-                    </h3>
-                    <p
-                      className={classNames(
-                        'text-sm mt-1',
-                        selected ? 'text-white' : 'text-gray-600'
-                      )}
-                    >
-                      {service.description}
-                    </p>
-                  </div>
-                  <div
-                    className={classNames(
-                      'ml-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all',
-                      selected ? 'border-desert-green bg-desert-green' : 'border-desert-stone'
-                    )}
-                  >
-                    {selected ? (
-                      <IconCheck size={20} className="text-white" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-transparent" />
-                    )}
-                  </div>
+                {capability.name}
+              </h3>
+              {installed && (
+                <span className="text-xs bg-desert-green text-white px-2 py-0.5 rounded-full">
+                  Installed
+                </span>
+              )}
+            </div>
+            <p
+              className={classNames(
+                'text-sm mt-0.5',
+                installed ? 'text-gray-500' : selected ? 'text-green-100' : 'text-gray-500'
+              )}
+            >
+              Powered by {capability.technicalName}
+            </p>
+            <p
+              className={classNames(
+                'text-sm mt-3',
+                installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
+              )}
+            >
+              {capability.description}
+            </p>
+            {isCore && (
+              <ul className={classNames('mt-3 space-y-1', installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600')}>
+                {capability.features.map((feature, idx) => (
+                  <li key={idx} className="flex items-start text-sm">
+                    <span className={classNames('mr-2', installed ? 'text-desert-green' : selected ? 'text-white' : 'text-desert-green')}>•</span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div
+            className={classNames(
+              'ml-4 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
+              isChecked
+                ? installed
+                  ? 'border-desert-green bg-desert-green'
+                  : 'border-white bg-white'
+                : 'border-desert-stone'
+            )}
+          >
+            {isChecked && <IconCheck size={20} className={installed ? 'text-white' : 'text-desert-green'} />}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderStep1 = () => {
+    // Show all capabilities that exist in the system (including installed ones)
+    const existingCoreCapabilities = CORE_CAPABILITIES.filter(capabilityExists)
+    const existingAdditionalTools = ADDITIONAL_TOOLS.filter(capabilityExists)
+
+    // Check if ALL capabilities are already installed (nothing left to install)
+    const allCoreInstalled = existingCoreCapabilities.every(isCapabilityInstalled)
+    const allAdditionalInstalled = existingAdditionalTools.every(isCapabilityInstalled)
+    const allInstalled = allCoreInstalled && allAdditionalInstalled &&
+                         existingCoreCapabilities.length > 0
+
+    return (
+      <div className="space-y-8">
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">What do you want NOMAD to do?</h2>
+          <p className="text-gray-600">
+            Select the capabilities you need. You can always add more later.
+          </p>
+        </div>
+
+        {allInstalled ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">All available capabilities are already installed!</p>
+            <StyledButton
+              variant="primary"
+              className="mt-4"
+              onClick={() => router.visit('/settings/apps')}
+            >
+              Manage Apps
+            </StyledButton>
+          </div>
+        ) : (
+          <>
+            {/* Core Capabilities */}
+            {existingCoreCapabilities.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Core Capabilities</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {existingCoreCapabilities.map((capability) => renderCapabilityCard(capability, true))}
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+            )}
+
+            {/* Additional Tools - Collapsible */}
+            {existingAdditionalTools.length > 0 && (
+              <div className="border-t border-desert-stone-light pt-6">
+                <button
+                  onClick={() => setShowAdditionalTools(!showAdditionalTools)}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <h3 className="text-md font-medium text-gray-500">Additional Tools</h3>
+                  {showAdditionalTools ? (
+                    <IconChevronUp size={20} className="text-gray-400" />
+                  ) : (
+                    <IconChevronDown size={20} className="text-gray-400" />
+                  )}
+                </button>
+                {showAdditionalTools && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {existingAdditionalTools.map((capability) => renderCapabilityCard(capability, false))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   const renderStep2 = () => (
     <div className="space-y-6">
@@ -585,20 +803,20 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             {selectedServices.length > 0 && (
               <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  Apps to Install ({selectedServices.length})
+                  Capabilities to Install
                 </h3>
                 <ul className="space-y-2">
-                  {selectedServices.map((serviceName) => {
-                    const service = availableServices.find((s) => s.service_name === serviceName)
-                    return (
-                      <li key={serviceName} className="flex items-center">
+                  {[...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS]
+                    .filter((cap) => cap.services.some((s) => selectedServices.includes(s)))
+                    .map((capability) => (
+                      <li key={capability.id} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
                         <span className="text-gray-700">
-                          {service?.friendly_name || serviceName}
+                          {capability.name}
+                          <span className="text-gray-400 text-sm ml-2">({capability.technicalName})</span>
                         </span>
                       </li>
-                    )
-                  })}
+                    ))}
                 </ul>
               </div>
             )}
@@ -730,10 +948,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                 )}
 
                 <p className="text-sm text-gray-600">
-                  {selectedServices.length} app{selectedServices.length !== 1 && 's'},{' '}
-                  {selectedMapCollections.length} map collection
-                  {selectedMapCollections.length !== 1 && 's'}, {selectedZimCollections.length} ZIM
-                  collection{selectedZimCollections.length !== 1 && 's'} selected
+                  {(() => {
+                    const count = [...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS].filter((cap) =>
+                      cap.services.some((s) => selectedServices.includes(s))
+                    ).length
+                    return `${count} ${count === 1 ? 'capability' : 'capabilities'}`
+                  })()},{' '}
+                  {selectedMapCollections.length} map region
+                  {selectedMapCollections.length !== 1 && 's'}, {selectedZimCollections.length} content
+                  pack{selectedZimCollections.length !== 1 && 's'} selected
                 </p>
               </div>
 
