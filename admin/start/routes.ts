@@ -11,6 +11,7 @@ import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
+import OpenWebUIController from '#controllers/openwebui_controller'
 import SettingsController from '#controllers/settings_controller'
 import SystemController from '#controllers/system_controller'
 import ZimController from '#controllers/zim_controller'
@@ -85,6 +86,15 @@ router
 router.get('/api/health', () => {
   return { status: 'ok' }
 })
+
+router
+  .group(() => {
+    router.get('/models', [OpenWebUIController, 'models'])
+    router.get('/installed-models', [OpenWebUIController, 'installedModels'])
+    router.post('/download-model', [OpenWebUIController, 'dispatchModelDownload'])
+    router.post('/delete-model', [OpenWebUIController, 'deleteModel'])
+  })
+  .prefix('/api/openwebui')
 
 router
   .group(() => {

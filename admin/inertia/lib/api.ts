@@ -3,8 +3,13 @@ import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zi
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
-import { CuratedCategory, CuratedCollectionWithStatus, DownloadJobWithProgress } from '../../types/downloads'
+import {
+  CuratedCategory,
+  CuratedCollectionWithStatus,
+  DownloadJobWithProgress,
+} from '../../types/downloads'
 import { catchInternal } from './util'
+import { NomadOllamaModel } from '../../types/ollama'
 
 class API {
   private client: AxiosInstance
@@ -28,6 +33,13 @@ class API {
     })()
   }
 
+  async deleteModel(model: string): Promise<{ success: boolean; message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.post('/openwebui/delete-model', { model })
+      return response.data
+    })()
+  }
+
   async downloadBaseMapAssets() {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean }>('/maps/download-base-assets')
@@ -42,6 +54,13 @@ class API {
   }> {
     return catchInternal(async () => {
       const response = await this.client.post('/maps/download-collection', { slug })
+      return response.data
+    })()
+  }
+
+  async downloadModel(model: string): Promise<{ success: boolean; message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.post('/openwebui/download-model', { model })
       return response.data
     })()
   }
@@ -109,6 +128,15 @@ class API {
     })()
   }
 
+  async getRecommendedModels(): Promise<NomadOllamaModel[] | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<NomadOllamaModel[]>('/openwebui/models', {
+        params: { sort: 'pulls', recommendedOnly: true },
+      })
+      return response.data
+    })()
+  }
+
   async getSystemInfo() {
     return catchInternal(async () => {
       const response = await this.client.get<SystemInformationResponse>('/system/info')
@@ -169,9 +197,7 @@ class API {
 
   async listCuratedCategories() {
     return catchInternal(async () => {
-      const response = await this.client.get<CuratedCategory[]>(
-        '/easy-setup/curated-categories'
-      )
+      const response = await this.client.get<CuratedCategory[]>('/easy-setup/curated-categories')
       return response.data
     })()
   }

@@ -60,7 +60,9 @@ export default class QueueWork extends BaseCommand {
     const handlers = new Map<string, any>()
 
     const { RunDownloadJob } = await import('#jobs/run_download_job')
+    const { DownloadModelJob } = await import('#jobs/download_model_job')
     handlers.set(RunDownloadJob.key, new RunDownloadJob())
+    handlers.set(DownloadModelJob.key, new DownloadModelJob())
 
     return handlers
   }

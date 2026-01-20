@@ -7,3 +7,9 @@ export const downloadJobsByFiletypeSchema = vine.compile(
     }),
   })
 )
+
+export const modelNameSchema = vine.compile(
+  vine.object({
+    model: vine.string(),
+  })
+)
