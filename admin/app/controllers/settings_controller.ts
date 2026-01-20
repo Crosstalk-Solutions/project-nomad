@@ -46,9 +46,11 @@ export default class SettingsController {
     }
 
     async models({ inertia }: HttpContext) {
+        const availableModels = await this.openWebUIService.getAvailableModels();
         const installedModels = await this.openWebUIService.getInstalledModels();
         return inertia.render('settings/models', {
             models: {
+                availableModels: availableModels || [],
                 installedModels: installedModels || []
             }
         });

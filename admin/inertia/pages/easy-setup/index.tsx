@@ -34,7 +34,8 @@ const CORE_CAPABILITIES: Capability[] = [
     id: 'information',
     name: 'Information Library',
     technicalName: 'Kiwix',
-    description: 'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
+    description:
+      'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
     features: [
       'Complete Wikipedia offline',
       'Medical references and first aid guides',
@@ -80,11 +81,7 @@ const ADDITIONAL_TOOLS: Capability[] = [
     name: 'Notes',
     technicalName: 'FlatNotes',
     description: 'Simple note-taking app with local storage',
-    features: [
-      'Markdown support',
-      'All notes stored locally',
-      'No account required',
-    ],
+    features: ['Markdown support', 'All notes stored locally', 'No account required'],
     services: ['nomad_flatnotes'],
     icon: 'IconNotes',
   },
@@ -110,7 +107,10 @@ const CURATED_ZIM_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 
 // Helper to get all resources for a tier (including inherited resources)
-const getAllResourcesForTier = (tier: CategoryTier, allTiers: CategoryTier[]): CategoryResource[] => {
+const getAllResourcesForTier = (
+  tier: CategoryTier,
+  allTiers: CategoryTier[]
+): CategoryResource[] => {
   const resources = [...tier.resources]
   if (tier.includesTier) {
     const includedTier = allTiers.find((t) => t.slug === tier.includesTier)
@@ -126,6 +126,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
   const [selectedZimCollections, setSelectedZimCollections] = useState<string[]>([])
+  const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAdditionalTools, setShowAdditionalTools] = useState(false)
 
@@ -143,7 +144,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     selectedServices.length > 0 ||
     selectedMapCollections.length > 0 ||
     selectedZimCollections.length > 0 ||
-    selectedTiers.size > 0
+    selectedTiers.size > 0 ||
+    selectedAiModels.length > 0
 
   const { data: mapCollections, isLoading: isLoadingMaps } = useQuery({
     queryKey: [CURATED_MAP_COLLECTIONS_KEY],
@@ -164,6 +166,12 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     refetchOnWindowFocus: false,
   })
 
+  const { data: recommendedModels, isLoading: isLoadingRecommendedModels } = useQuery({
+    queryKey: ['recommended-ollama-models'],
+    queryFn: () => api.getRecommendedModels(),
+    refetchOnWindowFocus: false,
+  })
+
   // All services for display purposes
   const allServices = props.system.services
 
@@ -172,9 +180,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   )
 
   // Services that are already installed
-  const installedServices = props.system.services.filter(
-    (service) => service.installed
-  )
+  const installedServices = props.system.services.filter((service) => service.installed)
 
   const toggleMapCollection = (slug: string) => {
     setSelectedMapCollections((prev) =>
@@ -185,6 +191,12 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const toggleZimCollection = (slug: string) => {
     setSelectedZimCollections((prev) =>
       prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    )
+  }
+
+  const toggleAiModel = (modelName: string) => {
+    setSelectedAiModels((prev) =>
+      prev.includes(modelName) ? prev.filter((m) => m !== modelName) : [...prev, modelName]
     )
   }
 
@@ -255,7 +267,14 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     }
 
     return totalBytes
-  }, [selectedTiers, selectedMapCollections, selectedZimCollections, categories, mapCollections, zimCollections])
+  }, [
+    selectedTiers,
+    selectedMapCollections,
+    selectedZimCollections,
+    categories,
+    mapCollections,
+    zimCollections,
+  ])
 
   // Get primary disk/filesystem info for storage projection
   // Try disk array first (Linux/production), fall back to fsSize (Windows/dev)
@@ -264,8 +283,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const storageInfo = primaryDisk
     ? { totalSize: primaryDisk.totalSize, totalUsed: primaryDisk.totalUsed }
     : primaryFs
-    ? { totalSize: primaryFs.size, totalUsed: primaryFs.used }
-    : null
+      ? { totalSize: primaryFs.size, totalUsed: primaryFs.used }
+      : null
 
   const canProceedToNextStep = () => {
     if (!isOnline) return false // Must be online to proceed
@@ -304,12 +323,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
       await Promise.all(installPromises)
 
-      // Download collections and individual tier resources
+      // Download collections, individual tier resources, and AI models
       const tierResources = getSelectedTierResources()
       const downloadPromises = [
         ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
         ...selectedZimCollections.map((slug) => api.downloadZimCollection(slug)),
         ...tierResources.map((resource) => api.downloadRemoteZimFile(resource.url)),
+        ...selectedAiModels.map((modelName) => api.downloadModel(modelName)),
       ]
 
       await Promise.all(downloadPromises)
@@ -469,9 +489,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     const isSelected = isCapabilitySelected(capability)
     if (isSelected) {
       // Deselect all services in this capability
-      setSelectedServices((prev) =>
-        prev.filter((s) => !capability.services.includes(s))
-      )
+      setSelectedServices((prev) => prev.filter((s) => !capability.services.includes(s)))
     } else {
       // Select all available services in this capability
       const servicesToAdd = capability.services.filter((service) =>
@@ -538,10 +556,26 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               {capability.description}
             </p>
             {isCore && (
-              <ul className={classNames('mt-3 space-y-1', installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600')}>
+              <ul
+                className={classNames(
+                  'mt-3 space-y-1',
+                  installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
+                )}
+              >
                 {capability.features.map((feature, idx) => (
                   <li key={idx} className="flex items-start text-sm">
-                    <span className={classNames('mr-2', installed ? 'text-desert-green' : selected ? 'text-white' : 'text-desert-green')}>•</span>
+                    <span
+                      className={classNames(
+                        'mr-2',
+                        installed
+                          ? 'text-desert-green'
+                          : selected
+                            ? 'text-white'
+                            : 'text-desert-green'
+                      )}
+                    >
+                      •
+                    </span>
                     {feature}
                   </li>
                 ))}
@@ -558,7 +592,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                 : 'border-desert-stone'
             )}
           >
-            {isChecked && <IconCheck size={20} className={installed ? 'text-white' : 'text-desert-green'} />}
+            {isChecked && (
+              <IconCheck size={20} className={installed ? 'text-white' : 'text-desert-green'} />
+            )}
           </div>
         </div>
       </div>
@@ -573,8 +609,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     // Check if ALL capabilities are already installed (nothing left to install)
     const allCoreInstalled = existingCoreCapabilities.every(isCapabilityInstalled)
     const allAdditionalInstalled = existingAdditionalTools.every(isCapabilityInstalled)
-    const allInstalled = allCoreInstalled && allAdditionalInstalled &&
-                         existingCoreCapabilities.length > 0
+    const allInstalled =
+      allCoreInstalled && allAdditionalInstalled && existingCoreCapabilities.length > 0
 
     return (
       <div className="space-y-8">
@@ -587,7 +623,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
         {allInstalled ? (
           <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">All available capabilities are already installed!</p>
+            <p className="text-gray-600 text-lg">
+              All available capabilities are already installed!
+            </p>
             <StyledButton
               variant="primary"
               className="mt-4"
@@ -603,7 +641,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               <div>
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">Core Capabilities</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {existingCoreCapabilities.map((capability) => renderCapabilityCard(capability, true))}
+                  {existingCoreCapabilities.map((capability) =>
+                    renderCapabilityCard(capability, true)
+                  )}
                 </div>
               </div>
             )}
@@ -624,7 +664,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                 </button>
                 {showAdditionalTools && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    {existingAdditionalTools.map((capability) => renderCapabilityCard(capability, false))}
+                    {existingAdditionalTools.map((capability) =>
+                      renderCapabilityCard(capability, false)
+                    )}
                   </div>
                 )}
               </div>
@@ -681,92 +723,210 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     </div>
   )
 
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Content Collections</h2>
-        <p className="text-gray-600">
-          Select content categories for offline knowledge. Click a category to choose your preferred tier based on storage capacity.
-        </p>
-      </div>
+  const renderStep3 = () => {
+    // Check if AI or Information capabilities are selected OR already installed
+    const isAiSelected = selectedServices.includes('nomad_open_webui') || 
+      installedServices.some((s) => s.service_name === 'nomad_open_webui')
+    const isInformationSelected = selectedServices.includes('nomad_kiwix_serve') ||
+      installedServices.some((s) => s.service_name === 'nomad_kiwix_serve')
 
-      {/* Curated Categories with Tiers */}
-      {isLoadingCategories ? (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner />
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Content</h2>
+          <p className="text-gray-600">
+            {isAiSelected && isInformationSelected
+              ? 'Select AI models and content categories for offline use.'
+              : isAiSelected
+                ? 'Select AI models to download for offline use.'
+                : isInformationSelected
+                  ? 'Select content categories for offline knowledge.'
+                  : 'Configure content for your selected capabilities.'}
+          </p>
         </div>
-      ) : categories && categories.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category) => (
-              <CategoryCard
-                key={category.slug}
-                category={category}
-                selectedTier={selectedTiers.get(category.slug) || null}
-                onClick={handleCategoryClick}
-              />
-            ))}
-          </div>
 
-          {/* Tier Selection Modal */}
-          <TierSelectionModal
-            isOpen={tierModalOpen}
-            onClose={closeTierModal}
-            category={activeCategory}
-            selectedTierSlug={activeCategory ? selectedTiers.get(activeCategory.slug)?.slug : null}
-            onSelectTier={handleTierSelect}
-          />
-        </>
-      ) : null}
-
-      {/* Legacy flat collections - show if available and no categories */}
-      {(!categories || categories.length === 0) && (
-        <>
-          {isLoadingZims ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner />
+        {/* AI Model Selection - Only show if AI capability is selected */}
+        {isAiSelected && (
+          <div className="mb-8">
+            <div className="mb-4">
+              <h3 className="text-2xl font-semibold text-gray-900 mb-2">Choose AI Models</h3>
+              <p className="text-gray-600">
+                Select AI models to download. We've recommended some smaller, popular models to get you started. You'll need at least one to use AI features, but you can always add more later.
+              </p>
             </div>
-          ) : zimCollections && zimCollections.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {zimCollections.map((collection) => (
-                <div
-                  key={collection.slug}
-                  onClick={() =>
-                    isOnline && !collection.all_downloaded && toggleZimCollection(collection.slug)
-                  }
-                  className={classNames(
-                    'relative',
-                    selectedZimCollections.includes(collection.slug) &&
-                      'ring-4 ring-desert-green rounded-lg',
-                    collection.all_downloaded && 'opacity-75',
-                    !isOnline && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  <CuratedCollectionCard collection={collection} size="large" />
-                  {selectedZimCollections.includes(collection.slug) && (
-                    <div className="absolute top-2 right-2 bg-desert-green rounded-full p-1">
-                      <IconCheck size={32} className="text-white" />
+
+            {isLoadingRecommendedModels ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : recommendedModels && recommendedModels.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recommendedModels.map((model) => (
+                  <div
+                    key={model.name}
+                    onClick={() => isOnline && toggleAiModel(model.name)}
+                    className={classNames(
+                      'p-4 rounded-lg border-2 transition-all cursor-pointer',
+                      selectedAiModels.includes(model.name)
+                        ? 'border-desert-green bg-desert-green shadow-md'
+                        : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm',
+                      !isOnline && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4
+                          className={classNames(
+                            'text-lg font-semibold mb-1',
+                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-gray-900'
+                          )}
+                        >
+                          {model.name}
+                        </h4>
+                        <p
+                          className={classNames(
+                            'text-sm mb-2',
+                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-gray-600'
+                          )}
+                        >
+                          {model.description}
+                        </p>
+                        {model.tags?.[0]?.size && (
+                          <div
+                            className={classNames(
+                              'text-xs',
+                              selectedAiModels.includes(model.name)
+                                ? 'text-green-100'
+                                : 'text-gray-500'
+                            )}
+                          >
+                            Size: {model.tags[0].size}
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className={classNames(
+                          'ml-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
+                          selectedAiModels.includes(model.name)
+                            ? 'border-white bg-white'
+                            : 'border-desert-stone'
+                        )}
+                      >
+                        {selectedAiModels.includes(model.name) && (
+                          <IconCheck size={16} className="text-desert-green" />
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <p className="text-gray-600">No recommended AI models available at this time.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Curated Categories with Tiers - Only show if Information capability is selected */}
+        {isInformationSelected && (
+          <>
+            {isLoadingCategories ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : categories && categories.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {categories.map((category) => (
+                    <CategoryCard
+                      key={category.slug}
+                      category={category}
+                      selectedTier={selectedTiers.get(category.slug) || null}
+                      onClick={handleCategoryClick}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-600 text-lg">No content collections available at this time.</p>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
+
+                {/* Tier Selection Modal */}
+                <TierSelectionModal
+                  isOpen={tierModalOpen}
+                  onClose={closeTierModal}
+                  category={activeCategory}
+                  selectedTierSlug={
+                    activeCategory ? selectedTiers.get(activeCategory.slug)?.slug : null
+                  }
+                  onSelectTier={handleTierSelect}
+                />
+              </>
+            ) : null}
+
+            {/* Legacy flat collections - show if available and no categories */}
+            {(!categories || categories.length === 0) && (
+              <>
+                {isLoadingZims ? (
+                  <div className="flex justify-center py-12">
+                    <LoadingSpinner />
+                  </div>
+                ) : zimCollections && zimCollections.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {zimCollections.map((collection) => (
+                      <div
+                        key={collection.slug}
+                        onClick={() =>
+                          isOnline &&
+                          !collection.all_downloaded &&
+                          toggleZimCollection(collection.slug)
+                        }
+                        className={classNames(
+                          'relative',
+                          selectedZimCollections.includes(collection.slug) &&
+                            'ring-4 ring-desert-green rounded-lg',
+                          collection.all_downloaded && 'opacity-75',
+                          !isOnline && 'opacity-50 cursor-not-allowed'
+                        )}
+                      >
+                        <CuratedCollectionCard collection={collection} size="large" />
+                        {selectedZimCollections.includes(collection.slug) && (
+                          <div className="absolute top-2 right-2 bg-desert-green rounded-full p-1">
+                            <IconCheck size={32} className="text-white" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600 text-lg">
+                      No content collections available at this time.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Show message if no capabilities requiring content are selected */}
+        {!isAiSelected && !isInformationSelected && (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">
+              No content-based capabilities selected. You can skip this step or go back to select
+              capabilities that require content.
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const renderStep4 = () => {
     const hasSelections =
       selectedServices.length > 0 ||
       selectedMapCollections.length > 0 ||
       selectedZimCollections.length > 0 ||
-      selectedTiers.size > 0
+      selectedTiers.size > 0 ||
+      selectedAiModels.length > 0
 
     return (
       <div className="space-y-6">
@@ -797,7 +957,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                         <IconCheck size={20} className="text-desert-green mr-2" />
                         <span className="text-gray-700">
                           {capability.name}
-                          <span className="text-gray-400 text-sm ml-2">({capability.technicalName})</span>
+                          <span className="text-gray-400 text-sm ml-2">
+                            ({capability.technicalName})
+                          </span>
                         </span>
                       </li>
                     ))}
@@ -876,6 +1038,30 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               </div>
             )}
 
+            {selectedAiModels.length > 0 && (
+              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                  AI Models to Download ({selectedAiModels.length})
+                </h3>
+                <ul className="space-y-2">
+                  {selectedAiModels.map((modelName) => {
+                    const model = recommendedModels?.find((m) => m.name === modelName)
+                    return (
+                      <li key={modelName} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <IconCheck size={20} className="text-desert-green mr-2" />
+                          <span className="text-gray-700">{modelName}</span>
+                        </div>
+                        {model?.tags?.[0]?.size && (
+                          <span className="text-gray-500 text-sm">{model.tags[0].size}</span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+
             <Alert
               title="Ready to Start"
               message="Click 'Complete Setup' to begin installing apps and downloading content. This may take some time depending on your internet connection and the size of the downloads."
@@ -937,10 +1123,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                       cap.services.some((s) => selectedServices.includes(s))
                     ).length
                     return `${count} ${count === 1 ? 'capability' : 'capabilities'}`
-                  })()},{' '}
-                  {selectedMapCollections.length} map region
-                  {selectedMapCollections.length !== 1 && 's'}, {selectedZimCollections.length} content
-                  pack{selectedZimCollections.length !== 1 && 's'} selected
+                  })()}
+                  , {selectedMapCollections.length} map region
+                  {selectedMapCollections.length !== 1 && 's'}, {selectedZimCollections.length}{' '}
+                  content pack{selectedZimCollections.length !== 1 && 's'},{' '}
+                  {selectedAiModels.length} AI model{selectedAiModels.length !== 1 && 's'} selected
                 </p>
               </div>
 

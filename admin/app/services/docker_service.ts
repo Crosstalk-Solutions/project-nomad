@@ -9,7 +9,7 @@ import { ZIM_STORAGE_PATH } from '../utils/fs.js'
 
 @inject()
 export class DockerService {
-  private docker: Docker
+  public docker: Docker
   private activeInstallations: Set<string> = new Set()
   public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve'
   public static OLLAMA_SERVICE_NAME = 'nomad_ollama'
