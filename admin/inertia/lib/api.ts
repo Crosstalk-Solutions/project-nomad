@@ -121,6 +121,16 @@ class API {
     })()
   }
 
+  async forceReinstallService(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        `/system/services/force-reinstall`,
+        { service_name }
+      )
+      return response.data
+    })()
+  }
+
   async getInternetStatus() {
     return catchInternal(async () => {
       const response = await this.client.get<boolean>('/system/internet-status')

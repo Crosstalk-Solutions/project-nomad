@@ -103,6 +103,7 @@ router
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])
+    router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
     router.get('/latest-version', [SystemController, 'checkLatestVersion'])
     router.post('/update', [SystemController, 'requestSystemUpdate'])
     router.get('/update/status', [SystemController, 'getSystemUpdateStatus'])

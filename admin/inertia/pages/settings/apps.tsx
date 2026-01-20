@@ -106,7 +106,60 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     }
   }
 
+  async function handleForceReinstall(record: ServiceSlim) {
+    try {
+      setLoading(true)
+      const response = await api.forceReinstallService(record.service_name)
+      if (!response) {
+        throw new Error('An internal error occurred while trying to force reinstall the service.')
+      }
+      if (!response.success) {
+        throw new Error(response.message)
+      }
+
+      closeAllModals()
+
+      setTimeout(() => {
+        setLoading(false)
+        window.location.reload() // Reload the page to reflect changes
+      }, 3000) // Add small delay to allow for the action to complete
+    } catch (error) {
+      console.error(`Error force reinstalling service ${record.service_name}:`, error)
+      showError(`Failed to force reinstall service: ${error.message || 'Unknown error'}`)
+    }
+  }
+
   const AppActions = ({ record }: { record: ServiceSlim }) => {
+    const ForceReinstallButton = () => (
+      <StyledButton
+        icon="ExclamationTriangleIcon"
+        variant="action"
+        onClick={() => {
+          openModal(
+            <StyledModal
+              title={'Force Reinstall?'}
+              onConfirm={() => handleForceReinstall(record)}
+              onCancel={closeAllModals}
+              open={true}
+              confirmText={'Force Reinstall'}
+              cancelText="Cancel"
+            >
+              <p className="text-gray-700">
+                Are you sure you want to force reinstall {record.service_name}? This will{' '}
+                <strong>WIPE ALL DATA</strong> for this service and cannot be undone. You should
+                only do this if the service is malfunctioning and other troubleshooting steps have
+                failed.
+              </p>
+            </StyledModal>,
+            `${record.service_name}-force-reinstall-modal`
+          )
+        }}
+        disabled={isInstalling}
+      >
+        Force Reinstall
+      </StyledButton>
+    )
+
     if (!record) return null
     if (!record.installed) {
       return (
@@ -120,6 +173,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
           >
             Install
           </StyledButton>
+          <ForceReinstallButton />
         </div>
       )
     }
@@ -189,6 +243,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                 Restart
               </StyledButton>
             )}
+            <ForceReinstallButton />
           </>
         )}
       </div>
