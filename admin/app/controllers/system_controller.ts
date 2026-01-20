@@ -50,6 +50,16 @@ export default class SystemController {
         return await this.systemService.checkLatestVersion();
     }
 
+    async forceReinstallService({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(installServiceValidator);
+        const result = await this.dockerService.forceReinstall(payload.service_name);
+        if (!result) {
+            response.internalServerError({ error: 'Failed to force reinstall service' });
+            return;
+        }
+        response.send({ success: result.success, message: result.message });
+    }
+
     async requestSystemUpdate({ response }: HttpContext) {
         if (!this.systemUpdateService.isSidecarAvailable()) {
             response.status(503).send({

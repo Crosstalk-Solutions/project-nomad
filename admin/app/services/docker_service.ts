@@ -195,6 +195,140 @@ export class DockerService {
   }
 
   /**
+   * Force reinstall a service by stopping, removing, and recreating its container.
+   * This method will also clear any associated volumes/data.
+   * Handles edge cases gracefully (e.g., container not running, container not found).
+   */
+  async forceReinstall(serviceName: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const service = await Service.query().where('service_name', serviceName).first()
+      if (!service) {
+        return {
+          success: false,
+          message: `Service ${serviceName} not found`,
+        }
+      }
+
+      // Check if installation is already in progress
+      if (this.activeInstallations.has(serviceName)) {
+        return {
+          success: false,
+          message: `Service ${serviceName} installation is already in progress`,
+        }
+      }
+
+      // Mark as installing to prevent concurrent operations
+      this.activeInstallations.add(serviceName)
+      service.installation_status = 'installing'
+      await service.save()
+
+      this._broadcast(
+        serviceName,
+        'reinstall-starting',
+        `Starting force reinstall for ${serviceName}...`
+      )
+
+      // Step 1: Try to stop and remove the container if it exists
+      try {
+        const containers = await this.docker.listContainers({ all: true })
+        const container = containers.find((c) => c.Names.includes(`/${serviceName}`))
+
+        if (container) {
+          const dockerContainer = this.docker.getContainer(container.Id)
+
+          // Only try to stop if it's running
+          if (container.State === 'running') {
+            this._broadcast(serviceName, 'stopping', `Stopping container...`)
+            await dockerContainer.stop({ t: 10 }).catch((error) => {
+              // If already stopped, continue
+              if (!error.message.includes('already stopped')) {
+                logger.warn(`Error stopping container: ${error.message}`)
+              }
+            })
+          }
+
+          // Step 2: Remove the container
+          this._broadcast(serviceName, 'removing', `Removing container...`)
+          await dockerContainer.remove({ force: true }).catch((error) => {
+            logger.warn(`Error removing container: ${error.message}`)
+          })
+        } else {
+          this._broadcast(
+            serviceName,
+            'no-container',
+            `No existing container found, proceeding with installation...`
+          )
+        }
+      } catch (error) {
+        logger.warn(`Error during container cleanup: ${error.message}`)
+        this._broadcast(
+          serviceName,
+          'cleanup-warning',
+          `Warning during cleanup: ${error.message}`
+        )
+      }
+
+      // Step 3: Clear volumes/data if needed
+      try {
+        this._broadcast(serviceName, 'clearing-volumes', `Checking for volumes to clear...`)
+        const volumes = await this.docker.listVolumes()
+        const serviceVolumes =
+          volumes.Volumes?.filter(
+            (v) => v.Name.includes(serviceName) || v.Labels?.service === serviceName
+          ) || []
+
+        for (const vol of serviceVolumes) {
+          try {
+            const volume = this.docker.getVolume(vol.Name)
+            await volume.remove({ force: true })
+            this._broadcast(serviceName, 'volume-removed', `Removed volume: ${vol.Name}`)
+          } catch (error) {
+            logger.warn(`Failed to remove volume ${vol.Name}: ${error.message}`)
+          }
+        }
+
+        if (serviceVolumes.length === 0) {
+          this._broadcast(serviceName, 'no-volumes', `No volumes found to clear`)
+        }
+      } catch (error) {
+        logger.warn(`Error during volume cleanup: ${error.message}`)
+        this._broadcast(
+          serviceName,
+          'volume-cleanup-warning',
+          `Warning during volume cleanup: ${error.message}`
+        )
+      }
+
+      // Step 4: Mark service as uninstalled
+      service.installed = false
+      service.installation_status = 'installing'
+      await service.save()
+
+      // Step 5: Recreate the container
+      this._broadcast(serviceName, 'recreating', `Recreating container...`)
+      const containerConfig = this._parseContainerConfig(service.container_config)
+      
+      // Execute installation asynchronously and handle cleanup
+      this._createContainer(service, containerConfig).catch(async (error) => {
+        logger.error(`Reinstallation failed for ${serviceName}: ${error.message}`)
+        await this._cleanupFailedInstallation(serviceName)
+      })
+
+      return {
+        success: true,
+        message: `Service ${serviceName} force reinstall initiated successfully. You can receive updates via server-sent events.`,
+      }
+    } catch (error) {
+      logger.error(`Force reinstall failed for ${serviceName}: ${error.message}`)
+      await this._cleanupFailedInstallation(serviceName)
+      return {
+        success: false,
+        message: `Failed to force reinstall service ${serviceName}: ${error.message}`,
+      }
+    }
+  }
+
+  /**
    * Handles the long-running process of creating a Docker container for a service.
    * NOTE: This method should not be called directly. Instead, use `createContainerPreflight` to check prerequisites first
    * This method will also transmit server-sent events to the client to notify of progress.
