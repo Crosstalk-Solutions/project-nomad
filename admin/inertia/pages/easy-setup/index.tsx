@@ -266,14 +266,39 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       })
     }
 
+    // Add AI models
+    if (recommendedModels) {
+      selectedAiModels.forEach((modelName) => {
+        const model = recommendedModels.find((m) => m.name === modelName)
+        if (model?.tags?.[0]?.size) {
+          // Parse size string like "4.7GB" or "1.5GB"
+          const sizeStr = model.tags[0].size
+          const match = sizeStr.match(/^([\d.]+)\s*(GB|MB|KB)?$/i)
+          if (match) {
+            const value = parseFloat(match[1])
+            const unit = (match[2] || 'GB').toUpperCase()
+            if (unit === 'GB') {
+              totalBytes += value * 1024 * 1024 * 1024
+            } else if (unit === 'MB') {
+              totalBytes += value * 1024 * 1024
+            } else if (unit === 'KB') {
+              totalBytes += value * 1024
+            }
+          }
+        }
+      })
+    }
+
     return totalBytes
   }, [
     selectedTiers,
     selectedMapCollections,
     selectedZimCollections,
+    selectedAiModels,
     categories,
     mapCollections,
     zimCollections,
+    recommendedModels,
   ])
 
   // Get primary disk/filesystem info for storage projection
