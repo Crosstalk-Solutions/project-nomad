@@ -98,11 +98,9 @@ Kiwix stores compressed versions of websites and references that work without in
 - Classic books from Project Gutenberg
 
 **How to use it:**
-1. Click **Kiwix** from the Command Center
+1. Click **Kiwix** from the Command Center home screen or [Apps](/settings/apps) page
 2. Choose a collection (like Wikipedia)
 3. Search or browse just like the regular website
-
-**[Open Kiwix →](/kiwix)**
 
 ---
 
@@ -117,13 +115,11 @@ Kolibri provides complete educational courses that work offline.
 - Works for all ages
 
 **How to use it:**
-1. Click **Kolibri** from the Command Center
+1. Click **Kolibri** from the Command Center home screen or [Apps](/settings/apps) page
 2. Sign in or create a learner account
 3. Browse courses and start learning
 
 **Tip:** Kolibri supports multiple users. Create accounts for each family member to track individual progress.
-
-**[Open Kolibri →](/kolibri)**
 
 ---
 
@@ -139,13 +135,11 @@ Chat with a local AI that runs entirely on your server — no internet needed.
 - Assist with problem-solving
 
 **How to use it:**
-1. Click **Open WebUI** from the Command Center
+1. Click **Open WebUI** from the Command Center home screen or [Apps](/settings/apps) page
 2. Type your question or request
 3. The AI responds in conversational style
 
 **Tip:** Be specific in your questions. Instead of "tell me about plants," try "what vegetables grow well in shade?"
-
-**[Open AI Chat →](/openwebui)**
 
 ---
 

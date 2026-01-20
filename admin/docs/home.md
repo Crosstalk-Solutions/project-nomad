@@ -13,17 +13,17 @@ Think of it as having Wikipedia, Khan Academy, an AI assistant, and offline maps
 ### Browse Offline Knowledge
 Access millions of Wikipedia articles, medical references, how-to guides, and ebooks — all stored locally on your server. No internet required.
 
-**[Open Kiwix →](/kiwix)**
+*Launch Kiwix from the [Apps](/settings/apps) page or the home screen.*
 
 ### Learn Something New
 Khan Academy courses covering math, science, economics, and more. Complete with videos and exercises, all available offline.
 
-**[Open Kolibri →](/kolibri)**
+*Launch Kolibri from the [Apps](/settings/apps) page or the home screen.*
 
 ### Chat with AI
 Ask questions, get explanations, brainstorm ideas, or get help with writing. Your local AI assistant works completely offline.
 
-**[Open AI Chat →](/openwebui)**
+*Launch Open WebUI from the [Apps](/settings/apps) page or the home screen.*
 
 ### View Offline Maps
 Navigate and explore maps without an internet connection. Download regions you need before going offline.
