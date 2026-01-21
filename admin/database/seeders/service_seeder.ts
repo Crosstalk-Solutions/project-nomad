@@ -147,6 +147,26 @@ export default class ServiceSeeder extends BaseSeeder {
       is_dependency_service: false,
       depends_on: null,
     },
+    {
+      service_name: DockerService.BENCHMARK_SERVICE_NAME,
+      friendly_name: 'System Benchmark',
+      description: 'Measure your server performance and compare with the NOMAD community',
+      icon: 'IconChartBar',
+      container_image: 'severalnines/sysbench:latest',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          AutoRemove: true,
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/benchmark:/tmp/benchmark`]
+        },
+        WorkingDir: '/tmp/benchmark',
+      }),
+      ui_location: null, // UI is integrated into Command Center
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      depends_on: null,
+    },
   ]
 
   async run() {
