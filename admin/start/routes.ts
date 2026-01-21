@@ -6,6 +6,7 @@
 | The routes file is used for defining the HTTP routes.
 |
 */
+import BenchmarkController from '#controllers/benchmark_controller'
 import DocsController from '#controllers/docs_controller'
 import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
@@ -38,6 +39,7 @@ router
     router.get('/update', [SettingsController, 'update'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
+    router.get('/benchmark', [SettingsController, 'benchmark'])
   })
   .prefix('/settings')
 
@@ -122,3 +124,19 @@ router
     router.delete('/:filename', [ZimController, 'delete'])
   })
   .prefix('/api/zim')
+
+router
+  .group(() => {
+    router.post('/run', [BenchmarkController, 'run'])
+    router.post('/run/system', [BenchmarkController, 'runSystem'])
+    router.post('/run/ai', [BenchmarkController, 'runAI'])
+    router.get('/results', [BenchmarkController, 'results'])
+    router.get('/results/latest', [BenchmarkController, 'latest'])
+    router.get('/results/:id', [BenchmarkController, 'show'])
+    router.post('/submit', [BenchmarkController, 'submit'])
+    router.get('/comparison', [BenchmarkController, 'comparison'])
+    router.get('/status', [BenchmarkController, 'status'])
+    router.get('/settings', [BenchmarkController, 'settings'])
+    router.post('/settings', [BenchmarkController, 'updateSettings'])
+  })
+  .prefix('/api/benchmark')

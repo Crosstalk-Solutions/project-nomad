@@ -61,8 +61,10 @@ export default class QueueWork extends BaseCommand {
 
     const { RunDownloadJob } = await import('#jobs/run_download_job')
     const { DownloadModelJob } = await import('#jobs/download_model_job')
+    const { RunBenchmarkJob } = await import('#jobs/run_benchmark_job')
     handlers.set(RunDownloadJob.key, new RunDownloadJob())
     handlers.set(DownloadModelJob.key, new DownloadModelJob())
+    handlers.set(RunBenchmarkJob.key, new RunBenchmarkJob())
 
     return handlers
   }

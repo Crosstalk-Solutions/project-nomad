@@ -17,6 +17,7 @@ export class DockerService {
   public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef'
   public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes'
   public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri'
+  public static BENCHMARK_SERVICE_NAME = 'nomad_benchmark'
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)

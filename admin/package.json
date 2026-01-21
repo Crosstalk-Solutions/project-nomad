@@ -50,6 +50,7 @@
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9.26.0",
     "hot-hook": "^0.4.0",
     "prettier": "^3.5.3",
@@ -104,6 +105,7 @@
     "tar": "^7.5.3",
     "url-join": "^5.0.0",
     "usehooks-ts": "^3.1.1",
+    "uuid": "^13.0.0",
     "yaml": "^2.8.0"
   },
   "hotHook": {

@@ -1,3 +1,4 @@
+import { BenchmarkService } from '#services/benchmark_service';
 import { MapService } from '#services/map_service';
 import { OpenWebUIService } from '#services/openwebui_service';
 import { SystemService } from '#services/system_service';
@@ -9,7 +10,8 @@ export default class SettingsController {
     constructor(
         private systemService: SystemService,
         private mapService: MapService,
-        private openWebUIService: OpenWebUIService
+        private openWebUIService: OpenWebUIService,
+        private benchmarkService: BenchmarkService
     ) { }
 
     async system({ inertia }: HttpContext) {
@@ -73,5 +75,17 @@ export default class SettingsController {
 
     async zimRemote({ inertia }: HttpContext) {
         return inertia.render('settings/zim/remote-explorer');
+    }
+
+    async benchmark({ inertia }: HttpContext) {
+        const latestResult = await this.benchmarkService.getLatestResult();
+        const status = this.benchmarkService.getStatus();
+        return inertia.render('settings/benchmark', {
+            benchmark: {
+                latestResult,
+                status: status.status,
+                currentBenchmarkId: status.benchmarkId
+            }
+        });
     }
 }
