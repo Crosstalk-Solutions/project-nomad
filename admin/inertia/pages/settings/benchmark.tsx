@@ -128,17 +128,26 @@ export default function BenchmarkPage(props: {
   })
 
   // Submit to repository mutation
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const submitResult = useMutation({
     mutationFn: async (benchmarkId?: string) => {
+      setSubmitError(null)
       const res = await fetch('/api/benchmark/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ benchmark_id: benchmarkId }),
       })
-      return res.json()
+      const data = await res.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to submit benchmark')
+      }
+      return data
     },
     onSuccess: () => {
       refetchLatest()
+    },
+    onError: (error: Error) => {
+      setSubmitError(error.message)
     },
   })
 
@@ -336,21 +345,45 @@ export default function BenchmarkPage(props: {
                         Your NOMAD Score is a weighted composite of all benchmark results.
                       </p>
                       {!latestResult.submitted_to_repository && (
-                        <StyledButton
-                          onClick={() => submitResult.mutate(latestResult.benchmark_id)}
-                          disabled={submitResult.isPending}
-                          leftIcon={<CloudArrowUpIcon className="w-5 h-5" />}
-                        >
-                          Share with Community
-                        </StyledButton>
+                        <div className="space-y-3">
+                          <p className="text-sm text-desert-stone-dark">
+                            Share your benchmark score anonymously with the NOMAD community. Only your hardware specs and scores are sent — no identifying information.
+                          </p>
+                          <StyledButton
+                            onClick={() => submitResult.mutate(latestResult.benchmark_id)}
+                            disabled={submitResult.isPending}
+                            leftIcon={<CloudArrowUpIcon className="w-5 h-5" />}
+                          >
+                            {submitResult.isPending ? 'Submitting...' : 'Share with Community'}
+                          </StyledButton>
+                          {submitError && (
+                            <Alert
+                              type="error"
+                              title="Submission Failed"
+                              message={submitError}
+                              variant="bordered"
+                              dismissible
+                              onDismiss={() => setSubmitError(null)}
+                            />
+                          )}
+                        </div>
                       )}
                       {latestResult.submitted_to_repository && (
                         <Alert
                           type="success"
                           title="Shared with Community"
-                          message={`Repository ID: ${latestResult.repository_id}`}
+                          message="Your benchmark has been submitted to the community leaderboard. Thanks for contributing!"
                           variant="bordered"
-                        />
+                        >
+                          <a
+                            href="https://benchmark.projectnomad.us"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-desert-green hover:underline mt-2 inline-block"
+                          >
+                            View the leaderboard →
+                          </a>
+                        </Alert>
                       )}
                     </div>
                   </div>

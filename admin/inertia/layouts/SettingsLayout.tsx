@@ -1,4 +1,5 @@
 import {
+  ChartBarIcon,
   Cog6ToothIcon,
   CommandLineIcon,
   FolderIcon,
@@ -16,6 +17,7 @@ import { getServiceLink } from '~/lib/navigation'
 
 const navigation = [
   { name: 'Apps', href: '/settings/apps', icon: CommandLineIcon, current: false },
+  { name: 'Benchmark', href: '/settings/benchmark', icon: ChartBarIcon, current: false },
   { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
   { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
   { name: 'Models Manager', href: '/settings/models', icon: IconDatabaseStar, current: false },
