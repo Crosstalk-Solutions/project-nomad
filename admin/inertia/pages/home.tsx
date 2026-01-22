@@ -13,7 +13,20 @@ import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 
-const STATIC_ITEMS = [
+// Maps is a Core Capability (display_order: 4)
+const MAPS_ITEM = {
+  label: 'Maps',
+  to: '/maps',
+  target: '',
+  description: 'View offline maps',
+  icon: <IconMapRoute size={48} />,
+  installed: true,
+  displayOrder: 4,
+  poweredBy: null,
+}
+
+// System items shown after all apps
+const SYSTEM_ITEMS = [
   {
     label: 'Easy Setup',
     to: '/easy-setup',
@@ -22,6 +35,8 @@ const STATIC_ITEMS = [
       'Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!',
     icon: <IconBolt size={48} />,
     installed: true,
+    displayOrder: 50,
+    poweredBy: null,
   },
   {
     label: 'Install Apps',
@@ -30,6 +45,8 @@ const STATIC_ITEMS = [
     description: 'Not seeing your favorite app? Install it here!',
     icon: <IconPlus size={48} />,
     installed: true,
+    displayOrder: 51,
+    poweredBy: null,
   },
   {
     label: 'Docs',
@@ -38,14 +55,8 @@ const STATIC_ITEMS = [
     description: 'Read Project N.O.M.A.D. manuals and guides',
     icon: <IconHelp size={48} />,
     installed: true,
-  },
-  {
-    label: 'Maps',
-    to: '/maps',
-    target: '',
-    description: 'View offline maps',
-    icon: <IconMapRoute size={48} />,
-    installed: true,
+    displayOrder: 52,
+    poweredBy: null,
   },
   {
     label: 'Settings',
@@ -54,33 +65,59 @@ const STATIC_ITEMS = [
     description: 'Configure your N.O.M.A.D. settings',
     icon: <IconSettings size={48} />,
     installed: true,
+    displayOrder: 53,
+    poweredBy: null,
   },
 ]
+
+interface DashboardItem {
+  label: string
+  to: string
+  target: string
+  description: string
+  icon: React.ReactNode
+  installed: boolean
+  displayOrder: number
+  poweredBy: string | null
+}
 
 export default function Home(props: {
   system: {
     services: ServiceSlim[]
   }
 }) {
-  const items = []
-  props.system.services.map((service) => {
-    items.push({
-      label: service.friendly_name || service.service_name,
-      to: service.ui_location ? getServiceLink(service.ui_location) : '#',
-      target: '_blank',
-      description:
-        service.description ||
-        `Access the ${service.friendly_name || service.service_name} application`,
-      icon: service.icon ? (
-        <DynamicIcon icon={service.icon as DynamicIconName} className="!size-12" />
-      ) : (
-        <IconWifiOff size={48} />
-      ),
-      installed: service.installed,
-    })
-  })
+  const items: DashboardItem[] = []
 
-  items.push(...STATIC_ITEMS)
+  // Add installed services (non-dependency services only)
+  props.system.services
+    .filter((service) => service.installed && service.ui_location)
+    .forEach((service) => {
+      items.push({
+        label: service.friendly_name || service.service_name,
+        to: service.ui_location ? getServiceLink(service.ui_location) : '#',
+        target: '_blank',
+        description:
+          service.description ||
+          `Access the ${service.friendly_name || service.service_name} application`,
+        icon: service.icon ? (
+          <DynamicIcon icon={service.icon as DynamicIconName} className="!size-12" />
+        ) : (
+          <IconWifiOff size={48} />
+        ),
+        installed: service.installed,
+        displayOrder: service.display_order ?? 100,
+        poweredBy: service.powered_by ?? null,
+      })
+    })
+
+  // Add Maps as a Core Capability
+  items.push(MAPS_ITEM)
+
+  // Add system items
+  items.push(...SYSTEM_ITEMS)
+
+  // Sort all items by display order
+  items.sort((a, b) => a.displayOrder - b.displayOrder)
 
   return (
     <AppLayout>
@@ -94,6 +131,9 @@ export default function Home(props: {
             >
               <div className="flex items-center justify-center mb-2">{item.icon}</div>
               <h3 className="font-bold text-2xl">{item.label}</h3>
+              {item.poweredBy && (
+                <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>
+              )}
               <p className="xl:text-lg mt-2">{item.description}</p>
             </div>
           </a>
