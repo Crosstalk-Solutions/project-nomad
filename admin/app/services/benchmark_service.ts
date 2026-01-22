@@ -5,6 +5,7 @@ import Docker from 'dockerode'
 import si from 'systeminformation'
 import { v4 as uuidv4 } from 'uuid'
 import axios from 'axios'
+import { DateTime } from 'luxon'
 import BenchmarkResult from '#models/benchmark_result'
 import BenchmarkSetting from '#models/benchmark_setting'
 import { SystemService } from '#services/system_service'
@@ -154,7 +155,7 @@ export class BenchmarkService {
 
       if (response.data.success) {
         result.submitted_to_repository = true
-        result.submitted_at = new Date() as any
+        result.submitted_at = DateTime.now()
         result.repository_id = response.data.repository_id
         await result.save()
 
