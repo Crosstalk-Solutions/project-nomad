@@ -10,8 +10,10 @@ export default class ServiceSeeder extends BaseSeeder {
   private static DEFAULT_SERVICES: Omit<ModelAttributes<Service>, 'created_at' | 'updated_at' | 'metadata' | 'id'>[] = [
     {
       service_name: DockerService.KIWIX_SERVICE_NAME,
-      friendly_name: 'Kiwix',
-      description: 'Offline Wikipedia, eBooks, and more',
+      friendly_name: 'Information Library',
+      powered_by: 'Kiwix',
+      display_order: 1,
+      description: 'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
       icon: 'IconBooks',
       container_image: 'ghcr.io/kiwix/kiwix-serve:3.8.1',
       container_command: '*.zim --address=all',
@@ -32,6 +34,8 @@ export default class ServiceSeeder extends BaseSeeder {
     {
       service_name: DockerService.OLLAMA_SERVICE_NAME,
       friendly_name: 'Ollama',
+      powered_by: null,
+      display_order: 100, // Dependency service, not shown directly
       description: 'Run local LLMs (AI models) with ease on your own hardware',
       icon: 'IconRobot',
       container_image: 'ollama/ollama:latest',
@@ -52,8 +56,10 @@ export default class ServiceSeeder extends BaseSeeder {
     },
     {
       service_name: DockerService.OPEN_WEBUI_SERVICE_NAME,
-      friendly_name: 'Open WebUI',
-      description: 'A web interface for interacting with local AI models served by Ollama',
+      friendly_name: 'AI Assistant',
+      powered_by: 'Open WebUI + Ollama',
+      display_order: 3,
+      description: 'Local AI chat that runs entirely on your hardware - no internet required',
       icon: 'IconWand',
       container_image: 'ghcr.io/open-webui/open-webui:main',
       container_command: null,
@@ -74,8 +80,10 @@ export default class ServiceSeeder extends BaseSeeder {
     },
     {
       service_name: DockerService.CYBERCHEF_SERVICE_NAME,
-      friendly_name: 'CyberChef',
-      description: 'The Cyber Swiss Army Knife - a web app for encryption, encoding, and data analysis',
+      friendly_name: 'Data Tools',
+      powered_by: 'CyberChef',
+      display_order: 11,
+      description: 'Swiss Army knife for data encoding, encryption, and analysis',
       icon: 'IconChefHat',
       container_image: 'ghcr.io/gchq/cyberchef:latest',
       container_command: null,
@@ -94,8 +102,10 @@ export default class ServiceSeeder extends BaseSeeder {
     },
     {
       service_name: DockerService.FLATNOTES_SERVICE_NAME,
-      friendly_name: 'FlatNotes',
-      description: 'A simple note-taking app that stores all files locally',
+      friendly_name: 'Notes',
+      powered_by: 'FlatNotes',
+      display_order: 10,
+      description: 'Simple note-taking app with local storage',
       icon: 'IconNotes',
       container_image: 'dullage/flatnotes:latest',
       container_command: null,
@@ -116,8 +126,10 @@ export default class ServiceSeeder extends BaseSeeder {
     },
     {
       service_name: DockerService.KOLIBRI_SERVICE_NAME,
-      friendly_name: 'Kolibri',
-      description: 'An offline-first education platform for schools and learners',
+      friendly_name: 'Education Platform',
+      powered_by: 'Kolibri',
+      display_order: 2,
+      description: 'Interactive learning platform with video courses and exercises',
       icon: 'IconSchool',
       container_image: 'treehouses/kolibri:latest',
       container_command: null,

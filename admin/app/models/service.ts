@@ -27,6 +27,12 @@ export default class Service extends BaseModel {
   declare description: string | null
 
   @column()
+  declare powered_by: string | null
+
+  @column()
+  declare display_order: number | null
+
+  @column()
   declare icon: string | null // must be a TablerIcons name to be properly rendered in the UI (e.g. "IconBrandDocker")
 
   @column({

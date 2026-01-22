@@ -61,6 +61,7 @@ export class SystemService {
     await this._syncContainersWithDatabase() // Sync up before fetching to ensure we have the latest status
 
     const query = Service.query()
+      .orderBy('display_order', 'asc')
       .orderBy('friendly_name', 'asc')
       .select(
         'id',
@@ -70,7 +71,9 @@ export class SystemService {
         'ui_location',
         'friendly_name',
         'description',
-        'icon'
+        'icon',
+        'powered_by',
+        'display_order'
       )
       .where('is_dependency_service', false)
     if (installedOnly) {
@@ -98,6 +101,8 @@ export class SystemService {
         installation_status: service.installation_status,
         status: status ? status.status : 'unknown',
         ui_location: service.ui_location || '',
+        powered_by: service.powered_by,
+        display_order: service.display_order,
       })
     }
 

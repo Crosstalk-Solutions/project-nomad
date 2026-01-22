@@ -10,4 +10,6 @@ export type ServiceSlim = Pick<
   | 'friendly_name'
   | 'description'
   | 'icon'
+  | 'powered_by'
+  | 'display_order'
 > & { status?: string }
