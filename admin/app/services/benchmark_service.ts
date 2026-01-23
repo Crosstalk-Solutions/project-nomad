@@ -452,7 +452,7 @@ export class BenchmarkService {
     totalWeight += SCORE_WEIGHTS.disk_write
 
     // AI scores (if available)
-    if (aiScores.ai_tokens_per_second !== undefined) {
+    if (aiScores.ai_tokens_per_second !== undefined && aiScores.ai_tokens_per_second !== null) {
       const aiScore = this._normalizeScore(
         aiScores.ai_tokens_per_second,
         REFERENCE_SCORES.ai_tokens_per_second
@@ -461,7 +461,7 @@ export class BenchmarkService {
       totalWeight += SCORE_WEIGHTS.ai_tokens_per_second
     }
 
-    if (aiScores.ai_time_to_first_token !== undefined) {
+    if (aiScores.ai_time_to_first_token !== undefined && aiScores.ai_time_to_first_token !== null) {
       // For TTFT, lower is better, so we invert the score
       const ttftScore = this._normalizeScoreInverse(
         aiScores.ai_time_to_first_token,
