@@ -11,8 +11,6 @@ import {
   CpuChipIcon,
   CircleStackIcon,
   ServerIcon,
-  CloudArrowUpIcon,
-  PlayIcon,
   ChevronDownIcon,
 } from '@heroicons/react/24/outline'
 import { IconRobot } from '@tabler/icons-react'
@@ -158,7 +156,7 @@ export default function BenchmarkPage(props: {
     // Start the first stage after a short delay
     const timers: NodeJS.Timeout[] = []
     let elapsed = 1000
-    stages.forEach((stage, index) => {
+    stages.forEach((stage) => {
       timers.push(setTimeout(() => advanceStage(), elapsed))
       elapsed += stage.duration
     })
@@ -266,7 +264,7 @@ export default function BenchmarkPage(props: {
                     <StyledButton
                       onClick={() => runBenchmark.mutate('full')}
                       disabled={runBenchmark.isPending}
-                      leftIcon={<PlayIcon className="w-5 h-5" />}
+                      icon='PlayIcon'
                     >
                       Run Full Benchmark
                     </StyledButton>
@@ -274,7 +272,7 @@ export default function BenchmarkPage(props: {
                       variant="secondary"
                       onClick={() => runBenchmark.mutate('system')}
                       disabled={runBenchmark.isPending}
-                      leftIcon={<CpuChipIcon className="w-5 h-5" />}
+                      icon='CpuChipIcon'
                     >
                       System Only
                     </StyledButton>
@@ -282,7 +280,7 @@ export default function BenchmarkPage(props: {
                       variant="secondary"
                       onClick={() => runBenchmark.mutate('ai')}
                       disabled={runBenchmark.isPending}
-                      leftIcon={<IconRobot className="w-5 h-5" />}
+                      icon='SparklesIcon'
                     >
                       AI Only
                     </StyledButton>
@@ -328,7 +326,7 @@ export default function BenchmarkPage(props: {
                           <StyledButton
                             onClick={() => submitResult.mutate(latestResult.benchmark_id)}
                             disabled={submitResult.isPending}
-                            leftIcon={<CloudArrowUpIcon className="w-5 h-5" />}
+                            icon='CloudArrowUpIcon'
                           >
                             {submitResult.isPending ? 'Submitting...' : 'Share with Community'}
                           </StyledButton>
@@ -519,7 +517,7 @@ export default function BenchmarkPage(props: {
                       </div>
                       <div>
                         <div className="text-desert-stone-dark">Date</div>
-                        <div>{new Date(latestResult.created_at).toLocaleDateString()}</div>
+                        <div>{new Date(latestResult.created_at as unknown as string).toLocaleDateString()}</div>
                       </div>
                       <div>
                         <div className="text-desert-stone-dark">NOMAD Score</div>
@@ -584,7 +582,7 @@ export default function BenchmarkPage(props: {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-desert-stone-dark">Run Date</span>
-                              <span>{new Date(latestResult.created_at).toLocaleString()}</span>
+                              <span>{new Date(latestResult.created_at as unknown as string).toLocaleString()}</span>
                             </div>
                             {latestResult.ai_model_used && (
                               <div className="flex justify-between">
