@@ -14,7 +14,9 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "work:downloads": "node ace queue:work --queue=downloads",
-    "work:model-downloads": "node ace queue:work --queue=model-downloads"
+    "work:model-downloads": "node ace queue:work --queue=model-downloads",
+    "work:benchmarks": "node ace queue:work --queue=benchmarks",
+    "work:all": "node ace queue:work --all"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",

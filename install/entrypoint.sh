@@ -17,11 +17,9 @@ node ace migration:run --force
 echo "Seeding the database..."
 node ace db:seed
 
-# Start background workers for queues
-echo "Starting background workers for queues..."
-node ace queue:work --queue=downloads &
-node ace queue:work --queue=model-downloads &
-node ace queue:work --queue
+# Start background workers for all queues
+echo "Starting background workers for all queues..."
+node ace queue:work --all &
 
 # Start the AdonisJS application
 echo "Starting AdonisJS application..."
