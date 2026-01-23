@@ -21,6 +21,7 @@ node ace db:seed
 echo "Starting background workers for queues..."
 node ace queue:work --queue=downloads &
 node ace queue:work --queue=model-downloads &
+node ace queue:work --queue
 
 # Start the AdonisJS application
 echo "Starting AdonisJS application..."

@@ -17,39 +17,10 @@ import {
 } from '@heroicons/react/24/outline'
 import { IconRobot } from '@tabler/icons-react'
 import { useTransmit } from 'react-adonis-transmit'
+import { BenchmarkProgress, BenchmarkStatus } from '../../../types/benchmark'
+import BenchmarkResult from '#models/benchmark_result'
 
-type BenchmarkResult = {
-  id: number
-  benchmark_id: string
-  benchmark_type: 'full' | 'system' | 'ai'
-  cpu_model: string
-  cpu_cores: number
-  cpu_threads: number
-  ram_bytes: number
-  disk_type: string
-  gpu_model: string | null
-  cpu_score: number
-  memory_score: number
-  disk_read_score: number
-  disk_write_score: number
-  ai_tokens_per_second: number | null
-  ai_model_used: string | null
-  ai_time_to_first_token: number | null
-  nomad_score: number
-  submitted_to_repository: boolean
-  repository_id: string | null
-  created_at: string
-}
-
-type BenchmarkStatus = 'idle' | 'starting' | 'detecting_hardware' | 'running_cpu' | 'running_memory' | 'running_disk_read' | 'running_disk_write' | 'running_ai' | 'calculating_score' | 'completed' | 'error'
-
-type BenchmarkProgress = {
-  status: BenchmarkStatus
-  progress: number
-  message: string
-  current_stage: string
-  benchmark_id: string
-}
+type BenchmarkProgressWithID = BenchmarkProgress & { benchmark_id: string }
 
 export default function BenchmarkPage(props: {
   benchmark: {
@@ -59,7 +30,7 @@ export default function BenchmarkPage(props: {
   }
 }) {
   const { subscribe } = useTransmit()
-  const [progress, setProgress] = useState<BenchmarkProgress | null>(null)
+  const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
   const [showDetails, setShowDetails] = useState(false)
 
@@ -84,6 +55,7 @@ export default function BenchmarkPage(props: {
         message: 'Starting benchmark... This takes 2-5 minutes.',
         current_stage: 'Starting',
         benchmark_id: '',
+        timestamp: new Date().toISOString(),
       })
 
       // Use sync mode - runs inline without needing Redis/queue worker
@@ -102,6 +74,7 @@ export default function BenchmarkPage(props: {
           message: 'Benchmark completed!',
           current_stage: 'Complete',
           benchmark_id: data.benchmark_id,
+          timestamp: new Date().toISOString(),
         })
         refetchLatest()
       } else {
@@ -111,6 +84,7 @@ export default function BenchmarkPage(props: {
           message: data.error || 'Benchmark failed',
           current_stage: 'Error',
           benchmark_id: '',
+          timestamp: new Date().toISOString(),
         })
       }
       setIsRunning(false)
@@ -122,6 +96,7 @@ export default function BenchmarkPage(props: {
         message: error.message || 'Benchmark failed',
         current_stage: 'Error',
         benchmark_id: '',
+        timestamp: new Date().toISOString(),
       })
       setIsRunning(false)
     },
@@ -174,6 +149,7 @@ export default function BenchmarkPage(props: {
           message: stage.message,
           current_stage: stage.label,
           benchmark_id: '',
+          timestamp: new Date().toISOString(),
         })
         currentStage++
       }
@@ -194,7 +170,7 @@ export default function BenchmarkPage(props: {
 
   // Listen for benchmark progress via SSE (backup for async mode)
   useEffect(() => {
-    const unsubscribe = subscribe('benchmark-progress', (data: BenchmarkProgress) => {
+    const unsubscribe = subscribe('benchmark-progress', (data: BenchmarkProgressWithID) => {
       setProgress(data)
       if (data.status === 'completed' || data.status === 'error') {
         setIsRunning(false)

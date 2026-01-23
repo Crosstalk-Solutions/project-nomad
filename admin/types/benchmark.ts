@@ -1,3 +1,5 @@
+import BenchmarkResult from '#models/benchmark_result'
+
 // Benchmark type identifiers
 export type BenchmarkType = 'full' | 'system' | 'ai'
 
@@ -18,43 +20,21 @@ export type BenchmarkStatus =
 // Hardware detection types
 export type DiskType = 'ssd' | 'hdd' | 'nvme' | 'unknown'
 
-export type HardwareInfo = {
-  cpu_model: string
-  cpu_cores: number
-  cpu_threads: number
-  ram_bytes: number
-  disk_type: DiskType
-  gpu_model: string | null
-}
+export type HardwareInfo = Pick<
+  BenchmarkResult,
+  'cpu_model' | 'cpu_cores' | 'cpu_threads' | 'ram_bytes' | 'disk_type' | 'gpu_model'
+>
 
 // Individual benchmark scores
-export type SystemScores = {
-  cpu_score: number
-  memory_score: number
-  disk_read_score: number
-  disk_write_score: number
-}
+export type SystemScores = Pick<
+  BenchmarkResult,
+  'cpu_score' | 'memory_score' | 'disk_read_score' | 'disk_write_score'
+>
 
-export type AIScores = {
-  ai_tokens_per_second: number
-  ai_model_used: string
-  ai_time_to_first_token: number
-}
-
-// Complete benchmark result
-export type BenchmarkResult = {
-  id: number
-  benchmark_id: string
-  benchmark_type: BenchmarkType
-  hardware: HardwareInfo
-  scores: SystemScores & Partial<AIScores>
-  nomad_score: number
-  submitted_to_repository: boolean
-  submitted_at: string | null
-  repository_id: string | null
-  created_at: string
-  updated_at: string
-}
+export type AIScores = Pick<
+  BenchmarkResult,
+  'ai_tokens_per_second' | 'ai_model_used' | 'ai_time_to_first_token'
+>
 
 // Slim version for lists
 export type BenchmarkResultSlim = Pick<
@@ -114,22 +94,24 @@ export type BenchmarkResultsResponse = {
 }
 
 // Central repository submission payload (privacy-first)
-export type RepositorySubmission = {
-  cpu_model: string
-  cpu_cores: number
-  cpu_threads: number
-  ram_gb: number
-  disk_type: DiskType
-  gpu_model: string | null
-  cpu_score: number
-  memory_score: number
-  disk_read_score: number
-  disk_write_score: number
-  ai_tokens_per_second: number | null
-  ai_time_to_first_token: number | null
-  nomad_score: number
+export type RepositorySubmission = Pick<
+  BenchmarkResult,
+  | 'cpu_model'
+  | 'cpu_cores'
+  | 'cpu_threads'
+  | 'disk_type'
+  | 'gpu_model'
+  | 'cpu_score'
+  | 'memory_score'
+  | 'disk_read_score'
+  | 'disk_write_score'
+  | 'ai_tokens_per_second'
+  | 'ai_time_to_first_token'
+  | 'nomad_score'
+> & {
   nomad_version: string
   benchmark_version: string
+  ram_gb: number
 }
 
 // Central repository response types
@@ -153,11 +135,8 @@ export type RepositoryStats = {
   }
 }
 
-export type LeaderboardEntry = {
+export type LeaderboardEntry = Pick<BenchmarkResult, 'cpu_model' | 'gpu_model' | 'nomad_score'> & {
   rank: number
-  cpu_model: string
-  gpu_model: string | null
-  nomad_score: number
   submitted_at: string
 }
 
@@ -179,12 +158,12 @@ export type ScoreWeights = {
 
 // Default weights as defined in plan
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
-  ai_tokens_per_second: 0.30,
+  ai_tokens_per_second: 0.3,
   cpu: 0.25,
   memory: 0.15,
-  ai_ttft: 0.10,
-  disk_read: 0.10,
-  disk_write: 0.10,
+  ai_ttft: 0.1,
+  disk_read: 0.1,
+  disk_write: 0.1,
 }
 
 // Benchmark job parameters
