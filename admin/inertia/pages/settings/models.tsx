@@ -79,10 +79,10 @@ export default function ModelsPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title="App Settings" />
+      <Head title="AI Model Manager | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-4">Models</h1>
+          <h1 className="text-4xl font-semibold mb-4">AI Model Manager</h1>
           <p className="text-gray-500 mb-4">
             Easily manage the AI models available for Open WebUI. We recommend starting with smaller
             models first to see how they perform on your system before moving on to larger ones.

@@ -24,12 +24,32 @@ import Input from '~/components/inputs/Input'
 import { IconSearch } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
+import CategoryCard from '~/components/CategoryCard'
+import TierSelectionModal from '~/components/TierSelectionModal'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import { CuratedCollectionWithStatus } from '../../../../types/downloads'
+import {
+  CuratedCollectionWithStatus,
+  CuratedCategory,
+  CategoryTier,
+  CategoryResource,
+} from '../../../../types/downloads'
 import useDownloads from '~/hooks/useDownloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
 
 const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
+const CURATED_CATEGORIES_KEY = 'curated-categories'
+
+// Helper to get all resources for a tier (including inherited resources)
+const getAllResourcesForTier = (tier: CategoryTier, allTiers: CategoryTier[]): CategoryResource[] => {
+  const resources = [...tier.resources]
+  if (tier.includesTier) {
+    const includedTier = allTiers.find((t) => t.slug === tier.includesTier)
+    if (includedTier) {
+      resources.unshift(...getAllResourcesForTier(includedTier, allTiers))
+    }
+  }
+  return resources
+}
 
 export default function ZimRemoteExplorer() {
   const queryClient = useQueryClient()
@@ -44,6 +64,10 @@ export default function ZimRemoteExplorer() {
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
 
+  // Category/tier selection state
+  const [tierModalOpen, setTierModalOpen] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<CuratedCategory | null>(null)
+
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
   }, 400)
@@ -51,6 +75,13 @@ export default function ZimRemoteExplorer() {
   const { data: curatedCollections } = useQuery({
     queryKey: [CURATED_COLLECTIONS_KEY],
     queryFn: () => api.listCuratedZimCollections(),
+    refetchOnWindowFocus: false,
+  })
+
+  // Fetch curated categories with tiers
+  const { data: categories } = useQuery({
+    queryKey: [CURATED_CATEGORIES_KEY],
+    queryFn: () => api.listCuratedCategories(),
     refetchOnWindowFocus: false,
   })
 
@@ -180,6 +211,43 @@ export default function ZimRemoteExplorer() {
     }
   }
 
+  // Category/tier handlers
+  const handleCategoryClick = (category: CuratedCategory) => {
+    if (!isOnline) return
+    setActiveCategory(category)
+    setTierModalOpen(true)
+  }
+
+  const handleTierSelect = async (category: CuratedCategory, tier: CategoryTier) => {
+    // Get all resources for this tier (including inherited ones)
+    const resources = getAllResourcesForTier(tier, category.tiers)
+
+    // Download each resource
+    try {
+      for (const resource of resources) {
+        await api.downloadRemoteZimFile(resource.url)
+      }
+      addNotification({
+        message: `Started downloading ${resources.length} files from "${category.name} - ${tier.name}"`,
+        type: 'success',
+      })
+      invalidateDownloads()
+    } catch (error) {
+      console.error('Error downloading tier resources:', error)
+      addNotification({
+        message: 'An error occurred while starting downloads.',
+        type: 'error',
+      })
+    }
+
+    closeTierModal()
+  }
+
+  const closeTierModal = () => {
+    setTierModalOpen(false)
+    setActiveCategory(null)
+  }
+
   const fetchLatestCollections = useMutation({
     mutationFn: () => api.fetchLatestZimCollections(),
     onSuccess: () => {
@@ -200,13 +268,13 @@ export default function ZimRemoteExplorer() {
 
   return (
     <SettingsLayout>
-      <Head title="ZIM Remote Explorer | Project N.O.M.A.D." />
+      <Head title="Content Explorer | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex justify-between items-center">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">ZIM Remote Explorer</h1>
-              <p className="text-gray-500">Browse and download ZIM files for offline reading!</p>
+              <h1 className="text-4xl font-semibold mb-2">Content Explorer</h1>
+              <p className="text-gray-500">Browse and download content for offline reading!</p>
             </div>
           </div>
           {!isOnline && (
@@ -220,13 +288,13 @@ export default function ZimRemoteExplorer() {
           )}
           {!isInstalled && (
             <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
+              title="The Kiwix application is not installed. Please install it to view downloaded content files."
               type="warning"
               variant="solid"
               className="!mt-6"
             />
           )}
-          <StyledSectionHeader title="Curated ZIM Collections" className="mt-8 !mb-4" />
+          <StyledSectionHeader title="Curated Content Collections" className="mt-8 !mb-4" />
           <StyledButton
             onClick={() => fetchLatestCollections.mutate()}
             disabled={fetchLatestCollections.isPending}
@@ -234,19 +302,46 @@ export default function ZimRemoteExplorer() {
           >
             Fetch Latest Collections
           </StyledButton>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {curatedCollections?.map((collection) => (
-              <CuratedCollectionCard
-                key={collection.slug}
-                collection={collection}
-                onClick={(collection) => confirmDownload(collection)}
-                size="large"
+
+          {/* Tiered Category Collections - matches Easy Setup Wizard */}
+          {categories && categories.length > 0 ? (
+            <>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {categories.map((category) => (
+                  <CategoryCard
+                    key={category.slug}
+                    category={category}
+                    selectedTier={null}
+                    onClick={handleCategoryClick}
+                  />
+                ))}
+              </div>
+
+              {/* Tier Selection Modal */}
+              <TierSelectionModal
+                isOpen={tierModalOpen}
+                onClose={closeTierModal}
+                category={activeCategory}
+                selectedTierSlug={null}
+                onSelectTier={handleTierSelect}
               />
-            ))}
-            {curatedCollections && curatedCollections.length === 0 && (
-              <p className="text-gray-500">No curated collections available.</p>
-            )}
-          </div>
+            </>
+          ) : (
+            /* Legacy flat collections - fallback if no categories available */
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {curatedCollections?.map((collection) => (
+                <CuratedCollectionCard
+                  key={collection.slug}
+                  collection={collection}
+                  onClick={(collection) => confirmDownload(collection)}
+                  size="large"
+                />
+              ))}
+              {curatedCollections && curatedCollections.length === 0 && (
+                <p className="text-gray-500">No curated collections available.</p>
+              )}
+            </div>
+          )}
           <StyledSectionHeader title="Browse the Kiwix Library" className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">
             <Input
