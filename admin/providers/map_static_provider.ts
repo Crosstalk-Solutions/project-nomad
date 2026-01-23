@@ -18,7 +18,7 @@ export default class MapStaticProvider {
   register() {
     this.app.container.singleton(MapsStaticMiddleware, () => {
       const path = join(process.cwd(), '/storage/maps')
-      logger.debug(`Maps static files will be served from ${path}`)
+      logger.info(`Maps static files will be served from ${path}`)
       const config = this.app.config.get<any>('static', defineConfig({}))
       return new MapsStaticMiddleware(path, config)
     })

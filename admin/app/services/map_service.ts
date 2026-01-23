@@ -238,10 +238,7 @@ export class MapService implements IMapService {
     const regions = (await this.listRegions()).files
     const sources = this.generateSourcesArray(regions)
 
-    const localUrl = env.get('URL')
-    const withProtocol = localUrl.startsWith('http') ? localUrl : `http://${localUrl}`
-    const baseUrlPath = urlJoin(this.mapStoragePath, this.basemapsAssetsDir)
-    const baseUrl = new URL(baseUrlPath, withProtocol).toString()
+    const baseUrl = this.getPublicFileBaseUrl(this.basemapsAssetsDir)
 
     const styles = await this.generateStylesFile(
       rawStyles,
@@ -317,17 +314,14 @@ export class MapService implements IMapService {
   }
 
   private generateSourcesArray(regions: FileEntry[]): BaseStylesFile['sources'][] {
-    const localUrl = env.get('URL')
     const sources: BaseStylesFile['sources'][] = []
+    const baseUrl = this.getPublicFileBaseUrl('pmtiles')
 
     for (const region of regions) {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
         const regionName = region.name.replace('.pmtiles', '')
         const source: BaseStylesFile['sources'] = {}
-        const sourceUrl = new URL(
-          urlJoin(this.mapStoragePath, 'pmtiles', region.name),
-          localUrl.startsWith('http') ? localUrl : `http://${localUrl}`
-        ).toString()
+        const sourceUrl = urlJoin(baseUrl, region.name)
 
         source[regionName] = {
           type: 'vector',
@@ -387,5 +381,30 @@ export class MapService implements IMapService {
     }
 
     await deleteFileIfExists(fullPath)
+  }
+
+  /*
+   * Gets the appropriate public URL for a map asset depending on environment
+   */
+  private getPublicFileBaseUrl(childPath: string): string {
+    function getHost() {
+      try {
+        const localUrlRaw = env.get('URL')
+        if (!localUrlRaw) return 'localhost'
+
+        const localUrl = new URL(localUrlRaw)
+        return localUrl.host
+      } catch (error) {
+        return 'localhost'
+      }
+    }
+
+    const host = getHost()
+    const withProtocol = host.startsWith('http') ? host : `http://${host}`
+    const baseUrlPath =
+      process.env.NODE_ENV === 'production' ? childPath : urlJoin(this.mapStoragePath, childPath)
+
+    const baseUrl = new URL(baseUrlPath, withProtocol).toString()
+    return baseUrl
   }
 }
