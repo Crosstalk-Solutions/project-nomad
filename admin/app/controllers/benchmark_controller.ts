@@ -3,8 +3,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { BenchmarkService } from '#services/benchmark_service'
 import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
-import { v4 as uuidv4 } from 'uuid'
 import type { BenchmarkType } from '../../types/benchmark.js'
+import { randomUUID } from 'node:crypto'
 
 @inject()
 export default class BenchmarkController {
@@ -60,7 +60,7 @@ export default class BenchmarkController {
     }
 
     // Generate benchmark ID and dispatch job (async)
-    const benchmarkId = uuidv4()
+    const benchmarkId = randomUUID()
     const { job, created } = await RunBenchmarkJob.dispatch({
       benchmark_id: benchmarkId,
       benchmark_type: benchmarkType,
@@ -89,7 +89,7 @@ export default class BenchmarkController {
       })
     }
 
-    const benchmarkId = uuidv4()
+    const benchmarkId = randomUUID()
     await RunBenchmarkJob.dispatch({
       benchmark_id: benchmarkId,
       benchmark_type: 'system',
@@ -115,7 +115,7 @@ export default class BenchmarkController {
       })
     }
 
-    const benchmarkId = uuidv4()
+    const benchmarkId = randomUUID()
     await RunBenchmarkJob.dispatch({
       benchmark_id: benchmarkId,
       benchmark_type: 'ai',

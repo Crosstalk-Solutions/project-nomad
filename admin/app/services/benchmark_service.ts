@@ -3,7 +3,6 @@ import logger from '@adonisjs/core/services/logger'
 import transmit from '@adonisjs/transmit/services/main'
 import Docker from 'dockerode'
 import si from 'systeminformation'
-import { v4 as uuidv4 } from 'uuid'
 import axios from 'axios'
 import { DateTime } from 'luxon'
 import BenchmarkResult from '#models/benchmark_result'
@@ -24,6 +23,7 @@ import type {
   RepositorySubmitResponse,
   RepositoryStats,
 } from '../../types/benchmark.js'
+import { randomUUID } from 'node:crypto'
 
 // Re-export default weights for use in service
 const SCORE_WEIGHTS = {
@@ -255,7 +255,7 @@ export class BenchmarkService {
       throw new Error('A benchmark is already running')
     }
 
-    this.currentBenchmarkId = uuidv4()
+    this.currentBenchmarkId = randomUUID()
     this._updateStatus('starting', 'Starting benchmark...')
 
     try {
