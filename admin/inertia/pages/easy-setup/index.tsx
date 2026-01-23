@@ -316,7 +316,27 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   // Get primary disk/filesystem info for storage projection
   // Try disk array first (Linux/production), fall back to fsSize (Windows/dev)
-  const primaryDisk = systemInfo?.disk?.[0]
+  // Filter out invalid disks (totalSize === 0) and prefer disk with root mount or largest valid disk
+  const getPrimaryDisk = () => {
+    if (!systemInfo?.disk || systemInfo.disk.length === 0) return null
+
+    // Filter to only valid disks with actual storage
+    const validDisks = systemInfo.disk.filter((d) => d.totalSize > 0)
+    if (validDisks.length === 0) return null
+
+    // Prefer disk containing root mount (/) or /storage mount
+    const diskWithRoot = validDisks.find((d) =>
+      d.filesystems?.some((fs) => fs.mount === '/' || fs.mount === '/storage')
+    )
+    if (diskWithRoot) return diskWithRoot
+
+    // Fall back to largest valid disk
+    return validDisks.reduce((largest, current) =>
+      current.totalSize > largest.totalSize ? current : largest
+    )
+  }
+
+  const primaryDisk = getPrimaryDisk()
   const primaryFs = systemInfo?.fsSize?.[0]
   const storageInfo = primaryDisk
     ? { totalSize: primaryDisk.totalSize, totalUsed: primaryDisk.totalUsed }
