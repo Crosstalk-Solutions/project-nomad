@@ -59,12 +59,12 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
             className={`mb-4 p-4 rounded shadow-md border border-slate-300 bg-white max-w-96`}
             onClick={() => removeNotification(notification.id)}
           >
-            <div className="flex flex-row justify-between items-center">
-              <div className="mr-2">
+            <div className="flex flex-row items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
                 <Icon type={notification.type} />
               </div>
-              <div>
-                <p className="break-all">{notification.message}</p>
+              <div className="flex-1 min-w-0">
+                <p className="break-words">{notification.message}</p>
               </div>
             </div>
           </div>
