@@ -55,14 +55,14 @@ export default function ZimPage() {
 
   return (
     <SettingsLayout>
-      <Head title="ZIM Manager | Project N.O.M.A.D." />
+      <Head title="Content Manager | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">ZIM Manager</h1>
+              <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
               <p className="text-gray-500">
-                Manage your stored ZIM files.
+                Manage your stored content files.
               </p>
             </div>
           </div>
