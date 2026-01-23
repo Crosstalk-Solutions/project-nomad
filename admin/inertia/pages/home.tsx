@@ -7,7 +7,6 @@ import {
   IconWifiOff,
 } from '@tabler/icons-react'
 import { Head } from '@inertiajs/react'
-import BouncingLogo from '~/components/BouncingLogo'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
@@ -138,7 +137,6 @@ export default function Home(props: {
             </div>
           </a>
         ))}
-        <BouncingLogo />
       </div>
     </AppLayout>
   )
