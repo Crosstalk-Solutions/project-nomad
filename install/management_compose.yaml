@@ -32,7 +32,6 @@ services:
       - DB_SSL=false
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OLLAMA_API_URL=http://host.docker.internal:11434
     depends_on:
       mysql:
         condition: service_healthy

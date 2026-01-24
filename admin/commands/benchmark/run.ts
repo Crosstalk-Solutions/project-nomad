@@ -19,8 +19,10 @@ export default class BenchmarkRun extends BaseCommand {
   }
 
   async run() {
+    const { DockerService } = await import('#services/docker_service')
     const { BenchmarkService } = await import('#services/benchmark_service')
-    const benchmarkService = new BenchmarkService()
+    const dockerService = new DockerService()
+    const benchmarkService = new BenchmarkService(dockerService)
 
     // Determine benchmark type
     let benchmarkType: 'full' | 'system' | 'ai' = 'full'
