@@ -134,6 +134,8 @@ export default function BenchmarkPage(props: {
       { status: 'running_memory', progress: 40, message: 'Running memory benchmark...', label: 'Memory Benchmark', duration: 8000 },
       { status: 'running_disk_read', progress: 55, message: 'Running disk read benchmark (30s)...', label: 'Disk Read Test', duration: 35000 },
       { status: 'running_disk_write', progress: 70, message: 'Running disk write benchmark (30s)...', label: 'Disk Write Test', duration: 35000 },
+      { status: 'downloading_ai_model', progress: 80, message: 'Downloading AI benchmark model (first run only)...', label: 'Downloading AI Model', duration: 5000 },
+      { status: 'running_ai', progress: 85, message: 'Running AI inference benchmark...', label: 'AI Inference Test', duration: 15000 },
       { status: 'calculating_score', progress: 95, message: 'Calculating NOMAD score...', label: 'Calculating Score', duration: 2000 },
     ]
 
@@ -202,6 +204,7 @@ export default function BenchmarkPage(props: {
       running_memory: 40,
       running_disk_read: 55,
       running_disk_write: 70,
+      downloading_ai_model: 80,
       running_ai: 85,
       calculating_score: 95,
       completed: 100,
@@ -256,6 +259,16 @@ export default function BenchmarkPage(props: {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {progress?.status === 'error' && (
+                    <Alert
+                      type="error"
+                      title="Benchmark Failed"
+                      message={progress.message}
+                      variant="bordered"
+                      dismissible
+                      onDismiss={() => setProgress(null)}
+                    />
+                  )}
                   <p className="text-desert-stone-dark">
                     Run a benchmark to measure your system's CPU, memory, disk, and AI inference performance.
                     The benchmark takes approximately 2-5 minutes to complete.
