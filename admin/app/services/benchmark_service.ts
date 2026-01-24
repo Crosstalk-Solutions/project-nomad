@@ -1,7 +1,6 @@
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import transmit from '@adonisjs/transmit/services/main'
-import Docker from 'dockerode'
 import si from 'systeminformation'
 import axios from 'axios'
 import { DateTime } from 'luxon'
@@ -24,6 +23,7 @@ import type {
   RepositoryStats,
 } from '../../types/benchmark.js'
 import { randomUUID } from 'node:crypto'
+import { DockerService } from './docker_service.js'
 
 // Re-export default weights for use in service
 const SCORE_WEIGHTS = {
@@ -44,10 +44,6 @@ const BENCHMARK_CHANNEL = 'benchmark-progress'
 const AI_BENCHMARK_MODEL = 'llama3.2:1b'
 const AI_BENCHMARK_PROMPT = 'Explain recursion in programming in exactly 100 words.'
 
-// Ollama API URL - configurable for Docker environments where localhost doesn't reach the host
-// In Docker, use host.docker.internal (Docker Desktop) or the host gateway IP (Linux)
-const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://host.docker.internal:11434'
-
 // Reference scores for normalization (calibrated to 0-100 scale)
 // These represent "expected" scores for a mid-range system (score ~50)
 const REFERENCE_SCORES = {
@@ -61,18 +57,10 @@ const REFERENCE_SCORES = {
 
 @inject()
 export class BenchmarkService {
-  private docker: Docker
   private currentBenchmarkId: string | null = null
   private currentStatus: BenchmarkStatus = 'idle'
 
-  constructor() {
-    const isWindows = process.platform === 'win32'
-    if (isWindows) {
-      this.docker = new Docker({ socketPath: '//./pipe/docker_engine' })
-    } else {
-      this.docker = new Docker({ socketPath: '/var/run/docker.sock' })
-    }
-  }
+  constructor(private dockerService: DockerService) {}
 
   /**
    * Run a full benchmark suite
@@ -366,18 +354,25 @@ export class BenchmarkService {
    * Run AI benchmark using Ollama
    */
   private async _runAIBenchmark(): Promise<AIScores> {
+    try {
+
     this._updateStatus('running_ai', 'Running AI benchmark...')
+
+    const ollamaAPIURL = await this.dockerService.getServiceURL(DockerService.OLLAMA_SERVICE_NAME)
+    if (!ollamaAPIURL) {
+      throw new Error('AI Assistant service location could not be determined. Ensure AI Assistant is installed and running.')
+    }
 
     // Check if Ollama is available
     try {
-      await axios.get(`${OLLAMA_API_URL}/api/tags`, { timeout: 5000 })
+      await axios.get(`${ollamaAPIURL}/api/tags`, { timeout: 5000 })
     } catch (error) {
       const errorCode = error.code || error.response?.status || 'unknown'
       throw new Error(`Ollama is not running or not accessible (${errorCode}). Ensure AI Assistant is installed and running.`)
     }
 
     // Check if the benchmark model is available, pull if not
-    const modelsResponse = await axios.get(`${OLLAMA_API_URL}/api/tags`)
+    const modelsResponse = await axios.get(`${ollamaAPIURL}/api/tags`)
     const models = modelsResponse.data.models || []
     const hasModel = models.some((m: any) => m.name === AI_BENCHMARK_MODEL || m.name.startsWith(AI_BENCHMARK_MODEL.split(':')[0]))
 
@@ -387,7 +382,7 @@ export class BenchmarkService {
 
       try {
         // Model pull can take several minutes, use longer timeout
-        await axios.post(`${OLLAMA_API_URL}/api/pull`, { name: AI_BENCHMARK_MODEL }, { timeout: 600000 })
+        await axios.post(`${ollamaAPIURL}/api/pull`, { name: AI_BENCHMARK_MODEL }, { timeout: 600000 })
         logger.info(`[BenchmarkService] Model ${AI_BENCHMARK_MODEL} downloaded successfully`)
       } catch (pullError) {
         throw new Error(`Failed to download AI benchmark model (${AI_BENCHMARK_MODEL}): ${pullError.message}`)
@@ -397,9 +392,8 @@ export class BenchmarkService {
     // Run inference benchmark
     const startTime = Date.now()
 
-    try {
       const response = await axios.post(
-        `${OLLAMA_API_URL}/api/generate`,
+        `${ollamaAPIURL}/api/generate`,
         {
           model: AI_BENCHMARK_MODEL,
           prompt: AI_BENCHMARK_PROMPT,
@@ -519,11 +513,11 @@ export class BenchmarkService {
    */
   private async _ensureSysbenchImage(): Promise<void> {
     try {
-      await this.docker.getImage(SYSBENCH_IMAGE).inspect()
+      await this.dockerService.docker.getImage(SYSBENCH_IMAGE).inspect()
     } catch {
       this._updateStatus('starting', `Pulling sysbench image...`)
-      const pullStream = await this.docker.pull(SYSBENCH_IMAGE)
-      await new Promise((resolve) => this.docker.modem.followProgress(pullStream, resolve))
+      const pullStream = await this.dockerService.docker.pull(SYSBENCH_IMAGE)
+      await new Promise((resolve) => this.dockerService.docker.modem.followProgress(pullStream, resolve))
     }
   }
 
@@ -641,7 +635,7 @@ export class BenchmarkService {
   private async _runSysbenchCommand(cmd: string[]): Promise<string> {
     try {
       // Create container with TTY to avoid multiplexed output
-      const container = await this.docker.createContainer({
+      const container = await this.dockerService.docker.createContainer({
         Image: SYSBENCH_IMAGE,
         Cmd: cmd,
         name: `${SYSBENCH_CONTAINER_NAME}_${Date.now()}`,

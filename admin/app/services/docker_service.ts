@@ -18,6 +18,7 @@ export class DockerService {
   public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes'
   public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri'
   public static BENCHMARK_SERVICE_NAME = 'nomad_benchmark'
+  public static NOMAD_NETWORK = 'project-nomad_default'
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)
@@ -124,9 +125,56 @@ export class DockerService {
         status: container.State,
       }))
     } catch (error) {
-      console.error(`Error fetching services status: ${error.message}`)
+      logger.error(`Error fetching services status: ${error.message}`)
       return []
     }
+  }
+
+  /**
+   * Get the URL to access a service based on its configuration.
+   * Attempts to return a docker-internal URL using the service name and exposed port.
+   * @param serviceName - The name of the service to get the URL for.
+   * @returns - The URL as a string, or null if it cannot be determined.
+   */
+  async getServiceURL(serviceName: string): Promise<string | null> {
+    if (!serviceName || serviceName.trim() === '') {
+      return null
+    }
+
+    const service = await Service.query()
+      .where('service_name', serviceName)
+      .andWhere('installed', true)
+      .first()
+
+    if (!service) {
+      return null
+    }
+
+    const hostname = process.env.NODE_ENV === 'production' ? serviceName : 'localhost'
+
+    // First, check if ui_location is set and is a valid port number
+    if (service.ui_location && parseInt(service.ui_location, 10)) {
+      return `http://${hostname}:${service.ui_location}`
+    }
+
+    // Next, try to extract a host port from container_config
+    const parsedConfig = this._parseContainerConfig(service.container_config)
+    if (parsedConfig?.HostConfig?.PortBindings) {
+      const portBindings = parsedConfig.HostConfig.PortBindings
+      const hostPorts = Object.values(portBindings)
+      if (!hostPorts || !Array.isArray(hostPorts) || hostPorts.length === 0) {
+        return null
+      }
+
+      const hostPortsArray = hostPorts.flat() as { HostPort: string }[]
+      const hostPortsStrings = hostPortsArray.map((binding) => binding.HostPort)
+      if (hostPortsStrings.length > 0) {
+        return `http://${hostname}:${hostPortsStrings[0]}`
+      }
+    }
+
+    // Otherwise, return null if we can't determine a URL
+    return null
   }
 
   async createContainerPreflight(
@@ -411,6 +459,14 @@ export class DockerService {
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
         ...(containerConfig?.Env && { Env: containerConfig.Env }),
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
+        // Ensure container is attached to the Nomad docker network in production
+        ...(process.env.NODE_ENV === 'production' && {
+          NetworkingConfig: {
+            EndpointsConfig: {
+              [DockerService.NOMAD_NETWORK]: {},
+            },
+          },
+        })
       })
 
       this._broadcast(
