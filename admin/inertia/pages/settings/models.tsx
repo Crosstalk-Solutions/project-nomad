@@ -13,7 +13,7 @@ import StyledModal from '~/components/StyledModal'
 export default function ModelsPage(props: {
   models: { availableModels: NomadOllamaModel[]; installedModels: OllamaModelListing[] }
 }) {
-  const { isInstalled } = useServiceInstalledStatus('nomad_openwebui')
+  const { isInstalled } = useServiceInstalledStatus('nomad_open_webui')
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
 
