@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react'
 import { CuratedCategory, CategoryTier, CategoryResource } from '../../types/downloads'
@@ -21,6 +21,16 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   selectedTierSlug,
   onSelectTier,
 }) => {
+  // Local selection state - initialized from prop
+  const [localSelectedSlug, setLocalSelectedSlug] = useState<string | null>(null)
+
+  // Reset local selection when modal opens or category changes
+  useEffect(() => {
+    if (isOpen && category) {
+      setLocalSelectedSlug(selectedTierSlug || null)
+    }
+  }, [isOpen, category, selectedTierSlug])
+
   if (!category) return null
 
   // Get all resources for a tier (including inherited resources)
@@ -39,6 +49,25 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
 
   const getTierTotalSize = (tier: CategoryTier): number => {
     return getAllResourcesForTier(tier).reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
+  }
+
+  const handleTierClick = (tier: CategoryTier) => {
+    // Toggle selection: if clicking the same tier, deselect it
+    if (localSelectedSlug === tier.slug) {
+      setLocalSelectedSlug(null)
+    } else {
+      setLocalSelectedSlug(tier.slug)
+    }
+  }
+
+  const handleSubmit = () => {
+    if (!localSelectedSlug) return
+
+    const selectedTier = category.tiers.find(t => t.slug === localSelectedSlug)
+    if (selectedTier) {
+      onSelectTier(category, selectedTier)
+    }
+    onClose()
   }
 
   return (
@@ -99,21 +128,20 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                   </p>
 
                   <div className="space-y-4">
-                    {category.tiers.map((tier, index) => {
+                    {category.tiers.map((tier) => {
                       const allResources = getAllResourcesForTier(tier)
                       const totalSize = getTierTotalSize(tier)
-                      const isSelected = selectedTierSlug === tier.slug
+                      const isSelected = localSelectedSlug === tier.slug
 
                       return (
                         <div
                           key={tier.slug}
-                          onClick={() => onSelectTier(category, tier)}
+                          onClick={() => handleTierClick(tier)}
                           className={classNames(
                             'border-2 rounded-lg p-5 cursor-pointer transition-all',
                             isSelected
                               ? 'border-desert-green bg-desert-green/5 shadow-md'
-                              : 'border-gray-200 hover:border-desert-green/50 hover:shadow-sm',
-                            tier.recommended && !isSelected && 'border-lime-500/50'
+                              : 'border-gray-200 hover:border-desert-green/50 hover:shadow-sm'
                           )}
                         >
                           <div className="flex items-start justify-between">
@@ -122,11 +150,6 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                                 <h3 className="text-lg font-semibold text-gray-900">
                                   {tier.name}
                                 </h3>
-                                {tier.recommended && (
-                                  <span className="text-xs bg-lime-500 text-white px-2 py-0.5 rounded">
-                                    Recommended
-                                  </span>
-                                )}
                                 {tier.includesTier && (
                                   <span className="text-xs text-gray-500">
                                     (includes {category.tiers.find(t => t.slug === tier.includesTier)?.name})
@@ -179,7 +202,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                   <div className="mt-6 flex items-start gap-2 text-sm text-gray-500 bg-blue-50 p-3 rounded">
                     <IconInfoCircle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
                     <p>
-                      You can change your selection at any time. Downloads will begin when you complete the setup wizard.
+                      You can change your selection at any time. Click Submit to confirm your choice.
                     </p>
                   </div>
                 </div>
@@ -187,10 +210,16 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                 {/* Footer */}
                 <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
                   <button
-                    onClick={onClose}
-                    className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+                    onClick={handleSubmit}
+                    disabled={!localSelectedSlug}
+                    className={classNames(
+                      'px-4 py-2 rounded-md font-medium transition-colors',
+                      localSelectedSlug
+                        ? 'bg-desert-green text-white hover:bg-desert-green/90'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    )}
                   >
-                    Close
+                    Submit
                   </button>
                 </div>
               </Dialog.Panel>

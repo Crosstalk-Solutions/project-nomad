@@ -3,6 +3,7 @@ import {
   downloadCollectionValidator,
   filenameParamValidator,
   remoteDownloadValidator,
+  saveInstalledTierValidator,
 } from '#validators/common'
 import { listRemoteZimValidator } from '#validators/zim'
 import { inject } from '@adonisjs/core'
@@ -52,6 +53,12 @@ export default class ZimController {
   async fetchLatestCollections({}: HttpContext) {
     const success = await this.zimService.fetchLatestCollections()
     return { success }
+  }
+
+  async saveInstalledTier({ request }: HttpContext) {
+    const payload = await request.validateUsing(saveInstalledTierValidator)
+    await this.zimService.saveInstalledTier(payload.categorySlug, payload.tierSlug)
+    return { success: true }
   }
 
   async delete({ request, response }: HttpContext) {

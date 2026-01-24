@@ -222,16 +222,23 @@ export default function ZimRemoteExplorer() {
     // Get all resources for this tier (including inherited ones)
     const resources = getAllResourcesForTier(tier, category.tiers)
 
-    // Download each resource
+    // Download each resource and save the installed tier
     try {
       for (const resource of resources) {
         await api.downloadRemoteZimFile(resource.url)
       }
+
+      // Save the installed tier
+      await api.saveInstalledTier(category.slug, tier.slug)
+
       addNotification({
         message: `Started downloading ${resources.length} files from "${category.name} - ${tier.name}"`,
         type: 'success',
       })
       invalidateDownloads()
+
+      // Refresh categories to update the installed tier display
+      queryClient.invalidateQueries({ queryKey: [CURATED_CATEGORIES_KEY] })
     } catch (error) {
       console.error('Error downloading tier resources:', error)
       addNotification({
@@ -239,8 +246,6 @@ export default function ZimRemoteExplorer() {
         type: 'error',
       })
     }
-
-    closeTierModal()
   }
 
   const closeTierModal = () => {
@@ -322,7 +327,7 @@ export default function ZimRemoteExplorer() {
                 isOpen={tierModalOpen}
                 onClose={closeTierModal}
                 category={activeCategory}
-                selectedTierSlug={null}
+                selectedTierSlug={activeCategory?.installedTierSlug}
                 onSelectTier={handleTierSelect}
               />
             </>

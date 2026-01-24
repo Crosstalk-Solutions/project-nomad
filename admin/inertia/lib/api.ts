@@ -212,6 +212,16 @@ class API {
     })()
   }
 
+  async saveInstalledTier(categorySlug: string, tierSlug: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean }>('/zim/save-installed-tier', {
+        categorySlug,
+        tierSlug,
+      })
+      return response.data
+    })()
+  }
+
   async listDocs() {
     return catchInternal(async () => {
       const response = await this.client.get<Array<{ title: string; slug: string }>>('/docs/list')
