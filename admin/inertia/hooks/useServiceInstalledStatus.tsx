@@ -3,7 +3,7 @@ import { ServiceSlim } from '../../types/services'
 import api from '~/lib/api'
 
 const useServiceInstalledStatus = (serviceName: string) => {
-  const { data, isFetching } = useQuery<ServiceSlim[]>({
+  const { data, isFetching } = useQuery<ServiceSlim[] | undefined>({
     queryKey: ['installed-services'],
     queryFn: () => api.listServices(),
   })
