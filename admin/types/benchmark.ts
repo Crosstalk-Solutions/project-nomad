@@ -12,6 +12,7 @@ export type BenchmarkStatus =
   | 'running_memory'
   | 'running_disk_read'
   | 'running_disk_write'
+  | 'downloading_ai_model'
   | 'running_ai'
   | 'calculating_score'
   | 'completed'

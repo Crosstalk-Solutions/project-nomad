@@ -44,6 +44,10 @@ const BENCHMARK_CHANNEL = 'benchmark-progress'
 const AI_BENCHMARK_MODEL = 'llama3.2:1b'
 const AI_BENCHMARK_PROMPT = 'Explain recursion in programming in exactly 100 words.'
 
+// Ollama API URL - configurable for Docker environments where localhost doesn't reach the host
+// In Docker, use host.docker.internal (Docker Desktop) or the host gateway IP (Linux)
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://host.docker.internal:11434'
+
 // Reference scores for normalization (calibrated to 0-100 scale)
 // These represent "expected" scores for a mid-range system (score ~50)
 const REFERENCE_SCORES = {
@@ -280,8 +284,12 @@ export class BenchmarkService {
         try {
           aiScores = await this._runAIBenchmark()
         } catch (error) {
+          // For AI-only benchmarks, failing is fatal - don't save useless results with all zeros
+          if (type === 'ai') {
+            throw new Error(`AI benchmark failed: ${error.message}. Make sure AI Assistant is installed and running.`)
+          }
+          // For full benchmarks, AI is optional - continue without it
           logger.warn(`AI benchmark skipped: ${error.message}`)
-          // AI benchmark is optional, continue without it
         }
       }
 
@@ -362,23 +370,28 @@ export class BenchmarkService {
 
     // Check if Ollama is available
     try {
-      await axios.get('http://localhost:11434/api/tags', { timeout: 5000 })
-    } catch {
-      throw new Error('Ollama is not running or not accessible')
+      await axios.get(`${OLLAMA_API_URL}/api/tags`, { timeout: 5000 })
+    } catch (error) {
+      const errorCode = error.code || error.response?.status || 'unknown'
+      throw new Error(`Ollama is not running or not accessible (${errorCode}). Ensure AI Assistant is installed and running.`)
     }
 
     // Check if the benchmark model is available, pull if not
-    try {
-      const modelsResponse = await axios.get('http://localhost:11434/api/tags')
-      const models = modelsResponse.data.models || []
-      const hasModel = models.some((m: any) => m.name === AI_BENCHMARK_MODEL || m.name.startsWith(AI_BENCHMARK_MODEL.split(':')[0]))
+    const modelsResponse = await axios.get(`${OLLAMA_API_URL}/api/tags`)
+    const models = modelsResponse.data.models || []
+    const hasModel = models.some((m: any) => m.name === AI_BENCHMARK_MODEL || m.name.startsWith(AI_BENCHMARK_MODEL.split(':')[0]))
 
-      if (!hasModel) {
-        this._updateStatus('running_ai', `Pulling benchmark model ${AI_BENCHMARK_MODEL}...`)
-        await axios.post('http://localhost:11434/api/pull', { name: AI_BENCHMARK_MODEL })
+    if (!hasModel) {
+      this._updateStatus('downloading_ai_model', `Downloading AI benchmark model (${AI_BENCHMARK_MODEL})... This may take a few minutes on first run.`)
+      logger.info(`[BenchmarkService] Model ${AI_BENCHMARK_MODEL} not found, downloading...`)
+
+      try {
+        // Model pull can take several minutes, use longer timeout
+        await axios.post(`${OLLAMA_API_URL}/api/pull`, { name: AI_BENCHMARK_MODEL }, { timeout: 600000 })
+        logger.info(`[BenchmarkService] Model ${AI_BENCHMARK_MODEL} downloaded successfully`)
+      } catch (pullError) {
+        throw new Error(`Failed to download AI benchmark model (${AI_BENCHMARK_MODEL}): ${pullError.message}`)
       }
-    } catch (error) {
-      logger.warn(`Could not check/pull model: ${error.message}`)
     }
 
     // Run inference benchmark
@@ -386,7 +399,7 @@ export class BenchmarkService {
 
     try {
       const response = await axios.post(
-        'http://localhost:11434/api/generate',
+        `${OLLAMA_API_URL}/api/generate`,
         {
           model: AI_BENCHMARK_MODEL,
           prompt: AI_BENCHMARK_PROMPT,
@@ -694,6 +707,7 @@ export class BenchmarkService {
       running_memory: 40,
       running_disk_read: 55,
       running_disk_write: 70,
+      downloading_ai_model: 80,
       running_ai: 85,
       calculating_score: 95,
       completed: 100,
@@ -714,6 +728,7 @@ export class BenchmarkService {
       running_memory: 'Memory Benchmark',
       running_disk_read: 'Disk Read Test',
       running_disk_write: 'Disk Write Test',
+      downloading_ai_model: 'Downloading AI Model',
       running_ai: 'AI Inference Test',
       calculating_score: 'Calculating Score',
       completed: 'Complete',
