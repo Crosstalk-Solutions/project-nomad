@@ -120,6 +120,7 @@ router
     router.post('/fetch-latest-collections', [ZimController, 'fetchLatestCollections'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])
     router.post('/download-collection', [ZimController, 'downloadCollection'])
+    router.post('/save-installed-tier', [ZimController, 'saveInstalledTier'])
     router.delete('/:filename', [ZimController, 'delete'])
   })
   .prefix('/api/zim')

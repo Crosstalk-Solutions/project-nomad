@@ -22,6 +22,7 @@ import vine from '@vinejs/vine'
 import { curatedCategoriesFileSchema, curatedCollectionsFileSchema } from '#validators/curated_collections'
 import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
+import InstalledTier from '#models/installed_tier'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
 
@@ -257,11 +258,29 @@ export class ZimService implements IZimService {
         data,
       });
 
-      return validated.categories
+      // Look up installed tiers for all categories
+      const installedTiers = await InstalledTier.all()
+      const installedTierMap = new Map(
+        installedTiers.map((t) => [t.category_slug, t.tier_slug])
+      )
+
+      // Add installedTierSlug to each category
+      return validated.categories.map((category) => ({
+        ...category,
+        installedTierSlug: installedTierMap.get(category.slug),
+      }))
     } catch (error) {
       logger.error(`[ZimService] Failed to fetch curated categories:`, error)
       throw new Error('Failed to fetch curated categories or invalid format was received')
     }
+  }
+
+  async saveInstalledTier(categorySlug: string, tierSlug: string): Promise<void> {
+    await InstalledTier.updateOrCreate(
+      { category_slug: categorySlug },
+      { tier_slug: tierSlug }
+    )
+    logger.info(`[ZimService] Saved installed tier: ${categorySlug} -> ${tierSlug}`)
   }
 
   async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {

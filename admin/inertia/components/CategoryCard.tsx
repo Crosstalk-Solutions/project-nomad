@@ -29,6 +29,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
   const minSize = getTierTotalSize(category.tiers[0], category.tiers)
   const maxSize = getTierTotalSize(category.tiers[category.tiers.length - 1], category.tiers)
 
+  // Determine which tier to highlight: selectedTier (wizard) > installedTierSlug (persisted)
+  const highlightedTierSlug = selectedTier?.slug || category.installedTierSlug
+
   return (
     <div
       className={classNames(
@@ -59,23 +62,28 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
       <div className="mt-4 pt-4 border-t border-white/20">
         <p className="text-sm text-gray-300 mb-2">
           {category.tiers.length} tiers available
+          {!highlightedTierSlug && (
+            <span className="text-gray-400"> - Click to choose</span>
+          )}
         </p>
         <div className="flex flex-wrap gap-2">
-          {category.tiers.map((tier) => (
-            <span
-              key={tier.slug}
-              className={classNames(
-                'text-xs px-2 py-1 rounded',
-                tier.recommended
-                  ? 'bg-lime-500/30 text-lime-200'
-                  : 'bg-white/10 text-gray-300',
-                selectedTier?.slug === tier.slug && 'ring-2 ring-lime-400'
-              )}
-            >
-              {tier.name}
-              {tier.recommended && ' *'}
-            </span>
-          ))}
+          {category.tiers.map((tier) => {
+            const isInstalled = tier.slug === highlightedTierSlug
+            return (
+              <span
+                key={tier.slug}
+                className={classNames(
+                  'text-xs px-2 py-1 rounded',
+                  isInstalled
+                    ? 'bg-lime-500/30 text-lime-200'
+                    : 'bg-white/10 text-gray-300',
+                  selectedTier?.slug === tier.slug && 'ring-2 ring-lime-400'
+                )}
+              >
+                {tier.name}
+              </span>
+            )
+          })}
         </div>
         <p className="text-gray-300 text-xs mt-3">
           Size: {formatBytes(minSize, 1)} - {formatBytes(maxSize, 1)}

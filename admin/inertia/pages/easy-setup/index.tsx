@@ -392,6 +392,12 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
       await Promise.all(downloadPromises)
 
+      // Save installed tiers for each selected category
+      const tierSavePromises = Array.from(selectedTiers.entries()).map(
+        ([categorySlug, tier]) => api.saveInstalledTier(categorySlug, tier.slug)
+      )
+      await Promise.all(tierSavePromises)
+
       addNotification({
         type: 'success',
         message: 'Setup wizard completed! Your selections are being processed.',
@@ -945,7 +951,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                   onClose={closeTierModal}
                   category={activeCategory}
                   selectedTierSlug={
-                    activeCategory ? selectedTiers.get(activeCategory.slug)?.slug : null
+                    activeCategory
+                      ? selectedTiers.get(activeCategory.slug)?.slug || activeCategory.installedTierSlug
+                      : null
                   }
                   onSelectTier={handleTierSelect}
                 />

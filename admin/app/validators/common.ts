@@ -36,3 +36,10 @@ export const downloadCollectionValidator = vine.compile(
     slug: vine.string(),
   })
 )
+
+export const saveInstalledTierValidator = vine.compile(
+  vine.object({
+    categorySlug: vine.string().trim().minLength(1),
+    tierSlug: vine.string().trim().minLength(1),
+  })
+)

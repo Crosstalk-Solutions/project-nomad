@@ -84,6 +84,7 @@ export type CuratedCategory = {
   description: string
   language: string
   tiers: CategoryTier[]
+  installedTierSlug?: string
 }
 
 export type CuratedCategoriesFile = {
