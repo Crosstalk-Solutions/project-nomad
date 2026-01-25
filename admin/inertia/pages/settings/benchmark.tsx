@@ -1,17 +1,20 @@
-import { Head } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
 import { useState, useEffect } from 'react'
 import SettingsLayout from '~/layouts/SettingsLayout'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
 import InfoCard from '~/components/systeminfo/InfoCard'
 import Alert from '~/components/Alert'
 import StyledButton from '~/components/StyledButton'
+import InfoTooltip from '~/components/InfoTooltip'
+import BuilderTagSelector from '~/components/BuilderTagSelector'
 import {
   ChartBarIcon,
   CpuChipIcon,
   CircleStackIcon,
   ServerIcon,
   ChevronDownIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline'
 import { IconRobot } from '@tabler/icons-react'
 import { useTransmit } from 'react-adonis-transmit'
@@ -28,9 +31,32 @@ export default function BenchmarkPage(props: {
   }
 }) {
   const { subscribe } = useTransmit()
+  const queryClient = useQueryClient()
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
   const [showDetails, setShowDetails] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
+  const [shareAnonymously, setShareAnonymously] = useState(false)
+  const [currentBuilderTag, setCurrentBuilderTag] = useState<string | null>(
+    props.benchmark.latestResult?.builder_tag || null
+  )
+
+  // Check if AI Assistant is installed
+  const { data: aiInstalled } = useQuery({
+    queryKey: ['services', 'ai-installed'],
+    queryFn: async () => {
+      const res = await fetch('/api/system/services')
+      const data = await res.json()
+      const services = Array.isArray(data) ? data : (data.services || [])
+      const openWebUI = services.find((s: any) =>
+        s.service_name === 'nomad_open_webui' || s.serviceName === 'nomad_open_webui'
+      )
+      return openWebUI?.installed === true || openWebUI?.installed === 1
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+  })
 
   // Fetch latest result
   const { data: latestResult, refetch: refetchLatest } = useQuery({
@@ -41,6 +67,16 @@ export default function BenchmarkPage(props: {
       return data.result as BenchmarkResult | null
     },
     initialData: props.benchmark.latestResult,
+  })
+
+  // Fetch all benchmark results for history
+  const { data: benchmarkHistory } = useQuery({
+    queryKey: ['benchmark', 'history'],
+    queryFn: async () => {
+      const res = await fetch('/api/benchmark/results')
+      const data = await res.json()
+      return data.results as BenchmarkResult[]
+    },
   })
 
   // Run benchmark mutation (uses sync mode by default for simpler local dev)
@@ -100,15 +136,45 @@ export default function BenchmarkPage(props: {
     },
   })
 
+  // Update builder tag mutation
+  const updateBuilderTag = useMutation({
+    mutationFn: async ({ benchmarkId, builderTag }: { benchmarkId: string; builderTag: string }) => {
+      const res = await fetch('/api/benchmark/builder-tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ benchmark_id: benchmarkId, builder_tag: builderTag }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update builder tag')
+      }
+      return data
+    },
+    onSuccess: () => {
+      refetchLatest()
+      queryClient.invalidateQueries({ queryKey: ['benchmark', 'history'] })
+    },
+  })
+
   // Submit to repository mutation
   const [submitError, setSubmitError] = useState<string | null>(null)
   const submitResult = useMutation({
-    mutationFn: async (benchmarkId?: string) => {
+    mutationFn: async ({ benchmarkId, anonymous }: { benchmarkId: string; anonymous: boolean }) => {
       setSubmitError(null)
+
+      // First, save the current builder tag to the benchmark
+      if (currentBuilderTag && !anonymous) {
+        await fetch('/api/benchmark/builder-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ benchmark_id: benchmarkId, builder_tag: currentBuilderTag }),
+        })
+      }
+
       const res = await fetch('/api/benchmark/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ benchmark_id: benchmarkId }),
+        body: JSON.stringify({ benchmark_id: benchmarkId, anonymous }),
       })
       const data = await res.json()
       if (!data.success) {
@@ -118,11 +184,29 @@ export default function BenchmarkPage(props: {
     },
     onSuccess: () => {
       refetchLatest()
+      queryClient.invalidateQueries({ queryKey: ['benchmark', 'history'] })
     },
     onError: (error: Error) => {
       setSubmitError(error.message)
     },
   })
+
+  // Check if the latest result is a full benchmark with AI data (eligible for sharing)
+  const canShareBenchmark = latestResult &&
+    latestResult.benchmark_type === 'full' &&
+    latestResult.ai_tokens_per_second !== null &&
+    latestResult.ai_tokens_per_second > 0 &&
+    !latestResult.submitted_to_repository
+
+  // Handle Full Benchmark click with pre-flight check
+  const handleFullBenchmarkClick = () => {
+    if (!aiInstalled) {
+      setShowAIRequiredAlert(true)
+      return
+    }
+    setShowAIRequiredAlert(false)
+    runBenchmark.mutate('full')
+  }
 
   // Simulate progress during sync benchmark (since we don't get SSE updates)
   useEffect(() => {
@@ -269,13 +353,30 @@ export default function BenchmarkPage(props: {
                       onDismiss={() => setProgress(null)}
                     />
                   )}
+                  {showAIRequiredAlert && (
+                    <Alert
+                      type="warning"
+                      title="AI Assistant Required"
+                      message="Full benchmark requires AI Assistant to be installed. Install it to measure your complete NOMAD capability and share results with the community."
+                      variant="bordered"
+                      dismissible
+                      onDismiss={() => setShowAIRequiredAlert(false)}
+                    >
+                      <Link
+                        href="/settings/apps"
+                        className="text-sm text-desert-green hover:underline mt-2 inline-block font-medium"
+                      >
+                        Go to Apps to install AI Assistant →
+                      </Link>
+                    </Alert>
+                  )}
                   <p className="text-desert-stone-dark">
                     Run a benchmark to measure your system's CPU, memory, disk, and AI inference performance.
                     The benchmark takes approximately 2-5 minutes to complete.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <StyledButton
-                      onClick={() => runBenchmark.mutate('full')}
+                      onClick={handleFullBenchmarkClick}
                       disabled={runBenchmark.isPending}
                       icon='PlayIcon'
                     >
@@ -292,12 +393,21 @@ export default function BenchmarkPage(props: {
                     <StyledButton
                       variant="secondary"
                       onClick={() => runBenchmark.mutate('ai')}
-                      disabled={runBenchmark.isPending}
+                      disabled={runBenchmark.isPending || !aiInstalled}
                       icon='SparklesIcon'
+                      title={!aiInstalled ? 'AI Assistant must be installed to run AI benchmark' : undefined}
                     >
                       AI Only
                     </StyledButton>
                   </div>
+                  {!aiInstalled && (
+                    <p className="text-sm text-desert-stone-dark">
+                      <span className="text-amber-600">Note:</span> AI Assistant is not installed.
+                      <Link href="/settings/apps" className="text-desert-green hover:underline ml-1">
+                        Install it
+                      </Link> to run full benchmarks and share results with the community.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -331,13 +441,46 @@ export default function BenchmarkPage(props: {
                       <p className="text-desert-stone-dark">
                         Your NOMAD Score is a weighted composite of all benchmark results.
                       </p>
-                      {!latestResult.submitted_to_repository && (
-                        <div className="space-y-3">
+
+                      {/* Share with Community - Only for full benchmarks with AI data */}
+                      {canShareBenchmark && (
+                        <div className="space-y-4 mt-6 pt-6 border-t border-desert-stone-light">
+                          <h3 className="font-semibold text-desert-green">Share with Community</h3>
                           <p className="text-sm text-desert-stone-dark">
-                            Share your benchmark score anonymously with the NOMAD community. Only your hardware specs and scores are sent — no identifying information.
+                            Share your benchmark on the community leaderboard. Choose a Builder Tag to claim your spot, or share anonymously.
                           </p>
+
+                          {/* Builder Tag Selector */}
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-desert-stone-dark">
+                              Your Builder Tag
+                            </label>
+                            <BuilderTagSelector
+                              value={currentBuilderTag}
+                              onChange={setCurrentBuilderTag}
+                              disabled={shareAnonymously || submitResult.isPending}
+                            />
+                          </div>
+
+                          {/* Anonymous checkbox */}
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={shareAnonymously}
+                              onChange={(e) => setShareAnonymously(e.target.checked)}
+                              disabled={submitResult.isPending}
+                              className="w-4 h-4 rounded border-desert-stone-light text-desert-green focus:ring-desert-green"
+                            />
+                            <span className="text-sm text-desert-stone-dark">
+                              Share anonymously (no Builder Tag shown on leaderboard)
+                            </span>
+                          </label>
+
                           <StyledButton
-                            onClick={() => submitResult.mutate(latestResult.benchmark_id)}
+                            onClick={() => submitResult.mutate({
+                              benchmarkId: latestResult.benchmark_id,
+                              anonymous: shareAnonymously
+                            })}
                             disabled={submitResult.isPending}
                             icon='CloudArrowUpIcon'
                           >
@@ -355,6 +498,17 @@ export default function BenchmarkPage(props: {
                           )}
                         </div>
                       )}
+
+                      {/* Show message for partial benchmarks */}
+                      {latestResult && !latestResult.submitted_to_repository && !canShareBenchmark && (
+                        <Alert
+                          type="info"
+                          title="Partial Benchmark"
+                          message={`This ${latestResult.benchmark_type} benchmark cannot be shared with the community. Run a Full Benchmark with AI Assistant installed to share your results.`}
+                          variant="bordered"
+                        />
+                      )}
+
                       {latestResult.submitted_to_repository && (
                         <Alert
                           type="success"
@@ -448,7 +602,10 @@ export default function BenchmarkPage(props: {
                           <div className="text-3xl font-bold text-desert-green">
                             {latestResult.ai_tokens_per_second.toFixed(1)}
                           </div>
-                          <div className="text-sm text-desert-stone-dark">Tokens per Second</div>
+                          <div className="text-sm text-desert-stone-dark flex items-center gap-1">
+                            Tokens per Second
+                            <InfoTooltip text="How fast the AI generates text. Higher is better. 30+ tokens/sec feels responsive, 60+ feels instant." />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -459,7 +616,10 @@ export default function BenchmarkPage(props: {
                           <div className="text-3xl font-bold text-desert-green">
                             {latestResult.ai_time_to_first_token?.toFixed(0) || 'N/A'} ms
                           </div>
-                          <div className="text-sm text-desert-stone-dark">Time to First Token</div>
+                          <div className="text-sm text-desert-stone-dark flex items-center gap-1">
+                            Time to First Token
+                            <InfoTooltip text="How quickly the AI starts responding after you send a message. Lower is better. Under 500ms feels instant." />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -597,6 +757,10 @@ export default function BenchmarkPage(props: {
                               <span className="text-desert-stone-dark">Run Date</span>
                               <span>{new Date(latestResult.created_at as unknown as string).toLocaleString()}</span>
                             </div>
+                            <div className="flex justify-between">
+                              <span className="text-desert-stone-dark">Builder Tag</span>
+                              <span className="font-mono">{latestResult.builder_tag || 'Not set'}</span>
+                            </div>
                             {latestResult.ai_model_used && (
                               <div className="flex justify-between">
                                 <span className="text-desert-stone-dark">AI Model Used</span>
@@ -620,6 +784,83 @@ export default function BenchmarkPage(props: {
                   )}
                 </div>
               </section>
+
+              {/* Benchmark History */}
+              {benchmarkHistory && benchmarkHistory.length > 1 && (
+                <section className="mb-12">
+                  <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-desert-green" />
+                    Benchmark History
+                  </h2>
+
+                  <div className="bg-desert-white rounded-lg border border-desert-stone-light shadow-sm overflow-hidden">
+                    <button
+                      onClick={() => setShowHistory(!showHistory)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-desert-stone-lighter/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ClockIcon className="w-5 h-5 text-desert-stone-dark" />
+                        <span className="font-medium text-desert-green">
+                          {benchmarkHistory.length} benchmark{benchmarkHistory.length !== 1 ? 's' : ''} recorded
+                        </span>
+                      </div>
+                      <ChevronDownIcon
+                        className={`w-5 h-5 text-desert-stone-dark transition-transform ${showHistory ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+
+                    {showHistory && (
+                      <div className="border-t border-desert-stone-light">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-desert-stone-lighter/50">
+                              <tr>
+                                <th className="text-left p-3 font-medium text-desert-stone-dark">Date</th>
+                                <th className="text-left p-3 font-medium text-desert-stone-dark">Type</th>
+                                <th className="text-left p-3 font-medium text-desert-stone-dark">Score</th>
+                                <th className="text-left p-3 font-medium text-desert-stone-dark">Builder Tag</th>
+                                <th className="text-left p-3 font-medium text-desert-stone-dark">Shared</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-desert-stone-lighter">
+                              {benchmarkHistory.map((result) => (
+                                <tr
+                                  key={result.benchmark_id}
+                                  className={`hover:bg-desert-stone-lighter/30 ${
+                                    result.benchmark_id === latestResult?.benchmark_id
+                                      ? 'bg-desert-green/5'
+                                      : ''
+                                  }`}
+                                >
+                                  <td className="p-3">
+                                    {new Date(result.created_at as unknown as string).toLocaleDateString()}
+                                  </td>
+                                  <td className="p-3 capitalize">{result.benchmark_type}</td>
+                                  <td className="p-3">
+                                    <span className="font-bold text-desert-green">
+                                      {result.nomad_score.toFixed(1)}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 font-mono text-xs">
+                                    {result.builder_tag || '—'}
+                                  </td>
+                                  <td className="p-3">
+                                    {result.submitted_to_repository ? (
+                                      <span className="text-green-600">✓</span>
+                                    ) : (
+                                      <span className="text-desert-stone-dark">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
             </>
           )}
 

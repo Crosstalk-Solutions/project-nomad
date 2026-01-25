@@ -74,6 +74,9 @@ export default class BenchmarkResult extends BaseModel {
   @column()
   declare repository_id: string | null
 
+  @column()
+  declare builder_tag: string | null
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 

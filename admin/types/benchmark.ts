@@ -46,6 +46,7 @@ export type BenchmarkResultSlim = Pick<
   | 'nomad_score'
   | 'submitted_to_repository'
   | 'created_at'
+  | 'builder_tag'
 > & {
   cpu_model: string
   gpu_model: string | null
@@ -113,6 +114,7 @@ export type RepositorySubmission = Pick<
   nomad_version: string
   benchmark_version: string
   ram_gb: number
+  builder_tag: string | null // null = anonymous submission
 }
 
 // Central repository response types

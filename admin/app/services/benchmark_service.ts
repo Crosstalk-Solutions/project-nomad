@@ -22,8 +22,14 @@ import type {
   RepositorySubmitResponse,
   RepositoryStats,
 } from '../../types/benchmark.js'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
+
+// HMAC secret for signing submissions to the benchmark repository
+// This provides basic protection against casual API abuse.
+// Note: Since NOMAD is open source, a determined attacker could extract this.
+// For stronger protection, see challenge-response authentication.
+const BENCHMARK_HMAC_SECRET = 'nomad-benchmark-v1-2026'
 
 // Re-export default weights for use in service
 const SCORE_WEIGHTS = {
@@ -107,13 +113,22 @@ export class BenchmarkService {
   /**
    * Submit benchmark results to central repository
    */
-  async submitToRepository(benchmarkId?: string): Promise<RepositorySubmitResponse> {
+  async submitToRepository(benchmarkId?: string, anonymous?: boolean): Promise<RepositorySubmitResponse> {
     const result = benchmarkId
       ? await this.getResultById(benchmarkId)
       : await this.getLatestResult()
 
     if (!result) {
       throw new Error('No benchmark result found to submit')
+    }
+
+    // Only allow full benchmarks with AI data to be submitted to repository
+    if (result.benchmark_type !== 'full') {
+      throw new Error('Only full benchmarks can be shared with the community. Run a Full Benchmark to share your results.')
+    }
+
+    if (!result.ai_tokens_per_second || result.ai_tokens_per_second <= 0) {
+      throw new Error('Benchmark must include AI performance data. Ensure AI Assistant is installed and run a Full Benchmark.')
     }
 
     if (result.submitted_to_repository) {
@@ -136,13 +151,27 @@ export class BenchmarkService {
       nomad_score: result.nomad_score,
       nomad_version: SystemService.getAppVersion(),
       benchmark_version: '1.0.0',
+      builder_tag: anonymous ? null : result.builder_tag,
     }
 
     try {
+      // Generate HMAC signature for submission verification
+      const timestamp = Date.now().toString()
+      const payload = timestamp + JSON.stringify(submission)
+      const signature = createHmac('sha256', BENCHMARK_HMAC_SECRET)
+        .update(payload)
+        .digest('hex')
+
       const response = await axios.post(
         'https://benchmark.projectnomad.us/api/v1/submit',
         submission,
-        { timeout: 30000 }
+        {
+          timeout: 30000,
+          headers: {
+            'X-NOMAD-Timestamp': timestamp,
+            'X-NOMAD-Signature': signature,
+          },
+        }
       )
 
       if (response.data.success) {
@@ -214,15 +243,40 @@ export class BenchmarkService {
         }
       }
 
-      // Get GPU model (prefer discrete GPU)
+      // Get GPU model (prefer discrete GPU with dedicated VRAM)
       let gpuModel: string | null = null
       if (graphics.controllers && graphics.controllers.length > 0) {
-        const discreteGpu = graphics.controllers.find(
-          (g) => !g.vendor?.toLowerCase().includes('intel') &&
-                 !g.vendor?.toLowerCase().includes('amd') ||
-                 (g.vram && g.vram > 0)
-        )
+        // First, look for discrete GPUs (NVIDIA, AMD discrete, or any with significant VRAM)
+        const discreteGpu = graphics.controllers.find((g) => {
+          const vendor = g.vendor?.toLowerCase() || ''
+          const model = g.model?.toLowerCase() || ''
+          // NVIDIA GPUs are always discrete
+          if (vendor.includes('nvidia') || model.includes('geforce') || model.includes('rtx') || model.includes('quadro')) {
+            return true
+          }
+          // AMD discrete GPUs (Radeon, not integrated APU graphics)
+          if ((vendor.includes('amd') || vendor.includes('ati')) &&
+              (model.includes('radeon') || model.includes('rx ') || model.includes('vega')) &&
+              !model.includes('graphics')) {
+            return true
+          }
+          // Any GPU with dedicated VRAM > 512MB is likely discrete
+          if (g.vram && g.vram > 512) {
+            return true
+          }
+          return false
+        })
         gpuModel = discreteGpu?.model || graphics.controllers[0]?.model || null
+      }
+
+      // Fallback: Extract integrated GPU from CPU model name (common for AMD APUs)
+      // e.g., "AMD Ryzen AI 9 HX 370 w/ Radeon 890M" -> "Radeon 890M"
+      if (!gpuModel) {
+        const cpuFullName = `${cpu.manufacturer} ${cpu.brand}`
+        const radeonMatch = cpuFullName.match(/w\/\s*(Radeon\s+\d+\w*)/i)
+        if (radeonMatch) {
+          gpuModel = radeonMatch[1]
+        }
       }
 
       return {
