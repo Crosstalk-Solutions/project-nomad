@@ -22,8 +22,14 @@ import type {
   RepositorySubmitResponse,
   RepositoryStats,
 } from '../../types/benchmark.js'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
+
+// HMAC secret for signing submissions to the benchmark repository
+// This provides basic protection against casual API abuse.
+// Note: Since NOMAD is open source, a determined attacker could extract this.
+// For stronger protection, see challenge-response authentication.
+const BENCHMARK_HMAC_SECRET = 'nomad-benchmark-v1-2026'
 
 // Re-export default weights for use in service
 const SCORE_WEIGHTS = {
@@ -149,10 +155,23 @@ export class BenchmarkService {
     }
 
     try {
+      // Generate HMAC signature for submission verification
+      const timestamp = Date.now().toString()
+      const payload = timestamp + JSON.stringify(submission)
+      const signature = createHmac('sha256', BENCHMARK_HMAC_SECRET)
+        .update(payload)
+        .digest('hex')
+
       const response = await axios.post(
         'https://benchmark.projectnomad.us/api/v1/submit',
         submission,
-        { timeout: 30000 }
+        {
+          timeout: 30000,
+          headers: {
+            'X-NOMAD-Timestamp': timestamp,
+            'X-NOMAD-Signature': signature,
+          },
+        }
       )
 
       if (response.data.success) {
