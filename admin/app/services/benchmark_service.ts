@@ -249,6 +249,16 @@ export class BenchmarkService {
         gpuModel = discreteGpu?.model || graphics.controllers[0]?.model || null
       }
 
+      // Fallback: Extract integrated GPU from CPU model name (common for AMD APUs)
+      // e.g., "AMD Ryzen AI 9 HX 370 w/ Radeon 890M" -> "Radeon 890M"
+      if (!gpuModel) {
+        const cpuFullName = `${cpu.manufacturer} ${cpu.brand}`
+        const radeonMatch = cpuFullName.match(/w\/\s*(Radeon\s+\d+\w*)/i)
+        if (radeonMatch) {
+          gpuModel = radeonMatch[1]
+        }
+      }
+
       return {
         cpu_model: `${cpu.manufacturer} ${cpu.brand}`,
         cpu_cores: cpu.physicalCores,
