@@ -31,23 +31,24 @@ export default function CircularGauge({
 
   const displayValue = animated ? animatedValue : value
 
+  // Size configs: container size must match SVG size (2 * (radius + strokeWidth))
   const sizes = {
     sm: {
-      container: 'w-32 h-32',
+      container: 'w-28 h-28',  // 112px = 2 * (48 + 8)
       strokeWidth: 8,
       radius: 48,
       fontSize: 'text-xl',
       labelSize: 'text-xs',
     },
     md: {
-      container: 'w-40 h-40',
+      container: 'w-[140px] h-[140px]',  // 140px = 2 * (60 + 10)
       strokeWidth: 10,
       radius: 60,
       fontSize: 'text-2xl',
       labelSize: 'text-sm',
     },
     lg: {
-      container: 'w-60 h-60',
+      container: 'w-[244px] h-[244px]',  // 244px = 2 * (110 + 12)
       strokeWidth: 12,
       radius: 110,
       fontSize: 'text-4xl',
@@ -60,10 +61,11 @@ export default function CircularGauge({
   const offset = circumference - (displayValue / 100) * circumference
 
   const getColor = () => {
-    if (value >= 90) return 'desert-red'
-    if (value >= 75) return 'desert-orange'
-    if (value >= 50) return 'desert-tan'
-    return 'desert-olive'
+    // For benchmarks: higher scores = better = green
+    if (value >= 75) return 'desert-green'
+    if (value >= 50) return 'desert-olive'
+    if (value >= 25) return 'desert-orange'
+    return 'desert-red'
   }
 
   const color = getColor()

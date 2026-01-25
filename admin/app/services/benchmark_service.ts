@@ -223,14 +223,29 @@ export class BenchmarkService {
         }
       }
 
-      // Get GPU model (prefer discrete GPU)
+      // Get GPU model (prefer discrete GPU with dedicated VRAM)
       let gpuModel: string | null = null
       if (graphics.controllers && graphics.controllers.length > 0) {
-        const discreteGpu = graphics.controllers.find(
-          (g) => !g.vendor?.toLowerCase().includes('intel') &&
-                 !g.vendor?.toLowerCase().includes('amd') ||
-                 (g.vram && g.vram > 0)
-        )
+        // First, look for discrete GPUs (NVIDIA, AMD discrete, or any with significant VRAM)
+        const discreteGpu = graphics.controllers.find((g) => {
+          const vendor = g.vendor?.toLowerCase() || ''
+          const model = g.model?.toLowerCase() || ''
+          // NVIDIA GPUs are always discrete
+          if (vendor.includes('nvidia') || model.includes('geforce') || model.includes('rtx') || model.includes('quadro')) {
+            return true
+          }
+          // AMD discrete GPUs (Radeon, not integrated APU graphics)
+          if ((vendor.includes('amd') || vendor.includes('ati')) &&
+              (model.includes('radeon') || model.includes('rx ') || model.includes('vega')) &&
+              !model.includes('graphics')) {
+            return true
+          }
+          // Any GPU with dedicated VRAM > 512MB is likely discrete
+          if (g.vram && g.vram > 512) {
+            return true
+          }
+          return false
+        })
         gpuModel = discreteGpu?.model || graphics.controllers[0]?.model || null
       }
 

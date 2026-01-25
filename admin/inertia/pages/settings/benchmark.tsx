@@ -6,6 +6,7 @@ import CircularGauge from '~/components/systeminfo/CircularGauge'
 import InfoCard from '~/components/systeminfo/InfoCard'
 import Alert from '~/components/Alert'
 import StyledButton from '~/components/StyledButton'
+import InfoTooltip from '~/components/InfoTooltip'
 import {
   ChartBarIcon,
   CpuChipIcon,
@@ -521,7 +522,10 @@ export default function BenchmarkPage(props: {
                           <div className="text-3xl font-bold text-desert-green">
                             {latestResult.ai_tokens_per_second.toFixed(1)}
                           </div>
-                          <div className="text-sm text-desert-stone-dark">Tokens per Second</div>
+                          <div className="text-sm text-desert-stone-dark flex items-center gap-1">
+                            Tokens per Second
+                            <InfoTooltip text="How fast the AI generates text. Higher is better. 30+ tokens/sec feels responsive, 60+ feels instant." />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -532,7 +536,10 @@ export default function BenchmarkPage(props: {
                           <div className="text-3xl font-bold text-desert-green">
                             {latestResult.ai_time_to_first_token?.toFixed(0) || 'N/A'} ms
                           </div>
-                          <div className="text-sm text-desert-stone-dark">Time to First Token</div>
+                          <div className="text-sm text-desert-stone-dark flex items-center gap-1">
+                            Time to First Token
+                            <InfoTooltip text="How quickly the AI starts responding after you send a message. Lower is better. Under 500ms feels instant." />
+                          </div>
                         </div>
                       </div>
                     </div>
