@@ -134,6 +134,7 @@ router
     router.get('/results/latest', [BenchmarkController, 'latest'])
     router.get('/results/:id', [BenchmarkController, 'show'])
     router.post('/submit', [BenchmarkController, 'submit'])
+    router.post('/builder-tag', [BenchmarkController, 'updateBuilderTag'])
     router.get('/comparison', [BenchmarkController, 'comparison'])
     router.get('/status', [BenchmarkController, 'status'])
     router.get('/settings', [BenchmarkController, 'settings'])

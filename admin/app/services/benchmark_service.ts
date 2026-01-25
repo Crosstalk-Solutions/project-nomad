@@ -107,7 +107,7 @@ export class BenchmarkService {
   /**
    * Submit benchmark results to central repository
    */
-  async submitToRepository(benchmarkId?: string): Promise<RepositorySubmitResponse> {
+  async submitToRepository(benchmarkId?: string, anonymous?: boolean): Promise<RepositorySubmitResponse> {
     const result = benchmarkId
       ? await this.getResultById(benchmarkId)
       : await this.getLatestResult()
@@ -145,6 +145,7 @@ export class BenchmarkService {
       nomad_score: result.nomad_score,
       nomad_version: SystemService.getAppVersion(),
       benchmark_version: '1.0.0',
+      builder_tag: anonymous ? null : result.builder_tag,
     }
 
     try {

@@ -169,9 +169,10 @@ export default class BenchmarkController {
    */
   async submit({ request, response }: HttpContext) {
     const payload = await request.validateUsing(submitBenchmarkValidator)
+    const anonymous = request.input('anonymous') === true || request.input('anonymous') === 'true'
 
     try {
-      const submitResult = await this.benchmarkService.submitToRepository(payload.benchmark_id)
+      const submitResult = await this.benchmarkService.submitToRepository(payload.benchmark_id, anonymous)
       return response.send({
         success: true,
         repository_id: submitResult.repository_id,
@@ -183,6 +184,48 @@ export default class BenchmarkController {
         error: error.message,
       })
     }
+  }
+
+  /**
+   * Update builder tag for a benchmark result
+   */
+  async updateBuilderTag({ request, response }: HttpContext) {
+    const benchmarkId = request.input('benchmark_id')
+    const builderTag = request.input('builder_tag')
+
+    if (!benchmarkId) {
+      return response.status(400).send({
+        success: false,
+        error: 'benchmark_id is required',
+      })
+    }
+
+    const result = await this.benchmarkService.getResultById(benchmarkId)
+    if (!result) {
+      return response.status(404).send({
+        success: false,
+        error: 'Benchmark result not found',
+      })
+    }
+
+    // Validate builder tag format if provided
+    if (builderTag) {
+      const tagPattern = /^[A-Za-z]+-[A-Za-z]+-\d{4}$/
+      if (!tagPattern.test(builderTag)) {
+        return response.status(400).send({
+          success: false,
+          error: 'Invalid builder tag format. Expected: Word-Word-0000',
+        })
+      }
+    }
+
+    result.builder_tag = builderTag || null
+    await result.save()
+
+    return response.send({
+      success: true,
+      builder_tag: result.builder_tag,
+    })
   }
 
   /**
