@@ -310,11 +310,7 @@ export class DockerService {
         }
       } catch (error) {
         logger.warn(`Error during container cleanup: ${error.message}`)
-        this._broadcast(
-          serviceName,
-          'cleanup-warning',
-          `Warning during cleanup: ${error.message}`
-        )
+        this._broadcast(serviceName, 'cleanup-warning', `Warning during cleanup: ${error.message}`)
       }
 
       // Step 3: Clear volumes/data if needed
@@ -356,7 +352,7 @@ export class DockerService {
       // Step 5: Recreate the container
       this._broadcast(serviceName, 'recreating', `Recreating container...`)
       const containerConfig = this._parseContainerConfig(service.container_config)
-      
+
       // Execute installation asynchronously and handle cleanup
       this._createContainer(service, containerConfig).catch(async (error) => {
         logger.error(`Reinstallation failed for ${serviceName}: ${error.message}`)
@@ -427,14 +423,23 @@ export class DockerService {
         }
       }
 
-      // Start pulling the Docker image and wait for it to complete
-      const pullStream = await this.docker.pull(service.container_image)
-      this._broadcast(
-        service.service_name,
-        'pulling',
-        `Pulling Docker image ${service.container_image}...`
-      )
-      await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      const imageExists = await this._checkImageExists(service.container_image)
+      if (imageExists) {
+        this._broadcast(
+          service.service_name,
+          'image-exists',
+          `Docker image ${service.container_image} already exists locally. Skipping pull...`
+        )
+      } else {
+        // Start pulling the Docker image and wait for it to complete
+        const pullStream = await this.docker.pull(service.container_image)
+        this._broadcast(
+          service.service_name,
+          'pulling',
+          `Pulling Docker image ${service.container_image}...`
+        )
+        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      }
 
       if (service.service_name === DockerService.KIWIX_SERVICE_NAME) {
         await this._runPreinstallActions__KiwixServe()
@@ -466,7 +471,7 @@ export class DockerService {
               [DockerService.NOMAD_NETWORK]: {},
             },
           },
-        })
+        }),
       })
 
       this._broadcast(
@@ -630,6 +635,24 @@ export class DockerService {
     } catch (error) {
       logger.error(`Failed to parse container configuration: ${error.message}`)
       throw new Error(`Invalid container configuration: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check if a Docker image exists locally.
+   * @param imageName - The name and tag of the image (e.g., "nginx:latest")
+   * @returns - True if the image exists locally, false otherwise
+   */
+  private async _checkImageExists(imageName: string): Promise<boolean> {
+    try {
+      const images = await this.docker.listImages()
+
+      // Check if any image has a RepoTag that matches the requested image
+      return images.some((image) => image.RepoTags && image.RepoTags.includes(imageName))
+    } catch (error) {
+      logger.warn(`Error checking if image exists: ${error.message}`)
+      // If run into an error, assume the image does not exist
+      return false
     }
   }
 }
