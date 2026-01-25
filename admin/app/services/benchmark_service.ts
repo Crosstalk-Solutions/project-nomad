@@ -116,6 +116,15 @@ export class BenchmarkService {
       throw new Error('No benchmark result found to submit')
     }
 
+    // Only allow full benchmarks with AI data to be submitted to repository
+    if (result.benchmark_type !== 'full') {
+      throw new Error('Only full benchmarks can be shared with the community. Run a Full Benchmark to share your results.')
+    }
+
+    if (!result.ai_tokens_per_second || result.ai_tokens_per_second <= 0) {
+      throw new Error('Benchmark must include AI performance data. Ensure AI Assistant is installed and run a Full Benchmark.')
+    }
+
     if (result.submitted_to_repository) {
       throw new Error('Benchmark result has already been submitted')
     }
