@@ -32,6 +32,38 @@ export default function SettingsPage(props: {
 
   const uptimeMinutes = info?.uptime.uptime ? Math.floor(info.uptime.uptime / 60) : 0
 
+  // Build storage display items - fall back to fsSize when disk array is empty
+  // (Same approach as Easy Setup wizard fix from PR #90)
+  const validDisks = info?.disk?.filter((d) => d.totalSize > 0) || []
+  let storageItems: { label: string; value: number; total: string; used: string; subtext: string }[] = []
+  if (validDisks.length > 0) {
+    storageItems = validDisks.map((disk) => ({
+      label: disk.name || 'Unknown',
+      value: disk.percentUsed || 0,
+      total: disk.totalSize ? formatBytes(disk.totalSize) : 'N/A',
+      used: disk.totalUsed ? formatBytes(disk.totalUsed) : 'N/A',
+      subtext: `${formatBytes(disk.totalUsed || 0)} / ${formatBytes(disk.totalSize || 0)}`,
+    }))
+  } else if (info?.fsSize && info.fsSize.length > 0) {
+    // Deduplicate by size (same physical disk mounted in multiple places shows identical sizes)
+    const seen = new Set<number>()
+    const uniqueFs = info.fsSize.filter((fs) => {
+      if (fs.size <= 0 || seen.has(fs.size)) return false
+      seen.add(fs.size)
+      return true
+    })
+    // Prefer real block devices (/dev/), exclude virtual filesystems (efivarfs, tmpfs, etc.)
+    const realDevices = uniqueFs.filter((fs) => fs.fs.startsWith('/dev/'))
+    const displayFs = realDevices.length > 0 ? realDevices : uniqueFs
+    storageItems = displayFs.map((fs) => ({
+      label: fs.fs || 'Unknown',
+      value: fs.use || 0,
+      total: formatBytes(fs.size),
+      used: formatBytes(fs.used),
+      subtext: `${formatBytes(fs.used)} / ${formatBytes(fs.size)}`,
+    }))
+  }
+
   return (
     <SettingsLayout>
       <Head title="System Information" />
@@ -181,17 +213,9 @@ export default function SettingsPage(props: {
             </h2>
 
             <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
-              {info?.disk && info.disk.length > 0 ? (
+              {storageItems.length > 0 ? (
                 <HorizontalBarChart
-                  items={info.disk.map((disk) => ({
-                    label: disk.name || 'Unknown',
-                    value: disk.percentUsed || 0,
-                    total: disk.totalSize ? formatBytes(disk.totalSize) : 'N/A',
-                    used: disk.totalUsed ? formatBytes(disk.totalUsed) : 'N/A',
-                    subtext: `${formatBytes(disk.totalUsed || 0)} / ${formatBytes(
-                      disk.totalSize || 0
-                    )}`,
-                  }))}
+                  items={storageItems}
                   progressiveBarColor={true}
                   statuses={[
                     {
@@ -226,7 +250,7 @@ export default function SettingsPage(props: {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatusCard title="System Uptime" value={`${uptimeMinutes}m`} />
               <StatusCard title="CPU Cores" value={info?.cpu.cores || 0} />
-              <StatusCard title="Storage Devices" value={info?.disk.length || 0} />
+              <StatusCard title="Storage Devices" value={storageItems.length} />
             </div>
           </section>
         </main>
