@@ -1,7 +1,7 @@
 FROM node:22.16.0-alpine3.22 AS base
 
-# Install bash & curl for entrypoint script compatibility
-RUN apk add --no-cache bash curl
+# Install bash & curl for entrypoint script compatibility, graphicsmagick for pdf2pic, and vips-dev & build-base for sharp 
+RUN apk add --no-cache bash curl graphicsmagick vips-dev build-base
 
 # All deps stage
 FROM base AS deps

@@ -426,21 +426,10 @@ export class BenchmarkService {
     }
 
     // Check if the benchmark model is available, pull if not
-    const modelsResponse = await axios.get(`${ollamaAPIURL}/api/tags`)
-    const models = modelsResponse.data.models || []
-    const hasModel = models.some((m: any) => m.name === AI_BENCHMARK_MODEL || m.name.startsWith(AI_BENCHMARK_MODEL.split(':')[0]))
-
-    if (!hasModel) {
-      this._updateStatus('downloading_ai_model', `Downloading AI benchmark model (${AI_BENCHMARK_MODEL})... This may take a few minutes on first run.`)
-      logger.info(`[BenchmarkService] Model ${AI_BENCHMARK_MODEL} not found, downloading...`)
-
-      try {
-        // Model pull can take several minutes, use longer timeout
-        await axios.post(`${ollamaAPIURL}/api/pull`, { name: AI_BENCHMARK_MODEL }, { timeout: 600000 })
-        logger.info(`[BenchmarkService] Model ${AI_BENCHMARK_MODEL} downloaded successfully`)
-      } catch (pullError) {
-        throw new Error(`Failed to download AI benchmark model (${AI_BENCHMARK_MODEL}): ${pullError.message}`)
-      }
+    const openWebUIService = new (await import('./openwebui_service.js')).OpenWebUIService(this.dockerService)
+    const modelResponse = await openWebUIService.downloadModelSync(AI_BENCHMARK_MODEL)
+    if (!modelResponse.success) {
+      throw new Error(`Model does not exist and failed to download: ${modelResponse.message}`)
     }
 
     // Run inference benchmark
