@@ -3,17 +3,25 @@ import { DockerService } from '#services/docker_service'
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { ModelAttributes } from '@adonisjs/lucid/types/model'
 import env from '#start/env'
+import { RagService } from '#services/rag_service'
 
 export default class ServiceSeeder extends BaseSeeder {
   // Use environment variable with fallback to production default
-  private static NOMAD_STORAGE_ABS_PATH = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
-  private static DEFAULT_SERVICES: Omit<ModelAttributes<Service>, 'created_at' | 'updated_at' | 'metadata' | 'id'>[] = [
+  private static NOMAD_STORAGE_ABS_PATH = env.get(
+    'NOMAD_STORAGE_PATH',
+    '/opt/project-nomad/storage'
+  )
+  private static DEFAULT_SERVICES: Omit<
+    ModelAttributes<Service>,
+    'created_at' | 'updated_at' | 'metadata' | 'id'
+  >[] = [
     {
       service_name: DockerService.KIWIX_SERVICE_NAME,
       friendly_name: 'Information Library',
       powered_by: 'Kiwix',
       display_order: 1,
-      description: 'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
+      description:
+        'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
       icon: 'IconBooks',
       container_image: 'ghcr.io/kiwix/kiwix-serve:3.8.1',
       container_command: '*.zim --address=all',
@@ -21,14 +29,37 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/zim:/data`],
-          PortBindings: { '8080/tcp': [{ HostPort: '8090' }] }
+          PortBindings: { '8080/tcp': [{ HostPort: '8090' }] },
         },
-        ExposedPorts: { '8080/tcp': {} }
+        ExposedPorts: { '8080/tcp': {} },
       }),
       ui_location: '8090',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
+      depends_on: null,
+    },
+    {
+      service_name: DockerService.QDRANT_SERVICE_NAME,
+      friendly_name: 'Qdrant Vector Database',
+      powered_by: null,
+      display_order: 100, // Dependency service, not shown directly
+      description: 'Vector database for storing and searching embeddings',
+      icon: 'IconRobot',
+      container_image: 'qdrant/qdrant:latest',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/qdrant:/qdrant/storage`],
+          PortBindings: { '6333/tcp': [{ HostPort: '6333' }], '6334/tcp': [{ HostPort: '6334' }] },
+        },
+        ExposedPorts: { '6333/tcp': {}, '6334/tcp': {} },
+      }),
+      ui_location: '6333',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: true,
       depends_on: null,
     },
     {
@@ -44,15 +75,15 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/ollama:/root/.ollama`],
-          PortBindings: { '11434/tcp': [{ HostPort: '11434' }] }
+          PortBindings: { '11434/tcp': [{ HostPort: '11434' }] },
         },
-        ExposedPorts: { '11434/tcp': {} }
+        ExposedPorts: { '11434/tcp': {} },
       }),
       ui_location: null,
       installed: false,
       installation_status: 'idle',
       is_dependency_service: true,
-      depends_on: null,
+      depends_on: DockerService.QDRANT_SERVICE_NAME,
     },
     {
       service_name: DockerService.OPEN_WEBUI_SERVICE_NAME,
@@ -68,9 +99,17 @@ export default class ServiceSeeder extends BaseSeeder {
           RestartPolicy: { Name: 'unless-stopped' },
           NetworkMode: 'host',
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`],
-          PortBindings: { '8080/tcp': [{ HostPort: '3000' }] }
+          PortBindings: { '8080/tcp': [{ HostPort: '3000' }] },
         },
-        Env: ['WEBUI_AUTH=False', 'PORT=3000', 'OLLAMA_BASE_URL=http://127.0.0.1:11434']
+        Env: [
+          'WEBUI_AUTH=False',
+          'PORT=3000',
+          'OLLAMA_BASE_URL=http://127.0.0.1:11434',
+          'VECTOR_DB=qdrant',
+          'QDRANT_URI=http://127.0.0.1:6333',
+          'RAG_EMBEDDING_ENGINE=ollama',
+          `RAG_EMBEDDING_MODEL=${RagService.EMBEDDING_MODEL}`,
+        ],
       }),
       ui_location: '3000',
       installed: false,
@@ -90,9 +129,9 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '80/tcp': [{ HostPort: '8100' }] }
+          PortBindings: { '80/tcp': [{ HostPort: '8100' }] },
         },
-        ExposedPorts: { '80/tcp': {} }
+        ExposedPorts: { '80/tcp': {} },
       }),
       ui_location: '8100',
       installed: false,
@@ -113,10 +152,10 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { '8080/tcp': [{ HostPort: '8200' }] },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/flatnotes:/data`]
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/flatnotes:/data`],
         },
         ExposedPorts: { '8080/tcp': {} },
-        Env: ['FLATNOTES_AUTH_TYPE=none']
+        Env: ['FLATNOTES_AUTH_TYPE=none'],
       }),
       ui_location: '8200',
       installed: false,
@@ -137,7 +176,7 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { '8080/tcp': [{ HostPort: '8300' }] },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/kolibri:/root/.kolibri`]
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/kolibri:/root/.kolibri`],
         },
         ExposedPorts: { '8080/tcp': {} },
       }),
@@ -146,14 +185,16 @@ export default class ServiceSeeder extends BaseSeeder {
       installation_status: 'idle',
       is_dependency_service: false,
       depends_on: null,
-    }
+    },
   ]
 
   async run() {
     const existingServices = await Service.query().select('service_name')
-    const existingServiceNames = new Set(existingServices.map(service => service.service_name))
+    const existingServiceNames = new Set(existingServices.map((service) => service.service_name))
 
-    const newServices = ServiceSeeder.DEFAULT_SERVICES.filter(service => !existingServiceNames.has(service.service_name))
+    const newServices = ServiceSeeder.DEFAULT_SERVICES.filter(
+      (service) => !existingServiceNames.has(service.service_name)
+    )
 
     await Service.createMany([...newServices])
   }

@@ -1,5 +1,6 @@
 import {
   IconBolt,
+  IconBrain,
   IconHelp,
   IconMapRoute,
   IconPlus,
@@ -80,6 +81,17 @@ interface DashboardItem {
   poweredBy: string | null
 }
 
+const KNOWLEDGE_BASE_ITEM: DashboardItem = {
+  label: 'Knowledge Base',
+  to: '/knowledge-base',
+  target: '',
+  description: 'Upload documents to your personal knowledge base for AI access',
+  icon: <IconBrain size={48} />,
+  installed: true,
+  displayOrder: 5,
+  poweredBy: null,
+}
+
 export default function Home(props: {
   system: {
     services: ServiceSlim[]
@@ -114,6 +126,9 @@ export default function Home(props: {
 
   // Add system items
   items.push(...SYSTEM_ITEMS)
+  if (props.system.services.find((s) => s.service_name === 'nomad_open_webui' && s.installed)) {
+    items.push(KNOWLEDGE_BASE_ITEM)
+  }
 
   // Sort all items by display order
   items.sort((a, b) => a.displayOrder - b.displayOrder)
@@ -130,9 +145,7 @@ export default function Home(props: {
             >
               <div className="flex items-center justify-center mb-2">{item.icon}</div>
               <h3 className="font-bold text-2xl">{item.label}</h3>
-              {item.poweredBy && (
-                <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>
-              )}
+              {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
               <p className="xl:text-lg mt-2">{item.description}</p>
             </div>
           </a>

@@ -27,3 +27,13 @@ export type OllamaModelListing = {
   size: string
   modified: string
 }
+
+
+export type OpenWebUIKnowledgeFileMetadata = {
+  source: string
+  name: string
+  created_by: string
+  file_id: string
+  start_index: number
+  hash: string
+}
