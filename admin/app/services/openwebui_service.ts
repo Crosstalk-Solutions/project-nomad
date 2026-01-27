@@ -8,6 +8,9 @@ import path from 'node:path'
 import { PassThrough } from 'node:stream'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
+import { chromium } from 'playwright'
+import KVStore from '#models/kv_store'
+import { getFile } from '../utils/fs.js'
 
 const NOMAD_MODELS_API_BASE_URL = 'https://api.projectnomad.us/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -15,6 +18,10 @@ const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 @inject()
 export class OpenWebUIService {
+  public static NOMAD_KNOWLEDGE_BASE_NAME = 'nomad-knowledge-base'
+  public static NOMAD_KNOWLEDGE_BASE_DESCRIP =
+    'Knowledge base managed by Project NOMAD, used to enhance LLM responses with up-to-date information. Do not delete.'
+
   constructor(private dockerService: DockerService) {}
 
   /** We need to call this in the DownloadModelJob, so it can't be private,
@@ -198,6 +205,45 @@ export class OpenWebUIService {
         resolve({ success: false, message: 'Failed to download model.' })
       }
     })
+  }
+
+  /**
+   * Synchronous version of model download (waits for completion). Should only be used for
+   * small models or in contexts where a background job is incompatible.
+   * @param model Model name to download
+   * @returns Success status and message
+   */
+  async downloadModelSync(model: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // See if model is already installed
+      const installedModels = await this.getInstalledModels()
+      if (installedModels && installedModels.some((m) => m.name === model)) {
+        logger.info(`[OpenWebUIService] Model "${model}" is already installed.`)
+        return { success: true, message: 'Model is already installed.' }
+      }
+
+      const ollamAPIURL = await this.dockerService.getServiceURL(DockerService.OLLAMA_SERVICE_NAME)
+      if (!ollamAPIURL) {
+        logger.warn('[OpenWebUIService] Ollama service is not running. Cannot download model.')
+        return {
+          success: false,
+          message: 'Ollama is not running. Please start Ollama and try again.',
+        }
+      }
+
+      // 10 minutes timeout for large model downloads
+      await axios.post(`${ollamAPIURL}/api/pull`, { name: model }, { timeout: 600000 })
+
+      logger.info(`[OpenWebUIService] Model "${model}" downloaded via API.`)
+      return { success: true, message: 'Model downloaded successfully.' }
+    } catch (error) {
+      logger.error(
+        `[OpenWebUIService] Failed to download model "${model}": ${
+          error instanceof Error ? error.message : error
+        }`
+      )
+      return { success: false, message: 'Failed to download model.' }
+    }
   }
 
   async deleteModel(model: string): Promise<{ success: boolean; message: string }> {
@@ -527,6 +573,163 @@ export class OpenWebUIService {
         resolve(null)
       }
     })
+  }
+
+  async getOrCreateKnowledgeBase(): Promise<string | null> {
+    try {
+      // See if we already have the knowledge base ID stored
+      const existing = await KVStore.getValue('open_webui_knowledge_id')
+      if (existing) {
+        return existing as string
+      }
+
+      // Create a new knowledge base via Open WebUI API
+      const tokenData = await this.getOpenWebUIToken()
+      if (!tokenData) {
+        logger.warn(
+          '[OpenWebUIService] Cannot get or create knowledge base because Open WebUI token is unavailable.'
+        )
+        return null
+      }
+
+      const response = await axios.post(
+        `${tokenData.url}/api/v1/knowledge/create`,
+        {
+          name: OpenWebUIService.NOMAD_KNOWLEDGE_BASE_NAME,
+          description: OpenWebUIService.NOMAD_KNOWLEDGE_BASE_DESCRIP,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.token}`,
+          },
+        }
+      )
+
+      if (response.data && response.data.id) {
+        await KVStore.setValue('open_webui_knowledge_id', response.data.id)
+        return response.data.id
+      }
+
+      logger.error(
+        `[OpenWebUIService] Invalid response when creating knowledge base: ${JSON.stringify(
+          response.data
+        )}`
+      )
+      return null
+    } catch (error) {
+      logger.error(
+        `[OpenWebUIService] Failed to get or create knowledge base: ${
+          error instanceof Error ? error.message : error
+        }`
+      )
+      return null
+    }
+  }
+
+  async uploadFileToKnowledgeBase(filepath: string): Promise<boolean> {
+    try {
+      const knowledgeBaseId = await this.getOrCreateKnowledgeBase()
+      if (!knowledgeBaseId) {
+        logger.warn(
+          '[OpenWebUIService] Cannot upload file because knowledge base ID is unavailable and could not be created.'
+        )
+        return false
+      }
+
+      const tokenData = await this.getOpenWebUIToken()
+      if (!tokenData) {
+        logger.warn(
+          '[OpenWebUIService] Cannot upload file because Open WebUI token is unavailable.'
+        )
+        return false
+      }
+
+      const fileStream = await getFile(filepath, 'stream')
+      if (!fileStream) {
+        logger.warn(
+          `[OpenWebUIService] Cannot upload file because it could not be read: ${filepath}`
+        )
+        return false
+      }
+
+      const formData = new FormData()
+      formData.append('file', fileStream)
+
+      const uploadRes = await axios.post(
+        `${tokenData.url}/api/v1/files/`, // Trailing slash seems to be required by OWUI
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokenData.token}`,
+            'Content-Type': 'multipart/form-data',
+            'Accept': 'application/json',
+          },
+        }
+      )
+
+      if (!uploadRes.data || !uploadRes.data.id) {
+        logger.error(
+          `[OpenWebUIService] Invalid response when uploading file: ${JSON.stringify(
+            uploadRes.data
+          )}`
+        )
+        return false
+      }
+
+      const fileId = uploadRes.data.id
+
+      // Now associate the uploaded file with the knowledge base
+      const associateRes = await axios.post(
+        `${tokenData.url}/api/v1/knowledge/${knowledgeBaseId}/file/add`,
+        {
+          file_id: fileId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.token}`,
+          },
+        }
+      )
+
+    } catch (error) {
+      logger.error(
+        `[OpenWebUIService] Failed to upload file to knowledge base: ${
+          error instanceof Error ? error.message : error
+        }`
+      )
+      return false
+    }
+  }
+
+  private async getOpenWebUIToken(): Promise<{ token: string; url: string } | null> {
+    try {
+      const openWebUIURL = await this.dockerService.getServiceURL(
+        DockerService.OPEN_WEBUI_SERVICE_NAME
+      )
+      if (!openWebUIURL) {
+        logger.warn('[OpenWebUIService] Open WebUI service is not running. Cannot retrieve token.')
+        return null
+      }
+      const browser = await chromium.launch({ headless: true })
+      const context = await browser.newContext()
+      const page = await context.newPage()
+
+      await page.goto(openWebUIURL)
+      await page.waitForLoadState('networkidle')
+
+      const cookies = await context.cookies()
+      const tokenCookie = cookies.find((cookie) => cookie.name === 'token')
+      await browser.close()
+
+      return tokenCookie ? { token: tokenCookie.value, url: openWebUIURL } : null
+    } catch (error) {
+      logger.error(
+        `[OpenWebUIService] Failed to retrieve Open WebUI token: ${
+          error instanceof Error ? error.message : error
+        }`
+      )
+      return null
+    }
   }
 
   private async retrieveAndRefreshModels(

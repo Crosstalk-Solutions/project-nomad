@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, stat, unlink } from 'fs/promises'
-import { join } from 'path'
+import path, { join } from 'path'
 import { FileEntry } from '../../types/files.js'
 import { createReadStream } from 'fs'
 import { LSBlockDevice, NomadDiskInfoRaw } from '../../types/system.js'
@@ -150,4 +150,17 @@ export function matchesDevice(fsPath: string, deviceName: string): boolean {
   }
 
   return false
+}
+
+export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 'unknown' {
+  const ext = path.extname(filename).toLowerCase()
+  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'].includes(ext)) {
+    return 'image'
+  } else if (ext === '.pdf') {
+    return 'pdf'
+  } else if (['.txt', '.md', '.docx', '.rtf'].includes(ext)) {
+    return 'text'
+  } else {
+    return 'unknown'
+  }
 }

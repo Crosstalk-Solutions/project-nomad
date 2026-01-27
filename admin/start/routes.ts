@@ -24,6 +24,7 @@ transmit.registerRoutes()
 router.get('/', [HomeController, 'index'])
 router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
+router.on('/knowledge-base').renderInertia('knowledge-base')
 router.get('/maps', [MapsController, 'index'])
 
 router.get('/easy-setup', [EasySetupController, 'index'])
