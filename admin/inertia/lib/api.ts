@@ -285,6 +285,16 @@ class API {
       return response.data
     })()
   }
+
+  async subscribeToReleaseNotes(email: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/subscribe-release-notes',
+        { email }
+      )
+      return response.data
+    })()
+  }
 }
 
 export default new API()

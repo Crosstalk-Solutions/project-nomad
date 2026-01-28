@@ -1,7 +1,7 @@
 import { DockerService } from '#services/docker_service';
 import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
-import { affectServiceValidator, installServiceValidator } from '#validators/system';
+import { affectServiceValidator, installServiceValidator, subscribeToReleaseNotesValidator } from '#validators/system';
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -101,5 +101,11 @@ export default class SystemController {
     async getSystemUpdateLogs({ response }: HttpContext) {
         const logs = this.systemUpdateService.getUpdateLogs();
         response.send({ logs });
+    }
+
+    
+    async subscribeToReleaseNotes({ request }: HttpContext) {
+        const reqData = await request.validateUsing(subscribeToReleaseNotesValidator);
+        return await this.systemService.subscribeToReleaseNotes(reqData.email);
     }
 }
