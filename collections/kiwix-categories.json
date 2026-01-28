@@ -85,40 +85,14 @@
       "name": "Survival & Preparedness",
       "slug": "survival",
       "icon": "IconShieldCheck",
-      "description": "Emergency preparedness, self-sufficiency, food storage, and practical survival skills.",
+      "description": "Emergency preparedness, bug-out planning, and tactical survival skills for crisis situations.",
       "language": "en",
       "tiers": [
         {
           "name": "Essential",
           "slug": "survival-essential",
-          "description": "Core food preparation and cooking guides. Lightweight text-based resources to get started.",
+          "description": "Core survival concepts and winter preparedness videos. Start here for emergency basics.",
           "recommended": true,
-          "resources": [
-            {
-              "title": "Food for Preppers",
-              "description": "Recipes and techniques for food preservation and preparation",
-              "url": "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
-              "size_mb": 98
-            },
-            {
-              "title": "FOSS Cooking",
-              "description": "Quick and easy cooking guides and recipes",
-              "url": "https://download.kiwix.org/zim/zimit/foss.cooking_en_all_2025-11.zim",
-              "size_mb": 24
-            },
-            {
-              "title": "Based.Cooking",
-              "description": "Simple, practical recipes from the community",
-              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2025-11.zim",
-              "size_mb": 16
-            }
-          ]
-        },
-        {
-          "name": "Standard",
-          "slug": "survival-standard",
-          "description": "Video guides for winter survival, bug-out gear, plus gardening and cooking Q&A. Includes Essential.",
-          "includesTier": "survival-essential",
           "resources": [
             {
               "title": "Canadian Prepper: Winter Prepping",
@@ -131,39 +105,15 @@
               "description": "Essential gear selection for your bug-out bag",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim",
               "size_mb": 975
-            },
-            {
-              "title": "Gardening Q&A",
-              "description": "Stack Exchange Q&A for growing your own food",
-              "url": "https://download.kiwix.org/zim/stack_exchange/gardening.stackexchange.com_en_all_2025-12.zim",
-              "size_mb": 923
-            },
-            {
-              "title": "Cooking Q&A",
-              "description": "Stack Exchange Q&A for cooking techniques and food safety",
-              "url": "https://download.kiwix.org/zim/stack_exchange/cooking.stackexchange.com_en_all_2025-12.zim",
-              "size_mb": 236
             }
           ]
         },
         {
-          "name": "Comprehensive",
-          "slug": "survival-comprehensive",
-          "description": "Full prepper video library plus repair guides and DIY skills. Includes Standard.",
-          "includesTier": "survival-standard",
+          "name": "Standard",
+          "slug": "survival-standard",
+          "description": "Bug-out strategies and urban survival techniques. Includes everything in Essential.",
+          "includesTier": "survival-essential",
           "resources": [
-            {
-              "title": "Urban Prepper",
-              "description": "Comprehensive urban emergency preparedness video series",
-              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2025-11.zim",
-              "size_mb": 2240
-            },
-            {
-              "title": "Canadian Prepper: Prepping Food",
-              "description": "Long-term food storage and survival meal preparation",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
-              "size_mb": 2160
-            },
             {
               "title": "Canadian Prepper: Bug Out Concepts",
               "description": "Strategies and planning for emergency evacuation",
@@ -171,22 +121,24 @@
               "size_mb": 2890
             },
             {
-              "title": "Learning Self-Reliance",
-              "description": "Prepping, survival skills, beekeeping, and homesteading",
-              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
-              "size_mb": 3970
-            },
+              "title": "Urban Prepper",
+              "description": "Comprehensive urban emergency preparedness video series",
+              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2025-11.zim",
+              "size_mb": 2240
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "survival-comprehensive",
+          "description": "Complete prepper video library with long-term food storage strategies. Includes everything in Standard.",
+          "includesTier": "survival-standard",
+          "resources": [
             {
-              "title": "iFixit Repair Guides",
-              "description": "Step-by-step repair guides for electronics, appliances, and vehicles",
-              "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
-              "size_mb": 3570
-            },
-            {
-              "title": "DIY & Home Improvement Q&A",
-              "description": "Stack Exchange Q&A for home repairs and construction",
-              "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2025-12.zim",
-              "size_mb": 1900
+              "title": "Canadian Prepper: Prepping Food",
+              "description": "Long-term food storage and survival meal preparation",
+              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
+              "size_mb": 2160
             }
           ]
         }
@@ -316,6 +268,249 @@
               "description": "Business, economics, and management textbooks",
               "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_biz_2025-01.zim",
               "size_mb": 840
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DIY & Repair",
+      "slug": "diy",
+      "icon": "IconTool",
+      "description": "Fix it yourself - repair guides, home improvement, woodworking, and vehicle maintenance.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "diy-essential",
+          "description": "Core repair knowledge - woodworking basics and vehicle maintenance Q&A.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "Woodworking Q&A",
+              "description": "Stack Exchange Q&A for carpentry, joinery, and woodcraft",
+              "url": "https://download.kiwix.org/zim/stack_exchange/woodworking.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 99
+            },
+            {
+              "title": "Motor Vehicle Maintenance Q&A",
+              "description": "Stack Exchange Q&A for car and motorcycle repair",
+              "url": "https://download.kiwix.org/zim/stack_exchange/mechanics.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 321
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "diy-standard",
+          "description": "Home improvement expertise with thousands of Q&A threads. Includes Essential.",
+          "includesTier": "diy-essential",
+          "resources": [
+            {
+              "title": "DIY & Home Improvement Q&A",
+              "description": "Stack Exchange Q&A for home repairs, electrical, plumbing, and construction",
+              "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 1900
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "diy-comprehensive",
+          "description": "Complete repair library with step-by-step guides for electronics and appliances. Includes Standard.",
+          "includesTier": "diy-standard",
+          "resources": [
+            {
+              "title": "iFixit Repair Guides",
+              "description": "Step-by-step repair guides for electronics, appliances, and vehicles",
+              "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
+              "size_mb": 3570
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Agriculture & Food",
+      "slug": "agriculture",
+      "icon": "IconPlant",
+      "description": "Grow and prepare your own food - gardening, cooking techniques, and food preservation.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "agriculture-essential",
+          "description": "Quick recipes and cooking basics for everyday meal preparation.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "FOSS Cooking",
+              "description": "Quick and easy cooking guides and recipes",
+              "url": "https://download.kiwix.org/zim/zimit/foss.cooking_en_all_2025-11.zim",
+              "size_mb": 24
+            },
+            {
+              "title": "Based.Cooking",
+              "description": "Simple, practical recipes from the community",
+              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2025-11.zim",
+              "size_mb": 16
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "agriculture-standard",
+          "description": "Gardening knowledge and cooking expertise from community Q&A. Includes Essential.",
+          "includesTier": "agriculture-essential",
+          "resources": [
+            {
+              "title": "Gardening Q&A",
+              "description": "Stack Exchange Q&A for growing your own food, plant care, and landscaping",
+              "url": "https://download.kiwix.org/zim/stack_exchange/gardening.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 923
+            },
+            {
+              "title": "Cooking Q&A",
+              "description": "Stack Exchange Q&A for cooking techniques, food safety, and recipes",
+              "url": "https://download.kiwix.org/zim/stack_exchange/cooking.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 236
+            },
+            {
+              "title": "Food for Preppers",
+              "description": "Recipes and techniques for food preservation and long-term storage",
+              "url": "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
+              "size_mb": 98
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "agriculture-comprehensive",
+          "description": "Complete self-sufficiency with homesteading videos and advanced techniques. Includes Standard.",
+          "includesTier": "agriculture-standard",
+          "resources": [
+            {
+              "title": "Learning Self-Reliance: Homesteading",
+              "description": "Beekeeping, animal husbandry, and sustainable living practices",
+              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
+              "size_mb": 3970
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Computing & Technology",
+      "slug": "computing",
+      "icon": "IconCode",
+      "description": "Programming tutorials, electronics projects, and technical documentation for makers and developers.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "computing-essential",
+          "description": "Learn to code with interactive tutorials and core programming documentation.",
+          "recommended": true,
+          "resources": [
+            {
+              "title": "freeCodeCamp",
+              "description": "Interactive programming tutorials - JavaScript, algorithms, and data structures",
+              "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2025-11.zim",
+              "size_mb": 8
+            },
+            {
+              "title": "Python Documentation",
+              "description": "Complete Python language reference and tutorials",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_python_2026-01.zim",
+              "size_mb": 4
+            },
+            {
+              "title": "JavaScript Documentation",
+              "description": "MDN JavaScript reference and guides",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_javascript_2026-01.zim",
+              "size_mb": 3
+            },
+            {
+              "title": "HTML Documentation",
+              "description": "MDN HTML elements and attributes reference",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_html_2026-01.zim",
+              "size_mb": 2
+            },
+            {
+              "title": "CSS Documentation",
+              "description": "MDN CSS properties and selectors reference",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_css_2026-01.zim",
+              "size_mb": 5
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "computing-standard",
+          "description": "Maker projects with Arduino and Raspberry Pi, plus more programming docs. Includes Essential.",
+          "includesTier": "computing-essential",
+          "resources": [
+            {
+              "title": "Arduino Q&A",
+              "description": "Stack Exchange Q&A for Arduino microcontroller projects",
+              "url": "https://download.kiwix.org/zim/stack_exchange/arduino.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 247
+            },
+            {
+              "title": "Raspberry Pi Q&A",
+              "description": "Stack Exchange Q&A for Raspberry Pi projects and troubleshooting",
+              "url": "https://download.kiwix.org/zim/stack_exchange/raspberrypi.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 285
+            },
+            {
+              "title": "Node.js Documentation",
+              "description": "Node.js API reference and guides",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_node_2026-01.zim",
+              "size_mb": 1
+            },
+            {
+              "title": "React Documentation",
+              "description": "React library reference and tutorials",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_react_2026-01.zim",
+              "size_mb": 3
+            },
+            {
+              "title": "Git Documentation",
+              "description": "Git version control reference",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_git_2026-01.zim",
+              "size_mb": 1
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "computing-comprehensive",
+          "description": "Deep electronics knowledge and extensive Q&A for hardware projects. Includes Standard.",
+          "includesTier": "computing-standard",
+          "resources": [
+            {
+              "title": "Electronics Q&A",
+              "description": "Stack Exchange Q&A for circuit design, components, and electrical engineering",
+              "url": "https://download.kiwix.org/zim/stack_exchange/electronics.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 3800
+            },
+            {
+              "title": "Robotics Q&A",
+              "description": "Stack Exchange Q&A for robotics projects and automation",
+              "url": "https://download.kiwix.org/zim/stack_exchange/robotics.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 233
+            },
+            {
+              "title": "Docker Documentation",
+              "description": "Docker container reference and guides",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_docker_2026-01.zim",
+              "size_mb": 2
+            },
+            {
+              "title": "Linux Documentation",
+              "description": "Linux command reference and system administration",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_bash_2026-01.zim",
+              "size_mb": 1
             }
           ]
         }

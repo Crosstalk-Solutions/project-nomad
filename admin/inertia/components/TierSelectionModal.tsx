@@ -129,9 +129,14 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
 
                   <div className="space-y-4">
                     {category.tiers.map((tier) => {
-                      const allResources = getAllResourcesForTier(tier)
                       const totalSize = getTierTotalSize(tier)
                       const isSelected = localSelectedSlug === tier.slug
+                      const includedTierName = tier.includesTier
+                        ? category.tiers.find(t => t.slug === tier.includesTier)?.name
+                        : null
+                      // Only show this tier's own resources (not inherited)
+                      const ownResources = tier.resources
+                      const ownResourceCount = ownResources.length
 
                       return (
                         <div
@@ -150,21 +155,28 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                                 <h3 className="text-lg font-semibold text-gray-900">
                                   {tier.name}
                                 </h3>
-                                {tier.includesTier && (
+                                {includedTierName && (
                                   <span className="text-xs text-gray-500">
-                                    (includes {category.tiers.find(t => t.slug === tier.includesTier)?.name})
+                                    (includes {includedTierName})
                                   </span>
                                 )}
                               </div>
                               <p className="text-gray-600 text-sm mb-3">{tier.description}</p>
 
-                              {/* Resources preview */}
+                              {/* Resources preview - only show this tier's own resources */}
                               <div className="bg-gray-50 rounded p-3">
                                 <p className="text-xs text-gray-500 mb-2 font-medium">
-                                  {allResources.length} resources included:
+                                  {includedTierName ? (
+                                    <>
+                                      {ownResourceCount} additional {ownResourceCount === 1 ? 'resource' : 'resources'}
+                                      <span className="text-gray-400"> (plus everything in {includedTierName})</span>
+                                    </>
+                                  ) : (
+                                    <>{ownResourceCount} {ownResourceCount === 1 ? 'resource' : 'resources'} included</>
+                                  )}
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                  {allResources.map((resource, idx) => (
+                                  {ownResources.map((resource, idx) => (
                                     <div key={idx} className="flex items-start text-sm">
                                       <IconCheck size={14} className="text-desert-green mr-1.5 mt-0.5 flex-shrink-0" />
                                       <div>
