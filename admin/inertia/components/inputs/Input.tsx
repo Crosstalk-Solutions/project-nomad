@@ -7,6 +7,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   className?: string;
   labelClassName?: string;
   inputClassName?: string;
+  containerClassName?: string;
   leftIcon?: React.ReactNode;
   error?: boolean;
   required?: boolean;
@@ -18,6 +19,7 @@ const Input: React.FC<InputProps> = ({
   name,
   labelClassName,
   inputClassName,
+  containerClassName,
   leftIcon,
   error,
   required,
@@ -31,7 +33,7 @@ const Input: React.FC<InputProps> = ({
       >
         {label}{required ? "*" : ""}
       </label>
-      <div className="mt-1.5">
+      <div className={classNames("mt-1.5", containerClassName)}>
         <div className="relative">
           {leftIcon && (
             <div className="absolute left-3 top-1/2 transform -translate-y-1/2">

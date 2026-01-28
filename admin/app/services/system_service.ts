@@ -226,6 +226,34 @@ export class SystemService {
     }
   }
 
+  async subscribeToReleaseNotes(email: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await axios.post(
+        'https://api.projectnomad.us/api/v1/lists/release-notes/subscribe',
+        { email },
+        { timeout: 5000 }
+      )
+
+      if (response.status === 200) {
+        return {
+          success: true,
+          message: 'Successfully subscribed to release notes',
+        }
+      }
+      
+      return {
+        success: false,
+        message: `Failed to subscribe: ${response.statusText}`,
+      }
+    } catch (error) {
+      logger.error('Error subscribing to release notes:', error)
+      return {
+        success: false,
+        message: `Failed to subscribe: ${error instanceof Error ? error.message : error}`,
+      }
+    }
+  }
+
   /**
    * Checks the current state of Docker containers against the database records and updates the database accordingly.
    * It will mark services as not installed if their corresponding containers do not exist, regardless of their running state.
@@ -241,7 +269,7 @@ export class SystemService {
         const containerExists = serviceStatusList.find(
           (s) => s.service_name === service.service_name
         )
-        
+
         if (service.installed) {
           // If marked as installed but container doesn't exist, mark as not installed
           if (!containerExists) {

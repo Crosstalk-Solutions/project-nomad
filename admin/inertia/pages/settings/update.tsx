@@ -10,6 +10,9 @@ import { useEffect, useState } from 'react'
 import { IconCircleCheck } from '@tabler/icons-react'
 import { SystemUpdateStatus } from '../../../types/system'
 import api from '~/lib/api'
+import Input from '~/components/inputs/Input'
+import { useMutation } from '@tanstack/react-query'
+import { useNotifications } from '~/context/NotificationContext'
 
 export default function SystemUpdatePage(props: {
   system: {
@@ -18,11 +21,14 @@ export default function SystemUpdatePage(props: {
     currentVersion: string
   }
 }) {
+  const { addNotification } = useNotifications()
+
   const [isUpdating, setIsUpdating] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<SystemUpdateStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<string>('')
+  const [email, setEmail] = useState('')
 
   useEffect(() => {
     if (!isUpdating) return
@@ -116,9 +122,32 @@ export default function SystemUpdatePage(props: {
     if (updateStatus?.stage === 'error')
       return <IconAlertCircle className="h-12 w-12 text-desert-red" />
     if (isUpdating) return <IconRefresh className="h-12 w-12 text-desert-green animate-spin" />
-    if (props.system.updateAvailable) return <IconArrowBigUpLines className="h-16 w-16 text-desert-green" />
+    if (props.system.updateAvailable)
+      return <IconArrowBigUpLines className="h-16 w-16 text-desert-green" />
     return <IconCircleCheck className="h-16 w-16 text-desert-olive" />
   }
+
+  const subscribeToReleaseNotesMutation = useMutation({
+    mutationKey: ['subscribeToReleaseNotes'],
+    mutationFn: (email: string) => api.subscribeToReleaseNotes(email),
+    onSuccess: (data) => {
+      if (data && data.success) {
+        addNotification({ type: 'success', message: 'Successfully subscribed to release notes!' })
+        setEmail('')
+      } else {
+        addNotification({
+          type: 'error',
+          message: `Failed to subscribe: ${data?.message || 'Unknown error'}`,
+        })
+      }
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: `Error subscribing to release notes: ${error.message || 'Unknown error'}`,
+      })
+    },
+  })
 
   return (
     <SettingsLayout>
@@ -128,7 +157,8 @@ export default function SystemUpdatePage(props: {
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Update</h1>
             <p className="text-desert-stone-dark">
-              Keep your Project N.O.M.A.D. instance up to date with the latest features and improvements.
+              Keep your Project N.O.M.A.D. instance up to date with the latest features and
+              improvements.
             </p>
           </div>
 
@@ -161,9 +191,7 @@ export default function SystemUpdatePage(props: {
               {!isUpdating && (
                 <>
                   <h2 className="text-2xl font-bold text-desert-green mb-2">
-                    {props.system.updateAvailable
-                      ? 'Update Available'
-                      : 'System Up to Date'}
+                    {props.system.updateAvailable ? 'Update Available' : 'System Up to Date'}
                   </h2>
                   <p className="text-desert-stone-dark mb-6">
                     {props.system.updateAvailable
@@ -303,6 +331,43 @@ export default function SystemUpdatePage(props: {
                   </StyledButton>
                 </div>
               )}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border shadow-md overflow-hidden py-6 mt-6">
+            <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
+              <div>
+                <h2 className="max-w-xl text-lg font-bold text-desert-green sm:text-xl lg:col-span-7">
+                  Want to stay updated with the latest from Project N.O.M.A.D.? Subscribe to receive
+                  release notes directly to your inbox. Unsubscribe anytime.
+                </h2>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex gap-x-3">
+                  <Input
+                    name="email"
+                    label=""
+                    type="email"
+                    placeholder="Your email address"
+                    disabled={false}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full"
+                    containerClassName="!mt-0"
+                  />
+                  <StyledButton
+                    variant="primary"
+                    disabled={!email}
+                    onClick={() => subscribeToReleaseNotesMutation.mutateAsync(email)}
+                    loading={subscribeToReleaseNotesMutation.isPending}
+                  >
+                    Subscribe
+                  </StyledButton>
+                </div>
+                <p className="mt-2 text-sm text-desert-stone-dark">
+                  We care about your privacy. Project N.O.M.A.D. will never share your email with
+                  third parties or send you spam.
+                </p>
+              </div>
             </div>
           </div>
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
