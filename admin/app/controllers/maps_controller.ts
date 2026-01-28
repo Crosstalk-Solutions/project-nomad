@@ -13,7 +13,7 @@ export default class MapsController {
   constructor(private mapService: MapService) {}
 
   async index({ inertia }: HttpContext) {
-    const baseAssetsCheck = await this.mapService.checkBaseAssetsExist()
+    const baseAssetsCheck = await this.mapService.ensureBaseAssets()
     const regionFiles = await this.mapService.listRegions()
     return inertia.render('maps', {
       maps: {
@@ -21,11 +21,6 @@ export default class MapsController {
         regionFiles: regionFiles.files,
       },
     })
-  }
-
-  async checkBaseAssets({}: HttpContext) {
-    const exists = await this.mapService.checkBaseAssetsExist()
-    return { exists }
   }
 
   async downloadBaseAssets({ request }: HttpContext) {
@@ -75,6 +70,15 @@ export default class MapsController {
   }
 
   async styles({ response }: HttpContext) {
+    // Automatically ensure base assets are present before generating styles
+    const baseAssetsExist = await this.mapService.ensureBaseAssets()
+    if (!baseAssetsExist) {
+      return response.status(500).send({
+        message:
+          'Base map assets are missing and could not be downloaded. Please check your connection and try again.',
+      })
+    }
+
     const styles = await this.mapService.generateStylesJSON()
     return response.json(styles)
   }
