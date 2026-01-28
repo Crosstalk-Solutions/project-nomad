@@ -7,6 +7,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { PassThrough } from 'node:stream'
 import { DownloadModelJob } from '#jobs/download_model_job'
+import { FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
 
 const NOMAD_MODELS_API_BASE_URL = 'https://api.projectnomad.us/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -352,7 +353,11 @@ export class OpenWebUIService {
     try {
       const models = await this.retrieveAndRefreshModels(sort)
       if (!models) {
-        return null
+        // If we fail to get models from the API, return the fallback recommended models
+        logger.warn(
+          '[OpenWebUIService] Returning fallback recommended models due to failure in fetching available models'
+        )
+        return FALLBACK_RECOMMENDED_OLLAMA_MODELS;
       }
 
       if (!recommendedOnly) {
