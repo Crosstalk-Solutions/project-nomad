@@ -4,6 +4,7 @@ import {
   filenameParamValidator,
   remoteDownloadValidator,
   saveInstalledTierValidator,
+  selectWikipediaValidator,
 } from '#validators/common'
 import { listRemoteZimValidator } from '#validators/zim'
 import { inject } from '@adonisjs/core'
@@ -78,5 +79,16 @@ export default class ZimController {
     return {
       message: 'ZIM file deleted successfully',
     }
+  }
+
+  // Wikipedia selector endpoints
+
+  async getWikipediaState({}: HttpContext) {
+    return this.zimService.getWikipediaState()
+  }
+
+  async selectWikipedia({ request }: HttpContext) {
+    const payload = await request.validateUsing(selectWikipediaValidator)
+    return this.zimService.selectWikipedia(payload.optionId)
   }
 }

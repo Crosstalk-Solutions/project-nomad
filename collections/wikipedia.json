@@ -1,0 +1,46 @@
+{
+  "options": [
+    {
+      "id": "none",
+      "name": "No Wikipedia",
+      "description": "Skip Wikipedia installation",
+      "size_mb": 0,
+      "url": null
+    },
+    {
+      "id": "top-mini",
+      "name": "Quick Reference",
+      "description": "Top 100,000 articles with minimal images. Great for quick lookups.",
+      "size_mb": 313,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_mini_2025-12.zim"
+    },
+    {
+      "id": "top-nopic",
+      "name": "Popular Articles",
+      "description": "Top articles without images. Good balance of content and size.",
+      "size_mb": 2100,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2025-12.zim"
+    },
+    {
+      "id": "all-mini",
+      "name": "Complete Wikipedia (Compact)",
+      "description": "All 6+ million articles in condensed format.",
+      "size_mb": 11400,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2025-12.zim"
+    },
+    {
+      "id": "all-nopic",
+      "name": "Complete Wikipedia (No Images)",
+      "description": "All articles without images. Comprehensive offline reference.",
+      "size_mb": 25000,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_nopic_2025-12.zim"
+    },
+    {
+      "id": "all-maxi",
+      "name": "Complete Wikipedia (Full)",
+      "description": "The complete experience with all images and media.",
+      "size_mb": 102000,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2024-01.zim"
+    }
+  ]
+}

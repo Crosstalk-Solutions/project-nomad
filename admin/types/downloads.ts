@@ -90,3 +90,28 @@ export type CuratedCategory = {
 export type CuratedCategoriesFile = {
   categories: CuratedCategory[]
 }
+
+// Wikipedia selector types
+export type WikipediaOption = {
+  id: string
+  name: string
+  description: string
+  size_mb: number
+  url: string | null
+}
+
+export type WikipediaOptionsFile = {
+  options: WikipediaOption[]
+}
+
+export type WikipediaCurrentSelection = {
+  optionId: string
+  status: 'none' | 'downloading' | 'installed' | 'failed'
+  filename: string | null
+  url: string | null
+}
+
+export type WikipediaState = {
+  options: WikipediaOption[]
+  currentSelection: WikipediaCurrentSelection | null
+}
