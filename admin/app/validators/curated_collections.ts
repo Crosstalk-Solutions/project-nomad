@@ -45,3 +45,18 @@ export const curatedCategoriesFileSchema = vine.object({
     })
   ),
 })
+
+/**
+ * For validating the Wikipedia options file
+ */
+export const wikipediaOptionSchema = vine.object({
+  id: vine.string(),
+  name: vine.string(),
+  description: vine.string(),
+  size_mb: vine.number().min(0),
+  url: vine.string().url().nullable(),
+})
+
+export const wikipediaOptionsFileSchema = vine.object({
+  options: vine.array(wikipediaOptionSchema).minLength(1),
+})

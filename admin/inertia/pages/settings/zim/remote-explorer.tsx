@@ -21,23 +21,26 @@ import useInternetStatus from '~/hooks/useInternetStatus'
 import Alert from '~/components/Alert'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Input from '~/components/inputs/Input'
-import { IconSearch } from '@tabler/icons-react'
+import { IconSearch, IconBooks } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
+import WikipediaSelector from '~/components/WikipediaSelector'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import {
   CuratedCollectionWithStatus,
   CuratedCategory,
   CategoryTier,
   CategoryResource,
+  WikipediaState,
 } from '../../../../types/downloads'
 import useDownloads from '~/hooks/useDownloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
 
 const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
+const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
 // Helper to get all resources for a tier (including inherited resources)
 const getAllResourcesForTier = (tier: CategoryTier, allTiers: CategoryTier[]): CategoryResource[] => {
@@ -68,6 +71,10 @@ export default function ZimRemoteExplorer() {
   const [tierModalOpen, setTierModalOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState<CuratedCategory | null>(null)
 
+  // Wikipedia selection state
+  const [selectedWikipedia, setSelectedWikipedia] = useState<string | null>(null)
+  const [isSubmittingWikipedia, setIsSubmittingWikipedia] = useState(false)
+
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
   }, 400)
@@ -82,6 +89,13 @@ export default function ZimRemoteExplorer() {
   const { data: categories } = useQuery({
     queryKey: [CURATED_CATEGORIES_KEY],
     queryFn: () => api.listCuratedCategories(),
+    refetchOnWindowFocus: false,
+  })
+
+  // Fetch Wikipedia options and state
+  const { data: wikipediaState, isLoading: isLoadingWikipedia } = useQuery({
+    queryKey: [WIKIPEDIA_STATE_KEY],
+    queryFn: () => api.getWikipediaState(),
     refetchOnWindowFocus: false,
   })
 
@@ -253,6 +267,46 @@ export default function ZimRemoteExplorer() {
     setActiveCategory(null)
   }
 
+  // Wikipedia selection handlers
+  const handleWikipediaSelect = (optionId: string) => {
+    if (!isOnline) return
+    setSelectedWikipedia(optionId)
+  }
+
+  const handleWikipediaSubmit = async () => {
+    if (!selectedWikipedia) return
+
+    setIsSubmittingWikipedia(true)
+    try {
+      const result = await api.selectWikipedia(selectedWikipedia)
+      if (result?.success) {
+        addNotification({
+          message:
+            selectedWikipedia === 'none'
+              ? 'Wikipedia removed successfully'
+              : 'Wikipedia download started',
+          type: 'success',
+        })
+        invalidateDownloads()
+        queryClient.invalidateQueries({ queryKey: [WIKIPEDIA_STATE_KEY] })
+        setSelectedWikipedia(null)
+      } else {
+        addNotification({
+          message: result?.message || 'Failed to change Wikipedia selection',
+          type: 'error',
+        })
+      }
+    } catch (error) {
+      console.error('Error selecting Wikipedia:', error)
+      addNotification({
+        message: 'An error occurred while changing Wikipedia selection',
+        type: 'error',
+      })
+    } finally {
+      setIsSubmittingWikipedia(false)
+    }
+  }
+
   const fetchLatestCollections = useMutation({
     mutationFn: () => api.fetchLatestZimCollections(),
     onSuccess: () => {
@@ -308,7 +362,38 @@ export default function ZimRemoteExplorer() {
             Fetch Latest Collections
           </StyledButton>
 
+          {/* Wikipedia Selector */}
+          {isLoadingWikipedia ? (
+            <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex justify-center py-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-desert-green"></div>
+              </div>
+            </div>
+          ) : wikipediaState && wikipediaState.options.length > 0 ? (
+            <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
+              <WikipediaSelector
+                options={wikipediaState.options}
+                currentSelection={wikipediaState.currentSelection}
+                selectedOptionId={selectedWikipedia}
+                onSelect={handleWikipediaSelect}
+                disabled={!isOnline}
+                showSubmitButton
+                onSubmit={handleWikipediaSubmit}
+                isSubmitting={isSubmittingWikipedia}
+              />
+            </div>
+          ) : null}
+
           {/* Tiered Category Collections - matches Easy Setup Wizard */}
+          <div className="flex items-center gap-3 mt-8 mb-4">
+            <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+              <IconBooks className="w-6 h-6 text-gray-700" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Additional Content</h3>
+              <p className="text-sm text-gray-500">Curated collections for offline reference</p>
+            </div>
+          </div>
           {categories && categories.length > 0 ? (
             <>
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -8,15 +8,16 @@ import { ServiceSlim } from '../../../types/services'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
+import WikipediaSelector from '~/components/WikipediaSelector'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
-import { IconCheck, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
+import { IconCheck, IconChevronDown, IconChevronUp, IconArrowRight, IconCpu, IconBooks } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import classNames from 'classnames'
-import { CuratedCategory, CategoryTier, CategoryResource } from '../../../types/downloads'
+import { CuratedCategory, CategoryTier, CategoryResource, WikipediaState } from '../../../types/downloads'
 
 // Capability definitions - maps user-friendly categories to services
 interface Capability {
@@ -105,6 +106,7 @@ type WizardStep = 1 | 2 | 3 | 4
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_ZIM_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
+const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
 // Helper to get all resources for a tier (including inherited resources)
 const getAllResourcesForTier = (
@@ -135,6 +137,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const [tierModalOpen, setTierModalOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState<CuratedCategory | null>(null)
 
+  // Wikipedia selection state
+  const [selectedWikipedia, setSelectedWikipedia] = useState<string | null>(null)
+
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
   const queryClient = useQueryClient()
@@ -145,7 +150,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     selectedMapCollections.length > 0 ||
     selectedZimCollections.length > 0 ||
     selectedTiers.size > 0 ||
-    selectedAiModels.length > 0
+    selectedAiModels.length > 0 ||
+    (selectedWikipedia !== null && selectedWikipedia !== 'none')
 
   const { data: mapCollections, isLoading: isLoadingMaps } = useQuery({
     queryKey: [CURATED_MAP_COLLECTIONS_KEY],
@@ -169,6 +175,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const { data: recommendedModels, isLoading: isLoadingRecommendedModels } = useQuery({
     queryKey: ['recommended-ollama-models'],
     queryFn: () => api.getRecommendedModels(),
+    refetchOnWindowFocus: false,
+  })
+
+  // Fetch Wikipedia options and current state
+  const { data: wikipediaState, isLoading: isLoadingWikipedia } = useQuery({
+    queryKey: [WIKIPEDIA_STATE_KEY],
+    queryFn: () => api.getWikipediaState(),
     refetchOnWindowFocus: false,
   })
 
@@ -289,16 +302,26 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       })
     }
 
+    // Add Wikipedia selection
+    if (selectedWikipedia && wikipediaState) {
+      const option = wikipediaState.options.find((o) => o.id === selectedWikipedia)
+      if (option && option.size_mb > 0) {
+        totalBytes += option.size_mb * 1024 * 1024
+      }
+    }
+
     return totalBytes
   }, [
     selectedTiers,
     selectedMapCollections,
     selectedZimCollections,
     selectedAiModels,
+    selectedWikipedia,
     categories,
     mapCollections,
     zimCollections,
     recommendedModels,
+    wikipediaState,
   ])
 
   // Get primary disk/filesystem info for storage projection
@@ -384,6 +407,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         ([categorySlug, tier]) => api.saveInstalledTier(categorySlug, tier.slug)
       )
       await Promise.all(tierSavePromises)
+
+      // Select Wikipedia option if one was chosen
+      if (selectedWikipedia && selectedWikipedia !== wikipediaState?.currentSelection?.optionId) {
+        await api.selectWikipedia(selectedWikipedia)
+      }
 
       addNotification({
         type: 'success',
@@ -799,11 +827,14 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         {/* AI Model Selection - Only show if AI capability is selected */}
         {isAiSelected && (
           <div className="mb-8">
-            <div className="mb-4">
-              <h3 className="text-2xl font-semibold text-gray-900 mb-2">Choose AI Models</h3>
-              <p className="text-gray-600">
-                Select AI models to download. We've recommended some smaller, popular models to get you started. You'll need at least one to use AI features, but you can always add more later.
-              </p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                <IconCpu className="w-6 h-6 text-gray-700" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">AI Models</h3>
+                <p className="text-sm text-gray-500">Select models to download for offline AI</p>
+              </div>
             </div>
 
             {isLoadingRecommendedModels ? (
@@ -879,9 +910,46 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
           </div>
         )}
 
+        {/* Wikipedia Selection - Only show if Information capability is selected */}
+        {isInformationSelected && (
+          <>
+            {/* Divider between AI Models and Wikipedia */}
+            {isAiSelected && <hr className="my-8 border-gray-200" />}
+
+            <div className="mb-8">
+              {isLoadingWikipedia ? (
+                <div className="flex justify-center py-12">
+                  <LoadingSpinner />
+                </div>
+              ) : wikipediaState && wikipediaState.options.length > 0 ? (
+                <WikipediaSelector
+                  options={wikipediaState.options}
+                  currentSelection={wikipediaState.currentSelection}
+                  selectedOptionId={selectedWikipedia}
+                  onSelect={(optionId) => isOnline && setSelectedWikipedia(optionId)}
+                  disabled={!isOnline}
+                />
+              ) : null}
+            </div>
+          </>
+        )}
+
         {/* Curated Categories with Tiers - Only show if Information capability is selected */}
         {isInformationSelected && (
           <>
+            {/* Divider between Wikipedia and Additional Content */}
+            <hr className="my-8 border-gray-200" />
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                <IconBooks className="w-6 h-6 text-gray-700" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Additional Content</h3>
+                <p className="text-sm text-gray-500">Curated collections for offline reference</p>
+              </div>
+            </div>
+
             {isLoadingCategories ? (
               <div className="flex justify-center py-12">
                 <LoadingSpinner />
@@ -979,7 +1047,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       selectedMapCollections.length > 0 ||
       selectedZimCollections.length > 0 ||
       selectedTiers.size > 0 ||
-      selectedAiModels.length > 0
+      selectedAiModels.length > 0 ||
+      (selectedWikipedia !== null && selectedWikipedia !== 'none')
 
     return (
       <div className="space-y-6">
@@ -1088,6 +1157,28 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     </div>
                   )
                 })}
+              </div>
+            )}
+
+            {selectedWikipedia && selectedWikipedia !== 'none' && (
+              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Wikipedia</h3>
+                {(() => {
+                  const option = wikipediaState?.options.find((o) => o.id === selectedWikipedia)
+                  return option ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <IconCheck size={20} className="text-desert-green mr-2" />
+                        <span className="text-gray-700">{option.name}</span>
+                      </div>
+                      <span className="text-gray-500 text-sm">
+                        {option.size_mb > 0
+                          ? `${(option.size_mb / 1024).toFixed(1)} GB`
+                          : 'No download'}
+                      </span>
+                    </div>
+                  ) : null
+                })()}
               </div>
             )}
 

@@ -154,15 +154,9 @@
         {
           "name": "Essential",
           "slug": "education-essential",
-          "description": "Core reference materials - Wikipedia's best articles and open textbooks. Lightweight, text-focused.",
+          "description": "Core reference materials - open textbooks and essential educational content. Lightweight, text-focused.",
           "recommended": true,
           "resources": [
-            {
-              "title": "Wikipedia Top 45,000 Articles",
-              "description": "The 45,000 best Wikipedia articles, optimized for size (no images)",
-              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2025-12.zim",
-              "size_mb": 1880
-            },
             {
               "title": "Wikibooks",
               "description": "Open-content textbooks covering math, science, computing, and more",
@@ -224,15 +218,9 @@
         {
           "name": "Comprehensive",
           "slug": "education-comprehensive",
-          "description": "Complete educational library with full Wikipedia, enhanced textbooks, and TED talks. Includes Standard.",
+          "description": "Complete educational library with enhanced textbooks and TED talks. Includes Standard.",
           "includesTier": "education-standard",
           "resources": [
-            {
-              "title": "Wikipedia (Full, No Images)",
-              "description": "Complete English Wikipedia - over 6 million articles",
-              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2025-12.zim",
-              "size_mb": 11400
-            },
             {
               "title": "Wikibooks (With Images)",
               "description": "Open textbooks with full illustrations and diagrams",

@@ -43,3 +43,9 @@ export const saveInstalledTierValidator = vine.compile(
     tierSlug: vine.string().trim().minLength(1),
   })
 )
+
+export const selectWikipediaValidator = vine.compile(
+  vine.object({
+    optionId: vine.string().trim().minLength(1),
+  })
+)
