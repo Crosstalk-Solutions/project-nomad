@@ -7,6 +7,7 @@ import {
   CuratedCategory,
   CuratedCollectionWithStatus,
   DownloadJobWithProgress,
+  WikipediaState,
 } from '../../types/downloads'
 import { catchInternal } from './util'
 import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -398,6 +399,28 @@ class API {
         '/system/subscribe-release-notes',
         { email }
       )
+      return response.data
+    })()
+  }
+
+  // Wikipedia selector methods
+
+  async getWikipediaState(): Promise<WikipediaState | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<WikipediaState>('/zim/wikipedia')
+      return response.data
+    })()
+  }
+
+  async selectWikipedia(
+    optionId: string
+  ): Promise<{ success: boolean; jobId?: string; message?: string } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        jobId?: string
+        message?: string
+      }>('/zim/wikipedia/select', { optionId })
       return response.data
     })()
   }

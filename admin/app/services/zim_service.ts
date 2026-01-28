@@ -17,12 +17,13 @@ import {
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
 import { join } from 'path'
-import { CuratedCategory, CuratedCollectionWithStatus, CuratedCollectionsFile } from '../../types/downloads.js'
+import { CuratedCategory, CuratedCollectionWithStatus, CuratedCollectionsFile, WikipediaOption, WikipediaState } from '../../types/downloads.js'
 import vine from '@vinejs/vine'
-import { curatedCategoriesFileSchema, curatedCollectionsFileSchema } from '#validators/curated_collections'
+import { curatedCategoriesFileSchema, curatedCollectionsFileSchema, wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
 import InstalledTier from '#models/installed_tier'
+import WikipediaSelection from '#models/wikipedia_selection'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
 
@@ -30,6 +31,7 @@ const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'applicati
 const CATEGORIES_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/collections/kiwix-categories.json'
 const COLLECTIONS_URL =
   'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/kiwix.json'
+const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/collections/wikipedia.json'
 
 
 
@@ -231,6 +233,13 @@ export class ZimService implements IZimService {
   } 
 
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
+    // Check if any URL is a Wikipedia download and handle it
+    for (const url of urls) {
+      if (url.includes('wikipedia_en_')) {
+        await this.onWikipediaDownloadComplete(url, true)
+      }
+    }
+
     // Restart KIWIX container to pick up new ZIM file
     if (restart) {
       await this.dockerService
@@ -337,5 +346,207 @@ export class ZimService implements IZimService {
     }
 
     await deleteFileIfExists(fullPath)
+  }
+
+  // Wikipedia selector methods
+
+  async getWikipediaOptions(): Promise<WikipediaOption[]> {
+    try {
+      const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
+      const data = response.data
+
+      const validated = await vine.validate({
+        schema: wikipediaOptionsFileSchema,
+        data,
+      })
+
+      return validated.options
+    } catch (error) {
+      logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
+      throw new Error('Failed to fetch Wikipedia options')
+    }
+  }
+
+  async getWikipediaSelection(): Promise<WikipediaSelection | null> {
+    // Get the single row from wikipedia_selections (there should only ever be one)
+    return WikipediaSelection.query().first()
+  }
+
+  async getWikipediaState(): Promise<WikipediaState> {
+    const options = await this.getWikipediaOptions()
+    const selection = await this.getWikipediaSelection()
+
+    return {
+      options,
+      currentSelection: selection
+        ? {
+            optionId: selection.option_id,
+            status: selection.status,
+            filename: selection.filename,
+            url: selection.url,
+          }
+        : null,
+    }
+  }
+
+  async selectWikipedia(optionId: string): Promise<{ success: boolean; jobId?: string; message?: string }> {
+    const options = await this.getWikipediaOptions()
+    const selectedOption = options.find((opt) => opt.id === optionId)
+
+    if (!selectedOption) {
+      throw new Error(`Invalid Wikipedia option: ${optionId}`)
+    }
+
+    const currentSelection = await this.getWikipediaSelection()
+
+    // If same as currently installed, no action needed
+    if (currentSelection?.option_id === optionId && currentSelection.status === 'installed') {
+      return { success: true, message: 'Already installed' }
+    }
+
+    // Handle "none" option - delete current Wikipedia file and update DB
+    if (optionId === 'none') {
+      if (currentSelection?.filename) {
+        try {
+          await this.delete(currentSelection.filename)
+          logger.info(`[ZimService] Deleted Wikipedia file: ${currentSelection.filename}`)
+        } catch (error) {
+          // File might already be deleted, that's OK
+          logger.warn(`[ZimService] Could not delete Wikipedia file (may already be gone): ${currentSelection.filename}`)
+        }
+      }
+
+      // Update or create the selection record (always use first record)
+      if (currentSelection) {
+        currentSelection.option_id = 'none'
+        currentSelection.url = null
+        currentSelection.filename = null
+        currentSelection.status = 'none'
+        await currentSelection.save()
+      } else {
+        await WikipediaSelection.create({
+          option_id: 'none',
+          url: null,
+          filename: null,
+          status: 'none',
+        })
+      }
+
+      // Restart Kiwix to reflect the change
+      await this.dockerService
+        .affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart')
+        .catch((error) => {
+          logger.error(`[ZimService] Failed to restart Kiwix after Wikipedia removal:`, error)
+        })
+
+      return { success: true, message: 'Wikipedia removed' }
+    }
+
+    // Start download for the new Wikipedia option
+    if (!selectedOption.url) {
+      throw new Error('Selected Wikipedia option has no download URL')
+    }
+
+    // Check if already downloading
+    const existingJob = await RunDownloadJob.getByUrl(selectedOption.url)
+    if (existingJob) {
+      return { success: false, message: 'Download already in progress' }
+    }
+
+    // Extract filename from URL
+    const filename = selectedOption.url.split('/').pop()
+    if (!filename) {
+      throw new Error('Could not determine filename from URL')
+    }
+
+    const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+
+    // Update or create selection record to show downloading status
+    let selection: WikipediaSelection
+    if (currentSelection) {
+      currentSelection.option_id = optionId
+      currentSelection.url = selectedOption.url
+      currentSelection.filename = filename
+      currentSelection.status = 'downloading'
+      await currentSelection.save()
+      selection = currentSelection
+    } else {
+      selection = await WikipediaSelection.create({
+        option_id: optionId,
+        url: selectedOption.url,
+        filename: filename,
+        status: 'downloading',
+      })
+    }
+
+    // Dispatch download job
+    const result = await RunDownloadJob.dispatch({
+      url: selectedOption.url,
+      filepath,
+      timeout: 30000,
+      allowedMimeTypes: ZIM_MIME_TYPES,
+      forceNew: true,
+      filetype: 'zim',
+    })
+
+    if (!result || !result.job) {
+      // Revert status on failure to dispatch
+      selection.option_id = currentSelection?.option_id || 'none'
+      selection.url = currentSelection?.url || null
+      selection.filename = currentSelection?.filename || null
+      selection.status = currentSelection?.status || 'none'
+      await selection.save()
+      throw new Error('Failed to dispatch download job')
+    }
+
+    logger.info(`[ZimService] Started Wikipedia download for ${optionId}: ${filename}`)
+
+    return {
+      success: true,
+      jobId: result.job.id,
+      message: 'Download started',
+    }
+  }
+
+  async onWikipediaDownloadComplete(url: string, success: boolean): Promise<void> {
+    const selection = await this.getWikipediaSelection()
+
+    if (!selection || selection.url !== url) {
+      logger.warn(`[ZimService] Wikipedia download complete callback for unknown URL: ${url}`)
+      return
+    }
+
+    if (success) {
+      // Get the old filename before updating (if there was a previous Wikipedia installed)
+      const options = await this.getWikipediaOptions()
+      const previousOption = options.find((opt) => opt.id !== selection.option_id && opt.id !== 'none')
+
+      // Update status to installed
+      selection.status = 'installed'
+      await selection.save()
+
+      logger.info(`[ZimService] Wikipedia download completed successfully: ${selection.filename}`)
+
+      // Delete the old Wikipedia file if it exists and is different
+      // We need to find what was previously installed
+      const existingFiles = await this.list()
+      const wikipediaFiles = existingFiles.files.filter((f) =>
+        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+      )
+
+      for (const oldFile of wikipediaFiles) {
+        try {
+          await this.delete(oldFile.name)
+          logger.info(`[ZimService] Deleted old Wikipedia file: ${oldFile.name}`)
+        } catch (error) {
+          logger.warn(`[ZimService] Could not delete old Wikipedia file: ${oldFile.name}`, error)
+        }
+      }
+    } else {
+      // Download failed - keep the selection record but mark as failed
+      selection.status = 'failed'
+      await selection.save()
+      logger.error(`[ZimService] Wikipedia download failed for: ${selection.filename}`)
+    }
   }
 }
