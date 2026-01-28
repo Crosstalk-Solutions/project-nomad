@@ -92,6 +92,37 @@ check_is_debian_based() {
     echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
 }
 
+ensure_dependencies_installed() {
+  local missing_deps=()
+
+  # Check for curl
+  if ! command -v curl &> /dev/null; then
+    missing_deps+=("curl")
+  fi
+
+  # Check for whiptail (used for dialogs, though not currently active)
+  # if ! command -v whiptail &> /dev/null; then
+  #   missing_deps+=("whiptail")
+  # fi
+
+  if [[ ${#missing_deps[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
+    sudo apt-get update
+    sudo apt-get install -y "${missing_deps[@]}"
+
+    # Verify installation
+    for dep in "${missing_deps[@]}"; do
+      if ! command -v "$dep" &> /dev/null; then
+        echo -e "${RED}#${RESET} Failed to install $dep. Please install it manually and try again."
+        exit 1
+      fi
+    done
+    echo -e "${GREEN}#${RESET} Dependencies installed successfully.\\n"
+  else
+    echo -e "${GREEN}#${RESET} All required dependencies are already installed.\\n"
+  fi
+}
+
 check_is_debug_mode(){
   # Check if the script is being run in debug mode
   if [[ "${script_option_debug}" == 'true' ]]; then
@@ -401,6 +432,7 @@ success_message() {
 check_is_debian_based
 check_is_bash
 check_has_sudo
+ensure_dependencies_installed
 check_is_debug_mode
 
 # Main install
