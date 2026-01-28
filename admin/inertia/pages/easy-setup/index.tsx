@@ -10,7 +10,7 @@ import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
-import { IconCheck, IconChevronDown, IconChevronUp, IconArrowRight } from '@tabler/icons-react'
+import { IconCheck, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
@@ -97,19 +97,6 @@ const ADDITIONAL_TOOLS: Capability[] = [
     ],
     services: ['nomad_cyberchef'],
     icon: 'IconChefHat',
-  },
-  {
-    id: 'benchmark',
-    name: 'System Benchmark',
-    technicalName: 'Built-in',
-    description: 'Measure your server performance and compare with the NOMAD community',
-    features: [
-      'CPU, memory, and disk benchmarks',
-      'AI inference performance testing',
-      'NOMAD Score for easy comparison',
-    ],
-    services: ['__builtin_benchmark'], // Special marker for built-in features
-    icon: 'IconChartBar',
   },
 ]
 
@@ -526,20 +513,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     )
   }
 
-  // Check if a capability is a built-in feature (not a Docker service)
-  const isBuiltInCapability = (capability: Capability) => {
-    return capability.services.some((service) => service.startsWith('__builtin_'))
-  }
-
   // Check if a capability is selected (all its services are in selectedServices)
   const isCapabilitySelected = (capability: Capability) => {
-    if (isBuiltInCapability(capability)) return false // Built-ins can't be selected
     return capability.services.every((service) => selectedServices.includes(service))
   }
 
   // Check if a capability is already installed (all its services are installed)
   const isCapabilityInstalled = (capability: Capability) => {
-    if (isBuiltInCapability(capability)) return true // Built-ins are always "installed"
     return capability.services.every((service) =>
       installedServices.some((s) => s.service_name === service)
     )
@@ -547,7 +527,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   // Check if a capability exists in the system (has at least one matching service)
   const capabilityExists = (capability: Capability) => {
-    if (isBuiltInCapability(capability)) return true // Built-ins always exist
     return capability.services.some((service) =>
       allServices.some((s) => s.service_name === service)
     )
@@ -575,38 +554,23 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     const selected = isCapabilitySelected(capability)
     const installed = isCapabilityInstalled(capability)
     const exists = capabilityExists(capability)
-    const isBuiltIn = isBuiltInCapability(capability)
 
     if (!exists) return null
 
     // Determine visual state: installed (locked), selected (user chose it), or default
     const isChecked = installed || selected
 
-    // Handle click - built-in features navigate to their page, others toggle selection
-    const handleClick = () => {
-      if (isBuiltIn) {
-        // Navigate to the appropriate settings page for built-in features
-        if (capability.id === 'benchmark') {
-          router.visit('/settings/benchmark')
-        }
-      } else {
-        toggleCapability(capability)
-      }
-    }
-
     return (
       <div
         key={capability.id}
-        onClick={handleClick}
+        onClick={() => toggleCapability(capability)}
         className={classNames(
           'p-6 rounded-lg border-2 transition-all',
-          isBuiltIn
-            ? 'border-desert-stone bg-desert-stone-lighter/50 hover:border-desert-green hover:shadow-sm cursor-pointer'
-            : installed
-              ? 'border-desert-green bg-desert-green/20 cursor-default'
-              : selected
-                ? 'border-desert-green bg-desert-green shadow-md cursor-pointer'
-                : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm cursor-pointer'
+          installed
+            ? 'border-desert-green bg-desert-green/20 cursor-default'
+            : selected
+              ? 'border-desert-green bg-desert-green shadow-md cursor-pointer'
+              : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm cursor-pointer'
         )}
       >
         <div className="flex items-start justify-between">
@@ -615,16 +579,12 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               <h3
                 className={classNames(
                   'text-xl font-bold',
-                  isBuiltIn ? 'text-gray-700' : installed ? 'text-gray-700' : selected ? 'text-white' : 'text-gray-900'
+                  installed ? 'text-gray-700' : selected ? 'text-white' : 'text-gray-900'
                 )}
               >
                 {capability.name}
               </h3>
-              {isBuiltIn ? (
-                <span className="text-xs bg-desert-stone text-white px-2 py-0.5 rounded-full">
-                  Built-in
-                </span>
-              ) : installed && (
+              {installed && (
                 <span className="text-xs bg-desert-green text-white px-2 py-0.5 rounded-full">
                   Installed
                 </span>
@@ -633,15 +593,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             <p
               className={classNames(
                 'text-sm mt-0.5',
-                isBuiltIn ? 'text-gray-500' : installed ? 'text-gray-500' : selected ? 'text-green-100' : 'text-gray-500'
+                installed ? 'text-gray-500' : selected ? 'text-green-100' : 'text-gray-500'
               )}
             >
-              {isBuiltIn ? 'Click to open' : `Powered by ${capability.technicalName}`}
+              Powered by {capability.technicalName}
             </p>
             <p
               className={classNames(
                 'text-sm mt-3',
-                isBuiltIn ? 'text-gray-600' : installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
+                installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
               )}
             >
               {capability.description}
@@ -650,7 +610,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               <ul
                 className={classNames(
                   'mt-3 space-y-1',
-                  isBuiltIn ? 'text-gray-600' : installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
+                  installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
                 )}
               >
                 {capability.features.map((feature, idx) => (
@@ -658,13 +618,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     <span
                       className={classNames(
                         'mr-2',
-                        isBuiltIn
-                          ? 'text-desert-stone'
-                          : installed
-                            ? 'text-desert-green'
-                            : selected
-                              ? 'text-white'
-                              : 'text-desert-green'
+                        installed
+                          ? 'text-desert-green'
+                          : selected
+                            ? 'text-white'
+                            : 'text-desert-green'
                       )}
                     >
                       •
@@ -678,18 +636,14 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
           <div
             className={classNames(
               'ml-4 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
-              isBuiltIn
-                ? 'border-desert-stone bg-desert-stone'
-                : isChecked
-                  ? installed
-                    ? 'border-desert-green bg-desert-green'
-                    : 'border-white bg-white'
-                  : 'border-desert-stone'
+              isChecked
+                ? installed
+                  ? 'border-desert-green bg-desert-green'
+                  : 'border-white bg-white'
+                : 'border-desert-stone'
             )}
           >
-            {isBuiltIn ? (
-              <IconArrowRight size={16} className="text-white" />
-            ) : isChecked && (
+            {isChecked && (
               <IconCheck size={20} className={installed ? 'text-white' : 'text-desert-green'} />
             )}
           </div>
