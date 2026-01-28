@@ -12,6 +12,12 @@ Project N.O.M.A.D. can be installed on any Debian-based operating system (we rec
 
 *Note: sudo/root privileges are required to run the install script*
 
+#### One-liner (recommended for fresh Ubuntu installs)
+```bash
+sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh | sudo bash
+```
+
+#### Two-step install (if you already have curl)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh
 ```
