@@ -60,7 +60,6 @@ router
   .group(() => {
     router.get('/regions', [MapsController, 'listRegions'])
     router.get('/styles', [MapsController, 'styles'])
-    router.get('/preflight', [MapsController, 'checkBaseAssets'])
     router.get('/curated-collections', [MapsController, 'listCuratedCollections'])
     router.post('/fetch-latest-collections', [MapsController, 'fetchLatestCollections'])
     router.post('/download-base-assets', [MapsController, 'downloadBaseAssets'])

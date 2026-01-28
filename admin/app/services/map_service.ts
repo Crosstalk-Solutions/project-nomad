@@ -9,7 +9,6 @@ import { extract } from 'tar'
 import env from '#start/env'
 import {
   listDirectoryContentsRecursive,
-  listDirectoryContents,
   getFileStatsIfExists,
   deleteFileIfExists,
   getFile,
@@ -50,6 +49,7 @@ export class MapService implements IMapService {
   private readonly basemapsAssetsDir = 'basemaps-assets'
   private readonly baseAssetsTarFile = 'base-assets.tar.gz'
   private readonly baseDirPath = join(process.cwd(), this.mapStoragePath)
+  private baseAssetsExistCache: boolean | null = null
 
   async listRegions() {
     const files = (await this.listAllMapStorageItems()).filter(
@@ -92,6 +92,9 @@ export class MapService implements IMapService {
     })
 
     await deleteFileIfExists(tempTarPath)
+
+    // Invalidate cache since we just downloaded new assets
+    this.baseAssetsExistCache = true
 
     return true
   }
@@ -169,6 +172,15 @@ export class MapService implements IMapService {
     }
 
     const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
+
+
+    // First, ensure base assets are present - regions depend on them
+    const baseAssetsExist = await this.ensureBaseAssets()
+    if (!baseAssetsExist) {
+      throw new Error(
+        'Base map assets are missing and could not be downloaded. Please check your connection and try again.'
+      )
+    }
 
     // Dispatch background job
     const result = await RunDownloadJob.dispatch({
@@ -250,18 +262,6 @@ export class MapService implements IMapService {
     return styles
   }
 
-  async checkBaseAssetsExist() {
-    const storageContents = await this.listMapStorageItems()
-    const baseStyleItem = storageContents.find(
-      (item) => item.type === 'file' && item.name === this.baseStylesFile
-    )
-    const basemapsAssetsItem = storageContents.find(
-      (item) => item.type === 'directory' && item.name === this.basemapsAssetsDir
-    )
-
-    return !!baseStyleItem && !!basemapsAssetsItem
-  }
-
   async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
     const collections = await CuratedCollection.query().where('type', 'map').preload('resources')
     return collections.map((collection) => ({
@@ -303,9 +303,37 @@ export class MapService implements IMapService {
     }
   }
 
-  private async listMapStorageItems(): Promise<FileEntry[]> {
+  async ensureBaseAssets(): Promise<boolean> {
+    const exists = await this.checkBaseAssetsExist()
+    if (exists) {
+      return true
+    }
+
+    return await this.downloadBaseAssets()
+  }
+
+  private async checkBaseAssetsExist(useCache: boolean = true): Promise<boolean> {
+    // Return cached result if available and caching is enabled
+    if (useCache && this.baseAssetsExistCache !== null) {
+      return this.baseAssetsExistCache
+    }
+
     await ensureDirectoryExists(this.baseDirPath)
-    return await listDirectoryContents(this.baseDirPath)
+
+    const baseStylePath = join(this.baseDirPath, this.baseStylesFile)
+    const basemapsAssetsPath = join(this.baseDirPath, this.basemapsAssetsDir)
+
+    const [baseStyleExists, basemapsAssetsExists] = await Promise.all([
+      getFileStatsIfExists(baseStylePath),
+      getFileStatsIfExists(basemapsAssetsPath),
+    ])
+
+    const exists = !!baseStyleExists && !!basemapsAssetsExists
+
+    // update cache
+    this.baseAssetsExistCache = exists
+
+    return exists
   }
 
   private async listAllMapStorageItems(): Promise<FileEntry[]> {
