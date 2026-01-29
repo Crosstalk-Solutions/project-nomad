@@ -269,13 +269,22 @@ export class BenchmarkService {
         gpuModel = discreteGpu?.model || graphics.controllers[0]?.model || null
       }
 
-      // Fallback: Extract integrated GPU from CPU model name (common for AMD APUs)
-      // e.g., "AMD Ryzen AI 9 HX 370 w/ Radeon 890M" -> "Radeon 890M"
+      // Fallback: Extract integrated GPU from CPU model name
       if (!gpuModel) {
         const cpuFullName = `${cpu.manufacturer} ${cpu.brand}`
+
+        // AMD APUs: e.g., "AMD Ryzen AI 9 HX 370 w/ Radeon 890M" -> "Radeon 890M"
         const radeonMatch = cpuFullName.match(/w\/\s*(Radeon\s+\d+\w*)/i)
         if (radeonMatch) {
           gpuModel = radeonMatch[1]
+        }
+
+        // Intel Core Ultra: These have Intel Arc Graphics integrated
+        // e.g., "Intel Core Ultra 9 285HX" -> "Intel Arc Graphics (Integrated)"
+        if (!gpuModel && cpu.manufacturer?.toLowerCase().includes('intel')) {
+          if (cpu.brand?.toLowerCase().includes('core ultra')) {
+            gpuModel = 'Intel Arc Graphics (Integrated)'
+          }
         }
       }
 
