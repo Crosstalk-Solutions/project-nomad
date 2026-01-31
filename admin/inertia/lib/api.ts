@@ -9,7 +9,8 @@ import {
   DownloadJobWithProgress,
 } from '../../types/downloads'
 import { catchInternal } from './util'
-import { NomadOllamaModel } from '../../types/ollama'
+import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
+import { ChatResponse, ModelResponse } from 'ollama'
 
 class API {
   private client: AxiosInstance
@@ -35,7 +36,7 @@ class API {
 
   async deleteModel(model: string): Promise<{ success: boolean; message: string }> {
     return catchInternal(async () => {
-      const response = await this.client.post('/openwebui/delete-model', { model })
+      const response = await this.client.delete('/ollama/models', { data: { model } })
       return response.data
     })()
   }
@@ -60,7 +61,7 @@ class API {
 
   async downloadModel(model: string): Promise<{ success: boolean; message: string }> {
     return catchInternal(async () => {
-      const response = await this.client.post('/openwebui/download-model', { model })
+      const response = await this.client.post('/ollama/models', { model })
       return response.data
     })()
   }
@@ -138,12 +139,117 @@ class API {
     })()
   }
 
+  async getInstalledModels() {
+    return catchInternal(async () => {
+      const response = await this.client.get<ModelResponse[]>('/ollama/installed-models')
+      return response.data
+    })()
+  }
+
   async getRecommendedModels(): Promise<NomadOllamaModel[] | undefined> {
     return catchInternal(async () => {
-      const response = await this.client.get<NomadOllamaModel[]>('/openwebui/models', {
+      const response = await this.client.get<NomadOllamaModel[]>('/ollama/models', {
         params: { sort: 'pulls', recommendedOnly: true },
       })
       return response.data
+    })()
+  }
+
+  async sendChatMessage(chatRequest: OllamaChatRequest) {
+    return catchInternal(async () => {
+      const response = await this.client.post<ChatResponse>('/ollama/chat', chatRequest)
+      return response.data
+    })()
+  }
+
+  async getChatSessions() {
+    return catchInternal(async () => {
+      const response = await this.client.get<
+        Array<{
+          id: string
+          title: string
+          model: string | null
+          timestamp: string
+          lastMessage: string | null
+        }>
+      >('/chat/sessions')
+      return response.data
+    })()
+  }
+
+  async getChatSession(sessionId: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        id: string
+        title: string
+        model: string | null
+        timestamp: string
+        messages: Array<{
+          id: string
+          role: 'system' | 'user' | 'assistant'
+          content: string
+          timestamp: string
+        }>
+      }>(`/chat/sessions/${sessionId}`)
+      return response.data
+    })()
+  }
+
+  async createChatSession(title: string, model?: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        id: string
+        title: string
+        model: string | null
+        timestamp: string
+      }>('/chat/sessions', { title, model })
+      return response.data
+    })()
+  }
+
+  async updateChatSession(sessionId: string, data: { title?: string; model?: string }) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{
+        id: string
+        title: string
+        model: string | null
+        timestamp: string
+      }>(`/chat/sessions/${sessionId}`, data)
+      return response.data
+    })()
+  }
+
+  async deleteChatSession(sessionId: string) {
+    return catchInternal(async () => {
+      await this.client.delete(`/chat/sessions/${sessionId}`)
+    })()
+  }
+
+  async deleteAllChatSessions() {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        '/chat/sessions/all'
+      )
+      return response.data
+    })()
+  }
+
+  async addChatMessage(sessionId: string, role: 'system' | 'user' | 'assistant', content: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        id: string
+        role: 'system' | 'user' | 'assistant'
+        content: string
+        timestamp: string
+      }>(`/chat/sessions/${sessionId}/messages`, { role, content })
+      return response.data
+    })()
+  }
+
+  async getStoredRAGFiles() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ files: string[] }>('/rag/files')
+      return response.data.files
     })()
   }
 
@@ -291,6 +397,23 @@ class API {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/subscribe-release-notes',
         { email }
+      )
+      return response.data
+    })()
+  }
+
+  async uploadDocument(file: File) {
+    return catchInternal(async () => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await this.client.post<{ message: string; file_path: string }>(
+        '/rag/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
       )
       return response.data
     })()

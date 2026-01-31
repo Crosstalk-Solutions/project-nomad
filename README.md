@@ -30,7 +30,7 @@ Project N.O.M.A.D. is now installed on your device! Open a browser and navigate 
 
 ## How It Works
 From a technical standpoint, N.O.M.A.D. is primarily a management UI ("Command Center") and API that orchestrates a goodie basket of containerized offline archive tools and resources such as 
-[Kiwix](https://kiwix.org/), [OpenStreetMap](https://www.openstreetmap.org/), [Ollama](https://ollama.com/), [OpenWebUI](https://openwebui.com/), and more.
+[Kiwix](https://kiwix.org/), [ProtoMaps](https://protomaps.com), [Ollama](https://ollama.com/), and more.
 
 By abstracting the installation of each of these awesome tools, N.O.M.A.D. makes getting your offline survival computer up and running a breeze! N.O.M.A.D. also includes some additional built-in handy tools, such as a ZIM library managment interface, calculators, and more.
 

@@ -21,19 +21,23 @@ export type NomadOllamaModelAPIResponse = {
   models: NomadOllamaModel[]
 }
 
-export type OllamaModelListing = {
-  name: string
-  id: string
-  size: string
-  modified: string
+export type OllamaChatMessage = {
+  role: 'system' | 'user' | 'assistant'
+  content: string
 }
 
+export type OllamaChatRequest = {
+  model: string
+  messages: OllamaChatMessage[]
+  stream?: boolean
+}
 
-export type OpenWebUIKnowledgeFileMetadata = {
-  source: string
-  name: string
-  created_by: string
-  file_id: string
-  start_index: number
-  hash: string
+export type OllamaChatResponse = {
+  model: string
+  created_at: string
+  message: {
+    role: string
+    content: string
+  }
+  done: boolean
 }

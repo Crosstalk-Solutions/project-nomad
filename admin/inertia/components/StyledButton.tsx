@@ -1,5 +1,6 @@
 import * as Icons from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
+import clsx from 'clsx'
 
 export interface StyledButtonProps extends React.HTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode
@@ -56,71 +57,77 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   const getVariantClasses = () => {
     const baseTransition = 'transition-all duration-200 ease-in-out'
     const baseHover = 'hover:shadow-md active:scale-[0.98]'
-    
+
     switch (variant) {
       case 'primary':
-        return `
-          bg-desert-green text-desert-white
-          hover:bg-desert-green-dark hover:shadow-lg
-          active:bg-desert-green-darker
-          disabled:bg-desert-green-light disabled:text-desert-stone-light
-          ${baseTransition} ${baseHover}
-        `
-      
+        return clsx(
+          'bg-desert-green text-desert-white',
+          'hover:bg-desert-green-dark hover:shadow-lg',
+          'active:bg-desert-green-darker',
+          'disabled:bg-desert-green-light disabled:text-desert-stone-light',
+          baseTransition,
+          baseHover
+        )
+
       case 'secondary':
-        return `
-          bg-desert-tan text-desert-white
-          hover:bg-desert-tan-dark hover:shadow-lg
-          active:bg-desert-tan-dark
-          disabled:bg-desert-tan-lighter disabled:text-desert-stone-light
-          ${baseTransition} ${baseHover}
-        `
-      
+        return clsx(
+          'bg-desert-tan text-desert-white',
+          'hover:bg-desert-tan-dark hover:shadow-lg',
+          'active:bg-desert-tan-dark',
+          'disabled:bg-desert-tan-lighter disabled:text-desert-stone-light',
+          baseTransition,
+          baseHover
+        )
+
       case 'danger':
-        return `
-          bg-desert-red text-desert-white
-          hover:bg-desert-red-dark hover:shadow-lg
-          active:bg-desert-red-dark
-          disabled:bg-desert-red-lighter disabled:text-desert-stone-light
-          ${baseTransition} ${baseHover}
-        `
-      
+        return clsx(
+          'bg-desert-red text-desert-white',
+          'hover:bg-desert-red-dark hover:shadow-lg',
+          'active:bg-desert-red-dark',
+          'disabled:bg-desert-red-lighter disabled:text-desert-stone-light',
+          baseTransition,
+          baseHover
+        )
+
       case 'action':
-        return `
-          bg-desert-orange text-desert-white
-          hover:bg-desert-orange-light hover:shadow-lg
-          active:bg-desert-orange-dark
-          disabled:bg-desert-orange-lighter disabled:text-desert-stone-light
-          ${baseTransition} ${baseHover}
-        `
-      
+        return clsx(
+          'bg-desert-orange text-desert-white',
+          'hover:bg-desert-orange-light hover:shadow-lg',
+          'active:bg-desert-orange-dark',
+          'disabled:bg-desert-orange-lighter disabled:text-desert-stone-light',
+          baseTransition,
+          baseHover
+        )
+
       case 'success':
-        return `
-          bg-desert-olive text-desert-white
-          hover:bg-desert-olive-dark hover:shadow-lg
-          active:bg-desert-olive-dark
-          disabled:bg-desert-olive-lighter disabled:text-desert-stone-light
-          ${baseTransition} ${baseHover}
-        `
-      
+        return clsx(
+          'bg-desert-olive text-desert-white',
+          'hover:bg-desert-olive-dark hover:shadow-lg',
+          'active:bg-desert-olive-dark',
+          'disabled:bg-desert-olive-lighter disabled:text-desert-stone-light',
+          baseTransition,
+          baseHover
+        )
+
       case 'ghost':
-        return `
-          bg-transparent text-desert-green
-          hover:bg-desert-sand hover:text-desert-green-dark
-          active:bg-desert-green-lighter
-          disabled:text-desert-stone-light
-          ${baseTransition}
-        `
-      
+        return clsx(
+          'bg-transparent text-desert-green',
+          'hover:bg-desert-sand hover:text-desert-green-dark',
+          'active:bg-desert-green-lighter',
+          'disabled:text-desert-stone-light',
+          baseTransition
+        )
+
       case 'outline':
-        return `
-          bg-transparent border-2 border-desert-green text-desert-green
-          hover:bg-desert-green hover:text-desert-white hover:border-desert-green-dark
-          active:bg-desert-green-dark active:border-desert-green-darker
-          disabled:border-desert-green-lighter disabled:text-desert-stone-light
-          ${baseTransition} ${baseHover}
-        `
-      
+        return clsx(
+          'bg-transparent border-2 border-desert-green text-desert-green',
+          'hover:bg-desert-green hover:text-desert-white hover:border-desert-green-dark',
+          'active:bg-desert-green-dark active:border-desert-green-darker',
+          'disabled:border-desert-green-lighter disabled:text-desert-stone-light',
+          baseTransition,
+          baseHover
+        )
+
       default:
         return ''
     }
@@ -129,8 +136,8 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   const getLoadingSpinner = () => {
     const spinnerSize = size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'
     return (
-      <Icons.ArrowPathIcon 
-        className={`${spinnerSize} animate-spin ${fullWidth ? 'mx-auto' : ''}`} 
+      <Icons.ArrowPathIcon
+        className={clsx(spinnerSize, 'animate-spin')}
       />
     )
   }
@@ -146,16 +153,13 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   return (
     <button
       type="button"
-      className={`
-        ${fullWidth ? 'w-full' : 'inline-flex'}
-        items-center justify-center
-        rounded-md font-semibold
-        ${getSizeClasses()}
-        ${getVariantClasses()}
-        focus:outline-none focus:ring-2 focus:ring-desert-green-light focus:ring-offset-2 focus:ring-offset-desert-sand
-        disabled:cursor-not-allowed disabled:shadow-none
-        ${isDisabled ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
-      `}
+      className={clsx(
+        fullWidth ? 'flex w-full' : 'inline-flex',
+        getSizeClasses(),
+        getVariantClasses(),
+        isDisabled ? 'pointer-events-none opacity-60' : 'cursor-pointer',
+        'items-center justify-center rounded-md font-semibold focus:outline-none focus:ring-2 focus:ring-desert-green-light focus:ring-offset-2 focus:ring-offset-desert-sand disabled:cursor-not-allowed disabled:shadow-none'
+      )}
       {...props}
       disabled={isDisabled}
       onClick={onClickHandler}
@@ -165,7 +169,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
       ) : (
         <>
           {icon && <IconComponent />}
-          <span className={fullWidth ? 'block text-center' : ''}>{children}</span>
+          {children}
         </>
       )}
     </button>

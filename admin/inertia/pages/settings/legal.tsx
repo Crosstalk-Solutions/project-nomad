@@ -51,11 +51,6 @@ export default function LegalPage() {
                 <a href="https://learningequality.org/kolibri" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://learningequality.org/kolibri</a>
               </li>
               <li>
-                <strong>Open WebUI</strong> - Web interface for local AI models (MIT License)
-                <br />
-                <a href="https://openwebui.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://openwebui.com</a>
-              </li>
-              <li>
                 <strong>Ollama</strong> - Local large language model runtime (MIT License)
                 <br />
                 <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://ollama.com</a>

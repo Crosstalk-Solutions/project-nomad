@@ -42,7 +42,7 @@ createInertiaApp({
           <NotificationsProvider>
             <ModalsProvider>
               <App {...props} />
-              {showDevtools && <ReactQueryDevtools initialIsOpen={false} />}
+              {showDevtools && <ReactQueryDevtools initialIsOpen={false} buttonPosition='bottom-left' />}
             </ModalsProvider>
           </NotificationsProvider>
         </TransmitProvider>

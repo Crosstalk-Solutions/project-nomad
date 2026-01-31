@@ -7,12 +7,14 @@
 |
 */
 import BenchmarkController from '#controllers/benchmark_controller'
+import ChatsController from '#controllers/chats_controller'
 import DocsController from '#controllers/docs_controller'
 import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
-import OpenWebUIController from '#controllers/openwebui_controller'
+import OllamaController from '#controllers/ollama_controller'
+import RagController from '#controllers/rag_controller'
 import SettingsController from '#controllers/settings_controller'
 import SystemController from '#controllers/system_controller'
 import ZimController from '#controllers/zim_controller'
@@ -24,6 +26,7 @@ transmit.registerRoutes()
 router.get('/', [HomeController, 'index'])
 router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
+router.on('/chat').renderInertia('chat')
 router.on('/knowledge-base').renderInertia('knowledge-base')
 router.get('/maps', [MapsController, 'index'])
 
@@ -90,12 +93,32 @@ router.get('/api/health', () => {
 
 router
   .group(() => {
-    router.get('/models', [OpenWebUIController, 'models'])
-    router.get('/installed-models', [OpenWebUIController, 'installedModels'])
-    router.post('/download-model', [OpenWebUIController, 'dispatchModelDownload'])
-    router.post('/delete-model', [OpenWebUIController, 'deleteModel'])
+    router.post('/chat', [OllamaController, 'chat'])
+    router.get('/models', [OllamaController, 'availableModels'])
+    router.post('/models', [OllamaController, 'dispatchModelDownload'])
+    router.delete('/models', [OllamaController, 'deleteModel'])
+    router.get('/installed-models', [OllamaController, 'installedModels'])
   })
-  .prefix('/api/openwebui')
+  .prefix('/api/ollama')
+
+router
+  .group(() => {
+    router.get('/', [ChatsController, 'index'])
+    router.post('/', [ChatsController, 'store'])
+    router.delete('/all', [ChatsController, 'destroyAll'])
+    router.get('/:id', [ChatsController, 'show'])
+    router.put('/:id', [ChatsController, 'update'])
+    router.delete('/:id', [ChatsController, 'destroy'])
+    router.post('/:id/messages', [ChatsController, 'addMessage'])
+  })
+  .prefix('/api/chat/sessions')
+
+router
+  .group(() => {
+    router.post('/upload', [RagController, 'upload'])
+    router.get('/files', [RagController, 'getStoredFiles'])
+  })
+  .prefix('/api/rag')
 
 router
   .group(() => {

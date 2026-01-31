@@ -55,3 +55,22 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
     ],
   },
 ]
+
+export const SYSTEM_PROMPTS = {
+  default: `
+ Format all responses using markdown for better readability. Vanilla markdown or GitHub-flavored markdown is preferred.
+ - Use **bold** and *italic* for emphasis.
+ - Use code blocks with language identifiers for code snippets.
+ - Use headers (##, ###) to organize longer responses.
+ - Use bullet points or numbered lists for clarity.
+ - Use tables when presenting structured data.
+`,
+  rag_context: (context: string) => `
+You have access to the following relevant information from the knowledge base. Use this context to provide accurate and informed responses when relevant:
+
+[Context]
+${context}
+
+If the user's question is related to this context, incorporate it into your response. Otherwise, respond normally.
+`,
+}

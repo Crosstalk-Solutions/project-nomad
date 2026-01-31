@@ -1,6 +1,6 @@
 import { BenchmarkService } from '#services/benchmark_service';
 import { MapService } from '#services/map_service';
-import { OpenWebUIService } from '#services/openwebui_service';
+import { OllamaService } from '#services/ollama_service';
 import { SystemService } from '#services/system_service';
 import { inject } from '@adonisjs/core';
 import type { HttpContext } from '@adonisjs/core/http'
@@ -10,8 +10,8 @@ export default class SettingsController {
     constructor(
         private systemService: SystemService,
         private mapService: MapService,
-        private openWebUIService: OpenWebUIService,
-        private benchmarkService: BenchmarkService
+        private benchmarkService: BenchmarkService,
+        private ollamaService: OllamaService
     ) { }
 
     async system({ inertia }: HttpContext) {
@@ -48,8 +48,8 @@ export default class SettingsController {
     }
 
     async models({ inertia }: HttpContext) {
-        const availableModels = await this.openWebUIService.getAvailableModels();
-        const installedModels = await this.openWebUIService.getInstalledModels();
+        const availableModels = await this.ollamaService.getAvailableModels({ sort: 'pulls', recommendedOnly: false });
+        const installedModels = await this.ollamaService.getModels();
         return inertia.render('settings/models', {
             models: {
                 availableModels: availableModels || [],

@@ -1,9 +1,8 @@
 import { Job } from 'bullmq'
 import { QueueService } from '#services/queue_service'
-import { OpenWebUIService } from '#services/openwebui_service'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
-import { DockerService } from '#services/docker_service'
+import { OllamaService } from '#services/ollama_service'
 
 export interface DownloadModelJobParams {
   modelName: string
@@ -27,26 +26,23 @@ export class DownloadModelJob {
 
     logger.info(`[DownloadModelJob] Attempting to download model: ${modelName}`)
 
-    // Check if OpenWebUI/Ollama services are ready
-    const dockerService = new DockerService()
-    const openWebUIService = new OpenWebUIService(dockerService)
+    const ollamaService = new OllamaService()
 
-    // Use getInstalledModels to check if the service is ready
     // Even if no models are installed, this should return an empty array if ready
-    const existingModels = await openWebUIService.getInstalledModels()
+    const existingModels = await ollamaService.getModels()
     if (!existingModels) {
       logger.warn(
-        `[DownloadModelJob] OpenWebUI service not ready yet for model ${modelName}. Will retry...`
+        `[DownloadModelJob] Ollama service not ready yet for model ${modelName}. Will retry...`
       )
-      throw new Error('OpenWebUI service not ready yet')
+      throw new Error('Ollama service not ready yet')
     }
 
     logger.info(
-      `[DownloadModelJob] OpenWebUI service is ready. Initiating download for ${modelName}`
+      `[DownloadModelJob] Ollama service is ready. Initiating download for ${modelName}`
     )
 
     // Services are ready, initiate the download with progress tracking
-    const result = await openWebUIService._downloadModel(modelName, (progress) => {
+    const result = await ollamaService._downloadModel(modelName, (progress) => {
       // Update job progress in BullMQ
       const progressData = {
         status: progress.status,
