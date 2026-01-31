@@ -41,7 +41,7 @@ export default function EasySetupWizardComplete() {
           />
           <div className="flex justify-center mt-8 pt-4 border-t border-desert-stone-light">
             <div className="flex space-x-4">
-              <StyledButton onClick={() => router.visit('/home')} icon="HomeIcon">
+              <StyledButton onClick={() => router.visit('/home')} icon="IconHome">
                 Go to Home
               </StyledButton>
             </div>

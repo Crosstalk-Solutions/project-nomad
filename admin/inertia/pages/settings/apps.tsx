@@ -13,8 +13,7 @@ import LoadingSpinner from '~/components/LoadingSpinner'
 import useErrorNotification from '~/hooks/useErrorNotification'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
-import { IconCheck } from '@tabler/icons-react'
+import { IconCheck, IconDownload } from '@tabler/icons-react'
 
 export default function SettingsPage(props: { system: { services: ServiceSlim[] } }) {
   const { openModal, closeAllModals } = useModals()
@@ -48,7 +47,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         confirmText="Install"
         cancelText="Cancel"
         confirmVariant="primary"
-        icon={<ArrowDownTrayIcon className="h-12 w-12 text-desert-green" />}
+        icon={<IconDownload className="h-12 w-12 text-desert-green" />}
       >
         <p className="text-gray-700">
           Are you sure you want to install {service.friendly_name || service.service_name}? This
@@ -132,7 +131,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
   const AppActions = ({ record }: { record: ServiceSlim }) => {
     const ForceReinstallButton = () => (
       <StyledButton
-        icon="ExclamationTriangleIcon"
+        icon="IconDownload"
         variant="action"
         onClick={() => {
           openModal(
@@ -165,7 +164,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
       return (
         <div className="flex space-x-2">
           <StyledButton
-            icon={'ArrowDownTrayIcon'}
+            icon={'IconDownload'}
             variant="primary"
             onClick={() => handleInstallService(record)}
             disabled={isInstalling || !isOnline}
@@ -181,7 +180,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     return (
       <div className="flex space-x-2">
         <StyledButton
-          icon={'ArrowTopRightOnSquareIcon'}
+          icon={'IconExternalLink'}
           onClick={() => {
             window.open(getServiceLink(record.ui_location || 'unknown'), '_blank')
           }}
@@ -191,7 +190,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         {record.status && record.status !== 'unknown' && (
           <>
             <StyledButton
-              icon={record.status === 'running' ? 'StopIcon' : 'PlayIcon'}
+              icon={record.status === 'running' ? 'IconPlayerStop' : 'IconPlayerPlay'}
               variant={record.status === 'running' ? 'action' : undefined}
               onClick={() => {
                 openModal(
@@ -219,7 +218,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
             </StyledButton>
             {record.status === 'running' && (
               <StyledButton
-                icon="ArrowPathIcon"
+                icon="IconRefresh"
                 variant="action"
                 onClick={() => {
                   openModal(

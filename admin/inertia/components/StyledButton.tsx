@@ -1,11 +1,11 @@
-import * as Icons from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
 import clsx from 'clsx'
+import DynamicIcon, { DynamicIconName} from './DynamicIcon'
+import { IconRefresh } from '@tabler/icons-react'
 
 export interface StyledButtonProps extends React.HTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode
-  // icon should be one of the HeroIcon names, e.g. ArrowTopRightOnSquareIcon
-  icon?: keyof typeof Icons
+  icon?: DynamicIconName
   disabled?: boolean
   variant?: 'primary' | 'secondary' | 'danger' | 'action' | 'success' | 'ghost' | 'outline'
   size?: 'sm' | 'md' | 'lg'
@@ -25,12 +25,6 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   const isDisabled = useMemo(() => {
     return props.disabled || loading
   }, [props.disabled, loading])
-
-  const IconComponent = () => {
-    if (!icon) return null
-    const Icon = Icons[icon]
-    return Icon ? <Icon className={getIconSize()} /> : null
-  }
 
   const getIconSize = () => {
     switch (size) {
@@ -136,7 +130,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   const getLoadingSpinner = () => {
     const spinnerSize = size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'
     return (
-      <Icons.ArrowPathIcon
+      <IconRefresh
         className={clsx(spinnerSize, 'animate-spin')}
       />
     )
@@ -168,7 +162,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
         getLoadingSpinner()
       ) : (
         <>
-          {icon && <IconComponent />}
+          {icon && <DynamicIcon icon={icon} className={getIconSize()} />}
           {children}
         </>
       )}

@@ -88,7 +88,7 @@ export default function ZimPage() {
                   <div className="flex space-x-2">
                     <StyledButton
                       variant="danger"
-                      icon={'TrashIcon'}
+                      icon={'IconTrash'}
                       onClick={() => {
                         confirmDeleteFile(record)
                       }}

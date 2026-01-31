@@ -72,7 +72,6 @@
     "@adonisjs/transmit-client": "^1.0.0",
     "@adonisjs/vite": "^4.0.0",
     "@headlessui/react": "^2.2.4",
-    "@heroicons/react": "^2.2.0",
     "@inertiajs/react": "^2.0.13",
     "@markdoc/markdoc": "^0.5.2",
     "@protomaps/basemaps": "^5.7.0",

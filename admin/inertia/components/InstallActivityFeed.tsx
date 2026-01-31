@@ -1,4 +1,4 @@
-import { CheckCircleIcon } from '@heroicons/react/24/outline'
+import { IconCircleCheck } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 
 export type InstallActivityFeedProps = {
@@ -41,7 +41,7 @@ const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, cla
             <>
               <div className="relative flex size-6 flex-none items-center justify-center bg-transparent">
                 {activityItem.type === 'completed' ? (
-                  <CheckCircleIcon aria-hidden="true" className="size-6 text-indigo-600" />
+                  <IconCircleCheck aria-hidden="true" className="size-6 text-indigo-600" />
                 ) : (
                   <div className="size-1.5 rounded-full bg-gray-100 ring-1 ring-gray-300" />
                 )}

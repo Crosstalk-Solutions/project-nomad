@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from '@headlessui/react'
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import classNames from '~/lib/classNames'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
+import { IconMenu2, IconX } from '@tabler/icons-react'
 
 type SidebarItem = {
   name: string
@@ -89,7 +89,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
         className="absolute left-4 top-4 z-50 xl:hidden"
         onClick={() => setSidebarOpen(true)}
       >
-        <Bars3Icon aria-hidden="true" className="size-8" />
+        <IconMenu2 aria-hidden="true" className="size-8" />
       </button>
       {/* Mobile sidebar */}
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 xl:hidden">
@@ -111,7 +111,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
                   className="-m-2.5 p-2.5"
                 >
                   <span className="sr-only">Close sidebar</span>
-                  <XMarkIcon aria-hidden="true" className="size-6 text-white" />
+                  <IconX aria-hidden="true" className="size-6 text-white" />
                 </button>
               </div>
             </TransitionChild>

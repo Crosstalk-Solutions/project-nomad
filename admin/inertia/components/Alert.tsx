@@ -1,5 +1,6 @@
-import * as Icons from '@heroicons/react/24/solid'
+import * as Icons from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
+import DynamicIcon from './DynamicIcon'
 
 export type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
   title: string
@@ -26,24 +27,16 @@ export default function Alert({
   const getDefaultIcon = (): keyof typeof Icons => {
     switch (type) {
       case 'warning':
-        return 'ExclamationTriangleIcon'
+        return 'IconAlertTriangle'
       case 'error':
-        return 'XCircleIcon'
+        return 'IconXboxX'
       case 'success':
-        return 'CheckCircleIcon'
+        return 'IconCircleCheck'
       case 'info':
-        return 'InformationCircleIcon'
+        return 'IconInfoCircle'
       default:
-        return 'InformationCircleIcon'
+        return 'IconInfoCircle'
     }
-  }
-
-  const IconComponent = () => {
-    const iconName = icon || getDefaultIcon()
-    const Icon = Icons[iconName]
-    if (!Icon) return null
-
-    return <Icon aria-hidden="true" className={classNames('size-5 shrink-0', getIconColor())} />
   }
 
   const getIconColor = () => {
@@ -165,7 +158,7 @@ export default function Alert({
   return (
     <div {...props} className={classNames(getVariantStyles(), 'p-4', props.className)} role="alert">
       <div className="flex gap-3">
-        <IconComponent />
+        <DynamicIcon icon={getDefaultIcon()} className={getIconColor() + ' size-5 shrink-0'} />
 
         <div className="flex-1 min-w-0">
           <h3 className={classNames('text-sm font-semibold', getTitleColor())}>{title}</h3>
@@ -192,7 +185,7 @@ export default function Alert({
             )}
             aria-label="Dismiss alert"
           >
-            <Icons.XMarkIcon className="size-5" />
+            <DynamicIcon icon="IconX" className="size-5" />
           </button>
         )}
       </div>

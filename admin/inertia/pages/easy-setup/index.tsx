@@ -1210,7 +1210,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     onClick={handleBack}
                     disabled={isProcessing}
                     variant="outline"
-                    icon="ChevronLeftIcon"
+                    icon="IconChevronLeft"
                   >
                     Back
                   </StyledButton>
@@ -1244,7 +1244,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     onClick={handleNext}
                     disabled={!canProceedToNextStep() || isProcessing}
                     variant="primary"
-                    icon="ChevronRightIcon"
+                    icon="IconChevronRight"
                   >
                     Next
                   </StyledButton>
@@ -1254,7 +1254,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     disabled={isProcessing || !isOnline || !anySelectionMade}
                     loading={isProcessing}
                     variant="success"
-                    icon="CheckIcon"
+                    icon="IconCheck"
                   >
                     Complete Setup
                   </StyledButton>
