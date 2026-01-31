@@ -1,11 +1,22 @@
 # *NOTE: Project N.O.M.A.D. is still in active development and should not be considered stable!*
 
-<div style="width: 100;text-align: center;margin-bottom: 25px;">
+<div align="center">
 <img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/admin/public/project_nomad_logo.png" width="200" height="200"/>
+
+# Project N.O.M.A.D.
+### Node for Offline Media, Archives, and Data
+
+**Knowledge That Never Goes Offline**
+
+[![Website](https://img.shields.io/badge/Website-projectnomad.us-blue)](https://www.projectnomad.us)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2)](https://discord.com/invite/crosstalksolutions)
+[![Benchmark](https://img.shields.io/badge/Benchmark-Leaderboard-green)](https://benchmark.projectnomad.us)
+
 </div>
 
-# Project N.O.M.A.D. (Node for Offline Media, Archives, and Data)
-Project N.O.M.A.D., is a self-contained, offline survival computer packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
+---
+
+Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
 
 ## Installation & Quickstart
 Project N.O.M.A.D. can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
@@ -73,6 +84,12 @@ By design, Project N.O.M.A.D. is intended to be open and available without hurdl
 This project uses semantic versioning. The version is managed in the root `package.json` 
 and automatically updated by semantic-release. For simplicity's sake, the "project-nomad" container
 uses the same version defined there instead of the version in `admin/package.json` (stays at 0.0.0), as it's the only container derived from the code.
+
+## Community & Resources
+
+- **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
+- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
+- **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
 
 ## Helper Scripts
 Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
