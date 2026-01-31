@@ -261,7 +261,7 @@ export default function SystemUpdatePage(props: {
                   <StyledButton
                     variant="primary"
                     size="lg"
-                    icon="ArrowDownTrayIcon"
+                    icon="IconDownload"
                     onClick={handleStartUpdate}
                     disabled={!props.system.updateAvailable}
                   >
@@ -270,7 +270,7 @@ export default function SystemUpdatePage(props: {
                   <StyledButton
                     variant="ghost"
                     size="lg"
-                    icon="ArrowPathIcon"
+                    icon="IconRefresh"
                     onClick={() => window.location.reload()}
                   >
                     Check Again
@@ -323,7 +323,7 @@ export default function SystemUpdatePage(props: {
                   <StyledButton
                     variant="ghost"
                     size="sm"
-                    icon="DocumentTextIcon"
+                    icon="IconLogs"
                     onClick={handleViewLogs}
                     fullWidth
                   >

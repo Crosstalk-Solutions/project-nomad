@@ -303,7 +303,7 @@ export default function ZimRemoteExplorer() {
           <StyledButton
             onClick={() => fetchLatestCollections.mutate()}
             disabled={fetchLatestCollections.isPending}
-            icon="CloudArrowDownIcon"
+            icon="IconCloudDownload"
           >
             Fetch Latest Collections
           </StyledButton>
@@ -404,7 +404,7 @@ export default function ZimRemoteExplorer() {
                   return (
                     <div className="flex space-x-2">
                       <StyledButton
-                        icon={'ArrowDownTrayIcon'}
+                        icon={'IconDownload'}
                         onClick={() => {
                           confirmDownload(record)
                         }}

@@ -198,7 +198,7 @@ export default function MapsManager(props: {
                 variant="primary"
                 onClick={openDownloadModal}
                 loading={downloading}
-                icon="CloudArrowDownIcon"
+                icon="IconCloudDownload"
               >
                 Download Custom Map File
               </StyledButton>
@@ -213,7 +213,7 @@ export default function MapsManager(props: {
               buttonProps={{
                 variant: 'secondary',
                 children: 'Download Base Assets',
-                icon: 'ArrowDownTrayIcon',
+                icon: 'IconDownload',
                 loading: downloading,
                 onClick: () => downloadBaseAssets(),
               }}
@@ -223,7 +223,7 @@ export default function MapsManager(props: {
           <StyledButton
             onClick={() => fetchLatestCollections.mutate()}
             disabled={fetchLatestCollections.isPending}
-            icon="CloudArrowDownIcon"
+            icon="IconCloudDownload"
           >
             Fetch Latest Collections
           </StyledButton>
@@ -254,7 +254,7 @@ export default function MapsManager(props: {
                   <div className="flex space-x-2">
                     <StyledButton
                       variant="danger"
-                      icon={'TrashIcon'}
+                      icon={'IconTrash'}
                       onClick={() => {
                         confirmDeleteFile(record)
                       }}

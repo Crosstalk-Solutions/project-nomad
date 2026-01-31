@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import { NotificationContext, Notification } from '../context/NotificationContext'
-import {
-  CheckCircleIcon,
-  InformationCircleIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline'
+import { IconExclamationCircle, IconCircleCheck, IconInfoCircle } from '@tabler/icons-react'
 
 const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
   const [notifications, setNotifications] = useState<(Notification & { id: string })[]>([])
@@ -32,13 +28,13 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
   const Icon = ({ type }: { type: string }) => {
     switch (type) {
       case 'error':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+        return <IconExclamationCircle className="h-5 w-5 text-red-500" />
       case 'success':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />
+        return <IconCircleCheck className="h-5 w-5 text-green-500" />
       case 'info':
-        return <InformationCircleIcon className="h-5 w-5 text-blue-500" />
+        return <IconInfoCircle className="h-5 w-5 text-blue-500" />
       default:
-        return <InformationCircleIcon className="h-5 w-5 text-blue-500" />
+        return <IconInfoCircle className="h-5 w-5 text-blue-500" />
     }
   }
 

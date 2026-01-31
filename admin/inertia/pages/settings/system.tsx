@@ -5,15 +5,10 @@ import { formatBytes } from '~/lib/util'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
 import HorizontalBarChart from '~/components/HorizontalBarChart'
 import InfoCard from '~/components/systeminfo/InfoCard'
-import {
-  CpuChipIcon,
-  CircleStackIcon,
-  ServerIcon,
-  ComputerDesktopIcon,
-} from '@heroicons/react/24/outline'
 import Alert from '~/components/Alert'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import StatusCard from '~/components/systeminfo/StatusCard'
+import { IconCpu, IconDatabase, IconServer, IconDeviceDesktop } from '@tabler/icons-react'
 
 export default function SettingsPage(props: {
   system: { info: SystemInformationResponse | undefined }
@@ -35,7 +30,13 @@ export default function SettingsPage(props: {
   // Build storage display items - fall back to fsSize when disk array is empty
   // (Same approach as Easy Setup wizard fix from PR #90)
   const validDisks = info?.disk?.filter((d) => d.totalSize > 0) || []
-  let storageItems: { label: string; value: number; total: string; used: string; subtext: string }[] = []
+  let storageItems: {
+    label: string
+    value: number
+    total: string
+    used: string
+    subtext: string
+  }[] = []
   if (validDisks.length > 0) {
     storageItems = validDisks.map((disk) => ({
       label: disk.name || 'Unknown',
@@ -100,7 +101,7 @@ export default function SettingsPage(props: {
                   size="lg"
                   variant="cpu"
                   subtext={`${info?.cpu.cores || 0} cores`}
-                  icon={<CpuChipIcon className="w-8 h-8" />}
+                  icon={<IconCpu className="w-8 h-8" />}
                 />
               </div>
               <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
@@ -110,7 +111,7 @@ export default function SettingsPage(props: {
                   size="lg"
                   variant="memory"
                   subtext={`${formatBytes(info?.mem.used || 0)} / ${formatBytes(info?.mem.total || 0)}`}
-                  icon={<CircleStackIcon className="w-8 h-8" />}
+                  icon={<IconDatabase className="w-8 h-8" />}
                 />
               </div>
               <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
@@ -120,7 +121,7 @@ export default function SettingsPage(props: {
                   size="lg"
                   variant="disk"
                   subtext={`${formatBytes(info?.mem.swapused || 0)} / ${formatBytes(info?.mem.swaptotal || 0)}`}
-                  icon={<ServerIcon className="w-8 h-8" />}
+                  icon={<IconServer className="w-8 h-8" />}
                 />
               </div>
             </div>
@@ -134,7 +135,7 @@ export default function SettingsPage(props: {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <InfoCard
                 title="Operating System"
-                icon={<ComputerDesktopIcon className="w-6 h-6" />}
+                icon={<IconDeviceDesktop className="w-6 h-6" />}
                 variant="elevated"
                 data={[
                   { label: 'Distribution', value: info?.os.distro },
@@ -146,7 +147,7 @@ export default function SettingsPage(props: {
               />
               <InfoCard
                 title="Processor"
-                icon={<CpuChipIcon className="w-6 h-6" />}
+                icon={<IconCpu className="w-6 h-6" />}
                 variant="elevated"
                 data={[
                   { label: 'Manufacturer', value: info?.cpu.manufacturer },

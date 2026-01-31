@@ -1,4 +1,4 @@
-import { InformationCircleIcon } from '@heroicons/react/24/outline'
+import { IconInfoCircle } from '@tabler/icons-react'
 import { useState } from 'react'
 
 interface InfoTooltipProps {
@@ -20,7 +20,7 @@ export default function InfoTooltip({ text, className = '' }: InfoTooltipProps) 
         onBlur={() => setIsVisible(false)}
         aria-label="More information"
       >
-        <InformationCircleIcon className="w-4 h-4" />
+        <IconInfoCircle className="w-4 h-4" />
       </button>
       {isVisible && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50">

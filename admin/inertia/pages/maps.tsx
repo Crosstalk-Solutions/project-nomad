@@ -24,7 +24,7 @@ export default function Maps(props: {
           <p className="text-lg text-gray-600">Back to Home</p>
         </Link>
         <Link href="/settings/maps">
-          <StyledButton variant="primary" icon="Cog6ToothIcon">
+          <StyledButton variant="primary" icon="IconSettings">
             Manage Map Regions
           </StyledButton>
         </Link>
@@ -39,7 +39,7 @@ export default function Maps(props: {
             buttonProps={{
               variant: 'secondary',
               children: 'Go to Map Settings',
-              icon: 'Cog6ToothIcon',
+              icon: 'IconSettings',
               onClick: () => {
                 window.location.href = '/settings/maps'
               },

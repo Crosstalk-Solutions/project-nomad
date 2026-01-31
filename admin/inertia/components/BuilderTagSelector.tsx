@@ -1,5 +1,5 @@
+import { IconRefresh } from '@tabler/icons-react'
 import { useState, useEffect } from 'react'
-import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import {
   ADJECTIVES,
   NOUNS,
@@ -118,7 +118,7 @@ export default function BuilderTagSelector({
           className="p-2 text-desert-stone-dark hover:text-desert-green hover:bg-desert-stone-lighter rounded-lg transition-colors disabled:opacity-50"
           title="Randomize"
         >
-          <ArrowPathIcon className="w-5 h-5" />
+          <IconRefresh className="w-5 h-5" />
         </button>
       </div>
 

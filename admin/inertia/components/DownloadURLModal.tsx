@@ -55,7 +55,7 @@ const DownloadURLModal: React.FC<DownloadURLModalProps> = ({
       onConfirm={() => runPreflightCheck(url)}
       open={true}
       confirmText="Download"
-      confirmIcon="ArrowDownTrayIcon"
+      confirmIcon="IconDownload"
       cancelText="Cancel"
       confirmVariant="primary"
       confirmLoading={loading}

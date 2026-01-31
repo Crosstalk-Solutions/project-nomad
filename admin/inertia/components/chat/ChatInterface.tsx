@@ -1,5 +1,4 @@
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline'
-import { IconWand } from '@tabler/icons-react'
+import { IconSend, IconWand } from '@tabler/icons-react'
 import { useState, useRef, useEffect } from 'react'
 import classNames from '~/lib/classNames'
 import { ChatMessage } from '../../../types/chat'
@@ -139,7 +138,7 @@ export default function ChatInterface({
             {isLoading ? (
               <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <PaperAirplaneIcon className="h-6 w-6" />
+              <IconSend className="h-6 w-6" />
             )}
           </button>
         </form>

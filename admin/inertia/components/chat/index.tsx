@@ -1,4 +1,3 @@
-import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useState, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
@@ -9,6 +8,7 @@ import { formatBytes } from '~/lib/util'
 import { useModals } from '~/context/ModalContext'
 import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
+import { IconX } from '@tabler/icons-react'
 
 interface ChatProps {
   enabled: boolean
@@ -254,7 +254,7 @@ export default function Chat({ enabled, isInModal, onClose }: ChatProps) {
                 }}
                 className="rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <XMarkIcon className="h-6 w-6 text-gray-500" />
+                <IconX className="h-6 w-6 text-gray-500" />
               </button>
             )}
           </div>

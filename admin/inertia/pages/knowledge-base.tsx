@@ -64,7 +64,7 @@ export default function KnowledgeBase() {
               <StyledButton
                 variant="primary"
                 size="lg"
-                icon="ArrowUpCircleIcon"
+                icon="IconUpload"
                 onClick={handleUpload}
                 disabled={files.length === 0 || uploadMutation.isPending}
                 loading={uploadMutation.isPending}

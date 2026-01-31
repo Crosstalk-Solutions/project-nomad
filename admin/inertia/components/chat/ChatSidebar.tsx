@@ -1,8 +1,8 @@
-import { ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import classNames from '~/lib/classNames'
 import StyledButton from '../StyledButton'
 import { router } from '@inertiajs/react'
 import { ChatSession } from '../../../types/chat'
+import { IconMessage } from '@tabler/icons-react'
 
 interface ChatSidebarProps {
   sessions: ChatSession[]
@@ -24,7 +24,7 @@ export default function ChatSidebar({
   return (
     <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col h-full">
       <div className="p-4 border-b border-gray-200 h-[75px] flex items-center justify-center">
-        <StyledButton onClick={onNewChat} icon="PlusIcon" variant="primary" fullWidth>
+        <StyledButton onClick={onNewChat} icon="IconPlus" variant="primary" fullWidth>
           New Chat
         </StyledButton>
       </div>
@@ -46,7 +46,7 @@ export default function ChatSidebar({
                 )}
               >
                 <div className="flex items-start gap-2">
-                  <ChatBubbleLeftIcon
+                  <IconMessage
                     className={classNames(
                       'h-5 w-5 mt-0.5 flex-shrink-0',
                       activeSessionId === session.id ? 'text-white' : 'text-gray-400'
@@ -83,7 +83,7 @@ export default function ChatSidebar({
                 router.visit('/home')
               }
             }}
-            icon={isInModal ? 'ArrowTopRightOnSquareIcon' : 'HomeIcon'}
+            icon={isInModal ? 'IconExternalLink' : 'IconHome'}
             variant="outline"
             size="sm"
             fullWidth
@@ -94,7 +94,7 @@ export default function ChatSidebar({
             onClick={() => {
               router.visit('/settings/models')
             }}
-            icon="CircleStackIcon"
+            icon="IconDatabase"
             variant="primary"
             size="sm"
             fullWidth
@@ -105,7 +105,7 @@ export default function ChatSidebar({
             onClick={() => {
               router.visit('/knowledge-base')
             }}
-            icon="AcademicCapIcon"
+            icon="IconBrain"
             variant="primary"
             size="sm"
             fullWidth
@@ -114,7 +114,7 @@ export default function ChatSidebar({
           </StyledButton>
           <StyledButton
             onClick={onClearHistory}
-            icon="TrashIcon"
+            icon="IconTrash"
             variant="danger"
             size="sm"
             fullWidth

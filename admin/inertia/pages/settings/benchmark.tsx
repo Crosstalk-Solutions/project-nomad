@@ -8,15 +8,7 @@ import Alert from '~/components/Alert'
 import StyledButton from '~/components/StyledButton'
 import InfoTooltip from '~/components/InfoTooltip'
 import BuilderTagSelector from '~/components/BuilderTagSelector'
-import {
-  ChartBarIcon,
-  CpuChipIcon,
-  CircleStackIcon,
-  ServerIcon,
-  ChevronDownIcon,
-  ClockIcon,
-} from '@heroicons/react/24/outline'
-import { IconRobot } from '@tabler/icons-react'
+import { IconRobot, IconChartBar, IconCpu, IconDatabase, IconServer, IconChevronDown, IconClock } from '@tabler/icons-react'
 import { useTransmit } from 'react-adonis-transmit'
 import { BenchmarkProgress, BenchmarkStatus } from '../../../types/benchmark'
 import BenchmarkResult from '#models/benchmark_result'
@@ -378,7 +370,7 @@ export default function BenchmarkPage(props: {
                     <StyledButton
                       onClick={handleFullBenchmarkClick}
                       disabled={runBenchmark.isPending}
-                      icon='PlayIcon'
+                      icon='IconPlayerPlay'
                     >
                       Run Full Benchmark
                     </StyledButton>
@@ -386,7 +378,7 @@ export default function BenchmarkPage(props: {
                       variant="secondary"
                       onClick={() => runBenchmark.mutate('system')}
                       disabled={runBenchmark.isPending}
-                      icon='CpuChipIcon'
+                      icon='IconCpu'
                     >
                       System Only
                     </StyledButton>
@@ -394,7 +386,7 @@ export default function BenchmarkPage(props: {
                       variant="secondary"
                       onClick={() => runBenchmark.mutate('ai')}
                       disabled={runBenchmark.isPending || !aiInstalled}
-                      icon='SparklesIcon'
+                      icon='IconWand'
                       title={!aiInstalled ? 'AI Assistant must be installed to run AI benchmark' : undefined}
                     >
                       AI Only
@@ -431,7 +423,7 @@ export default function BenchmarkPage(props: {
                         size="lg"
                         variant="cpu"
                         subtext="out of 100"
-                        icon={<ChartBarIcon className="w-8 h-8" />}
+                        icon={<IconChartBar className="w-8 h-8" />}
                       />
                     </div>
                     <div className="flex-1 space-y-4">
@@ -482,7 +474,7 @@ export default function BenchmarkPage(props: {
                               anonymous: shareAnonymously
                             })}
                             disabled={submitResult.isPending}
-                            icon='CloudArrowUpIcon'
+                            icon='IconCloudUpload'
                           >
                             {submitResult.isPending ? 'Submitting...' : 'Share with Community'}
                           </StyledButton>
@@ -544,7 +536,7 @@ export default function BenchmarkPage(props: {
                       label="CPU"
                       size="md"
                       variant="cpu"
-                      icon={<CpuChipIcon className="w-6 h-6" />}
+                      icon={<IconCpu className="w-6 h-6" />}
                     />
                   </div>
                   <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm">
@@ -553,7 +545,7 @@ export default function BenchmarkPage(props: {
                       label="Memory"
                       size="md"
                       variant="memory"
-                      icon={<CircleStackIcon className="w-6 h-6" />}
+                      icon={<IconDatabase className="w-6 h-6" />}
                     />
                   </div>
                   <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm">
@@ -562,7 +554,7 @@ export default function BenchmarkPage(props: {
                       label="Disk Read"
                       size="md"
                       variant="disk"
-                      icon={<ServerIcon className="w-6 h-6" />}
+                      icon={<IconServer className="w-6 h-6" />}
                     />
                   </div>
                   <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm">
@@ -571,7 +563,7 @@ export default function BenchmarkPage(props: {
                       label="Disk Write"
                       size="md"
                       variant="disk"
-                      icon={<ServerIcon className="w-6 h-6" />}
+                      icon={<IconServer className="w-6 h-6" />}
                     />
                   </div>
                 </div>
@@ -646,7 +638,7 @@ export default function BenchmarkPage(props: {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <InfoCard
                     title="Processor"
-                    icon={<CpuChipIcon className="w-6 h-6" />}
+                    icon={<IconCpu className="w-6 h-6" />}
                     variant="elevated"
                     data={[
                       { label: 'Model', value: latestResult.cpu_model },
@@ -656,7 +648,7 @@ export default function BenchmarkPage(props: {
                   />
                   <InfoCard
                     title="System"
-                    icon={<ServerIcon className="w-6 h-6" />}
+                    icon={<IconServer className="w-6 h-6" />}
                     variant="elevated"
                     data={[
                       { label: 'RAM', value: formatBytes(latestResult.ram_bytes) },
@@ -697,7 +689,7 @@ export default function BenchmarkPage(props: {
                         <div className="font-bold text-desert-green">{latestResult.nomad_score.toFixed(1)}</div>
                       </div>
                     </div>
-                    <ChevronDownIcon
+                    <IconChevronDown
                       className={`w-5 h-5 text-desert-stone-dark transition-transform ${showDetails ? 'rotate-180' : ''}`}
                     />
                   </button>
@@ -799,12 +791,12 @@ export default function BenchmarkPage(props: {
                       className="w-full p-4 flex items-center justify-between hover:bg-desert-stone-lighter/30 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <ClockIcon className="w-5 h-5 text-desert-stone-dark" />
+                        <IconClock className="w-5 h-5 text-desert-stone-dark" />
                         <span className="font-medium text-desert-green">
                           {benchmarkHistory.length} benchmark{benchmarkHistory.length !== 1 ? 's' : ''} recorded
                         </span>
                       </div>
-                      <ChevronDownIcon
+                      <IconChevronDown
                         className={`w-5 h-5 text-desert-stone-dark transition-transform ${showHistory ? 'rotate-180' : ''}`}
                       />
                     </button>
