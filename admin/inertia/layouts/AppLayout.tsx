@@ -1,6 +1,11 @@
+import { useState } from 'react'
 import Footer from '~/components/Footer'
+import ChatButton from '~/components/chat/ChatButton'
+import ChatModal from '~/components/chat/ChatModal'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const [isChatOpen, setIsChatOpen] = useState(false)
+
   return (
     <div className="min-h-screen flex flex-col">
       <div
@@ -13,6 +18,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <hr className="text-desert-green font-semibold h-[1.5px] bg-desert-green border-none" />
       <div className="flex-1 w-full bg-desert">{children}</div>
       <Footer />
+
+      <ChatButton onClick={() => setIsChatOpen(true)} />      
+      <ChatModal open={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </div>
   )
 }

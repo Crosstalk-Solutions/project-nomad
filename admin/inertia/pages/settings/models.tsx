@@ -1,7 +1,7 @@
 import { Head, router } from '@inertiajs/react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
-import { NomadOllamaModel, OllamaModelListing } from '../../../types/ollama'
+import { NomadOllamaModel } from '../../../types/ollama'
 import StyledButton from '~/components/StyledButton'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Alert from '~/components/Alert'
@@ -9,9 +9,10 @@ import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
+import { ModelResponse } from 'ollama'
 
 export default function ModelsPage(props: {
-  models: { availableModels: NomadOllamaModel[]; installedModels: OllamaModelListing[] }
+  models: { availableModels: NomadOllamaModel[]; installedModels: ModelResponse[] }
 }) {
   const { isInstalled } = useServiceInstalledStatus('nomad_open_webui')
   const { addNotification } = useNotifications()

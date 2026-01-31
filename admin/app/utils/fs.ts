@@ -164,3 +164,12 @@ export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 
     return 'unknown'
   }
 }
+
+/**
+ * Sanitize a filename by removing potentially dangerous characters.
+ * @param filename The original filename
+ * @returns The sanitized filename
+ */
+export function sanitizeFilename(filename: string): string {
+  return filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+}

@@ -1,12 +1,50 @@
 import { Head } from '@inertiajs/react'
-import { useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
+import StyledSectionHeader from '~/components/StyledSectionHeader'
+import StyledTable from '~/components/StyledTable'
+import { useNotifications } from '~/context/NotificationContext'
 import AppLayout from '~/layouts/AppLayout'
+import api from '~/lib/api'
 
 export default function KnowledgeBase() {
-  const [loading, setLoading] = useState(false)
+  const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
+  const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
+
+  const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
+    queryKey: ['storedFiles'],
+    queryFn: () => api.getStoredRAGFiles(),
+    select: (data) => data || [],
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => api.uploadDocument(file),
+    onSuccess: (data) => {
+      addNotification({
+        type: 'success',
+        message: data?.message || 'Document uploaded and queued for processing',
+      })
+      setFiles([])
+      if (fileUploaderRef.current) {
+        fileUploaderRef.current.clear()
+      }
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to upload document',
+      })
+    },
+  })
+
+  const handleUpload = () => {
+    if (files.length > 0) {
+      uploadMutation.mutate(files[0])
+    }
+  }
 
   return (
     <AppLayout>
@@ -15,12 +53,11 @@ export default function KnowledgeBase() {
         <div className="bg-white rounded-lg border shadow-md overflow-hidden">
           <div className="p-6">
             <FileUploader
+              ref={fileUploaderRef}
               minFiles={1}
               maxFiles={1}
-              onUpload={(files) => {
-                setLoading(true)
-                setFiles(Array.from(files))
-                setLoading(false)
+              onUpload={(uploadedFiles) => {
+                setFiles(Array.from(uploadedFiles))
               }}
             />
             <div className="flex justify-center gap-4 my-6">
@@ -28,9 +65,9 @@ export default function KnowledgeBase() {
                 variant="primary"
                 size="lg"
                 icon="ArrowUpCircleIcon"
-                onClick={() => {}}
-                disabled={files.length === 0 || loading}
-                loading={loading}
+                onClick={handleUpload}
+                disabled={files.length === 0 || uploadMutation.isPending}
+                loading={uploadMutation.isPending}
               >
                 Upload
               </StyledButton>
@@ -90,6 +127,25 @@ export default function KnowledgeBase() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="my-12">
+          <StyledSectionHeader title="Stored Knowledge Base Files" />
+          <StyledTable<{ source: string }>
+            className="font-semibold"
+            rowLines={true}
+            columns={[
+              {
+                accessor: 'source',
+                title: 'File Name',
+                render(record) {
+                  return <span className="text-gray-700">{record.source}</span>
+                },
+              },
+            ]}
+            data={storedFiles.map((source) => ({ source }))}
+            loading={isLoadingFiles}
+          />
         </div>
       </main>
     </AppLayout>

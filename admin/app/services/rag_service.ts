@@ -1,29 +1,26 @@
-import { Ollama } from 'ollama'
 import { QdrantClient } from '@qdrant/js-client-rest'
 import { DockerService } from './docker_service.js'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import { chunk } from 'llm-chunk'
-import { OpenWebUIService } from './openwebui_service.js'
 import sharp from 'sharp'
 import { determineFileType, getFile } from '../utils/fs.js'
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
+import { OllamaService } from './ollama_service.js'
 
 @inject()
 export class RagService {
   private qdrant: QdrantClient | null = null
-  private ollama: Ollama | null = null
   private qdrantInitPromise: Promise<void> | null = null
-  private ollamaInitPromise: Promise<void> | null = null
   public static CONTENT_COLLECTION_NAME = 'open-webui_knowledge' // This is the collection name OWUI uses for uploaded knowledge
   public static EMBEDDING_MODEL = 'nomic-embed-text:v1.5'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
 
   constructor(
     private dockerService: DockerService,
-    private openWebUIService: OpenWebUIService
+    private ollamaService: OllamaService
   ) {}
 
   private async _initializeQdrantClient() {
@@ -33,31 +30,15 @@ export class RagService {
         if (!qdrantUrl) {
           throw new Error('Qdrant service is not installed or running.')
         }
-        this.qdrant = new QdrantClient({ url: `http://${qdrantUrl}` })
+        this.qdrant = new QdrantClient({ url: qdrantUrl })
       })()
     }
     return this.qdrantInitPromise
   }
 
-  private async _initializeOllamaClient() {
-    if (!this.ollamaInitPromise) {
-      this.ollamaInitPromise = (async () => {
-        const ollamaUrl = await this.dockerService.getServiceURL(DockerService.OLLAMA_SERVICE_NAME)
-        if (!ollamaUrl) {
-          throw new Error('Ollama service is not installed or running.')
-        }
-        this.ollama = new Ollama({ host: `http://${ollamaUrl}` })
-      })()
-    }
-    return this.ollamaInitPromise
-  }
-
   private async _ensureDependencies() {
     if (!this.qdrant) {
       await this._initializeQdrantClient()
-    }
-    if (!this.ollama) {
-      await this._initializeOllamaClient()
     }
   }
 
@@ -93,13 +74,13 @@ export class RagService {
         RagService.CONTENT_COLLECTION_NAME,
         RagService.EMBEDDING_DIMENSION
       )
-      const initModelResponse = await this.openWebUIService.downloadModelSync(
-        RagService.EMBEDDING_MODEL
-      )
-      if (!initModelResponse.success) {
-        throw new Error(
-          `${RagService.EMBEDDING_MODEL} does not exist and could not be downloaded: ${initModelResponse.message}`
-        )
+
+      const allModels = await this.ollamaService.getModels(true)
+      const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
+
+      // TODO: Attempt to download the embedding model if not found
+      if (!embeddingModel) {
+        throw new Error(`${RagService.EMBEDDING_MODEL} does not exist and could not be downloaded.`)
       }
 
       const chunks = chunk(text, {
@@ -114,8 +95,9 @@ export class RagService {
       }
 
       const embeddings: number[][] = []
+      const ollamaClient = await this.ollamaService.getClient()
       for (const chunkText of chunks) {
-        const response = await this.ollama!.embeddings({
+        const response = await ollamaClient.embeddings({
           model: RagService.EMBEDDING_MODEL,
           prompt: chunkText,
         })
@@ -213,7 +195,7 @@ export class RagService {
    */
   public async processAndEmbedFile(
     filepath: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; chunks?: number }> {
     try {
       const fileType = determineFileType(filepath)
       if (fileType === 'unknown') {
@@ -252,11 +234,113 @@ export class RagService {
 
       const embedResult = await this.embedAndStoreText(extractedText, {})
 
-
-      return { success: true, message: 'File processed and embedded successfully.' }
+      return {
+        success: true,
+        message: 'File processed and embedded successfully.',
+        chunks: embedResult?.chunks,
+      }
     } catch (error) {
       logger.error('Error processing and embedding file:', error)
       return { success: false, message: 'Error processing and embedding file.' }
+    }
+  }
+
+  /**
+   * Search for documents similar to the query text in the Qdrant knowledge base.
+   * Returns the most relevant text chunks based on semantic similarity.
+   * @param query - The search query text
+   * @param limit - Maximum number of results to return (default: 5)
+   * @param scoreThreshold - Minimum similarity score threshold (default: 0.7)
+   * @returns Array of relevant text chunks with their scores
+   */
+  public async searchSimilarDocuments(
+    query: string,
+    limit: number = 5,
+    scoreThreshold: number = 0.7
+  ): Promise<Array<{ text: string; score: number }>> {
+    try {
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      const allModels = await this.ollamaService.getModels(true)
+      const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
+
+      if (!embeddingModel) {
+        logger.warn(
+          `${RagService.EMBEDDING_MODEL} not found. Cannot perform similarity search.`
+        )
+        return []
+      }
+
+      // Generate embedding for the query
+      const ollamaClient = await this.ollamaService.getClient()
+      const response = await ollamaClient.embeddings({
+        model: RagService.EMBEDDING_MODEL,
+        prompt: query,
+      })
+
+      // Search for similar vectors in Qdrant
+      const searchResults = await this.qdrant!.search(RagService.CONTENT_COLLECTION_NAME, {
+        vector: response.embedding,
+        limit: limit,
+        score_threshold: scoreThreshold,
+        with_payload: true,
+      })
+
+      console.log("Got search results:", searchResults);
+
+      return searchResults.map((result) => ({
+        text: (result.payload?.text as string) || '',
+        score: result.score,
+      }))
+    } catch (error) {
+      logger.error('Error searching similar documents:', error)
+      return []
+    }
+  }
+
+  /**
+   * Retrieve all unique source files that have been stored in the knowledge base.
+   * @returns Array of unique source file identifiers
+   */
+  public async getStoredFiles(): Promise<string[]> {
+    try {
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      const sources = new Set<string>()
+      let offset: string | number | null | Record<string, unknown> = null
+      const batchSize = 100
+
+      // Scroll through all points in the collection
+      do {
+        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
+          limit: batchSize,
+          offset: offset,
+          with_payload: true,
+          with_vector: false,
+        })
+
+        // Extract unique source values from payloads
+        scrollResult.points.forEach((point) => {
+          const metadata = point.payload?.metadata
+          if (metadata && typeof metadata === 'object' && 'source' in metadata) {
+            const source = metadata.source as string
+            sources.add(source)
+          }
+        })
+
+        offset = scrollResult.next_page_offset || null
+      } while (offset !== null)
+
+      return Array.from(sources)
+    } catch (error) {
+      logger.error('Error retrieving stored files:', error)
+      return []
     }
   }
 }
