@@ -119,6 +119,7 @@ router
   .group(() => {
     router.post('/upload', [RagController, 'upload'])
     router.get('/files', [RagController, 'getStoredFiles'])
+    router.get('/job-status', [RagController, 'getJobStatus'])
   })
   .prefix('/api/rag')
 

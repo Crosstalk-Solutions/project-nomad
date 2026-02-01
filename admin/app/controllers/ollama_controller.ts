@@ -41,16 +41,17 @@ export default class OllamaController {
 
     if (lastUserMessage) {
       // Search for relevant context in the knowledge base
+      // Using lower threshold (0.3) with improved hybrid search
       const relevantDocs = await this.ragService.searchSimilarDocuments(
         lastUserMessage.content,
         5, // Retrieve top 5 most relevant chunks
-        0.7 // Minimum similarity score of 0.7
+        0.3 // Minimum similarity score of 0.3 (lowered from 0.7 for better recall)
       )
 
       // If relevant context is found, inject as a system message
       if (relevantDocs.length > 0) {
         const contextText = relevantDocs
-          .map((doc, idx) => `[Context ${idx + 1}]\n${doc.text}`)
+          .map((doc, idx) => `[Context ${idx + 1}] (Relevance: ${(doc.score * 100).toFixed(1)}%)\n${doc.text}`)
           .join('\n\n')
 
         const systemMessage = {

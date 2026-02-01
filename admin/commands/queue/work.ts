@@ -5,6 +5,7 @@ import queueConfig from '#config/queue'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
+import { EmbedFileJob } from '#jobs/embed_file_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -90,10 +91,12 @@ export default class QueueWork extends BaseCommand {
     handlers.set(RunDownloadJob.key, new RunDownloadJob())
     handlers.set(DownloadModelJob.key, new DownloadModelJob())
     handlers.set(RunBenchmarkJob.key, new RunBenchmarkJob())
+    handlers.set(EmbedFileJob.key, new EmbedFileJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(DownloadModelJob.key, DownloadModelJob.queue)
     queues.set(RunBenchmarkJob.key, RunBenchmarkJob.queue)
+    queues.set(EmbedFileJob.key, EmbedFileJob.queue)
 
     return [handlers, queues]
   }
@@ -107,6 +110,7 @@ export default class QueueWork extends BaseCommand {
       [RunDownloadJob.queue]: 3,
       [DownloadModelJob.queue]: 2, // Lower concurrency for resource-intensive model downloads
       [RunBenchmarkJob.queue]: 1, // Run benchmarks one at a time for accurate results
+      [EmbedFileJob.queue]: 2, // Lower concurrency for embedding jobs, can be resource intensive
       default: 3,
     }
 

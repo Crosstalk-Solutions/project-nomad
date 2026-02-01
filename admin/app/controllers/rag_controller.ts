@@ -1,9 +1,12 @@
 import { RagService } from '#services/rag_service'
+import { EmbedFileJob } from '#jobs/embed_file_job'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
+import { stat } from 'node:fs/promises'
+import { getJobStatusSchema } from '#validators/rag'
 
 @inject()
 export default class RagController {
@@ -19,19 +22,48 @@ export default class RagController {
     const sanitizedName = sanitizeFilename(uploadedFile.clientName)
 
     const fileName = `${sanitizedName}-${randomSuffix}.${uploadedFile.extname || 'txt'}`
-    const fullPath = app.makePath('storage/uploads', fileName)
+    const fullPath = app.makePath(RagService.UPLOADS_STORAGE_PATH, fileName)
 
-    await uploadedFile.move(app.makePath('storage/uploads'), {
+    await uploadedFile.move(app.makePath(RagService.UPLOADS_STORAGE_PATH), {
       name: fileName,
     })
 
-    // Don't await this - process in background
-    this.ragService.processAndEmbedFile(fullPath)
+    // Get file size for tracking
+    let fileSize: number | undefined = undefined
+    try {
+      const stats = await stat(fullPath)
+      fileSize = stats.size
+    } catch (error) {
+      // Not critical if we can't get file size, just swallow the error
+    }
 
-    return response.status(200).json({
-      message: 'File has been uploaded and queued for processing.',
-      file_path: `/uploads/${fileName}`,
+    // Dispatch background job for embedding
+    const result = await EmbedFileJob.dispatch({
+      filePath: fullPath,
+      fileName,
+      fileSize,
     })
+
+    return response.status(202).json({
+      message: result.message,
+      jobId: result.jobId,
+      fileName,
+      filePath: `/${RagService.UPLOADS_STORAGE_PATH}/${fileName}`,
+      alreadyProcessing: !result.created,
+    })
+  }
+
+  public async getJobStatus({ request, response }: HttpContext) {
+    const reqData = await request.validateUsing(getJobStatusSchema)
+
+    const fullPath = app.makePath(RagService.UPLOADS_STORAGE_PATH, reqData.filePath)
+    const status = await EmbedFileJob.getStatus(fullPath)
+
+    if (!status.exists) {
+      return response.status(404).json({ error: 'Job not found for this file' })
+    }
+
+    return response.status(200).json(status)
   }
 
   public async getStoredFiles({ response }: HttpContext) {
