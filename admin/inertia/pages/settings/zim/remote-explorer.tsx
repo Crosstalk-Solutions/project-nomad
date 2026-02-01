@@ -36,6 +36,7 @@ import {
 } from '../../../../types/downloads'
 import useDownloads from '~/hooks/useDownloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
+import { SERVICE_NAMES } from '../../../../constants/service_names'
 
 const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
@@ -60,7 +61,7 @@ export default function ZimRemoteExplorer() {
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
-  const { isInstalled } = useServiceInstalledStatus('nomad_kiwix_serve')
+  const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.KIWIX)
   const { debounce } = useDebounce()
 
   const [query, setQuery] = useState('')

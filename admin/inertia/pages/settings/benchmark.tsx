@@ -22,6 +22,7 @@ import { BenchmarkProgress, BenchmarkStatus } from '../../../types/benchmark'
 import BenchmarkResult from '#models/benchmark_result'
 import api from '~/lib/api'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
+import { SERVICE_NAMES } from '../../../constants/service_names'
 
 type BenchmarkProgressWithID = BenchmarkProgress & { benchmark_id: string }
 
@@ -34,7 +35,7 @@ export default function BenchmarkPage(props: {
 }) {
   const { subscribe } = useTransmit()
   const queryClient = useQueryClient()
-  const aiInstalled = useServiceInstalledStatus('nomad_ollama')
+  const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
   const [showDetails, setShowDetails] = useState(false)

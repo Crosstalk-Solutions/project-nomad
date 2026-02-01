@@ -26,6 +26,7 @@ import InstalledTier from '#models/installed_tier'
 import WikipediaSelection from '#models/wikipedia_selection'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const CATEGORIES_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/collections/kiwix-categories.json'
@@ -243,7 +244,7 @@ export class ZimService implements IZimService {
     // Restart KIWIX container to pick up new ZIM file
     if (restart) {
       await this.dockerService
-        .affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart')
+        .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
         .catch((error) => {
           logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
         })
@@ -434,7 +435,7 @@ export class ZimService implements IZimService {
 
       // Restart Kiwix to reflect the change
       await this.dockerService
-        .affectContainer(DockerService.KIWIX_SERVICE_NAME, 'restart')
+        .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
         .catch((error) => {
           logger.error(`[ZimService] Failed to restart Kiwix after Wikipedia removal:`, error)
         })

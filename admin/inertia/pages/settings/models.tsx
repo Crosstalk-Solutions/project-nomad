@@ -10,11 +10,12 @@ import api from '~/lib/api'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import { ModelResponse } from 'ollama'
+import { SERVICE_NAMES } from '../../../constants/service_names'
 
 export default function ModelsPage(props: {
   models: { availableModels: NomadOllamaModel[]; installedModels: ModelResponse[] }
 }) {
-  const { isInstalled } = useServiceInstalledStatus('nomad_ollama')
+  const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
 

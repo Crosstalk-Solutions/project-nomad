@@ -1,8 +1,8 @@
 import Service from '#models/service'
-import { DockerService } from '#services/docker_service'
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { ModelAttributes } from '@adonisjs/lucid/types/model'
 import env from '#start/env'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 export default class ServiceSeeder extends BaseSeeder {
   // Use environment variable with fallback to production default
@@ -15,7 +15,7 @@ export default class ServiceSeeder extends BaseSeeder {
     'created_at' | 'updated_at' | 'metadata' | 'id'
   >[] = [
     {
-      service_name: DockerService.KIWIX_SERVICE_NAME,
+      service_name: SERVICE_NAMES.KIWIX,
       friendly_name: 'Information Library',
       powered_by: 'Kiwix',
       display_order: 1,
@@ -39,7 +39,7 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
     },
     {
-      service_name: DockerService.QDRANT_SERVICE_NAME,
+      service_name: SERVICE_NAMES.QDRANT,
       friendly_name: 'Qdrant Vector Database',
       powered_by: null,
       display_order: 100, // Dependency service, not shown directly
@@ -62,7 +62,7 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
     },
     {
-      service_name: DockerService.OLLAMA_SERVICE_NAME,
+      service_name: SERVICE_NAMES.OLLAMA,
       friendly_name: 'AI Assistant',
       powered_by: 'Ollama',
       display_order: 3,
@@ -78,14 +78,14 @@ export default class ServiceSeeder extends BaseSeeder {
         },
         ExposedPorts: { '11434/tcp': {} },
       }),
-      ui_location: null,
+      ui_location: '/chat',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
-      depends_on: DockerService.QDRANT_SERVICE_NAME,
+      depends_on: SERVICE_NAMES.QDRANT,
     },
     {
-      service_name: DockerService.CYBERCHEF_SERVICE_NAME,
+      service_name: SERVICE_NAMES.CYBERCHEF,
       friendly_name: 'Data Tools',
       powered_by: 'CyberChef',
       display_order: 11,
@@ -107,7 +107,7 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
     },
     {
-      service_name: DockerService.FLATNOTES_SERVICE_NAME,
+      service_name: SERVICE_NAMES.FLATNOTES,
       friendly_name: 'Notes',
       powered_by: 'FlatNotes',
       display_order: 10,
@@ -131,7 +131,7 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
     },
     {
-      service_name: DockerService.KOLIBRI_SERVICE_NAME,
+      service_name: SERVICE_NAMES.KOLIBRI,
       friendly_name: 'Education Platform',
       powered_by: 'Kolibri',
       display_order: 2,

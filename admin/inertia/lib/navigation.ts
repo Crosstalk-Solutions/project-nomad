@@ -16,6 +16,12 @@ export function getServiceLink(ui_location: string): string {
         // If it's a port number, return a link to the service on that port
         return `http://${window.location.hostname}:${parsedPort}`;
     }
-    // Otherwise, treat it as a path
+
+    const pathPattern = /^\/.+/;
+    if (pathPattern.test(ui_location)) {
+        // If it starts with a slash, treat it as a full path
+        return ui_location;
+    }
+
     return `/${ui_location}`;
 }

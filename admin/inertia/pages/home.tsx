@@ -12,6 +12,7 @@ import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
+import { SERVICE_NAMES } from '../../constants/service_names'
 
 // Maps is a Core Capability (display_order: 4)
 const MAPS_ITEM = {
@@ -126,7 +127,7 @@ export default function Home(props: {
 
   // Add system items
   items.push(...SYSTEM_ITEMS)
-  if (props.system.services.find((s) => s.service_name === 'nomad_ollama' && s.installed)) {
+  if (props.system.services.find((s) => s.service_name === SERVICE_NAMES.OLLAMA && s.installed)) {
     items.push(KNOWLEDGE_BASE_ITEM)
   }
 

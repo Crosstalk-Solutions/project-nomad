@@ -9,6 +9,7 @@ import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
 import { OllamaService } from './ollama_service.js'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 @inject()
 export class RagService {
@@ -26,7 +27,7 @@ export class RagService {
   private async _initializeQdrantClient() {
     if (!this.qdrantInitPromise) {
       this.qdrantInitPromise = (async () => {
-        const qdrantUrl = await this.dockerService.getServiceURL(DockerService.QDRANT_SERVICE_NAME)
+        const qdrantUrl = await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT)
         if (!qdrantUrl) {
           throw new Error('Qdrant service is not installed or running.')
         }

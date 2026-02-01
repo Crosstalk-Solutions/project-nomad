@@ -24,6 +24,7 @@ import type {
 } from '../../types/benchmark.js'
 import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 // HMAC secret for signing submissions to the benchmark repository
 // This provides basic protection against casual API abuse.
@@ -421,7 +422,7 @@ export class BenchmarkService {
 
     this._updateStatus('running_ai', 'Running AI benchmark...')
 
-    const ollamaAPIURL = await this.dockerService.getServiceURL(DockerService.OLLAMA_SERVICE_NAME)
+    const ollamaAPIURL = await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
     if (!ollamaAPIURL) {
       throw new Error('AI Assistant service location could not be determined. Ensure AI Assistant is installed and running.')
     }

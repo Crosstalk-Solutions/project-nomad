@@ -27,6 +27,7 @@ export default class extends BaseSchema {
       UPDATE services SET
         friendly_name = 'AI Assistant',
         powered_by = 'Ollama',
+        ui_location = '/chat',
         display_order = 3,
         description = 'Local AI chat that runs entirely on your hardware - no internet required'
       WHERE service_name = 'nomad_ollama'

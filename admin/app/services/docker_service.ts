@@ -6,18 +6,12 @@ import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 @inject()
 export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
-  public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve'
-  public static OLLAMA_SERVICE_NAME = 'nomad_ollama'
-  public static QDRANT_SERVICE_NAME = 'nomad_qdrant'
-  public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef'
-  public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes'
-  public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri'
-  public static BENCHMARK_SERVICE_NAME = 'nomad_benchmark'
   public static NOMAD_NETWORK = 'project-nomad_default'
 
   constructor() {
@@ -441,7 +435,7 @@ export class DockerService {
         await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
       }
 
-      if (service.service_name === DockerService.KIWIX_SERVICE_NAME) {
+      if (service.service_name === SERVICE_NAMES.KIWIX) {
         await this._runPreinstallActions__KiwixServe()
         this._broadcast(
           service.service_name,
@@ -556,12 +550,12 @@ export class DockerService {
     logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
 
     this._broadcast(
-      DockerService.KIWIX_SERVICE_NAME,
+      SERVICE_NAMES.KIWIX,
       'preinstall',
       `Running pre-install actions for Kiwix Serve...`
     )
     this._broadcast(
-      DockerService.KIWIX_SERVICE_NAME,
+      SERVICE_NAMES.KIWIX,
       'preinstall',
       `Downloading Wikipedia ZIM file from ${WIKIPEDIA_ZIM_URL}. This may take some time...`
     )
@@ -579,13 +573,13 @@ export class DockerService {
       })
 
       this._broadcast(
-        DockerService.KIWIX_SERVICE_NAME,
+        SERVICE_NAMES.KIWIX,
         'preinstall',
         `Downloaded Wikipedia ZIM file to ${filepath}`
       )
     } catch (error) {
       this._broadcast(
-        DockerService.KIWIX_SERVICE_NAME,
+        SERVICE_NAMES.KIWIX,
         'preinstall-error',
         `Failed to download Wikipedia ZIM file: ${error.message}`
       )

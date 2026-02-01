@@ -18,6 +18,7 @@ import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import classNames from 'classnames'
 import { CuratedCategory, CategoryTier, CategoryResource } from '../../../types/downloads'
+import { SERVICE_NAMES } from '../../../constants/service_names'
 
 // Capability definitions - maps user-friendly categories to services
 interface Capability {
@@ -43,7 +44,7 @@ const CORE_CAPABILITIES: Capability[] = [
       'WikiHow articles and tutorials',
       'Project Gutenberg books and literature',
     ],
-    services: ['nomad_kiwix_serve'],
+    services: [SERVICE_NAMES.KIWIX],
     icon: 'IconBooks',
   },
   {
@@ -57,7 +58,7 @@ const CORE_CAPABILITIES: Capability[] = [
       'Interactive exercises and quizzes',
       'Progress tracking for learners',
     ],
-    services: ['nomad_kolibri'],
+    services: [SERVICE_NAMES.KOLIBRI],
     icon: 'IconSchool',
   },
   {
@@ -71,7 +72,7 @@ const CORE_CAPABILITIES: Capability[] = [
       'Ask questions, get help with writing, brainstorm ideas',
       'Runs on your own hardware with local AI models',
     ],
-    services: ['nomad_ollama'],
+    services: [SERVICE_NAMES.OLLAMA],
     icon: 'IconRobot',
   },
 ]
@@ -83,7 +84,7 @@ const ADDITIONAL_TOOLS: Capability[] = [
     technicalName: 'FlatNotes',
     description: 'Simple note-taking app with local storage',
     features: ['Markdown support', 'All notes stored locally', 'No account required'],
-    services: ['nomad_flatnotes'],
+    services: [SERVICE_NAMES.FLATNOTES],
     icon: 'IconNotes',
   },
   {
@@ -96,7 +97,7 @@ const ADDITIONAL_TOOLS: Capability[] = [
       'Encryption and hashing tools',
       'Data format conversion',
     ],
-    services: ['nomad_cyberchef'],
+    services: [SERVICE_NAMES.CYBERCHEF],
     icon: 'IconChefHat',
   },
 ]
@@ -804,10 +805,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const renderStep3 = () => {
     // Check if AI or Information capabilities are selected OR already installed
-    const isAiSelected = selectedServices.includes('nomad_ollama') || 
-      installedServices.some((s) => s.service_name === 'nomad_ollama')
-    const isInformationSelected = selectedServices.includes('nomad_kiwix') ||
-      installedServices.some((s) => s.service_name === 'nomad_kiwix')
+    const isAiSelected = selectedServices.includes(SERVICE_NAMES.OLLAMA) || 
+      installedServices.some((s) => s.service_name === SERVICE_NAMES.OLLAMA)
+    const isInformationSelected = selectedServices.includes(SERVICE_NAMES.KIWIX) ||
+      installedServices.some((s) => s.service_name === SERVICE_NAMES.KIWIX)
 
     return (
       <div className="space-y-6">

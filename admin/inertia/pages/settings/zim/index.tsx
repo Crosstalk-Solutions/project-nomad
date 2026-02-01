@@ -9,11 +9,12 @@ import StyledModal from '~/components/StyledModal'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Alert from '~/components/Alert'
 import { FileEntry } from '../../../../types/files'
+import { SERVICE_NAMES } from '../../../../constants/service_names'
 
 export default function ZimPage() {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
-  const { isInstalled } = useServiceInstalledStatus('nomad_kiwix_serve')
+  const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.KIWIX)
   const { data, isLoading } = useQuery<FileEntry[]>({
     queryKey: ['zim-files'],
     queryFn: getFiles,

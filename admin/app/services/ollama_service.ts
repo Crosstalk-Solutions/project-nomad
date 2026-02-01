@@ -1,6 +1,5 @@
 import { inject } from '@adonisjs/core'
 import { ChatRequest, Ollama } from 'ollama'
-import { DockerService } from './docker_service.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
 import { FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
 import fs from 'node:fs/promises'
@@ -9,6 +8,7 @@ import logger from '@adonisjs/core/services/logger'
 import axios from 'axios'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { PassThrough } from 'node:stream'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 const NOMAD_MODELS_API_BASE_URL = 'https://api.projectnomad.us/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -25,7 +25,7 @@ export class OllamaService {
     if (!this.ollamaInitPromise) {
       this.ollamaInitPromise = (async () => {
         const dockerService = new (await import('./docker_service.js')).DockerService()
-        const qdrantUrl = await dockerService.getServiceURL(DockerService.OLLAMA_SERVICE_NAME)
+        const qdrantUrl = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
         if (!qdrantUrl) {
           throw new Error('Ollama service is not installed or running.')
         }
@@ -56,7 +56,7 @@ export class OllamaService {
     return new Promise(async (resolve) => {
       try {
         const dockerService = new (await import('./docker_service.js')).DockerService()
-        const container = dockerService.docker.getContainer(DockerService.OLLAMA_SERVICE_NAME)
+        const container = dockerService.docker.getContainer(SERVICE_NAMES.OLLAMA)
         if (!container) {
           logger.warn('[OllamaService] Ollama container is not running. Cannot download model.')
           resolve({
@@ -242,7 +242,7 @@ export class OllamaService {
 
       const dockerService = new (await import('./docker_service.js')).DockerService()
       
-      const ollamAPIURL = await dockerService.getServiceURL(DockerService.OLLAMA_SERVICE_NAME)
+      const ollamAPIURL = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
       if (!ollamAPIURL) {
         logger.warn('[OllamaService] Ollama service is not running. Cannot download model.')
         return {
