@@ -11,13 +11,13 @@ import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
-import { IconCheck, IconChevronDown, IconChevronUp, IconArrowRight, IconCpu, IconBooks } from '@tabler/icons-react'
+import { IconCheck, IconChevronDown, IconChevronUp, IconCpu, IconBooks } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import classNames from 'classnames'
-import { CuratedCategory, CategoryTier, CategoryResource, WikipediaState } from '../../../types/downloads'
+import { CuratedCategory, CategoryTier, CategoryResource } from '../../../types/downloads'
 
 // Capability definitions - maps user-friendly categories to services
 interface Capability {

@@ -33,7 +33,6 @@ import {
   CuratedCategory,
   CategoryTier,
   CategoryResource,
-  WikipediaState,
 } from '../../../../types/downloads'
 import useDownloads from '~/hooks/useDownloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
