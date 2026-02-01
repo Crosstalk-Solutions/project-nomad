@@ -95,6 +95,23 @@ export type BenchmarkResultsResponse = {
   total: number
 }
 
+export type SubmitBenchmarkResponse = {
+  success: true
+  repository_id: string
+  percentile: number
+} | {
+  success: false
+  error: string
+}
+
+export type UpdateBuilderTagResponse = {
+  success: true,
+  builder_tag: string | null
+} | {
+  success: false,
+  error: string
+}
+
 // Central repository submission payload (privacy-first)
 export type RepositorySubmission = Pick<
   BenchmarkResult,

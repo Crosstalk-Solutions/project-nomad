@@ -517,10 +517,6 @@ export class ZimService implements IZimService {
     }
 
     if (success) {
-      // Get the old filename before updating (if there was a previous Wikipedia installed)
-      const options = await this.getWikipediaOptions()
-      const previousOption = options.find((opt) => opt.id !== selection.option_id && opt.id !== 'none')
-
       // Update status to installed
       selection.status = 'installed'
       await selection.save()

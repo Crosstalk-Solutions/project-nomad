@@ -12,6 +12,8 @@ import {
 import { catchInternal } from './util'
 import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import { ChatResponse, ModelResponse } from 'ollama'
+import BenchmarkResult from '#models/benchmark_result'
+import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
 
 class API {
   private client: AxiosInstance
@@ -163,6 +165,20 @@ class API {
     })()
   }
 
+  async getBenchmarkResults() {
+    return catchInternal(async () => {
+      const response = await this.client.get<BenchmarkResult[]>('/benchmark/results')
+      return response.data
+    })()
+  }
+
+  async getLatestBenchmarkResult() {
+    return catchInternal(async () => {
+      const response = await this.client.get<BenchmarkResult>('/benchmark/results/latest')
+      return response.data
+    })()
+  }
+
   async getChatSessions() {
     return catchInternal(async () => {
       const response = await this.client.get<
@@ -261,6 +277,13 @@ class API {
     })()
   }
 
+  async getSystemServices() {
+    return catchInternal(async () => {
+      const response = await this.client.get<Array<ServiceSlim>>('/system/services')
+      return response.data
+    })()
+  }
+
   async getSystemUpdateStatus() {
     return catchInternal(async () => {
       const response = await this.client.get<SystemUpdateStatus>('/system/update/status')
@@ -343,13 +366,6 @@ class API {
     })()
   }
 
-  async listServices() {
-    return catchInternal(async () => {
-      const response = await this.client.get<Array<ServiceSlim>>('/system/services')
-      return response.data
-    })()
-  }
-
   async listRemoteZimFiles({
     start = 0,
     count = 12,
@@ -384,11 +400,28 @@ class API {
     })()
   }
 
+  async runBenchmark(type: BenchmarkType, sync: boolean = false) {
+    return catchInternal(async () => {
+      const response = await this.client.post<RunBenchmarkResponse>(
+        `/benchmark/run${sync ? '?sync=true' : ''}`,
+        { benchmark_type: type },
+      )
+      return response.data
+    })()
+  }
+
   async startSystemUpdate() {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/update'
       )
+      return response.data
+    })()
+  }
+
+  async submitBenchmark(benchmark_id: string, anonymous: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<SubmitBenchmarkResponse>('/benchmark/submit', { benchmark_id, anonymous })
       return response.data
     })()
   }
@@ -421,6 +454,16 @@ class API {
         jobId?: string
         message?: string
       }>('/zim/wikipedia/select', { optionId })
+      return response.data
+    })()
+  }
+
+  async updateBuilderTag(benchmark_id: string, builder_tag: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<UpdateBuilderTagResponse>(
+        '/benchmark/builder-tag',
+        { benchmark_id, builder_tag }
+      )
       return response.data
     })()
   }
