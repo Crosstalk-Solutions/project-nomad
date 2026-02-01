@@ -3,7 +3,6 @@ import { DockerService } from '#services/docker_service'
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { ModelAttributes } from '@adonisjs/lucid/types/model'
 import env from '#start/env'
-import { RagService } from '#services/rag_service'
 
 export default class ServiceSeeder extends BaseSeeder {
   // Use environment variable with fallback to production default
@@ -64,11 +63,11 @@ export default class ServiceSeeder extends BaseSeeder {
     },
     {
       service_name: DockerService.OLLAMA_SERVICE_NAME,
-      friendly_name: 'Ollama',
-      powered_by: null,
-      display_order: 100, // Dependency service, not shown directly
-      description: 'Run local LLMs (AI models) with ease on your own hardware',
-      icon: 'IconRobot',
+      friendly_name: 'AI Assistant',
+      powered_by: 'Ollama',
+      display_order: 3,
+      description: 'Local AI chat that runs entirely on your hardware - no internet required',
+      icon: 'IconWand',
       container_image: 'ollama/ollama:latest',
       container_command: 'serve',
       container_config: JSON.stringify({
@@ -82,40 +81,8 @@ export default class ServiceSeeder extends BaseSeeder {
       ui_location: null,
       installed: false,
       installation_status: 'idle',
-      is_dependency_service: true,
-      depends_on: DockerService.QDRANT_SERVICE_NAME,
-    },
-    {
-      service_name: DockerService.OPEN_WEBUI_SERVICE_NAME,
-      friendly_name: 'AI Assistant',
-      powered_by: 'Open WebUI + Ollama',
-      display_order: 3,
-      description: 'Local AI chat that runs entirely on your hardware - no internet required',
-      icon: 'IconWand',
-      container_image: 'ghcr.io/open-webui/open-webui:main',
-      container_command: null,
-      container_config: JSON.stringify({
-        HostConfig: {
-          RestartPolicy: { Name: 'unless-stopped' },
-          NetworkMode: 'host',
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/open-webui:/app/backend/data`],
-          PortBindings: { '8080/tcp': [{ HostPort: '3000' }] },
-        },
-        Env: [
-          'WEBUI_AUTH=False',
-          'PORT=3000',
-          'OLLAMA_BASE_URL=http://127.0.0.1:11434',
-          'VECTOR_DB=qdrant',
-          'QDRANT_URI=http://127.0.0.1:6333',
-          'RAG_EMBEDDING_ENGINE=ollama',
-          `RAG_EMBEDDING_MODEL=${RagService.EMBEDDING_MODEL}`,
-        ],
-      }),
-      ui_location: '3000',
-      installed: false,
-      installation_status: 'idle',
       is_dependency_service: false,
-      depends_on: DockerService.OLLAMA_SERVICE_NAME,
+      depends_on: DockerService.QDRANT_SERVICE_NAME,
     },
     {
       service_name: DockerService.CYBERCHEF_SERVICE_NAME,

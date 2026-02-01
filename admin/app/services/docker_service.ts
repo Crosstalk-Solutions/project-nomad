@@ -14,7 +14,6 @@ export class DockerService {
   public static KIWIX_SERVICE_NAME = 'nomad_kiwix_serve'
   public static OLLAMA_SERVICE_NAME = 'nomad_ollama'
   public static QDRANT_SERVICE_NAME = 'nomad_qdrant'
-  public static OPEN_WEBUI_SERVICE_NAME = 'nomad_open_webui'
   public static CYBERCHEF_SERVICE_NAME = 'nomad_cyberchef'
   public static FLATNOTES_SERVICE_NAME = 'nomad_flatnotes'
   public static KOLIBRI_SERVICE_NAME = 'nomad_kolibri'

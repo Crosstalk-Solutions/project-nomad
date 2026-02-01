@@ -26,10 +26,10 @@ export default class extends BaseSchema {
     await this.db.rawQuery(`
       UPDATE services SET
         friendly_name = 'AI Assistant',
-        powered_by = 'Open WebUI + Ollama',
+        powered_by = 'Ollama',
         display_order = 3,
         description = 'Local AI chat that runs entirely on your hardware - no internet required'
-      WHERE service_name = 'nomad_open_webui'
+      WHERE service_name = 'nomad_ollama'
     `)
 
     await this.db.rawQuery(`
@@ -48,12 +48,6 @@ export default class extends BaseSchema {
         display_order = 11,
         description = 'Swiss Army knife for data encoding, encryption, and analysis'
       WHERE service_name = 'nomad_cyberchef'
-    `)
-
-    await this.db.rawQuery(`
-      UPDATE services SET
-        display_order = 100
-      WHERE service_name = 'nomad_ollama'
     `)
   }
 
@@ -79,11 +73,11 @@ export default class extends BaseSchema {
 
     await this.db.rawQuery(`
       UPDATE services SET
-        friendly_name = 'Open WebUI',
+        friendly_name = 'Ollama',
         powered_by = NULL,
         display_order = NULL,
-        description = 'A web interface for interacting with local AI models served by Ollama'
-      WHERE service_name = 'nomad_open_webui'
+        description = 'Local AI chat that runs entirely on your hardware - no internet required'
+      WHERE service_name = 'nomad_ollama'
     `)
 
     await this.db.rawQuery(`
@@ -102,12 +96,6 @@ export default class extends BaseSchema {
         display_order = NULL,
         description = 'The Cyber Swiss Army Knife - a web app for encryption, encoding, and data analysis'
       WHERE service_name = 'nomad_cyberchef'
-    `)
-
-    await this.db.rawQuery(`
-      UPDATE services SET
-        display_order = NULL
-      WHERE service_name = 'nomad_ollama'
     `)
   }
 }

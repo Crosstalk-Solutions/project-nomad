@@ -126,7 +126,7 @@ export default function Home(props: {
 
   // Add system items
   items.push(...SYSTEM_ITEMS)
-  if (props.system.services.find((s) => s.service_name === 'nomad_open_webui' && s.installed)) {
+  if (props.system.services.find((s) => s.service_name === 'nomad_ollama' && s.installed)) {
     items.push(KNOWLEDGE_BASE_ITEM)
   }
 
