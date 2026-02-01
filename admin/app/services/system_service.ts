@@ -10,6 +10,8 @@ import path, { join } from 'path'
 import { getAllFilesystems, getFile } from '../utils/fs.js'
 import axios from 'axios'
 import env from '#start/env'
+import KVStore from '#models/kv_store'
+import { KVStoreKey } from '../../types/kv_store.js'
 
 @inject()
 export class SystemService {
@@ -252,6 +254,10 @@ export class SystemService {
         message: `Failed to subscribe: ${error instanceof Error ? error.message : error}`,
       }
     }
+  }
+
+  async updateSetting(key: KVStoreKey, value: any): Promise<void> {
+    await KVStore.setValue(key, value);
   }
 
   /**

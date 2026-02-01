@@ -4,17 +4,22 @@ import classNames from '~/lib/classNames'
 import { ChatMessage } from '../../../types/chat'
 import ChatMessageBubble from './ChatMessageBubble'
 import ChatAssistantAvatar from './ChatAssistantAvatar'
+import BouncingDots from '../BouncingDots'
 
 interface ChatInterfaceProps {
   messages: ChatMessage[]
   onSendMessage: (message: string) => void
   isLoading?: boolean
+  chatSuggestions?: string[]
+  chatSuggestionsLoading?: boolean
 }
 
 export default function ChatInterface({
   messages,
   onSendMessage,
   isLoading = false,
+  chatSuggestions = [],
+  chatSuggestionsLoading = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -54,7 +59,7 @@ export default function ChatInterface({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-white shadow-sm">
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
@@ -64,6 +69,30 @@ export default function ChatInterface({
               <p className="text-gray-500 text-sm">
                 Interact with your installed language models directly in the Command Center.
               </p>
+              {chatSuggestions && chatSuggestions.length > 0 && !chatSuggestionsLoading && (
+                <div className="mt-8">
+                  <h4 className="text-sm font-medium text-gray-600 mb-2">Suggestions:</h4>
+                  <div className="flex flex-col gap-2">
+                    {chatSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setInput(suggestion)
+                          // Focus the textarea after setting input
+                          setTimeout(() => {
+                            textareaRef.current?.focus()
+                          }, 0)
+                        }}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Display bouncing dots while loading suggestions */}
+              {chatSuggestionsLoading && <BouncingDots text="Thinking" containerClassName="mt-8" />}
             </div>
           </div>
         ) : (
@@ -85,23 +114,7 @@ export default function ChatInterface({
               <div className="flex gap-4 justify-start">
                 <ChatAssistantAvatar />
                 <div className="max-w-[70%] rounded-lg px-4 py-3 bg-gray-100 text-gray-800">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">Thinking</span>
-                    <span className="flex gap-1 mt-1">
-                      <span
-                        className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce"
-                        style={{ animationDelay: '0ms' }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce"
-                        style={{ animationDelay: '150ms' }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce"
-                        style={{ animationDelay: '300ms' }}
-                      />
-                    </span>
-                  </div>
+                  <BouncingDots text="Thinking" />
                 </div>
               </div>
             )}

@@ -2,10 +2,21 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { ChatService } from '#services/chat_service'
 import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#validators/chat'
+import { parseBoolean } from '../utils/misc.js'
+import KVStore from '#models/kv_store'
 
 @inject()
 export default class ChatsController {
   constructor(private chatService: ChatService) {}
+
+  async inertia({ inertia }: HttpContext) {
+    const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
+    return inertia.render('chat', {
+      settings: {
+        chatSuggestionsEnabled: parseBoolean(chatSuggestionsEnabled),
+      },
+    })
+  }
 
   async index({}: HttpContext) {
     return await this.chatService.getAllSessions()
@@ -30,6 +41,17 @@ export default class ChatsController {
     } catch (error) {
       return response.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to create session',
+      })
+    }
+  }
+
+  async suggestions({ response }: HttpContext) {
+    try {
+      const suggestions = await this.chatService.getChatSuggestions()
+      return response.status(200).json({ suggestions })
+    } catch (error) {
+      return response.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get suggestions',
       })
     }
   }

@@ -14,9 +14,15 @@ interface ChatProps {
   enabled: boolean
   isInModal?: boolean
   onClose?: () => void
+  suggestionsEnabled?: boolean
 }
 
-export default function Chat({ enabled, isInModal, onClose }: ChatProps) {
+export default function Chat({
+  enabled,
+  isInModal,
+  onClose,
+  suggestionsEnabled = false,
+}: ChatProps) {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
@@ -45,6 +51,15 @@ export default function Chat({ enabled, isInModal, onClose }: ChatProps) {
     queryFn: () => api.getInstalledModels(),
     enabled,
     select: (data) => data || [],
+  })
+
+  const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
+    queryKey: ['chatSuggestions'],
+    queryFn: async () => {
+      const res = await api.getChatSuggestions()
+      return res ?? []
+    },
+    enabled: suggestionsEnabled,
   })
 
   const deleteAllSessionsMutation = useMutation({
@@ -263,6 +278,8 @@ export default function Chat({ enabled, isInModal, onClose }: ChatProps) {
           messages={messages}
           onSendMessage={handleSendMessage}
           isLoading={chatMutation.isPending}
+          chatSuggestions={chatSuggestions}
+          chatSuggestionsLoading={chatSuggestionsLoading}
         />
       </div>
     </div>

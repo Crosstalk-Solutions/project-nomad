@@ -135,6 +135,15 @@ class API {
     })()
   }
 
+  async getChatSuggestions() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ suggestions: string[] }>(
+        '/chat/suggestions'
+      )
+      return response.data.suggestions
+    })()
+  }
+
   async getInternetStatus() {
     return catchInternal(async () => {
       const response = await this.client.get<boolean>('/system/internet-status')
@@ -167,14 +176,14 @@ class API {
 
   async getBenchmarkResults() {
     return catchInternal(async () => {
-      const response = await this.client.get<BenchmarkResult[]>('/benchmark/results')
+      const response = await this.client.get<{ results: BenchmarkResult[], total: number}>('/benchmark/results')
       return response.data
     })()
   }
 
   async getLatestBenchmarkResult() {
     return catchInternal(async () => {
-      const response = await this.client.get<BenchmarkResult>('/benchmark/results/latest')
+      const response = await this.client.get<{ result: BenchmarkResult | null}>('/benchmark/results/latest')
       return response.data
     })()
   }
@@ -480,6 +489,26 @@ class API {
             'Content-Type': 'multipart/form-data',
           },
         }
+      )
+      return response.data
+    })()
+  }
+
+  async getSetting(key: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ key: string; value: any }>(
+        '/system/settings',
+        { params: { key } }
+      )
+      return response.data
+    })()
+  }
+
+  async updateSetting(key: string, value: any) {
+    return catchInternal(async () => {
+      const response = await this.client.patch<{ success: boolean; message: string }>(
+        '/system/settings',
+        { key, value }
       )
       return response.data
     })()

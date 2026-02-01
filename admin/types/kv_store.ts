@@ -1,3 +1,3 @@
 
-export type KVStoreKey = ''
+export type KVStoreKey = 'chat.suggestionsEnabled'
 export type KVStoreValue = string | null

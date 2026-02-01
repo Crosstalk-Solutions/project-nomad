@@ -1,9 +1,12 @@
+import KVStore from '#models/kv_store';
 import { BenchmarkService } from '#services/benchmark_service';
 import { MapService } from '#services/map_service';
 import { OllamaService } from '#services/ollama_service';
 import { SystemService } from '#services/system_service';
+import { updateSettingSchema } from '#validators/settings';
 import { inject } from '@adonisjs/core';
 import type { HttpContext } from '@adonisjs/core/http'
+import { parseBoolean } from '../utils/misc.js';
 
 @inject()
 export default class SettingsController {
@@ -50,10 +53,14 @@ export default class SettingsController {
     async models({ inertia }: HttpContext) {
         const availableModels = await this.ollamaService.getAvailableModels({ sort: 'pulls', recommendedOnly: false });
         const installedModels = await this.ollamaService.getModels();
+        const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
         return inertia.render('settings/models', {
             models: {
                 availableModels: availableModels || [],
-                installedModels: installedModels || []
+                installedModels: installedModels || [],
+                settings: {
+                    chatSuggestionsEnabled: parseBoolean(chatSuggestionsEnabled)
+                }
             }
         });
     }
@@ -87,5 +94,17 @@ export default class SettingsController {
                 currentBenchmarkId: status.benchmarkId
             }
         });
+    }
+
+    async getSetting({ request, response }: HttpContext) {
+        const key = request.qs().key;
+        const value = await KVStore.getValue(key);
+        return response.status(200).send({ key, value });
+    }
+
+    async updateSetting({ request, response }: HttpContext) {
+        const reqData = await request.validateUsing(updateSettingSchema);
+        await this.systemService.updateSetting(reqData.key, reqData.value);
+        return response.status(200).send({ success: true, message: 'Setting updated successfully' });
     }
 }

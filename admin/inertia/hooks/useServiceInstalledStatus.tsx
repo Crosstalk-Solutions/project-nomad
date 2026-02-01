@@ -5,7 +5,7 @@ import api from '~/lib/api'
 const useServiceInstalledStatus = (serviceName: string) => {
   const { data, isFetching } = useQuery<ServiceSlim[] | undefined>({
     queryKey: ['installed-services'],
-    queryFn: () => api.listServices(),
+    queryFn: () => api.getSystemServices(),
   })
 
   const isInstalled = data?.some(

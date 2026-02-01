@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react'
+import { useState } from 'react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { NomadOllamaModel } from '../../../types/ollama'
@@ -11,13 +12,23 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import { ModelResponse } from 'ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import Switch from '~/components/inputs/Switch'
+import StyledSectionHeader from '~/components/StyledSectionHeader'
+import { useMutation } from '@tanstack/react-query'
 
 export default function ModelsPage(props: {
-  models: { availableModels: NomadOllamaModel[]; installedModels: ModelResponse[] }
+  models: {
+    availableModels: NomadOllamaModel[]
+    installedModels: ModelResponse[]
+    settings: { chatSuggestionsEnabled: boolean }
+  }
 }) {
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
+  const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
+    props.models.settings.chatSuggestionsEnabled
+  )
 
   async function handleInstallModel(modelName: string) {
     try {
@@ -79,15 +90,35 @@ export default function ModelsPage(props: {
     )
   }
 
+  const updateSettingMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: boolean }) => {
+      return await api.updateSetting(key, value)
+    },
+    onSuccess: () => {
+      addNotification({
+        message: 'Setting updated successfully.',
+        type: 'success',
+      })
+    },
+    onError: (error) => {
+      console.error('Error updating setting:', error)
+      addNotification({
+        message: 'There was an error updating the setting. Please try again.',
+        type: 'error',
+      })
+    },
+  })
+
   return (
     <SettingsLayout>
-      <Head title="AI Model Manager | Project N.O.M.A.D." />
+      <Head title="AI Assistant Settings | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-4">AI Model Manager</h1>
+          <h1 className="text-4xl font-semibold mb-4">AI Assistant</h1>
           <p className="text-gray-500 mb-4">
-            Easily manage the AI models available for AI Assistant. We recommend starting with smaller
-            models first to see how they perform on your system before moving on to larger ones.
+            Easily manage the AI Assistant's settings and installed models. We recommend starting
+            with smaller models first to see how they perform on your system before moving on to
+            larger ones.
           </p>
           {!isInstalled && (
             <Alert
@@ -97,8 +128,24 @@ export default function ModelsPage(props: {
               className="!mt-6"
             />
           )}
+
+          <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
+          <div className="bg-white rounded-lg border-2 border-gray-200 p-6">
+            <div className="space-y-4">
+              <Switch
+                checked={chatSuggestionsEnabled}
+                onChange={(newVal) => {
+                  setChatSuggestionsEnabled(newVal)
+                  updateSettingMutation.mutate({ key: 'chat.suggestionsEnabled', value: newVal })
+                }}
+                label="Chat Suggestions"
+                description="Display AI-generated conversation starters in the chat interface"
+              />
+            </div>
+          </div>
+          <StyledSectionHeader title="Models" className="mt-12 mb-4" />
           <StyledTable<NomadOllamaModel>
-            className="font-semibold mt-8"
+            className="font-semibold"
             rowLines={true}
             columns={[
               {

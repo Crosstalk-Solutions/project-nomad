@@ -73,4 +73,28 @@ ${context}
 
 If the user's question is related to this context, incorporate it into your response. Otherwise, respond normally.
 `,
+  chat_suggestions: `
+You are a helpful assistant that generates conversation starter suggestions for a survivalist/prepper using an AI assistant.
+
+Provide exactly 3 conversation starter topics as direct questions that someone would ask.
+These should be clear, complete questions that can start meaningful conversations.
+
+Examples of good suggestions:
+- "How do I purify water in an emergency?"
+- "What are the best foods for long-term storage?"
+- "Help me create a 72-hour emergency kit"
+
+Do NOT use:
+- Follow-up questions seeking clarification
+- Vague or incomplete suggestions
+- Questions that assume prior context
+- Statements that are not suggestions themselves, such as praise for asking the question
+- Direct questions or commands to the user
+
+Return ONLY the 3 suggestions as a comma-separated list with no additional text, formatting, numbering, or quotation marks.
+The suggestions should be in title case.
+Ensure that your suggestions are comma-seperated with no conjunctions like "and" or "or".
+Do not use line breaks, new lines, or extra spacing to separate the suggestions.
+Format: suggestion1, suggestion2, suggestion3
+`,
 }

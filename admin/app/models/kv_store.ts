@@ -7,6 +7,7 @@ import type { KVStoreKey, KVStoreValue } from '../../types/kv_store.js'
  * that don't necessitate their own dedicated models.
  */
 export default class KVStore extends BaseModel {
+  static table = 'kv_store'
   static namingStrategy = new SnakeCaseNamingStrategy()
 
   @column({ isPrimary: true })
@@ -29,7 +30,13 @@ export default class KVStore extends BaseModel {
    */
   static async getValue(key: KVStoreKey): Promise<KVStoreValue> {
     const setting = await this.findBy('key', key)
-    return setting?.value ?? null
+    if (!setting || setting.value === undefined || setting.value === null) {
+      return null
+    }
+    if (typeof setting.value === 'string') {
+      return setting.value
+    }
+    return String(setting.value)
   }
 
   /**

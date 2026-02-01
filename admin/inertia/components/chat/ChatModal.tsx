@@ -1,5 +1,7 @@
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import Chat from './index'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
+import { parseBoolean } from '../../../app/utils/misc'
 
 interface ChatModalProps {
   open: boolean
@@ -7,6 +9,10 @@ interface ChatModalProps {
 }
 
 export default function ChatModal({ open, onClose }: ChatModalProps) {
+  const settings = useSystemSetting({
+    key: "chat.suggestionsEnabled"
+  })
+
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
       <DialogBackdrop
@@ -19,7 +25,7 @@ export default function ChatModal({ open, onClose }: ChatModalProps) {
           transition
           className="relative bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[85vh] flex overflow-hidden transition-all data-[closed]:scale-95 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"
         >
-          <Chat enabled={open} isInModal onClose={onClose} />
+          <Chat enabled={open} isInModal onClose={onClose} suggestionsEnabled={parseBoolean(settings.data?.value)} />
         </DialogPanel>
       </div>
     </Dialog>

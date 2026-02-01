@@ -97,7 +97,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          Models
+          Models & Settings
         </StyledButton>
         <StyledButton
           onClick={() => {

@@ -2,19 +2,19 @@ import {
   IconArrowBigUpLines,
   IconChartBar,
   IconDashboard,
-  IconDatabaseStar,
   IconFolder,
   IconGavel,
   IconMapRoute,
   IconSettings,
   IconTerminal2,
+  IconWand,
   IconZoom
 } from '@tabler/icons-react'
 import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 
 const navigation = [
-  { name: 'AI Model Manager', href: '/settings/models', icon: IconDatabaseStar, current: false },
+  { name: 'AI Assistant', href: '/settings/models', icon: IconWand, current: false },
   { name: 'Apps', href: '/settings/apps', icon: IconTerminal2, current: false },
   { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
   { name: 'Content Explorer', href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },

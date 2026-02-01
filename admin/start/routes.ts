@@ -26,7 +26,7 @@ transmit.registerRoutes()
 router.get('/', [HomeController, 'index'])
 router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
-router.on('/chat').renderInertia('chat')
+router.get('/chat', [ChatsController, 'inertia'])
 router.on('/knowledge-base').renderInertia('knowledge-base')
 router.get('/maps', [MapsController, 'index'])
 
@@ -113,6 +113,8 @@ router
   })
   .prefix('/api/chat/sessions')
 
+router.get('/api/chat/suggestions', [ChatsController, 'suggestions'])
+
 router
   .group(() => {
     router.post('/upload', [RagController, 'upload'])
@@ -133,6 +135,8 @@ router
     router.post('/update', [SystemController, 'requestSystemUpdate'])
     router.get('/update/status', [SystemController, 'getSystemUpdateStatus'])
     router.get('/update/logs', [SystemController, 'getSystemUpdateLogs'])
+    router.get('/settings', [SettingsController, 'getSetting'])
+    router.patch('/settings', [SettingsController, 'updateSetting'])
   })
   .prefix('/api/system')
 

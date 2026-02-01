@@ -51,7 +51,10 @@ export default function BenchmarkPage(props: {
     queryKey: ['benchmark', 'latest'],
     queryFn: async () => {
       const res = await api.getLatestBenchmarkResult()
-      return res ?? null
+      if (res && res.result) {
+        return res.result
+      }
+      return null
     },
     initialData: props.benchmark.latestResult,
   })
@@ -61,7 +64,10 @@ export default function BenchmarkPage(props: {
     queryKey: ['benchmark', 'history'],
     queryFn: async () => {
       const res = await api.getBenchmarkResults()
-      return res ?? []
+      if (res && res.results && Array.isArray(res.results)) {
+        return res.results
+      }
+      return []
     },
   })
 
@@ -121,7 +127,7 @@ export default function BenchmarkPage(props: {
   const updateBuilderTag = useMutation({
     mutationFn: async ({
       benchmarkId,
-      builderTag
+      builderTag,
     }: {
       benchmarkId: string
       builderTag: string
@@ -149,7 +155,11 @@ export default function BenchmarkPage(props: {
 
       // First, save the current builder tag to the benchmark (don't refetch yet)
       if (currentBuilderTag && !anonymous) {
-        await updateBuilderTag.mutateAsync({ benchmarkId, builderTag: currentBuilderTag, invalidate: false })
+        await updateBuilderTag.mutateAsync({
+          benchmarkId,
+          builderTag: currentBuilderTag,
+          invalidate: false,
+        })
       }
 
       const res = await api.submitBenchmark(benchmarkId, anonymous)
