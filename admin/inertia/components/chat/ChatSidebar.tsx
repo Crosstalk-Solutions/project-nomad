@@ -71,47 +71,46 @@ export default function ChatSidebar({
           </div>
         )}
       </div>
-
-      {sessions.length > 0 && (
-        <div className="p-4 flex flex-col items-center justify-center gap-y-2">
-          <img src="/project_nomad_logo.png" alt="Project Nomad Logo" className="h-28 w-28 mb-6" />
-          <StyledButton
-            onClick={() => {
-              if (isInModal) {
-                window.open('/chat', '_blank')
-              } else {
-                router.visit('/home')
-              }
-            }}
-            icon={isInModal ? 'IconExternalLink' : 'IconHome'}
-            variant="outline"
-            size="sm"
-            fullWidth
-          >
-            {isInModal ? 'Open in New Tab' : 'Back to Home'}
-          </StyledButton>
-          <StyledButton
-            onClick={() => {
-              router.visit('/settings/models')
-            }}
-            icon="IconDatabase"
-            variant="primary"
-            size="sm"
-            fullWidth
-          >
-            Models
-          </StyledButton>
-          <StyledButton
-            onClick={() => {
-              router.visit('/knowledge-base')
-            }}
-            icon="IconBrain"
-            variant="primary"
-            size="sm"
-            fullWidth
-          >
-            Knowledge Base
-          </StyledButton>
+      <div className="p-4 flex flex-col items-center justify-center gap-y-2">
+        <img src="/project_nomad_logo.png" alt="Project Nomad Logo" className="h-28 w-28 mb-6" />
+        <StyledButton
+          onClick={() => {
+            if (isInModal) {
+              window.open('/chat', '_blank')
+            } else {
+              router.visit('/home')
+            }
+          }}
+          icon={isInModal ? 'IconExternalLink' : 'IconHome'}
+          variant="outline"
+          size="sm"
+          fullWidth
+        >
+          {isInModal ? 'Open in New Tab' : 'Back to Home'}
+        </StyledButton>
+        <StyledButton
+          onClick={() => {
+            router.visit('/settings/models')
+          }}
+          icon="IconDatabase"
+          variant="primary"
+          size="sm"
+          fullWidth
+        >
+          Models
+        </StyledButton>
+        <StyledButton
+          onClick={() => {
+            router.visit('/knowledge-base')
+          }}
+          icon="IconBrain"
+          variant="primary"
+          size="sm"
+          fullWidth
+        >
+          Knowledge Base
+        </StyledButton>
+        {sessions.length > 0 && (
           <StyledButton
             onClick={onClearHistory}
             icon="IconTrash"
@@ -121,8 +120,8 @@ export default function ChatSidebar({
           >
             Clear History
           </StyledButton>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
