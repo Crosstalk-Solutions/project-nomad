@@ -62,7 +62,7 @@ const CORE_CAPABILITIES: Capability[] = [
   {
     id: 'ai',
     name: 'AI Assistant',
-    technicalName: 'Open WebUI + Ollama',
+    technicalName: 'Ollama',
     description: 'Local AI chat that runs entirely on your hardware - no internet required',
     features: [
       'Private conversations that never leave your device',
@@ -70,7 +70,7 @@ const CORE_CAPABILITIES: Capability[] = [
       'Ask questions, get help with writing, brainstorm ideas',
       'Runs on your own hardware with local AI models',
     ],
-    services: ['nomad_open_webui'], // ollama is auto-installed as dependency
+    services: ['nomad_ollama'],
     icon: 'IconRobot',
   },
 ]
@@ -822,10 +822,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const renderStep3 = () => {
     // Check if AI or Information capabilities are selected OR already installed
-    const isAiSelected = selectedServices.includes('nomad_open_webui') || 
-      installedServices.some((s) => s.service_name === 'nomad_open_webui')
-    const isInformationSelected = selectedServices.includes('nomad_kiwix_serve') ||
-      installedServices.some((s) => s.service_name === 'nomad_kiwix_serve')
+    const isAiSelected = selectedServices.includes('nomad_ollama') || 
+      installedServices.some((s) => s.service_name === 'nomad_ollama')
+    const isInformationSelected = selectedServices.includes('nomad_kiwix') ||
+      installedServices.some((s) => s.service_name === 'nomad_kiwix')
 
     return (
       <div className="space-y-6">

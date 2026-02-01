@@ -14,7 +14,7 @@ import { ModelResponse } from 'ollama'
 export default function ModelsPage(props: {
   models: { availableModels: NomadOllamaModel[]; installedModels: ModelResponse[] }
 }) {
-  const { isInstalled } = useServiceInstalledStatus('nomad_open_webui')
+  const { isInstalled } = useServiceInstalledStatus('nomad_ollama')
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
 
@@ -85,12 +85,12 @@ export default function ModelsPage(props: {
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">AI Model Manager</h1>
           <p className="text-gray-500 mb-4">
-            Easily manage the AI models available for Open WebUI. We recommend starting with smaller
+            Easily manage the AI models available for AI Assistant. We recommend starting with smaller
             models first to see how they perform on your system before moving on to larger ones.
           </p>
           {!isInstalled && (
             <Alert
-              title="The Open WebUI service is not installed. Please install it to manage AI models."
+              title="AI Assistant's dependencies are not installed. Please install them to manage AI models."
               type="warning"
               variant="solid"
               className="!mt-6"
@@ -179,7 +179,7 @@ export default function ModelsPage(props: {
                                       confirmDeleteModel(tag.name)
                                     }
                                   }}
-                                  icon={isInstalled ? 'TrashIcon' : 'ArrowDownTrayIcon'}
+                                  icon={isInstalled ? 'IconTrash' : 'IconDownload'}
                                 >
                                   {isInstalled ? 'Delete' : 'Install'}
                                 </StyledButton>

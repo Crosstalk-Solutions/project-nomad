@@ -1,3 +1,3 @@
 
-export type KVStoreKey = 'open_webui_knowledge_id'
+export type KVStoreKey = ''
 export type KVStoreValue = string | null
