@@ -2,7 +2,7 @@ import { ZimService } from '#services/zim_service'
 import {
   downloadCollectionValidator,
   filenameParamValidator,
-  remoteDownloadValidator,
+  remoteDownloadWithMetadataValidator,
   saveInstalledTierValidator,
   selectWikipediaValidator,
 } from '#validators/common'
@@ -25,8 +25,8 @@ export default class ZimController {
   }
 
   async downloadRemote({ request }: HttpContext) {
-    const payload = await request.validateUsing(remoteDownloadValidator)
-    const { filename, jobId } = await this.zimService.downloadRemote(payload.url)
+    const payload = await request.validateUsing(remoteDownloadWithMetadataValidator)
+    const { filename, jobId } = await this.zimService.downloadRemote(payload.url, payload.metadata)
 
     return {
       message: 'Download started successfully',

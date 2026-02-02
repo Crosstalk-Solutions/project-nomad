@@ -209,7 +209,12 @@ export default function ZimRemoteExplorer() {
 
   async function downloadFile(record: RemoteZimFileEntry) {
     try {
-      await api.downloadRemoteZimFile(record.download_url)
+      await api.downloadRemoteZimFile(record.download_url, {
+        title: record.title,
+        summary: record.summary,
+        author: record.author,
+        size_bytes: record.size_bytes,
+      })
       invalidateDownloads()
     } catch (error) {
       console.error('Error downloading file:', error)
