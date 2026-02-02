@@ -45,7 +45,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 100, // Dependency service, not shown directly
       description: 'Vector database for storing and searching embeddings',
       icon: 'IconRobot',
-      container_image: 'qdrant/qdrant:latest',
+      container_image: 'qdrant/qdrant:v1.16',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
@@ -68,7 +68,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 3,
       description: 'Local AI chat that runs entirely on your hardware - no internet required',
       icon: 'IconWand',
-      container_image: 'ollama/ollama:latest',
+      container_image: 'ollama/ollama:0.15.2',
       container_command: 'serve',
       container_config: JSON.stringify({
         HostConfig: {
