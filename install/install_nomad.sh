@@ -203,6 +203,82 @@ ensure_docker_installed() {
   fi
 }
 
+setup_nvidia_container_toolkit() {
+  echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...\\n"
+  
+  # Safely detect NVIDIA GPU
+  local has_nvidia_gpu=false
+  if command -v lspci &> /dev/null; then
+    if lspci 2>/dev/null | grep -i nvidia &> /dev/null; then
+      has_nvidia_gpu=true
+      echo -e "${GREEN}#${RESET} NVIDIA GPU detected.\\n"
+    fi
+  fi
+  
+  # Also check for nvidia-smi
+  if ! $has_nvidia_gpu && command -v nvidia-smi &> /dev/null; then
+    if nvidia-smi &> /dev/null; then
+      has_nvidia_gpu=true
+      echo -e "${GREEN}#${RESET} NVIDIA GPU detected via nvidia-smi.\\n"
+    fi
+  fi
+  
+  if ! $has_nvidia_gpu; then
+    echo -e "${YELLOW}#${RESET} No NVIDIA GPU detected. Skipping NVIDIA container toolkit installation.\\n"
+    return 0
+  fi
+  
+  # Check if nvidia-container-toolkit is already installed
+  if command -v nvidia-ctk &> /dev/null; then
+    echo -e "${GREEN}#${RESET} NVIDIA container toolkit is already installed.\\n"
+    return 0
+  fi
+  
+  echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
+  
+  # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
+  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
+    return 0
+  fi
+  
+  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
+      | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+      | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit repository. Continuing anyway...\\n"
+    return 0
+  fi
+  
+  if ! sudo apt-get update 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to update package list. Continuing anyway...\\n"
+    return 0
+  fi
+  
+  if ! sudo apt-get install -y nvidia-container-toolkit 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to install NVIDIA container toolkit. Continuing anyway...\\n"
+    return 0
+  fi
+  
+  echo -e "${GREEN}#${RESET} NVIDIA container toolkit installed successfully.\\n"
+  
+  # Configure Docker to use NVIDIA runtime
+  echo -e "${YELLOW}#${RESET} Configuring Docker to use NVIDIA runtime...\\n"
+  
+  if ! sudo nvidia-ctk runtime configure --runtime=docker 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to configure NVIDIA runtime for Docker. Continuing anyway...\\n"
+    return 0
+  fi
+  
+  # Restart Docker service
+  echo -e "${YELLOW}#${RESET} Restarting Docker service...\\n"
+  if ! sudo systemctl restart docker 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to restart Docker service. You may need to restart it manually.\\n"
+    return 0
+  fi
+  
+  echo -e "${GREEN}#${RESET} NVIDIA container toolkit configuration completed successfully.\\n"
+}
+
 get_install_confirmation(){
   read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/n): " choice
   case "$choice" in
@@ -439,6 +515,7 @@ check_is_debug_mode
 get_install_confirmation
 accept_terms
 ensure_docker_installed
+setup_nvidia_container_toolkit
 get_local_ip
 create_nomad_directory
 download_wait_for_it_script

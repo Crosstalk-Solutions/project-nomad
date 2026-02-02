@@ -7,6 +7,9 @@ import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import { readdir } from 'fs/promises'
 
 @inject()
 export class DockerService {
@@ -444,16 +447,79 @@ export class DockerService {
         )
       }
 
+      // GPU-aware configuration for Ollama
+      let finalImage = service.container_image
+      let gpuHostConfig = containerConfig?.HostConfig || {}
+
+      if (service.service_name === SERVICE_NAMES.OLLAMA) {
+        const gpuType = await this._detectGPUType()
+
+        if (gpuType === 'nvidia') {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `NVIDIA GPU detected. Configuring container with GPU support...`
+          )
+
+          // Add GPU support for NVIDIA
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            DeviceRequests: [
+              {
+                Driver: 'nvidia',
+                Count: -1, // -1 means all GPUs
+                Capabilities: [['gpu']],
+              },
+            ],
+          }
+        } else if (gpuType === 'amd') {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `AMD GPU detected. Using ROCm image and configuring container with GPU support...`
+          )
+
+          // Use ROCm image for AMD
+          finalImage = 'ollama/ollama:rocm'
+
+          // Dynamically discover and add AMD GPU devices
+          const amdDevices = await this._discoverAMDDevices()
+          if (!amdDevices || amdDevices.length === 0) {
+            this._broadcast(
+              service.service_name,
+              'gpu-config-error',
+              `Failed to discover AMD GPU devices. Proceeding with CPU-only configuration...`
+            )
+            gpuHostConfig = { ...gpuHostConfig } // No GPU devices added
+            logger.warn(`[DockerService] No AMD GPU devices discovered for Ollama`)
+          } else {
+            gpuHostConfig = {
+              ...gpuHostConfig,
+              Devices: amdDevices,
+            }
+            logger.info(
+              `[DockerService] Configured ${amdDevices.length} AMD GPU devices for Ollama`
+            )
+          }
+        } else {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `No GPU detected. Using CPU-only configuration...`
+          )
+        }
+      }
+
       this._broadcast(
         service.service_name,
         'creating',
         `Creating Docker container for service ${service.service_name}...`
       )
       const container = await this.docker.createContainer({
-        Image: service.container_image,
+        Image: finalImage,
         name: service.service_name,
         ...(containerConfig?.User && { User: containerConfig.User }),
-        ...(containerConfig?.HostConfig && { HostConfig: containerConfig.HostConfig }),
+        HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
         ...(containerConfig?.Env && { Env: containerConfig.Env }),
@@ -600,6 +666,104 @@ export class DockerService {
       logger.error(
         `[DockerService] Failed to cleanup installation for ${serviceName}: ${error.message}`
       )
+    }
+  }
+
+  /**
+   * Detect GPU type (NVIDIA or AMD) on the system.
+   * Returns 'nvidia', 'amd', or 'none'.
+   */
+  private async _detectGPUType(): Promise<'nvidia' | 'amd' | 'none'> {
+    try {
+      const execAsync = promisify(exec)
+
+      // Check for NVIDIA GPU
+      try {
+        const { stdout: nvidiaCheck } = await execAsync(
+          'lspci 2>/dev/null | grep -i nvidia || true'
+        )
+        if (nvidiaCheck.trim()) {
+          logger.info('[DockerService] NVIDIA GPU detected')
+          return 'nvidia'
+        }
+      } catch (error) {
+        // Continue to AMD check
+      }
+
+      // Check for AMD GPU
+      try {
+        const { stdout: amdCheck } = await execAsync(
+          'lspci 2>/dev/null | grep -iE "amd|radeon" || true'
+        )
+        if (amdCheck.trim()) {
+          logger.info('[DockerService] AMD GPU detected')
+          return 'amd'
+        }
+      } catch (error) {
+        // No GPU detected
+      }
+
+      logger.info('[DockerService] No GPU detected')
+      return 'none'
+    } catch (error) {
+      logger.warn(`[DockerService] Error detecting GPU type: ${error.message}`)
+      return 'none'
+    }
+  }
+
+  /**
+   * Discover AMD GPU DRI devices dynamically.
+   * Returns an array of device configurations for Docker.
+   */
+  private async _discoverAMDDevices(): Promise<
+    Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }>
+  > {
+    try {
+      const devices: Array<{
+        PathOnHost: string
+        PathInContainer: string
+        CgroupPermissions: string
+      }> = []
+
+      // Always add /dev/kfd (Kernel Fusion Driver)
+      devices.push({
+        PathOnHost: '/dev/kfd',
+        PathInContainer: '/dev/kfd',
+        CgroupPermissions: 'rwm',
+      })
+
+      // Discover DRI devices in /dev/dri/
+      try {
+        const driDevices = await readdir('/dev/dri')
+        for (const device of driDevices) {
+          const devicePath = `/dev/dri/${device}`
+          devices.push({
+            PathOnHost: devicePath,
+            PathInContainer: devicePath,
+            CgroupPermissions: 'rwm',
+          })
+        }
+        logger.info(
+          `[DockerService] Discovered ${driDevices.length} DRI devices: ${driDevices.join(', ')}`
+        )
+      } catch (error) {
+        logger.warn(`[DockerService] Could not read /dev/dri directory: ${error.message}`)
+        // Fallback to common device names if directory read fails
+        const fallbackDevices = ['card0', 'renderD128']
+        for (const device of fallbackDevices) {
+          devices.push({
+            PathOnHost: `/dev/dri/${device}`,
+            PathInContainer: `/dev/dri/${device}`,
+            CgroupPermissions: 'rwm',
+          })
+        }
+        logger.info(`[DockerService] Using fallback DRI devices: ${fallbackDevices.join(', ')}`)
+      }
+
+      return devices
+    } catch (error) {
+      logger.error(`[DockerService] Error discovering AMD devices: ${error.message}`)
+      return []
     }
   }
 
