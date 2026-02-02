@@ -24,6 +24,7 @@ import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
 import InstalledTier from '#models/installed_tier'
 import WikipediaSelection from '#models/wikipedia_selection'
+import ZimFileMetadata from '#models/zim_file_metadata'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
@@ -52,8 +53,24 @@ export class ZimService implements IZimService {
     const all = await listDirectoryContents(dirPath)
     const files = all.filter((item) => item.name.endsWith('.zim'))
 
+    // Fetch metadata for all files
+    const metadataRecords = await ZimFileMetadata.all()
+    const metadataMap = new Map(metadataRecords.map((m) => [m.filename, m]))
+
+    // Enrich files with metadata
+    const enrichedFiles = files.map((file) => {
+      const metadata = metadataMap.get(file.name)
+      return {
+        ...file,
+        title: metadata?.title || null,
+        summary: metadata?.summary || null,
+        author: metadata?.author || null,
+        size_bytes: metadata?.size_bytes || null,
+      }
+    })
+
     return {
-      files,
+      files: enrichedFiles,
     }
   }
 
@@ -148,7 +165,10 @@ export class ZimService implements IZimService {
     }
   }
 
-  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
+  async downloadRemote(
+    url: string,
+    metadata?: { title: string; summary?: string; author?: string; size_bytes?: number }
+  ): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`)
@@ -166,6 +186,20 @@ export class ZimService implements IZimService {
     }
 
     const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+
+    // Store metadata if provided
+    if (metadata) {
+      await ZimFileMetadata.updateOrCreate(
+        { filename },
+        {
+          title: metadata.title,
+          summary: metadata.summary || null,
+          author: metadata.author || null,
+          size_bytes: metadata.size_bytes || null,
+        }
+      )
+      logger.info(`[ZimService] Stored metadata for ZIM file: ${filename}`)
+    }
 
     // Dispatch a background download job
     const result = await RunDownloadJob.dispatch({
@@ -347,6 +381,10 @@ export class ZimService implements IZimService {
     }
 
     await deleteFileIfExists(fullPath)
+
+    // Clean up metadata
+    await ZimFileMetadata.query().where('filename', fileName).delete()
+    logger.info(`[ZimService] Deleted metadata for ZIM file: ${fileName}`)
   }
 
   // Wikipedia selector methods

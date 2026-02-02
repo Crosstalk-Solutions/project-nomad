@@ -99,11 +99,14 @@ class API {
     })()
   }
 
-  async downloadRemoteZimFile(url: string) {
+  async downloadRemoteZimFile(
+    url: string,
+    metadata?: { title: string; summary?: string; author?: string; size_bytes?: number }
+  ) {
     return catchInternal(async () => {
       const response = await this.client.post<{ message: string; filename: string; url: string }>(
         '/zim/download-remote',
-        { url }
+        { url, metadata }
       )
       return response.data
     })()

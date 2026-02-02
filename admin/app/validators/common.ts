@@ -11,6 +11,25 @@ export const remoteDownloadValidator = vine.compile(
   })
 )
 
+export const remoteDownloadWithMetadataValidator = vine.compile(
+  vine.object({
+    url: vine
+      .string()
+      .url({
+        require_tld: false, // Allow local URLs
+      })
+      .trim(),
+    metadata: vine
+      .object({
+        title: vine.string().trim().minLength(1),
+        summary: vine.string().trim().optional(),
+        author: vine.string().trim().optional(),
+        size_bytes: vine.number().optional(),
+      })
+      .optional(),
+  })
+)
+
 export const remoteDownloadValidatorOptional = vine.compile(
   vine.object({
     url: vine
