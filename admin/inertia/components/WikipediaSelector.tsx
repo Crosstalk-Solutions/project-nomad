@@ -48,7 +48,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
       {/* Downloading status message */}
       {isDownloading && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-          <LoadingSpinner className='size-5' />
+          <LoadingSpinner fullscreen={false} iconOnly className="size-5" />
           <span className="text-sm text-blue-700">
             Downloading Wikipedia... This may take a while for larger packages.
           </span>
