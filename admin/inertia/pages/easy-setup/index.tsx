@@ -453,6 +453,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     },
   })
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [currentStep])
+
   // Auto-fetch latest collections if the list is empty
   useEffect(() => {
     if (mapCollections && mapCollections.length === 0 && !fetchLatestMapCollections.isPending) {
