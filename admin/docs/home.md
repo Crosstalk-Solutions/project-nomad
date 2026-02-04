@@ -46,11 +46,11 @@ Or explore the **[Getting Started Guide](/docs/getting-started)** for a walkthro
 
 | I want to... | Go here |
 |--------------|---------|
-| Download more content | [Install Apps](/apps) |
-| Add Wikipedia/reference content | [ZIM Manager](/settings/zim-manager) |
-| Download map regions | [Maps Manager](/settings/maps-manager) |
-| Check for updates | [System Update](/settings/updates) |
-| View system status | [Settings](/settings) |
+| Download more content | [Install Apps →](/apps) |
+| Add Wikipedia/reference content | [ZIM Manager →](/settings/zim-manager) |
+| Download map regions | [Maps Manager →](/settings/maps-manager) |
+| Check for updates | [System Update →](/settings/updates) |
+| View system status | [Settings →](/settings) |
 
 ---
 
