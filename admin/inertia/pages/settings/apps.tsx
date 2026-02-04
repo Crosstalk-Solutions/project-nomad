@@ -278,7 +278,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                 },
                 {
                   accessor: 'ui_location',
-                  title: 'Port',
+                  title: 'Location',
                   render: (record) => (
                     <a
                       href={getServiceLink(record.ui_location || 'unknown')}
