@@ -115,6 +115,24 @@ export class DocsService {
             class: { type: String }
           }
         },
+        table: {
+          render: 'Table',
+        },
+        thead: {
+          render: 'TableHead',
+        },
+        tbody: {
+          render: 'TableBody',
+        },
+        tr: {
+          render: 'TableRow',
+        },
+        th: {
+          render: 'TableHeader',
+        },
+        td: {
+          render: 'TableCell',
+        },
       },
     }
   }

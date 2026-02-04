@@ -3,6 +3,7 @@ import Markdoc from '@markdoc/markdoc'
 import { Heading } from './markdoc/Heading'
 import { List } from './markdoc/List'
 import { ListItem } from './markdoc/ListItem'
+import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from './markdoc/Table'
 
 // Custom components for Markdoc tags
 const Callout = ({
@@ -36,6 +37,12 @@ const components = {
   Heading,
   List,
   ListItem,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeader,
+  TableCell,
 }
 
 interface MarkdocRendererProps {
