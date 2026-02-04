@@ -437,7 +437,7 @@ export class BenchmarkService {
 
     // Check if the benchmark model is available, pull if not
     const ollamaService = new (await import('./ollama_service.js')).OllamaService()
-    const modelResponse = await ollamaService.downloadModelSync(AI_BENCHMARK_MODEL)
+    const modelResponse = await ollamaService.downloadModel(AI_BENCHMARK_MODEL)
     if (!modelResponse.success) {
       throw new Error(`Model does not exist and failed to download: ${modelResponse.message}`)
     }

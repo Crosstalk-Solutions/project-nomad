@@ -42,33 +42,20 @@ export class DownloadModelJob {
     )
 
     // Services are ready, initiate the download with progress tracking
-    const result = await ollamaService._downloadModel(modelName, (progress) => {
-      // Update job progress in BullMQ
-      const progressData = {
-        status: progress.status,
-        percent: progress.percent,
-        completed: progress.completed,
-        total: progress.total,
-      }
-
-      // Update the job progress (0-100 scale for BullMQ)
-      if (progress.percent !== undefined) {
-        job.updateProgress(progress.percent)
-      }
-
-      // Log progress with job context
-      if (progress.percent !== undefined) {
+    const result = await ollamaService.downloadModel(modelName, (progressPercent) => {
+      if (progressPercent) {
+        job.updateProgress(Math.floor(progressPercent))
         logger.info(
-          `[DownloadModelJob] Model ${modelName}: ${progress.status} - ${progress.percent}% (${progress.completed}/${progress.total} bytes)`
+          `[DownloadModelJob] Model ${modelName}: ${progressPercent}%`
         )
-      } else {
-        logger.info(`[DownloadModelJob] Model ${modelName}: ${progress.status}`)
       }
 
       // Store detailed progress in job data for clients to query
       job.updateData({
         ...job.data,
-        progress: progressData,
+        status: 'downloading',
+        progress: progressPercent,
+        progress_timestamp: new Date().toISOString(),
       })
     })
 
