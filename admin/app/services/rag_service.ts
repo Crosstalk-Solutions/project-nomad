@@ -4,7 +4,7 @@ import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import { TokenChunker } from '@chonkiejs/core'
 import sharp from 'sharp'
-import { deleteFileIfExists, determineFileType, getFile } from '../utils/fs.js'
+import { deleteFileIfExists, determineFileType, getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
@@ -12,6 +12,9 @@ import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
+import { join } from 'node:path'
+import KVStore from '#models/kv_store'
+import { parseBoolean } from '../utils/misc.js'
 
 @inject()
 export class RagService {
@@ -33,7 +36,7 @@ export class RagService {
   constructor(
     private dockerService: DockerService,
     private ollamaService: OllamaService
-  ) {}
+  ) { }
 
   /**
    * Estimates token count for text. This is a conservative approximation:
@@ -166,9 +169,19 @@ export class RagService {
       const allModels = await this.ollamaService.getModels(true)
       const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
 
-      // TODO: Attempt to download the embedding model if not found
       if (!embeddingModel) {
-        throw new Error(`${RagService.EMBEDDING_MODEL} does not exist and could not be downloaded.`)
+        try {
+          const downloadResult = await this.ollamaService.downloadModel(RagService.EMBEDDING_MODEL)
+          if (!downloadResult.success) {
+            throw new Error(downloadResult.message || 'Unknown error during model download')
+          }
+        } catch (modelError) {
+          logger.error(
+            `[RAG] Embedding model ${RagService.EMBEDDING_MODEL} not found locally and failed to download:`,
+            modelError
+          )
+          return null
+        }
       }
 
       // TokenChunker uses character-based tokenization (1 char = 1 token)
@@ -326,7 +339,8 @@ export class RagService {
    * This includes text extraction, chunking, embedding, and storing in Qdrant.
    */
   public async processAndEmbedFile(
-    filepath: string // Should already be the full path to the uploaded file
+    filepath: string, // Should already be the full path to the uploaded file
+    deleteAfterEmbedding: boolean = false
   ): Promise<{ success: boolean; message: string; chunks?: number }> {
     try {
       const fileType = determineFileType(filepath)
@@ -368,9 +382,15 @@ export class RagService {
         source: filepath
       })
 
-      // Cleanup the file from disk
-      logger.info(`[RAG] Embedding complete, deleting uploaded file: ${filepath}`)
-      await deleteFileIfExists(filepath)
+      if (!embedResult) {
+        return { success: false, message: 'Failed to embed and store the extracted text.' }
+      }
+
+      if (deleteAfterEmbedding) {
+        // Cleanup the file from disk
+        logger.info(`[RAG] Embedding complete, deleting uploaded file: ${filepath}`)
+        await deleteFileIfExists(filepath)
+      }
 
       return {
         success: true,
@@ -654,6 +674,65 @@ export class RagService {
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
+    }
+  }
+
+  public async discoverNomadDocs(force?: boolean): Promise<{ success: boolean; message: string }> {
+    try {
+      const README_PATH = join(process.cwd(), 'README.md')
+      const DOCS_DIR = join(process.cwd(), 'docs')
+
+      const alreadyEmbeddedRaw = await KVStore.getValue('rag.docsEmbedded')
+      if (parseBoolean(alreadyEmbeddedRaw) && !force) {
+        logger.info('[RAG] Nomad docs have already been discovered and queued. Skipping.')
+        return { success: true, message: 'Nomad docs have already been discovered and queued. Skipping.' }
+      }
+
+      const filesToEmbed: Array<{ path: string; source: string }> = []
+
+      const readmeExists = await getFileStatsIfExists(README_PATH)
+      if (readmeExists) {
+        filesToEmbed.push({ path: README_PATH, source: 'README.md' })
+      }
+
+      const dirContents = await listDirectoryContentsRecursive(DOCS_DIR)
+      for (const entry of dirContents) {
+        if (entry.type === 'file') {
+          filesToEmbed.push({ path: entry.key, source: join('docs', entry.name) })
+        }
+      }
+
+      logger.info(`[RAG] Discovered ${filesToEmbed.length} Nomad doc files to embed`)
+
+      // Import EmbedFileJob dynamically to avoid circular dependencies
+      const { EmbedFileJob } = await import('#jobs/embed_file_job')
+
+      // Dispatch an EmbedFileJob for each discovered file
+      for (const fileInfo of filesToEmbed) {
+        try {
+          logger.info(`[RAG] Dispatching embed job for: ${fileInfo.source}`)
+          const stats = await getFileStatsIfExists(fileInfo.path)
+          await EmbedFileJob.dispatch({
+            filePath: fileInfo.path,
+            fileName: fileInfo.source,
+            fileSize: stats?.size,
+          })
+          logger.info(`[RAG] Successfully dispatched job for ${fileInfo.source}`)
+        } catch (fileError) {
+          logger.error(
+            `[RAG] Error dispatching job for file ${fileInfo.source}:`,
+            fileError
+          )
+        }
+      }
+
+      // Update KV store to mark docs as discovered so we don't redo this unnecessarily
+      await KVStore.setValue('rag.docsEmbedded', 'true')
+
+      return { success: true, message: `Nomad docs discovery completed. Dispatched ${filesToEmbed.length} embedding jobs.` }
+    } catch (error) {
+      logger.error('Error discovering Nomad docs:', error)
+      return { success: false, message: 'Error discovering Nomad docs.' }
     }
   }
 }

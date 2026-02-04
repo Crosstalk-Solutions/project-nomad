@@ -31,5 +31,6 @@ COPY --from=build /app/build /app
 # Copy root package.json for version info
 COPY package.json /app/version.json
 COPY admin/docs /app/docs
+COPY README.md /app/README.md
 EXPOSE 8080
 CMD ["node", "./bin/server.js"]

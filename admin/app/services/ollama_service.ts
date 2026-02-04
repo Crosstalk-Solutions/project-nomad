@@ -42,8 +42,8 @@ export class OllamaService {
   }
 
   /**
-   * Synchronous version of model download (waits for completion). Should only be used for
-   * small models or in contexts where a background job is incompatible.
+   * Downloads a model from the Ollama service with progress tracking. Where possible,
+   * one should dispatch a background job instead of calling this method directly to avoid long blocking.
    * @param model Model name to download
    * @returns Success status and message
    */
