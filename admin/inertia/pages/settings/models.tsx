@@ -14,7 +14,10 @@ import { ModelResponse } from 'ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import Input from '~/components/inputs/Input'
+import { IconSearch } from '@tabler/icons-react'
+import useDebounce from '~/hooks/useDebounce'
 
 export default function ModelsPage(props: {
   models: {
@@ -26,9 +29,29 @@ export default function ModelsPage(props: {
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
+  const { debounce } = useDebounce()
   const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
     props.models.settings.chatSuggestionsEnabled
   )
+
+  const [query, setQuery] = useState('')
+  const [queryUI, setQueryUI] = useState('')
+
+  const debouncedSetQuery = debounce((val: string) => {
+    setQuery(val)
+  }, 300)
+
+  const { data: availableModels, isLoading } = useQuery({
+    queryKey: ['ollama', 'availableModels', query],
+    queryFn: async () => {
+      const res = await api.getAvailableModels(query, false)
+      if (!res) {
+        return []
+      }
+      return res
+    },
+    initialData: props.models.availableModels,
+  })
 
   async function handleInstallModel(modelName: string) {
     try {
@@ -144,8 +167,22 @@ export default function ModelsPage(props: {
             </div>
           </div>
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
+          <div className="flex justify-start mt-4">
+            <Input
+              name="search"
+              label=""
+              placeholder="Search language models.."
+              value={queryUI}
+              onChange={(e) => {
+                setQueryUI(e.target.value)
+                debouncedSetQuery(e.target.value)
+              }}
+              className="w-1/3"
+              leftIcon={<IconSearch className="w-5 h-5 text-gray-400" />}
+            />
+          </div>
           <StyledTable<NomadOllamaModel>
-            className="font-semibold"
+            className="font-semibold mt-4"
             rowLines={true}
             columns={[
               {
@@ -169,7 +206,8 @@ export default function ModelsPage(props: {
                 title: 'Last Updated',
               },
             ]}
-            data={props.models.availableModels || []}
+            data={availableModels || []}
+            loading={isLoading}
             expandable={{
               expandedRowRender: (record) => (
                 <div className="pl-14">

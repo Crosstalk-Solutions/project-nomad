@@ -9,6 +9,7 @@ import axios from 'axios'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import transmit from '@adonisjs/transmit/services/main'
+import Fuse, { IFuseOptions } from 'fuse.js'
 
 const NOMAD_MODELS_API_BASE_URL = 'https://api.projectnomad.us/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -155,9 +156,10 @@ export class OllamaService {
   }
 
   async getAvailableModels(
-    { sort, recommendedOnly }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean } = {
+    { sort, recommendedOnly, query }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null } = {
       sort: 'pulls',
       recommendedOnly: false,
+      query: null,
     }
   ): Promise<NomadOllamaModel[] | null> {
     try {
@@ -171,7 +173,8 @@ export class OllamaService {
       }
 
       if (!recommendedOnly) {
-        return models
+        const filteredModels = query ? this.fuseSearchModels(models, query) : models
+        return filteredModels
       }
 
       // If recommendedOnly is true, only return the first three models (if sorted by pulls, these will be the top 3)
@@ -185,6 +188,11 @@ export class OllamaService {
           tags: model.tags && model.tags.length > 0 ? [model.tags[0]] : [],
         }
       })
+
+      if (query) {
+        return this.fuseSearchModels(recommendedModels, query)
+      }
+
       return recommendedModels
     } catch (error) {
       logger.error(
@@ -320,5 +328,17 @@ export class OllamaService {
       timestamp: new Date().toISOString(),
     })
     logger.info(`[OllamaService] Download progress for model "${model}": ${percent}%`)
+  }
+
+  private fuseSearchModels(models: NomadOllamaModel[], query: string): NomadOllamaModel[] {
+    const options: IFuseOptions<NomadOllamaModel> = {
+      ignoreDiacritics: true,
+      keys: ['name', 'description', 'tags.tag'],
+      threshold: 0.3, // lower threshold for stricter matching
+    }
+
+    const fuse = new Fuse(models, options)
+
+    return fuse.search(query).map(result => result.item)
   }
 }

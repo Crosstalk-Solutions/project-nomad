@@ -175,7 +175,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const { data: recommendedModels, isLoading: isLoadingRecommendedModels } = useQuery({
     queryKey: ['recommended-ollama-models'],
-    queryFn: () => api.getRecommendedModels(),
+    queryFn: () => api.getAvailableModels(null, true),
     refetchOnWindowFocus: false,
   })
 
