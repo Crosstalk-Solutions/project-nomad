@@ -2,9 +2,12 @@ import { useState } from 'react'
 import Footer from '~/components/Footer'
 import ChatButton from '~/components/chat/ChatButton'
 import ChatModal from '~/components/chat/ChatModal'
+import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
+import { SERVICE_NAMES } from '../../constants/service_names'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const aiAssistantInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -19,8 +22,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 w-full bg-desert">{children}</div>
       <Footer />
 
-      <ChatButton onClick={() => setIsChatOpen(true)} />      
-      <ChatModal open={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      {aiAssistantInstalled && (
+        <>
+          <ChatButton onClick={() => setIsChatOpen(true)} />
+          <ChatModal open={isChatOpen} onClose={() => setIsChatOpen(false)} />
+        </>
+      )}
     </div>
   )
 }

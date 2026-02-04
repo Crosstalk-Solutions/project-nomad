@@ -4,12 +4,19 @@ import { ChatService } from '#services/chat_service'
 import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#validators/chat'
 import { parseBoolean } from '../utils/misc.js'
 import KVStore from '#models/kv_store'
+import { SystemService } from '#services/system_service'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 @inject()
 export default class ChatsController {
-  constructor(private chatService: ChatService) {}
+  constructor(private chatService: ChatService, private systemService: SystemService) {}
 
-  async inertia({ inertia }: HttpContext) {
+  async inertia({ inertia, response }: HttpContext) {
+    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(SERVICE_NAMES.OLLAMA)
+    if (!aiAssistantInstalled) {
+      return response.status(404).json({ error: 'AI Assistant service not installed' })
+    }
+    
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     return inertia.render('chat', {
       settings: {
