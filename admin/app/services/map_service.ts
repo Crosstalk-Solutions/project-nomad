@@ -234,7 +234,7 @@ export class MapService implements IMapService {
     }
   }
 
-  async generateStylesJSON() {
+  async generateStylesJSON(host: string | null = null): Promise<BaseStylesFile> {
     if (!(await this.checkBaseAssetsExist())) {
       throw new Error('Base map assets are missing from storage/maps')
     }
@@ -248,9 +248,15 @@ export class MapService implements IMapService {
     const rawStyles = JSON.parse(baseStyle.toString()) as BaseStylesFile
 
     const regions = (await this.listRegions()).files
-    const sources = this.generateSourcesArray(regions)
 
-    const baseUrl = this.getPublicFileBaseUrl(this.basemapsAssetsDir)
+    /** If we have the host, use it to build public URLs, otherwise we'll fallback to defaults
+    * This is mainly useful because we need to know what host the user is accessing from in order to
+    * properly generate URLs in the styles file
+    * e.g. user is accessing from "example.com", but we would by default generate "localhost:8080/..." so maps would
+    * fail to load. 
+    */
+    const sources = this.generateSourcesArray(host, regions)
+    const baseUrl = this.getPublicFileBaseUrl(host, this.basemapsAssetsDir)
 
     const styles = await this.generateStylesFile(
       rawStyles,
@@ -341,9 +347,9 @@ export class MapService implements IMapService {
     return await listDirectoryContentsRecursive(this.baseDirPath)
   }
 
-  private generateSourcesArray(regions: FileEntry[]): BaseStylesFile['sources'][] {
+  private generateSourcesArray(host: string | null, regions: FileEntry[]): BaseStylesFile['sources'][] {
     const sources: BaseStylesFile['sources'][] = []
-    const baseUrl = this.getPublicFileBaseUrl('pmtiles')
+    const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles')
 
     for (const region of regions) {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
@@ -414,7 +420,7 @@ export class MapService implements IMapService {
   /*
    * Gets the appropriate public URL for a map asset depending on environment
    */
-  private getPublicFileBaseUrl(childPath: string): string {
+  private getPublicFileBaseUrl(specifiedHost: string | null, childPath: string): string {
     function getHost() {
       try {
         const localUrlRaw = env.get('URL')
@@ -427,7 +433,7 @@ export class MapService implements IMapService {
       }
     }
 
-    const host = getHost()
+    const host = specifiedHost || getHost()
     const withProtocol = host.startsWith('http') ? host : `http://${host}`
     const baseUrlPath =
       process.env.NODE_ENV === 'production' ? childPath : urlJoin(this.mapStoragePath, childPath)
