@@ -51,7 +51,7 @@ export default class SettingsController {
     }
 
     async models({ inertia }: HttpContext) {
-        const availableModels = await this.ollamaService.getAvailableModels({ sort: 'pulls', recommendedOnly: false });
+        const availableModels = await this.ollamaService.getAvailableModels({ sort: 'pulls', recommendedOnly: false, query: null });
         const installedModels = await this.ollamaService.getModels();
         const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
         return inertia.render('settings/models', {

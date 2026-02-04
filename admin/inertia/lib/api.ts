@@ -161,10 +161,10 @@ class API {
     })()
   }
 
-  async getRecommendedModels(): Promise<NomadOllamaModel[] | undefined> {
+  async getAvailableModels(query: string | null, recommendedOnly: boolean): Promise<NomadOllamaModel[] | undefined> {
     return catchInternal(async () => {
       const response = await this.client.get<NomadOllamaModel[]>('/ollama/models', {
-        params: { sort: 'pulls', recommendedOnly: true },
+        params: { sort: 'pulls', recommendedOnly, query },
       })
       return response.data
     })()

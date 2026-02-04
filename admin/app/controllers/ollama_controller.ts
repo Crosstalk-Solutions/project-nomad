@@ -18,6 +18,7 @@ export default class OllamaController {
     return await this.ollamaService.getAvailableModels({
       sort: reqData.sort,
       recommendedOnly: reqData.recommendedOnly,
+      query: reqData.query || null,
     })
   }
 
