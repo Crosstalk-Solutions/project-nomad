@@ -69,7 +69,7 @@ export default class MapsController {
     return await this.mapService.listRegions()
   }
 
-  async styles({ response }: HttpContext) {
+  async styles({ request, response }: HttpContext) {
     // Automatically ensure base assets are present before generating styles
     const baseAssetsExist = await this.mapService.ensureBaseAssets()
     if (!baseAssetsExist) {
@@ -79,7 +79,7 @@ export default class MapsController {
       })
     }
 
-    const styles = await this.mapService.generateStylesJSON()
+    const styles = await this.mapService.generateStylesJSON(request.host())
     return response.json(styles)
   }
 
