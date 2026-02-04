@@ -20,6 +20,11 @@ export class SystemService {
 
   constructor(private dockerService: DockerService) {}
 
+  async checkServiceInstalled(serviceName: string): Promise<boolean> {
+    const services = await this.getServices({ installedOnly: true });
+    return services.some(service => service.service_name === serviceName);
+  }
+
   async getInternetStatus(): Promise<boolean> {
     const DEFAULT_TEST_URL = 'https://1.1.1.1/cdn-cgi/trace'
     const MAX_ATTEMPTS = 3
