@@ -608,8 +608,7 @@ export class DockerService {
       }
 
       const dockerContainer = this.docker.getContainer(container.Id)
-      await dockerContainer.stop()
-      await dockerContainer.remove()
+      await dockerContainer.remove({ force: true })
 
       return { success: true, message: `Service ${serviceName} container removed successfully` }
     } catch (error) {
@@ -678,6 +677,10 @@ export class DockerService {
         await service.save()
       }
       this.activeInstallations.delete(serviceName)
+
+      // Ensure any partially created container is removed
+      await this._removeServiceContainer(serviceName)
+
       logger.info(`[DockerService] Cleaned up failed installation for ${serviceName}`)
     } catch (error) {
       logger.error(
