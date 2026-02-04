@@ -35,6 +35,21 @@ export class EmbedFileJob {
     const ragService = new RagService(dockerService, ollamaService)
 
     try {
+      // Check if Ollama and Qdrant services are ready
+      const existingModels = await ollamaService.getModels()
+      if (!existingModels) {
+        logger.warn('[EmbedFileJob] Ollama service not ready yet. Will retry...')
+        throw new Error('Ollama service not ready yet')
+      }
+
+      const qdrantUrl = await dockerService.getServiceURL('nomad_qdrant')
+      if (!qdrantUrl) {
+        logger.warn('[EmbedFileJob] Qdrant service not ready yet. Will retry...')
+        throw new Error('Qdrant service not ready yet')
+      }
+
+      logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
+
       // Update progress starting
       await job.updateProgress(0)
       await job.updateData({
@@ -102,10 +117,10 @@ export class EmbedFileJob {
     try {
       const job = await queue.add(this.key, params, {
         jobId,
-        attempts: 3,
+        attempts: 30,
         backoff: {
-          type: 'exponential',
-          delay: 5000, // Delay 5 seconds before retrying
+          type: 'fixed',
+          delay: 60000, // Check every 60 seconds for service readiness
         },
         removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
         removeOnFail: { count: 20 } // Keep last 20 failed jobs for debugging

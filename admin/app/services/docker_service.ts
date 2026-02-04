@@ -9,7 +9,8 @@ import { ZIM_STORAGE_PATH } from '../utils/fs.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { readdir } from 'fs/promises'
+// import { readdir } from 'fs/promises'
+import KVStore from '#models/kv_store'
 
 @inject()
 export class DockerService {
@@ -473,34 +474,34 @@ export class DockerService {
             ],
           }
         } else if (gpuType === 'amd') {
-          this._broadcast(
-            service.service_name,
-            'gpu-config',
-            `AMD GPU detected. Using ROCm image and configuring container with GPU support...`
-          )
+          // this._broadcast(
+          //   service.service_name,
+          //   'gpu-config',
+          //   `AMD GPU detected. Using ROCm image and configuring container with GPU support...`
+          // )
 
-          // Use ROCm image for AMD
-          finalImage = 'ollama/ollama:rocm'
+          // // Use ROCm image for AMD
+          // finalImage = 'ollama/ollama:rocm'
 
-          // Dynamically discover and add AMD GPU devices
-          const amdDevices = await this._discoverAMDDevices()
-          if (!amdDevices || amdDevices.length === 0) {
-            this._broadcast(
-              service.service_name,
-              'gpu-config-error',
-              `Failed to discover AMD GPU devices. Proceeding with CPU-only configuration...`
-            )
-            gpuHostConfig = { ...gpuHostConfig } // No GPU devices added
-            logger.warn(`[DockerService] No AMD GPU devices discovered for Ollama`)
-          } else {
-            gpuHostConfig = {
-              ...gpuHostConfig,
-              Devices: amdDevices,
-            }
-            logger.info(
-              `[DockerService] Configured ${amdDevices.length} AMD GPU devices for Ollama`
-            )
-          }
+          // // Dynamically discover and add AMD GPU devices
+          // const amdDevices = await this._discoverAMDDevices()
+          // if (!amdDevices || amdDevices.length === 0) {
+          //   this._broadcast(
+          //     service.service_name,
+          //     'gpu-config-error',
+          //     `Failed to discover AMD GPU devices. Proceeding with CPU-only configuration...`
+          //   )
+          //   gpuHostConfig = { ...gpuHostConfig } // No GPU devices added
+          //   logger.warn(`[DockerService] No AMD GPU devices discovered for Ollama`)
+          // } else {
+          //   gpuHostConfig = {
+          //     ...gpuHostConfig,
+          //     Devices: amdDevices,
+          //   }
+          //   logger.info(
+          //     `[DockerService] Configured ${amdDevices.length} AMD GPU devices for Ollama`
+          //   )
+          // }
         } else {
           this._broadcast(
             service.service_name,
@@ -552,6 +553,22 @@ export class DockerService {
 
       // Remove from active installs tracking
       this.activeInstallations.delete(service.service_name)
+
+      // If Ollama was just installed, trigger Nomad docs discovery and embedding
+      if (service.service_name === SERVICE_NAMES.OLLAMA) {
+        logger.info('[DockerService] Ollama installation complete. Enabling chat suggestions by default.')
+        await KVStore.setValue('chat.suggestionsEnabled', "true")
+
+        logger.info('[DockerService] Ollama installation complete. Triggering Nomad docs discovery...')
+        
+        // Need to use dynamic imports here to avoid circular dependency
+        const ollamaService = new (await import('./ollama_service.js')).OllamaService()
+        const ragService = new (await import('./rag_service.js')).RagService(this, ollamaService)
+
+        ragService.discoverNomadDocs().catch((error) => {
+          logger.error('[DockerService] Failed to discover Nomad docs:', error)
+        })
+      }
 
       this._broadcast(
         service.service_name,
@@ -715,57 +732,57 @@ export class DockerService {
    * Discover AMD GPU DRI devices dynamically.
    * Returns an array of device configurations for Docker.
    */
-  private async _discoverAMDDevices(): Promise<
-    Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }>
-  > {
-    try {
-      const devices: Array<{
-        PathOnHost: string
-        PathInContainer: string
-        CgroupPermissions: string
-      }> = []
+  // private async _discoverAMDDevices(): Promise<
+  //   Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }>
+  // > {
+  //   try {
+  //     const devices: Array<{
+  //       PathOnHost: string
+  //       PathInContainer: string
+  //       CgroupPermissions: string
+  //     }> = []
 
-      // Always add /dev/kfd (Kernel Fusion Driver)
-      devices.push({
-        PathOnHost: '/dev/kfd',
-        PathInContainer: '/dev/kfd',
-        CgroupPermissions: 'rwm',
-      })
+  //     // Always add /dev/kfd (Kernel Fusion Driver)
+  //     devices.push({
+  //       PathOnHost: '/dev/kfd',
+  //       PathInContainer: '/dev/kfd',
+  //       CgroupPermissions: 'rwm',
+  //     })
 
-      // Discover DRI devices in /dev/dri/
-      try {
-        const driDevices = await readdir('/dev/dri')
-        for (const device of driDevices) {
-          const devicePath = `/dev/dri/${device}`
-          devices.push({
-            PathOnHost: devicePath,
-            PathInContainer: devicePath,
-            CgroupPermissions: 'rwm',
-          })
-        }
-        logger.info(
-          `[DockerService] Discovered ${driDevices.length} DRI devices: ${driDevices.join(', ')}`
-        )
-      } catch (error) {
-        logger.warn(`[DockerService] Could not read /dev/dri directory: ${error.message}`)
-        // Fallback to common device names if directory read fails
-        const fallbackDevices = ['card0', 'renderD128']
-        for (const device of fallbackDevices) {
-          devices.push({
-            PathOnHost: `/dev/dri/${device}`,
-            PathInContainer: `/dev/dri/${device}`,
-            CgroupPermissions: 'rwm',
-          })
-        }
-        logger.info(`[DockerService] Using fallback DRI devices: ${fallbackDevices.join(', ')}`)
-      }
+  //     // Discover DRI devices in /dev/dri/
+  //     try {
+  //       const driDevices = await readdir('/dev/dri')
+  //       for (const device of driDevices) {
+  //         const devicePath = `/dev/dri/${device}`
+  //         devices.push({
+  //           PathOnHost: devicePath,
+  //           PathInContainer: devicePath,
+  //           CgroupPermissions: 'rwm',
+  //         })
+  //       }
+  //       logger.info(
+  //         `[DockerService] Discovered ${driDevices.length} DRI devices: ${driDevices.join(', ')}`
+  //       )
+  //     } catch (error) {
+  //       logger.warn(`[DockerService] Could not read /dev/dri directory: ${error.message}`)
+  //       // Fallback to common device names if directory read fails
+  //       const fallbackDevices = ['card0', 'renderD128']
+  //       for (const device of fallbackDevices) {
+  //         devices.push({
+  //           PathOnHost: `/dev/dri/${device}`,
+  //           PathInContainer: `/dev/dri/${device}`,
+  //           CgroupPermissions: 'rwm',
+  //         })
+  //       }
+  //       logger.info(`[DockerService] Using fallback DRI devices: ${fallbackDevices.join(', ')}`)
+  //     }
 
-      return devices
-    } catch (error) {
-      logger.error(`[DockerService] Error discovering AMD devices: ${error.message}`)
-      return []
-    }
-  }
+  //     return devices
+  //   } catch (error) {
+  //     logger.error(`[DockerService] Error discovering AMD devices: ${error.message}`)
+  //     return []
+  //   }
+  // }
 
   private _broadcast(service: string, status: string, message: string) {
     transmit.broadcast('service-installation', {
