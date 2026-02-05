@@ -14,6 +14,7 @@ When disasters strike, internet and cell service often go down first. N.O.M.A.D.
 - Find information about water purification, food storage, shelter building
 - Use offline maps to navigate when GPS services are degraded
 - Research plant identification, weather patterns, radio frequencies
+- Upload emergency plans and protocols to the Knowledge Base for quick AI-assisted reference
 
 **Recommended content:**
 - Medical Library ZIM collection
@@ -33,6 +34,7 @@ Teach your children anywhere, with or without internet. Complete curriculum avai
 - Supplement with Wikipedia for research projects
 - Use the AI as a patient tutor for any subject
 - Access classic literature through Project Gutenberg
+- Upload curriculum guides to the Knowledge Base so the AI can help answer curriculum-specific questions
 
 **Recommended content:**
 - Khan Academy courses via Kolibri
@@ -71,6 +73,7 @@ Construction sites, research stations, ships, and remote facilities often lack r
 **What you can do:**
 - Access technical references and documentation
 - Use AI for writing assistance and analysis
+- Upload technical manuals and SOPs to the Knowledge Base for document-aware AI responses
 - Look up regulations, standards, and procedures
 - Provide educational resources for workers
 - Maintain communication records with note-taking apps
@@ -109,13 +112,15 @@ Some people simply prefer to keep their searches and questions private.
 **What you can do:**
 - Search Wikipedia without being tracked
 - Ask AI questions that stay on your own hardware
+- Upload sensitive documents to the Knowledge Base — they never leave your server
 - Learn about sensitive topics privately
 - Keep your intellectual curiosity to yourself
 
 **How it works:**
 - All data stays on your server
 - No search history sent to companies
-- No AI conversations leave your network
+- No AI conversations leave your network — the AI chat is built into the Command Center
+- All Knowledge Base processing happens locally
 - You control your own information
 
 ---
@@ -147,6 +152,7 @@ Students and researchers can work without depending on university networks.
 **What you can do:**
 - Access Wikipedia's extensive article database
 - Use AI for research assistance and summarization
+- Upload research papers to the Knowledge Base for AI-assisted analysis and cross-referencing
 - Work on papers and projects offline
 - Cross-reference multiple sources
 - Take notes with built-in tools
@@ -171,10 +177,13 @@ Storage is limited. Focus on:
 3. General reference (Wikipedia)
 4. Nice-to-have additions
 
-### Step 3: Download While You Can
+### Step 3: Upload Relevant Documents
+Add your own documents to the [Knowledge Base](/knowledge-base) — emergency plans, technical manuals, curriculum guides, or research papers. The AI can reference these when you ask questions.
+
+### Step 4: Download While You Can
 Keep your server updated while you have internet. You never know when you'll need to go offline.
 
-### Step 4: Practice
+### Step 5: Practice
 Try using N.O.M.A.D. before you need it. Familiarity with the tools makes them more useful in a crisis.
 
 ---
@@ -183,8 +192,10 @@ Try using N.O.M.A.D. before you need it. Familiarity with the tools makes them m
 
 N.O.M.A.D. content is customizable. If you don't see what you need:
 
-1. **Check ZIM Remote Explorer** — Thousands of ZIM files are available
-2. **Browse Kolibri channels** — Educational content for many subjects
-3. **Request features** — Let us know what content would help you
+1. **Check the Wikipedia Selector** — Browse and download Wikipedia packages by language and size
+2. **Browse Content Explorer** — Thousands of ZIM files are available
+3. **Browse Kolibri channels** — Educational content for many subjects
+4. **Upload your own documents** — Add files to the [Knowledge Base](/knowledge-base) for AI-aware reference
+5. **Request features** — Let us know what content would help you on [Discord](https://discord.com/invite/crosstalksolutions)
 
 Your offline server, your content choices.

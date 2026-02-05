@@ -6,6 +6,16 @@ import InternalServerErrorException from '#exceptions/internal_server_error_exce
 
 export class DocsService {
   private docsPath = path.join(process.cwd(), 'docs')
+
+  private static readonly DOC_ORDER: Record<string, number> = {
+    'home': 1,
+    'getting-started': 2,
+    'use-cases': 3,
+    'faq': 4,
+    'about': 5,
+    'release-notes': 6,
+  }
+
   async getDocs() {
     const contents = await listDirectoryContentsRecursive(this.docsPath)
     const files: Array<{ title: string; slug: string }> = []
@@ -20,7 +30,11 @@ export class DocsService {
       }
     }
 
-    return files.sort((a, b) => a.title.localeCompare(b.title))
+    return files.sort((a, b) => {
+      const orderA = DocsService.DOC_ORDER[a.slug] ?? 999
+      const orderB = DocsService.DOC_ORDER[b.slug] ?? 999
+      return orderA - orderB
+    })
   }
 
   parse(content: string) {
