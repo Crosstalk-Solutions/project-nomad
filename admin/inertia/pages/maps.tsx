@@ -18,35 +18,40 @@ export default function Maps(props: {
   return (
     <MapsLayout>
       <Head title="Maps" />
-      <div className="flex border-b border-gray-900/10 p-4 justify-between">
-        <Link href="/home" className="flex items-center">
-          <IconArrowLeft className="mr-2" size={24} />
-          <p className="text-lg text-gray-600">Back to Home</p>
-        </Link>
-        <Link href="/settings/maps">
-          <StyledButton variant="primary" icon="IconSettings">
-            Manage Map Regions
-          </StyledButton>
-        </Link>
-      </div>
-      <div className="w-full min-h-screen flex flex-col items-center justify-center py-4 mx-4">
+      <div className="relative w-full h-screen overflow-hidden">
+        {/* Nav and alerts are overlayed */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between p-4 bg-gray-50 backdrop-blur-sm shadow-sm">
+          <Link href="/home" className="flex items-center">
+            <IconArrowLeft className="mr-2" size={24} />
+            <p className="text-lg text-gray-600">Back to Home</p>
+          </Link>
+          <Link href="/settings/maps" className='mr-4'>
+            <StyledButton variant="primary" icon="IconSettings">
+              Manage Map Regions
+            </StyledButton>
+          </Link>
+        </div>
         {alertMessage && (
-          <AlertWithButton
-            title={alertMessage}
-            type="warning"
-            variant="solid"
-            className="w-full !mb-4"
-            buttonProps={{
-              variant: 'secondary',
-              children: 'Go to Map Settings',
-              icon: 'IconSettings',
-              onClick: () => {
-                window.location.href = '/settings/maps'
-              },
-            }}
-          />
+          <div className="absolute top-20 left-4 right-4 z-50">
+            <AlertWithButton
+              title={alertMessage}
+              type="warning"
+              variant="solid"
+              className="w-full"
+              buttonProps={{
+                variant: 'secondary',
+                children: 'Go to Map Settings',
+                icon: 'IconSettings',
+                onClick: () => {
+                  window.location.href = '/settings/maps'
+                },
+              }}
+            />
+          </div>
         )}
-        <MapComponent />
+        <div className="absolute inset-0">
+          <MapComponent />
+        </div>
       </div>
     </MapsLayout>
   )
