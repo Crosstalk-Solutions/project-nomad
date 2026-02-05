@@ -241,14 +241,11 @@ export default function ZimRemoteExplorer() {
     // Get all resources for this tier (including inherited ones)
     const resources = getAllResourcesForTier(tier, category.tiers)
 
-    // Download each resource and save the installed tier
+    // Download each resource
     try {
       for (const resource of resources) {
         await api.downloadRemoteZimFile(resource.url)
       }
-
-      // Save the installed tier
-      await api.saveInstalledTier(category.slug, tier.slug)
 
       addNotification({
         message: `Started downloading ${resources.length} files from "${category.name} - ${tier.name}"`,

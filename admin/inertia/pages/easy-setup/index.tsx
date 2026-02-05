@@ -403,12 +403,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
       await Promise.all(downloadPromises)
 
-      // Save installed tiers for each selected category
-      const tierSavePromises = Array.from(selectedTiers.entries()).map(
-        ([categorySlug, tier]) => api.saveInstalledTier(categorySlug, tier.slug)
-      )
-      await Promise.all(tierSavePromises)
-
       // Select Wikipedia option if one was chosen
       if (selectedWikipedia && selectedWikipedia !== wikipediaState?.currentSelection?.optionId) {
         await api.selectWikipedia(selectedWikipedia)

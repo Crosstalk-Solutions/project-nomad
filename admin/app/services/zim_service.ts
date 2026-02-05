@@ -22,7 +22,6 @@ import vine from '@vinejs/vine'
 import { curatedCategoriesFileSchema, curatedCollectionsFileSchema, wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import CuratedCollection from '#models/curated_collection'
 import CuratedCollectionResource from '#models/curated_collection_resource'
-import InstalledTier from '#models/installed_tier'
 import WikipediaSelection from '#models/wikipedia_selection'
 import ZimFileMetadata from '#models/zim_file_metadata'
 import { RunDownloadJob } from '#jobs/run_download_job'
@@ -329,29 +328,65 @@ export class ZimService implements IZimService {
         data,
       });
 
-      // Look up installed tiers for all categories
-      const installedTiers = await InstalledTier.all()
-      const installedTierMap = new Map(
-        installedTiers.map((t) => [t.category_slug, t.tier_slug])
+      // Dynamically determine installed tier for each category
+      const categoriesWithStatus = await Promise.all(
+        validated.categories.map(async (category) => {
+          const installedTierSlug = await this.getInstalledTierForCategory(category)
+          return {
+            ...category,
+            installedTierSlug,
+          }
+        })
       )
 
-      // Add installedTierSlug to each category
-      return validated.categories.map((category) => ({
-        ...category,
-        installedTierSlug: installedTierMap.get(category.slug),
-      }))
+      return categoriesWithStatus
     } catch (error) {
       logger.error(`[ZimService] Failed to fetch curated categories:`, error)
       throw new Error('Failed to fetch curated categories or invalid format was received')
     }
   }
 
-  async saveInstalledTier(categorySlug: string, tierSlug: string): Promise<void> {
-    await InstalledTier.updateOrCreate(
-      { category_slug: categorySlug },
-      { tier_slug: tierSlug }
-    )
-    logger.info(`[ZimService] Saved installed tier: ${categorySlug} -> ${tierSlug}`)
+  /**
+   * Dynamically determines which tier is installed for a category by checking
+   * which tier's resources are all downloaded. Returns the highest tier that
+   * is fully installed (considering that higher tiers include lower tier resources)
+   */
+  private async getInstalledTierForCategory(category: CuratedCategory): Promise<string | undefined> {
+    const { files: diskFiles } = await this.list()
+    const diskFilenames = new Set(diskFiles.map((f) => f.name))
+
+    // Get all CuratedCollectionResources marked as downloaded
+    const downloadedResources = await CuratedCollectionResource.query()
+      .where('downloaded', true)
+      .select('url')
+    const downloadedUrls = new Set(downloadedResources.map((r) => r.url))
+
+    // Check each tier from highest to lowest (assuming tiers are ordered from low to high)
+    // We check in reverse to find the highest fully-installed tier
+    const reversedTiers = [...category.tiers].reverse()
+    
+    for (const tier of reversedTiers) {
+      const allResourcesInstalled = tier.resources.every((resource) => {
+        // Check if resource is marked as downloaded in database
+        if (downloadedUrls.has(resource.url)) {
+          return true
+        }
+
+        // Fallback: check if file exists on disk (for resources not tracked in CuratedCollectionResource)
+        const filename = resource.url.split('/').pop()
+        if (filename && diskFilenames.has(filename)) {
+          return true
+        }
+
+        return false
+      })
+
+      if (allResourcesInstalled && tier.resources.length > 0) {
+        return tier.slug
+      }
+    }
+
+    return undefined
   }
 
   async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
@@ -372,18 +407,26 @@ export class ZimService implements IZimService {
       })
 
       for (const collection of validated.collections) {
-        const collectionResult = await CuratedCollection.updateOrCreate(
-          { slug: collection.slug },
+        const { resources, ...restCollection } = collection; // we'll handle resources separately
+        
+        // Upsert the collection itself
+        await CuratedCollection.updateOrCreate(
+          { slug: restCollection.slug },
           {
-            ...collection,
+            ...restCollection,
             type: 'zim',
           }
         )
-        logger.info(`[ZimService] Upserted curated collection: ${collection.slug}`)
+        logger.info(`[ZimService] Upserted curated collection: ${restCollection.slug}`)
 
-        await collectionResult.related('resources').createMany(collection.resources)
+        // Upsert collection's resources
+        const resourcesResult = await CuratedCollectionResource.updateOrCreateMany('url', resources.map((res) => ({
+          ...res,
+          curated_collection_slug: restCollection.slug, // add the foreign key
+        })))
+
         logger.info(
-          `[ZimService] Upserted ${collection.resources.length} resources for collection: ${collection.slug}`
+          `[ZimService] Upserted ${resourcesResult.length} resources for collection: ${restCollection.slug}`
         )
       }
 
