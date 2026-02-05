@@ -286,18 +286,26 @@ export class MapService implements IMapService {
       })
 
       for (const collection of validated.collections) {
-        const collectionResult = await CuratedCollection.updateOrCreate(
-          { slug: collection.slug },
+        const { resources, ...restCollection } = collection; // we'll handle resources separately
+
+        // Upsert the collection itself
+        await CuratedCollection.updateOrCreate(
+          { slug: restCollection.slug },
           {
-            ...collection,
+            ...restCollection,
             type: 'map',
           }
         )
-        logger.info(`[MapService] Upserted curated collection: ${collection.slug}`)
+        logger.info(`[MapService] Upserted curated collection: ${restCollection.slug}`)
 
-        await collectionResult.related('resources').createMany(collection.resources)
+        // Upsert collection's resources
+        const resourcesResult = await CuratedCollectionResource.updateOrCreateMany('url', resources.map((res) => ({
+          ...res,
+          curated_collection_slug: restCollection.slug, // add the foreign key
+        })))
+
         logger.info(
-          `[MapService] Upserted ${collection.resources.length} resources for collection: ${collection.slug}`
+          `[MapService] Upserted ${resourcesResult.length} resources for collection: ${restCollection.slug}`
         )
       }
 
