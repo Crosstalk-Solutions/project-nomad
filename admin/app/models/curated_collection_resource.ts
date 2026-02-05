@@ -6,6 +6,14 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 export default class CuratedCollectionResource extends BaseModel {
   static namingStrategy = new SnakeCaseNamingStrategy()
 
+  static indexes = [
+    {
+      name: 'curated_collection_resources_unique',
+      columns: ['curated_collection_slug', 'url'],
+      unique: true,
+    },
+  ]
+
   @column({ isPrimary: true })
   declare id: number
 
