@@ -275,13 +275,40 @@ export class ZimService implements IZimService {
       }
     }
 
-    // Restart KIWIX container to pick up new ZIM file
     if (restart) {
-      await this.dockerService
-        .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
-        .catch((error) => {
-          logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
-        })
+    // Check if there are any remaining ZIM download jobs before restarting
+      const { QueueService } = await import('./queue_service.js')
+      const queueService = new QueueService()
+      const queue = queueService.getQueue('downloads')
+      
+      // Get all active and waiting jobs
+      const [activeJobs, waitingJobs] = await Promise.all([
+        queue.getActive(),
+        queue.getWaiting(),
+      ])
+      
+      // Filter out completed jobs (progress === 100) to avoid race condition
+      // where this job itself is still in the active queue
+      const activeIncompleteJobs = activeJobs.filter((job) => {
+        const progress = typeof job.progress === 'number' ? job.progress : 0
+        return progress < 100
+      })
+      
+      // Check if any remaining incomplete jobs are ZIM downloads
+      const allJobs = [...activeIncompleteJobs, ...waitingJobs]
+      const hasRemainingZimJobs = allJobs.some((job) => job.data.filetype === 'zim')
+      
+      if (hasRemainingZimJobs) {
+        logger.info('[ZimService] Skipping container restart - more ZIM downloads pending')
+      } else {
+        // Restart KIWIX container to pick up new ZIM file
+        logger.info('[ZimService] No more ZIM downloads pending - restarting KIWIX container')
+        await this.dockerService
+          .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
+          .catch((error) => {
+            logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
+          })
+      }
     }
 
     // Mark any curated collection resources with this download URL as downloaded
