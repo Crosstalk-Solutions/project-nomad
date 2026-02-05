@@ -16,7 +16,7 @@ N.O.M.A.D. is designed for capable hardware, especially if you want to use the A
 - Modern multi-core CPU
 - 16GB+ RAM (32GB+ for best AI performance)
 - SSD storage (size depends on content — 500GB minimum, 2TB+ recommended)
-- GPU recommended for faster AI responses
+- NVIDIA or AMD GPU recommended for faster AI responses
 
 ### How much storage do I need?
 It depends on what you download:
@@ -34,9 +34,11 @@ Start with essentials and add more as needed.
 
 ### How do I add more Wikipedia content?
 1. Go to **Settings** (hamburger menu → Settings)
-2. Click **ZIM Manager**
-3. Browse available content
+2. Click **Wikipedia Selector**
+3. Browse available Wikipedia packages
 4. Click Download on items you want
+
+You can also use the **Content Explorer** to browse all available ZIM content beyond Wikipedia.
 
 ### How do I add more educational courses?
 1. Open **Kolibri**
@@ -48,7 +50,41 @@ Start with essentials and add more as needed.
 Content is as current as when it was last downloaded. Wikipedia snapshots are typically updated monthly. Check the file names or descriptions for dates.
 
 ### Can I add my own files?
-Currently, N.O.M.A.D. uses standard content formats (ZIM files for Kiwix, Kolibri channels for education). Custom content support may be added in future versions.
+Yes — with the Knowledge Base. Upload PDFs, text files, and other documents to the [Knowledge Base](/knowledge-base), and the AI can reference them when answering your questions. This uses semantic search to find relevant information from your uploaded files.
+
+For Kiwix content, N.O.M.A.D. uses standard ZIM files. For educational content, Kolibri uses its own channel format.
+
+### What are curated collection tiers?
+When selecting content in the Easy Setup wizard or Content Explorer, collections are organized into three tiers:
+- **Essential** — Core content for the category (smallest download)
+- **Standard** — Essential plus additional useful content
+- **Comprehensive** — Everything available for the category (largest download)
+
+This helps you balance content coverage against storage usage.
+
+---
+
+## AI Questions
+
+### How do I use the AI chat?
+1. Go to [AI Chat](/chat) from the Command Center
+2. Type your question or request
+3. The AI responds in conversational style
+
+The AI must be installed first — enable it during Easy Setup or install it from the [Apps](/settings/apps) page.
+
+### How do I upload documents to the Knowledge Base?
+1. Go to **[Knowledge Base →](/knowledge-base)**
+2. Upload your documents (PDFs, text files, etc.)
+3. Documents are processed and indexed automatically
+4. Ask questions in AI Chat — the AI will reference your uploaded documents when relevant
+
+NOMAD documentation is automatically added to the Knowledge Base when the AI Assistant is installed.
+
+### What is the System Benchmark?
+The System Benchmark tests your hardware performance and generates a NOMAD Score — a weighted composite of CPU, memory, disk, and AI performance. You can create a Builder Tag (a NOMAD-themed identity like "Tactical-Llama-1234") and share your results with the [community leaderboard](https://benchmark.projectnomad.us).
+
+Go to **[System Benchmark →](/settings/benchmark)** to run one.
 
 ---
 
@@ -77,7 +113,32 @@ Local AI requires significant computing power. To improve speed:
 - Close other applications on the server
 - Ensure adequate cooling (overheating causes throttling)
 - Consider using a smaller/faster AI model if available
-- Add a GPU if your hardware supports it
+- Add a GPU if your hardware supports it (NVIDIA or AMD)
+
+### AI Chat not available
+
+The AI Chat page requires the AI Assistant to be installed first:
+1. Go to **[Apps](/settings/apps)**
+2. Install the **AI Assistant**
+3. Wait for the installation to complete
+4. The AI Chat will then be accessible from the home screen or [Chat](/chat)
+
+### Knowledge Base upload stuck
+
+If a document upload appears stuck in the Knowledge Base:
+1. Check that the AI Assistant is running in **Settings → Apps**
+2. Large documents take time to process — wait a few minutes
+3. Try uploading a smaller document to verify the system is working
+4. Check **Settings → System** for any error messages
+
+### Benchmark won't submit to leaderboard
+
+To share results with the community leaderboard:
+- You must run a **Full Benchmark** (not System Only or AI Only)
+- The benchmark must include AI results (AI Assistant must be installed and working)
+- Your score must be higher than any previous submission from the same hardware
+
+If submission fails, check the error message for details.
 
 ### "Service unavailable" or connection errors
 
@@ -129,7 +190,7 @@ Yes, while you have internet access. Updates include:
 
 ### How do I update content (Wikipedia, etc.)?
 Content updates are separate from software updates:
-1. Go to **Settings → ZIM Manager**
+1. Go to **Settings → Wikipedia Selector** or **Content Explorer**
 2. Check for newer versions of your installed content
 3. Download updated versions as needed
 
@@ -179,17 +240,20 @@ Yes. N.O.M.A.D. runs entirely on your hardware. Your searches, AI conversations,
 By default, N.O.M.A.D. is accessible on your local network. Anyone on the same network can access it. For public networks, consider additional security measures.
 
 ### Does the AI send data anywhere?
-No. The AI runs completely locally. Your conversations are not sent to any external service.
+No. The AI runs completely locally. Your conversations are not sent to any external service. The AI chat is built into the Command Center — there's no separate service to configure.
 
 ---
 
 ## Getting More Help
 
 ### The AI can help
-Try asking Open WebUI for help. The local AI can answer questions about many topics, including technical troubleshooting.
+Try asking a question in [AI Chat](/chat). The local AI can answer questions about many topics, including technical troubleshooting. If you've uploaded NOMAD documentation to the Knowledge Base, it can also help with NOMAD-specific questions.
 
 ### Check the documentation
 You're in the docs now. Use the menu to find specific topics.
+
+### Join the community
+Get help from other NOMAD users on **[Discord](https://discord.com/invite/crosstalksolutions)**.
 
 ### Release Notes
 See what's changed in each version: **[Release Notes](/docs/release-notes)**

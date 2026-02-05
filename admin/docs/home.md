@@ -13,22 +13,32 @@ Think of it as having Wikipedia, Khan Academy, an AI assistant, and offline maps
 ### Browse Offline Knowledge
 Access millions of Wikipedia articles, medical references, how-to guides, and ebooks — all stored locally on your server. No internet required.
 
-*Launch Kiwix from the [Apps](/settings/apps) page or the home screen.*
+*Launch the Information Library from the home screen or the [Apps](/settings/apps) page.*
 
 ### Learn Something New
 Khan Academy courses covering math, science, economics, and more. Complete with videos and exercises, all available offline.
 
-*Launch Kolibri from the [Apps](/settings/apps) page or the home screen.*
+*Launch the Education Platform from the home screen or the [Apps](/settings/apps) page.*
 
 ### Chat with AI
-Ask questions, get explanations, brainstorm ideas, or get help with writing. Your local AI assistant works completely offline.
+Ask questions, get explanations, brainstorm ideas, or get help with writing. Your local AI assistant works completely offline — and you can upload documents to the Knowledge Base for document-aware responses.
 
-*Launch Open WebUI from the [Apps](/settings/apps) page or the home screen.*
+**[Open AI Chat →](/chat)**
+
+### Upload Documents to the Knowledge Base
+Upload PDFs, text files, and other documents for the AI to reference. The Knowledge Base uses semantic search to find relevant information from your uploaded documents when you ask questions.
+
+**[Open Knowledge Base →](/knowledge-base)**
 
 ### View Offline Maps
 Navigate and explore maps without an internet connection. Download regions you need before going offline.
 
 **[Open Maps →](/maps)**
+
+### Benchmark Your Hardware
+Run a System Benchmark to see how your hardware performs and compare your NOMAD Score with the community leaderboard.
+
+**[Open Benchmark →](/settings/benchmark)**
 
 ---
 
@@ -46,9 +56,13 @@ Or explore the **[Getting Started Guide](/docs/getting-started)** for a walkthro
 
 | I want to... | Go here |
 |--------------|---------|
+| Chat with the AI | [AI Chat →](/chat) |
+| Upload documents for AI | [Knowledge Base →](/knowledge-base) |
 | Download more content | [Install Apps →](/apps) |
-| Add Wikipedia/reference content | [ZIM Manager →](/settings/zim-manager) |
+| Add Wikipedia/reference content | [Wikipedia Selector →](/settings/wikipedia-selector) |
+| Manage installed content | [Content Manager →](/settings/zim-manager) |
 | Download map regions | [Maps Manager →](/settings/maps-manager) |
+| Run a benchmark | [System Benchmark →](/settings/benchmark) |
 | Check for updates | [System Update →](/settings/updates) |
 | View system status | [Settings →](/settings) |
 
