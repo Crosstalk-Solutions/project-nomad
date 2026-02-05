@@ -149,7 +149,7 @@ router
     router.post('/fetch-latest-collections', [ZimController, 'fetchLatestCollections'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])
     router.post('/download-collection', [ZimController, 'downloadCollection'])
-    router.post('/save-installed-tier', [ZimController, 'saveInstalledTier'])
+
     router.get('/wikipedia', [ZimController, 'getWikipediaState'])
     router.post('/wikipedia/select', [ZimController, 'selectWikipedia'])
     router.delete('/:filename', [ZimController, 'delete'])
