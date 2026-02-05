@@ -34,7 +34,7 @@ export default function EasySetupWizardComplete() {
           <ActiveDownloads withHeader />
           <Alert
             title="Running in the Background"
-            message='Feel free to leave this page at any time - your app installs and downloads will continue in the background!'
+            message='Feel free to leave this page at any time - your app installs and downloads will continue in the background! Please note, the Information Library (if installed) may be unavailable until all initial downloads complete.'
             type="info"
             variant="solid"
             className='mt-12'
