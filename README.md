@@ -40,10 +40,31 @@ sudo bash install_nomad.sh
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
 
 ## How It Works
-From a technical standpoint, N.O.M.A.D. is primarily a management UI ("Command Center") and API that orchestrates a goodie basket of containerized offline archive tools and resources such as 
-[Kiwix](https://kiwix.org/), [ProtoMaps](https://protomaps.com), [Ollama](https://ollama.com/), and more.
+N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
 
-By abstracting the installation of each of these awesome tools, N.O.M.A.D. makes getting your offline survival computer up and running a breeze! N.O.M.A.D. also includes some additional built-in handy tools, such as a ZIM library managment interface, calculators, and more.
+**Built-in capabilities include:**
+- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/), with document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
+- **Information Library** — offline Wikipedia, medical references, ebooks, and more via [Kiwix](https://kiwix.org/)
+- **Education Platform** — Khan Academy courses with progress tracking via [Kolibri](https://learningequality.org/kolibri/)
+- **Offline Maps** — downloadable regional maps via [ProtoMaps](https://protomaps.com)
+- **Data Tools** — encryption, encoding, and analysis via [CyberChef](https://gchq.github.io/CyberChef/)
+- **Notes** — local note-taking via [FlatNotes](https://github.com/dullage/flatnotes)
+- **System Benchmark** — hardware scoring with a [community leaderboard](https://benchmark.projectnomad.us)
+- **Easy Setup Wizard** — guided first-time configuration with curated content collections
+
+N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM library manager, and content explorer.
+
+## What's Included
+
+| Capability | Powered By | What You Get |
+|-----------|-----------|-------------|
+| Information Library | Kiwix | Offline Wikipedia, medical references, survival guides, ebooks |
+| AI Assistant | Ollama + Qdrant | Built-in chat with document upload and semantic search |
+| Education Platform | Kolibri | Khan Academy courses, progress tracking, multi-user support |
+| Offline Maps | ProtoMaps | Downloadable regional maps with search and navigation |
+| Data Tools | CyberChef | Encryption, encoding, hashing, and data analysis |
+| Notes | FlatNotes | Local note-taking with markdown support |
+| System Benchmark | Built-in | Hardware scoring, Builder Tags, and community leaderboard |
 
 ## Device Requirements
 While many similar offline survival computers are designed to be run on bare-minimum, lightweight hardware, Project N.O.M.A.D. is quite the opposite. To install and run the
@@ -65,7 +86,7 @@ To run LLM's and other included AI tools:
 #### Optimal Specs
 - Processor: AMD Ryzen 7 or Intel Core i7 or better
 - RAM: 32 GB system memory
-- Graphics: NVIDIA RTX 3060 or better (more VRAM = run larger models)
+- Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
 - Storage: At least 250 GB free disk space (preferably on SSD)
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
@@ -104,7 +125,7 @@ sudo bash /opt/project-nomad/start_nomad.sh
 
 ###### Stop Script - Stops all installed project containers
 ```bash
-sudo bash /opt/project-nomad/start_nomad.sh
+sudo bash /opt/project-nomad/stop_nomad.sh
 ```
 ###
 
