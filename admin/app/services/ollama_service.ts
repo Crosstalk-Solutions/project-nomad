@@ -221,10 +221,18 @@ export class OllamaService {
         return null
       }
 
-      const models = response.data.models as NomadOllamaModel[]
+      const rawModels = response.data.models as NomadOllamaModel[]
+      
+      // Filter out tags where cloud is truthy, then remove models with no remaining tags
+      const noCloud = rawModels
+        .map((model) => ({
+          ...model,
+          tags: model.tags.filter((tag) => !tag.cloud),
+        }))
+        .filter((model) => model.tags.length > 0)
 
-      await this.writeModelsToCache(models)
-      return this.sortModels(models, sort)
+      await this.writeModelsToCache(noCloud)
+      return this.sortModels(noCloud, sort)
     } catch (error) {
       logger.error(
         `[OllamaService] Failed to retrieve models from Nomad API: ${error instanceof Error ? error.message : error
@@ -333,7 +341,7 @@ export class OllamaService {
   private fuseSearchModels(models: NomadOllamaModel[], query: string): NomadOllamaModel[] {
     const options: IFuseOptions<NomadOllamaModel> = {
       ignoreDiacritics: true,
-      keys: ['name', 'description', 'tags.tag'],
+      keys: ['name', 'description', 'tags.name'],
       threshold: 0.3, // lower threshold for stricter matching
     }
 

@@ -13,6 +13,7 @@ export type NomadOllamaModelTag = {
   size: string
   context: string
   input: string
+  cloud: boolean
 }
 
 export type NomadOllamaModelAPIResponse = {
