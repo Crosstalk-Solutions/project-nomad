@@ -1,3 +1,11 @@
+import { Notification } from "~/context/NotificationContext"
+
+// Global notification callback that can be set by the NotificationProvider
+let globalNotificationCallback: ((notification: Notification) => void) | null = null
+
+export function setGlobalNotificationCallback(callback: (notification: Notification) => void) {
+  globalNotificationCallback = callback
+}
 
 export function capitalizeFirstLetter(str?: string | null): string {
   if (!str) return ''
@@ -68,6 +76,16 @@ export function catchInternal<Fn extends (...args: any[]) => any>(fn: Fn): (...a
       return await fn(...args)
     } catch (error) {
       console.error('Internal error caught:', error)
+
+      if (globalNotificationCallback) {
+        const errorMessage = 'An internal error occurred. Please try again or check the console for details. ' + (error instanceof Error ? String(error.message).slice(0, 50) : '')
+        globalNotificationCallback({
+          message: errorMessage,
+          type: 'error',
+          duration: 5000
+        })
+      }
+
       return undefined
     }
   }
