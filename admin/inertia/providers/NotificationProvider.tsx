@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NotificationContext, Notification } from '../context/NotificationContext'
 import { IconExclamationCircle, IconCircleCheck, IconInfoCircle } from '@tabler/icons-react'
+import { setGlobalNotificationCallback } from '~/lib/util'
 
 const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
   const [notifications, setNotifications] = useState<(Notification & { id: string })[]>([])
@@ -16,6 +17,14 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
       }, duration)
     }
   }
+
+  // Set the global notification callback when provider mounts
+  useEffect(() => {
+    setGlobalNotificationCallback(addNotification)
+    return () => {
+      setGlobalNotificationCallback(() => {})
+    }
+  }, [])
 
   const removeNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
