@@ -8,6 +8,8 @@ Your personal offline knowledge server is ready to use.
 
 Think of it as having Wikipedia, Khan Academy, an AI assistant, and offline maps all in one place, running on hardware you control.
 
+![Command Center Dashboard](/docs/dashboard.png)
+
 ## What Can You Do?
 
 ### Browse Offline Knowledge

@@ -1,4 +1,3 @@
-
 export function ListItem({ children }: { children: React.ReactNode }) {
-  return <li className="ml-0 !pl-4">{children}</li>
+  return <li className="pl-2 text-desert-green-darker/85 leading-relaxed">{children}</li>
 }
