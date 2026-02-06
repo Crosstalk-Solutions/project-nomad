@@ -10,19 +10,14 @@ This guide will help you install and set up your N.O.M.A.D. server.
 
 N.O.M.A.D. runs on any **Debian-based Linux** system (Ubuntu recommended). The installation is terminal-based, and everything is accessed through a web browser — no desktop environment needed.
 
-**Minimum Specs** (Command Center only):
-- 2 GHz dual-core processor
-- 4 GB RAM
-- 5 GB free storage
-- Internet connection (for initial install)
-
-**Recommended Specs** (with AI features):
+**Recommended Specs:**
 - AMD Ryzen 7 / Intel Core i7 or better
 - 32 GB RAM
 - NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = larger AI models)
-- 250 GB+ free storage (SSD preferred)
+- 500 GB+ SSD
+- Internet connection (for initial install and content downloads)
 
-The Command Center itself is lightweight — your hardware requirements depend on which tools and content you choose to install.
+NOMAD is designed for robust hardware that can run local AI models, store extensive offline libraries, and deliver a full-featured experience. Looking for something more lightweight? Check out [Internet in a Box](https://internet-in-a-box.org/).
 
 ### Install N.O.M.A.D.
 
