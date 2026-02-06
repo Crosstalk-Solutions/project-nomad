@@ -142,6 +142,8 @@ N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing a
 2. Browse available Wikipedia packages by language and size
 3. Select and download the packages you want
 
+**Note:** Selecting a different Wikipedia package replaces the previously downloaded version. Only one Wikipedia selection is active at a time.
+
 ### System Benchmark
 
 Test your hardware performance and see how your NOMAD build stacks up against the community.
