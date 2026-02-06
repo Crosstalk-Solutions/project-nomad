@@ -155,6 +155,40 @@ export class DocsService {
         td: {
           render: 'TableCell',
         },
+        paragraph: {
+          render: 'Paragraph',
+        },
+        image: {
+          render: 'Image',
+          attributes: {
+            src: { type: String, required: true },
+            alt: { type: String },
+            title: { type: String },
+          },
+        },
+        link: {
+          render: 'Link',
+          attributes: {
+            href: { type: String, required: true },
+            title: { type: String },
+          },
+        },
+        fence: {
+          render: 'CodeBlock',
+          attributes: {
+            content: { type: String },
+            language: { type: String },
+          },
+        },
+        code: {
+          render: 'InlineCode',
+          attributes: {
+            content: { type: String },
+          },
+        },
+        hr: {
+          render: 'HorizontalRule',
+        },
       },
     }
   }

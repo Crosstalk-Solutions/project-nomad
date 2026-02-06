@@ -1,7 +1,7 @@
 export function Table({ children }: { children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto my-6">
-      <table className="min-w-full divide-y divide-gray-300 border border-gray-300">
+    <div className="overflow-x-auto my-6 rounded-lg border border-desert-tan-lighter shadow-sm">
+      <table className="min-w-full divide-y divide-desert-tan-lighter">
         {children}
       </table>
     </div>
@@ -9,20 +9,20 @@ export function Table({ children }: { children: React.ReactNode }) {
 }
 
 export function TableHead({ children }: { children: React.ReactNode }) {
-  return <thead className="bg-gray-50">{children}</thead>
+  return <thead className="bg-desert-green-dark">{children}</thead>
 }
 
 export function TableBody({ children }: { children: React.ReactNode }) {
-  return <tbody className="divide-y divide-gray-200 bg-white">{children}</tbody>
+  return <tbody className="divide-y divide-desert-tan-lighter/50 bg-white">{children}</tbody>
 }
 
 export function TableRow({ children }: { children: React.ReactNode }) {
-  return <tr>{children}</tr>
+  return <tr className="hover:bg-desert-sand/40 transition-colors">{children}</tr>
 }
 
 export function TableHeader({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-300 last:border-r-0">
+    <th className="px-5 py-3 text-left text-sm font-semibold text-desert-white tracking-wide">
       {children}
     </th>
   )
@@ -30,7 +30,7 @@ export function TableHeader({ children }: { children: React.ReactNode }) {
 
 export function TableCell({ children }: { children: React.ReactNode }) {
   return (
-    <td className="px-6 py-4 text-sm text-gray-700 border-r border-gray-200 last:border-r-0">
+    <td className="px-5 py-3.5 text-sm text-desert-green-darker">
       {children}
     </td>
   )
