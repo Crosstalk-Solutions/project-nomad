@@ -59,12 +59,12 @@ Or explore the **[Getting Started Guide](/docs/getting-started)** for a walkthro
 | Chat with the AI | [AI Chat →](/chat) |
 | Upload documents for AI | [Knowledge Base →](/knowledge-base) |
 | Download more content | [Install Apps →](/settings/apps) |
-| Add Wikipedia/reference content | [Wikipedia Selector →](/settings/wikipedia-selector) |
-| Manage installed content | [Content Manager →](/settings/zim-manager) |
-| Download map regions | [Maps Manager →](/settings/maps-manager) |
+| Add Wikipedia/reference content | [Content Manager →](/settings/zim) |
+| Browse all available content | [Content Explorer →](/settings/zim/remote-explorer) |
+| Download map regions | [Maps Manager →](/settings/maps) |
 | Run a benchmark | [System Benchmark →](/settings/benchmark) |
-| Check for updates | [System Update →](/settings/updates) |
-| View system status | [Settings →](/settings) |
+| Check for updates | [System Update →](/settings/update) |
+| View system status | [System Info →](/settings/system) |
 
 ---
 
@@ -78,4 +78,4 @@ N.O.M.A.D. works best when kept up to date while you have internet access. This 
 
 When you go offline, you'll have everything you need — the last synced versions of all your content.
 
-**[Check for Updates →](/settings/updates)**
+**[Check for Updates →](/settings/update)**

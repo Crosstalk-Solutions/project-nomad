@@ -191,7 +191,7 @@ View maps without internet. Download the regions you need before going offline.
 As your needs change, you can add more content anytime:
 
 - **More apps:** Settings → Apps
-- **More references:** Settings → Content Explorer or Wikipedia Selector
+- **More references:** Settings → Content Explorer or Content Manager
 - **More map regions:** Settings → Maps Manager
 - **More educational content:** Through Kolibri's built-in content browser
 
@@ -200,7 +200,7 @@ As your needs change, you can add more content anytime:
 N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing and downloading Wikipedia packages.
 
 **How to use it:**
-1. Go to **[Wikipedia Selector →](/settings/wikipedia-selector)**
+1. Go to **[Content Manager →](/settings/zim)** — the Wikipedia Selector is on this page
 2. Browse available Wikipedia packages by language and size
 3. Select and download the packages you want
 
