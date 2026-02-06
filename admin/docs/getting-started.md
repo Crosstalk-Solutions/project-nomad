@@ -1,58 +1,10 @@
 # Getting Started with N.O.M.A.D.
 
-This guide will help you install and set up your N.O.M.A.D. server.
+This guide will help you get the most out of your N.O.M.A.D. server.
 
 ---
 
-## Installation
-
-### System Requirements
-
-N.O.M.A.D. runs on any **Debian-based Linux** system (Ubuntu recommended). The installation is terminal-based, and everything is accessed through a web browser — no desktop environment needed.
-
-**Recommended Specs:**
-- AMD Ryzen 7 / Intel Core i7 or better
-- 32 GB RAM
-- NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = larger AI models)
-- 500 GB+ SSD
-- Internet connection (for initial install and content downloads)
-
-NOMAD is designed for robust hardware that can run local AI models, store extensive offline libraries, and deliver a full-featured experience. Looking for something more lightweight? Check out [Internet in a Box](https://internet-in-a-box.org/).
-
-### Install N.O.M.A.D.
-
-Open a terminal and run these two commands:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh
-```
-
-```bash
-sudo bash install_nomad.sh
-```
-
-That's it. Once the install finishes, open a browser and go to:
-
-- **Same machine:** `http://localhost:8080`
-- **Other devices on your network:** `http://YOUR_SERVER_IP:8080`
-
-### About Internet & Privacy
-
-N.O.M.A.D. is designed for offline use. Internet is only needed:
-- During initial installation
-- When downloading additional content
-
-There is **zero telemetry** — your data stays on your device.
-
-### About Security
-
-N.O.M.A.D. has no built-in authentication — it's designed to be open and accessible. If you expose it on a network, consider using firewall rules to control which ports are accessible.
-
----
-
-## After Installation
-
-### 1. Run the Easy Setup Wizard
+## Easy Setup Wizard
 
 If this is your first time using N.O.M.A.D., the Easy Setup wizard will help you get everything configured.
 
@@ -64,16 +16,7 @@ The wizard walks you through four simple steps:
 3. **Content** — Choose curated content collections with Essential, Standard, or Comprehensive tiers
 4. **Review** — Confirm your selections and start downloading
 
-### 2. Wait for Downloads to Complete
-
-Depending on what you selected, downloads may take a while. You can:
-- Monitor progress in the Settings area
-- Continue using features that are already installed
-- Leave your server running overnight for large downloads
-
-### 3. Explore Your Content
-
-Once downloads complete, you're ready to go. Your content works offline whenever you need it.
+Depending on what you selected, downloads may take a while. You can monitor progress in the Settings area, continue using features that are already installed, or leave your server running overnight for large downloads.
 
 ---
 
