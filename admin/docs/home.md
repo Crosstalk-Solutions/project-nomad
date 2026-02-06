@@ -58,7 +58,7 @@ Or explore the **[Getting Started Guide](/docs/getting-started)** for a walkthro
 |--------------|---------|
 | Chat with the AI | [AI Chat →](/chat) |
 | Upload documents for AI | [Knowledge Base →](/knowledge-base) |
-| Download more content | [Install Apps →](/apps) |
+| Download more content | [Install Apps →](/settings/apps) |
 | Add Wikipedia/reference content | [Wikipedia Selector →](/settings/wikipedia-selector) |
 | Manage installed content | [Content Manager →](/settings/zim-manager) |
 | Download map regions | [Maps Manager →](/settings/maps-manager) |
