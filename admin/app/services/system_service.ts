@@ -12,6 +12,7 @@ import axios from 'axios'
 import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KVStoreKey } from '../../types/kv_store.js'
+import { parseBoolean } from '../utils/misc.js'
 
 @inject()
 export class SystemService {
@@ -187,7 +188,7 @@ export class SystemService {
     }
   }
 
-  async checkLatestVersion(): Promise<{
+  async checkLatestVersion(force?: boolean): Promise<{
     success: boolean
     updateAvailable: boolean
     currentVersion: string
@@ -195,6 +196,21 @@ export class SystemService {
     message?: string
   }> {
     try {
+      const currentVersion = SystemService.getAppVersion()
+      const cachedUpdateAvailable = await KVStore.getValue('system.updateAvailable')
+      const cachedLatestVersion = await KVStore.getValue('system.latestVersion')
+
+      // Use cached values if not forcing a fresh check.
+      // the CheckUpdateJob will update these values every 12 hours
+      if (!force) {
+        return {
+          success: true,
+          updateAvailable: parseBoolean(cachedUpdateAvailable || "false"),
+          currentVersion,
+          latestVersion: cachedLatestVersion || '',
+        }
+      }
+
       const response = await axios.get(
         'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases/latest',
         {
@@ -208,12 +224,13 @@ export class SystemService {
       }
 
       const latestVersion = response.data.tag_name.replace(/^v/, '') // Remove leading 'v' if present
-      const currentVersion = SystemService.getAppVersion()
-
       logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
 
-      // NOTE: this will always return true in dev environment! See getAppVersion()
-      const updateAvailable = latestVersion !== currentVersion
+      const updateAvailable = process.env.NODE_ENV === 'development' ? false : latestVersion !== currentVersion
+
+      // Cache the results in KVStore for frontend checks
+      await KVStore.setValue('system.updateAvailable', updateAvailable.toString())
+      await KVStore.setValue('system.latestVersion', latestVersion)
 
       return {
         success: true,

@@ -4,7 +4,7 @@ import MapComponent from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { FileEntry } from '../../types/files'
-import AlertWithButton from '~/components/AlertWithButton'
+import Alert from '~/components/Alert'
 
 export default function Maps(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
@@ -33,7 +33,7 @@ export default function Maps(props: {
         </div>
         {alertMessage && (
           <div className="absolute top-20 left-4 right-4 z-50">
-            <AlertWithButton
+            <Alert
               title={alertMessage}
               type="warning"
               variant="solid"

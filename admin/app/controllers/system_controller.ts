@@ -1,7 +1,7 @@
 import { DockerService } from '#services/docker_service';
 import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
-import { affectServiceValidator, installServiceValidator, subscribeToReleaseNotesValidator } from '#validators/system';
+import { affectServiceValidator, checkLatestVersionValidator, installServiceValidator, subscribeToReleaseNotesValidator } from '#validators/system';
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -46,8 +46,9 @@ export default class SystemController {
         response.send({ success: result.success, message: result.message });
     }
 
-    async checkLatestVersion({ }: HttpContext) {
-        return await this.systemService.checkLatestVersion();
+    async checkLatestVersion({ request }: HttpContext) {
+        const payload = await request.validateUsing(checkLatestVersionValidator)
+        return await this.systemService.checkLatestVersion(payload.force);
     }
 
     async forceReinstallService({ request, response }: HttpContext) {

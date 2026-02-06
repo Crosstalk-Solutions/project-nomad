@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
-import { SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
+import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import {
   CuratedCategory,
   CuratedCollectionWithStatus,
@@ -33,6 +33,15 @@ class API {
         '/system/services/affect',
         { service_name, action }
       )
+      return response.data
+    })()
+  }
+
+  async checkLatestVersion(force: boolean = false) {
+    return catchInternal(async () => {
+      const response = await this.client.get<CheckLatestVersionResult>('/system/latest-version', {
+        params: { force },
+      })
       return response.data
     })()
   }

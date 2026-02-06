@@ -13,6 +13,8 @@ import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import { SERVICE_NAMES } from '../../constants/service_names'
+import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
+import Alert from '~/components/Alert'
 
 // Maps is a Core Capability (display_order: 4)
 const MAPS_ITEM = {
@@ -99,6 +101,7 @@ export default function Home(props: {
   }
 }) {
   const items: DashboardItem[] = []
+  const updateInfo = useUpdateAvailable();
 
   // Add installed services (non-dependency services only)
   props.system.services
@@ -137,6 +140,26 @@ export default function Home(props: {
   return (
     <AppLayout>
       <Head title="Command Center" />
+      {
+        updateInfo?.updateAvailable && (
+          <div className='flex justify-center items-center p-4 w-full'>
+            <Alert
+              title="An update is available for Project N.O.M.A.D.!"
+              type="info"
+              variant="solid"
+              className="w-full"
+              buttonProps={{
+                variant: 'secondary',
+                children: 'Go to Settings',
+                icon: 'IconSettings',
+                onClick: () => {
+                  window.location.href = '/settings/update'
+                },
+              }}
+            />
+          </div>
+        )
+      }
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {items.map((item) => (
           <a key={item.label} href={item.to} target={item.target}>
