@@ -34,7 +34,7 @@ Start with essentials and add more as needed.
 
 ### How do I add more Wikipedia content?
 1. Go to **Settings** (hamburger menu → Settings)
-2. Click **Wikipedia Selector**
+2. Click **Content Explorer**
 3. Browse available Wikipedia packages
 4. Click Download on items you want
 
