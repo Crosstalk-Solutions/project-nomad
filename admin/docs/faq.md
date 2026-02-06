@@ -190,7 +190,7 @@ Yes, while you have internet access. Updates include:
 
 ### How do I update content (Wikipedia, etc.)?
 Content updates are separate from software updates:
-1. Go to **Settings → Wikipedia Selector** or **Content Explorer**
+1. Go to **Settings → Content Manager** or **Content Explorer**
 2. Check for newer versions of your installed content
 3. Download updated versions as needed
 
