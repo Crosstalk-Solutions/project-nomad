@@ -81,9 +81,17 @@ export class DocsService {
     }
   }
 
+  private static readonly TITLE_OVERRIDES: Record<string, string> = {
+    'faq': 'FAQ',
+  }
+
   private prettify(filename: string) {
+    const slug = filename.replace(/\.md$/, '')
+    if (DocsService.TITLE_OVERRIDES[slug]) {
+      return DocsService.TITLE_OVERRIDES[slug]
+    }
     // Remove hyphens, underscores, and file extension
-    const cleaned = filename.replace(/_/g, ' ').replace(/\.md$/, '').replace(/-/g, ' ')
+    const cleaned = slug.replace(/_/g, ' ').replace(/-/g, ' ')
     // Convert to Title Case
     const titleCased = cleaned.replace(/\b\w/g, (char) => char.toUpperCase())
     return titleCased.charAt(0).toUpperCase() + titleCased.slice(1)
