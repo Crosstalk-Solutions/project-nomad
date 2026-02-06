@@ -200,7 +200,7 @@ As your needs change, you can add more content anytime:
 N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing and downloading Wikipedia packages.
 
 **How to use it:**
-1. Go to **[Content Manager →](/settings/zim)** — the Wikipedia Selector is on this page
+1. Go to **[Content Explorer →](/settings/zim/remote-explorer)**
 2. Browse available Wikipedia packages by language and size
 3. Select and download the packages you want
 

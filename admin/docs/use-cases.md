@@ -192,8 +192,8 @@ Try using N.O.M.A.D. before you need it. Familiarity with the tools makes them m
 
 N.O.M.A.D. content is customizable. If you don't see what you need:
 
-1. **Check the Wikipedia Selector** — Browse and download Wikipedia packages by language and size
-2. **Browse Content Explorer** — Thousands of ZIM files are available
+1. **Browse [Content Explorer](/settings/zim/remote-explorer)** — Thousands of ZIM files including Wikipedia packages
+2. **Check [Content Manager](/settings/zim)** — Manage your installed content
 3. **Browse Kolibri channels** — Educational content for many subjects
 4. **Upload your own documents** — Add files to the [Knowledge Base](/knowledge-base) for AI-aware reference
 5. **Request features** — Let us know what content would help you on [Discord](https://discord.com/invite/crosstalksolutions)
