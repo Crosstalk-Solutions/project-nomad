@@ -67,3 +67,12 @@ export type SystemUpdateStatus = {
   message: string
   timestamp: string
 }
+
+
+export type CheckLatestVersionResult = {
+  success: boolean,
+  updateAvailable: boolean,
+  currentVersion: string,
+  latestVersion: string,
+  message?: string
+}

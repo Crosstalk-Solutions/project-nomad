@@ -18,3 +18,9 @@ export const subscribeToReleaseNotesValidator = vine.compile(
     email: vine.string().email().trim(),
   })
 )
+
+export const checkLatestVersionValidator = vine.compile(
+  vine.object({
+    force: vine.boolean().optional(), // Optional flag to force bypassing cache and checking for updates immediately
+  })
+)

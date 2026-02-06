@@ -15,7 +15,7 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import { CuratedCollectionWithStatus } from '../../../types/downloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
-import AlertWithButton from '~/components/AlertWithButton'
+import Alert from '~/components/Alert'
 
 const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 
@@ -205,7 +205,7 @@ export default function MapsManager(props: {
             </div>
           </div>
           {!props.maps.baseAssetsExist && (
-            <AlertWithButton
+            <Alert
               title="The base map assets have not been installed. Please download them first to enable map functionality."
               type="warning"
               variant="solid"

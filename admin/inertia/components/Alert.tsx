@@ -1,6 +1,7 @@
 import * as Icons from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import DynamicIcon from './DynamicIcon'
+import StyledButton, { StyledButtonProps } from './StyledButton'
 
 export type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
   title: string
@@ -11,6 +12,7 @@ export type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
   onDismiss?: () => void
   icon?: keyof typeof Icons
   variant?: 'standard' | 'bordered' | 'solid'
+  buttonProps?: StyledButtonProps
 }
 
 export default function Alert({
@@ -22,6 +24,7 @@ export default function Alert({
   onDismiss,
   icon,
   variant = 'standard',
+  buttonProps,
   ...props
 }: AlertProps) {
   const getDefaultIcon = (): keyof typeof Icons => {
@@ -56,7 +59,7 @@ export default function Alert({
   }
 
   const getVariantStyles = () => {
-    const baseStyles = 'rounded-md transition-all duration-200'
+    const baseStyles = 'rounded-lg transition-all duration-200'
     const variantStyles: string[] = []
 
     switch (variant) {
@@ -72,20 +75,20 @@ export default function Alert({
                   ? 'border-desert-stone'
                   : ''
         )
-        return classNames(baseStyles, 'border-2 bg-desert-white', ...variantStyles)
+        return classNames(baseStyles, 'border-2 bg-desert-white shadow-md', ...variantStyles)
       case 'solid':
         variantStyles.push(
           type === 'warning'
-            ? 'bg-desert-orange text-desert-white border-desert-orange-dark'
+            ? 'bg-desert-orange text-desert-white border border-desert-orange-dark'
             : type === 'error'
-              ? 'bg-desert-red text-desert-white border-desert-red-dark'
+              ? 'bg-desert-red text-desert-white border border-desert-red-dark'
               : type === 'success'
-                ? 'bg-desert-olive text-desert-white border-desert-olive-dark'
+                ? 'bg-desert-olive text-desert-white border border-desert-olive-dark'
                 : type === 'info'
-                  ? 'bg-desert-green text-desert-white border-desert-green-dark'
+                  ? 'bg-desert-green text-desert-white border border-desert-green-dark'
                   : ''
         )
-        return classNames(baseStyles, 'shadow-sm', ...variantStyles)
+        return classNames(baseStyles, 'shadow-lg', ...variantStyles)
       default:
         variantStyles.push(
           type === 'warning'
@@ -98,7 +101,7 @@ export default function Alert({
                   ? 'bg-desert-green bg-opacity-20 border-desert-green-light'
                   : ''
         )
-        return classNames(baseStyles, 'border shadow-sm', ...variantStyles)
+        return classNames(baseStyles, 'border-l-4 border-y border-r shadow-sm', ...variantStyles)
     }
   }
 
@@ -156,28 +159,36 @@ export default function Alert({
   }
 
   return (
-    <div {...props} className={classNames(getVariantStyles(), 'p-4', props.className)} role="alert">
-      <div className="flex gap-3">
-        <DynamicIcon icon={getDefaultIcon()} className={getIconColor() + ' size-5 shrink-0'} />
+    <div {...props} className={classNames(getVariantStyles(), 'p-5', props.className)} role="alert">
+      <div className="flex gap-4 items-center">
+        <div className="flex-shrink-0 mt-0.5">
+          <DynamicIcon icon={icon || getDefaultIcon()} className={classNames(getIconColor(), 'size-6')} />
+        </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className={classNames('text-sm font-semibold', getTitleColor())}>{title}</h3>
+          <h3 className={classNames('text-base font-semibold leading-tight', getTitleColor())}>{title}</h3>
           {message && (
-            <div className={classNames('mt-1 text-sm', getMessageColor())}>
+            <div className={classNames('mt-2 text-sm leading-relaxed', getMessageColor())}>
               <p>{message}</p>
             </div>
           )}
           {children && <div className="mt-3">{children}</div>}
         </div>
 
+        {buttonProps && (
+          <div className="flex-shrink-0 ml-auto">
+            <StyledButton {...buttonProps} />
+          </div>
+        )}
+
         {dismissible && (
           <button
             type="button"
             onClick={onDismiss}
             className={classNames(
-              'shrink-0 rounded-md p-1.5 transition-colors duration-150',
+              'flex-shrink-0 rounded-lg p-1.5 transition-all duration-200',
               getCloseButtonStyles(),
-              'focus:outline-none focus:ring-2 focus:ring-offset-2',
+              'focus:outline-none focus:ring-2 focus:ring-offset-1',
               type === 'warning' ? 'focus:ring-desert-orange' : '',
               type === 'error' ? 'focus:ring-desert-red' : '',
               type === 'success' ? 'focus:ring-desert-olive' : '',
@@ -185,7 +196,7 @@ export default function Alert({
             )}
             aria-label="Dismiss alert"
           >
-            <DynamicIcon icon="IconX" className="size-5" />
+            <DynamicIcon icon="IconX" className="size-4" />
           </button>
         )}
       </div>
