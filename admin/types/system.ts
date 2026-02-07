@@ -8,6 +8,7 @@ export type SystemInformationResponse = {
   currentLoad: Systeminformation.CurrentLoadData
   fsSize: Systeminformation.FsSizeData[]
   uptime: Systeminformation.TimeData
+  graphics: Systeminformation.GraphicsData
 }
 
 // Type inferrence is not working properly with usePage and shared props, so we define this type manually
