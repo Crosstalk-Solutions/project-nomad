@@ -454,13 +454,13 @@ export class DockerService {
       let gpuHostConfig = containerConfig?.HostConfig || {}
 
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
-        const gpuType = await this._detectGPUType()
+        const gpuResult = await this._detectGPUType()
 
-        if (gpuType === 'nvidia') {
+        if (gpuResult.type === 'nvidia') {
           this._broadcast(
             service.service_name,
             'gpu-config',
-            `NVIDIA GPU detected. Configuring container with GPU support...`
+            `NVIDIA container runtime detected. Configuring container with GPU support...`
           )
 
           // Add GPU support for NVIDIA
@@ -474,7 +474,7 @@ export class DockerService {
               },
             ],
           }
-        } else if (gpuType === 'amd') {
+        } else if (gpuResult.type === 'amd') {
           // this._broadcast(
           //   service.service_name,
           //   'gpu-config',
@@ -503,6 +503,12 @@ export class DockerService {
           //     `[DockerService] Configured ${amdDevices.length} AMD GPU devices for Ollama`
           //   )
           // }
+        } else if (gpuResult.toolkitMissing) {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
+          )
         } else {
           this._broadcast(
             service.service_name,
@@ -691,44 +697,59 @@ export class DockerService {
   }
 
   /**
-   * Detect GPU type (NVIDIA or AMD) on the system.
-   * Returns 'nvidia', 'amd', or 'none'.
+   * Detect GPU type and toolkit availability.
+   * Primary: Check Docker runtimes via docker.info() (works from inside containers).
+   * Fallback: lspci for host-based installs and AMD detection.
    */
-  private async _detectGPUType(): Promise<'nvidia' | 'amd' | 'none'> {
+  private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'none'; toolkitMissing?: boolean }> {
     try {
+      // Primary: Check Docker daemon for nvidia runtime (works from inside containers)
+      try {
+        const dockerInfo = await this.docker.info()
+        const runtimes = dockerInfo.Runtimes || {}
+        if ('nvidia' in runtimes) {
+          logger.info('[DockerService] NVIDIA container runtime detected via Docker API')
+          return { type: 'nvidia' }
+        }
+      } catch (error) {
+        logger.warn(`[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`)
+      }
+
+      // Fallback: lspci for host-based installs (not available inside Docker)
       const execAsync = promisify(exec)
 
-      // Check for NVIDIA GPU
+      // Check for NVIDIA GPU via lspci
       try {
         const { stdout: nvidiaCheck } = await execAsync(
           'lspci 2>/dev/null | grep -i nvidia || true'
         )
         if (nvidiaCheck.trim()) {
-          logger.info('[DockerService] NVIDIA GPU detected')
-          return 'nvidia'
+          // GPU hardware found but no nvidia runtime — toolkit not installed
+          logger.warn('[DockerService] NVIDIA GPU detected via lspci but NVIDIA Container Toolkit is not installed')
+          return { type: 'none', toolkitMissing: true }
         }
       } catch (error) {
-        // Continue to AMD check
+        // lspci not available (likely inside Docker container), continue
       }
 
-      // Check for AMD GPU
+      // Check for AMD GPU via lspci
       try {
         const { stdout: amdCheck } = await execAsync(
           'lspci 2>/dev/null | grep -iE "amd|radeon" || true'
         )
         if (amdCheck.trim()) {
-          logger.info('[DockerService] AMD GPU detected')
-          return 'amd'
+          logger.info('[DockerService] AMD GPU detected via lspci')
+          return { type: 'amd' }
         }
       } catch (error) {
-        // No GPU detected
+        // lspci not available, continue
       }
 
       logger.info('[DockerService] No GPU detected')
-      return 'none'
+      return { type: 'none' }
     } catch (error) {
       logger.warn(`[DockerService] Error detecting GPU type: ${error.message}`)
-      return 'none'
+      return { type: 'none' }
     }
   }
 

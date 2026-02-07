@@ -84,6 +84,8 @@ N.O.M.A.D. includes a built-in AI chat interface powered by Ollama. It runs enti
 
 **Note:** The AI Assistant must be installed first. Enable it during Easy Setup or install it from the [Apps](/settings/apps) page.
 
+**GPU Acceleration:** If your server has an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed, N.O.M.A.D. will automatically use it for AI — dramatically faster responses (10-20x improvement). If you add a GPU later, go to [Apps](/settings/apps) and **Force Reinstall** the AI Assistant to enable it.
+
 ---
 
 ### Knowledge Base — Document-Aware AI
