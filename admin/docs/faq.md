@@ -110,10 +110,32 @@ The Maps feature requires downloaded map data. If you see a blank area:
 ### AI responses are slow
 
 Local AI requires significant computing power. To improve speed:
+- **Add a GPU** — An NVIDIA GPU with the NVIDIA Container Toolkit can improve AI speed by 10-20x or more
 - Close other applications on the server
 - Ensure adequate cooling (overheating causes throttling)
 - Consider using a smaller/faster AI model if available
-- Add a GPU if your hardware supports it (NVIDIA or AMD)
+
+### How do I enable GPU acceleration for AI?
+
+N.O.M.A.D. automatically detects NVIDIA GPUs when the NVIDIA Container Toolkit is installed on the host system. To set up GPU acceleration:
+
+1. **Install an NVIDIA GPU** in your server (if not already present)
+2. **Install the NVIDIA Container Toolkit** on the host — follow the [official installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+3. **Reinstall the AI Assistant** — Go to [Apps](/settings/apps), find AI Assistant, and click **Force Reinstall**
+
+N.O.M.A.D. will detect the GPU during installation and configure the AI to use it automatically. You'll see "NVIDIA container runtime detected" in the installation progress.
+
+**Tip:** Run a [System Benchmark](/settings/benchmark) before and after to see the difference. GPU-accelerated systems typically see 100+ tokens per second vs 10-15 on CPU only.
+
+### I added/changed my GPU but AI is still slow
+
+When you add or swap a GPU, N.O.M.A.D. needs to reconfigure the AI container to use it:
+
+1. Make sure the **NVIDIA Container Toolkit** is installed on the host
+2. Go to **[Apps](/settings/apps)**
+3. Find the **AI Assistant** and click **Force Reinstall**
+
+Force Reinstall recreates the AI container with GPU support enabled. Without this step, the AI continues to run on CPU only.
 
 ### AI Chat not available
 
