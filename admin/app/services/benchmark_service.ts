@@ -25,6 +25,7 @@ import type {
 import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 
 // HMAC secret for signing submissions to the benchmark repository
 // This provides basic protection against casual API abuse.
@@ -45,7 +46,6 @@ const SCORE_WEIGHTS = {
 // Benchmark configuration constants
 const SYSBENCH_IMAGE = 'severalnines/sysbench:latest'
 const SYSBENCH_CONTAINER_NAME = 'nomad_benchmark_sysbench'
-const BENCHMARK_CHANNEL = 'benchmark-progress'
 
 // Reference model for AI benchmark - small but meaningful
 const AI_BENCHMARK_MODEL = 'llama3.2:1b'
@@ -734,7 +734,7 @@ export class BenchmarkService {
       timestamp: new Date().toISOString(),
     }
 
-    transmit.broadcast(BENCHMARK_CHANNEL, {
+    transmit.broadcast(BROADCAST_CHANNELS.BENCHMARK_PROGRESS, {
       benchmark_id: this.currentBenchmarkId,
       ...progress,
     })

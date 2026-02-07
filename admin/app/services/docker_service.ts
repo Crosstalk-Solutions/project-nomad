@@ -11,6 +11,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 // import { readdir } from 'fs/promises'
 import KVStore from '#models/kv_store'
+import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 
 @inject()
 export class DockerService {
@@ -788,7 +789,7 @@ export class DockerService {
   // }
 
   private _broadcast(service: string, status: string, message: string) {
-    transmit.broadcast('service-installation', {
+    transmit.broadcast(BROADCAST_CHANNELS.SERVICE_INSTALLATION, {
       service_name: service,
       timestamp: new Date().toISOString(),
       status,

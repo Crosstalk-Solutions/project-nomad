@@ -10,6 +10,7 @@ import { DownloadModelJob } from '#jobs/download_model_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import transmit from '@adonisjs/transmit/services/main'
 import Fuse, { IFuseOptions } from 'fuse.js'
+import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 
 const NOMAD_MODELS_API_BASE_URL = 'https://api.projectnomad.us/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -330,7 +331,7 @@ export class OllamaService {
   }
 
   private broadcastDownloadProgress(model: string, percent: number) {
-    transmit.broadcast('model-download', {
+    transmit.broadcast(BROADCAST_CHANNELS.OLLAMA_MODEL_DOWNLOAD, {
       model,
       percent,
       timestamp: new Date().toISOString(),
