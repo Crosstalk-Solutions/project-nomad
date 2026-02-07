@@ -23,6 +23,7 @@ import BenchmarkResult from '#models/benchmark_result'
 import api from '~/lib/api'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import { BROADCAST_CHANNELS } from '../../../constants/broadcast'
 
 type BenchmarkProgressWithID = BenchmarkProgress & { benchmark_id: string }
 
@@ -295,7 +296,7 @@ export default function BenchmarkPage(props: {
 
   // Listen for benchmark progress via SSE (backup for async mode)
   useEffect(() => {
-    const unsubscribe = subscribe('benchmark-progress', (data: BenchmarkProgressWithID) => {
+    const unsubscribe = subscribe(BROADCAST_CHANNELS.BENCHMARK_PROGRESS, (data: BenchmarkProgressWithID) => {
       setProgress(data)
       if (data.status === 'completed' || data.status === 'error') {
         setIsRunning(false)

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTransmit } from 'react-adonis-transmit'
 import { InstallActivityFeedProps } from '~/components/InstallActivityFeed'
+import { BROADCAST_CHANNELS } from '../../constants/broadcast'
 
 export default function useServiceInstallationActivity() {
   const { subscribe } = useTransmit()
   const [installActivity, setInstallActivity] = useState<InstallActivityFeedProps['activity']>([])
 
   useEffect(() => {
-    const unsubscribe = subscribe('service-installation', (data: any) => {
+    const unsubscribe = subscribe(BROADCAST_CHANNELS.SERVICE_INSTALLATION, (data: any) => {
       setInstallActivity((prev) => [
         ...prev,
         {

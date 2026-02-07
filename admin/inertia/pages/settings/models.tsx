@@ -18,6 +18,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
 import { IconSearch } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
+import ActiveModelDownloads from '~/components/ActiveModelDownloads'
 
 export default function ModelsPage(props: {
   models: {
@@ -166,6 +167,8 @@ export default function ModelsPage(props: {
               />
             </div>
           </div>
+          <ActiveModelDownloads withHeader />
+
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">
             <Input
