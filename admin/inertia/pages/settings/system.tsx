@@ -18,7 +18,7 @@ export default function SettingsPage(props: {
   })
 
   const memoryUsagePercent = info?.mem.total
-    ? (((info.mem.total - info.mem.available) / info.mem.total) * 100).toFixed(1)
+    ? ((info.mem.used / info.mem.total) * 100).toFixed(1)
     : 0
 
   const swapUsagePercent = info?.mem.swaptotal
