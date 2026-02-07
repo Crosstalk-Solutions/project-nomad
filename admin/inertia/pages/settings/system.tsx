@@ -8,7 +8,7 @@ import InfoCard from '~/components/systeminfo/InfoCard'
 import Alert from '~/components/Alert'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import StatusCard from '~/components/systeminfo/StatusCard'
-import { IconCpu, IconDatabase, IconServer, IconDeviceDesktop } from '@tabler/icons-react'
+import { IconCpu, IconDatabase, IconServer, IconDeviceDesktop, IconComponents } from '@tabler/icons-react'
 
 export default function SettingsPage(props: {
   system: { info: SystemInformationResponse | undefined }
@@ -25,7 +25,15 @@ export default function SettingsPage(props: {
     ? ((info.mem.swapused / info.mem.swaptotal) * 100).toFixed(1)
     : 0
 
-  const uptimeMinutes = info?.uptime.uptime ? Math.floor(info.uptime.uptime / 60) : 0
+  const uptimeSeconds = info?.uptime.uptime || 0
+  const uptimeDays = Math.floor(uptimeSeconds / 86400)
+  const uptimeHours = Math.floor((uptimeSeconds % 86400) / 3600)
+  const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60)
+  const uptimeDisplay = uptimeDays > 0
+    ? `${uptimeDays}d ${uptimeHours}h ${uptimeMinutes}m`
+    : uptimeHours > 0
+      ? `${uptimeHours}h ${uptimeMinutes}m`
+      : `${uptimeMinutes}m`
 
   // Build storage display items - fall back to fsSize when disk array is empty
   // (Same approach as Easy Setup wizard fix from PR #90)
@@ -160,6 +168,21 @@ export default function SettingsPage(props: {
                   },
                 ]}
               />
+              {info?.graphics?.controllers && info.graphics.controllers.length > 0 && (
+                <InfoCard
+                  title="Graphics"
+                  icon={<IconComponents className="w-6 h-6" />}
+                  variant="elevated"
+                  data={info.graphics.controllers.map((gpu, i) => {
+                    const prefix = info.graphics.controllers.length > 1 ? `GPU ${i + 1} ` : ''
+                    return [
+                      { label: `${prefix}Model`, value: gpu.model },
+                      { label: `${prefix}Vendor`, value: gpu.vendor },
+                      { label: `${prefix}VRAM`, value: gpu.vram ? `${gpu.vram} MB` : 'N/A' },
+                    ]
+                  }).flat()}
+                />
+              )}
             </div>
           </section>
           <section className="mb-12">
@@ -249,7 +272,7 @@ export default function SettingsPage(props: {
               System Status
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatusCard title="System Uptime" value={`${uptimeMinutes}m`} />
+              <StatusCard title="System Uptime" value={uptimeDisplay} />
               <StatusCard title="CPU Cores" value={info?.cpu.cores || 0} />
               <StatusCard title="Storage Devices" value={storageItems.length} />
             </div>

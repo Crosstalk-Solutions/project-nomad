@@ -5,6 +5,7 @@ import { ServiceSlim } from '../../types/services.js'
 import logger from '@adonisjs/core/services/logger'
 import si from 'systeminformation'
 import { NomadDiskInfo, NomadDiskInfoRaw, SystemInformationResponse } from '../../types/system.js'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { readFileSync } from 'fs'
 import path, { join } from 'path'
 import { getAllFilesystems, getFile } from '../utils/fs.js'
@@ -144,13 +145,14 @@ export class SystemService {
 
   async getSystemInfo(): Promise<SystemInformationResponse | undefined> {
     try {
-      const [cpu, mem, os, currentLoad, fsSize, uptime] = await Promise.all([
+      const [cpu, mem, os, currentLoad, fsSize, uptime, graphics] = await Promise.all([
         si.cpu(),
         si.mem(),
         si.osInfo(),
         si.currentLoad(),
         si.fsSize(),
         si.time(),
+        si.graphics(),
       ])
 
       let diskInfo: NomadDiskInfoRaw | undefined
@@ -173,6 +175,75 @@ export class SystemService {
         logger.error('Error reading disk info file:', error)
       }
 
+      // Query Docker API for host-level info (hostname, OS, GPU runtime)
+      // si.osInfo() returns the container's info inside Docker, not the host's
+      try {
+        const dockerInfo = await this.dockerService.docker.info()
+
+        if (dockerInfo.Name) {
+          os.hostname = dockerInfo.Name
+        }
+        if (dockerInfo.OperatingSystem) {
+          os.distro = dockerInfo.OperatingSystem
+        }
+        if (dockerInfo.KernelVersion) {
+          os.kernel = dockerInfo.KernelVersion
+        }
+
+        // If si.graphics() returned no controllers (common inside Docker),
+        // fall back to nvidia runtime + nvidia-smi detection
+        if (!graphics.controllers || graphics.controllers.length === 0) {
+          const runtimes = dockerInfo.Runtimes || {}
+          if ('nvidia' in runtimes) {
+            let gpuName = 'NVIDIA GPU'
+            try {
+              const containers = await this.dockerService.docker.listContainers({ all: false })
+              const ollamaContainer = containers.find((c) =>
+                c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
+              )
+              if (ollamaContainer) {
+                const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
+                const exec = await container.exec({
+                  Cmd: ['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader,nounits'],
+                  AttachStdout: true,
+                  AttachStderr: true,
+                  Tty: true,
+                })
+                const stream = await exec.start({ Tty: true })
+                const output = await new Promise<string>((resolve) => {
+                  let data = ''
+                  const timeout = setTimeout(() => resolve(data), 5000)
+                  stream.on('data', (chunk: Buffer) => { data += chunk.toString() })
+                  stream.on('end', () => { clearTimeout(timeout); resolve(data) })
+                })
+                const cleaned = output.replace(/[\x00-\x08]/g, '').trim()
+                if (cleaned && !cleaned.toLowerCase().includes('error')) {
+                  const parts = cleaned.split(',').map((s) => s.trim())
+                  gpuName = parts[0] || gpuName
+                  const vramMB = parts[1] ? parseInt(parts[1], 10) : 0
+                  graphics.controllers = [{
+                    vendor: 'NVIDIA',
+                    model: gpuName,
+                    vram: vramMB || null,
+                  } as any]
+                }
+              }
+            } catch {
+              // nvidia-smi failed, use generic entry
+            }
+            if (graphics.controllers.length === 0) {
+              graphics.controllers = [{
+                vendor: 'NVIDIA',
+                model: gpuName,
+                vram: null,
+              } as any]
+            }
+          }
+        }
+      } catch {
+        // Docker info query failed, skip host-level enrichment
+      }
+
       return {
         cpu,
         mem,
@@ -181,6 +252,7 @@ export class SystemService {
         currentLoad,
         fsSize,
         uptime,
+        graphics,
       }
     } catch (error) {
       logger.error('Error getting system info:', error)
