@@ -37,6 +37,9 @@ export class DownloadService {
     const allDownloads = [...fileDownloads, ...modelDownloads]
 
     // Filter by filetype if specified
-    return allDownloads.filter((job) => !filetype || job.filetype === filetype)
+    const filtered = allDownloads.filter((job) => !filetype || job.filetype === filetype)
+
+    // Sort so actively downloading items (progress > 0) appear first, then by progress descending
+    return filtered.sort((a, b) => b.progress - a.progress)
   }
 }
