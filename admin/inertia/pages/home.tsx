@@ -1,6 +1,5 @@
 import {
   IconBolt,
-  IconBrain,
   IconHelp,
   IconMapRoute,
   IconPlus,
@@ -12,7 +11,6 @@ import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
-import { SERVICE_NAMES } from '../../constants/service_names'
 import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
 import Alert from '~/components/Alert'
 
@@ -84,17 +82,6 @@ interface DashboardItem {
   poweredBy: string | null
 }
 
-const KNOWLEDGE_BASE_ITEM: DashboardItem = {
-  label: 'Knowledge Base',
-  to: '/knowledge-base',
-  target: '',
-  description: 'Upload documents to your personal knowledge base for AI access',
-  icon: <IconBrain size={48} />,
-  installed: true,
-  displayOrder: 5,
-  poweredBy: null,
-}
-
 export default function Home(props: {
   system: {
     services: ServiceSlim[]
@@ -130,9 +117,6 @@ export default function Home(props: {
 
   // Add system items
   items.push(...SYSTEM_ITEMS)
-  if (props.system.services.find((s) => s.service_name === SERVICE_NAMES.OLLAMA && s.installed)) {
-    items.push(KNOWLEDGE_BASE_ITEM)
-  }
 
   // Sort all items by display order
   items.sort((a, b) => a.displayOrder - b.displayOrder)
