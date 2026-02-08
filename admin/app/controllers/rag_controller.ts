@@ -5,7 +5,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
-import { stat } from 'node:fs/promises'
 import { getJobStatusSchema } from '#validators/rag'
 
 @inject()
@@ -28,20 +27,10 @@ export default class RagController {
       name: fileName,
     })
 
-    // Get file size for tracking
-    let fileSize: number | undefined = undefined
-    try {
-      const stats = await stat(fullPath)
-      fileSize = stats.size
-    } catch (error) {
-      // Not critical if we can't get file size, just swallow the error
-    }
-
     // Dispatch background job for embedding
     const result = await EmbedFileJob.dispatch({
       filePath: fullPath,
       fileName,
-      fileSize,
     })
 
     return response.status(202).json({

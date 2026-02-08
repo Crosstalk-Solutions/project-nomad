@@ -43,7 +43,7 @@ interface IZimService {
 
 @inject()
 export class ZimService implements IZimService {
-  constructor(private dockerService: DockerService) {}
+  constructor(private dockerService: DockerService) { }
 
   async list() {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
@@ -264,7 +264,7 @@ export class ZimService implements IZimService {
     }
 
     return downloadFilenames.length > 0 ? downloadFilenames : null
-  } 
+  }
 
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Check if any URL is a Wikipedia download and handle it
@@ -275,28 +275,28 @@ export class ZimService implements IZimService {
     }
 
     if (restart) {
-    // Check if there are any remaining ZIM download jobs before restarting
+      // Check if there are any remaining ZIM download jobs before restarting
       const { QueueService } = await import('./queue_service.js')
       const queueService = new QueueService()
       const queue = queueService.getQueue('downloads')
-      
+
       // Get all active and waiting jobs
       const [activeJobs, waitingJobs] = await Promise.all([
         queue.getActive(),
         queue.getWaiting(),
       ])
-      
+
       // Filter out completed jobs (progress === 100) to avoid race condition
       // where this job itself is still in the active queue
       const activeIncompleteJobs = activeJobs.filter((job) => {
         const progress = typeof job.progress === 'number' ? job.progress : 0
         return progress < 100
       })
-      
+
       // Check if any remaining incomplete jobs are ZIM downloads
       const allJobs = [...activeIncompleteJobs, ...waitingJobs]
       const hasRemainingZimJobs = allJobs.some((job) => job.data.filetype === 'zim')
-      
+
       if (hasRemainingZimJobs) {
         logger.info('[ZimService] Skipping container restart - more ZIM downloads pending')
       } else {
@@ -364,7 +364,7 @@ export class ZimService implements IZimService {
     // Check each tier from highest to lowest (assuming tiers are ordered from low to high)
     // We check in reverse to find the highest fully-installed tier
     const reversedTiers = [...category.tiers].reverse()
-    
+
     for (const tier of reversedTiers) {
       const allResourcesInstalled = tier.resources.every((resource) => {
         // Check if resource is marked as downloaded in database
@@ -408,7 +408,7 @@ export class ZimService implements IZimService {
 
       for (const collection of validated.collections) {
         const { resources, ...restCollection } = collection; // we'll handle resources separately
-        
+
         // Upsert the collection itself
         await CuratedCollection.updateOrCreate(
           { slug: restCollection.slug },
@@ -489,11 +489,11 @@ export class ZimService implements IZimService {
       options,
       currentSelection: selection
         ? {
-            optionId: selection.option_id,
-            status: selection.status,
-            filename: selection.filename,
-            url: selection.url,
-          }
+          optionId: selection.option_id,
+          status: selection.status,
+          filename: selection.filename,
+          url: selection.url,
+        }
         : null,
     }
   }

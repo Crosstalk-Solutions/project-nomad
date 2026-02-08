@@ -64,3 +64,47 @@ export type RemoteZimFileEntry = {
   author: string
   file_name: string
 }
+
+export type ExtractZIMContentOptions = {
+  strategy?: ExtractZIMChunkingStrategy
+  maxArticles?: number
+  onProgress?: (processedArticles: number, totalArticles: number) => void
+  // Batch processing options to avoid lock timeouts
+  startOffset?: number  // Article index to start from for resuming
+  batchSize?: number    // Max articles to process in this batch
+}
+
+export type ExtractZIMChunkingStrategy = 'structured' | 'simple'
+
+export type ZIMArchiveMetadata = {
+  title: string
+  creator: string
+  publisher: string
+  date: string
+  language: string
+  description: string
+}
+
+export type ZIMContentChunk = {
+  // Content
+  text: string
+
+  // Article-level context
+  articleTitle: string
+  articlePath: string
+
+  // Section-level context for structured chunks
+  sectionTitle: string
+  fullTitle: string // Combined "Article Title - Section Title"
+  hierarchy: string // Breadcrumb trail
+  sectionLevel?: number // Heading level (2=h2, 3=h3, etc.)
+
+  // Document grouping
+  documentId: string // Same for all chunks from one article
+
+  // Archive metadata
+  archiveMetadata: ZIMArchiveMetadata
+
+  // Extraction metadata
+  strategy: ExtractZIMChunkingStrategy
+}
