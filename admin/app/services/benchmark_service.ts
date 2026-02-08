@@ -278,45 +278,12 @@ export class BenchmarkService {
           if ('nvidia' in runtimes) {
             logger.info('[BenchmarkService] NVIDIA container runtime detected, querying GPU model via nvidia-smi')
 
-            // Try to get GPU model name from the running Ollama container
-            try {
-              const containers = await this.dockerService.docker.listContainers({ all: false })
-              const ollamaContainer = containers.find((c) =>
-                c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
-              )
-
-              if (ollamaContainer) {
-                const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
-                const exec = await container.exec({
-                  Cmd: ['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'],
-                  AttachStdout: true,
-                  AttachStderr: true,
-                  Tty: true,
-                })
-
-                const stream = await exec.start({ Tty: true })
-                const output = await new Promise<string>((resolve) => {
-                  let data = ''
-                  const timeout = setTimeout(() => resolve(data), 5000)
-                  stream.on('data', (chunk: Buffer) => { data += chunk.toString() })
-                  stream.on('end', () => { clearTimeout(timeout); resolve(data) })
-                })
-
-                const gpuName = output.replace(/[\x00-\x08]/g, '').trim()
-                if (gpuName && !gpuName.toLowerCase().includes('error') && !gpuName.toLowerCase().includes('not found')) {
-                  gpuModel = gpuName
-                  logger.info(`[BenchmarkService] GPU detected via nvidia-smi: ${gpuModel}`)
-                } else {
-                  gpuModel = 'NVIDIA GPU (model unknown)'
-                  logger.info('[BenchmarkService] NVIDIA runtime present but nvidia-smi query failed, using generic name')
-                }
-              } else {
-                gpuModel = 'NVIDIA GPU (model unknown)'
-                logger.info('[BenchmarkService] NVIDIA runtime present but Ollama container not running')
-              }
-            } catch (execError) {
-              gpuModel = 'NVIDIA GPU (model unknown)'
-              logger.warn(`[BenchmarkService] nvidia-smi exec failed: ${execError.message}`)
+            const systemService = new (await import('./system_service.js')).SystemService(this.dockerService)
+            const nvidiaInfo = await systemService.getNvidiaSmiInfo()
+            if (Array.isArray(nvidiaInfo) && nvidiaInfo.length > 0) {
+              gpuModel = nvidiaInfo[0].model
+            } else {
+              logger.warn(`[BenchmarkService] NVIDIA runtime detected but failed to get GPU info: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
             }
           }
         } catch (dockerError) {

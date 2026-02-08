@@ -20,7 +20,7 @@ export class SystemService {
   private static appVersion: string | null = null
   private static diskInfoFile = '/storage/nomad-disk-info.json'
 
-  constructor(private dockerService: DockerService) {}
+  constructor(private dockerService: DockerService) { }
 
   async checkServiceInstalled(serviceName: string): Promise<boolean> {
     const services = await this.getServices({ installedOnly: true });
@@ -64,6 +64,66 @@ export class SystemService {
 
     logger.warn('All internet status check attempts failed.')
     return false
+  }
+
+  async getNvidiaSmiInfo(): Promise<Array<{ vendor: string; model: string; vram: number; }> | { error: string } | 'OLLAMA_NOT_FOUND' | 'BAD_RESPONSE' | 'UNKNOWN_ERROR'> {
+    try {
+      const containers = await this.dockerService.docker.listContainers({ all: false })
+      const ollamaContainer = containers.find((c) =>
+        c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
+      )
+      if (!ollamaContainer) {
+        logger.info('Ollama container not found for nvidia-smi info retrieval. This is expected if Ollama is not installed.')
+        return 'OLLAMA_NOT_FOUND'
+      }
+
+      // Execute nvidia-smi inside the Ollama container to get GPU info
+      const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
+      const exec = await container.exec({
+        Cmd: ['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader,nounits'],
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+      })
+
+      // Read the output stream with a timeout to prevent hanging if nvidia-smi fails
+      const stream = await exec.start({ Tty: true })
+      const output = await new Promise<string>((resolve) => {
+        let data = ''
+        const timeout = setTimeout(() => resolve(data), 5000)
+        stream.on('data', (chunk: Buffer) => { data += chunk.toString() })
+        stream.on('end', () => { clearTimeout(timeout); resolve(data) })
+      })
+
+      // Remove any non-printable characters and trim the output
+      const cleaned = output.replace(/[\x00-\x08]/g, '').trim()
+      if (cleaned && !cleaned.toLowerCase().includes('error') && !cleaned.toLowerCase().includes('not found')) {
+        // Split by newlines to handle multiple GPUs installed
+        const lines = cleaned.split('\n').filter(line => line.trim())
+
+        // Map each line out to a useful structure for us
+        const gpus = lines.map(line => {
+          const parts = line.split(',').map((s) => s.trim())
+          return {
+            vendor: 'NVIDIA',
+            model: parts[0] || 'NVIDIA GPU',
+            vram: parts[1] ? parseInt(parts[1], 10) : 0,
+          }
+        })
+
+        return gpus.length > 0 ? gpus : 'BAD_RESPONSE'
+      }
+
+      // If we got output but looks like an error, consider it a bad response from nvidia-smi
+      return 'BAD_RESPONSE'
+    }
+    catch (error) {
+      logger.error('Error getting nvidia-smi info:', error)
+      if (error instanceof Error && error.message) {
+        return { error: error.message }
+      }
+      return 'UNKNOWN_ERROR'
+    }
   }
 
   async getServices({ installedOnly = true }: { installedOnly?: boolean }): Promise<ServiceSlim[]> {
@@ -195,48 +255,17 @@ export class SystemService {
         if (!graphics.controllers || graphics.controllers.length === 0) {
           const runtimes = dockerInfo.Runtimes || {}
           if ('nvidia' in runtimes) {
-            let gpuName = 'NVIDIA GPU'
-            try {
-              const containers = await this.dockerService.docker.listContainers({ all: false })
-              const ollamaContainer = containers.find((c) =>
-                c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
-              )
-              if (ollamaContainer) {
-                const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
-                const exec = await container.exec({
-                  Cmd: ['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader,nounits'],
-                  AttachStdout: true,
-                  AttachStderr: true,
-                  Tty: true,
-                })
-                const stream = await exec.start({ Tty: true })
-                const output = await new Promise<string>((resolve) => {
-                  let data = ''
-                  const timeout = setTimeout(() => resolve(data), 5000)
-                  stream.on('data', (chunk: Buffer) => { data += chunk.toString() })
-                  stream.on('end', () => { clearTimeout(timeout); resolve(data) })
-                })
-                const cleaned = output.replace(/[\x00-\x08]/g, '').trim()
-                if (cleaned && !cleaned.toLowerCase().includes('error')) {
-                  const parts = cleaned.split(',').map((s) => s.trim())
-                  gpuName = parts[0] || gpuName
-                  const vramMB = parts[1] ? parseInt(parts[1], 10) : 0
-                  graphics.controllers = [{
-                    vendor: 'NVIDIA',
-                    model: gpuName,
-                    vram: vramMB || null,
-                  } as any]
-                }
-              }
-            } catch {
-              // nvidia-smi failed, use generic entry
-            }
-            if (graphics.controllers.length === 0) {
-              graphics.controllers = [{
-                vendor: 'NVIDIA',
-                model: gpuName,
-                vram: null,
-              } as any]
+            const nvidiaInfo = await this.getNvidiaSmiInfo()
+            if (Array.isArray(nvidiaInfo)) {
+              graphics.controllers = nvidiaInfo.map((gpu) => ({
+                model: gpu.model,
+                vendor: gpu.vendor,
+                bus: "",
+                vram: gpu.vram,
+                vramDynamic: false, // assume false here, we don't actually use this field for our purposes.
+              }))
+            } else {
+              logger.warn(`NVIDIA runtime detected but failed to get GPU info: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
             }
           }
         }
@@ -336,7 +365,7 @@ export class SystemService {
           message: 'Successfully subscribed to release notes',
         }
       }
-      
+
       return {
         success: false,
         message: `Failed to subscribe: ${response.statusText}`,
