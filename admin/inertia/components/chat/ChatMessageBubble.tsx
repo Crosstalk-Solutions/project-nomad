@@ -25,14 +25,27 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              code: ({ node, className, children, ...props }) => (
-                <code
-                  className="block bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto font-mono text-sm"
-                  {...props}
-                >
-                  {children}
-                </code>
-              ),
+              code: ({ node, className, children, ...props }: any) => {
+                const isInline = !className?.includes('language-')
+                if (isInline) {
+                  return (
+                    <code
+                      className="bg-gray-800 text-gray-100 px-2 py-0.5 rounded font-mono text-sm"
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  )
+                }
+                return (
+                  <code
+                    className="block bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto font-mono text-sm my-2"
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                )
+              },
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
               ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
               ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
