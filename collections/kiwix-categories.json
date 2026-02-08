@@ -409,25 +409,25 @@
             {
               "title": "Python Documentation",
               "description": "Complete Python language reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_python_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-01.zim",
               "size_mb": 4
             },
             {
               "title": "JavaScript Documentation",
               "description": "MDN JavaScript reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_javascript_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-01.zim",
               "size_mb": 3
             },
             {
               "title": "HTML Documentation",
               "description": "MDN HTML elements and attributes reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_html_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-01.zim",
               "size_mb": 2
             },
             {
               "title": "CSS Documentation",
               "description": "MDN CSS properties and selectors reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_css_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-01.zim",
               "size_mb": 5
             }
           ]
@@ -453,19 +453,19 @@
             {
               "title": "Node.js Documentation",
               "description": "Node.js API reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_node_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_node_2026-01.zim",
               "size_mb": 1
             },
             {
               "title": "React Documentation",
               "description": "React library reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_react_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_react_2026-01.zim",
               "size_mb": 3
             },
             {
               "title": "Git Documentation",
               "description": "Git version control reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_git_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-01.zim",
               "size_mb": 1
             }
           ]
@@ -491,13 +491,13 @@
             {
               "title": "Docker Documentation",
               "description": "Docker container reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_docker_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-01.zim",
               "size_mb": 2
             },
             {
               "title": "Linux Documentation",
               "description": "Linux command reference and system administration",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs.io_en_bash_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-01.zim",
               "size_mb": 1
             }
           ]
