@@ -15,6 +15,8 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import KVStore from '#models/kv_store'
 import { parseBoolean } from '../utils/misc.js'
+import { ZIMExtractionService } from './zim_extraction_service.js'
+import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 
 @inject()
 export class RagService {
@@ -37,6 +39,67 @@ export class RagService {
     private dockerService: DockerService,
     private ollamaService: OllamaService
   ) { }
+
+  private async _initializeQdrantClient() {
+    if (!this.qdrantInitPromise) {
+      this.qdrantInitPromise = (async () => {
+        const qdrantUrl = await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT)
+        if (!qdrantUrl) {
+          throw new Error('Qdrant service is not installed or running.')
+        }
+        this.qdrant = new QdrantClient({ url: qdrantUrl })
+      })()
+    }
+    return this.qdrantInitPromise
+  }
+
+  private async _ensureDependencies() {
+    if (!this.qdrant) {
+      await this._initializeQdrantClient()
+    }
+  }
+
+  private async _ensureCollection(
+    collectionName: string,
+    dimensions: number = RagService.EMBEDDING_DIMENSION
+  ) {
+    try {
+      await this._ensureDependencies()
+      const collections = await this.qdrant!.getCollections()
+      const collectionExists = collections.collections.some((col) => col.name === collectionName)
+
+      if (!collectionExists) {
+        await this.qdrant!.createCollection(collectionName, {
+          vectors: {
+            size: dimensions,
+            distance: 'Cosine',
+          },
+        })
+      }
+    } catch (error) {
+      logger.error('Error ensuring Qdrant collection:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Sanitizes text to ensure it's safe for JSON encoding and Qdrant storage.
+   * Removes problematic characters that can cause "unexpected end of hex escape" errors:
+   * - Null bytes (\x00)
+   * - Invalid Unicode sequences
+   * - Control characters (except newlines, tabs, and carriage returns)
+   */
+  private sanitizeText(text: string): string {
+    return text
+      // Null bytes
+      .replace(/\x00/g, '')
+      // Problematic control characters (keep \n, \r, \t)
+      .replace(/[\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+      // Invalid Unicode surrogates
+      .replace(/[\uD800-\uDFFF]/g, '')
+      // Trim extra whitespace
+      .trim()
+  }
 
   /**
    * Estimates token count for text. This is a conservative approximation:
@@ -112,48 +175,6 @@ export class RagService {
       .filter((word) => word.length > 2)
 
     return [...new Set(keywords)]
-  }
-
-  private async _initializeQdrantClient() {
-    if (!this.qdrantInitPromise) {
-      this.qdrantInitPromise = (async () => {
-        const qdrantUrl = await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT)
-        if (!qdrantUrl) {
-          throw new Error('Qdrant service is not installed or running.')
-        }
-        this.qdrant = new QdrantClient({ url: qdrantUrl })
-      })()
-    }
-    return this.qdrantInitPromise
-  }
-
-  private async _ensureDependencies() {
-    if (!this.qdrant) {
-      await this._initializeQdrantClient()
-    }
-  }
-
-  private async _ensureCollection(
-    collectionName: string,
-    dimensions: number = RagService.EMBEDDING_DIMENSION
-  ) {
-    try {
-      await this._ensureDependencies()
-      const collections = await this.qdrant!.getCollections()
-      const collectionExists = collections.collections.some((col) => col.name === collectionName)
-
-      if (!collectionExists) {
-        await this.qdrant!.createCollection(collectionName, {
-          vectors: {
-            size: dimensions,
-            distance: 'Cosine',
-          },
-        })
-      }
-    } catch (error) {
-      logger.error('Error ensuring Qdrant collection:', error)
-      throw error
-    }
   }
 
   public async embedAndStoreText(
@@ -237,21 +258,45 @@ export class RagService {
 
       const timestamp = Date.now()
       const points = chunks.map((chunkText, index) => {
-        // Extract keywords for hybrid search
-        const keywords = this.extractKeywords(chunkText)
-        logger.debug(`[RAG] Extracted keywords for chunk ${index}: [${keywords.join(', ')}]`)
+        // Sanitize text to prevent JSON encoding errors
+        const sanitizedText = this.sanitizeText(chunkText)
+
+        // Extract keywords from content
+        const contentKeywords = this.extractKeywords(sanitizedText)
+
+        // For ZIM content, also extract keywords from structural metadata
+        let structuralKeywords: string[] = []
+        if (metadata.full_title) {
+          structuralKeywords = this.extractKeywords(metadata.full_title as string)
+        } else if (metadata.article_title) {
+          structuralKeywords = this.extractKeywords(metadata.article_title as string)
+        }
+
+        // Combine and dedup keywords
+        const allKeywords = [...new Set([...structuralKeywords, ...contentKeywords])]
+
+        logger.debug(`[RAG] Extracted keywords for chunk ${index}: [${allKeywords.join(', ')}]`)
+        if (structuralKeywords.length > 0) {
+          logger.debug(`[RAG]   - Structural: [${structuralKeywords.join(', ')}], Content: [${contentKeywords.join(', ')}]`)
+        }
+
+        // Sanitize source metadata as well
+        const sanitizedSource = typeof metadata.source === 'string'
+          ? this.sanitizeText(metadata.source)
+          : 'unknown'
+
         return {
           id: randomUUID(), // qdrant requires either uuid or unsigned int
           vector: embeddings[index],
           payload: {
             ...metadata,
-            text: chunkText,
+            text: sanitizedText,
             chunk_index: index,
             total_chunks: chunks.length,
-            keywords: keywords.join(' '), // Store as space-separated string for text search
-            char_count: chunkText.length,
+            keywords: allKeywords.join(' '), // store as space-separated string for text search
+            char_count: sanitizedText.length,
             created_at: timestamp,
-            source: metadata.source || 'unknown'
+            source: sanitizedSource
           },
         }
       })
@@ -269,12 +314,6 @@ export class RagService {
     }
   }
 
-  /**
-   * Preprocess an image to enhance text extraction quality.
-   * Normalizes, grayscales, sharpens, and resizes the image to a manageable size.
-   * @param filebuffer Buffer of the image file
-   * @returns - Processed image buffer
-   */
   private async preprocessImage(filebuffer: Buffer): Promise<Buffer> {
     return await sharp(filebuffer)
       .grayscale()
@@ -284,12 +323,6 @@ export class RagService {
       .toBuffer()
   }
 
-  /**
-   * If the original PDF has little to no extractable text,
-   * we can use this method to convert each page to an image for OCR processing.
-   * @param filebuffer - Buffer of the PDF file
-   * @returns - Array of image buffers, one per page
-   */
   private async convertPDFtoImages(filebuffer: Buffer): Promise<Buffer[]> {
     const converted = await fromBuffer(filebuffer, {
       quality: 50,
@@ -301,11 +334,6 @@ export class RagService {
     return converted.filter((res) => res.buffer).map((res) => res.buffer!)
   }
 
-  /**
-   * Extract text from a PDF file using pdf-parse.
-   * @param filebuffer - Buffer of the PDF file
-   * @returns - Extracted text
-   */
   private async extractPDFText(filebuffer: Buffer): Promise<string> {
     const parser = new PDFParse({ data: filebuffer })
     const data = await parser.getText()
@@ -313,20 +341,10 @@ export class RagService {
     return data.text
   }
 
-  /**
-   * Extract text from a plain text file.
-   * @param filebuffer - Buffer of the text file
-   * @returns - Extracted text
-   */
   private async extractTXTText(filebuffer: Buffer): Promise<string> {
     return filebuffer.toString('utf-8')
   }
 
-  /**
-   * Extract text from an image file using Tesseract.js OCR.
-   * @param filebuffer - Buffer of the image file
-   * @returns - Extracted text
-   */
   private async extractImageText(filebuffer: Buffer): Promise<string> {
     const worker = await createWorker('eng')
     const result = await worker.recognize(filebuffer)
@@ -334,71 +352,229 @@ export class RagService {
     return result.data.text
   }
 
+  private async processImageFile(fileBuffer: Buffer): Promise<string> {
+    const preprocessedBuffer = await this.preprocessImage(fileBuffer)
+    return await this.extractImageText(preprocessedBuffer)
+  }
+
+  /**
+   * Will process the PDF and attempt to extract text.
+   * If the extracted text is minimal, it will fallback to OCR on each page.
+   */
+  private async processPDFFile(fileBuffer: Buffer): Promise<string> {
+    let extractedText = await this.extractPDFText(fileBuffer)
+
+    // Check if there was no extracted text or it was very minimal
+    if (!extractedText || extractedText.trim().length < 100) {
+      logger.debug('[RAG] PDF text extraction minimal, attempting OCR on pages')
+      // Convert PDF pages to images for OCR if text extraction was poor
+      const imageBuffers = await this.convertPDFtoImages(fileBuffer)
+      extractedText = ''
+
+      for (const imgBuffer of imageBuffers) {
+        const preprocessedImg = await this.preprocessImage(imgBuffer)
+        const pageText = await this.extractImageText(preprocessedImg)
+        extractedText += pageText + '\n'
+      }
+    }
+
+    return extractedText
+  }
+
+  /**
+   * Process a ZIM file: extract content with metadata and embed each chunk.
+   * Returns early with complete result since ZIM processing is self-contained.
+   * Supports batch processing to prevent lock timeouts on large ZIM files.
+   */
+  private async processZIMFile(
+    filepath: string,
+    deleteAfterEmbedding: boolean,
+    batchOffset?: number
+  ): Promise<{
+    success: boolean
+    message: string
+    chunks?: number
+    hasMoreBatches?: boolean
+    articlesProcessed?: number
+    totalArticles?: number
+  }> {
+    const zimExtractionService = new ZIMExtractionService()
+    
+    // Process in batches to avoid lock timeout
+    const startOffset = batchOffset || 0
+    
+    logger.info(
+      `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
+    )
+    
+    const zimChunks = await zimExtractionService.extractZIMContent(filepath, {
+      startOffset,
+      batchSize: ZIM_BATCH_SIZE,
+    })
+
+    logger.info(
+      `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata`
+    )
+
+    // Process each chunk individually with its metadata
+    let totalChunks = 0
+    for (const zimChunk of zimChunks) {
+      const result = await this.embedAndStoreText(zimChunk.text, {
+        source: filepath,
+        content_type: 'zim_article',
+
+        // Article-level context
+        article_title: zimChunk.articleTitle,
+        article_path: zimChunk.articlePath,
+
+        // Section-level context
+        section_title: zimChunk.sectionTitle,
+        full_title: zimChunk.fullTitle,
+        hierarchy: zimChunk.hierarchy,
+        section_level: zimChunk.sectionLevel,
+
+        // Use the same document ID for all chunks from the same article for grouping in search results
+        document_id: zimChunk.documentId,
+
+        // Archive metadata
+        archive_title: zimChunk.archiveMetadata.title,
+        archive_creator: zimChunk.archiveMetadata.creator,
+        archive_publisher: zimChunk.archiveMetadata.publisher,
+        archive_date: zimChunk.archiveMetadata.date,
+        archive_language: zimChunk.archiveMetadata.language,
+        archive_description: zimChunk.archiveMetadata.description,
+
+        // Extraction metadata - not overly relevant for search, but could be useful for debugging and future features...
+        extraction_strategy: zimChunk.strategy,
+      })
+
+      if (result) {
+        totalChunks += result.chunks
+      }
+    }
+
+    // Count unique articles processed in this batch
+    const articlesInBatch = new Set(zimChunks.map((c) => c.documentId)).size
+    const hasMoreBatches = zimChunks.length === ZIM_BATCH_SIZE
+
+    logger.info(
+      `[RAG] Successfully embedded ${totalChunks} total chunks from ${articlesInBatch} articles (hasMore: ${hasMoreBatches})`
+    )
+
+    // Only delete the file when:
+    // 1. deleteAfterEmbedding is true (caller wants deletion)
+    // 2. No more batches remain (this is the final batch)
+    // This prevents race conditions where early batches complete after later ones
+    const shouldDelete = deleteAfterEmbedding && !hasMoreBatches
+    if (shouldDelete) {
+      logger.info(`[RAG] Final batch complete, deleting ZIM file: ${filepath}`)
+      await deleteFileIfExists(filepath)
+    } else if (!hasMoreBatches) {
+      logger.info(`[RAG] Final batch complete, but file deletion was not requested`)
+    }
+
+    return {
+      success: true,
+      message: hasMoreBatches
+        ? 'ZIM batch processed successfully. More batches remain.'
+        : 'ZIM file processed and embedded successfully with enhanced metadata.',
+      chunks: totalChunks,
+      hasMoreBatches,
+      articlesProcessed: articlesInBatch,
+    }
+  }
+
+  private async processTextFile(fileBuffer: Buffer): Promise<string> {
+    return await this.extractTXTText(fileBuffer)
+  }
+
+  private async embedTextAndCleanup(
+    extractedText: string,
+    filepath: string,
+    deleteAfterEmbedding: boolean = false
+  ): Promise<{ success: boolean; message: string; chunks?: number }> {
+    if (!extractedText || extractedText.trim().length === 0) {
+      return { success: false, message: 'Process completed succesfully, but no text was found to embed.' }
+    }
+
+    const embedResult = await this.embedAndStoreText(extractedText, {
+      source: filepath
+    })
+
+    if (!embedResult) {
+      return { success: false, message: 'Failed to embed and store the extracted text.' }
+    }
+
+    if (deleteAfterEmbedding) {
+      logger.info(`[RAG] Embedding complete, deleting uploaded file: ${filepath}`)
+      await deleteFileIfExists(filepath)
+    }
+
+    return {
+      success: true,
+      message: 'File processed and embedded successfully.',
+      chunks: embedResult.chunks,
+    }
+  }
+
   /**
    * Main pipeline to process and embed an uploaded file into the RAG knowledge base.
    * This includes text extraction, chunking, embedding, and storing in Qdrant.
+   * 
+   * Orchestrates file type detection and delegates to specialized processors.
+   * For ZIM files, supports batch processing via batchOffset parameter.
    */
   public async processAndEmbedFile(
-    filepath: string, // Should already be the full path to the uploaded file
-    deleteAfterEmbedding: boolean = false
-  ): Promise<{ success: boolean; message: string; chunks?: number }> {
+    filepath: string,
+    deleteAfterEmbedding: boolean = false,
+    batchOffset?: number
+  ): Promise<{
+    success: boolean
+    message: string
+    chunks?: number
+    hasMoreBatches?: boolean
+    articlesProcessed?: number
+    totalArticles?: number
+  }> {
     try {
       const fileType = determineFileType(filepath)
+      logger.debug(`[RAG] Processing file: ${filepath} (detected type: ${fileType})`)
+
       if (fileType === 'unknown') {
         return { success: false, message: 'Unsupported file type.' }
       }
 
-      const origFileBuffer = await getFile(filepath, 'buffer')
-      if (!origFileBuffer) {
+      // Read file buffer (not needed for ZIM as it reads directly)
+      const fileBuffer = fileType !== 'zim' ? await getFile(filepath, 'buffer') : null
+      if (fileType !== 'zim' && !fileBuffer) {
         return { success: false, message: 'Failed to read the uploaded file.' }
       }
 
-      let extractedText = ''
-
-      if (fileType === 'image') {
-        const preprocessedBuffer = await this.preprocessImage(origFileBuffer)
-        extractedText = await this.extractImageText(preprocessedBuffer)
-      } else if (fileType === 'pdf') {
-        extractedText = await this.extractPDFText(origFileBuffer)
-        // Check if there was no extracted text or it was very minimal
-        if (!extractedText || extractedText.trim().length < 100) {
-          // Convert PDF pages to images for OCR
-          const imageBuffers = await this.convertPDFtoImages(origFileBuffer)
-          for (const imgBuffer of imageBuffers) {
-            const preprocessedImg = await this.preprocessImage(imgBuffer)
-            const pageText = await this.extractImageText(preprocessedImg)
-            extractedText += pageText + '\n'
-          }
-        }
-      } else {
-        extractedText = await this.extractTXTText(origFileBuffer)
+      // Process based on file type
+      // ZIM files are handled specially since they have their own embedding workflow
+      if (fileType === 'zim') {
+        return await this.processZIMFile(filepath, deleteAfterEmbedding, batchOffset)
       }
 
-      if (!extractedText || extractedText.trim().length === 0) {
-        return { success: false, message: 'No text could be extracted from the file.' }
+      // Extract text based on file type
+      let extractedText: string
+      switch (fileType) {
+        case 'image':
+          extractedText = await this.processImageFile(fileBuffer!)
+          break
+        case 'pdf':
+          extractedText = await this.processPDFFile(fileBuffer!)
+          break
+        case 'text':
+        default:
+          extractedText = await this.processTextFile(fileBuffer!)
+          break
       }
 
-      const embedResult = await this.embedAndStoreText(extractedText, {
-        source: filepath
-      })
-
-      if (!embedResult) {
-        return { success: false, message: 'Failed to embed and store the extracted text.' }
-      }
-
-      if (deleteAfterEmbedding) {
-        // Cleanup the file from disk
-        logger.info(`[RAG] Embedding complete, deleting uploaded file: ${filepath}`)
-        await deleteFileIfExists(filepath)
-      }
-
-      return {
-        success: true,
-        message: 'File processed and embedded successfully.',
-        chunks: embedResult?.chunks,
-      }
+      // Embed extracted text and cleanup
+      return await this.embedTextAndCleanup(extractedText, filepath, deleteAfterEmbedding)
     } catch (error) {
-      logger.error('Error processing and embedding file:', error)
+      logger.error('[RAG] Error processing and embedding file:', error)
       return { success: false, message: 'Error processing and embedding file.' }
     }
   }
@@ -497,6 +673,13 @@ export class RagService {
         keywords: (result.payload?.keywords as string) || '',
         chunk_index: (result.payload?.chunk_index as number) || 0,
         created_at: (result.payload?.created_at as number) || 0,
+        // Enhanced ZIM metadata (likely be undefined for non-ZIM content)
+        article_title: result.payload?.article_title as string | undefined,
+        section_title: result.payload?.section_title as string | undefined,
+        full_title: result.payload?.full_title as string | undefined,
+        hierarchy: result.payload?.hierarchy as string | undefined,
+        document_id: result.payload?.document_id as string | undefined,
+        content_type: result.payload?.content_type as string | undefined,
       }))
 
       const rerankedResults = this.rerankResults(resultsWithMetadata, keywords, query)
@@ -508,7 +691,7 @@ export class RagService {
         )
       })
 
-      // Return top N results
+      // Return top N results with enhanced metadata
       return rerankedResults.slice(0, limit).map((result) => ({
         text: result.text,
         score: result.finalScore,
@@ -516,6 +699,13 @@ export class RagService {
           chunk_index: result.chunk_index,
           created_at: result.created_at,
           semantic_score: result.score,
+          // Enhanced ZIM metadata (likely be undefined for non-ZIM content)
+          article_title: result.article_title,
+          section_title: result.section_title,
+          full_title: result.full_title,
+          hierarchy: result.hierarchy,
+          document_id: result.document_id,
+          content_type: result.content_type,
         },
       }))
     } catch (error) {
@@ -544,6 +734,12 @@ export class RagService {
       keywords: string
       chunk_index: number
       created_at: number
+      article_title?: string
+      section_title?: string
+      full_title?: string
+      hierarchy?: string
+      document_id?: string
+      content_type?: string
     }>,
     queryKeywords: string[],
     originalQuery: string
@@ -553,6 +749,12 @@ export class RagService {
     finalScore: number
     chunk_index: number
     created_at: number
+    article_title?: string
+    section_title?: string
+    full_title?: string
+    hierarchy?: string
+    document_id?: string
+    content_type?: string
   }> {
     return results
       .map((result) => {
@@ -711,11 +913,9 @@ export class RagService {
       for (const fileInfo of filesToEmbed) {
         try {
           logger.info(`[RAG] Dispatching embed job for: ${fileInfo.source}`)
-          const stats = await getFileStatsIfExists(fileInfo.path)
           await EmbedFileJob.dispatch({
             filePath: fileInfo.path,
             fileName: fileInfo.source,
-            fileSize: stats?.size,
           })
           logger.info(`[RAG] Successfully dispatched job for ${fileInfo.source}`)
         } catch (fileError) {

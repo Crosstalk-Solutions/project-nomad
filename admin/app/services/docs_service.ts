@@ -3,6 +3,7 @@ import { streamToString } from '../../util/docs.js'
 import { getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
 import path from 'path'
 import InternalServerErrorException from '#exceptions/internal_server_error_exception'
+import logger from '@adonisjs/core/services/logger'
 
 export class DocsService {
   private docsPath = path.join(process.cwd(), 'docs')
@@ -46,13 +47,13 @@ export class DocsService {
       // Filter out attribute-undefined errors which may be caused by emojis and special characters
       const criticalErrors = errors.filter((e) => e.error.id !== 'attribute-undefined')
       if (criticalErrors.length > 0) {
-        console.error('Markdoc validation errors:', errors.map((e) => JSON.stringify(e.error)).join(', '))
+        logger.error('Markdoc validation errors:', errors.map((e) => JSON.stringify(e.error)).join(', '))
         throw new Error('Markdoc validation failed')
       }
 
       return Markdoc.transform(ast, config)
     } catch (error) {
-      console.log('Error parsing Markdoc content:', error)
+      logger.error('Error parsing Markdoc content:', error)
       throw new InternalServerErrorException(`Error parsing content: ${(error as Error).message}`)
     }
   }

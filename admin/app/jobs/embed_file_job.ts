@@ -10,6 +10,10 @@ export interface EmbedFileJobParams {
   filePath: string
   fileName: string
   fileSize?: number
+  // Batch processing for large ZIM files
+  batchOffset?: number  // Current batch offset (for ZIM files)
+  totalArticles?: number // Total articles in ZIM (for progress tracking)
+  isFinalBatch?: boolean // Whether this is the last batch (prevents premature deletion)
 }
 
 export class EmbedFileJob {
@@ -26,9 +30,11 @@ export class EmbedFileJob {
   }
 
   async handle(job: Job) {
-    const { filePath, fileName } = job.data as EmbedFileJobParams
+    const { filePath, fileName, batchOffset, totalArticles } = job.data as EmbedFileJobParams
 
-    logger.info(`[EmbedFileJob] Starting embedding process for: ${fileName}`)
+    const isZimBatch = batchOffset !== undefined
+    const batchInfo = isZimBatch ? ` (batch offset: ${batchOffset})` : ''
+    logger.info(`[EmbedFileJob] Starting embedding process for: ${fileName}${batchInfo}`)
 
     const dockerService = new DockerService()
     const ollamaService = new OllamaService()
@@ -55,30 +61,78 @@ export class EmbedFileJob {
       await job.updateData({
         ...job.data,
         status: 'processing',
-        startedAt: Date.now(),
+        startedAt: job.data.startedAt || Date.now(),
       })
 
       logger.info(`[EmbedFileJob] Processing file: ${filePath}`)
 
       // Process and embed the file
-      const result = await ragService.processAndEmbedFile(filePath)
+      // Only allow deletion if explicitly marked as final batch
+      const allowDeletion = job.data.isFinalBatch === true
+      const result = await ragService.processAndEmbedFile(
+        filePath,
+        allowDeletion,
+        batchOffset
+      )
 
       if (!result.success) {
         logger.error(`[EmbedFileJob] Failed to process file ${fileName}: ${result.message}`)
         throw new Error(result.message)
       }
 
-      // Update progress complete
+      // For ZIM files with batching, check if more batches are needed
+      if (result.hasMoreBatches) {
+        const nextOffset = (batchOffset || 0) + (result.articlesProcessed || 0)
+        logger.info(
+          `[EmbedFileJob] Batch complete. Dispatching next batch at offset ${nextOffset}`
+        )
+
+        // Dispatch next batch (not final yet)
+        await EmbedFileJob.dispatch({
+          filePath,
+          fileName,
+          batchOffset: nextOffset,
+          totalArticles: totalArticles || result.totalArticles,
+          isFinalBatch: false, // Explicitly not final
+        })
+
+        // Calculate progress based on articles processed
+        const progress = totalArticles
+          ? Math.round((nextOffset / totalArticles) * 100)
+          : 50
+
+        await job.updateProgress(progress)
+        await job.updateData({
+          ...job.data,
+          status: 'batch_completed',
+          lastBatchAt: Date.now(),
+          chunks: (job.data.chunks || 0) + (result.chunks || 0),
+        })
+
+        return {
+          success: true,
+          fileName,
+          filePath,
+          chunks: result.chunks,
+          hasMoreBatches: true,
+          nextOffset,
+          message: `Batch embedded ${result.chunks} chunks, next batch queued`,
+        }
+      }
+
+      // Final batch or non-batched file - mark as complete
+      const totalChunks = (job.data.chunks || 0) + (result.chunks || 0)
       await job.updateProgress(100)
       await job.updateData({
         ...job.data,
         status: 'completed',
         completedAt: Date.now(),
-        chunks: result.chunks,
+        chunks: totalChunks,
       })
 
+      const batchMsg = isZimBatch ? ` (final batch, total chunks: ${totalChunks})` : ''
       logger.info(
-        `[EmbedFileJob] Successfully embedded ${result.chunks} chunks from file: ${fileName}`
+        `[EmbedFileJob] Successfully embedded ${result.chunks} chunks from file: ${fileName}${batchMsg}`
       )
 
       return {

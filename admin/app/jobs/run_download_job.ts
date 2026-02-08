@@ -6,6 +6,7 @@ import { createHash } from 'crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
 import { MapService } from '#services/map_service'
+import { EmbedFileJob } from './embed_file_job.js'
 
 export class RunDownloadJob {
   static get queue() {
@@ -24,17 +25,6 @@ export class RunDownloadJob {
     const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype } =
       job.data as RunDownloadJobParams
 
-    //    console.log("Simulating delay for job for URL:", url)
-    //  await new Promise((resolve) => setTimeout(resolve, 30000)) // Simulate initial delay
-    //  console.log("Starting download for URL:", url)
-
-    // // simulate progress updates for demonstration
-    // for (let progress = 0; progress <= 100; progress += 10) {
-    //   await new Promise((resolve) => setTimeout(resolve, 20000)) // Simulate time taken for each progress step
-    //   job.updateProgress(progress)
-    //   console.log(`Job progress for URL ${url}: ${progress}%`)
-    // }
-
     await doResumableDownload({
       url,
       filepath,
@@ -51,6 +41,16 @@ export class RunDownloadJob {
             const dockerService = new DockerService()
             const zimService = new ZimService(dockerService)
             await zimService.downloadRemoteSuccessCallback([url], true)
+
+            // Dispatch an embedding job for the downloaded ZIM file
+            try {
+              await EmbedFileJob.dispatch({
+                fileName: url.split('/').pop() || '',
+                filePath: filepath,
+              })
+            } catch (error) {
+              console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+            }
           } else if (filetype === 'map') {
             const mapsService = new MapService()
             await mapsService.downloadRemoteSuccessCallback([url], false)
