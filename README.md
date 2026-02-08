@@ -23,18 +23,9 @@ Project N.O.M.A.D. can be installed on any Debian-based operating system (we rec
 
 *Note: sudo/root privileges are required to run the install script*
 
-#### One-liner (recommended for fresh Ubuntu installs)
+#### Quick Install
 ```bash
-sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh | sudo bash
-```
-
-#### Two-step install (if you already have curl)
-```bash
-curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh
-```
-
-```bash
-sudo bash install_nomad.sh
+sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
 ```
 
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
