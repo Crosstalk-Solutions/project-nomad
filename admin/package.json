@@ -90,7 +90,7 @@
     "@vinejs/vine": "^3.0.1",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
-    "axios": "^1.13.1",
+    "axios": "^1.13.5",
     "better-sqlite3": "^12.1.1",
     "bullmq": "^5.65.1",
     "cheerio": "^1.2.0",
