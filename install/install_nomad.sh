@@ -204,6 +204,9 @@ ensure_docker_installed() {
 }
 
 setup_nvidia_container_toolkit() {
+  # This function attempts to set up NVIDIA GPU support but is non-blocking
+  # Any failures will result in warnings but will NOT stop the installation process
+  
   echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...\\n"
   
   # Safely detect NVIDIA GPU
@@ -265,8 +268,43 @@ setup_nvidia_container_toolkit() {
   echo -e "${YELLOW}#${RESET} Configuring Docker to use NVIDIA runtime...\\n"
   
   if ! sudo nvidia-ctk runtime configure --runtime=docker 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to configure NVIDIA runtime for Docker. Continuing anyway...\\n"
-    return 0
+    echo -e "${YELLOW}#${RESET} nvidia-ctk configure failed, attempting manual configuration...\\n"
+    
+    # Fallback: Manually configure daemon.json
+    local daemon_json="/etc/docker/daemon.json"
+    local config_success=false
+    
+    if [[ -f "$daemon_json" ]]; then
+      # Backup existing config (best effort)
+      sudo cp "$daemon_json" "${daemon_json}.backup" 2>/dev/null || true
+      
+      # Check if nvidia runtime already exists
+      if ! grep -q '"nvidia"' "$daemon_json" 2>/dev/null; then
+        # Add nvidia runtime to existing config using jq if available
+        if command -v jq &> /dev/null; then
+          if sudo jq '. + {"runtimes": {"nvidia": {"path": "nvidia-container-runtime", "runtimeArgs": []}}}' "$daemon_json" > /tmp/daemon.json.tmp 2>/dev/null; then
+            if sudo mv /tmp/daemon.json.tmp "$daemon_json" 2>/dev/null; then
+              config_success=true
+            fi
+          fi
+          # Clean up temp file if move failed
+          sudo rm -f /tmp/daemon.json.tmp 2>/dev/null || true
+        else
+          echo -e "${YELLOW}#${RESET} jq not available, skipping manual daemon.json configuration...\\n"
+        fi
+      else
+        config_success=true  # Already configured
+      fi
+    else
+      # Create new daemon.json with nvidia runtime (best effort)
+      if echo '{"runtimes":{"nvidia":{"path":"nvidia-container-runtime","runtimeArgs":[]}}}' | sudo tee "$daemon_json" > /dev/null 2>&1; then
+        config_success=true
+      fi
+    fi
+    
+    if ! $config_success; then
+      echo -e "${YELLOW}#${RESET} Manual daemon.json configuration unsuccessful. GPU support may require manual setup.\\n"
+    fi
   fi
   
   # Restart Docker service
@@ -276,7 +314,18 @@ setup_nvidia_container_toolkit() {
     return 0
   fi
   
-  echo -e "${GREEN}#${RESET} NVIDIA container toolkit configuration completed successfully.\\n"
+  # Verify NVIDIA runtime is available
+  echo -e "${YELLOW}#${RESET} Verifying NVIDIA runtime configuration...\\n"
+  sleep 2  # Give Docker a moment to fully restart
+  
+  if docker info 2>/dev/null | grep -q "nvidia"; then
+    echo -e "${GREEN}#${RESET} NVIDIA runtime successfully configured and verified.\\n"
+  else
+    echo -e "${YELLOW}#${RESET} Warning: NVIDIA runtime not detected in Docker info. GPU acceleration may not work.\\n"
+    echo -e "${YELLOW}#${RESET} You may need to manually configure /etc/docker/daemon.json and restart Docker.\\n"
+  fi
+  
+  echo -e "${GREEN}#${RESET} NVIDIA container toolkit configuration completed.\\n"
 }
 
 get_install_confirmation(){
@@ -489,6 +538,58 @@ get_local_ip() {
     exit 1
   fi
 }
+verify_gpu_setup() {
+  # This function only displays GPU setup status and is completely non-blocking
+  # It never exits or returns error codes - purely informational
+  
+  echo -e "\\n${YELLOW}#${RESET} GPU Setup Verification\\n"
+  echo -e "${YELLOW}===========================================${RESET}\\n"
+  
+  # Check if NVIDIA GPU is present
+  if command -v nvidia-smi &> /dev/null; then
+    echo -e "${GREEN}✓${RESET} NVIDIA GPU detected:"
+    nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | while read -r line; do
+      echo -e "  ${WHITE_R}$line${RESET}"
+    done
+    echo ""
+  else
+    echo -e "${YELLOW}○${RESET} No NVIDIA GPU detected (nvidia-smi not available)\\n"
+  fi
+  
+  # Check if NVIDIA Container Toolkit is installed
+  if command -v nvidia-ctk &> /dev/null; then
+    echo -e "${GREEN}✓${RESET} NVIDIA Container Toolkit installed: $(nvidia-ctk --version 2>/dev/null | head -n1)\\n"
+  else
+    echo -e "${YELLOW}○${RESET} NVIDIA Container Toolkit not installed\\n"
+  fi
+  
+  # Check if Docker has NVIDIA runtime
+  if docker info 2>/dev/null | grep -q \"nvidia\"; then
+    echo -e "${GREEN}✓${RESET} Docker NVIDIA runtime configured\\n"
+  else
+    echo -e "${YELLOW}○${RESET} Docker NVIDIA runtime not detected\\n"
+  fi
+  
+  # Check for AMD GPU
+  if command -v lspci &> /dev/null; then
+    if lspci 2>/dev/null | grep -iE "amd|radeon" &> /dev/null; then
+      echo -e "${YELLOW}○${RESET} AMD GPU detected (ROCm support not currently available)\\n"
+    fi
+  fi
+  
+  echo -e "${YELLOW}===========================================${RESET}\\n"
+  
+  # Summary
+  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q \"nvidia\"; then
+    echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
+  else
+    echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
+    if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q \"nvidia\"; then
+      echo -e "${YELLOW}#${RESET} Tip: Your GPU is detected but Docker runtime is not configured.\\n"
+      echo -e "${YELLOW}#${RESET} Try restarting Docker: ${WHITE_R}sudo systemctl restart docker${RESET}\\n"
+    fi
+  fi
+}
 
 success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
@@ -525,6 +626,7 @@ download_helper_scripts
 download_and_start_collect_disk_info_script
 download_management_compose_file
 start_management_containers
+verify_gpu_setup
 success_message
 
 # free_space_check() {
