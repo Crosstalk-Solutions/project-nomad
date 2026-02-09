@@ -27,14 +27,14 @@ export default class OllamaController {
   async chat({ request }: HttpContext) {
     const reqData = await request.validateUsing(chatSchema)
 
-    // If there are no system messages in the chat
-    // (i.e. first message from the user) inject system prompts
+    // If there are no system messages in the chat inject system prompts
     const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
     if (!hasSystemMessage) {
       const systemPrompt = {
         role: 'system' as const,
         content: SYSTEM_PROMPTS.default,
       }
+      logger.debug('[OllamaController] Injecting system prompt')
       reqData.messages.unshift(systemPrompt)
     }
 
@@ -45,6 +45,7 @@ export default class OllamaController {
       reqData.model
     )
 
+    logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
     if (rewrittenQuery) {
       const relevantDocs = await this.ragService.searchSimilarDocuments(
         rewrittenQuery,

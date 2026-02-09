@@ -7,6 +7,8 @@ import StyledTable from '~/components/StyledTable'
 import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
 import { IconX } from '@tabler/icons-react'
+import { useModals } from '~/context/ModalContext'
+import StyledModal from '../StyledModal'
 
 interface KnowledgeBaseModalProps {
   onClose: () => void
@@ -16,6 +18,7 @@ export default function KnowledgeBaseModal({ onClose }: KnowledgeBaseModalProps)
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
+  const { openModal, closeModal } = useModals()
 
   const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
     queryKey: ['storedFiles'],
@@ -43,10 +46,51 @@ export default function KnowledgeBaseModal({ onClose }: KnowledgeBaseModalProps)
     },
   })
 
+  const syncMutation = useMutation({
+    mutationFn: () => api.syncRAGStorage(),
+    onSuccess: (data) => {
+      addNotification({
+        type: 'success',
+        message: data?.message || 'Storage synced successfully. If new files were found, they have been queued for processing.',
+      })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to sync storage',
+      })
+    },
+  })
+
   const handleUpload = () => {
     if (files.length > 0) {
       uploadMutation.mutate(files[0])
     }
+  }
+
+  const handleConfirmSync = () => {
+    openModal(
+      <StyledModal
+        title='Confirm Sync?'
+        onConfirm={() => {
+          syncMutation.mutate()
+          closeModal(
+            "confirm-sync-modal"
+          )
+        }}
+        onCancel={() => closeModal("confirm-sync-modal")}
+        open={true}
+        confirmText='Confirm Sync'
+        cancelText='Cancel'
+        confirmVariant='primary'
+      >
+        <p className='text-gray-700'>
+          This will scan the NOMAD's storage directories for any new files and queue them for processing. This is useful if you've manually added files to the storage or want to ensure everything is up to date.
+          This may cause a temporary increase in resource usage if new files are found and being processed. Are you sure you want to proceed?
+        </p>
+      </StyledModal>,
+      "confirm-sync-modal"
+    )
   }
 
   return (
@@ -142,7 +186,19 @@ export default function KnowledgeBaseModal({ onClose }: KnowledgeBaseModalProps)
             </div>
           </div>
           <div className="my-12">
-            <StyledSectionHeader title="Stored Knowledge Base Files" />
+            <div className='flex items-center justify-between mb-6'>
+              <StyledSectionHeader title="Stored Knowledge Base Files" className='!mb-0' />
+              <StyledButton
+                variant="secondary"
+                size="md"
+                icon='IconRefresh'
+                onClick={handleConfirmSync}
+                disabled={syncMutation.isPending || uploadMutation.isPending}
+                loading={syncMutation.isPending || uploadMutation.isPending}
+              >
+                Sync Storage
+              </StyledButton>
+            </div>
             <StyledTable<{ source: string }>
               className="font-semibold"
               rowLines={true}

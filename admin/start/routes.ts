@@ -119,6 +119,7 @@ router
     router.post('/upload', [RagController, 'upload'])
     router.get('/files', [RagController, 'getStoredFiles'])
     router.get('/job-status', [RagController, 'getJobStatus'])
+    router.post('/sync', [RagController, 'scanAndSync'])
   })
   .prefix('/api/rag')
 
