@@ -4,22 +4,12 @@ import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
-import { ChatRequest } from 'ollama'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
 @inject()
 export class ChatService {
   constructor(private ollamaService: OllamaService) {}
-
-  async chat(chatRequest: ChatRequest & { stream?: false }) {
-    try {
-      return await this.ollamaService.chat(chatRequest)
-    } catch (error) {
-      logger.error(`[ChatService] Chat error: ${error instanceof Error ? error.message : error}`)
-      throw new Error('Chat processing failed')
-    }
-  }
 
   async getAllSessions() {
     try {
@@ -230,9 +220,6 @@ export class ChatService {
     }
   }
 
-  /**
-   * Delete all chat sessions and messages
-   */
   async deleteAllSessions() {
     try {
       await ChatSession.query().delete()
