@@ -147,10 +147,11 @@ class API {
     })()
   }
 
-  async getChatSuggestions() {
+  async getChatSuggestions(signal?: AbortSignal) {
     return catchInternal(async () => {
       const response = await this.client.get<{ suggestions: string[] }>(
-        '/chat/suggestions'
+        '/chat/suggestions',
+        { signal }
       )
       return response.data.suggestions
     })()

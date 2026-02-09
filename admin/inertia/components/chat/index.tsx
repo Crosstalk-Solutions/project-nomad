@@ -55,11 +55,13 @@ export default function Chat({
 
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
     queryKey: ['chatSuggestions'],
-    queryFn: async () => {
-      const res = await api.getChatSuggestions()
+    queryFn: async ({ signal }) => {
+      const res = await api.getChatSuggestions(signal)
       return res ?? []
     },
-    enabled: suggestionsEnabled,
+    enabled: suggestionsEnabled && !activeSessionId,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const deleteAllSessionsMutation = useMutation({
@@ -151,6 +153,9 @@ export default function Chat({
 
   const handleSessionSelect = useCallback(
     async (sessionId: string) => {
+      // Cancel any ongoing suggestions fetch
+      queryClient.cancelQueries({ queryKey: ['chatSuggestions'] })
+      
       setActiveSessionId(sessionId)
       // Load messages for this session
       const sessionData = await api.getChatSession(sessionId)
@@ -172,7 +177,7 @@ export default function Chat({
         setSelectedModel(sessionData.model)
       }
     },
-    [installedModels]
+    [installedModels, queryClient]
   )
 
   const handleSendMessage = useCallback(
