@@ -4,7 +4,7 @@ import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import { TokenChunker } from '@chonkiejs/core'
 import sharp from 'sharp'
-import { deleteFileIfExists, determineFileType, getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
+import { deleteFileIfExists, determineFileType, getFile, getFileStatsIfExists, listDirectoryContentsRecursive, ZIM_STORAGE_PATH } from '../utils/fs.js'
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
@@ -399,14 +399,14 @@ export class RagService {
     totalArticles?: number
   }> {
     const zimExtractionService = new ZIMExtractionService()
-    
+
     // Process in batches to avoid lock timeout
     const startOffset = batchOffset || 0
-    
+
     logger.info(
       `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
     )
-    
+
     const zimChunks = await zimExtractionService.extractZIMContent(filepath, {
       startOffset,
       batchSize: ZIM_BATCH_SIZE,
@@ -933,6 +933,151 @@ export class RagService {
     } catch (error) {
       logger.error('Error discovering Nomad docs:', error)
       return { success: false, message: 'Error discovering Nomad docs.' }
+    }
+  }
+
+  /**
+   * Scans the knowledge base storage directories and syncs with Qdrant.
+   * Identifies files that exist in storage but haven't been embedded yet,
+   * and dispatches EmbedFileJob for each missing file.
+   *
+   * @returns Object containing success status, message, and counts of scanned/queued files
+   */
+  public async scanAndSyncStorage(): Promise<{
+    success: boolean
+    message: string
+    filesScanned?: number
+    filesQueued?: number
+  }> {
+    try {
+      logger.info('[RAG] Starting knowledge base sync scan')
+
+      const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
+      const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
+
+      const filesInStorage: string[] = []
+
+      // Force resync of Nomad docs
+      await this.discoverNomadDocs(true).catch((error) => {
+        logger.error('[RAG] Error during Nomad docs discovery in sync process:', error)
+      })
+
+      // Scan kb_uploads directory
+      try {
+        const kbContents = await listDirectoryContentsRecursive(KB_UPLOADS_PATH)
+        kbContents.forEach((entry) => {
+          if (entry.type === 'file') {
+            filesInStorage.push(entry.key)
+          }
+        })
+        logger.debug(`[RAG] Found ${kbContents.length} files in ${RagService.UPLOADS_STORAGE_PATH}`)
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          logger.debug(`[RAG] ${RagService.UPLOADS_STORAGE_PATH} directory does not exist, skipping`)
+        } else {
+          throw error
+        }
+      }
+
+      // Scan zim directory
+      try {
+        const zimContents = await listDirectoryContentsRecursive(ZIM_PATH)
+        zimContents.forEach((entry) => {
+          if (entry.type === 'file') {
+            filesInStorage.push(entry.key)
+          }
+        })
+        logger.debug(`[RAG] Found ${zimContents.length} files in ${ZIM_STORAGE_PATH}`)
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          logger.debug(`[RAG] ${ZIM_STORAGE_PATH} directory does not exist, skipping`)
+        } else {
+          throw error
+        }
+      }
+
+      logger.info(`[RAG] Found ${filesInStorage.length} total files in storage directories`)
+
+      // Get all stored sources from Qdrant
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      const sourcesInQdrant = new Set<string>()
+      let offset: string | number | null | Record<string, unknown> = null
+      const batchSize = 100
+
+      // Scroll through all points to get sources
+      do {
+        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
+          limit: batchSize,
+          offset: offset,
+          with_payload: ['source'], // Only fetch source field for efficiency
+          with_vector: false,
+        })
+
+        scrollResult.points.forEach((point) => {
+          const source = point.payload?.source
+          if (source && typeof source === 'string') {
+            sourcesInQdrant.add(source)
+          }
+        })
+
+        offset = scrollResult.next_page_offset || null
+      } while (offset !== null)
+
+      logger.info(`[RAG] Found ${sourcesInQdrant.size} unique sources in Qdrant`)
+
+      // Find files that are in storage but not in Qdrant
+      const filesToEmbed = filesInStorage.filter((filePath) => !sourcesInQdrant.has(filePath))
+
+      logger.info(`[RAG] Found ${filesToEmbed.length} files that need embedding`)
+
+      if (filesToEmbed.length === 0) {
+        return {
+          success: true,
+          message: 'Knowledge base is already in sync',
+          filesScanned: filesInStorage.length,
+          filesQueued: 0,
+        }
+      }
+
+      // Import EmbedFileJob dynamically to avoid circular dependencies
+      const { EmbedFileJob } = await import('#jobs/embed_file_job')
+
+      // Dispatch jobs for files that need embedding
+      let queuedCount = 0
+      for (const filePath of filesToEmbed) {
+        try {
+          const fileName = filePath.split(/[/\\]/).pop() || filePath
+          const stats = await getFileStatsIfExists(filePath)
+
+          logger.info(`[RAG] Dispatching embed job for: ${fileName}`)
+          await EmbedFileJob.dispatch({
+            filePath: filePath,
+            fileName: fileName,
+            fileSize: stats?.size,
+          })
+          queuedCount++
+          logger.debug(`[RAG] Successfully dispatched job for ${fileName}`)
+        } catch (fileError) {
+          logger.error(`[RAG] Error dispatching job for file ${filePath}:`, fileError)
+        }
+      }
+
+      return {
+        success: true,
+        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding`,
+        filesScanned: filesInStorage.length,
+        filesQueued: queuedCount,
+      }
+    } catch (error) {
+      logger.error('[RAG] Error scanning and syncing knowledge base:', error)
+      return {
+        success: false,
+        message: 'Error scanning and syncing knowledge base',
+      }
     }
   }
 }

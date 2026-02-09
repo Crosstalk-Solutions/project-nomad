@@ -9,7 +9,7 @@ import { getJobStatusSchema } from '#validators/rag'
 
 @inject()
 export default class RagController {
-  constructor(private ragService: RagService) {}
+  constructor(private ragService: RagService) { }
 
   public async upload({ request, response }: HttpContext) {
     const uploadedFile = request.file('file')
@@ -58,5 +58,14 @@ export default class RagController {
   public async getStoredFiles({ response }: HttpContext) {
     const files = await this.ragService.getStoredFiles()
     return response.status(200).json({ files })
+  }
+
+  public async scanAndSync({ response }: HttpContext) {
+    try {
+      const syncResult = await this.ragService.scanAndSyncStorage()
+      return response.status(200).json(syncResult)
+    } catch (error) {
+      return response.status(500).json({ error: 'Error scanning and syncing storage', details: error.message })
+    }
   }
 }

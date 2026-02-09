@@ -448,6 +448,18 @@ class API {
     })()
   }
 
+  async syncRAGStorage() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        filesScanned?: number
+        filesQueued?: number
+      }>('/rag/sync')
+      return response.data
+    })()
+  }
+
   // Wikipedia selector methods
 
   async getWikipediaState(): Promise<WikipediaState | undefined> {
