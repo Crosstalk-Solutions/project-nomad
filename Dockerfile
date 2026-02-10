@@ -1,7 +1,7 @@
-FROM node:22.16.0-alpine3.22 AS base
+FROM node:22-slim AS base
 
 # Install bash & curl for entrypoint script compatibility, graphicsmagick for pdf2pic, and vips-dev & build-base for sharp 
-RUN apk add --no-cache bash curl graphicsmagick vips-dev build-base
+RUN apt-get update && apt-get install -y bash curl graphicsmagick libvips-dev build-essential
 
 # All deps stage
 FROM base AS deps
