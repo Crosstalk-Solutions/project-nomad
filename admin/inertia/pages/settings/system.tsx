@@ -17,8 +17,13 @@ export default function SettingsPage(props: {
     initialData: props.system.info,
   })
 
+  // Use (total - available) to reflect actual memory pressure.
+  // mem.used includes reclaimable buff/cache on Linux, which inflates the number.
+  const memoryUsed = info?.mem.total && info?.mem.available != null
+    ? info.mem.total - info.mem.available
+    : info?.mem.used || 0
   const memoryUsagePercent = info?.mem.total
-    ? ((info.mem.used / info.mem.total) * 100).toFixed(1)
+    ? ((memoryUsed / info.mem.total) * 100).toFixed(1)
     : 0
 
   const swapUsagePercent = info?.mem.swaptotal
@@ -118,7 +123,7 @@ export default function SettingsPage(props: {
                   label="Memory Usage"
                   size="lg"
                   variant="memory"
-                  subtext={`${formatBytes(info?.mem.used || 0)} / ${formatBytes(info?.mem.total || 0)}`}
+                  subtext={`${formatBytes(memoryUsed)} / ${formatBytes(info?.mem.total || 0)}`}
                   icon={<IconDatabase className="w-8 h-8" />}
                 />
               </div>
@@ -202,7 +207,7 @@ export default function SettingsPage(props: {
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-desert-green mb-1">
-                    {formatBytes(info?.mem.used || 0)}
+                    {formatBytes(memoryUsed)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
                     Used RAM
@@ -210,10 +215,10 @@ export default function SettingsPage(props: {
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-desert-green mb-1">
-                    {formatBytes(info?.mem.free || 0)}
+                    {formatBytes(info?.mem.available || 0)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
-                    Free RAM
+                    Available RAM
                   </div>
                 </div>
               </div>
