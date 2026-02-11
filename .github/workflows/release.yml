@@ -35,3 +35,46 @@ jobs:
           GIT_AUTHOR_EMAIL: dev@cosmistack.com
           GIT_COMMITTER_NAME: cosmistack-bot
           GIT_COMMITTER_EMAIL: dev@cosmistack.com
+
+      - name: Finalize release notes
+        if: steps.semver.outputs.new_release_published == 'true'
+        id: finalize-notes
+        run: |
+          git pull origin master
+          chmod +x .github/scripts/finalize-release-notes.sh
+          EXIT_CODE=0
+          .github/scripts/finalize-release-notes.sh \
+            "${{ steps.semver.outputs.new_release_version }}" \
+            admin/docs/release-notes.md || EXIT_CODE=$?
+          if [[ "$EXIT_CODE" -eq 0 ]]; then
+            echo "has_notes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_notes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit finalized release notes
+        if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
+        run: |
+          git config user.name "cosmistack-bot"
+          git config user.email "dev@cosmistack.com"
+          git remote set-url origin https://x-access-token:${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
+          git add admin/docs/release-notes.md
+          git commit -m "docs(release): finalize v${{ steps.semver.outputs.new_release_version }} release notes [skip ci]"
+          git push origin master
+
+      - name: Update GitHub release body
+        if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}
+        run: |
+          gh release edit "v${{ steps.semver.outputs.new_release_version }}" \
+            --notes-file admin/docs/release-notes.md.section
+
+      # Future: Send release notes email
+      # - name: Send release notes email
+      #   if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
+      #   run: |
+      #     curl -X POST "https://api.projectnomad.us/api/v1/newsletter/release" \
+      #       -H "Authorization: Bearer ${{ secrets.NOMAD_API_KEY }}" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"version\": \"${{ steps.semver.outputs.new_release_version }}\", \"body\": $(cat admin/docs/release-notes.md.section | jq -Rs .)}"

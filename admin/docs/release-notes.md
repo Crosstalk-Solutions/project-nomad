@@ -1,5 +1,47 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+
+### Bug Fixes
+
+### Improvements
+
+---
+
+## Version 1.24.0 - February 10, 2026
+
+### 🚀 Features
+
+- **AI Assistant**: Query rewriting for enhanced context retrieval
+- **AI Assistant**: Allow manual scan and resync of Knowledge Base
+- **AI Assistant**: Integrated Knowledge Base UI into AI Assistant page
+- **AI Assistant**: ZIM content embedding into Knowledge Base
+- **Downloads**: Display model download progress
+- **System**: Cron job for automatic update checks
+- **Docs**: Polished documentation rendering with desert-themed components
+
+### 🐛 Bug Fixes
+
+- **AI Assistant**: Chat suggestion performance improvements
+- **AI Assistant**: Inline code rendering
+- **GPU**: Detect NVIDIA GPUs via Docker API instead of lspci
+- **Install**: Improve Docker GPU configuration
+- **System**: Correct memory usage percentage calculation
+- **System**: Show host OS, hostname, and GPU instead of container info
+- **Collections**: Correct devdocs ZIM filenames in Computing & Technology
+- **Downloads**: Sort active downloads by progress descending
+- **Docs**: Fix multiple broken internal links and route references
+
+### ✨ Improvements
+
+- **Docs**: Overhauled in-app documentation with sidebar ordering
+- **Docs**: Updated README with feature overview
+- **GPU**: Reusable utility for running nvidia-smi
+
+---
+
 ## Version 1.23.0 - February 5, 2026
 
 ### 🚀 Features
