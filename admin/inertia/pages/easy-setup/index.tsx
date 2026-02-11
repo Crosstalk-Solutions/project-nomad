@@ -465,6 +465,20 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     }
   }, [zimCollections, fetchLatestZIMCollections])
 
+  // Set Easy Setup as visited when user lands on this page
+  useEffect(() => {
+    const markAsVisited = async () => {
+      try {
+        await api.updateSetting('ui.hasVisitedEasySetup', 'true')
+      } catch (error) {
+        // Silent fail - this is non-critical
+        console.warn('Failed to mark Easy Setup as visited:', error)
+      }
+    }
+
+    markAsVisited()
+  }, [])
+
   const renderStepIndicator = () => {
     const steps = [
       { number: 1, label: 'Apps' },
