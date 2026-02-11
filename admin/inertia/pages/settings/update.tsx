@@ -1,13 +1,9 @@
 import { Head } from '@inertiajs/react'
-import IconArrowBigUpLines from '@tabler/icons-react/dist/esm/icons/IconArrowBigUpLines'
-import IconCheck from '@tabler/icons-react/dist/esm/icons/IconCheck'
-import IconAlertCircle from '@tabler/icons-react/dist/esm/icons/IconAlertCircle'
-import IconRefresh from '@tabler/icons-react/dist/esm/icons/IconRefresh'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import StyledButton from '~/components/StyledButton'
 import Alert from '~/components/Alert'
 import { useEffect, useState } from 'react'
-import { IconCircleCheck } from '@tabler/icons-react'
+import { IconAlertCircle, IconArrowBigUpLines, IconCheck, IconCircleCheck, IconReload } from '@tabler/icons-react'
 import { SystemUpdateStatus } from '../../../types/system'
 import api from '~/lib/api'
 import Input from '~/components/inputs/Input'
@@ -121,7 +117,7 @@ export default function SystemUpdatePage(props: {
       return <IconCheck className="h-12 w-12 text-desert-olive" />
     if (updateStatus?.stage === 'error')
       return <IconAlertCircle className="h-12 w-12 text-desert-red" />
-    if (isUpdating) return <IconRefresh className="h-12 w-12 text-desert-green animate-spin" />
+    if (isUpdating) return <IconReload className="h-12 w-12 text-desert-green animate-spin" />
     if (props.system.updateAvailable)
       return <IconArrowBigUpLines className="h-16 w-16 text-desert-green" />
     return <IconCircleCheck className="h-16 w-16 text-desert-olive" />
