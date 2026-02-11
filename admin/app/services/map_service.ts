@@ -1,6 +1,5 @@
 import { BaseStylesFile, MapLayer } from '../../types/maps.js'
 import {
-  DownloadCollectionOperation,
   DownloadRemoteSuccessCallback,
   FileEntry,
 } from '../../types/files.js'
@@ -16,14 +15,11 @@ import {
 } from '../utils/fs.js'
 import { join } from 'path'
 import urlJoin from 'url-join'
-import axios from 'axios'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import logger from '@adonisjs/core/services/logger'
-import { CuratedCollectionsFile, CuratedCollectionWithStatus } from '../../types/downloads.js'
-import CuratedCollection from '#models/curated_collection'
-import vine from '@vinejs/vine'
-import { curatedCollectionsFileSchema } from '#validators/curated_collections'
-import CuratedCollectionResource from '#models/curated_collection_resource'
+import InstalledResource from '#models/installed_resource'
+import { CollectionManifestService } from './collection_manifest_service.js'
+import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
 
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
@@ -31,15 +27,11 @@ const BASE_ASSETS_MIME_TYPES = [
   'application/octet-stream',
 ]
 
-const COLLECTIONS_URL =
-  'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/maps.json'
-
 const PMTILES_ATTRIBUTION =
   '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>'
 const PMTILES_MIME_TYPES = ['application/vnd.pmtiles', 'application/octet-stream']
 
 interface IMapService {
-  downloadCollection: DownloadCollectionOperation
   downloadRemoteSuccessCallback: DownloadRemoteSuccessCallback
 }
 
@@ -99,34 +91,33 @@ export class MapService implements IMapService {
     return true
   }
 
-  async downloadCollection(slug: string) {
-    const collection = await CuratedCollection.query()
-      .where('slug', slug)
-      .andWhere('type', 'map')
-      .first()
-    if (!collection) {
-      return null
-    }
+  async downloadCollection(slug: string): Promise<string[] | null> {
+    const manifestService = new CollectionManifestService()
+    const spec = await manifestService.getSpecWithFallback<MapsSpec>('maps')
+    if (!spec) return null
 
-    const resources = await collection.related('resources').query().where('downloaded', false)
-    if (resources.length === 0) {
-      return null
-    }
+    const collection = spec.collections.find((c) => c.slug === slug)
+    if (!collection) return null
 
-    const downloadUrls = resources.map((res) => res.url)
+    // Filter out already installed
+    const installed = await InstalledResource.query().where('resource_type', 'map')
+    const installedIds = new Set(installed.map((r) => r.resource_id))
+    const toDownload = collection.resources.filter((r) => !installedIds.has(r.id))
+
+    if (toDownload.length === 0) return null
+
     const downloadFilenames: string[] = []
 
-    for (const url of downloadUrls) {
-      const existing = await RunDownloadJob.getByUrl(url)
+    for (const resource of toDownload) {
+      const existing = await RunDownloadJob.getByUrl(resource.url)
       if (existing) {
-        logger.warn(`[MapService] Download already in progress for URL ${url}, skipping.`)
+        logger.warn(`[MapService] Download already in progress for URL ${resource.url}, skipping.`)
         continue
       }
 
-      // Extract the filename from the URL
-      const filename = url.split('/').pop()
+      const filename = resource.url.split('/').pop()
       if (!filename) {
-        logger.warn(`[MapService] Could not determine filename from URL ${url}, skipping.`)
+        logger.warn(`[MapService] Could not determine filename from URL ${resource.url}, skipping.`)
         continue
       }
 
@@ -134,12 +125,17 @@ export class MapService implements IMapService {
       const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
       await RunDownloadJob.dispatch({
-        url,
+        url: resource.url,
         filepath,
         timeout: 30000,
         allowedMimeTypes: PMTILES_MIME_TYPES,
         forceNew: true,
         filetype: 'map',
+        resourceMetadata: {
+          resource_id: resource.id,
+          version: resource.version,
+          collection_ref: slug,
+        },
       })
     }
 
@@ -147,11 +143,33 @@ export class MapService implements IMapService {
   }
 
   async downloadRemoteSuccessCallback(urls: string[], _: boolean) {
-    const resources = await CuratedCollectionResource.query().whereIn('url', urls)
-    for (const resource of resources) {
-      resource.downloaded = true
-      await resource.save()
-      logger.info(`[MapService] Marked resource as downloaded: ${resource.url}`)
+    // Create InstalledResource entries for downloaded map files
+    for (const url of urls) {
+      const filename = url.split('/').pop()
+      if (!filename) continue
+
+      const parsed = CollectionManifestService.parseMapFilename(filename)
+      if (!parsed) continue
+
+      const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
+      const stats = await getFileStatsIfExists(filepath)
+
+      try {
+        const { DateTime } = await import('luxon')
+        await InstalledResource.updateOrCreate(
+          { resource_id: parsed.resource_id, resource_type: 'map' },
+          {
+            version: parsed.version,
+            url: url,
+            file_path: filepath,
+            file_size_bytes: stats ? Number(stats.size) : null,
+            installed_at: DateTime.now(),
+          }
+        )
+        logger.info(`[MapService] Created InstalledResource entry for: ${parsed.resource_id}`)
+      } catch (error) {
+        logger.error(`[MapService] Failed to create InstalledResource for ${filename}:`, error)
+      }
     }
   }
 
@@ -182,6 +200,12 @@ export class MapService implements IMapService {
       )
     }
 
+    // Parse resource metadata
+    const parsedFilename = CollectionManifestService.parseMapFilename(filename)
+    const resourceMetadata = parsedFilename
+      ? { resource_id: parsedFilename.resource_id, version: parsedFilename.version, collection_ref: null }
+      : undefined
+
     // Dispatch background job
     const result = await RunDownloadJob.dispatch({
       url,
@@ -190,6 +214,7 @@ export class MapService implements IMapService {
       allowedMimeTypes: PMTILES_MIME_TYPES,
       forceNew: true,
       filetype: 'map',
+      resourceMetadata,
     })
 
     if (!result.job) {
@@ -219,6 +244,7 @@ export class MapService implements IMapService {
       }
 
       // Perform a HEAD request to get the content length
+      const { default: axios } = await import('axios')
       const response = await axios.head(url)
 
       if (response.status !== 200) {
@@ -229,7 +255,7 @@ export class MapService implements IMapService {
       const size = contentLength ? parseInt(contentLength, 10) : 0
 
       return { filename, size }
-    } catch (error) {
+    } catch (error: any) {
       return { message: `Preflight check failed: ${error.message}` }
     }
   }
@@ -253,7 +279,7 @@ export class MapService implements IMapService {
     * This is mainly useful because we need to know what host the user is accessing from in order to
     * properly generate URLs in the styles file
     * e.g. user is accessing from "example.com", but we would by default generate "localhost:8080/..." so maps would
-    * fail to load. 
+    * fail to load.
     */
     const sources = this.generateSourcesArray(host, regions)
     const baseUrl = this.getPublicFileBaseUrl(host, this.basemapsAssetsDir)
@@ -268,53 +294,14 @@ export class MapService implements IMapService {
     return styles
   }
 
-  async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
-    const collections = await CuratedCollection.query().where('type', 'map').preload('resources')
-    return collections.map((collection) => ({
-      ...(collection.serialize() as CuratedCollection),
-      all_downloaded: collection.resources.every((res) => res.downloaded),
-    }))
+  async listCuratedCollections(): Promise<CollectionWithStatus[]> {
+    const manifestService = new CollectionManifestService()
+    return manifestService.getMapCollectionsWithStatus()
   }
 
   async fetchLatestCollections(): Promise<boolean> {
-    try {
-      const response = await axios.get<CuratedCollectionsFile>(COLLECTIONS_URL)
-
-      const validated = await vine.validate({
-        schema: curatedCollectionsFileSchema,
-        data: response.data,
-      })
-
-      for (const collection of validated.collections) {
-        const { resources, ...restCollection } = collection; // we'll handle resources separately
-
-        // Upsert the collection itself
-        await CuratedCollection.updateOrCreate(
-          { slug: restCollection.slug },
-          {
-            ...restCollection,
-            type: 'map',
-          }
-        )
-        logger.info(`[MapService] Upserted curated collection: ${restCollection.slug}`)
-
-        // Upsert collection's resources
-        const resourcesResult = await CuratedCollectionResource.updateOrCreateMany('url', resources.map((res) => ({
-          ...res,
-          curated_collection_slug: restCollection.slug, // add the foreign key
-        })))
-
-        logger.info(
-          `[MapService] Upserted ${resourcesResult.length} resources for collection: ${restCollection.slug}`
-        )
-      }
-
-      return true
-    } catch (error) {
-      console.error(error)
-      logger.error(`[MapService] Failed to download latest Kiwix collections:`, error)
-      return false
-    }
+    const manifestService = new CollectionManifestService()
+    return manifestService.fetchAndCacheSpec('maps')
   }
 
   async ensureBaseAssets(): Promise<boolean> {
@@ -361,7 +348,9 @@ export class MapService implements IMapService {
 
     for (const region of regions) {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
-        const regionName = region.name.replace('.pmtiles', '')
+        // Strip .pmtiles and date suffix (e.g. "alaska_2025-12" -> "alaska") for stable source names
+        const parsed = CollectionManifestService.parseMapFilename(region.name)
+        const regionName = parsed ? parsed.resource_id : region.name.replace('.pmtiles', '')
         const source: BaseStylesFile['sources'] = {}
         const sourceUrl = urlJoin(baseUrl, region.name)
 
@@ -411,11 +400,11 @@ export class MapService implements IMapService {
 
   async delete(file: string): Promise<void> {
     let fileName = file
-    if (!fileName.endsWith('.zim')) {
-      fileName += '.zim'
+    if (!fileName.endsWith('.pmtiles')) {
+      fileName += '.pmtiles'
     }
 
-    const fullPath = join(this.baseDirPath, fileName)
+    const fullPath = join(this.baseDirPath, 'pmtiles', fileName)
 
     const exists = await getFileStatsIfExists(fullPath)
     if (!exists) {
@@ -423,6 +412,16 @@ export class MapService implements IMapService {
     }
 
     await deleteFileIfExists(fullPath)
+
+    // Clean up InstalledResource entry
+    const parsed = CollectionManifestService.parseMapFilename(fileName)
+    if (parsed) {
+      await InstalledResource.query()
+        .where('resource_id', parsed.resource_id)
+        .where('resource_type', 'map')
+        .delete()
+      logger.info(`[MapService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    }
   }
 
   /*

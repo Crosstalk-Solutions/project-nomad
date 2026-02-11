@@ -17,32 +17,21 @@ import {
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
 import { join } from 'path'
-import { CuratedCategory, CuratedCollectionWithStatus, CuratedCollectionsFile, WikipediaOption, WikipediaState } from '../../types/downloads.js'
+import { WikipediaOption, WikipediaState } from '../../types/downloads.js'
 import vine from '@vinejs/vine'
-import { curatedCategoriesFileSchema, curatedCollectionsFileSchema, wikipediaOptionsFileSchema } from '#validators/curated_collections'
-import CuratedCollection from '#models/curated_collection'
-import CuratedCollectionResource from '#models/curated_collection_resource'
+import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
-import ZimFileMetadata from '#models/zim_file_metadata'
+import InstalledResource from '#models/installed_resource'
 import { RunDownloadJob } from '#jobs/run_download_job'
-import { DownloadCollectionOperation, DownloadRemoteSuccessCallback } from '../../types/files.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { CollectionManifestService } from './collection_manifest_service.js'
+import type { CategoryWithStatus } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const CATEGORIES_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/collections/kiwix-categories.json'
-const COLLECTIONS_URL =
-  'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/master/collections/kiwix.json'
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/master/collections/wikipedia.json'
 
-
-
-interface IZimService {
-  downloadCollection: DownloadCollectionOperation
-  downloadRemoteSuccessCallback: DownloadRemoteSuccessCallback
-}
-
 @inject()
-export class ZimService implements IZimService {
+export class ZimService {
   constructor(private dockerService: DockerService) { }
 
   async list() {
@@ -52,24 +41,8 @@ export class ZimService implements IZimService {
     const all = await listDirectoryContents(dirPath)
     const files = all.filter((item) => item.name.endsWith('.zim'))
 
-    // Fetch metadata for all files
-    const metadataRecords = await ZimFileMetadata.all()
-    const metadataMap = new Map(metadataRecords.map((m) => [m.filename, m]))
-
-    // Enrich files with metadata
-    const enrichedFiles = files.map((file) => {
-      const metadata = metadataMap.get(file.name)
-      return {
-        ...file,
-        title: metadata?.title || null,
-        summary: metadata?.summary || null,
-        author: metadata?.author || null,
-        size_bytes: metadata?.size_bytes || null,
-      }
-    })
-
     return {
-      files: enrichedFiles,
+      files,
     }
   }
 
@@ -164,10 +137,7 @@ export class ZimService implements IZimService {
     }
   }
 
-  async downloadRemote(
-    url: string,
-    metadata?: { title: string; summary?: string; author?: string; size_bytes?: number }
-  ): Promise<{ filename: string; jobId?: string }> {
+  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`)
@@ -186,19 +156,11 @@ export class ZimService implements IZimService {
 
     const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
-    // Store metadata if provided
-    if (metadata) {
-      await ZimFileMetadata.updateOrCreate(
-        { filename },
-        {
-          title: metadata.title,
-          summary: metadata.summary || null,
-          author: metadata.author || null,
-          size_bytes: metadata.size_bytes || null,
-        }
-      )
-      logger.info(`[ZimService] Stored metadata for ZIM file: ${filename}`)
-    }
+    // Parse resource metadata for the download job
+    const parsedFilename = CollectionManifestService.parseZimFilename(filename)
+    const resourceMetadata = parsedFilename
+      ? { resource_id: parsedFilename.resource_id, version: parsedFilename.version, collection_ref: null }
+      : undefined
 
     // Dispatch a background download job
     const result = await RunDownloadJob.dispatch({
@@ -208,6 +170,7 @@ export class ZimService implements IZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      resourceMetadata,
     })
 
     if (!result || !result.job) {
@@ -222,44 +185,64 @@ export class ZimService implements IZimService {
     }
   }
 
-  async downloadCollection(slug: string) {
-    const collection = await CuratedCollection.query().where('slug', slug).andWhere('type', 'zim').first()
-    if (!collection) {
-      return null
+  async listCuratedCategories(): Promise<CategoryWithStatus[]> {
+    const manifestService = new CollectionManifestService()
+    return manifestService.getCategoriesWithStatus()
+  }
+
+  async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<string[] | null> {
+    const manifestService = new CollectionManifestService()
+    const spec = await manifestService.getSpecWithFallback<import('../../types/collections.js').ZimCategoriesSpec>('zim_categories')
+    if (!spec) {
+      throw new Error('Could not load ZIM categories spec')
     }
 
-    const resources = await collection.related('resources').query().where('downloaded', false)
-    if (resources.length === 0) {
-      return null
+    const category = spec.categories.find((c) => c.slug === categorySlug)
+    if (!category) {
+      throw new Error(`Category not found: ${categorySlug}`)
     }
 
-    const downloadUrls = resources.map((res) => res.url)
+    const tier = category.tiers.find((t) => t.slug === tierSlug)
+    if (!tier) {
+      throw new Error(`Tier not found: ${tierSlug}`)
+    }
+
+    const allResources = CollectionManifestService.resolveTierResources(tier, category.tiers)
+
+    // Filter out already installed
+    const installed = await InstalledResource.query().where('resource_type', 'zim')
+    const installedIds = new Set(installed.map((r) => r.resource_id))
+    const toDownload = allResources.filter((r) => !installedIds.has(r.id))
+
+    if (toDownload.length === 0) return null
+
     const downloadFilenames: string[] = []
 
-    for (const url of downloadUrls) {
-      const existing = await RunDownloadJob.getByUrl(url)
-      if (existing) {
-        logger.warn(`[ZimService] Download already in progress for URL ${url}, skipping.`)
+    for (const resource of toDownload) {
+      const existingJob = await RunDownloadJob.getByUrl(resource.url)
+      if (existingJob) {
+        logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)
         continue
       }
 
-      // Extract the filename from the URL
-      const filename = url.split('/').pop()
-      if (!filename) {
-        logger.warn(`[ZimService] Could not determine filename from URL ${url}, skipping.`)
-        continue
-      }
+      const filename = resource.url.split('/').pop()
+      if (!filename) continue
 
       downloadFilenames.push(filename)
       const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
       await RunDownloadJob.dispatch({
-        url,
+        url: resource.url,
         filepath,
         timeout: 30000,
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
+        resourceMetadata: {
+          resource_id: resource.id,
+          version: resource.version,
+          collection_ref: categorySlug,
+        },
       })
     }
 
@@ -310,130 +293,36 @@ export class ZimService implements IZimService {
       }
     }
 
-    // Mark any curated collection resources with this download URL as downloaded
-    const resources = await CuratedCollectionResource.query().whereIn('url', urls)
-    for (const resource of resources) {
-      resource.downloaded = true
-      await resource.save()
-    }
-  }
+    // Create InstalledResource entries for downloaded files
+    for (const url of urls) {
+      // Skip Wikipedia files (managed separately)
+      if (url.includes('wikipedia_en_')) continue
 
-  async listCuratedCategories(): Promise<CuratedCategory[]> {
-    try {
-      const response = await axios.get(CATEGORIES_URL)
-      const data = response.data
+      const filename = url.split('/').pop()
+      if (!filename) continue
 
-      const validated = await vine.validate({
-        schema: curatedCategoriesFileSchema,
-        data,
-      });
+      const parsed = CollectionManifestService.parseZimFilename(filename)
+      if (!parsed) continue
 
-      // Dynamically determine installed tier for each category
-      const categoriesWithStatus = await Promise.all(
-        validated.categories.map(async (category) => {
-          const installedTierSlug = await this.getInstalledTierForCategory(category)
-          return {
-            ...category,
-            installedTierSlug,
-          }
-        })
-      )
+      const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+      const stats = await getFileStatsIfExists(filepath)
 
-      return categoriesWithStatus
-    } catch (error) {
-      logger.error(`[ZimService] Failed to fetch curated categories:`, error)
-      throw new Error('Failed to fetch curated categories or invalid format was received')
-    }
-  }
-
-  /**
-   * Dynamically determines which tier is installed for a category by checking
-   * which tier's resources are all downloaded. Returns the highest tier that
-   * is fully installed (considering that higher tiers include lower tier resources)
-   */
-  private async getInstalledTierForCategory(category: CuratedCategory): Promise<string | undefined> {
-    const { files: diskFiles } = await this.list()
-    const diskFilenames = new Set(diskFiles.map((f) => f.name))
-
-    // Get all CuratedCollectionResources marked as downloaded
-    const downloadedResources = await CuratedCollectionResource.query()
-      .where('downloaded', true)
-      .select('url')
-    const downloadedUrls = new Set(downloadedResources.map((r) => r.url))
-
-    // Check each tier from highest to lowest (assuming tiers are ordered from low to high)
-    // We check in reverse to find the highest fully-installed tier
-    const reversedTiers = [...category.tiers].reverse()
-
-    for (const tier of reversedTiers) {
-      const allResourcesInstalled = tier.resources.every((resource) => {
-        // Check if resource is marked as downloaded in database
-        if (downloadedUrls.has(resource.url)) {
-          return true
-        }
-
-        // Fallback: check if file exists on disk (for resources not tracked in CuratedCollectionResource)
-        const filename = resource.url.split('/').pop()
-        if (filename && diskFilenames.has(filename)) {
-          return true
-        }
-
-        return false
-      })
-
-      if (allResourcesInstalled && tier.resources.length > 0) {
-        return tier.slug
-      }
-    }
-
-    return undefined
-  }
-
-  async listCuratedCollections(): Promise<CuratedCollectionWithStatus[]> {
-    const collections = await CuratedCollection.query().where('type', 'zim').preload('resources')
-    return collections.map((collection) => ({
-      ...(collection.serialize() as CuratedCollection),
-      all_downloaded: collection.resources.every((res) => res.downloaded),
-    }))
-  }
-
-  async fetchLatestCollections(): Promise<boolean> {
-    try {
-      const response = await axios.get<CuratedCollectionsFile>(COLLECTIONS_URL)
-
-      const validated = await vine.validate({
-        schema: curatedCollectionsFileSchema,
-        data: response.data,
-      })
-
-      for (const collection of validated.collections) {
-        const { resources, ...restCollection } = collection; // we'll handle resources separately
-
-        // Upsert the collection itself
-        await CuratedCollection.updateOrCreate(
-          { slug: restCollection.slug },
+      try {
+        const { DateTime } = await import('luxon')
+        await InstalledResource.updateOrCreate(
+          { resource_id: parsed.resource_id, resource_type: 'zim' },
           {
-            ...restCollection,
-            type: 'zim',
+            version: parsed.version,
+            url: url,
+            file_path: filepath,
+            file_size_bytes: stats ? Number(stats.size) : null,
+            installed_at: DateTime.now(),
           }
         )
-        logger.info(`[ZimService] Upserted curated collection: ${restCollection.slug}`)
-
-        // Upsert collection's resources
-        const resourcesResult = await CuratedCollectionResource.updateOrCreateMany('url', resources.map((res) => ({
-          ...res,
-          curated_collection_slug: restCollection.slug, // add the foreign key
-        })))
-
-        logger.info(
-          `[ZimService] Upserted ${resourcesResult.length} resources for collection: ${restCollection.slug}`
-        )
+        logger.info(`[ZimService] Created InstalledResource entry for: ${parsed.resource_id}`)
+      } catch (error) {
+        logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
       }
-
-      return true
-    } catch (error) {
-      logger.error(`[ZimService] Failed to download latest Kiwix collections:`, error)
-      return false
     }
   }
 
@@ -452,9 +341,15 @@ export class ZimService implements IZimService {
 
     await deleteFileIfExists(fullPath)
 
-    // Clean up metadata
-    await ZimFileMetadata.query().where('filename', fileName).delete()
-    logger.info(`[ZimService] Deleted metadata for ZIM file: ${fileName}`)
+    // Clean up InstalledResource entry
+    const parsed = CollectionManifestService.parseZimFilename(fileName)
+    if (parsed) {
+      await InstalledResource.query()
+        .where('resource_id', parsed.resource_id)
+        .where('resource_type', 'zim')
+        .delete()
+      logger.info(`[ZimService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    }
   }
 
   // Wikipedia selector methods

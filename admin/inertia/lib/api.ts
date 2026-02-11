@@ -3,12 +3,8 @@ import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zi
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
-import {
-  CuratedCategory,
-  CuratedCollectionWithStatus,
-  DownloadJobWithProgress,
-  WikipediaState,
-} from '../../types/downloads'
+import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
+import type { CategoryWithStatus, CollectionWithStatus, CollectionUpdateCheckResult } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import { ChatResponse, ModelResponse } from 'ollama'
@@ -78,13 +74,14 @@ class API {
     })()
   }
 
-  async downloadZimCollection(slug: string): Promise<{
+  async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<{
     message: string
-    slug: string
+    categorySlug: string
+    tierSlug: string
     resources: string[] | null
   }> {
     return catchInternal(async () => {
-      const response = await this.client.post('/zim/download-collection', { slug })
+      const response = await this.client.post('/zim/download-category-tier', { categorySlug, tierSlug })
       return response.data
     })()
   }
@@ -130,9 +127,18 @@ class API {
     })()
   }
 
-  async fetchLatestZimCollections(): Promise<{ success: boolean } | undefined> {
+  async checkForCollectionUpdates() {
     return catchInternal(async () => {
-      const response = await this.client.post<{ success: boolean }>('/zim/fetch-latest-collections')
+      const response = await this.client.post<CollectionUpdateCheckResult>('/collection-updates/check')
+      return response.data
+    })()
+  }
+
+  async refreshManifests(): Promise<{ success: boolean; changed: Record<string, boolean> } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; changed: Record<string, boolean> }>(
+        '/manifests/refresh'
+      )
       return response.data
     })()
   }
@@ -189,14 +195,14 @@ class API {
 
   async getBenchmarkResults() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ results: BenchmarkResult[], total: number}>('/benchmark/results')
+      const response = await this.client.get<{ results: BenchmarkResult[], total: number }>('/benchmark/results')
       return response.data
     })()
   }
 
   async getLatestBenchmarkResult() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ result: BenchmarkResult | null}>('/benchmark/results/latest')
+      const response = await this.client.get<{ result: BenchmarkResult | null }>('/benchmark/results/latest')
       return response.data
     })()
   }
@@ -341,17 +347,8 @@ class API {
 
   async listCuratedMapCollections() {
     return catchInternal(async () => {
-      const response = await this.client.get<CuratedCollectionWithStatus[]>(
+      const response = await this.client.get<CollectionWithStatus[]>(
         '/maps/curated-collections'
-      )
-      return response.data
-    })()
-  }
-
-  async listCuratedZimCollections() {
-    return catchInternal(async () => {
-      const response = await this.client.get<CuratedCollectionWithStatus[]>(
-        '/zim/curated-collections'
       )
       return response.data
     })()
@@ -359,7 +356,7 @@ class API {
 
   async listCuratedCategories() {
     return catchInternal(async () => {
-      const response = await this.client.get<CuratedCategory[]>('/easy-setup/curated-categories')
+      const response = await this.client.get<CategoryWithStatus[]>('/easy-setup/curated-categories')
       return response.data
     })()
   }

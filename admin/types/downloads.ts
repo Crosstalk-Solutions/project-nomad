@@ -23,33 +23,16 @@ export type DoResumableDownloadProgress = {
   url: string
 }
 
-export type CuratedCollection = {
-  name: string
-  slug: string
-  description: string
-  icon: string
-  language: string
-  resources: {
-    title: string
-    description: string
-    size_mb: number
-    url: string
-  }[]
-}
-
-export type CuratedCollectionWithStatus = CuratedCollection & {
-  all_downloaded: boolean
-}
-
-export type CuratedCollectionsFile = {
-  collections: CuratedCollection[]
-}
-
 export type RunDownloadJobParams = Omit<
   DoResumableDownloadParams,
   'onProgress' | 'onComplete' | 'signal'
 > & {
   filetype: string
+  resourceMetadata?: {
+    resource_id: string
+    version: string
+    collection_ref: string | null
+  }
 }
 
 export type DownloadJobWithProgress = {
@@ -58,37 +41,6 @@ export type DownloadJobWithProgress = {
   progress: number
   filepath: string
   filetype: string
-}
-
-// Tiered category types for curated collections UI
-export type CategoryResource = {
-  title: string
-  description: string
-  size_mb?: number
-  url: string
-}
-
-export type CategoryTier = {
-  name: string
-  slug: string
-  description: string
-  recommended?: boolean
-  includesTier?: string
-  resources: CategoryResource[]
-}
-
-export type CuratedCategory = {
-  name: string
-  slug: string
-  icon: string
-  description: string
-  language: string
-  tiers: CategoryTier[]
-  installedTierSlug?: string
-}
-
-export type CuratedCategoriesFile = {
-  categories: CuratedCategory[]
 }
 
 // Wikipedia selector types

@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import useDownloads from '~/hooks/useDownloads'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
-import { CuratedCollectionWithStatus } from '../../../types/downloads'
+import type { CollectionWithStatus } from '../../../types/collections'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
 
@@ -65,7 +65,7 @@ export default function MapsManager(props: {
     }
   }
 
-  async function downloadCollection(record: CuratedCollectionWithStatus) {
+  async function downloadCollection(record: CollectionWithStatus) {
     try {
       await api.downloadMapCollection(record.slug)
       invalidateDownloads()
@@ -112,14 +112,14 @@ export default function MapsManager(props: {
     )
   }
 
-  async function confirmDownload(record: CuratedCollectionWithStatus) {
+  async function confirmDownload(record: CollectionWithStatus) {
     const isCollection = 'resources' in record
     openModal(
       <StyledModal
         title="Confirm Download?"
         onConfirm={() => {
           if (isCollection) {
-            if (record.all_downloaded) {
+            if (record.all_installed) {
               addNotification({
                 message: `All resources in the collection "${record.name}" have already been downloaded.`,
                 type: 'info',

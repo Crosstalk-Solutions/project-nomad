@@ -1,7 +1,8 @@
 import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react'
-import { CuratedCategory, CategoryTier, CategoryResource } from '../../types/downloads'
+import type { CategoryWithStatus, SpecTier, SpecResource } from '../../types/collections'
+import { resolveTierResources } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
 import classNames from 'classnames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
@@ -9,9 +10,9 @@ import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 interface TierSelectionModalProps {
   isOpen: boolean
   onClose: () => void
-  category: CuratedCategory | null
+  category: CategoryWithStatus | null
   selectedTierSlug?: string | null
-  onSelectTier: (category: CuratedCategory, tier: CategoryTier) => void
+  onSelectTier: (category: CategoryWithStatus, tier: SpecTier) => void
 }
 
 const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
@@ -34,24 +35,15 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   if (!category) return null
 
   // Get all resources for a tier (including inherited resources)
-  const getAllResourcesForTier = (tier: CategoryTier): CategoryResource[] => {
-    const resources = [...tier.resources]
-
-    if (tier.includesTier) {
-      const includedTier = category.tiers.find(t => t.slug === tier.includesTier)
-      if (includedTier) {
-        resources.unshift(...getAllResourcesForTier(includedTier))
-      }
-    }
-
-    return resources
+  const getAllResourcesForTier = (tier: SpecTier): SpecResource[] => {
+    return resolveTierResources(tier, category.tiers)
   }
 
-  const getTierTotalSize = (tier: CategoryTier): number => {
+  const getTierTotalSize = (tier: SpecTier): number => {
     return getAllResourcesForTier(tier).reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
   }
 
-  const handleTierClick = (tier: CategoryTier) => {
+  const handleTierClick = (tier: SpecTier) => {
     // Toggle selection: if clicking the same tier, deselect it
     if (localSelectedSlug === tier.slug) {
       setLocalSelectedSlug(null)

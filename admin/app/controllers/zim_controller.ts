@@ -1,6 +1,6 @@
 import { ZimService } from '#services/zim_service'
 import {
-  downloadCollectionValidator,
+  downloadCategoryTierValidator,
   filenameParamValidator,
   remoteDownloadWithMetadataValidator,
   selectWikipediaValidator,
@@ -25,7 +25,7 @@ export default class ZimController {
 
   async downloadRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadWithMetadataValidator)
-    const { filename, jobId } = await this.zimService.downloadRemote(payload.url, payload.metadata)
+    const { filename, jobId } = await this.zimService.downloadRemote(payload.url)
 
     return {
       message: 'Download started successfully',
@@ -35,24 +35,23 @@ export default class ZimController {
     }
   }
 
-  async downloadCollection({ request }: HttpContext) {
-    const payload = await request.validateUsing(downloadCollectionValidator)
-    const resources = await this.zimService.downloadCollection(payload.slug)
+  async listCuratedCategories({}: HttpContext) {
+    return await this.zimService.listCuratedCategories()
+  }
+
+  async downloadCategoryTier({ request }: HttpContext) {
+    const payload = await request.validateUsing(downloadCategoryTierValidator)
+    const resources = await this.zimService.downloadCategoryTier(
+      payload.categorySlug,
+      payload.tierSlug
+    )
 
     return {
       message: 'Download started successfully',
-      slug: payload.slug,
+      categorySlug: payload.categorySlug,
+      tierSlug: payload.tierSlug,
       resources,
     }
-  }
-
-  async listCuratedCollections({}: HttpContext) {
-    return this.zimService.listCuratedCollections()
-  }
-
-  async fetchLatestCollections({}: HttpContext) {
-    const success = await this.zimService.fetchLatestCollections()
-    return { success }
   }
 
   async delete({ request, response }: HttpContext) {

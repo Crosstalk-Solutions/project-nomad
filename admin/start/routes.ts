@@ -17,6 +17,7 @@ import OllamaController from '#controllers/ollama_controller'
 import RagController from '#controllers/rag_controller'
 import SettingsController from '#controllers/settings_controller'
 import SystemController from '#controllers/system_controller'
+import CollectionUpdatesController from '#controllers/collection_updates_controller'
 import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
@@ -32,6 +33,8 @@ router.get('/maps', [MapsController, 'index'])
 router.get('/easy-setup', [EasySetupController, 'index'])
 router.get('/easy-setup/complete', [EasySetupController, 'complete'])
 router.get('/api/easy-setup/curated-categories', [EasySetupController, 'listCuratedCategories'])
+router.post('/api/manifests/refresh', [EasySetupController, 'refreshManifests'])
+router.post('/api/collection-updates/check', [CollectionUpdatesController, 'checkForUpdates'])
 
 router
   .group(() => {
@@ -145,10 +148,9 @@ router
   .group(() => {
     router.get('/list', [ZimController, 'list'])
     router.get('/list-remote', [ZimController, 'listRemote'])
-    router.get('/curated-collections', [ZimController, 'listCuratedCollections'])
-    router.post('/fetch-latest-collections', [ZimController, 'fetchLatestCollections'])
+    router.get('/curated-categories', [ZimController, 'listCuratedCategories'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])
-    router.post('/download-collection', [ZimController, 'downloadCollection'])
+    router.post('/download-category-tier', [ZimController, 'downloadCategoryTier'])
 
     router.get('/wikipedia', [ZimController, 'getWikipediaState'])
     router.post('/wikipedia/select', [ZimController, 'selectWikipedia'])

@@ -17,7 +17,8 @@ import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import classNames from 'classnames'
-import { CuratedCategory, CategoryTier, CategoryResource } from '../../../types/downloads'
+import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
+import { resolveTierResources } from '~/lib/collections'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 
 // Capability definitions - maps user-friendly categories to services
@@ -105,38 +106,21 @@ const ADDITIONAL_TOOLS: Capability[] = [
 type WizardStep = 1 | 2 | 3 | 4
 
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
-const CURATED_ZIM_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
-
-// Helper to get all resources for a tier (including inherited resources)
-const getAllResourcesForTier = (
-  tier: CategoryTier,
-  allTiers: CategoryTier[]
-): CategoryResource[] => {
-  const resources = [...tier.resources]
-  if (tier.includesTier) {
-    const includedTier = allTiers.find((t) => t.slug === tier.includesTier)
-    if (includedTier) {
-      resources.unshift(...getAllResourcesForTier(includedTier, allTiers))
-    }
-  }
-  return resources
-}
 
 export default function EasySetupWizard(props: { system: { services: ServiceSlim[] } }) {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
-  const [selectedZimCollections, setSelectedZimCollections] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAdditionalTools, setShowAdditionalTools] = useState(false)
 
   // Category/tier selection state
-  const [selectedTiers, setSelectedTiers] = useState<Map<string, CategoryTier>>(new Map())
+  const [selectedTiers, setSelectedTiers] = useState<Map<string, SpecTier>>(new Map())
   const [tierModalOpen, setTierModalOpen] = useState(false)
-  const [activeCategory, setActiveCategory] = useState<CuratedCategory | null>(null)
+  const [activeCategory, setActiveCategory] = useState<CategoryWithStatus | null>(null)
 
   // Wikipedia selection state
   const [selectedWikipedia, setSelectedWikipedia] = useState<string | null>(null)
@@ -149,7 +133,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const anySelectionMade =
     selectedServices.length > 0 ||
     selectedMapCollections.length > 0 ||
-    selectedZimCollections.length > 0 ||
     selectedTiers.size > 0 ||
     selectedAiModels.length > 0 ||
     (selectedWikipedia !== null && selectedWikipedia !== 'none')
@@ -157,12 +140,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const { data: mapCollections, isLoading: isLoadingMaps } = useQuery({
     queryKey: [CURATED_MAP_COLLECTIONS_KEY],
     queryFn: () => api.listCuratedMapCollections(),
-    refetchOnWindowFocus: false,
-  })
-
-  const { data: zimCollections, isLoading: isLoadingZims } = useQuery({
-    queryKey: [CURATED_ZIM_COLLECTIONS_KEY],
-    queryFn: () => api.listCuratedZimCollections(),
     refetchOnWindowFocus: false,
   })
 
@@ -202,12 +179,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     )
   }
 
-  const toggleZimCollection = (slug: string) => {
-    setSelectedZimCollections((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-    )
-  }
-
   const toggleAiModel = (modelName: string) => {
     setSelectedAiModels((prev) =>
       prev.includes(modelName) ? prev.filter((m) => m !== modelName) : [...prev, modelName]
@@ -215,13 +186,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   }
 
   // Category/tier handlers
-  const handleCategoryClick = (category: CuratedCategory) => {
+  const handleCategoryClick = (category: CategoryWithStatus) => {
     if (!isOnline) return
     setActiveCategory(category)
     setTierModalOpen(true)
   }
 
-  const handleTierSelect = (category: CuratedCategory, tier: CategoryTier) => {
+  const handleTierSelect = (category: CategoryWithStatus, tier: SpecTier) => {
     setSelectedTiers((prev) => {
       const newMap = new Map(prev)
       // If same tier is selected, deselect it
@@ -239,14 +210,14 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     setActiveCategory(null)
   }
 
-  // Get all resources from selected tiers for downloading
-  const getSelectedTierResources = (): CategoryResource[] => {
+  // Get all resources from selected tiers for storage projection
+  const getSelectedTierResources = (): SpecResource[] => {
     if (!categories) return []
-    const resources: CategoryResource[] = []
+    const resources: SpecResource[] = []
     selectedTiers.forEach((tier, categorySlug) => {
       const category = categories.find((c) => c.slug === categorySlug)
       if (category) {
-        resources.push(...getAllResourcesForTier(tier, category.tiers))
+        resources.push(...resolveTierResources(tier, category.tiers))
       }
     })
     return resources
@@ -264,16 +235,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     if (mapCollections) {
       selectedMapCollections.forEach((slug) => {
         const collection = mapCollections.find((c) => c.slug === slug)
-        if (collection) {
-          totalBytes += collection.resources.reduce((sum, r) => sum + r.size_mb * 1024 * 1024, 0)
-        }
-      })
-    }
-
-    // Add ZIM collections
-    if (zimCollections) {
-      selectedZimCollections.forEach((slug) => {
-        const collection = zimCollections.find((c) => c.slug === slug)
         if (collection) {
           totalBytes += collection.resources.reduce((sum, r) => sum + r.size_mb * 1024 * 1024, 0)
         }
@@ -315,12 +276,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   }, [
     selectedTiers,
     selectedMapCollections,
-    selectedZimCollections,
     selectedAiModels,
     selectedWikipedia,
     categories,
     mapCollections,
-    zimCollections,
     recommendedModels,
     wikipediaState,
   ])
@@ -392,12 +351,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
       await Promise.all(installPromises)
 
-      // Download collections, individual tier resources, and AI models
-      const tierResources = getSelectedTierResources()
+      // Download collections, category tiers, and AI models
+      const categoryTierPromises: Promise<any>[] = []
+      selectedTiers.forEach((tier, categorySlug) => {
+        categoryTierPromises.push(api.downloadCategoryTier(categorySlug, tier.slug))
+      })
+
       const downloadPromises = [
         ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
-        ...selectedZimCollections.map((slug) => api.downloadZimCollection(slug)),
-        ...tierResources.map((resource) => api.downloadRemoteZimFile(resource.url)),
+        ...categoryTierPromises,
         ...selectedAiModels.map((modelName) => api.downloadModel(modelName)),
       ]
 
@@ -425,25 +387,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     }
   }
 
-  const fetchLatestMapCollections = useMutation({
-    mutationFn: () => api.fetchLatestMapCollections(),
+  const refreshManifests = useMutation({
+    mutationFn: () => api.refreshManifests(),
     onSuccess: () => {
-      addNotification({
-        message: 'Successfully fetched the latest map collections.',
-        type: 'success',
-      })
       queryClient.invalidateQueries({ queryKey: [CURATED_MAP_COLLECTIONS_KEY] })
-    },
-  })
-
-  const fetchLatestZIMCollections = useMutation({
-    mutationFn: () => api.fetchLatestZimCollections(),
-    onSuccess: () => {
-      addNotification({
-        message: 'Successfully fetched the latest ZIM collections.',
-        type: 'success',
-      })
-      queryClient.invalidateQueries({ queryKey: [CURATED_ZIM_COLLECTIONS_KEY] })
+      queryClient.invalidateQueries({ queryKey: [CURATED_CATEGORIES_KEY] })
     },
   })
 
@@ -452,18 +400,12 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [currentStep])
 
-  // Auto-fetch latest collections if the list is empty
+  // Refresh manifests on mount to ensure we have latest data
   useEffect(() => {
-    if (mapCollections && mapCollections.length === 0 && !fetchLatestMapCollections.isPending) {
-      fetchLatestMapCollections.mutate()
+    if (!refreshManifests.isPending) {
+      refreshManifests.mutate()
     }
-  }, [mapCollections, fetchLatestMapCollections])
-
-  useEffect(() => {
-    if (zimCollections && zimCollections.length === 0 && !fetchLatestZIMCollections.isPending) {
-      fetchLatestZIMCollections.mutate()
-    }
-  }, [zimCollections, fetchLatestZIMCollections])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set Easy Setup as visited when user lands on this page
   useEffect(() => {
@@ -789,13 +731,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             <div
               key={collection.slug}
               onClick={() =>
-                isOnline && !collection.all_downloaded && toggleMapCollection(collection.slug)
+                isOnline && !collection.all_installed && toggleMapCollection(collection.slug)
               }
               className={classNames(
                 'relative',
                 selectedMapCollections.includes(collection.slug) &&
                   'ring-4 ring-desert-green rounded-lg',
-                collection.all_downloaded && 'opacity-75',
+                collection.all_installed && 'opacity-75',
                 !isOnline && 'opacity-50 cursor-not-allowed'
               )}
             >
@@ -996,49 +938,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               </>
             ) : null}
 
-            {/* Legacy flat collections - show if available and no categories */}
-            {(!categories || categories.length === 0) && (
-              <>
-                {isLoadingZims ? (
-                  <div className="flex justify-center py-12">
-                    <LoadingSpinner />
-                  </div>
-                ) : zimCollections && zimCollections.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {zimCollections.map((collection) => (
-                      <div
-                        key={collection.slug}
-                        onClick={() =>
-                          isOnline &&
-                          !collection.all_downloaded &&
-                          toggleZimCollection(collection.slug)
-                        }
-                        className={classNames(
-                          'relative',
-                          selectedZimCollections.includes(collection.slug) &&
-                            'ring-4 ring-desert-green rounded-lg',
-                          collection.all_downloaded && 'opacity-75',
-                          !isOnline && 'opacity-50 cursor-not-allowed'
-                        )}
-                      >
-                        <CuratedCollectionCard collection={collection} size="large" />
-                        {selectedZimCollections.includes(collection.slug) && (
-                          <div className="absolute top-2 right-2 bg-desert-green rounded-full p-1">
-                            <IconCheck size={32} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-gray-600 text-lg">
-                      No content collections available at this time.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
           </>
         )}
 
@@ -1059,7 +958,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     const hasSelections =
       selectedServices.length > 0 ||
       selectedMapCollections.length > 0 ||
-      selectedZimCollections.length > 0 ||
       selectedTiers.size > 0 ||
       selectedAiModels.length > 0 ||
       (selectedWikipedia !== null && selectedWikipedia !== 'none')
@@ -1122,25 +1020,6 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               </div>
             )}
 
-            {selectedZimCollections.length > 0 && (
-              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  ZIM Collections to Download ({selectedZimCollections.length})
-                </h3>
-                <ul className="space-y-2">
-                  {selectedZimCollections.map((slug) => {
-                    const collection = zimCollections?.find((c) => c.slug === slug)
-                    return (
-                      <li key={slug} className="flex items-center">
-                        <IconCheck size={20} className="text-desert-green mr-2" />
-                        <span className="text-gray-700">{collection?.name || slug}</span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
-
             {selectedTiers.size > 0 && (
               <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
@@ -1149,7 +1028,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                 {Array.from(selectedTiers.entries()).map(([categorySlug, tier]) => {
                   const category = categories?.find((c) => c.slug === categorySlug)
                   if (!category) return null
-                  const resources = getAllResourcesForTier(tier, category.tiers)
+                  const resources = resolveTierResources(tier, category.tiers)
                   return (
                     <div key={categorySlug} className="mb-4 last:mb-0">
                       <div className="flex items-center mb-2">
@@ -1283,8 +1162,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     return `${count} ${count === 1 ? 'capability' : 'capabilities'}`
                   })()}
                   , {selectedMapCollections.length} map region
-                  {selectedMapCollections.length !== 1 && 's'}, {selectedZimCollections.length}{' '}
-                  content pack{selectedZimCollections.length !== 1 && 's'},{' '}
+                  {selectedMapCollections.length !== 1 && 's'}, {selectedTiers.size}{' '}
+                  content categor{selectedTiers.size !== 1 ? 'ies' : 'y'},{' '}
                   {selectedAiModels.length} AI model{selectedAiModels.length !== 1 && 's'} selected
                 </p>
               </div>

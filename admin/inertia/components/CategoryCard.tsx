@@ -1,18 +1,18 @@
 import { formatBytes } from '~/lib/util'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
-import { CuratedCategory, CategoryTier } from '../../types/downloads'
+import type { CategoryWithStatus, SpecTier } from '../../types/collections'
 import classNames from 'classnames'
 import { IconChevronRight, IconCircleCheck } from '@tabler/icons-react'
 
 export interface CategoryCardProps {
-  category: CuratedCategory
-  selectedTier?: CategoryTier | null
-  onClick?: (category: CuratedCategory) => void
+  category: CategoryWithStatus
+  selectedTier?: SpecTier | null
+  onClick?: (category: CategoryWithStatus) => void
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onClick }) => {
   // Calculate total size range across all tiers
-  const getTierTotalSize = (tier: CategoryTier, allTiers: CategoryTier[]): number => {
+  const getTierTotalSize = (tier: SpecTier, allTiers: SpecTier[]): number => {
     let total = tier.resources.reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
 
     // Add included tier sizes recursively

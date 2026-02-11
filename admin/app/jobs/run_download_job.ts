@@ -22,7 +22,7 @@ export class RunDownloadJob {
   }
 
   async handle(job: Job) {
-    const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype } =
+    const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype, resourceMetadata } =
       job.data as RunDownloadJobParams
 
     await doResumableDownload({
@@ -37,6 +37,26 @@ export class RunDownloadJob {
       },
       async onComplete(url) {
         try {
+          // Create InstalledResource entry if metadata was provided
+          if (resourceMetadata) {
+            const { default: InstalledResource } = await import('#models/installed_resource')
+            const { DateTime } = await import('luxon')
+            const { getFileStatsIfExists } = await import('../utils/fs.js')
+            const stats = await getFileStatsIfExists(filepath)
+
+            await InstalledResource.updateOrCreate(
+              { resource_id: resourceMetadata.resource_id, resource_type: filetype as 'zim' | 'map' },
+              {
+                version: resourceMetadata.version,
+                collection_ref: resourceMetadata.collection_ref,
+                url: url,
+                file_path: filepath,
+                file_size_bytes: stats ? Number(stats.size) : null,
+                installed_at: DateTime.now(),
+              }
+            )
+          }
+
           if (filetype === 'zim') {
             const dockerService = new DockerService()
             const zimService = new ZimService(dockerService)
@@ -57,7 +77,7 @@ export class RunDownloadJob {
           }
         } catch (error) {
           console.error(
-            `[RunDownloadJob] Error in ZIM download success callback for URL ${url}:`,
+            `[RunDownloadJob] Error in download success callback for URL ${url}:`,
             error
           )
         }

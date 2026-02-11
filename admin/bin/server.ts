@@ -36,6 +36,15 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
     })
     app.listen('SIGTERM', () => app.terminate())
     app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())
+    app.ready(async () => {
+      try {
+        const collectionManifestService = new (await import('#services/collection_manifest_service')).CollectionManifestService()
+        await collectionManifestService.reconcileFromFilesystem()
+      } catch (error) {
+        // Catch and log any errors during reconciliation to prevent the server from crashing
+        console.error('Error during collection manifest reconciliation:', error)
+      }
+    })
   })
   .httpServer()
   .start()

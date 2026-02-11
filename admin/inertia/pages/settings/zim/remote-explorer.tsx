@@ -23,36 +23,17 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconBooks } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
-import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import {
-  CuratedCollectionWithStatus,
-  CuratedCategory,
-  CategoryTier,
-  CategoryResource,
-} from '../../../../types/downloads'
+import type { CategoryWithStatus, SpecTier } from '../../../../types/collections'
 import useDownloads from '~/hooks/useDownloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 
-const CURATED_COLLECTIONS_KEY = 'curated-zim-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
-
-// Helper to get all resources for a tier (including inherited resources)
-const getAllResourcesForTier = (tier: CategoryTier, allTiers: CategoryTier[]): CategoryResource[] => {
-  const resources = [...tier.resources]
-  if (tier.includesTier) {
-    const includedTier = allTiers.find((t) => t.slug === tier.includesTier)
-    if (includedTier) {
-      resources.unshift(...getAllResourcesForTier(includedTier, allTiers))
-    }
-  }
-  return resources
-}
 
 export default function ZimRemoteExplorer() {
   const queryClient = useQueryClient()
@@ -69,7 +50,7 @@ export default function ZimRemoteExplorer() {
 
   // Category/tier selection state
   const [tierModalOpen, setTierModalOpen] = useState(false)
-  const [activeCategory, setActiveCategory] = useState<CuratedCategory | null>(null)
+  const [activeCategory, setActiveCategory] = useState<CategoryWithStatus | null>(null)
 
   // Wikipedia selection state
   const [selectedWikipedia, setSelectedWikipedia] = useState<string | null>(null)
@@ -78,12 +59,6 @@ export default function ZimRemoteExplorer() {
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
   }, 400)
-
-  const { data: curatedCollections } = useQuery({
-    queryKey: [CURATED_COLLECTIONS_KEY],
-    queryFn: () => api.listCuratedZimCollections(),
-    refetchOnWindowFocus: false,
-  })
 
   // Fetch curated categories with tiers
   const { data: categories } = useQuery({
@@ -170,24 +145,12 @@ export default function ZimRemoteExplorer() {
     fetchOnBottomReached(tableParentRef.current)
   }, [fetchOnBottomReached])
 
-  async function confirmDownload(record: RemoteZimFileEntry | CuratedCollectionWithStatus) {
-    const isCollection = 'resources' in record
+  async function confirmDownload(record: RemoteZimFileEntry) {
     openModal(
       <StyledModal
         title="Confirm Download?"
         onConfirm={() => {
-          if (isCollection) {
-            if (record.all_downloaded) {
-              addNotification({
-                message: `All resources in the collection "${record.name}" have already been downloaded.`,
-                type: 'info',
-              })
-              return
-            }
-            downloadCollection(record)
-          } else {
-            downloadFile(record)
-          }
+          downloadFile(record)
           closeAllModals()
         }}
         onCancel={closeAllModals}
@@ -198,7 +161,7 @@ export default function ZimRemoteExplorer() {
       >
         <p className="text-gray-700">
           Are you sure you want to download{' '}
-          <strong>{isCollection ? record.name : record.title}</strong>? It may take some time for it
+          <strong>{record.title}</strong>? It may take some time for it
           to be available depending on the file size and your internet connection. The Kiwix
           application will be restarted after the download is complete.
         </p>
@@ -221,34 +184,19 @@ export default function ZimRemoteExplorer() {
     }
   }
 
-  async function downloadCollection(record: CuratedCollectionWithStatus) {
-    try {
-      await api.downloadZimCollection(record.slug)
-      invalidateDownloads()
-    } catch (error) {
-      console.error('Error downloading collection:', error)
-    }
-  }
-
   // Category/tier handlers
-  const handleCategoryClick = (category: CuratedCategory) => {
+  const handleCategoryClick = (category: CategoryWithStatus) => {
     if (!isOnline) return
     setActiveCategory(category)
     setTierModalOpen(true)
   }
 
-  const handleTierSelect = async (category: CuratedCategory, tier: CategoryTier) => {
-    // Get all resources for this tier (including inherited ones)
-    const resources = getAllResourcesForTier(tier, category.tiers)
-
-    // Download each resource
+  const handleTierSelect = async (category: CategoryWithStatus, tier: SpecTier) => {
     try {
-      for (const resource of resources) {
-        await api.downloadRemoteZimFile(resource.url)
-      }
+      await api.downloadCategoryTier(category.slug, tier.slug)
 
       addNotification({
-        message: `Started downloading ${resources.length} files from "${category.name} - ${tier.name}"`,
+        message: `Started downloading "${category.name} - ${tier.name}"`,
         type: 'success',
       })
       invalidateDownloads()
@@ -309,23 +257,16 @@ export default function ZimRemoteExplorer() {
     }
   }
 
-  const fetchLatestCollections = useMutation({
-    mutationFn: () => api.fetchLatestZimCollections(),
+  const refreshManifests = useMutation({
+    mutationFn: () => api.refreshManifests(),
     onSuccess: () => {
       addNotification({
-        message: 'Successfully fetched the latest ZIM collections.',
+        message: 'Successfully refreshed content collections.',
         type: 'success',
       })
-      queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
+      queryClient.invalidateQueries({ queryKey: [CURATED_CATEGORIES_KEY] })
     },
   })
-
-  // Auto-fetch latest collections if the list is empty
-  useEffect(() => {
-    if (curatedCollections && curatedCollections.length === 0 && !fetchLatestCollections.isPending) {
-      fetchLatestCollections.mutate()
-    }
-  }, [curatedCollections, fetchLatestCollections])
 
   return (
     <SettingsLayout>
@@ -357,11 +298,11 @@ export default function ZimRemoteExplorer() {
           )}
           <StyledSectionHeader title="Curated Content Collections" className="mt-8 !mb-4" />
           <StyledButton
-            onClick={() => fetchLatestCollections.mutate()}
-            disabled={fetchLatestCollections.isPending}
+            onClick={() => refreshManifests.mutate()}
+            disabled={refreshManifests.isPending}
             icon="IconCloudDownload"
           >
-            Fetch Latest Collections
+            Refresh Collections
           </StyledButton>
 
           {/* Wikipedia Selector */}
@@ -386,7 +327,7 @@ export default function ZimRemoteExplorer() {
             </div>
           ) : null}
 
-          {/* Tiered Category Collections - matches Easy Setup Wizard */}
+          {/* Tiered Category Collections */}
           <div className="flex items-center gap-3 mt-8 mb-4">
             <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
               <IconBooks className="w-6 h-6 text-gray-700" />
@@ -419,20 +360,7 @@ export default function ZimRemoteExplorer() {
               />
             </>
           ) : (
-            /* Legacy flat collections - fallback if no categories available */
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {curatedCollections?.map((collection) => (
-                <CuratedCollectionCard
-                  key={collection.slug}
-                  collection={collection}
-                  onClick={(collection) => confirmDownload(collection)}
-                  size="large"
-                />
-              ))}
-              {curatedCollections && curatedCollections.length === 0 && (
-                <p className="text-gray-500">No curated collections available.</p>
-              )}
-            </div>
+            <p className="text-gray-500 mt-4">No curated content categories available.</p>
           )}
           <StyledSectionHeader title="Browse the Kiwix Library" className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">

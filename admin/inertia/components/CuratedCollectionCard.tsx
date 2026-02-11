@@ -1,12 +1,12 @@
 import { formatBytes } from '~/lib/util'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
-import { CuratedCollectionWithStatus } from '../../types/downloads'
+import type { CollectionWithStatus } from '../../types/collections'
 import classNames from 'classnames'
 import { IconCircleCheck } from '@tabler/icons-react'
 
 export interface CuratedCollectionCardProps {
-  collection: CuratedCollectionWithStatus
-  onClick?: (collection: CuratedCollectionWithStatus) => void;
+  collection: CollectionWithStatus
+  onClick?: (collection: CollectionWithStatus) => void;
   size?: 'small' | 'large'
 }
 
@@ -19,11 +19,11 @@ const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collectio
     <div
       className={classNames(
         'flex flex-col bg-desert-green rounded-lg p-6 text-white border border-b-desert-green shadow-sm hover:shadow-lg transition-shadow cursor-pointer',
-        { 'opacity-65 cursor-not-allowed !hover:shadow-sm': collection.all_downloaded },
+        { 'opacity-65 cursor-not-allowed !hover:shadow-sm': collection.all_installed },
         { 'h-56': size === 'small', 'h-80': size === 'large' }
       )}
       onClick={() => {
-        if (collection.all_downloaded) {
+        if (collection.all_installed) {
           return
         }
         if (onClick) {
@@ -37,7 +37,7 @@ const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collectio
             <DynamicIcon icon={collection.icon as DynamicIconName} className="w-6 h-6 mr-2" />
             <h3 className="text-lg font-semibold">{collection.name}</h3>
           </div>
-          {collection.all_downloaded && (
+          {collection.all_installed && (
             <div className="flex items-center">
               <IconCircleCheck
                 className="w-5 h-5 text-lime-400 ml-2"
