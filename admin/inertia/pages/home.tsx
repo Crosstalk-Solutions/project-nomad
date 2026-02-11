@@ -12,6 +12,7 @@ import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Alert from '~/components/Alert'
 
 // Maps is a Core Capability (display_order: 4)
@@ -90,6 +91,12 @@ export default function Home(props: {
   const items: DashboardItem[] = []
   const updateInfo = useUpdateAvailable();
 
+  // Check if user has visited Easy Setup
+  const { data: easySetupVisited } = useSystemSetting({
+    key: 'ui.hasVisitedEasySetup'
+  })
+  const shouldHighlightEasySetup = easySetupVisited?.value !== 'true'
+
   // Add installed services (non-dependency services only)
   props.system.services
     .filter((service) => service.installed && service.ui_location)
@@ -145,19 +152,32 @@ export default function Home(props: {
         )
       }
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-        {items.map((item) => (
-          <a key={item.label} href={item.to} target={item.target}>
-            <div
-              key={item.label}
-              className="rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-black text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4"
-            >
-              <div className="flex items-center justify-center mb-2">{item.icon}</div>
-              <h3 className="font-bold text-2xl">{item.label}</h3>
-              {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
-              <p className="xl:text-lg mt-2">{item.description}</p>
-            </div>
-          </a>
-        ))}
+        {items.map((item) => {
+          const isEasySetup = item.label === 'Easy Setup'
+          const shouldHighlight = isEasySetup && shouldHighlightEasySetup
+
+          return (
+            <a key={item.label} href={item.to} target={item.target}>
+              <div className="relative rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-black text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4">
+                {shouldHighlight && (
+                  <span className="absolute top-2 right-2 flex items-center justify-center">
+                    <span
+                      className="animate-ping absolute inline-flex w-16 h-6 rounded-full bg-desert-orange-light opacity-75"
+                      style={{ animationDuration: '1.5s' }}
+                    ></span>
+                    <span className="relative inline-flex items-center rounded-full px-2.5 py-1 bg-desert-orange-light text-xs font-semibold text-white shadow-sm">
+                      Start here!
+                    </span>
+                  </span>
+                )}
+                <div className="flex items-center justify-center mb-2">{item.icon}</div>
+                <h3 className="font-bold text-2xl">{item.label}</h3>
+                {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
+                <p className="xl:text-lg mt-2">{item.description}</p>
+              </div>
+            </a>
+          )
+        })}
       </div>
     </AppLayout>
   )
