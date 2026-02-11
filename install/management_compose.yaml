@@ -93,7 +93,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad/compose.yml:/opt/project-nomad/compose.yml:ro
+      - /opt/project-nomad:/opt/project-nomad:ro # Read-only access to the project dir for config files and scripts
       - nomad-update-shared:/shared # Shared volume for communication with admin container
 
 volumes:
