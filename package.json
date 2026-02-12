@@ -1,6 +1,6 @@
 {
   "name": "project-nomad",
-  "version": "1.25.0",
+  "version": "1.25.1",
   "description": "\"",
   "main": "index.js",
   "scripts": {
