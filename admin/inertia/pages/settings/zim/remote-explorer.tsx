@@ -296,14 +296,7 @@ export default function ZimRemoteExplorer() {
               className="!mt-6"
             />
           )}
-          <StyledSectionHeader title="Curated Content Collections" className="mt-8 !mb-4" />
-          <StyledButton
-            onClick={() => refreshManifests.mutate()}
-            disabled={refreshManifests.isPending}
-            icon="IconCloudDownload"
-          >
-            Refresh Collections
-          </StyledButton>
+          <StyledSectionHeader title="Curated Content" className="mt-8 !mb-4" />
 
           {/* Wikipedia Selector */}
           {isLoadingWikipedia ? (

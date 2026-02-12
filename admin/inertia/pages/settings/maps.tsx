@@ -194,14 +194,7 @@ export default function MapsManager(props: {
               <p className="text-gray-500">Manage your stored map files and explore new regions!</p>
             </div>
             <div className="flex space-x-4">
-              <StyledButton
-                variant="primary"
-                onClick={openDownloadModal}
-                loading={downloading}
-                icon="IconCloudDownload"
-              >
-                Download Custom Map File
-              </StyledButton>
+
             </div>
           </div>
           {!props.maps.baseAssetsExist && (
@@ -219,14 +212,16 @@ export default function MapsManager(props: {
               }}
             />
           )}
-          <StyledSectionHeader title="Curated Map Collections" className="mt-8 !mb-4" />
-          <StyledButton
-            onClick={() => fetchLatestCollections.mutate()}
-            disabled={fetchLatestCollections.isPending}
-            icon="IconCloudDownload"
-          >
-            Fetch Latest Collections
-          </StyledButton>
+          <div className="mt-8 mb-6 flex items-center justify-between">
+            <StyledSectionHeader title="Curated Map Regions" className="!mb-0" />
+            <StyledButton
+              onClick={() => fetchLatestCollections.mutate()}
+              disabled={fetchLatestCollections.isPending}
+              icon="IconRefresh"
+            >
+              Get Latest Collections from GitHub
+            </StyledButton>
+          </div>
           <div className="!mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {curatedCollections?.map((collection) => (
               <CuratedCollectionCard
@@ -239,7 +234,17 @@ export default function MapsManager(props: {
               <p className="text-gray-500">No curated collections available.</p>
             )}
           </div>
-          <StyledSectionHeader title="Stored Map Files" className="mt-12 mb-4" />
+          <div className="mt-12 mb-6 flex items-center justify-between">
+            <StyledSectionHeader title="Stored Map Files" className="!mb-0" />
+            <StyledButton
+              variant="primary"
+              onClick={openDownloadModal}
+              loading={downloading}
+              icon="IconCloudDownload"
+            >
+              Download a Custom Map File
+            </StyledButton>
+          </div>
           <StyledTable<FileEntry & { actions?: any }>
             className="font-semibold mt-4"
             rowLines={true}
