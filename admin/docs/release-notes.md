@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.25.0 - February 12, 2026
 
 ### Features
 - **Collections**: Complete overhaul of collection management with dynamic manifests, database tracking of installed resources, and improved UI for managing ZIM files and map assets
