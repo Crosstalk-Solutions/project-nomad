@@ -39,6 +39,8 @@ jobs:
       - name: Finalize release notes
         if: steps.semver.outputs.new_release_published == 'true'
         id: finalize-notes
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           git pull origin master
           chmod +x .github/scripts/finalize-release-notes.sh
