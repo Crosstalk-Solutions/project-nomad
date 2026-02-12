@@ -231,6 +231,7 @@ export default function SystemUpdatePage(props: {
   const [logs, setLogs] = useState<string>('')
   const [email, setEmail] = useState('')
   const [versionInfo, setVersionInfo] = useState(props.system)
+  const [showConnectionLostNotice, setShowConnectionLostNotice] = useState(false)
 
   useEffect(() => {
     if (!isUpdating) return
@@ -242,6 +243,9 @@ export default function SystemUpdatePage(props: {
           throw new Error('Failed to fetch update status')
         }
         setUpdateStatus(response)
+        
+        // If we can connect again, hide the connection lost notice
+        setShowConnectionLostNotice(false)
 
         // Check if update is complete or errored
         if (response.stage === 'complete') {
@@ -255,6 +259,8 @@ export default function SystemUpdatePage(props: {
         }
       } catch (err) {
         // During container restart, we'll lose connection - this is expected
+        // Show a notice to inform the user that this is normal
+        setShowConnectionLostNotice(true)
         // Continue polling to detect when the container comes back up
         console.log('Polling update status (container may be restarting)...')
       }
@@ -410,6 +416,16 @@ export default function SystemUpdatePage(props: {
                 type="info"
                 title="Container Restarting"
                 message="The admin container is restarting. This page will reload automatically when the update is complete."
+                variant="solid"
+              />
+            </div>
+          )}
+          {isUpdating && showConnectionLostNotice && (
+            <div className="mb-6">
+              <Alert
+                type="info"
+                title="Connection Temporarily Lost (Expected)"
+                message="You may see error notifications while the backend restarts during the update. This is completely normal and expected. Connection should be restored momentarily."
                 variant="solid"
               />
             </div>

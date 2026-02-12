@@ -1,5 +1,16 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+
+### Bug Fixes
+- **Settings**: Fix potential stale cache issue when checking for system updates
+- **Settings**: Improve user guidance during system updates
+
+### Improvements
+
+
 ## Version 1.25.0 - February 12, 2026
 
 ### Features
