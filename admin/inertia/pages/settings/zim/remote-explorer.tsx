@@ -265,6 +265,7 @@ export default function ZimRemoteExplorer() {
         type: 'success',
       })
       queryClient.invalidateQueries({ queryKey: [CURATED_CATEGORIES_KEY] })
+      queryClient.invalidateQueries({ queryKey: [WIKIPEDIA_STATE_KEY] })
     },
   })
 
@@ -296,8 +297,17 @@ export default function ZimRemoteExplorer() {
               className="!mt-6"
             />
           )}
-          <StyledSectionHeader title="Curated Content" className="mt-8 !mb-4" />
-
+          <div className="mt-8 mb-6 flex items-center justify-between">
+            <StyledSectionHeader title="Curated Content" className="!mb-0" />
+            <StyledButton
+              onClick={() => refreshManifests.mutate()}
+              disabled={refreshManifests.isPending || !isOnline}
+              icon="IconRefresh"
+            >
+              Force Refresh Collections
+            </StyledButton>
+          </div>
+          
           {/* Wikipedia Selector */}
           {isLoadingWikipedia ? (
             <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">

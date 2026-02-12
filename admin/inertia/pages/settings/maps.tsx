@@ -6,7 +6,7 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import { FileEntry } from '../../../types/files'
 import { useNotifications } from '~/context/NotificationContext'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import api from '~/lib/api'
 import DownloadURLModal from '~/components/DownloadURLModal'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -161,27 +161,16 @@ export default function MapsManager(props: {
     )
   }
 
-  const fetchLatestCollections = useMutation({
-    mutationFn: () => api.fetchLatestMapCollections(),
+  const refreshManifests = useMutation({
+    mutationFn: () => api.refreshManifests(),
     onSuccess: () => {
       addNotification({
-        message: 'Successfully fetched the latest map collections.',
+        message: 'Successfully refreshed map collections.',
         type: 'success',
       })
       queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
     },
   })
-
-  // Auto-fetch latest collections if the list is empty
-  useEffect(() => {
-    if (
-      curatedCollections &&
-      curatedCollections.length === 0 &&
-      !fetchLatestCollections.isPending
-    ) {
-      fetchLatestCollections.mutate()
-    }
-  }, [curatedCollections, fetchLatestCollections])
 
   return (
     <SettingsLayout>
@@ -215,11 +204,11 @@ export default function MapsManager(props: {
           <div className="mt-8 mb-6 flex items-center justify-between">
             <StyledSectionHeader title="Curated Map Regions" className="!mb-0" />
             <StyledButton
-              onClick={() => fetchLatestCollections.mutate()}
-              disabled={fetchLatestCollections.isPending}
+              onClick={() => refreshManifests.mutate()}
+              disabled={refreshManifests.isPending}
               icon="IconRefresh"
             >
-              Get Latest Collections from GitHub
+              Force Refresh Collections
             </StyledButton>
           </div>
           <div className="!mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
