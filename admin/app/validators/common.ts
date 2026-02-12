@@ -68,3 +68,21 @@ export const selectWikipediaValidator = vine.compile(
     optionId: vine.string().trim().minLength(1),
   })
 )
+
+const resourceUpdateInfoBase = vine.object({
+  resource_id: vine.string().trim().minLength(1),
+  resource_type: vine.enum(['zim', 'map'] as const),
+  installed_version: vine.string().trim(),
+  latest_version: vine.string().trim().minLength(1),
+  download_url: vine.string().url().trim(),
+})
+
+export const applyContentUpdateValidator = vine.compile(resourceUpdateInfoBase)
+
+export const applyAllContentUpdatesValidator = vine.compile(
+  vine.object({
+    updates: vine
+      .array(resourceUpdateInfoBase)
+      .minLength(1),
+  })
+)

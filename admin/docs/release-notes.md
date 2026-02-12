@@ -3,7 +3,8 @@
 ## Unreleased
 
 ### Features
-
+- **Collections**: Complete overhaul of collection management with dynamic manifests, database tracking of installed resources, and improved UI for managing ZIM files and map assets
+- **Collections**: Added support for checking if newer versions of installed resources are available based on manifest data
 ### Bug Fixes
 
 ### Improvements

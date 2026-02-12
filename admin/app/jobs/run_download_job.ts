@@ -41,8 +41,15 @@ export class RunDownloadJob {
           if (resourceMetadata) {
             const { default: InstalledResource } = await import('#models/installed_resource')
             const { DateTime } = await import('luxon')
-            const { getFileStatsIfExists } = await import('../utils/fs.js')
+            const { getFileStatsIfExists, deleteFileIfExists } = await import('../utils/fs.js')
             const stats = await getFileStatsIfExists(filepath)
+
+            // Look up the old entry so we can clean up the previous file after updating
+            const oldEntry = await InstalledResource.query()
+              .where('resource_id', resourceMetadata.resource_id)
+              .where('resource_type', filetype as 'zim' | 'map')
+              .first()
+            const oldFilePath = oldEntry?.file_path ?? null
 
             await InstalledResource.updateOrCreate(
               { resource_id: resourceMetadata.resource_id, resource_type: filetype as 'zim' | 'map' },
@@ -55,6 +62,19 @@ export class RunDownloadJob {
                 installed_at: DateTime.now(),
               }
             )
+
+            // Delete the old file if it differs from the new one
+            if (oldFilePath && oldFilePath !== filepath) {
+              try {
+                await deleteFileIfExists(oldFilePath)
+                console.log(`[RunDownloadJob] Deleted old file: ${oldFilePath}`)
+              } catch (deleteError) {
+                console.warn(
+                  `[RunDownloadJob] Failed to delete old file ${oldFilePath}:`,
+                  deleteError
+                )
+              }
+            }
           }
 
           if (filetype === 'zim') {

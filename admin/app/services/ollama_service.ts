@@ -11,8 +11,10 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import transmit from '@adonisjs/transmit/services/main'
 import Fuse, { IFuseOptions } from 'fuse.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
+import env from '#start/env'
+import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 
-const NOMAD_MODELS_API_BASE_URL = 'https://api.projectnomad.us/api/v1/ollama/models'
+const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -214,7 +216,11 @@ export class OllamaService {
       }
 
       logger.info('[OllamaService] Fetching fresh available models from API')
-      const response = await axios.get(NOMAD_MODELS_API_BASE_URL)
+
+      const baseUrl = env.get('NOMAD_API_URL') || NOMAD_API_DEFAULT_BASE_URL
+      const fullUrl = new URL(NOMAD_MODELS_API_PATH, baseUrl).toString()
+
+      const response = await axios.get(fullUrl)
       if (!response.data || !Array.isArray(response.data.models)) {
         logger.warn(
           `[OllamaService] Invalid response format when fetching available models: ${JSON.stringify(response.data)}`

@@ -53,4 +53,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   */
   REDIS_HOST: Env.schema.string({ format: 'host' }),
   REDIS_PORT: Env.schema.number(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring Project Nomad's external API URL
+  |----------------------------------------------------------
+  */
+  NOMAD_API_URL: Env.schema.string.optional(),
 })

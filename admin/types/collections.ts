@@ -72,15 +72,24 @@ export type CollectionWithStatus = SpecCollection & {
   total_count: number
 }
 
-export type CollectionResourceUpdateInfo = {
-  resource_id: string
-  installed_version: string
-  latest_version: string
-  latest_url: string
-  latest_size_mb?: number
+export type ResourceUpdateCheckRequest = {
+  resources: Array<{
+    resource_id: string
+    resource_type: 'zim' | 'map'
+    installed_version: string
+  }>
 }
 
-export type CollectionUpdateCheckResult = {
-  spec_changed: boolean
-  resource_updates: CollectionResourceUpdateInfo[]
+export type ResourceUpdateInfo = {
+  resource_id: string
+  resource_type: 'zim' | 'map'
+  installed_version: string
+  latest_version: string
+  download_url: string
+}
+
+export type ContentUpdateCheckResult = {
+  updates: ResourceUpdateInfo[]
+  checked_at: string
+  error?: string
 }

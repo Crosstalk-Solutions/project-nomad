@@ -1,130 +1,157 @@
 import logger from '@adonisjs/core/services/logger'
+import env from '#start/env'
+import axios from 'axios'
 import InstalledResource from '#models/installed_resource'
-import { CollectionManifestService } from './collection_manifest_service.js'
+import { RunDownloadJob } from '../jobs/run_download_job.js'
+import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import { join } from 'path'
 import type {
-  ZimCategoriesSpec,
-  MapsSpec,
-  CollectionResourceUpdateInfo,
-  CollectionUpdateCheckResult,
-  SpecResource,
+  ResourceUpdateCheckRequest,
+  ResourceUpdateInfo,
+  ContentUpdateCheckResult,
 } from '../../types/collections.js'
+import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
+
+const MAP_STORAGE_PATH = '/storage/maps'
+
+const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
+const PMTILES_MIME_TYPES = ['application/vnd.pmtiles', 'application/octet-stream']
 
 export class CollectionUpdateService {
-  private manifestService = new CollectionManifestService()
-
-  async checkForUpdates(): Promise<CollectionUpdateCheckResult> {
-    const resourceUpdates: CollectionResourceUpdateInfo[] = []
-    let specChanged = false
-
-    // Check if specs have changed
-    try {
-      const [zimChanged, mapsChanged] = await Promise.all([
-        this.manifestService.fetchAndCacheSpec('zim_categories'),
-        this.manifestService.fetchAndCacheSpec('maps'),
-      ])
-      specChanged = zimChanged || mapsChanged
-    } catch (error) {
-      logger.error('[CollectionUpdateService] Failed to fetch latest specs:', error)
+  async checkForUpdates(): Promise<ContentUpdateCheckResult> {
+    const nomadAPIURL = env.get('NOMAD_API_URL') || NOMAD_API_DEFAULT_BASE_URL
+    if (!nomadAPIURL) {
+      return {
+        updates: [],
+        checked_at: new Date().toISOString(),
+        error: 'Nomad API is not configured. Set the NOMAD_API_URL environment variable.',
+      }
     }
 
-    // Check for ZIM resource version updates
-    const zimUpdates = await this.checkZimUpdates()
-    resourceUpdates.push(...zimUpdates)
+    const installed = await InstalledResource.all()
+    if (installed.length === 0) {
+      return {
+        updates: [],
+        checked_at: new Date().toISOString(),
+      }
+    }
 
-    // Check for map resource version updates
-    const mapUpdates = await this.checkMapUpdates()
-    resourceUpdates.push(...mapUpdates)
+    const requestBody: ResourceUpdateCheckRequest = {
+      resources: installed.map((r) => ({
+        resource_id: r.resource_id,
+        resource_type: r.resource_type,
+        installed_version: r.version,
+      })),
+    }
+
+    try {
+      const response = await axios.post<ResourceUpdateInfo[]>(`${nomadAPIURL}/api/v1/resources/check-updates`, requestBody, {
+        timeout: 15000,
+      })
+
+      logger.info(
+        `[CollectionUpdateService] Update check complete: ${response.data.length} update(s) available`
+      )
+
+      return {
+        updates: response.data,
+        checked_at: new Date().toISOString(),
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        logger.error(
+          `[CollectionUpdateService] Nomad API returned ${error.response.status}: ${JSON.stringify(error.response.data)}`
+        )
+        return {
+          updates: [],
+          checked_at: new Date().toISOString(),
+          error: `Nomad API returned status ${error.response.status}`,
+        }
+      }
+      const message =
+        error instanceof Error ? error.message : 'Unknown error contacting Nomad API'
+      logger.error(`[CollectionUpdateService] Failed to check for updates: ${message}`)
+      return {
+        updates: [],
+        checked_at: new Date().toISOString(),
+        error: `Failed to contact Nomad API: ${message}`,
+      }
+    }
+  }
+
+  async applyUpdate(
+    update: ResourceUpdateInfo
+  ): Promise<{ success: boolean; jobId?: string; error?: string }> {
+    // Check if a download is already in progress for this URL
+    const existingJob = await RunDownloadJob.getByUrl(update.download_url)
+    if (existingJob) {
+      const state = await existingJob.getState()
+      if (state === 'active' || state === 'waiting' || state === 'delayed') {
+        return {
+          success: false,
+          error: `A download is already in progress for ${update.resource_id}`,
+        }
+      }
+    }
+
+    const filename = this.buildFilename(update)
+    const filepath = this.buildFilepath(update, filename)
+
+    const result = await RunDownloadJob.dispatch({
+      url: update.download_url,
+      filepath,
+      timeout: 30000,
+      allowedMimeTypes:
+        update.resource_type === 'zim' ? ZIM_MIME_TYPES : PMTILES_MIME_TYPES,
+      forceNew: true,
+      filetype: update.resource_type,
+      resourceMetadata: {
+        resource_id: update.resource_id,
+        version: update.latest_version,
+        collection_ref: null,
+      },
+    })
+
+    if (!result || !result.job) {
+      return { success: false, error: 'Failed to dispatch download job' }
+    }
 
     logger.info(
-      `[CollectionUpdateService] Update check complete: spec_changed=${specChanged}, resource_updates=${resourceUpdates.length}`
+      `[CollectionUpdateService] Dispatched update download for ${update.resource_id}: ${update.installed_version} → ${update.latest_version}`
     )
 
-    return { spec_changed: specChanged, resource_updates: resourceUpdates }
+    return { success: true, jobId: result.job.id }
   }
 
-  private async checkZimUpdates(): Promise<CollectionResourceUpdateInfo[]> {
-    const updates: CollectionResourceUpdateInfo[] = []
+  async applyAllUpdates(
+    updates: ResourceUpdateInfo[]
+  ): Promise<{ results: Array<{ resource_id: string; success: boolean; jobId?: string; error?: string }> }> {
+    const results: Array<{
+      resource_id: string
+      success: boolean
+      jobId?: string
+      error?: string
+    }> = []
 
-    try {
-      const spec = await this.manifestService.getCachedSpec<ZimCategoriesSpec>('zim_categories')
-      if (!spec) return updates
-
-      const installed = await InstalledResource.query().where('resource_type', 'zim')
-      if (installed.length === 0) return updates
-
-      // Build a map of spec resources by ID for quick lookup
-      const specResourceMap = new Map<string, SpecResource>()
-      for (const category of spec.categories) {
-        for (const tier of category.tiers) {
-          for (const resource of tier.resources) {
-            // Only keep the latest version if there are duplicates
-            const existing = specResourceMap.get(resource.id)
-            if (!existing || resource.version > existing.version) {
-              specResourceMap.set(resource.id, resource)
-            }
-          }
-        }
-      }
-
-      // Compare installed versions against spec versions
-      for (const entry of installed) {
-        const specResource = specResourceMap.get(entry.resource_id)
-        if (!specResource) continue
-
-        if (specResource.version > entry.version) {
-          updates.push({
-            resource_id: entry.resource_id,
-            installed_version: entry.version,
-            latest_version: specResource.version,
-            latest_url: specResource.url,
-            latest_size_mb: specResource.size_mb,
-          })
-        }
-      }
-    } catch (error) {
-      logger.error('[CollectionUpdateService] Error checking ZIM updates:', error)
+    for (const update of updates) {
+      const result = await this.applyUpdate(update)
+      results.push({ resource_id: update.resource_id, ...result })
     }
 
-    return updates
+    return { results }
   }
 
-  private async checkMapUpdates(): Promise<CollectionResourceUpdateInfo[]> {
-    const updates: CollectionResourceUpdateInfo[] = []
-
-    try {
-      const spec = await this.manifestService.getCachedSpec<MapsSpec>('maps')
-      if (!spec) return updates
-
-      const installed = await InstalledResource.query().where('resource_type', 'map')
-      if (installed.length === 0) return updates
-
-      // Build a map of spec resources by ID
-      const specResourceMap = new Map<string, SpecResource>()
-      for (const collection of spec.collections) {
-        for (const resource of collection.resources) {
-          specResourceMap.set(resource.id, resource)
-        }
-      }
-
-      // Compare installed versions against spec versions
-      for (const entry of installed) {
-        const specResource = specResourceMap.get(entry.resource_id)
-        if (!specResource) continue
-
-        if (specResource.version > entry.version) {
-          updates.push({
-            resource_id: entry.resource_id,
-            installed_version: entry.version,
-            latest_version: specResource.version,
-            latest_url: specResource.url,
-            latest_size_mb: specResource.size_mb,
-          })
-        }
-      }
-    } catch (error) {
-      logger.error('[CollectionUpdateService] Error checking map updates:', error)
+  private buildFilename(update: ResourceUpdateInfo): string {
+    if (update.resource_type === 'zim') {
+      return `${update.resource_id}_${update.latest_version}.zim`
     }
+    return `${update.resource_id}_${update.latest_version}.pmtiles`
+  }
 
-    return updates
+  private buildFilepath(update: ResourceUpdateInfo, filename: string): string {
+    if (update.resource_type === 'zim') {
+      return join(process.cwd(), ZIM_STORAGE_PATH, filename)
+    }
+    return join(process.cwd(), MAP_STORAGE_PATH, 'pmtiles', filename)
   }
 }

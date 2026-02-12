@@ -34,7 +34,13 @@ router.get('/easy-setup', [EasySetupController, 'index'])
 router.get('/easy-setup/complete', [EasySetupController, 'complete'])
 router.get('/api/easy-setup/curated-categories', [EasySetupController, 'listCuratedCategories'])
 router.post('/api/manifests/refresh', [EasySetupController, 'refreshManifests'])
-router.post('/api/collection-updates/check', [CollectionUpdatesController, 'checkForUpdates'])
+router
+  .group(() => {
+    router.post('/check', [CollectionUpdatesController, 'checkForUpdates'])
+    router.post('/apply', [CollectionUpdatesController, 'applyUpdate'])
+    router.post('/apply-all', [CollectionUpdatesController, 'applyAllUpdates'])
+  })
+  .prefix('/api/content-updates')
 
 router
   .group(() => {

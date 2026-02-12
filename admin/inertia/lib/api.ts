@@ -4,7 +4,7 @@ import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
-import type { CategoryWithStatus, CollectionWithStatus, CollectionUpdateCheckResult } from '../../types/collections'
+import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import { ChatResponse, ModelResponse } from 'ollama'
@@ -127,9 +127,28 @@ class API {
     })()
   }
 
-  async checkForCollectionUpdates() {
+  async checkForContentUpdates() {
     return catchInternal(async () => {
-      const response = await this.client.post<CollectionUpdateCheckResult>('/collection-updates/check')
+      const response = await this.client.post<ContentUpdateCheckResult>('/content-updates/check')
+      return response.data
+    })()
+  }
+
+  async applyContentUpdate(update: ResourceUpdateInfo) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; jobId?: string; error?: string }>(
+        '/content-updates/apply',
+        update
+      )
+      return response.data
+    })()
+  }
+
+  async applyAllContentUpdates(updates: ResourceUpdateInfo[]) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        results: Array<{ resource_id: string; success: boolean; jobId?: string; error?: string }>
+      }>('/content-updates/apply-all', { updates })
       return response.data
     })()
   }
