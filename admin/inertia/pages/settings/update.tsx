@@ -77,7 +77,7 @@ function ContentUpdatesSection() {
           addNotification({ type: 'success', message: `Started ${succeeded} update(s)` })
         }
         if (failed > 0) {
-          addNotification({ type: 'warning', message: `${failed} update(s) could not be started` })
+          addNotification({ type: 'error', message: `${failed} update(s) could not be started` })
         }
         // Remove successful updates from the list
         const successIds = new Set(result.results.filter((r) => r.success).map((r) => r.resource_id))
@@ -230,6 +230,7 @@ export default function SystemUpdatePage(props: {
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<string>('')
   const [email, setEmail] = useState('')
+  const [versionInfo, setVersionInfo] = useState(props.system)
 
   useEffect(() => {
     if (!isUpdating) return
@@ -310,6 +311,34 @@ export default function SystemUpdatePage(props: {
       setError('Failed to fetch update logs')
     }
   }
+
+  const checkVersionMutation = useMutation({
+    mutationKey: ['checkLatestVersion'],
+    mutationFn: () => api.checkLatestVersion(true),
+    onSuccess: (data) => {
+      if (data) {
+        setVersionInfo({
+          updateAvailable: data.updateAvailable,
+          latestVersion: data.latestVersion,
+          currentVersion: data.currentVersion,
+        })
+        if (data.updateAvailable) {
+          addNotification({
+            type: 'success',
+            message: `Update available: ${data.latestVersion}`,
+          })
+        } else {
+          addNotification({ type: 'success', message: 'System is up to date' })
+        }
+        setError(null)
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || 'Failed to check for updates'
+      setError(errorMessage)
+      addNotification({ type: 'error', message: errorMessage })
+    },
+  })
 
   const getProgressBarColor = () => {
     if (updateStatus?.stage === 'error') return 'bg-desert-red'
@@ -415,10 +444,10 @@ export default function SystemUpdatePage(props: {
                 <div className="text-center">
                   <p className="text-sm text-desert-stone mb-1">Current Version</p>
                   <p className="text-xl font-bold text-desert-green">
-                    {props.system.currentVersion}
+                    {versionInfo.currentVersion}
                   </p>
                 </div>
-                {props.system.updateAvailable && (
+                {versionInfo.updateAvailable && (
                   <>
                     <div className="flex items-center">
                       <svg
@@ -438,7 +467,7 @@ export default function SystemUpdatePage(props: {
                     <div className="text-center">
                       <p className="text-sm text-desert-stone mb-1">Latest Version</p>
                       <p className="text-xl font-bold text-desert-olive">
-                        {props.system.latestVersion}
+                        {versionInfo.latestVersion}
                       </p>
                     </div>
                   </>
@@ -464,15 +493,16 @@ export default function SystemUpdatePage(props: {
                     size="lg"
                     icon="IconDownload"
                     onClick={handleStartUpdate}
-                    disabled={!props.system.updateAvailable}
+                    disabled={!versionInfo.updateAvailable}
                   >
-                    {props.system.updateAvailable ? 'Start Update' : 'No Update Available'}
+                    {versionInfo.updateAvailable ? 'Start Update' : 'No Update Available'}
                   </StyledButton>
                   <StyledButton
                     variant="ghost"
                     size="lg"
                     icon="IconRefresh"
-                    onClick={() => window.location.reload()}
+                    onClick={() => checkVersionMutation.mutate()}
+                    loading={checkVersionMutation.isPending}
                   >
                     Check Again
                   </StyledButton>

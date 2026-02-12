@@ -324,10 +324,12 @@ export class SystemService {
         throw new Error('Invalid response from GitHub API')
       }
 
-      const latestVersion = response.data.tag_name.replace(/^v/, '') // Remove leading 'v' if present
-      logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
+    const latestVersion = response.data.tag_name.replace(/^v/, '').trim() // Remove leading 'v' and whitespace
+    logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
 
-      const updateAvailable = process.env.NODE_ENV === 'development' ? false : latestVersion !== currentVersion
+    const updateAvailable = process.env.NODE_ENV === 'development' 
+      ? false 
+      : this.isNewerVersion(latestVersion, currentVersion.trim())
 
       // Cache the results in KVStore for frontend checks
       await KVStore.setValue('system.updateAvailable', updateAvailable.toString())
@@ -462,5 +464,28 @@ export class SystemService {
           })),
         }
       })
+  }
+
+  /**
+   * Compare two semantic version strings to determine if the first is newer than the second.
+   * @param version1 - The version to check (e.g., "1.25.0")
+   * @param version2 - The current version (e.g., "1.24.0")
+   * @returns true if version1 is newer than version2
+   */
+  private isNewerVersion(version1: string, version2: string): boolean {
+    const v1Parts = version1.split('.').map((part) => parseInt(part, 10))
+    const v2Parts = version2.split('.').map((part) => parseInt(part, 10))
+
+    const maxLength = Math.max(v1Parts.length, v2Parts.length)
+
+    for (let i = 0; i < maxLength; i++) {
+      const v1Part = v1Parts[i] || 0
+      const v2Part = v2Parts[i] || 0
+
+      if (v1Part > v2Part) return true
+      if (v1Part < v2Part) return false
+    }
+
+    return false // Versions are equal
   }
 }
