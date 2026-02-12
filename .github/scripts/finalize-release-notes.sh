@@ -4,6 +4,7 @@
 #
 # Stamps the "## Unreleased" section in a release-notes file with a version
 # and date, and extracts the section content for use in GitHub releases / email.
+# Also includes all commits since the last release for complete transparency.
 #
 # Usage:  finalize-release-notes.sh <version> <file-path>
 #
@@ -86,11 +87,44 @@ NEW_HEADER="## Version ${VERSION} - ${DATE_STAMP}"
 
 mv "${FILE}.tmp" "$FILE"
 
+# Get commits since the last release
+LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+COMMIT_LIST=""
+
+if [[ -n "$LAST_TAG" ]]; then
+  echo "Fetching commits since ${LAST_TAG}..."
+  # Get commits between last tag and HEAD, excluding merge commits and skip ci commits
+  COMMIT_LIST=$(git log "${LAST_TAG}..HEAD" \
+    --no-merges \
+    --pretty=format:"- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))" \
+    --grep="\[skip ci\]" --invert-grep \
+    || echo "")
+else
+  echo "No previous tag found, fetching all commits..."
+  COMMIT_LIST=$(git log \
+    --no-merges \
+    --pretty=format:"- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))" \
+    --grep="\[skip ci\]" --invert-grep \
+    || echo "")
+fi
+
 # Write the extracted section content (for GitHub release body / future email)
 {
   echo "$NEW_HEADER"
   echo ""
-  echo "$TRIMMED"
+  if [[ -n "$TRIMMED" ]]; then
+    echo "$TRIMMED"
+    echo ""
+  fi
+  
+  # Add commit history if available
+  if [[ -n "$COMMIT_LIST" ]]; then
+    echo "---"
+    echo ""
+    echo "### 📝 All Changes"
+    echo ""
+    echo "$COMMIT_LIST"
+  fi
 } > "${FILE}.section"
 
 echo "Finalized release notes for v${VERSION}"
