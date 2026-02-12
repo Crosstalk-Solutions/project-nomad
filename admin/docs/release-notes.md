@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.25.1 - February 12, 2026
 
 ### Features
 
