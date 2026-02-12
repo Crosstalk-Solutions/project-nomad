@@ -179,7 +179,9 @@ export default class BenchmarkController {
         percentile: submitResult.percentile,
       })
     } catch (error) {
-      return response.status(400).send({
+      // Pass through the status code from the service if available, otherwise default to 400
+      const statusCode = (error as any).statusCode || 400
+      return response.status(statusCode).send({
         success: false,
         error: error.message,
       })

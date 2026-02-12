@@ -26,6 +26,7 @@ import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
+import Dockerode from 'dockerode'
 
 // HMAC secret for signing submissions to the benchmark repository
 // This provides basic protection against casual API abuse.
@@ -186,8 +187,14 @@ export class BenchmarkService {
 
       return response.data as RepositorySubmitResponse
     } catch (error) {
-      logger.error(`Failed to submit benchmark to repository: ${error.message}`)
-      throw new Error(`Failed to submit benchmark: ${error.message}`)
+      const detail = error.response?.data?.error || error.message || 'Unknown error'
+      const statusCode = error.response?.status
+      logger.error(`Failed to submit benchmark to repository: ${detail} (Status: ${statusCode})`)
+      
+      // Create an error with the status code attached for proper handling upstream
+      const err: any = new Error(`Failed to submit benchmark: ${detail}`)
+      err.statusCode = statusCode
+      throw err
     }
   }
 
@@ -707,23 +714,26 @@ export class BenchmarkService {
    * Run a sysbench command in a Docker container
    */
   private async _runSysbenchCommand(cmd: string[]): Promise<string> {
+    let container: Dockerode.Container | null = null
     try {
       // Create container with TTY to avoid multiplexed output
-      const container = await this.dockerService.docker.createContainer({
+      container = await this.dockerService.docker.createContainer({
         Image: SYSBENCH_IMAGE,
         Cmd: cmd,
         name: `${SYSBENCH_CONTAINER_NAME}_${Date.now()}`,
         Tty: true, // Important: prevents multiplexed stdout/stderr headers
         HostConfig: {
-          AutoRemove: true,
+          AutoRemove: false, // Don't auto-remove to avoid race condition with fetching logs
         },
       })
 
       // Start container
       await container.start()
 
-      // Wait for completion and get logs
+      // Wait for completion
       await container.wait()
+      
+      // Get logs after container has finished
       const logs = await container.logs({
         stdout: true,
         stderr: true,
@@ -734,8 +744,24 @@ export class BenchmarkService {
         .replace(/[\x00-\x08]/g, '') // Remove control characters
         .trim()
 
+      // Manually remove the container after getting logs
+      try {
+        await container.remove()
+      } catch (removeError) {
+        // Log but don't fail if removal fails (container might already be gone)
+        logger.warn(`Failed to remove sysbench container: ${removeError.message}`)
+      }
+
       return output
     } catch (error) {
+      // Clean up container on error if it exists
+      if (container) {
+        try {
+          await container.remove({ force: true })
+        } catch (removeError) {
+          // Ignore removal errors
+        }
+      }
       logger.error(`Sysbench command failed: ${error.message}`)
       throw new Error(`Sysbench command failed: ${error.message}`)
     }

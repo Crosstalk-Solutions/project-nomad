@@ -173,8 +173,13 @@ export default function BenchmarkPage(props: {
       refetchLatest()
       queryClient.invalidateQueries({ queryKey: ['benchmark', 'history'] })
     },
-    onError: (error: Error) => {
-      setSubmitError(error.message)
+    onError: (error: any) => {
+      // Check if this is a 409 Conflict error (already submitted)
+      if (error.status === 409) {
+        setSubmitError('A benchmark for this system with the same or higher score has already been submitted.')
+      } else {
+        setSubmitError(error.message)
+      }
     },
   })
 
