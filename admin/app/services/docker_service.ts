@@ -475,34 +475,16 @@ export class DockerService {
             ],
           }
         } else if (gpuResult.type === 'amd') {
-          // this._broadcast(
-          //   service.service_name,
-          //   'gpu-config',
-          //   `AMD GPU detected. Using ROCm image and configuring container with GPU support...`
-          // )
-
-          // // Use ROCm image for AMD
-          // finalImage = 'ollama/ollama:rocm'
-
-          // // Dynamically discover and add AMD GPU devices
-          // const amdDevices = await this._discoverAMDDevices()
-          // if (!amdDevices || amdDevices.length === 0) {
-          //   this._broadcast(
-          //     service.service_name,
-          //     'gpu-config-error',
-          //     `Failed to discover AMD GPU devices. Proceeding with CPU-only configuration...`
-          //   )
-          //   gpuHostConfig = { ...gpuHostConfig } // No GPU devices added
-          //   logger.warn(`[DockerService] No AMD GPU devices discovered for Ollama`)
-          // } else {
-          //   gpuHostConfig = {
-          //     ...gpuHostConfig,
-          //     Devices: amdDevices,
-          //   }
-          //   logger.info(
-          //     `[DockerService] Configured ${amdDevices.length} AMD GPU devices for Ollama`
-          //   )
-          // }
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `AMD GPU detected. ROCm GPU acceleration is not yet supported in this version — proceeding with CPU-only configuration. GPU support for AMD will be available in a future update.`
+          )
+          logger.warn('[DockerService] AMD GPU detected but ROCm support is not yet enabled. Using CPU-only configuration.')
+          // TODO: Re-enable AMD GPU support once ROCm image and device discovery are validated.
+          // When re-enabling:
+          //   1. Switch image to 'ollama/ollama:rocm'
+          //   2. Restore _discoverAMDDevices() to map /dev/kfd and /dev/dri/* into the container
         } else if (gpuResult.toolkitMissing) {
           this._broadcast(
             service.service_name,
@@ -732,10 +714,11 @@ export class DockerService {
         // lspci not available (likely inside Docker container), continue
       }
 
-      // Check for AMD GPU via lspci
+      // Check for AMD GPU via lspci — restrict to display controller classes to avoid
+      // false positives from AMD CPU host bridges, PCI bridges, and chipset devices.
       try {
         const { stdout: amdCheck } = await execAsync(
-          'lspci 2>/dev/null | grep -iE "amd|radeon" || true'
+          'lspci 2>/dev/null | grep -iE "VGA|3D controller|Display" | grep -iE "amd|radeon" || true'
         )
         if (amdCheck.trim()) {
           logger.info('[DockerService] AMD GPU detected via lspci')
