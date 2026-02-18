@@ -116,7 +116,7 @@
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.5",
     "stopword": "^3.1.5",
-    "systeminformation": "^5.27.14",
+    "systeminformation": "^5.30.8",
     "tailwindcss": "^4.1.10",
     "tar": "^7.5.9",
     "tesseract.js": "^7.0.0",
