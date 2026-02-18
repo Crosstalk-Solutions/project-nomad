@@ -23,7 +23,19 @@ export default function ChatSidebar({
   onClearHistory,
   isInModal = false,
 }: ChatSidebarProps) {
-  const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(false)
+  const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('knowledge_base') === 'true'
+  )
+
+  function handleCloseKnowledgeBase() {
+    setIsKnowledgeBaseModalOpen(false)
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('knowledge_base')) {
+      params.delete('knowledge_base')
+      const newUrl = [window.location.pathname, params.toString()].filter(Boolean).join('?')
+      window.history.replaceState(window.history.state, '', newUrl)
+    }
+  }
 
   return (
     <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col h-full">
@@ -127,7 +139,7 @@ export default function ChatSidebar({
         )}
       </div>
       {isKnowledgeBaseModalOpen && (
-        <KnowledgeBaseModal onClose={() => setIsKnowledgeBaseModalOpen(false)} />
+        <KnowledgeBaseModal onClose={handleCloseKnowledgeBase} />
       )}
     </div>
   )
