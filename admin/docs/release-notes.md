@@ -1,5 +1,17 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+
+### Bug Fixes
+- **AI Assistant**: Fixed an error from chat suggestions when no Ollama models are installed
+- **AI Assistant**: Improved discrete GPU detection logic
+- **UI**: Legacy links to /docs and /knowledge-base now gracefully redirect to the correct pages instead of showing 404 errors
+
+### Improvements
+- **AI Assistant**: Chat suggestions are now disabled by default to avoid overwhelming smaller hardware setups
+
 ## Version 1.25.1 - February 12, 2026
 
 ### Features
