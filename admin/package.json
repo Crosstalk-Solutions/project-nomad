@@ -96,7 +96,7 @@
     "cheerio": "^1.2.0",
     "dockerode": "^4.0.7",
     "edge.js": "^6.2.1",
-    "fast-xml-parser": "^5.2.5",
+    "fast-xml-parser": "^5.3.6",
     "fuse.js": "^7.1.0",
     "luxon": "^3.6.1",
     "maplibre-gl": "^4.7.1",
