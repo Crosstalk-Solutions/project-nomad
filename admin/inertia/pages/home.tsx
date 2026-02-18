@@ -136,11 +136,11 @@ export default function Home(props: {
           <div className='flex justify-center items-center p-4 w-full'>
             <Alert
               title="An update is available for Project N.O.M.A.D.!"
-              type="info"
+              type="info-inverted"
               variant="solid"
               className="w-full"
               buttonProps={{
-                variant: 'secondary',
+                variant: 'primary',
                 children: 'Go to Settings',
                 icon: 'IconSettings',
                 onClick: () => {

@@ -6,7 +6,7 @@ import StyledButton, { StyledButtonProps } from './StyledButton'
 export type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
   title: string
   message?: string
-  type: 'warning' | 'error' | 'success' | 'info'
+  type: 'warning' | 'error' | 'success' | 'info' | 'info-inverted'
   children?: React.ReactNode
   dismissible?: boolean
   onDismiss?: () => void
@@ -73,6 +73,8 @@ export default function Alert({
                 ? 'border-desert-olive'
                 : type === 'info'
                   ? 'border-desert-stone'
+                  : type === 'info-inverted'
+                    ? 'border-desert-tan'
                   : ''
         )
         return classNames(baseStyles, 'border-2 bg-desert-white shadow-md', ...variantStyles)
@@ -86,6 +88,8 @@ export default function Alert({
                 ? 'bg-desert-olive text-desert-white border border-desert-olive-dark'
                 : type === 'info'
                   ? 'bg-desert-green text-desert-white border border-desert-green-dark'
+                  : type === 'info-inverted'
+                    ? 'bg-desert-tan text-desert-white border border-desert-tan-dark'
                   : ''
         )
         return classNames(baseStyles, 'shadow-lg', ...variantStyles)
@@ -99,6 +103,8 @@ export default function Alert({
                 ? 'bg-desert-olive-lighter bg-opacity-20 border-desert-olive-light'
                 : type === 'info'
                   ? 'bg-desert-green bg-opacity-20 border-desert-green-light'
+                  : type === 'info-inverted'
+                  ? 'bg-desert-tan bg-opacity-20 border-desert-tan-light'
                   : ''
         )
         return classNames(baseStyles, 'border-l-4 border-y border-r shadow-sm', ...variantStyles)
@@ -117,6 +123,8 @@ export default function Alert({
         return 'text-desert-olive-dark'
       case 'info':
         return 'text-desert-stone-dark'
+      case 'info-inverted':
+        return 'text-desert-tan-dark'
       default:
         return 'text-desert-stone-dark'
     }
