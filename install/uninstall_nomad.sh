@@ -95,6 +95,23 @@ try_remove_disk_info_file() {
     fi
 }
 
+storage_cleanup() {
+  read -p "Do you want to delete the Project N.O.M.A.D. storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored Nomad data and can't be undone! (y/N): " delete_dir_choice
+  case "$delete_dir_choice" in
+      y|Y )
+          echo "Removing Project N.O.M.A.D. files..."
+          if rm -rf "${NOMAD_DIR}"; then
+              echo "Project N.O.M.A.D. files removed."
+          else
+              echo "Warning: Failed to fully remove ${NOMAD_DIR}. You may need to remove it manually."
+          fi
+          ;;
+      * )
+          echo "Skipping removal of ${NOMAD_DIR}."
+          ;;
+  esac
+}
+
 uninstall_nomad() {
     echo "Stopping and removing Project N.O.M.A.D. management containers..."
     docker compose -p project-nomad -f "${MANAGEMENT_COMPOSE_FILE}" down
@@ -124,8 +141,8 @@ uninstall_nomad() {
     # Try to remove the disk info file if it exists
     try_remove_disk_info_file
 
-    echo "Removing Project N.O.M.A.D. files..."
-    rm -rf "${NOMAD_DIR}"
+    # Prompt user for storage cleanup and handle it if so
+    storage_cleanup
 
     echo "Project N.O.M.A.D. has been uninstalled. We hope to see you again soon!"
 }
