@@ -110,6 +110,14 @@ uninstall_nomad() {
 
     echo "Containers should be stopped now."
 
+    # Remove the shared Docker network (may still exist if app containers were using it during compose down)
+    echo "Removing project-nomad_default network if it exists..."
+    docker network rm project-nomad_default 2>/dev/null && echo "Network removed." || echo "Network already removed or not found."
+
+    # Remove the shared update volume
+    echo "Removing project-nomad_nomad-update-shared volume if it exists..."
+    docker volume rm project-nomad_nomad-update-shared 2>/dev/null && echo "Volume removed." || echo "Volume already removed or not found."
+
     # Try to stop the collect-disk-info script if it's running
     try_remove_disk_info_script
 
