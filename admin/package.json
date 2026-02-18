@@ -118,7 +118,7 @@
     "stopword": "^3.1.5",
     "systeminformation": "^5.27.14",
     "tailwindcss": "^4.1.10",
-    "tar": "^7.5.6",
+    "tar": "^7.5.9",
     "tesseract.js": "^7.0.0",
     "url-join": "^5.0.0",
     "yaml": "^2.8.0"
