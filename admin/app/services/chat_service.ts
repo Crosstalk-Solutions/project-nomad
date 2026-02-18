@@ -32,7 +32,7 @@ export class ChatService {
   async getChatSuggestions() {
     try {
       const models = await this.ollamaService.getModels()
-      if (!models) {
+      if (!models || models.length === 0) {
         return [] // If no models are available, return empty suggestions
       }
 

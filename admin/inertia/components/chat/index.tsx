@@ -284,6 +284,7 @@ export default function Chat({
           onSendMessage={handleSendMessage}
           isLoading={chatMutation.isPending}
           chatSuggestions={chatSuggestions}
+          chatSuggestionsEnabled={suggestionsEnabled}
           chatSuggestionsLoading={chatSuggestionsLoading}
         />
       </div>

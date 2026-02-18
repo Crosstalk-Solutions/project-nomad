@@ -545,8 +545,8 @@ export class DockerService {
 
       // If Ollama was just installed, trigger Nomad docs discovery and embedding
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
-        logger.info('[DockerService] Ollama installation complete. Enabling chat suggestions by default.')
-        await KVStore.setValue('chat.suggestionsEnabled', "true")
+        logger.info('[DockerService] Ollama installation complete. Default behavior is to not enable chat suggestions.')
+        await KVStore.setValue('chat.suggestionsEnabled', "false")
 
         logger.info('[DockerService] Ollama installation complete. Triggering Nomad docs discovery...')
         

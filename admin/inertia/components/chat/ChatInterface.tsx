@@ -11,6 +11,7 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string) => void
   isLoading?: boolean
   chatSuggestions?: string[]
+  chatSuggestionsEnabled?: boolean
   chatSuggestionsLoading?: boolean
 }
 
@@ -19,6 +20,7 @@ export default function ChatInterface({
   onSendMessage,
   isLoading = false,
   chatSuggestions = [],
+  chatSuggestionsEnabled = false,
   chatSuggestionsLoading = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('')
@@ -69,7 +71,7 @@ export default function ChatInterface({
               <p className="text-gray-500 text-sm">
                 Interact with your installed language models directly in the Command Center.
               </p>
-              {chatSuggestions && chatSuggestions.length > 0 && !chatSuggestionsLoading && (
+              {chatSuggestionsEnabled && chatSuggestions && chatSuggestions.length > 0 && !chatSuggestionsLoading && (
                 <div className="mt-8">
                   <h4 className="text-sm font-medium text-gray-600 mb-2">Suggestions:</h4>
                   <div className="flex flex-col gap-2">
@@ -92,7 +94,12 @@ export default function ChatInterface({
                 </div>
               )}
               {/* Display bouncing dots while loading suggestions */}
-              {chatSuggestionsLoading && <BouncingDots text="Thinking" containerClassName="mt-8" />}
+              {chatSuggestionsEnabled && chatSuggestionsLoading && <BouncingDots text="Thinking" containerClassName="mt-8" />}
+              {!chatSuggestionsEnabled && (
+                <div className="mt-8 text-sm text-gray-500">
+                  Need some inspiration? Enable chat suggestions in settings to get started with example prompts.
+                </div>
+              )}
             </div>
           </div>
         ) : (
