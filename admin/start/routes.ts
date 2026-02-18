@@ -29,6 +29,7 @@ router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
 router.get('/chat', [ChatsController, 'inertia'])
 router.get('/maps', [MapsController, 'index'])
+router.on('/knowledge-base').redirectToPath('/chat?knowledge_base=true') // redirect for legacy knowledge-base links
 
 router.get('/easy-setup', [EasySetupController, 'index'])
 router.get('/easy-setup/complete', [EasySetupController, 'complete'])
@@ -59,11 +60,9 @@ router
 router
   .group(() => {
     router.get('/:slug', [DocsController, 'show'])
-    router.get('/', ({ inertia }) => {
-      return inertia.render('Docs/Index', {
-        title: 'Documentation',
-        content: 'Welcome to the documentation!',
-      })
+    router.get('/', ({ response }) => {
+      // redirect to /docs/home if accessing root
+      response.redirect('/docs/home')
     })
   })
   .prefix('/docs')
