@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.26.0 - February 19, 2026
 
 ### Features
 - **AI Assistant**: Added support for showing reasoning stream for models with thinking capabilities
