@@ -580,7 +580,22 @@ export default function SystemUpdatePage(props: {
               )}
             </div>
           </div>
-          <div className="bg-white rounded-lg border shadow-md overflow-hidden py-6 mt-6">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Alert
+              type="info"
+              title="Backup Reminder"
+              message="While updates are designed to be safe, it's always recommended to backup any critical data before proceeding."
+              variant="solid"
+            />
+            <Alert
+              type="warning"
+              title="Temporary Downtime"
+              message="Services will be briefly unavailable during the update process. This typically takes 2-5 minutes depending on your internet connection."
+              variant="solid"
+            />
+          </div>
+          <ContentUpdatesSection />
+          <div className="bg-white rounded-lg border shadow-md overflow-hidden py-6 mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
               <div>
                 <h2 className="max-w-xl text-lg font-bold text-desert-green sm:text-xl lg:col-span-7">
@@ -617,21 +632,6 @@ export default function SystemUpdatePage(props: {
               </div>
             </div>
           </div>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Alert
-              type="info"
-              title="Backup Reminder"
-              message="While updates are designed to be safe, it's always recommended to backup any critical data before proceeding."
-              variant="solid"
-            />
-            <Alert
-              type="warning"
-              title="Temporary Downtime"
-              message="Services will be briefly unavailable during the update process. This typically takes 2-5 minutes depending on your internet connection."
-              variant="solid"
-            />
-          </div>
-          <ContentUpdatesSection />
 
           {showLogs && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
