@@ -134,6 +134,30 @@ export class OllamaService {
     })
   }
 
+  public async chatStream(chatRequest: ChatRequest) {
+    await this._ensureDependencies()
+    if (!this.ollama) {
+      throw new Error('Ollama client is not initialized.')
+    }
+    return await this.ollama.chat({
+      ...chatRequest,
+      stream: true,
+    })
+  }
+
+  public async checkModelHasThinking(modelName: string): Promise<boolean> {
+    await this._ensureDependencies()
+    if (!this.ollama) {
+      throw new Error('Ollama client is not initialized.')
+    }
+
+    const modelInfo = await this.ollama.show({
+      model: modelName,
+    })
+
+    return modelInfo.capabilities.includes('thinking')
+  }
+
   public async deleteModel(modelName: string) {
     await this._ensureDependencies()
     if (!this.ollama) {

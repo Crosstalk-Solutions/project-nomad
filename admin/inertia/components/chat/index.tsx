@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
 import ChatInterface from './ChatInterface'
@@ -15,6 +15,7 @@ interface ChatProps {
   isInModal?: boolean
   onClose?: () => void
   suggestionsEnabled?: boolean
+  streamingEnabled?: boolean
 }
 
 export default function Chat({
@@ -22,12 +23,15 @@ export default function Chat({
   isInModal,
   onClose,
   suggestionsEnabled = false,
+  streamingEnabled = true,
 }: ChatProps) {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [isStreamingResponse, setIsStreamingResponse] = useState(false)
+  const streamAbortRef = useRef<AbortController | null>(null)
 
   // Fetch all sessions
   const { data: sessions = [] } = useQuery({
@@ -209,16 +213,117 @@ export default function Chat({
       // Save user message to backend
       await api.addChatMessage(sessionId, 'user', content)
 
-      // Send chat request using mutation
-      chatMutation.mutate({
-        model: selectedModel || 'llama3.2',
-        messages: [
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
-          { role: 'user', content },
-        ],
-      })
+      const chatMessages = [
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user' as const, content },
+      ]
+
+      if (streamingEnabled !== false) {
+        // Streaming path
+        const abortController = new AbortController()
+        streamAbortRef.current = abortController
+
+        setIsStreamingResponse(true)
+
+        const assistantMsgId = `msg-${Date.now()}-assistant`
+        let isFirstChunk = true
+        let fullContent = ''
+        let thinkingContent = ''
+        let isThinkingPhase = true
+
+        try {
+          await api.streamChatMessage(
+            { model: selectedModel || 'llama3.2', messages: chatMessages, stream: true },
+            (chunkContent, chunkThinking, done) => {
+              if (isFirstChunk) {
+                isFirstChunk = false
+                setIsStreamingResponse(false)
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: assistantMsgId,
+                    role: 'assistant',
+                    content: chunkContent,
+                    thinking: chunkThinking,
+                    timestamp: new Date(),
+                    isStreaming: true,
+                    isThinking: chunkThinking.length > 0 && chunkContent.length === 0,
+                  },
+                ])
+              } else {
+                if (isThinkingPhase && chunkContent.length > 0) {
+                  isThinkingPhase = false
+                }
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          content: m.content + chunkContent,
+                          thinking: (m.thinking ?? '') + chunkThinking,
+                          isStreaming: !done,
+                          isThinking: isThinkingPhase,
+                        }
+                      : m
+                  )
+                )
+              }
+              fullContent += chunkContent
+              thinkingContent += chunkThinking
+            },
+            abortController.signal
+          )
+        } catch (error: any) {
+          if (error?.name !== 'AbortError') {
+            setMessages((prev) => {
+              const hasAssistantMsg = prev.some((m) => m.id === assistantMsgId)
+              if (hasAssistantMsg) {
+                return prev.map((m) =>
+                  m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+                )
+              }
+              return [
+                ...prev,
+                {
+                  id: assistantMsgId,
+                  role: 'assistant',
+                  content: 'Sorry, there was an error processing your request. Please try again.',
+                  timestamp: new Date(),
+                },
+              ]
+            })
+          }
+        } finally {
+          setIsStreamingResponse(false)
+          streamAbortRef.current = null
+        }
+
+        if (fullContent && sessionId) {
+          // Ensure the streaming cursor is removed
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+            )
+          )
+
+          await api.addChatMessage(sessionId, 'assistant', fullContent)
+
+          const currentSession = sessions.find((s) => s.id === sessionId)
+          if (currentSession && currentSession.title === 'New Chat') {
+            const newTitle = content.slice(0, 50) + (content.length > 50 ? '...' : '')
+            await api.updateChatSession(sessionId, { title: newTitle })
+            queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+          }
+        }
+      } else {
+        // Non-streaming (legacy) path
+        chatMutation.mutate({
+          model: selectedModel || 'llama3.2',
+          messages: chatMessages,
+        })
+      }
     },
-    [activeSessionId, messages, selectedModel, chatMutation, queryClient]
+    [activeSessionId, messages, selectedModel, chatMutation, queryClient, streamingEnabled, sessions]
   )
 
   return (
@@ -282,7 +387,7 @@ export default function Chat({
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendMessage}
-          isLoading={chatMutation.isPending}
+          isLoading={isStreamingResponse || chatMutation.isPending}
           chatSuggestions={chatSuggestions}
           chatSuggestionsEnabled={suggestionsEnabled}
           chatSuggestionsLoading={chatSuggestionsLoading}

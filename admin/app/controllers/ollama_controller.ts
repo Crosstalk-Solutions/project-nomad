@@ -24,7 +24,7 @@ export default class OllamaController {
     })
   }
 
-  async chat({ request }: HttpContext) {
+  async chat({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(chatSchema)
 
     // If there are no system messages in the chat inject system prompts
@@ -73,7 +73,34 @@ export default class OllamaController {
       }
     }
 
-    return await this.ollamaService.chat(reqData)
+    // Check if the model supports "thinking" capability for enhanced response generation
+    // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
+    const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
+    const think: boolean | 'medium' = thinkingCapability ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+    
+    if (reqData.stream) {
+      logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
+      // SSE streaming path
+      response.response.setHeader('Content-Type', 'text/event-stream')
+      response.response.setHeader('Cache-Control', 'no-cache')
+      response.response.setHeader('Connection', 'keep-alive')
+      response.response.flushHeaders()
+
+      try {
+        const stream = await this.ollamaService.chatStream({ ...reqData, think })
+        for await (const chunk of stream) {
+          response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
+        }
+      } catch (error) {
+        response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
+      } finally {
+        response.response.end()
+      }
+      return
+    }
+
+    // Non-streaming (legacy) path
+    return await this.ollamaService.chat({ ...reqData, think })
   }
 
   async deleteModel({ request }: HttpContext) {

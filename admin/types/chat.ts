@@ -4,6 +4,8 @@ export interface ChatMessage {
   content: string
   timestamp: Date
   isStreaming?: boolean
+  thinking?: string
+  isThinking?: boolean
 }
 
 export interface ChatSession {
