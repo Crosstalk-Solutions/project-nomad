@@ -14,6 +14,7 @@ export type NomadOllamaModelTag = {
   context: string
   input: string
   cloud: boolean
+  thinking: boolean
 }
 
 export type NomadOllamaModelAPIResponse = {

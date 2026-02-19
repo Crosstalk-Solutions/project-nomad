@@ -1,5 +1,16 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **AI Assistant**: Added support for showing reasoning stream for models with thinking capabilities
+- **AI Assistant**: Added support for response streaming for improved UX
+
+### Bug Fixes
+
+### Improvements
+
+
 ## Version 1.25.2 - February 18, 2026
 
 ### Features

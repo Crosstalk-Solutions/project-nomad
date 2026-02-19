@@ -212,6 +212,57 @@ class API {
     })()
   }
 
+  async streamChatMessage(
+    chatRequest: OllamaChatRequest,
+    onChunk: (content: string, thinking: string, done: boolean) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    // Axios doesn't support ReadableStream in browser, so need to use fetch
+    const response = await fetch('/api/ollama/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...chatRequest, stream: true }),
+      signal,
+    })
+
+    if (!response.ok || !response.body) {
+      throw new Error(`HTTP error: ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let data: any
+          try {
+            data = JSON.parse(line.slice(6))
+          } catch { continue /* skip malformed chunks */ }
+
+          if (data.error) throw new Error('The model encountered an error. Please try again.')
+
+          onChunk(
+            data.message?.content ?? '',
+            data.message?.thinking ?? '',
+            data.done ?? false
+          )
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
   async getBenchmarkResults() {
     return catchInternal(async () => {
       const response = await this.client.get<{ results: BenchmarkResult[], total: number }>('/benchmark/results')
