@@ -18,7 +18,8 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
         size: '5.1 GB',
         context: '128k',
         input: 'Text',
-        cloud: false
+        cloud: false,
+        thinking: false
       },
     ],
   },
@@ -36,7 +37,8 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
         size: '1.1 GB',
         context: '128k',
         input: 'Text',
-        cloud: false
+        cloud: false,
+        thinking: true
       },
     ],
   },
@@ -53,7 +55,8 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
         size: '581 MB',
         context: '128k',
         input: 'Text',
-        cloud: false
+        cloud: false,
+        thinking: false
       },
     ],
   },
