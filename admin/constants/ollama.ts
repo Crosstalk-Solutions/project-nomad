@@ -62,6 +62,8 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
   },
 ]
 
+export const DEFAULT_QUERY_REWRITE_MODEL = 'qwen2.5:3b' // default to qwen2.5 for query rewriting with good balance of text task performance and resource usage
+
 export const SYSTEM_PROMPTS = {
   default: `
  Format all responses using markdown for better readability. Vanilla markdown or GitHub-flavored markdown is preferred.

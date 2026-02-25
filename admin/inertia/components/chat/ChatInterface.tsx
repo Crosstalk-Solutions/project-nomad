@@ -5,6 +5,10 @@ import { ChatMessage } from '../../../types/chat'
 import ChatMessageBubble from './ChatMessageBubble'
 import ChatAssistantAvatar from './ChatAssistantAvatar'
 import BouncingDots from '../BouncingDots'
+import StyledModal from '../StyledModal'
+import api from '~/lib/api'
+import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
+import { useNotifications } from '~/context/NotificationContext'
 
 interface ChatInterfaceProps {
   messages: ChatMessage[]
@@ -13,6 +17,7 @@ interface ChatInterfaceProps {
   chatSuggestions?: string[]
   chatSuggestionsEnabled?: boolean
   chatSuggestionsLoading?: boolean
+  rewriteModelAvailable?: boolean
 }
 
 export default function ChatInterface({
@@ -22,10 +27,27 @@ export default function ChatInterface({
   chatSuggestions = [],
   chatSuggestionsEnabled = false,
   chatSuggestionsLoading = false,
+  rewriteModelAvailable = false
 }: ChatInterfaceProps) {
+  const { addNotification } = useNotifications()
   const [input, setInput] = useState('')
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const handleDownloadModel = async () => {
+    setIsDownloading(true)
+    try {
+      await api.downloadModel(DEFAULT_QUERY_REWRITE_MODEL)
+      addNotification({ type: 'success', message: 'Model download queued' })
+    } catch (error) {
+      addNotification({ type: 'error', message: 'Failed to queue model download' })
+    } finally {
+      setIsDownloading(false)
+      setDownloadDialogOpen(false)
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -162,6 +184,36 @@ export default function ChatInterface({
             )}
           </button>
         </form>
+        {!rewriteModelAvailable && (
+          <div className="text-sm text-gray-500 mt-2">
+            The {DEFAULT_QUERY_REWRITE_MODEL} model is not installed. Consider{' '}
+            <button
+              onClick={() => setDownloadDialogOpen(true)}
+              className="text-desert-green underline hover:text-desert-green/80 cursor-pointer"
+            >
+              downloading it
+            </button>{' '}
+            for improved retrieval-augmented generation (RAG) performance.
+          </div>
+        )}
+        <StyledModal
+          open={downloadDialogOpen}
+          title={`Download ${DEFAULT_QUERY_REWRITE_MODEL}?`}
+          confirmText="Download"
+          cancelText="Cancel"
+          confirmIcon='IconDownload'
+          confirmVariant='primary'
+          confirmLoading={isDownloading}
+          onConfirm={handleDownloadModel}
+          onCancel={() => setDownloadDialogOpen(false)}
+          onClose={() => setDownloadDialogOpen(false)}
+        >
+          <p className="text-gray-700">
+            This will dispatch a background download job for{' '}
+            <span className="font-mono font-medium">{DEFAULT_QUERY_REWRITE_MODEL}</span> and may take some time to complete. The model
+            will be used to rewrite queries for improved RAG retrieval performance.
+          </p>
+        </StyledModal>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
 import ChatInterface from './ChatInterface'
@@ -9,6 +9,7 @@ import { useModals } from '~/context/ModalContext'
 import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconX } from '@tabler/icons-react'
+import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 
 interface ChatProps {
   enabled: boolean
@@ -67,6 +68,10 @@ export default function Chat({
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
+
+  const rewriteModelAvailable = useMemo(() => {
+    return installedModels.some(model => model.name === DEFAULT_QUERY_REWRITE_MODEL)
+  }, [installedModels])
 
   const deleteAllSessionsMutation = useMutation({
     mutationFn: () => api.deleteAllChatSessions(),
@@ -159,7 +164,7 @@ export default function Chat({
     async (sessionId: string) => {
       // Cancel any ongoing suggestions fetch
       queryClient.cancelQueries({ queryKey: ['chatSuggestions'] })
-      
+
       setActiveSessionId(sessionId)
       // Load messages for this session
       const sessionData = await api.getChatSession(sessionId)
@@ -230,11 +235,16 @@ export default function Chat({
         let fullContent = ''
         let thinkingContent = ''
         let isThinkingPhase = true
+        let thinkingStartTime: number | null = null
+        let thinkingDuration: number | null = null
 
         try {
           await api.streamChatMessage(
             { model: selectedModel || 'llama3.2', messages: chatMessages, stream: true },
             (chunkContent, chunkThinking, done) => {
+              if (chunkThinking.length > 0 && thinkingStartTime === null) {
+                thinkingStartTime = Date.now()
+              }
               if (isFirstChunk) {
                 isFirstChunk = false
                 setIsStreamingResponse(false)
@@ -248,22 +258,27 @@ export default function Chat({
                     timestamp: new Date(),
                     isStreaming: true,
                     isThinking: chunkThinking.length > 0 && chunkContent.length === 0,
+                    thinkingDuration: undefined,
                   },
                 ])
               } else {
                 if (isThinkingPhase && chunkContent.length > 0) {
                   isThinkingPhase = false
+                  if (thinkingStartTime !== null) {
+                    thinkingDuration = Math.max(1, Math.round((Date.now() - thinkingStartTime) / 1000))
+                  }
                 }
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
                       ? {
-                          ...m,
-                          content: m.content + chunkContent,
-                          thinking: (m.thinking ?? '') + chunkThinking,
-                          isStreaming: !done,
-                          isThinking: isThinkingPhase,
-                        }
+                        ...m,
+                        content: m.content + chunkContent,
+                        thinking: (m.thinking ?? '') + chunkThinking,
+                        isStreaming: !done,
+                        isThinking: isThinkingPhase,
+                        thinkingDuration: thinkingDuration ?? undefined,
+                      }
                       : m
                   )
                 )
@@ -391,6 +406,7 @@ export default function Chat({
           chatSuggestions={chatSuggestions}
           chatSuggestionsEnabled={suggestionsEnabled}
           chatSuggestionsLoading={chatSuggestionsLoading}
+          rewriteModelAvailable={rewriteModelAvailable}
         />
       </div>
     </div>
