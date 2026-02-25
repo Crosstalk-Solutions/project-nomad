@@ -1,5 +1,16 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **Settings**: Added pagination support for Ollama model list
+
+### Bug Fixes
+
+### Improvements
+- **AI Assistant**: Improved chat performance by optimizing query rewriting and response streaming logic
+- **CI/CD**: Updated release workflows to support release candidate versions
+
 ## Version 1.26.0 - February 19, 2026
 
 ### Features
