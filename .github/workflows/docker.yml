@@ -7,6 +7,11 @@ on:
         description: 'Semantic version to label the Docker image under'
         required: true
         type: string
+      tag_latest:
+        description: 'Also tag this image as :latest? (Keep false for RC and beta releases)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   check_authorization:
@@ -41,4 +46,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/crosstalk-solutions/project-nomad:${{ inputs.version }}
-            ghcr.io/crosstalk-solutions/project-nomad:latest
+            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad:latest' || '' }}
