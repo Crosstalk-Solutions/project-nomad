@@ -37,21 +37,29 @@ export default function ModelsPage(props: {
 
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
+  const [limit, setLimit] = useState(15)
 
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
   }, 300)
 
-  const { data: availableModels, isLoading } = useQuery({
-    queryKey: ['ollama', 'availableModels', query],
+  const { data: availableModelData, isFetching } = useQuery({
+    queryKey: ['ollama', 'availableModels', query, limit],
     queryFn: async () => {
-      const res = await api.getAvailableModels(query, false)
+      const res = await api.getAvailableModels({
+        query,
+        recommendedOnly: false,
+        limit,
+      })
       if (!res) {
-        return []
+        return {
+          models: [],
+          hasMore: false,
+        }
       }
       return res
     },
-    initialData: props.models.availableModels,
+    initialData: { models: props.models.availableModels, hasMore: false },
   })
 
   async function handleInstallModel(modelName: string) {
@@ -209,8 +217,8 @@ export default function ModelsPage(props: {
                 title: 'Last Updated',
               },
             ]}
-            data={availableModels || []}
-            loading={isLoading}
+            data={availableModelData?.models || []}
+            loading={isFetching}
             expandable={{
               expandedRowRender: (record) => (
                 <div className="pl-14">
@@ -283,6 +291,18 @@ export default function ModelsPage(props: {
               ),
             }}
           />
+          <div className="flex justify-center mt-6">
+            {availableModelData?.hasMore && (
+              <StyledButton
+                variant="primary"
+                onClick={() => {
+                  setLimit((prev) => prev + 15)
+                }}
+              >
+                Load More
+              </StyledButton>
+            )}
+          </div>
         </main>
       </div>
     </SettingsLayout>

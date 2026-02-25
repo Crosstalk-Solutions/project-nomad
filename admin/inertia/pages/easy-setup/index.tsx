@@ -152,7 +152,13 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const { data: recommendedModels, isLoading: isLoadingRecommendedModels } = useQuery({
     queryKey: ['recommended-ollama-models'],
-    queryFn: () => api.getAvailableModels(null, true),
+    queryFn: async () => {
+      const res = await api.getAvailableModels({ recommendedOnly: true })
+      if (!res) {
+        return []
+      }
+      return res.models
+    },
     refetchOnWindowFocus: false,
   })
 
@@ -736,7 +742,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               className={classNames(
                 'relative',
                 selectedMapCollections.includes(collection.slug) &&
-                  'ring-4 ring-desert-green rounded-lg',
+                'ring-4 ring-desert-green rounded-lg',
                 collection.all_installed && 'opacity-75',
                 !isOnline && 'opacity-50 cursor-not-allowed'
               )}
@@ -760,7 +766,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
 
   const renderStep3 = () => {
     // Check if AI or Information capabilities are selected OR already installed
-    const isAiSelected = selectedServices.includes(SERVICE_NAMES.OLLAMA) || 
+    const isAiSelected = selectedServices.includes(SERVICE_NAMES.OLLAMA) ||
       installedServices.some((s) => s.service_name === SERVICE_NAMES.OLLAMA)
     const isInformationSelected = selectedServices.includes(SERVICE_NAMES.KIWIX) ||
       installedServices.some((s) => s.service_name === SERVICE_NAMES.KIWIX)

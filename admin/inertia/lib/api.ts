@@ -196,10 +196,13 @@ class API {
     })()
   }
 
-  async getAvailableModels(query: string | null, recommendedOnly: boolean): Promise<NomadOllamaModel[] | undefined> {
+  async getAvailableModels(params: { query?: string; recommendedOnly?: boolean; limit?: number }) {
     return catchInternal(async () => {
-      const response = await this.client.get<NomadOllamaModel[]>('/ollama/models', {
-        params: { sort: 'pulls', recommendedOnly, query },
+      const response = await this.client.get<{
+        models: NomadOllamaModel[]
+        hasMore: boolean
+      }>('/ollama/models', {
+        params: { sort: 'pulls', ...params },
       })
       return response.data
     })()
@@ -506,7 +509,7 @@ class API {
       // For 409 Conflict errors, throw a specific error that the UI can handle
       if (error.response?.status === 409) {
         const err = new Error(error.response?.data?.error || 'This benchmark has already been submitted to the repository')
-        ;(err as any).status = 409
+          ; (err as any).status = 409
         throw err
       }
       // For other errors, extract the message and throw
