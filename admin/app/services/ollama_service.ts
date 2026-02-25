@@ -183,12 +183,13 @@ export class OllamaService {
   }
 
   async getAvailableModels(
-    { sort, recommendedOnly, query }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null } = {
+    { sort, recommendedOnly, query, limit }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null, limit?: number } = {
       sort: 'pulls',
       recommendedOnly: false,
       query: null,
+      limit: 15,
     }
-  ): Promise<NomadOllamaModel[] | null> {
+  ): Promise<{ models: NomadOllamaModel[], hasMore: boolean } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort)
       if (!models) {
@@ -196,12 +197,18 @@ export class OllamaService {
         logger.warn(
           '[OllamaService] Returning fallback recommended models due to failure in fetching available models'
         )
-        return FALLBACK_RECOMMENDED_OLLAMA_MODELS
+        return {
+          models: FALLBACK_RECOMMENDED_OLLAMA_MODELS,
+          hasMore: false
+        }
       }
 
       if (!recommendedOnly) {
         const filteredModels = query ? this.fuseSearchModels(models, query) : models
-        return filteredModels
+        return {
+          models: filteredModels.slice(0, limit || 15),
+          hasMore: filteredModels.length > (limit || 15)
+        }
       }
 
       // If recommendedOnly is true, only return the first three models (if sorted by pulls, these will be the top 3)
@@ -217,10 +224,17 @@ export class OllamaService {
       })
 
       if (query) {
-        return this.fuseSearchModels(recommendedModels, query)
+        const filteredRecommendedModels = this.fuseSearchModels(recommendedModels, query)
+        return {
+          models: filteredRecommendedModels,
+          hasMore: filteredRecommendedModels.length > (limit || 15)
+        }
       }
 
-      return recommendedModels
+      return {
+        models: recommendedModels,
+        hasMore: recommendedModels.length > (limit || 15)
+      }
     } catch (error) {
       logger.error(
         `[OllamaService] Failed to get available models: ${error instanceof Error ? error.message : error}`
@@ -253,7 +267,7 @@ export class OllamaService {
       }
 
       const rawModels = response.data.models as NomadOllamaModel[]
-      
+
       // Filter out tags where cloud is truthy, then remove models with no remaining tags
       const noCloud = rawModels
         .map((model) => ({

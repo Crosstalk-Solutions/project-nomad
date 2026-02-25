@@ -18,5 +18,6 @@ export const getAvailableModelsSchema = vine.compile(
     sort: vine.enum(['pulls', 'name'] as const).optional(),
     recommendedOnly: vine.boolean().optional(),
     query: vine.string().trim().optional(),
+    limit: vine.number().positive().optional(),
   })
 )
