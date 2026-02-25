@@ -6,6 +6,7 @@ export interface ChatMessage {
   isStreaming?: boolean
   thinking?: string
   isThinking?: boolean
+  thinkingDuration?: number
 }
 
 export interface ChatSession {
