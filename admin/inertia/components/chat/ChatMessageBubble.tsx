@@ -29,7 +29,9 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       {!message.isThinking && message.thinking && (
         <details className="mb-3 rounded border border-gray-200 bg-gray-50 text-xs">
           <summary className="cursor-pointer px-3 py-2 font-medium text-gray-500 hover:text-gray-700 select-none">
-            Reasoning
+            {message.thinkingDuration !== undefined
+              ? `Thought for ${message.thinkingDuration}s`
+              : 'Reasoning'}
           </summary>
           <div className="px-3 pb-3 prose prose-xs max-w-none text-gray-600 max-h-48 overflow-y-auto border-t border-gray-200 pt-2">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.thinking}</ReactMarkdown>
