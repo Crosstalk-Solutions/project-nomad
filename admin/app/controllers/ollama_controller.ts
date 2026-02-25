@@ -21,6 +21,7 @@ export default class OllamaController {
       sort: reqData.sort,
       recommendedOnly: reqData.recommendedOnly,
       query: reqData.query || null,
+      limit: reqData.limit || 15,
     })
   }
 
