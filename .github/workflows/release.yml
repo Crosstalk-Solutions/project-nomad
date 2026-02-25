@@ -37,7 +37,10 @@ jobs:
           GIT_COMMITTER_EMAIL: dev@cosmistack.com
 
       - name: Finalize release notes
-        if: steps.semver.outputs.new_release_published == 'true'
+        # Skip for pre-releases (versions containing a hyphen, e.g. 1.27.0-rc.1)
+        if: |
+          steps.semver.outputs.new_release_published == 'true' &&
+          !contains(steps.semver.outputs.new_release_version, '-')
         id: finalize-notes
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -55,17 +58,23 @@ jobs:
           fi
 
       - name: Commit finalized release notes
-        if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
+        if: |
+          steps.semver.outputs.new_release_published == 'true' &&
+          steps.finalize-notes.outputs.has_notes == 'true' &&
+          !contains(steps.semver.outputs.new_release_version, '-')
         run: |
           git config user.name "cosmistack-bot"
           git config user.email "dev@cosmistack.com"
           git remote set-url origin https://x-access-token:${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
           git add admin/docs/release-notes.md
           git commit -m "docs(release): finalize v${{ steps.semver.outputs.new_release_version }} release notes [skip ci]"
-          git push origin master
+          git push origin ${{ github.ref_name }}
 
       - name: Update GitHub release body
-        if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
+        if: |
+          steps.semver.outputs.new_release_published == 'true' &&
+          steps.finalize-notes.outputs.has_notes == 'true' &&
+          !contains(steps.semver.outputs.new_release_version, '-')
         env:
           GH_TOKEN: ${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}
         run: |
