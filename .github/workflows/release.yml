@@ -42,7 +42,7 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          git pull origin master
+          git pull origin main
           chmod +x .github/scripts/finalize-release-notes.sh
           EXIT_CODE=0
           .github/scripts/finalize-release-notes.sh \
@@ -62,7 +62,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
           git add admin/docs/release-notes.md
           git commit -m "docs(release): finalize v${{ steps.semver.outputs.new_release_version }} release notes [skip ci]"
-          git push origin master
+          git push origin main
 
       - name: Update GitHub release body
         if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
