@@ -12,23 +12,21 @@ export default function LegalPage() {
           {/* License Agreement */}
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">License Agreement</h2>
-            <p className="text-gray-700 mb-3">Copyright 2025 Crosstalk Solutions, LLC</p>
+            <p className="text-gray-700 mb-3">Copyright 2024-2026 Crosstalk Solutions, LLC</p>
             <p className="text-gray-700 mb-3">
-              Permission is hereby granted, free of charge, to any person obtaining a copy of this
-              software and associated documentation files (the &quot;Software&quot;), to deal in the Software
-              without restriction, including without limitation the rights to use, copy, modify,
-              merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-              permit persons to whom the Software is furnished to do so, subject to the following
-              conditions: The above copyright notice and this permission notice shall be included in
-              all copies or substantial portions of the Software.
+              Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+              you may not use this file except in compliance with the License.
+              You may obtain a copy of the License at
+            </p>
+            <p className="text-gray-700 mb-3">
+              <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://www.apache.org/licenses/LICENSE-2.0</a>
             </p>
             <p className="text-gray-700">
-              THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-              INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-              PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-              LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
-              OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-              OTHER DEALINGS IN THE SOFTWARE.
+              Unless required by applicable law or agreed to in writing, software
+              distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+              See the License for the specific language governing permissions and
+              limitations under the License.
             </p>
           </section>
 
@@ -64,6 +62,11 @@ export default function LegalPage() {
                 <strong>FlatNotes</strong> - Self-hosted note-taking application (MIT License)
                 <br />
                 <a href="https://github.com/dullage/flatnotes" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://github.com/dullage/flatnotes</a>
+              </li>
+              <li>
+                <strong>Qdrant</strong> - Vector search engine for AI knowledge base (Apache 2.0 License)
+                <br />
+                <a href="https://github.com/qdrant/qdrant" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://github.com/qdrant/qdrant</a>
               </li>
             </ul>
           </section>
