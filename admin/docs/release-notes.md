@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.27.0 - March 4, 2026
 
 ### Features
 - **Settings**: Added pagination support for Ollama model list
