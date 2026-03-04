@@ -178,7 +178,8 @@ export class RagService {
 
   public async embedAndStoreText(
     text: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    onProgress?: (percent: number) => Promise<void>
   ): Promise<{ chunks: number } | null> {
     try {
       await this._ensureCollection(
@@ -253,6 +254,10 @@ export class RagService {
         })
 
         embeddings.push(response.embedding)
+
+        if (onProgress) {
+          await onProgress(((i + 1) / chunks.length) * 100)
+        }
       }
 
       const timestamp = Date.now()
@@ -388,7 +393,8 @@ export class RagService {
   private async processZIMFile(
     filepath: string,
     deleteAfterEmbedding: boolean,
-    batchOffset?: number
+    batchOffset?: number,
+    onProgress?: (percent: number) => Promise<void>
   ): Promise<{
     success: boolean
     message: string
@@ -417,7 +423,8 @@ export class RagService {
 
     // Process each chunk individually with its metadata
     let totalChunks = 0
-    for (const zimChunk of zimChunks) {
+    for (let i = 0; i < zimChunks.length; i++) {
+      const zimChunk = zimChunks[i]
       const result = await this.embedAndStoreText(zimChunk.text, {
         source: filepath,
         content_type: 'zim_article',
@@ -449,6 +456,10 @@ export class RagService {
 
       if (result) {
         totalChunks += result.chunks
+      }
+
+      if (onProgress) {
+        await onProgress(((i + 1) / zimChunks.length) * 100)
       }
     }
 
@@ -490,7 +501,8 @@ export class RagService {
   private async embedTextAndCleanup(
     extractedText: string,
     filepath: string,
-    deleteAfterEmbedding: boolean = false
+    deleteAfterEmbedding: boolean = false,
+    onProgress?: (percent: number) => Promise<void>
   ): Promise<{ success: boolean; message: string; chunks?: number }> {
     if (!extractedText || extractedText.trim().length === 0) {
       return { success: false, message: 'Process completed succesfully, but no text was found to embed.' }
@@ -498,7 +510,7 @@ export class RagService {
 
     const embedResult = await this.embedAndStoreText(extractedText, {
       source: filepath
-    })
+    }, onProgress)
 
     if (!embedResult) {
       return { success: false, message: 'Failed to embed and store the extracted text.' }
@@ -526,7 +538,8 @@ export class RagService {
   public async processAndEmbedFile(
     filepath: string,
     deleteAfterEmbedding: boolean = false,
-    batchOffset?: number
+    batchOffset?: number,
+    onProgress?: (percent: number) => Promise<void>
   ): Promise<{
     success: boolean
     message: string
@@ -552,10 +565,12 @@ export class RagService {
       // Process based on file type
       // ZIM files are handled specially since they have their own embedding workflow
       if (fileType === 'zim') {
-        return await this.processZIMFile(filepath, deleteAfterEmbedding, batchOffset)
+        return await this.processZIMFile(filepath, deleteAfterEmbedding, batchOffset, onProgress)
       }
 
       // Extract text based on file type
+      // Report ~10% when extraction begins; actual embedding progress follows via callback
+      if (onProgress) await onProgress(10)
       let extractedText: string
       switch (fileType) {
         case 'image':
@@ -570,8 +585,14 @@ export class RagService {
           break
       }
 
+      // Extraction done — scale remaining embedding progress from 15% to 100%
+      if (onProgress) await onProgress(15)
+      const scaledProgress = onProgress
+        ? (p: number) => onProgress(15 + p * 0.85)
+        : undefined
+
       // Embed extracted text and cleanup
-      return await this.embedTextAndCleanup(extractedText, filepath, deleteAfterEmbedding)
+      return await this.embedTextAndCleanup(extractedText, filepath, deleteAfterEmbedding, scaledProgress)
     } catch (error) {
       logger.error('[RAG] Error processing and embedding file:', error)
       return { success: false, message: 'Error processing and embedding file.' }
