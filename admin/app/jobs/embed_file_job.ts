@@ -1,5 +1,6 @@
 import { Job } from 'bullmq'
 import { QueueService } from '#services/queue_service'
+import { EmbedJobWithProgress } from '../../types/rag.js'
 import { RagService } from '#services/rag_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
@@ -57,7 +58,7 @@ export class EmbedFileJob {
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
       // Update progress starting
-      await job.updateProgress(0)
+      await job.updateProgress(5)
       await job.updateData({
         ...job.data,
         status: 'processing',
@@ -66,13 +67,19 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Processing file: ${filePath}`)
 
+      // Progress callback: maps service-reported 0-100% into the 5-95% job range
+      const onProgress = async (percent: number) => {
+        await job.updateProgress(Math.min(95, Math.round(5 + percent * 0.9)))
+      }
+
       // Process and embed the file
       // Only allow deletion if explicitly marked as final batch
       const allowDeletion = job.data.isFinalBatch === true
       const result = await ragService.processAndEmbedFile(
         filePath,
         allowDeletion,
-        batchOffset
+        batchOffset,
+        onProgress
       )
 
       if (!result.success) {
@@ -154,6 +161,20 @@ export class EmbedFileJob {
 
       throw error
     }
+  }
+
+  static async listActiveJobs(): Promise<EmbedJobWithProgress[]> {
+    const queueService = new QueueService()
+    const queue = queueService.getQueue(this.queue)
+    const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
+
+    return jobs.map((job) => ({
+      jobId: job.id!.toString(),
+      fileName: (job.data as EmbedFileJobParams).fileName,
+      filePath: (job.data as EmbedFileJobParams).filePath,
+      progress: typeof job.progress === 'number' ? job.progress : 0,
+      status: ((job.data as any).status as string) ?? 'waiting',
+    }))
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {

@@ -4,6 +4,7 @@ import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
+import { EmbedJobWithProgress } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -360,6 +361,13 @@ class API {
         content: string
         timestamp: string
       }>(`/chat/sessions/${sessionId}/messages`, { role, content })
+      return response.data
+    })()
+  }
+
+  async getActiveEmbedJobs(): Promise<EmbedJobWithProgress[] | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<EmbedJobWithProgress[]>('/rag/active-jobs')
       return response.data
     })()
   }

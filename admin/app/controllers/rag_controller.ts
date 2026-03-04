@@ -42,6 +42,11 @@ export default class RagController {
     })
   }
 
+  public async getActiveJobs({ response }: HttpContext) {
+    const jobs = await EmbedFileJob.listActiveJobs()
+    return response.status(200).json(jobs)
+  }
+
   public async getJobStatus({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(getJobStatusSchema)
 

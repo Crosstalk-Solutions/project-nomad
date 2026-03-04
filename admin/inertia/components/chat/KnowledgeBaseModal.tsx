@@ -9,6 +9,7 @@ import api from '~/lib/api'
 import { IconX } from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
+import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -185,6 +186,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               </div>
             </div>
           </div>
+          <div className="my-8">
+            <ActiveEmbedJobs withHeader={true} />
+          </div>
+
           <div className="my-12">
             <div className='flex items-center justify-between mb-6'>
               <StyledSectionHeader title="Stored Knowledge Base Files" className='!mb-0' />
