@@ -11,8 +11,17 @@ import { SystemUpdateStatus } from '../../../types/system'
 import type { ContentUpdateCheckResult, ResourceUpdateInfo } from '../../../types/collections'
 import api from '~/lib/api'
 import Input from '~/components/inputs/Input'
+import Switch from '~/components/inputs/Switch'
 import { useMutation } from '@tanstack/react-query'
 import { useNotifications } from '~/context/NotificationContext'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
+
+type Props = {
+  updateAvailable: boolean
+  latestVersion: string
+  currentVersion: string
+  earlyAccess: boolean
+}
 
 function ContentUpdatesSection() {
   const { addNotification } = useNotifications()
@@ -99,7 +108,7 @@ function ContentUpdatesSection() {
       <StyledSectionHeader title="Content Updates" />
 
       <div className="bg-white rounded-lg border shadow-md overflow-hidden p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <p className="text-desert-stone-dark">
             Check if newer versions of your installed ZIM files and maps are available.
           </p>
@@ -119,7 +128,7 @@ function ContentUpdatesSection() {
             title="Update Check Issue"
             message={checkResult.error}
             variant="bordered"
-            className="mb-4"
+            className="my-4"
           />
         )}
 
@@ -129,7 +138,7 @@ function ContentUpdatesSection() {
             title="All Content Up to Date"
             message="All your installed content is running the latest available version."
             variant="bordered"
-            className="mb-4"
+            className="my-4"
           />
         )}
 
@@ -164,11 +173,10 @@ function ContentUpdatesSection() {
                   title: 'Type',
                   render: (record) => (
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        record.resource_type === 'zim'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${record.resource_type === 'zim'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                        }`}
                     >
                       {record.resource_type === 'zim' ? 'ZIM' : 'Map'}
                     </span>
@@ -215,13 +223,7 @@ function ContentUpdatesSection() {
   )
 }
 
-export default function SystemUpdatePage(props: {
-  system: {
-    updateAvailable: boolean
-    latestVersion: string
-    currentVersion: string
-  }
-}) {
+export default function SystemUpdatePage(props: { system: Props }) {
   const { addNotification } = useNotifications()
 
   const [isUpdating, setIsUpdating] = useState(false)
@@ -230,8 +232,15 @@ export default function SystemUpdatePage(props: {
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<string>('')
   const [email, setEmail] = useState('')
-  const [versionInfo, setVersionInfo] = useState(props.system)
+  const [versionInfo, setVersionInfo] = useState<Omit<Props, 'earlyAccess'>>(props.system)
   const [showConnectionLostNotice, setShowConnectionLostNotice] = useState(false)
+
+  const earlyAccessSetting = useSystemSetting({
+    key: 'system.earlyAccess', initialData: {
+      key: 'system.earlyAccess',
+      value: props.system.earlyAccess,
+    }
+  })
 
   useEffect(() => {
     if (!isUpdating) return
@@ -243,7 +252,7 @@ export default function SystemUpdatePage(props: {
           throw new Error('Failed to fetch update status')
         }
         setUpdateStatus(response)
-        
+
         // If we can connect again, hide the connection lost notice
         setShowConnectionLostNotice(false)
 
@@ -362,6 +371,20 @@ export default function SystemUpdatePage(props: {
       return <IconArrowBigUpLines className="h-16 w-16 text-desert-green" />
     return <IconCircleCheck className="h-16 w-16 text-desert-olive" />
   }
+
+  const updateSettingMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: boolean }) => {
+      return await api.updateSetting(key, value)
+    },
+    onSuccess: () => {
+      addNotification({ message: 'Setting updated successfully.', type: 'success' })
+      earlyAccessSetting.refetch()
+    },
+    onError: (error) => {
+      console.error('Error updating setting:', error)
+      addNotification({ message: 'There was an error updating the setting. Please try again.', type: 'error' })
+    },
+  })
 
   const subscribeToReleaseNotesMutation = useMutation({
     mutationKey: ['subscribeToReleaseNotes'],
@@ -594,6 +617,18 @@ export default function SystemUpdatePage(props: {
               variant="solid"
             />
           </div>
+          <StyledSectionHeader title="Early Access" className="mt-8" />
+          <div className="bg-white rounded-lg border shadow-md overflow-hidden mt-6 p-6">
+            <Switch
+              checked={earlyAccessSetting.data?.value || false}
+              onChange={(newVal) => {
+                updateSettingMutation.mutate({ key: 'system.earlyAccess', value: newVal })
+              }}
+              disabled={updateSettingMutation.isPending}
+              label="Enable Early Access"
+              description="Receive release candidate (RC) versions before they are officially released. Note: RC versions may contain bugs and are not recommended for environments where stability and data integrity are critical."
+            />
+          </div>
           <ContentUpdatesSection />
           <div className="bg-white rounded-lg border shadow-md overflow-hidden py-6 mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
@@ -666,7 +701,7 @@ export default function SystemUpdatePage(props: {
             </div>
           )}
         </main>
-      </div>
-    </SettingsLayout>
+      </div >
+    </SettingsLayout >
   )
 }
