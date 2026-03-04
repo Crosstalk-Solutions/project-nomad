@@ -6,7 +6,7 @@ import { SystemService } from '#services/system_service';
 import { updateSettingSchema } from '#validators/settings';
 import { inject } from '@adonisjs/core';
 import type { HttpContext } from '@adonisjs/core/http'
-import { parseBoolean } from '../utils/misc.js';
+import type { KVStoreKey } from '../../types/kv_store.js';
 
 @inject()
 export default class SettingsController {
@@ -59,7 +59,7 @@ export default class SettingsController {
                 availableModels: availableModels?.models || [],
                 installedModels: installedModels || [],
                 settings: {
-                    chatSuggestionsEnabled: parseBoolean(chatSuggestionsEnabled)
+                    chatSuggestionsEnabled: chatSuggestionsEnabled ?? false
                 }
             }
         });
@@ -98,7 +98,7 @@ export default class SettingsController {
 
     async getSetting({ request, response }: HttpContext) {
         const key = request.qs().key;
-        const value = await KVStore.getValue(key);
+        const value = await KVStore.getValue(key as KVStoreKey);
         return response.status(200).send({ key, value });
     }
 

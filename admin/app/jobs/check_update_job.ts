@@ -28,7 +28,7 @@ export class CheckUpdateJob {
           `[CheckUpdateJob] Update available: ${result.currentVersion} → ${result.latestVersion}`
         )
       } else {
-        await KVStore.setValue('system.updateAvailable', "false")
+        await KVStore.setValue('system.updateAvailable', false)
         logger.info(
           `[CheckUpdateJob] System is up to date (${result.currentVersion})`
         )

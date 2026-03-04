@@ -2,7 +2,6 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { ChatService } from '#services/chat_service'
 import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#validators/chat'
-import { parseBoolean } from '../utils/misc.js'
 import KVStore from '#models/kv_store'
 import { SystemService } from '#services/system_service'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
@@ -20,7 +19,7 @@ export default class ChatsController {
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     return inertia.render('chat', {
       settings: {
-        chatSuggestionsEnabled: parseBoolean(chatSuggestionsEnabled),
+        chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
       },
     })
   }

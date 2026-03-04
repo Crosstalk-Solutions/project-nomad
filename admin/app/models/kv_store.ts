@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
-import type { KVStoreKey, KVStoreValue } from '../../types/kv_store.js'
+import { KV_STORE_SCHEMA, type KVStoreKey, type KVStoreValue } from '../../types/kv_store.js'
+import { parseBoolean } from '../utils/misc.js'
 
 /**
  * Generic key-value store model for storing various settings
@@ -17,7 +18,7 @@ export default class KVStore extends BaseModel {
   declare key: KVStoreKey
 
   @column()
-  declare value: KVStoreValue
+  declare value: string | null
 
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
@@ -26,26 +27,25 @@ export default class KVStore extends BaseModel {
   declare updated_at: DateTime
 
   /**
-   * Get a setting value by key
+   * Get a setting value by key, automatically deserializing to the correct type.
    */
-  static async getValue(key: KVStoreKey): Promise<KVStoreValue> {
+  static async getValue<K extends KVStoreKey>(key: K): Promise<KVStoreValue<K> | null> {
     const setting = await this.findBy('key', key)
     if (!setting || setting.value === undefined || setting.value === null) {
       return null
     }
-    if (typeof setting.value === 'string') {
-      return setting.value
-    }
-    return String(setting.value)
+    const raw = String(setting.value)
+    return (KV_STORE_SCHEMA[key] === 'boolean' ? parseBoolean(raw) : raw) as KVStoreValue<K>
   }
 
   /**
-   * Set a setting value by key (creates if not exists)
+   * Set a setting value by key (creates if not exists), automatically serializing to string.
    */
-  static async setValue(key: KVStoreKey, value: KVStoreValue): Promise<KVStore> {
-    const setting = await this.firstOrCreate({ key }, { key, value })
-    if (setting.value !== value) {
-      setting.value = value
+  static async setValue<K extends KVStoreKey>(key: K, value: KVStoreValue<K>): Promise<KVStore> {
+    const serialized = String(value)
+    const setting = await this.firstOrCreate({ key }, { key, value: serialized })
+    if (setting.value !== serialized) {
+      setting.value = serialized
       await setting.save()
     }
     return setting
