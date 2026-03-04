@@ -37,7 +37,7 @@ SIDECAR_UPDATER_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solution
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
-WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/main/wait-for-it.sh"
+WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
 COLLECT_DISK_INFO_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/collect_disk_info.sh"
 
 script_option_debug='true'
@@ -329,17 +329,12 @@ setup_nvidia_container_toolkit() {
 }
 
 get_install_confirmation(){
-  read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/n): " choice
+  read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/N): " choice
   case "$choice" in
     y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the installation."
       ;;
-    n|N )
-      echo -e "${RED}#${RESET} User chose not to continue with the installation."
-      exit 0
-      ;;
     * )
-      echo "Invalid Response"
       echo "User chose not to continue with the installation."
       exit 0
       ;;
@@ -351,25 +346,16 @@ accept_terms() {
   echo "License Agreement & Terms of Use"
   echo "__________________________"
   printf "\n\n"
-  echo "Copyright 2025 Crosstalk Solutions, LLC"
+  echo "Project N.O.M.A.D. is licensed under the Apache License 2.0. The full license can be found at https://www.apache.org/licenses/LICENSE-2.0 or in the LICENSE file of this repository."
   printf "\n"
-  echo "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:"
-  printf "\n"
-  echo "The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
-  printf "\n"
-  echo "THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+  echo "By accepting this agreement, you acknowledge that you have read and understood the terms and conditions of the Apache License 2.0 and agree to be bound by them while using Project N.O.M.A.D."
   echo -e "\n\n"
-  read -p "I have read and accept License Agreement & Terms of Use (y/n)? " choice
+  read -p "I have read and accept License Agreement & Terms of Use (y/N)? " choice
   case "$choice" in
     y|Y )
       accepted_terms='true'
       ;;
-    n|N )
-      echo "License Agreement & Terms of Use not accepted. Installation cannot continue."
-      exit 1
-      ;;
     * )
-      echo "Invalid Response"
       echo "License Agreement & Terms of Use not accepted. Installation cannot continue."
       exit 1
       ;;
