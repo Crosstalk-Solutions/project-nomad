@@ -1,6 +1,6 @@
 import classNames from '~/lib/classNames'
 import StyledButton from '../StyledButton'
-import { router } from '@inertiajs/react'
+import { router, usePage } from '@inertiajs/react'
 import { ChatSession } from '../../../types/chat'
 import { IconMessage } from '@tabler/icons-react'
 import { useState } from 'react'
@@ -23,6 +23,7 @@ export default function ChatSidebar({
   onClearHistory,
   isInModal = false,
 }: ChatSidebarProps) {
+  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(
     () => new URLSearchParams(window.location.search).get('knowledge_base') === 'true'
   )
@@ -139,7 +140,7 @@ export default function ChatSidebar({
         )}
       </div>
       {isKnowledgeBaseModalOpen && (
-        <KnowledgeBaseModal onClose={handleCloseKnowledgeBase} />
+        <KnowledgeBaseModal aiAssistantName={aiAssistantName} onClose={handleCloseKnowledgeBase} />
       )}
     </div>
   )

@@ -54,12 +54,14 @@ export default class SettingsController {
         const availableModels = await this.ollamaService.getAvailableModels({ sort: 'pulls', recommendedOnly: false, query: null, limit: 15 });
         const installedModels = await this.ollamaService.getModels();
         const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
+        const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
         return inertia.render('settings/models', {
             models: {
                 availableModels: availableModels?.models || [],
                 installedModels: installedModels || [],
                 settings: {
-                    chatSuggestionsEnabled: chatSuggestionsEnabled ?? false
+                    chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
+                    aiAssistantCustomName: aiAssistantCustomName ?? '',
                 }
             }
         });

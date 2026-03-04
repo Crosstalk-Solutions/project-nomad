@@ -1,11 +1,12 @@
 
 export const KV_STORE_SCHEMA = {
-  'chat.suggestionsEnabled': 'boolean',
-  'rag.docsEmbedded':        'boolean',
-  'system.updateAvailable':  'boolean',
-  'system.latestVersion':    'string',
-  'system.earlyAccess':     'boolean',
-  'ui.hasVisitedEasySetup':  'boolean',
+  'chat.suggestionsEnabled':    'boolean',
+  'rag.docsEmbedded':           'boolean',
+  'system.updateAvailable':     'boolean',
+  'system.latestVersion':       'string',
+  'system.earlyAccess':         'boolean',
+  'ui.hasVisitedEasySetup':     'boolean',
+  'ai.assistantCustomName':     'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

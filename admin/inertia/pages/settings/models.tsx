@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react'
+import { Head, router, usePage } from '@inertiajs/react'
 import { useState } from 'react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
@@ -24,15 +24,19 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: ModelResponse[]
-    settings: { chatSuggestionsEnabled: boolean }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string }
   }
 }) {
+  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
   const { debounce } = useDebounce()
   const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
     props.models.settings.chatSuggestionsEnabled
+  )
+  const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
+    props.models.settings.aiAssistantCustomName
   )
 
   const [query, setQuery] = useState('')
@@ -123,7 +127,7 @@ export default function ModelsPage(props: {
   }
 
   const updateSettingMutation = useMutation({
-    mutationFn: async ({ key, value }: { key: string; value: boolean }) => {
+    mutationFn: async ({ key, value }: { key: string; value: boolean | string }) => {
       return await api.updateSetting(key, value)
     },
     onSuccess: () => {
@@ -143,18 +147,18 @@ export default function ModelsPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title="AI Assistant Settings | Project N.O.M.A.D." />
+      <Head title={`${aiAssistantName} Settings | Project N.O.M.A.D.`} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-4">AI Assistant</h1>
+          <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
           <p className="text-gray-500 mb-4">
-            Easily manage the AI Assistant's settings and installed models. We recommend starting
-            with smaller models first to see how they perform on your system before moving on to
-            larger ones.
+            Easily manage the {aiAssistantName}'s settings and installed models. We recommend
+            starting with smaller models first to see how they perform on your system before moving
+            on to larger ones.
           </p>
           {!isInstalled && (
             <Alert
-              title="AI Assistant's dependencies are not installed. Please install them to manage AI models."
+              title={`${aiAssistantName}'s dependencies are not installed. Please install them to manage AI models.`}
               type="warning"
               variant="solid"
               className="!mt-6"
@@ -172,6 +176,20 @@ export default function ModelsPage(props: {
                 }}
                 label="Chat Suggestions"
                 description="Display AI-generated conversation starters in the chat interface"
+              />
+              <Input
+                name="aiAssistantCustomName"
+                label="Assistant Name"
+                helpText='Give your AI assistant a custom name that will be used in the chat interface and other areas of the application.'
+                placeholder="AI Assistant"
+                value={aiAssistantCustomName}
+                onChange={(e) => setAiAssistantCustomName(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'ai.assistantCustomName',
+                    value: aiAssistantCustomName,
+                  })
+                }
               />
             </div>
           </div>

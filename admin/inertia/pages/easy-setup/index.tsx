@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react'
+import { Head, router, usePage } from '@inertiajs/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, useMemo } from 'react'
 import AppLayout from '~/layouts/AppLayout'
@@ -32,51 +32,53 @@ interface Capability {
   icon: string
 }
 
-const CORE_CAPABILITIES: Capability[] = [
-  {
-    id: 'information',
-    name: 'Information Library',
-    technicalName: 'Kiwix',
-    description:
-      'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
-    features: [
-      'Complete Wikipedia offline',
-      'Medical references and first aid guides',
-      'WikiHow articles and tutorials',
-      'Project Gutenberg books and literature',
-    ],
-    services: [SERVICE_NAMES.KIWIX],
-    icon: 'IconBooks',
-  },
-  {
-    id: 'education',
-    name: 'Education Platform',
-    technicalName: 'Kolibri',
-    description: 'Interactive learning platform with video courses and exercises',
-    features: [
-      'Khan Academy math and science courses',
-      'K-12 curriculum content',
-      'Interactive exercises and quizzes',
-      'Progress tracking for learners',
-    ],
-    services: [SERVICE_NAMES.KOLIBRI],
-    icon: 'IconSchool',
-  },
-  {
-    id: 'ai',
-    name: 'AI Assistant',
-    technicalName: 'Ollama',
-    description: 'Local AI chat that runs entirely on your hardware - no internet required',
-    features: [
-      'Private conversations that never leave your device',
-      'No internet connection needed after setup',
-      'Ask questions, get help with writing, brainstorm ideas',
-      'Runs on your own hardware with local AI models',
-    ],
-    services: [SERVICE_NAMES.OLLAMA],
-    icon: 'IconRobot',
-  },
-]
+function buildCoreCapabilities(aiAssistantName: string): Capability[] {
+  return [
+    {
+      id: 'information',
+      name: 'Information Library',
+      technicalName: 'Kiwix',
+      description:
+        'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
+      features: [
+        'Complete Wikipedia offline',
+        'Medical references and first aid guides',
+        'WikiHow articles and tutorials',
+        'Project Gutenberg books and literature',
+      ],
+      services: [SERVICE_NAMES.KIWIX],
+      icon: 'IconBooks',
+    },
+    {
+      id: 'education',
+      name: 'Education Platform',
+      technicalName: 'Kolibri',
+      description: 'Interactive learning platform with video courses and exercises',
+      features: [
+        'Khan Academy math and science courses',
+        'K-12 curriculum content',
+        'Interactive exercises and quizzes',
+        'Progress tracking for learners',
+      ],
+      services: [SERVICE_NAMES.KOLIBRI],
+      icon: 'IconSchool',
+    },
+    {
+      id: 'ai',
+      name: aiAssistantName,
+      technicalName: 'Ollama',
+      description: 'Local AI chat that runs entirely on your hardware - no internet required',
+      features: [
+        'Private conversations that never leave your device',
+        'No internet connection needed after setup',
+        'Ask questions, get help with writing, brainstorm ideas',
+        'Runs on your own hardware with local AI models',
+      ],
+      services: [SERVICE_NAMES.OLLAMA],
+      icon: 'IconRobot',
+    },
+  ]
+}
 
 const ADDITIONAL_TOOLS: Capability[] = [
   {
@@ -110,6 +112,9 @@ const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
 export default function EasySetupWizard(props: { system: { services: ServiceSlim[] } }) {
+  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
+  const CORE_CAPABILITIES = buildCoreCapabilities(aiAssistantName)
+
   const [currentStep, setCurrentStep] = useState<WizardStep>(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])

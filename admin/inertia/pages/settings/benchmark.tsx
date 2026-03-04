@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react'
+import { Head, Link, usePage } from '@inertiajs/react'
 import { useState, useEffect } from 'react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -34,6 +34,7 @@ export default function BenchmarkPage(props: {
     currentBenchmarkId: string | null
   }
 }) {
+  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { subscribe } = useTransmit()
   const queryClient = useQueryClient()
   const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
@@ -403,8 +404,8 @@ export default function BenchmarkPage(props: {
                   {showAIRequiredAlert && (
                     <Alert
                       type="warning"
-                      title="AI Assistant Required"
-                      message="Full benchmark requires AI Assistant to be installed. Install it to measure your complete NOMAD capability and share results with the community."
+                      title={`${aiAssistantName} Required`}
+                      message={`Full benchmark requires ${aiAssistantName} to be installed. Install it to measure your complete NOMAD capability and share results with the community.`}
                       variant="bordered"
                       dismissible
                       onDismiss={() => setShowAIRequiredAlert(false)}
@@ -413,7 +414,7 @@ export default function BenchmarkPage(props: {
                         href="/settings/apps"
                         className="text-sm text-desert-green hover:underline mt-2 inline-block font-medium"
                       >
-                        Go to Apps to install AI Assistant →
+                        Go to Apps to install {aiAssistantName} →
                       </Link>
                     </Alert>
                   )}
@@ -444,7 +445,7 @@ export default function BenchmarkPage(props: {
                       icon="IconWand"
                       title={
                         !aiInstalled
-                          ? 'AI Assistant must be installed to run AI benchmark'
+                          ? `${aiAssistantName} must be installed to run AI benchmark`
                           : undefined
                       }
                     >
@@ -453,7 +454,8 @@ export default function BenchmarkPage(props: {
                   </div>
                   {!aiInstalled && (
                     <p className="text-sm text-desert-stone-dark">
-                      <span className="text-amber-600">Note:</span> AI Assistant is not installed.
+                      <span className="text-amber-600">Note:</span> {aiAssistantName} is not
+                      installed.
                       <Link
                         href="/settings/apps"
                         className="text-desert-green hover:underline ml-1"
@@ -566,7 +568,7 @@ export default function BenchmarkPage(props: {
                           <Alert
                             type="info"
                             title="Partial Benchmark"
-                            message={`This ${latestResult.benchmark_type} benchmark cannot be shared with the community. Run a Full Benchmark with AI Assistant installed to share your results.`}
+                            message={`This ${latestResult.benchmark_type} benchmark cannot be shared with the community. Run a Full Benchmark with ${aiAssistantName} installed to share your results.`}
                             variant="bordered"
                           />
                         )}

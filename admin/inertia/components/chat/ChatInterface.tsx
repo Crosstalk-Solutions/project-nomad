@@ -9,6 +9,7 @@ import StyledModal from '../StyledModal'
 import api from '~/lib/api'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useNotifications } from '~/context/NotificationContext'
+import { usePage } from '@inertiajs/react'
 
 interface ChatInterfaceProps {
   messages: ChatMessage[]
@@ -29,6 +30,7 @@ export default function ChatInterface({
   chatSuggestionsLoading = false,
   rewriteModelAvailable = false
 }: ChatInterfaceProps) {
+  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
   const [input, setInput] = useState('')
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
@@ -160,7 +162,7 @@ export default function ChatInterface({
               value={input}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message... (Shift+Enter for new line)"
+              placeholder={`Type your message to ${aiAssistantName}... (Shift+Enter for new line)`}
               className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
               rows={1}
               disabled={isLoading}

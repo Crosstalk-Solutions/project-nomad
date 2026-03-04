@@ -50,4 +50,15 @@ export default class KVStore extends BaseModel {
     }
     return setting
   }
+
+  /**
+   * Clear a setting value by key, storing null so getValue returns null.
+   */
+  static async clearValue<K extends KVStoreKey>(key: K): Promise<void> {
+    const setting = await this.findBy('key', key)
+    if (setting && setting.value !== null) {
+      setting.value = null
+      await setting.save()
+    }
+  }
 }
