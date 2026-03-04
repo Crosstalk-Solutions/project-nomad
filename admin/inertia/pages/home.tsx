@@ -6,7 +6,7 @@ import {
   IconSettings,
   IconWifiOff,
 } from '@tabler/icons-react'
-import { Head } from '@inertiajs/react'
+import { Head, usePage } from '@inertiajs/react'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
@@ -14,6 +14,7 @@ import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Alert from '~/components/Alert'
+import { SERVICE_NAMES } from '../../constants/service_names'
 
 // Maps is a Core Capability (display_order: 4)
 const MAPS_ITEM = {
@@ -90,6 +91,7 @@ export default function Home(props: {
 }) {
   const items: DashboardItem[] = []
   const updateInfo = useUpdateAvailable();
+  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
 
   // Check if user has visited Easy Setup
   const { data: easySetupVisited } = useSystemSetting({
@@ -102,7 +104,8 @@ export default function Home(props: {
     .filter((service) => service.installed && service.ui_location)
     .forEach((service) => {
       items.push({
-        label: service.friendly_name || service.service_name,
+        // Inject custom AI Assistant name if this is the chat service
+        label: service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName ? aiAssistantName : (service.friendly_name || service.service_name),
         to: service.ui_location ? getServiceLink(service.ui_location) : '#',
         target: '_blank',
         description:

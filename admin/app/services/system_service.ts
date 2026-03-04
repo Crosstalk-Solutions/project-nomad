@@ -12,7 +12,7 @@ import { getAllFilesystems, getFile } from '../utils/fs.js'
 import axios from 'axios'
 import env from '#start/env'
 import KVStore from '#models/kv_store'
-import { KVStoreKey } from '../../types/kv_store.js'
+import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 
 
 @inject()
@@ -388,7 +388,11 @@ export class SystemService {
   }
 
   async updateSetting(key: KVStoreKey, value: any): Promise<void> {
-    await KVStore.setValue(key, value);
+    if ((value === '' || value === undefined || value === null) && KV_STORE_SCHEMA[key] === 'string') {
+      await KVStore.clearValue(key)
+    } else {
+      await KVStore.setValue(key, value)
+    }
   }
 
   /**

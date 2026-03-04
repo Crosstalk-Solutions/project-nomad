@@ -4,6 +4,7 @@ import { InputHTMLAttributes } from "react";
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   name: string;
   label: string;
+  helpText?: string;
   className?: string;
   labelClassName?: string;
   inputClassName?: string;
@@ -17,6 +18,7 @@ const Input: React.FC<InputProps> = ({
   className,
   label,
   name,
+  helpText,
   labelClassName,
   inputClassName,
   containerClassName,
@@ -33,6 +35,7 @@ const Input: React.FC<InputProps> = ({
       >
         {label}{required ? "*" : ""}
       </label>
+      {helpText && <p className="mt-1 text-sm text-gray-500">{helpText}</p>}
       <div className={classNames("mt-1.5", containerClassName)}>
         <div className="relative">
           {leftIcon && (

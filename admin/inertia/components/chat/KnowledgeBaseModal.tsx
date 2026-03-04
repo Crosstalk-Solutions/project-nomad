@@ -11,10 +11,11 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 
 interface KnowledgeBaseModalProps {
+  aiAssistantName?: string
   onClose: () => void
 }
 
-export default function KnowledgeBaseModal({ onClose }: KnowledgeBaseModalProps) {
+export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
@@ -140,12 +141,12 @@ export default function KnowledgeBaseModal({ onClose }: KnowledgeBaseModalProps)
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      AI Assistant Knowledge Base Integration
+                      {aiAssistantName} Knowledge Base Integration
                     </p>
                     <p className="text-sm text-desert-stone">
                       When you upload documents to your Knowledge Base, NOMAD processes and embeds
-                      the content, making it directly accessible to the AI Assistant. This allows
-                      the AI Assistant to reference your specific documents during conversations,
+                      the content, making it directly accessible to {aiAssistantName}. This allows{' '}
+                      {aiAssistantName} to reference your specific documents during conversations,
                       providing more accurate and personalized responses based on your uploaded
                       data.
                     </p>
@@ -177,8 +178,7 @@ export default function KnowledgeBaseModal({ onClose }: KnowledgeBaseModalProps)
                     </p>
                     <p className="text-sm text-desert-stone">
                       NOMAD will automatically discover and extract any content you save to your
-                      Information Library (if installed), making it instantly available to the AI
-                      Assistant without any extra steps.
+                      Information Library (if installed), making it instantly available to {aiAssistantName} without any extra steps.
                     </p>
                   </div>
                 </div>
