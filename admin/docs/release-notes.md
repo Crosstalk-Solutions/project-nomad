@@ -4,12 +4,14 @@
 
 ### Features
 - **Settings**: Added pagination support for Ollama model list
+- **Early Access Channel**: Allows users to opt in to receive early access builds with the latest features and improvements before they hit stable releases
 
 ### Bug Fixes
 
 ### Improvements
 - **AI Assistant**: Improved chat performance by optimizing query rewriting and response streaming logic
 - **CI/CD**: Updated release workflows to support release candidate versions
+- **KV Store**: Improved type safety in KV store implementation
 
 ## Version 1.26.0 - February 19, 2026
 
