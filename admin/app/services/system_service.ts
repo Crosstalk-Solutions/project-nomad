@@ -13,7 +13,7 @@ import axios from 'axios'
 import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KVStoreKey } from '../../types/kv_store.js'
-import { parseBoolean } from '../utils/misc.js'
+
 
 @inject()
 export class SystemService {
@@ -306,33 +306,39 @@ export class SystemService {
       if (!force) {
         return {
           success: true,
-          updateAvailable: parseBoolean(cachedUpdateAvailable || "false"),
+          updateAvailable: cachedUpdateAvailable ?? false,
           currentVersion,
           latestVersion: cachedLatestVersion || '',
         }
       }
 
-      const response = await axios.get(
-        'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases/latest',
-        {
-          headers: { Accept: 'application/vnd.github+json' },
-          timeout: 5000,
-        }
-      )
+      const earlyAccess = (await KVStore.getValue('system.earlyAccess')) ?? false
 
-      if (!response || !response.data?.tag_name) {
-        throw new Error('Invalid response from GitHub API')
+      let latestVersion: string
+      if (earlyAccess) {
+        const response = await axios.get(
+          'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases',
+          { headers: { Accept: 'application/vnd.github+json' }, timeout: 5000 }
+        )
+        if (!response?.data?.length) throw new Error('No releases found')
+        latestVersion = response.data[0].tag_name.replace(/^v/, '').trim()
+      } else {
+        const response = await axios.get(
+          'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases/latest',
+          { headers: { Accept: 'application/vnd.github+json' }, timeout: 5000 }
+        )
+        if (!response?.data?.tag_name) throw new Error('Invalid response from GitHub API')
+        latestVersion = response.data.tag_name.replace(/^v/, '').trim()
       }
 
-    const latestVersion = response.data.tag_name.replace(/^v/, '').trim() // Remove leading 'v' and whitespace
-    logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
+      logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
 
-    const updateAvailable = process.env.NODE_ENV === 'development' 
-      ? false 
-      : this.isNewerVersion(latestVersion, currentVersion.trim())
+      const updateAvailable = process.env.NODE_ENV === 'development'
+        ? false
+        : this.isNewerVersion(latestVersion, currentVersion.trim())
 
       // Cache the results in KVStore for frontend checks
-      await KVStore.setValue('system.updateAvailable', updateAvailable.toString())
+      await KVStore.setValue('system.updateAvailable', updateAvailable)
       await KVStore.setValue('system.latestVersion', latestVersion)
 
       return {
@@ -473,19 +479,28 @@ export class SystemService {
    * @returns true if version1 is newer than version2
    */
   private isNewerVersion(version1: string, version2: string): boolean {
-    const v1Parts = version1.split('.').map((part) => parseInt(part, 10))
-    const v2Parts = version2.split('.').map((part) => parseInt(part, 10))
+    const [base1, pre1] = version1.split('-')
+    const [base2, pre2] = version2.split('-')
 
-    const maxLength = Math.max(v1Parts.length, v2Parts.length)
+    const v1Parts = base1.split('.').map((p) => parseInt(p, 10) || 0)
+    const v2Parts = base2.split('.').map((p) => parseInt(p, 10) || 0)
 
-    for (let i = 0; i < maxLength; i++) {
-      const v1Part = v1Parts[i] || 0
-      const v2Part = v2Parts[i] || 0
-
-      if (v1Part > v2Part) return true
-      if (v1Part < v2Part) return false
+    const maxLen = Math.max(v1Parts.length, v2Parts.length)
+    for (let i = 0; i < maxLen; i++) {
+      const a = v1Parts[i] || 0
+      const b = v2Parts[i] || 0
+      if (a > b) return true
+      if (a < b) return false
     }
 
-    return false // Versions are equal
+    // Base versions equal — GA > RC, RC.n+1 > RC.n
+    if (!pre1 && pre2) return true   // v1 is GA, v2 is RC → v1 is newer
+    if (pre1 && !pre2) return false  // v1 is RC, v2 is GA → v2 is newer
+    if (!pre1 && !pre2) return false // both GA, equal
+
+    // Both prerelease: compare numeric suffix (e.g. "rc.2" vs "rc.1")
+    const pre1Num = parseInt(pre1.split('.')[1], 10) || 0
+    const pre2Num = parseInt(pre2.split('.')[1], 10) || 0
+    return pre1Num > pre2Num
   }
 }

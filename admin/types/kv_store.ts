@@ -4,6 +4,7 @@ export const KV_STORE_SCHEMA = {
   'rag.docsEmbedded':        'boolean',
   'system.updateAvailable':  'boolean',
   'system.latestVersion':    'string',
+  'system.earlyAccess':     'boolean',
   'ui.hasVisitedEasySetup':  'boolean',
 } as const
 
