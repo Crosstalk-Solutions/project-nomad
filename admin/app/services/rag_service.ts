@@ -14,7 +14,6 @@ import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import KVStore from '#models/kv_store'
-import { parseBoolean } from '../utils/misc.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 
@@ -885,7 +884,7 @@ export class RagService {
       const DOCS_DIR = join(process.cwd(), 'docs')
 
       const alreadyEmbeddedRaw = await KVStore.getValue('rag.docsEmbedded')
-      if (parseBoolean(alreadyEmbeddedRaw) && !force) {
+      if (alreadyEmbeddedRaw && !force) {
         logger.info('[RAG] Nomad docs have already been discovered and queued. Skipping.')
         return { success: true, message: 'Nomad docs have already been discovered and queued. Skipping.' }
       }
@@ -927,7 +926,7 @@ export class RagService {
       }
 
       // Update KV store to mark docs as discovered so we don't redo this unnecessarily
-      await KVStore.setValue('rag.docsEmbedded', 'true')
+      await KVStore.setValue('rag.docsEmbedded', true)
 
       return { success: true, message: `Nomad docs discovery completed. Dispatched ${filesToEmbed.length} embedding jobs.` }
     } catch (error) {
