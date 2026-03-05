@@ -177,17 +177,27 @@ rebuild_sidecar() {
 }
 
 restart_sidecar() {
-  echo -e "${YELLOW}#${RESET} Restarting the updater container..."
-  if ! docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d --force-recreate updater; then
-    echo -e "${RED}#${RESET} Failed to restart the updater container."
+  echo -e "${YELLOW}#${RESET} Stopping and removing existing updater containers..."
+
+  # Stop and remove via compose first (handles the compose-tracked container)
+  docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" stop updater >> /dev/null 2>&1 || true
+  docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" rm -f updater >> /dev/null 2>&1 || true
+
+  # Force-remove any stale container still holding the name (e.g. hash-prefixed remnants)
+  docker rm -f nomad_updater >> /dev/null 2>&1 || true
+
+  echo -e "${YELLOW}#${RESET} Starting the updated updater container..."
+  if ! docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d updater; then
+    echo -e "${RED}#${RESET} Failed to start the updater container."
     exit 1
   fi
-  echo -e "${GREEN}#${RESET} Updater container restarted.\n"
+  echo -e "${GREEN}#${RESET} Updater container started.\n"
 }
 
 verify_sidecar_running() {
   sleep 3
-  if docker ps --filter "name=nomad_updater" --filter "status=running" --format '{{.Names}}' | grep -q "nomad_updater"; then
+  # Use exact name match to avoid false positives from hash-prefixed stale containers
+  if docker ps --filter "name=^nomad_updater$" --filter "status=running" --format '{{.Names}}' | grep -qx "nomad_updater"; then
     echo -e "${GREEN}#${RESET} Updater container is running.\n"
   else
     echo -e "${RED}#${RESET} Updater container does not appear to be running."
