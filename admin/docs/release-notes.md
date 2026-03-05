@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.28.0 - March 5, 2026
 
 ### Features
 - **RAG**: Added support for viewing active embedding jobs in the processing queue and improved job progress tracking with more granular status updates
