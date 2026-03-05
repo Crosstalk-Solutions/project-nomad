@@ -2,6 +2,7 @@ import logger from '@adonisjs/core/services/logger'
 import { readFileSync, existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
+import KVStore from '#models/kv_store'
 
 interface UpdateStatus {
   stage: 'idle' | 'starting' | 'pulling' | 'pulled' | 'recreating' | 'complete' | 'error'
@@ -21,7 +22,7 @@ export class SystemUpdateService {
    */
   async requestUpdate(): Promise<{ success: boolean; message: string }> {
     try {
-      const currentStatus = this.getUpdateStatus()      
+      const currentStatus = this.getUpdateStatus()
       if (currentStatus && !['idle', 'complete', 'error'].includes(currentStatus.stage)) {
         return {
           success: false,
@@ -29,13 +30,17 @@ export class SystemUpdateService {
         }
       }
 
+      // Determine the Docker image tag to install.
+      const latestVersion = await KVStore.getValue('system.latestVersion')
+
       const requestData = {
         requested_at: new Date().toISOString(),
         requester: 'admin-api',
+        target_tag: latestVersion || 'latest', // We should always have a latest version, but fallback to 'latest' just in case
       }
 
       await writeFile(SystemUpdateService.REQUEST_FILE, JSON.stringify(requestData, null, 2))
-      logger.info('[SystemUpdateService]: System update requested - sidecar will process shortly')
+      logger.info(`[SystemUpdateService]: System update requested (target tag: ${requestData.target_tag}) - sidecar will process shortly`)
 
       return {
         success: true,

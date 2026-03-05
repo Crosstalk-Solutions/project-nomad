@@ -29,20 +29,32 @@ EOF
 }
 
 perform_update() {
-    log "Update request received - starting system update"
-    
+    local target_tag="$1"
+
+    log "Update request received - starting system update (target tag: ${target_tag})"
+
     # Clear old logs
     > "$LOG_FILE"
-    
+
     # Stage 1: Starting
     write_status "starting" 0 "System update initiated"
     log "System update initiated"
     sleep 1
-    
+
+    # Apply target image tag to compose.yml before pulling
+    log "Applying image tag '${target_tag}' to compose.yml..."
+    if sed -i "s|\(image: ghcr\.io/crosstalk-solutions/project-nomad\):.*|\1:${target_tag}|" "$COMPOSE_FILE" 2>> "$LOG_FILE"; then
+        log "Successfully updated compose.yml admin image tag to '${target_tag}'"
+    else
+        log "ERROR: Failed to update compose.yml image tag"
+        write_status "error" 0 "Failed to update compose.yml image tag - check logs"
+        return 1
+    fi
+
     # Stage 2: Pulling images
     write_status "pulling" 20 "Pulling latest Docker images..."
     log "Pulling latest Docker images..."
-    
+
     if docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" pull >> "$LOG_FILE" 2>&1; then
         log "Successfully pulled latest images"
         write_status "pulled" 60 "Images pulled successfully"
@@ -112,14 +124,18 @@ while true; do
     if [ -f "$REQUEST_FILE" ]; then
         log "Found update request file"
         
-        # Read request details (could contain metadata like requester, timestamp, etc.)
+        # Read request details
         REQUEST_DATA=$(cat "$REQUEST_FILE" 2>/dev/null || echo "{}")
         log "Request data: $REQUEST_DATA"
-        
+
+        # Extract target tag from request (defaults to "latest" if not provided)
+        TARGET_TAG=$(echo "$REQUEST_DATA" | jq -r '.target_tag // "latest"')
+        log "Target image tag: ${TARGET_TAG}"
+
         # Remove the request file to prevent re-processing
         rm -f "$REQUEST_FILE"
-        
-        if perform_update; then
+
+        if perform_update "$TARGET_TAG"; then
             log "Update completed successfully"
         else
             log "Update failed - see logs for details"

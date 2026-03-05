@@ -278,28 +278,6 @@ export default function SystemUpdatePage(props: { system: Props }) {
     return () => clearInterval(interval)
   }, [isUpdating])
 
-  // Poll health endpoint when update is in recreating stage
-  useEffect(() => {
-    if (updateStatus?.stage !== 'recreating') return
-
-    const interval = setInterval(async () => {
-      try {
-        const response = await api.healthCheck()
-        if (!response) {
-          throw new Error('Health check failed')
-        }
-        if (response.status === 'ok') {
-          // Reload page when container is back up
-          window.location.reload()
-        }
-      } catch (err) {
-        // Still restarting, continue polling...
-      }
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [updateStatus?.stage])
-
   const handleStartUpdate = async () => {
     try {
       setError(null)

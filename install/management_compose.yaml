@@ -44,7 +44,7 @@ services:
       timeout: 10s
       retries: 3
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v10.0
     container_name: nomad_dozzle
     restart: unless-stopped
     ports:
@@ -93,7 +93,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad:/opt/project-nomad:ro # Read-only access to the project dir for config files and scripts
+      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml
       - nomad-update-shared:/shared # Shared volume for communication with admin container
 
 volumes:
