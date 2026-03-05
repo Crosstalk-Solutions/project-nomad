@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
@@ -6,7 +7,11 @@ import CircularGauge from '~/components/systeminfo/CircularGauge'
 import HorizontalBarChart from '~/components/HorizontalBarChart'
 import InfoCard from '~/components/systeminfo/InfoCard'
 import Alert from '~/components/Alert'
+import StyledModal from '~/components/StyledModal'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
+import { useNotifications } from '~/context/NotificationContext'
+import { useModals } from '~/context/ModalContext'
+import api from '~/lib/api'
 import StatusCard from '~/components/systeminfo/StatusCard'
 import { IconCpu, IconDatabase, IconServer, IconDeviceDesktop, IconComponents } from '@tabler/icons-react'
 
@@ -16,6 +21,65 @@ export default function SettingsPage(props: {
   const { data: info } = useSystemInfo({
     initialData: props.system.info,
   })
+  const { addNotification } = useNotifications()
+  const { openModal, closeAllModals } = useModals()
+
+  const [gpuBannerDismissed, setGpuBannerDismissed] = useState(() => {
+    try {
+      return localStorage.getItem('nomad:gpu-banner-dismissed') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [reinstalling, setReinstalling] = useState(false)
+
+  const handleDismissGpuBanner = () => {
+    setGpuBannerDismissed(true)
+    try {
+      localStorage.setItem('nomad:gpu-banner-dismissed', 'true')
+    } catch {}
+  }
+
+  const handleForceReinstallOllama = () => {
+    openModal(
+      <StyledModal
+        title="Reinstall AI Assistant?"
+        onConfirm={async () => {
+          closeAllModals()
+          setReinstalling(true)
+          try {
+            const response = await api.forceReinstallService('nomad_ollama')
+            if (!response || !response.success) {
+              throw new Error(response?.message || 'Force reinstall failed')
+            }
+            addNotification({
+              message: 'AI Assistant is being reinstalled with GPU support. This page will reload shortly.',
+              type: 'success',
+            })
+            try { localStorage.removeItem('nomad:gpu-banner-dismissed') } catch {}
+            setTimeout(() => window.location.reload(), 5000)
+          } catch (error) {
+            addNotification({
+              message: `Failed to reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              type: 'error',
+            })
+            setReinstalling(false)
+          }
+        }}
+        onCancel={closeAllModals}
+        open={true}
+        confirmText="Reinstall"
+        cancelText="Cancel"
+      >
+        <p className="text-gray-700">
+          This will recreate the AI Assistant container with GPU support enabled.
+          Your downloaded models will be preserved. The service will be briefly
+          unavailable during reinstall.
+        </p>
+      </StyledModal>,
+      'gpu-health-force-reinstall-modal'
+    )
+  }
 
   // Use (total - available) to reflect actual memory pressure.
   // mem.used includes reclaimable buff/cache on Linux, which inflates the number.
@@ -173,6 +237,27 @@ export default function SettingsPage(props: {
                   },
                 ]}
               />
+              {info?.gpuHealth?.status === 'passthrough_failed' && !gpuBannerDismissed && (
+                <div className="lg:col-span-2">
+                  <Alert
+                    type="warning"
+                    variant="bordered"
+                    title="GPU Not Accessible to AI Assistant"
+                    message="Your system has an NVIDIA GPU, but the AI Assistant can't access it. AI is running on CPU only, which is significantly slower."
+                    dismissible={true}
+                    onDismiss={handleDismissGpuBanner}
+                    buttonProps={{
+                      children: 'Fix: Reinstall AI Assistant',
+                      icon: 'IconRefresh',
+                      variant: 'action',
+                      size: 'sm',
+                      onClick: handleForceReinstallOllama,
+                      loading: reinstalling,
+                      disabled: reinstalling,
+                    }}
+                  />
+                </div>
+              )}
               {info?.graphics?.controllers && info.graphics.controllers.length > 0 && (
                 <InfoCard
                   title="Graphics"

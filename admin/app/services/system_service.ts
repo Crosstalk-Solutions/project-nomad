@@ -4,7 +4,7 @@ import { DockerService } from '#services/docker_service'
 import { ServiceSlim } from '../../types/services.js'
 import logger from '@adonisjs/core/services/logger'
 import si from 'systeminformation'
-import { NomadDiskInfo, NomadDiskInfoRaw, SystemInformationResponse } from '../../types/system.js'
+import { GpuHealthStatus, NomadDiskInfo, NomadDiskInfoRaw, SystemInformationResponse } from '../../types/system.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { readFileSync } from 'fs'
 import path, { join } from 'path'
@@ -235,6 +235,13 @@ export class SystemService {
         logger.error('Error reading disk info file:', error)
       }
 
+      // GPU health tracking — detect when host has NVIDIA GPU but Ollama can't access it
+      let gpuHealth: GpuHealthStatus = {
+        status: 'no_gpu',
+        hasNvidiaRuntime: false,
+        ollamaGpuAccessible: false,
+      }
+
       // Query Docker API for host-level info (hostname, OS, GPU runtime)
       // si.osInfo() returns the container's info inside Docker, not the host's
       try {
@@ -255,6 +262,7 @@ export class SystemService {
         if (!graphics.controllers || graphics.controllers.length === 0) {
           const runtimes = dockerInfo.Runtimes || {}
           if ('nvidia' in runtimes) {
+            gpuHealth.hasNvidiaRuntime = true
             const nvidiaInfo = await this.getNvidiaSmiInfo()
             if (Array.isArray(nvidiaInfo)) {
               graphics.controllers = nvidiaInfo.map((gpu) => ({
@@ -264,10 +272,19 @@ export class SystemService {
                 vram: gpu.vram,
                 vramDynamic: false, // assume false here, we don't actually use this field for our purposes.
               }))
+              gpuHealth.status = 'ok'
+              gpuHealth.ollamaGpuAccessible = true
+            } else if (nvidiaInfo === 'OLLAMA_NOT_FOUND') {
+              gpuHealth.status = 'ollama_not_installed'
             } else {
-              logger.warn(`NVIDIA runtime detected but failed to get GPU info: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
+              gpuHealth.status = 'passthrough_failed'
+              logger.warn(`NVIDIA runtime detected but GPU passthrough failed: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
             }
           }
+        } else {
+          // si.graphics() returned controllers (host install, not Docker) — GPU is working
+          gpuHealth.status = 'ok'
+          gpuHealth.ollamaGpuAccessible = true
         }
       } catch {
         // Docker info query failed, skip host-level enrichment
@@ -282,6 +299,7 @@ export class SystemService {
         fsSize,
         uptime,
         graphics,
+        gpuHealth,
       }
     } catch (error) {
       logger.error('Error getting system info:', error)
