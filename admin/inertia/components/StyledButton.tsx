@@ -20,6 +20,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   size = 'md',
   loading = false,
   fullWidth = false,
+  className,
   ...props
 }) => {
   const isDisabled = useMemo(() => {
@@ -152,7 +153,8 @@ const StyledButton: React.FC<StyledButtonProps> = ({
         getSizeClasses(),
         getVariantClasses(),
         isDisabled ? 'pointer-events-none opacity-60' : 'cursor-pointer',
-        'items-center justify-center rounded-md font-semibold focus:outline-none focus:ring-2 focus:ring-desert-green-light focus:ring-offset-2 focus:ring-offset-desert-sand disabled:cursor-not-allowed disabled:shadow-none'
+        'items-center justify-center rounded-md font-semibold focus:outline-none focus:ring-2 focus:ring-desert-green-light focus:ring-offset-2 focus:ring-offset-desert-sand disabled:cursor-not-allowed disabled:shadow-none',
+        className
       )}
       {...props}
       disabled={isDisabled}

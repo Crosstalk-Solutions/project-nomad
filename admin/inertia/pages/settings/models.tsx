@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { NomadOllamaModel } from '../../../types/ollama'
@@ -16,7 +16,7 @@ import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
-import { IconSearch } from '@tabler/icons-react'
+import { IconSearch, IconRefresh } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import ActiveModelDownloads from '~/components/ActiveModelDownloads'
 
@@ -47,13 +47,19 @@ export default function ModelsPage(props: {
     setQuery(val)
   }, 300)
 
-  const { data: availableModelData, isFetching } = useQuery({
+  const forceRefreshRef = useRef(false)
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false)
+
+  const { data: availableModelData, isFetching, refetch } = useQuery({
     queryKey: ['ollama', 'availableModels', query, limit],
     queryFn: async () => {
+      const force = forceRefreshRef.current
+      forceRefreshRef.current = false
       const res = await api.getAvailableModels({
         query,
         recommendedOnly: false,
         limit,
+        force: force || undefined,
       })
       if (!res) {
         return {
@@ -65,6 +71,14 @@ export default function ModelsPage(props: {
     },
     initialData: { models: props.models.availableModels, hasMore: false },
   })
+
+  async function handleForceRefresh() {
+    forceRefreshRef.current = true
+    setIsForceRefreshing(true)
+    await refetch()
+    setIsForceRefreshing(false)
+    addNotification({ message: 'Model list refreshed from remote.', type: 'success' })
+  }
 
   async function handleInstallModel(modelName: string) {
     try {
@@ -196,7 +210,7 @@ export default function ModelsPage(props: {
           <ActiveModelDownloads withHeader />
 
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
-          <div className="flex justify-start mt-4">
+          <div className="flex justify-start items-center gap-3 mt-4">
             <Input
               name="search"
               label=""
@@ -209,6 +223,15 @@ export default function ModelsPage(props: {
               className="w-1/3"
               leftIcon={<IconSearch className="w-5 h-5 text-gray-400" />}
             />
+            <StyledButton
+              variant="secondary"
+              onClick={handleForceRefresh}
+              icon="IconRefresh"
+              loading={isForceRefreshing}
+              className='mt-1'
+            >
+              Refresh Models
+            </StyledButton>
           </div>
           <StyledTable<NomadOllamaModel>
             className="font-semibold mt-4"
