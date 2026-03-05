@@ -1,5 +1,11 @@
 import { Systeminformation } from 'systeminformation'
 
+export type GpuHealthStatus = {
+  status: 'ok' | 'passthrough_failed' | 'no_gpu' | 'ollama_not_installed'
+  hasNvidiaRuntime: boolean
+  ollamaGpuAccessible: boolean
+}
+
 export type SystemInformationResponse = {
   cpu: Systeminformation.CpuData
   mem: Systeminformation.MemData
@@ -9,6 +15,7 @@ export type SystemInformationResponse = {
   fsSize: Systeminformation.FsSizeData[]
   uptime: Systeminformation.TimeData
   graphics: Systeminformation.GraphicsData
+  gpuHealth?: GpuHealthStatus
 }
 
 // Type inferrence is not working properly with usePage and shared props, so we define this type manually
