@@ -183,7 +183,7 @@ export class OllamaService {
   }
 
   async getAvailableModels(
-    { sort, recommendedOnly, query, limit }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null, limit?: number } = {
+    { sort, recommendedOnly, query, limit, force }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null, limit?: number, force?: boolean } = {
       sort: 'pulls',
       recommendedOnly: false,
       query: null,
@@ -191,7 +191,7 @@ export class OllamaService {
     }
   ): Promise<{ models: NomadOllamaModel[], hasMore: boolean } | null> {
     try {
-      const models = await this.retrieveAndRefreshModels(sort)
+      const models = await this.retrieveAndRefreshModels(sort, force)
       if (!models) {
         // If we fail to get models from the API, return the fallback recommended models
         logger.warn(
@@ -244,13 +244,18 @@ export class OllamaService {
   }
 
   private async retrieveAndRefreshModels(
-    sort?: 'pulls' | 'name'
+    sort?: 'pulls' | 'name',
+    force?: boolean
   ): Promise<NomadOllamaModel[] | null> {
     try {
-      const cachedModels = await this.readModelsFromCache()
-      if (cachedModels) {
-        logger.info('[OllamaService] Using cached available models data')
-        return this.sortModels(cachedModels, sort)
+      if (!force) {
+        const cachedModels = await this.readModelsFromCache()
+        if (cachedModels) {
+          logger.info('[OllamaService] Using cached available models data')
+          return this.sortModels(cachedModels, sort)
+        }
+      } else {
+        logger.info('[OllamaService] Force refresh requested, bypassing cache')
       }
 
       logger.info('[OllamaService] Fetching fresh available models from API')

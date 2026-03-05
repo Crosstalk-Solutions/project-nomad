@@ -19,5 +19,6 @@ export const getAvailableModelsSchema = vine.compile(
     recommendedOnly: vine.boolean().optional(),
     query: vine.string().trim().optional(),
     limit: vine.number().positive().optional(),
+    force: vine.boolean().optional(),
   })
 )
