@@ -197,7 +197,7 @@ class API {
     })()
   }
 
-  async getAvailableModels(params: { query?: string; recommendedOnly?: boolean; limit?: number }) {
+  async getAvailableModels(params: { query?: string; recommendedOnly?: boolean; limit?: number; force?: boolean }) {
     return catchInternal(async () => {
       const response = await this.client.get<{
         models: NomadOllamaModel[]
