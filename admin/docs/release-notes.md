@@ -1,5 +1,19 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **RAG**: Added support for viewing active embedding jobs in the processing queue and improved job progress tracking with more granular status updates
+- **RAG**: Added support for removing documents from the knowledge base (deletion from Qdrant and local storage)
+
+### Bug Fixes
+- **Install**: Fixed broken url's in install script and updated to prompt for Apache 2.0 license acceptance
+- **Docs**: Updated legal notices to reflect Apache 2.0 license and added Qdrant attribution
+- **Dependencies**: Various minor dependency updates to close security vulnerabilities
+
+### Improvements
+- **License**: Added Apache 2.0 license file to repository for clarity and legal compliance
+
 ## Version 1.27.0 - March 4, 2026
 
 ### Features

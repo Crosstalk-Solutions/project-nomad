@@ -5,7 +5,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
-import { getJobStatusSchema } from '#validators/rag'
+import { deleteFileSchema, getJobStatusSchema } from '#validators/rag'
 
 @inject()
 export default class RagController {
@@ -63,6 +63,15 @@ export default class RagController {
   public async getStoredFiles({ response }: HttpContext) {
     const files = await this.ragService.getStoredFiles()
     return response.status(200).json({ files })
+  }
+
+  public async deleteFile({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(deleteFileSchema)
+    const result = await this.ragService.deleteFileBySource(source)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
   }
 
   public async scanAndSync({ response }: HttpContext) {

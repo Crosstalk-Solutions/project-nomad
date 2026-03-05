@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
@@ -16,11 +16,18 @@ interface KnowledgeBaseModalProps {
   onClose: () => void
 }
 
+function sourceToDisplayName(source: string): string {
+  const parts = source.split(/[/\\]/)
+  return parts[parts.length - 1]
+}
+
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
+  const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
   const { openModal, closeModal } = useModals()
+  const queryClient = useQueryClient()
 
   const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
     queryKey: ['storedFiles'],
@@ -45,6 +52,19 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         type: 'error',
         message: error?.message || 'Failed to upload document',
       })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (source: string) => api.deleteRAGFile(source),
+    onSuccess: () => {
+      addNotification({ type: 'success', message: 'File removed from knowledge base.' })
+      setConfirmDeleteSource(null)
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to delete file.' })
+      setConfirmDeleteSource(null)
     },
   })
 
@@ -212,7 +232,50 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   accessor: 'source',
                   title: 'File Name',
                   render(record) {
-                    return <span className="text-gray-700">{record.source}</span>
+                    return <span className="text-gray-700">{sourceToDisplayName(record.source)}</span>
+                  },
+                },
+                {
+                  accessor: 'source',
+                  title: '',
+                  render(record) {
+                    const isConfirming = confirmDeleteSource === record.source
+                    const isDeleting = deleteMutation.isPending && confirmDeleteSource === record.source
+                    if (isConfirming) {
+                      return (
+                        <div className="flex items-center gap-2 justify-end">
+                          <span className="text-sm text-gray-600">Remove from knowledge base?</span>
+                          <StyledButton
+                            variant='danger'
+                            size='sm'
+                            onClick={() => deleteMutation.mutate(record.source)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? 'Deleting…' : 'Confirm'}
+                          </StyledButton>
+                          <StyledButton
+                            variant='ghost'
+                            size='sm'
+                            onClick={() => setConfirmDeleteSource(null)}
+                            disabled={isDeleting}
+                          >
+                            Cancel
+                          </StyledButton>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div className="flex justify-end">
+                        <StyledButton
+                          variant="danger"
+                          size="sm"
+                          icon="IconTrash"
+                          onClick={() => setConfirmDeleteSource(record.source)}
+                          disabled={deleteMutation.isPending}
+                          loading={deleteMutation.isPending && confirmDeleteSource === record.source}
+                        >Delete</StyledButton>
+                      </div>
+                    )
                   },
                 },
               ]}

@@ -379,6 +379,13 @@ class API {
     })()
   }
 
+  async deleteRAGFile(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>('/rag/files', { data: { source } })
+      return response.data
+    })()
+  }
+
   async getSystemInfo() {
     return catchInternal(async () => {
       const response = await this.client.get<SystemInformationResponse>('/system/info')

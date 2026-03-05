@@ -5,3 +5,9 @@ export const getJobStatusSchema = vine.compile(
     filePath: vine.string(),
   })
 )
+
+export const deleteFileSchema = vine.compile(
+  vine.object({
+    source: vine.string(),
+  })
+)
