@@ -206,7 +206,7 @@ echo -e "${GREEN}###############################################################
 
 check_is_bash
 check_has_sudo
-chech_confirmation
+check_confirmation
 check_docker_running
 check_compose_file
 check_sidecar_dir
