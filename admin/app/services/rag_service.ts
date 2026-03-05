@@ -12,7 +12,7 @@ import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
@@ -853,7 +853,7 @@ export class RagService {
 
   /**
    * Retrieve all unique source files that have been stored in the knowledge base.
-   * @returns Array of unique source file identifiers
+   * @returns Array of unique full source paths
    */
   public async getStoredFiles(): Promise<string[]> {
     try {
@@ -886,16 +886,51 @@ export class RagService {
         offset = scrollResult.next_page_offset || null
       } while (offset !== null)
 
-      const sourcesArr = Array.from(sources)
-
-      // The source is a full path - only extract the filename for display
-      return sourcesArr.map((src) => {
-        const parts = src.split(/[/\\]/)
-        return parts[parts.length - 1] // Return the last part as filename
-      })
+      return Array.from(sources)
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
+    }
+  }
+
+  /**
+   * Delete all Qdrant points associated with a given source path and remove
+   * the corresponding file from disk if it lives under the uploads directory.
+   * @param source - Full source path as stored in Qdrant payloads
+   */
+  public async deleteFileBySource(source: string): Promise<{ success: boolean; message: string }> {
+    try {
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
+        filter: {
+          must: [{ key: 'source', match: { value: source } }],
+        },
+      })
+
+      logger.info(`[RAG] Deleted all points for source: ${source}`)
+
+      /** Delete the physical file only if it lives inside the uploads directory.
+      * resolve() normalises path traversal sequences (e.g. "/../..") before the
+      * check to prevent path traversal vulns
+      * The trailing sep is to ensure a prefix like "kb_uploads_{something_incorrect}" can't slip through.
+      */
+      const uploadsAbsPath = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
+      const resolvedSource = resolve(source)
+      if (resolvedSource.startsWith(uploadsAbsPath + sep)) {
+        await deleteFileIfExists(resolvedSource)
+        logger.info(`[RAG] Deleted uploaded file from disk: ${resolvedSource}`)
+      } else {
+        logger.warn(`[RAG] File was removed from knowledge base but doesn't live in Nomad's uploads directory, so it can't be safely removed. Skipping deletion of physical file...`)
+      }
+
+      return { success: true, message: 'File removed from knowledge base.' }
+    } catch (error) {
+      logger.error('[RAG] Error deleting file from knowledge base:', error)
+      return { success: false, message: 'Error deleting file from knowledge base.' }
     }
   }
 
