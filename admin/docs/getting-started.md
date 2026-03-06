@@ -103,6 +103,7 @@ The Knowledge Base lets you upload documents so the AI can reference them when a
 2. Upload your documents (PDFs, text files, etc.)
 3. Documents are processed and indexed automatically
 4. Ask questions in AI Chat — the AI will reference your uploaded documents when relevant
+5. Remove documents you no longer need — they'll be deleted from the index and local storage
 
 **Use cases:**
 - Upload emergency plans for quick reference during a crisis
@@ -182,6 +183,8 @@ While you have internet, periodically check for updates:
 3. Wait for the update to complete (your server will restart)
 
 Content updates (Wikipedia, maps, etc.) can be managed separately from software updates.
+
+**Early Access Channel:** Want the latest features before they hit stable? Enable the Early Access Channel from the Check for Updates page to receive release candidate builds. You can switch back to stable anytime.
 
 ### Monitoring System Health
 
