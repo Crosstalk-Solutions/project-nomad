@@ -82,6 +82,8 @@ To run LLM's and other included AI tools:
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
 
+**For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
+
 Again, Project N.O.M.A.D. itself is quite lightweight - it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
 
 ## About Internet Usage & Privacy
@@ -135,6 +137,10 @@ Use the format `- **Area**: Description` to stay consistent with existing entrie
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
 - **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
 - **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
+
+## License
+
+Project N.O.M.A.D. is licensed under the [Apache License 2.0](LICENSE).
 
 ## Helper Scripts
 Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
