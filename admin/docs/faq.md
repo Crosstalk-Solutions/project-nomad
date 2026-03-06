@@ -18,6 +18,8 @@ N.O.M.A.D. is designed for capable hardware, especially if you want to use the A
 - SSD storage (size depends on content — 500GB minimum, 2TB+ recommended)
 - NVIDIA or AMD GPU recommended for faster AI responses
 
+**For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
+
 ### How much storage do I need?
 It depends on what you download:
 - Full Wikipedia: ~95GB
@@ -79,12 +81,17 @@ The AI must be installed first — enable it during Easy Setup or install it fro
 3. Documents are processed and indexed automatically
 4. Ask questions in AI Chat — the AI will reference your uploaded documents when relevant
 
+You can also remove documents from the Knowledge Base when they're no longer needed.
+
 NOMAD documentation is automatically added to the Knowledge Base when the AI Assistant is installed.
 
 ### What is the System Benchmark?
 The System Benchmark tests your hardware performance and generates a NOMAD Score — a weighted composite of CPU, memory, disk, and AI performance. You can create a Builder Tag (a NOMAD-themed identity like "Tactical-Llama-1234") and share your results with the [community leaderboard](https://benchmark.projectnomad.us).
 
 Go to **[System Benchmark →](/settings/benchmark)** to run one.
+
+### What is the Early Access Channel?
+The Early Access Channel lets you opt in to receive release candidate builds with the latest features and improvements before they hit stable releases. You can enable or disable it from **Settings → Check for Updates**. Early access builds may contain bugs — if you prefer stability, stay on the stable channel.
 
 ---
 
@@ -136,6 +143,10 @@ When you add or swap a GPU, N.O.M.A.D. needs to reconfigure the AI container to 
 3. Find the **AI Assistant** and click **Force Reinstall**
 
 Force Reinstall recreates the AI container with GPU support enabled. Without this step, the AI continues to run on CPU only.
+
+### I see a "GPU passthrough not working" warning
+
+N.O.M.A.D. checks whether your GPU is actually accessible inside the AI container. If a GPU is detected on the host but isn't working inside the container, you'll see a warning banner on the System Information and AI Settings pages. Click the **"Fix: Reinstall AI Assistant"** button to recreate the container with proper GPU access. This preserves your downloaded AI models.
 
 ### AI Chat not available
 
