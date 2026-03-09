@@ -36,7 +36,7 @@ export class SystemUpdateService {
       const requestData = {
         requested_at: new Date().toISOString(),
         requester: 'admin-api',
-        target_tag: latestVersion || 'latest', // We should always have a latest version, but fallback to 'latest' just in case
+        target_tag: latestVersion ? `v${latestVersion}` : 'latest',
       }
 
       await writeFile(SystemUpdateService.REQUEST_FILE, JSON.stringify(requestData, null, 2))
