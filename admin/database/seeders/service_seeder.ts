@@ -12,7 +12,7 @@ export default class ServiceSeeder extends BaseSeeder {
   )
   private static DEFAULT_SERVICES: Omit<
     ModelAttributes<Service>,
-    'created_at' | 'updated_at' | 'metadata' | 'id'
+    'created_at' | 'updated_at' | 'metadata' | 'id' | 'available_update_version' | 'update_checked_at'
   >[] = [
     {
       service_name: SERVICE_NAMES.KIWIX,
@@ -23,6 +23,7 @@ export default class ServiceSeeder extends BaseSeeder {
         'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
       icon: 'IconBooks',
       container_image: 'ghcr.io/kiwix/kiwix-serve:3.8.1',
+      source_repo: 'https://github.com/kiwix/kiwix-tools',
       container_command: '*.zim --address=all',
       container_config: JSON.stringify({
         HostConfig: {
@@ -46,6 +47,7 @@ export default class ServiceSeeder extends BaseSeeder {
       description: 'Vector database for storing and searching embeddings',
       icon: 'IconRobot',
       container_image: 'qdrant/qdrant:v1.16',
+      source_repo: 'https://github.com/qdrant/qdrant',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
@@ -69,6 +71,7 @@ export default class ServiceSeeder extends BaseSeeder {
       description: 'Local AI chat that runs entirely on your hardware - no internet required',
       icon: 'IconWand',
       container_image: 'ollama/ollama:0.15.2',
+      source_repo: 'https://github.com/ollama/ollama',
       container_command: 'serve',
       container_config: JSON.stringify({
         HostConfig: {
@@ -91,7 +94,8 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 11,
       description: 'Swiss Army knife for data encoding, encryption, and analysis',
       icon: 'IconChefHat',
-      container_image: 'ghcr.io/gchq/cyberchef:latest',
+      container_image: 'ghcr.io/gchq/cyberchef:10.19.4',
+      source_repo: 'https://github.com/gchq/CyberChef',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
@@ -113,7 +117,8 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 10,
       description: 'Simple note-taking app with local storage',
       icon: 'IconNotes',
-      container_image: 'dullage/flatnotes:latest',
+      container_image: 'dullage/flatnotes:v5.5.4',
+      source_repo: 'https://github.com/dullage/flatnotes',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
@@ -137,7 +142,8 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 2,
       description: 'Interactive learning platform with video courses and exercises',
       icon: 'IconSchool',
-      container_image: 'treehouses/kolibri:latest',
+      container_image: 'treehouses/kolibri:0.12.8',
+      source_repo: 'https://github.com/learningequality/kolibri',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {

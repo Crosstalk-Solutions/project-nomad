@@ -1,4 +1,4 @@
-import { IconCircleCheck } from '@tabler/icons-react'
+import { IconCircleCheck, IconCircleX } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 
 export type InstallActivityFeedProps = {
@@ -16,6 +16,12 @@ export type InstallActivityFeedProps = {
       | 'started'
       | 'finalizing'
       | 'completed'
+      | 'update-pulling'
+      | 'update-stopping'
+      | 'update-creating'
+      | 'update-starting'
+      | 'update-complete'
+      | 'update-rollback'
     timestamp: string
     message: string
   }>
@@ -40,8 +46,10 @@ const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, cla
             </div>
             <>
               <div className="relative flex size-6 flex-none items-center justify-center bg-transparent">
-                {activityItem.type === 'completed' ? (
+                {activityItem.type === 'completed' || activityItem.type === 'update-complete' ? (
                   <IconCircleCheck aria-hidden="true" className="size-6 text-indigo-600" />
+                ) : activityItem.type === 'update-rollback' ? (
+                  <IconCircleX aria-hidden="true" className="size-6 text-red-500" />
                 ) : (
                   <div className="size-1.5 rounded-full bg-gray-100 ring-1 ring-gray-300" />
                 )}

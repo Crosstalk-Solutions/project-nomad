@@ -13,6 +13,7 @@ import axios from 'axios'
 import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
+import { isNewerVersion } from '../utils/version.js'
 
 
 @inject()
@@ -142,7 +143,9 @@ export class SystemService {
         'description',
         'icon',
         'powered_by',
-        'display_order'
+        'display_order',
+        'container_image',
+        'available_update_version'
       )
       .where('is_dependency_service', false)
     if (installedOnly) {
@@ -172,6 +175,8 @@ export class SystemService {
         ui_location: service.ui_location || '',
         powered_by: service.powered_by,
         display_order: service.display_order,
+        container_image: service.container_image,
+        available_update_version: service.available_update_version,
       })
     }
 
@@ -353,7 +358,7 @@ export class SystemService {
 
       const updateAvailable = process.env.NODE_ENV === 'development'
         ? false
-        : this.isNewerVersion(latestVersion, currentVersion.trim())
+        : isNewerVersion(latestVersion, currentVersion.trim(), earlyAccess)
 
       // Cache the results in KVStore for frontend checks
       await KVStore.setValue('system.updateAvailable', updateAvailable)
@@ -494,35 +499,4 @@ export class SystemService {
       })
   }
 
-  /**
-   * Compare two semantic version strings to determine if the first is newer than the second.
-   * @param version1 - The version to check (e.g., "1.25.0")
-   * @param version2 - The current version (e.g., "1.24.0")
-   * @returns true if version1 is newer than version2
-   */
-  private isNewerVersion(version1: string, version2: string): boolean {
-    const [base1, pre1] = version1.split('-')
-    const [base2, pre2] = version2.split('-')
-
-    const v1Parts = base1.split('.').map((p) => parseInt(p, 10) || 0)
-    const v2Parts = base2.split('.').map((p) => parseInt(p, 10) || 0)
-
-    const maxLen = Math.max(v1Parts.length, v2Parts.length)
-    for (let i = 0; i < maxLen; i++) {
-      const a = v1Parts[i] || 0
-      const b = v2Parts[i] || 0
-      if (a > b) return true
-      if (a < b) return false
-    }
-
-    // Base versions equal — GA > RC, RC.n+1 > RC.n
-    if (!pre1 && pre2) return true   // v1 is GA, v2 is RC → v1 is newer
-    if (pre1 && !pre2) return false  // v1 is RC, v2 is GA → v2 is newer
-    if (!pre1 && !pre2) return false // both GA, equal
-
-    // Both prerelease: compare numeric suffix (e.g. "rc.2" vs "rc.1")
-    const pre1Num = parseInt(pre1.split('.')[1], 10) || 0
-    const pre2Num = parseInt(pre2.split('.')[1], 10) || 0
-    return pre1Num > pre2Num
-  }
 }

@@ -7,6 +7,7 @@ import { DownloadModelJob } from '#jobs/download_model_job'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
 import { EmbedFileJob } from '#jobs/embed_file_job'
 import { CheckUpdateJob } from '#jobs/check_update_job'
+import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -76,8 +77,9 @@ export default class QueueWork extends BaseCommand {
       this.logger.info(`Worker started for queue: ${queueName}`)
     }
 
-    // Schedule nightly update check (idempotent, will persist over restarts)
+    // Schedule nightly update checks (idempotent, will persist over restarts)
     await CheckUpdateJob.scheduleNightly()
+    await CheckServiceUpdatesJob.scheduleNightly()
 
     // Graceful shutdown for all workers
     process.on('SIGTERM', async () => {
@@ -97,12 +99,14 @@ export default class QueueWork extends BaseCommand {
     handlers.set(RunBenchmarkJob.key, new RunBenchmarkJob())
     handlers.set(EmbedFileJob.key, new EmbedFileJob())
     handlers.set(CheckUpdateJob.key, new CheckUpdateJob())
+    handlers.set(CheckServiceUpdatesJob.key, new CheckServiceUpdatesJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(DownloadModelJob.key, DownloadModelJob.queue)
     queues.set(RunBenchmarkJob.key, RunBenchmarkJob.queue)
     queues.set(EmbedFileJob.key, EmbedFileJob.queue)
     queues.set(CheckUpdateJob.key, CheckUpdateJob.queue)
+    queues.set(CheckServiceUpdatesJob.key, CheckServiceUpdatesJob.queue)
 
     return [handlers, queues]
   }

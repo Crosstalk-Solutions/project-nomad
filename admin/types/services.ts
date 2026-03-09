@@ -12,4 +12,6 @@ export type ServiceSlim = Pick<
   | 'icon'
   | 'powered_by'
   | 'display_order'
+  | 'container_image'
+  | 'available_update_version'
 > & { status?: string }
