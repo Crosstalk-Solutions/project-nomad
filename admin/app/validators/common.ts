@@ -1,31 +1,31 @@
 import vine from '@vinejs/vine'
 
 /**
- * Checks whether a URL points to a private/internal network address.
- * Used to prevent SSRF — the server should not fetch from localhost,
- * private RFC1918 ranges, link-local, or cloud metadata endpoints.
+ * Checks whether a URL points to a loopback or link-local address.
+ * Used to prevent SSRF — the server should not fetch from localhost
+ * or link-local/metadata endpoints (e.g. cloud instance metadata at 169.254.x.x).
  *
- * Throws an error if the URL is internal/private.
+ * RFC1918 private ranges (10.x, 172.16-31.x, 192.168.x) are intentionally
+ * ALLOWED because NOMAD is a LAN appliance and users may host content
+ * mirrors on their local network.
+ *
+ * Throws an error if the URL is a loopback or link-local address.
  */
 export function assertNotPrivateUrl(urlString: string): void {
   const parsed = new URL(urlString)
   const hostname = parsed.hostname.toLowerCase()
 
-  const privatePatterns = [
+  const blockedPatterns = [
     /^localhost$/,
     /^127\.\d+\.\d+\.\d+$/,
-    /^10\.\d+\.\d+\.\d+$/,
-    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
-    /^192\.168\.\d+\.\d+$/,
-    /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
     /^0\.0\.0\.0$/,
+    /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
     /^\[::1\]$/,
-    /^\[?fe80:/i,
-    /^\[?fd[0-9a-f]{2}:/i, // Unique local IPv6
+    /^\[?fe80:/i, // IPv6 link-local
   ]
 
-  if (privatePatterns.some((re) => re.test(hostname))) {
-    throw new Error(`Download URL must not point to a private/internal address: ${hostname}`)
+  if (blockedPatterns.some((re) => re.test(hostname))) {
+    throw new Error(`Download URL must not point to a loopback or link-local address: ${hostname}`)
   }
 }
 
@@ -33,7 +33,7 @@ export const remoteDownloadValidator = vine.compile(
   vine.object({
     url: vine
       .string()
-      .url()
+      .url({ require_tld: false }) // Allow LAN URLs (e.g. http://my-nas:8080/file.zim)
       .trim(),
   })
 )
@@ -42,7 +42,7 @@ export const remoteDownloadWithMetadataValidator = vine.compile(
   vine.object({
     url: vine
       .string()
-      .url()
+      .url({ require_tld: false }) // Allow LAN URLs
       .trim(),
     metadata: vine
       .object({
@@ -59,7 +59,7 @@ export const remoteDownloadValidatorOptional = vine.compile(
   vine.object({
     url: vine
       .string()
-      .url()
+      .url({ require_tld: false }) // Allow LAN URLs
       .trim()
       .optional(),
   })
@@ -97,7 +97,7 @@ const resourceUpdateInfoBase = vine.object({
   resource_type: vine.enum(['zim', 'map'] as const),
   installed_version: vine.string().trim(),
   latest_version: vine.string().trim().minLength(1),
-  download_url: vine.string().url().trim(),
+  download_url: vine.string().url({ require_tld: false }).trim(),
 })
 
 export const applyContentUpdateValidator = vine.compile(resourceUpdateInfoBase)

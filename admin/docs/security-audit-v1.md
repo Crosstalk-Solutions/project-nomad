@@ -109,46 +109,28 @@ if (!fullPath.startsWith(path.resolve(basePath))) {
 
 ### 4. SSRF — Download Endpoints (HIGH)
 
-**File:** `admin/app/validators/common.ts:3-12`
+**File:** `admin/app/validators/common.ts`
 **Endpoints:** `POST /api/zim/download-remote`, `POST /api/maps/download-remote`, `POST /api/maps/download-base-assets`, `POST /api/maps/download-remote-preflight`
 
-The URL validator uses `require_tld: false`, allowing internal/private URLs:
-
-```typescript
-url: vine.string().url({ require_tld: false })
-```
-
-An attacker on the LAN can make NOMAD fetch from:
+The download endpoints accept user-supplied URLs and the server fetches from them. Without validation, an attacker on the LAN (or via CSRF since `shield.ts` disables CSRF protection) could make NOMAD fetch from co-located services:
 - `http://localhost:3306` (MySQL)
 - `http://localhost:6379` (Redis)
 - `http://169.254.169.254/` (cloud metadata — if NOMAD is ever cloud-hosted)
-- Any internal network service
 
-**Fix:** Add a URL validation helper that rejects private/internal IPs:
+**Fix:** Added `assertNotPrivateUrl()` that blocks loopback and link-local addresses before any download is initiated. Called in all download controllers.
+
+**Scope note:** RFC1918 private addresses (10.x, 172.16-31.x, 192.168.x) are intentionally **allowed** because NOMAD is a LAN appliance and users may host content mirrors on their local network. The `require_tld: false` VineJS option is preserved so URLs like `http://my-nas:8080/file.zim` remain valid.
 
 ```typescript
-function isPrivateUrl(urlString: string): boolean {
-  const url = new URL(urlString)
-  const hostname = url.hostname
-  // Block localhost, private ranges, link-local, metadata
-  const blocked = [
-    /^localhost$/i,
-    /^127\./,
-    /^10\./,
-    /^172\.(1[6-9]|2\d|3[01])\./,
-    /^192\.168\./,
-    /^169\.254\./,
-    /^0\./,
-    /^\[::1\]$/,
-    /^\[fe80:/i,
-  ]
-  return blocked.some(re => re.test(hostname))
-}
+const blockedPatterns = [
+  /^localhost$/,
+  /^127\.\d+\.\d+\.\d+$/,
+  /^0\.0\.0\.0$/,
+  /^169\.254\.\d+\.\d+$/,  // Link-local / cloud metadata
+  /^\[::1\]$/,
+  /^\[?fe80:/i,             // IPv6 link-local
+]
 ```
-
-Alternatively, maintain an allowlist of known-good download domains (e.g., `download.kiwix.org`, `github.com`, `api.projectnomad.us`).
-
-**Note:** The `require_tld: false` setting was intentionally added with the comment "Allow local URLs" — but this should only be needed for dev/testing. Consider making it configurable via environment variable, or keeping the allowlist approach for production.
 
 ---
 
@@ -186,7 +168,7 @@ The `updateSetting` endpoint validates the key against an enum, but `getSetting`
 
 The `download_url` comes directly from the client request body. An attacker can supply any URL and NOMAD will download from it. The URL should be looked up server-side from the content manifest instead.
 
-**Fix:** Validate `download_url` against the cached manifest, or apply the same SSRF protections as finding #4.
+**Fix:** Validate `download_url` against the cached manifest, or apply the same loopback/link-local protections as finding #4 (already applied in this PR).
 
 ---
 
