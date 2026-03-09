@@ -163,6 +163,34 @@ class API {
     })()
   }
 
+  async checkServiceUpdates() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/check-updates'
+      )
+      return response.data
+    })()
+  }
+
+  async getAvailableVersions(serviceName: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        versions: Array<{ tag: string; isLatest: boolean; releaseUrl?: string }>
+      }>(`/system/services/${serviceName}/available-versions`)
+      return response.data
+    })()
+  }
+
+  async updateService(serviceName: string, targetVersion: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/update',
+        { service_name: serviceName, target_version: targetVersion }
+      )
+      return response.data
+    })()
+  }
+
   async forceReinstallService(service_name: string) {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(

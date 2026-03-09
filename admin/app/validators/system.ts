@@ -24,3 +24,10 @@ export const checkLatestVersionValidator = vine.compile(
     force: vine.boolean().optional(), // Optional flag to force bypassing cache and checking for updates immediately
   })
 )
+
+export const updateServiceValidator = vine.compile(
+  vine.object({
+    service_name: vine.string().trim(),
+    target_version: vine.string().trim(),
+  })
+)

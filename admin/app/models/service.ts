@@ -62,6 +62,15 @@ export default class Service extends BaseModel {
   @column()
   declare metadata: string | null
 
+  @column()
+  declare source_repo: string | null
+
+  @column()
+  declare available_update_version: string | null
+
+  @column.dateTime()
+  declare update_checked_at: DateTime | null
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 
