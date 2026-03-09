@@ -1,12 +1,39 @@
 import vine from '@vinejs/vine'
 
+/**
+ * Checks whether a URL points to a private/internal network address.
+ * Used to prevent SSRF — the server should not fetch from localhost,
+ * private RFC1918 ranges, link-local, or cloud metadata endpoints.
+ *
+ * Throws an error if the URL is internal/private.
+ */
+export function assertNotPrivateUrl(urlString: string): void {
+  const parsed = new URL(urlString)
+  const hostname = parsed.hostname.toLowerCase()
+
+  const privatePatterns = [
+    /^localhost$/,
+    /^127\.\d+\.\d+\.\d+$/,
+    /^10\.\d+\.\d+\.\d+$/,
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+    /^192\.168\.\d+\.\d+$/,
+    /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
+    /^0\.0\.0\.0$/,
+    /^\[::1\]$/,
+    /^\[?fe80:/i,
+    /^\[?fd[0-9a-f]{2}:/i, // Unique local IPv6
+  ]
+
+  if (privatePatterns.some((re) => re.test(hostname))) {
+    throw new Error(`Download URL must not point to a private/internal address: ${hostname}`)
+  }
+}
+
 export const remoteDownloadValidator = vine.compile(
   vine.object({
     url: vine
       .string()
-      .url({
-        require_tld: false, // Allow local URLs
-      })
+      .url()
       .trim(),
   })
 )
@@ -15,9 +42,7 @@ export const remoteDownloadWithMetadataValidator = vine.compile(
   vine.object({
     url: vine
       .string()
-      .url({
-        require_tld: false, // Allow local URLs
-      })
+      .url()
       .trim(),
     metadata: vine
       .object({
@@ -34,9 +59,7 @@ export const remoteDownloadValidatorOptional = vine.compile(
   vine.object({
     url: vine
       .string()
-      .url({
-        require_tld: false, // Allow local URLs
-      })
+      .url()
       .trim()
       .optional(),
   })

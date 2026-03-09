@@ -13,7 +13,7 @@ import {
   getFile,
   ensureDirectoryExists,
 } from '../utils/fs.js'
-import { join } from 'path'
+import { join, resolve, sep } from 'path'
 import urlJoin from 'url-join'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import logger from '@adonisjs/core/services/logger'
@@ -404,7 +404,13 @@ export class MapService implements IMapService {
       fileName += '.pmtiles'
     }
 
-    const fullPath = join(this.baseDirPath, 'pmtiles', fileName)
+    const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
+    const fullPath = resolve(join(basePath, fileName))
+
+    // Prevent path traversal — resolved path must stay within the storage directory
+    if (!fullPath.startsWith(basePath + sep)) {
+      throw new Error('Invalid filename')
+    }
 
     const exists = await getFileStatsIfExists(fullPath)
     if (!exists) {

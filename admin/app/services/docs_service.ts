@@ -66,12 +66,19 @@ export class DocsService {
 
       const filename = _filename.endsWith('.md') ? _filename : `${_filename}.md`
 
-      const fileExists = await getFileStatsIfExists(path.join(this.docsPath, filename))
+      // Prevent path traversal — resolved path must stay within the docs directory
+      const basePath = path.resolve(this.docsPath)
+      const fullPath = path.resolve(path.join(this.docsPath, filename))
+      if (!fullPath.startsWith(basePath + path.sep)) {
+        throw new Error('Invalid document slug')
+      }
+
+      const fileExists = await getFileStatsIfExists(fullPath)
       if (!fileExists) {
         throw new Error(`File not found: ${filename}`)
       }
 
-      const fileStream = await getFile(path.join(this.docsPath, filename), 'stream')
+      const fileStream = await getFile(fullPath, 'stream')
       if (!fileStream) {
         throw new Error(`Failed to read file stream: ${filename}`)
       }
