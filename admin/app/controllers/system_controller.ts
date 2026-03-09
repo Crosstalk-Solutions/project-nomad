@@ -1,7 +1,9 @@
 import { DockerService } from '#services/docker_service';
 import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
-import { affectServiceValidator, checkLatestVersionValidator, installServiceValidator, subscribeToReleaseNotesValidator } from '#validators/system';
+import { ContainerRegistryService } from '#services/container_registry_service'
+import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
+import { affectServiceValidator, checkLatestVersionValidator, installServiceValidator, subscribeToReleaseNotesValidator, updateServiceValidator } from '#validators/system';
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -10,7 +12,8 @@ export default class SystemController {
     constructor(
         private systemService: SystemService,
         private dockerService: DockerService,
-        private systemUpdateService: SystemUpdateService
+        private systemUpdateService: SystemUpdateService,
+        private containerRegistryService: ContainerRegistryService
     ) { }
 
     async getInternetStatus({ }: HttpContext) {
@@ -104,9 +107,70 @@ export default class SystemController {
         response.send({ logs });
     }
 
-    
+
     async subscribeToReleaseNotes({ request }: HttpContext) {
         const reqData = await request.validateUsing(subscribeToReleaseNotesValidator);
         return await this.systemService.subscribeToReleaseNotes(reqData.email);
+    }
+
+    async checkServiceUpdates({ response }: HttpContext) {
+        await CheckServiceUpdatesJob.dispatch()
+        response.send({ success: true, message: 'Service update check dispatched' })
+    }
+
+    async getAvailableVersions({ params, response }: HttpContext) {
+        const serviceName = params.name
+        const service = await (await import('#models/service')).default
+            .query()
+            .where('service_name', serviceName)
+            .where('installed', true)
+            .first()
+
+        if (!service) {
+            return response.status(404).send({ error: `Service ${serviceName} not found or not installed` })
+        }
+
+        try {
+            const hostArch = await this.getHostArch()
+            const updates = await this.containerRegistryService.getAvailableUpdates(
+                service.container_image,
+                hostArch,
+                service.source_repo
+            )
+            response.send({ versions: updates })
+        } catch (error) {
+            response.status(500).send({ error: `Failed to fetch versions: ${error.message}` })
+        }
+    }
+
+    async updateService({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(updateServiceValidator)
+        const result = await this.dockerService.updateContainer(
+            payload.service_name,
+            payload.target_version
+        )
+
+        if (result.success) {
+            response.send({ success: true, message: result.message })
+        } else {
+            response.status(400).send({ error: result.message })
+        }
+    }
+
+    private async getHostArch(): Promise<string> {
+        try {
+            const info = await this.dockerService.docker.info()
+            const arch = info.Architecture || ''
+            const archMap: Record<string, string> = {
+                x86_64: 'amd64',
+                aarch64: 'arm64',
+                armv7l: 'arm',
+                amd64: 'amd64',
+                arm64: 'arm64',
+            }
+            return archMap[arch] || arch.toLowerCase()
+        } catch {
+            return 'amd64'
+        }
     }
 }

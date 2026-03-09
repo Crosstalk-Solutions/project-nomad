@@ -113,8 +113,8 @@ export class DockerService {
       const containers = await this.docker.listContainers({ all: true })
       const containerMap = new Map<string, Docker.ContainerInfo>()
       containers.forEach((container) => {
-        const name = container.Names[0].replace('/', '')
-        if (name.startsWith('nomad_')) {
+        const name = container.Names[0]?.replace('/', '')
+        if (name && name.startsWith('nomad_')) {
           containerMap.set(name, container)
         }
       })
@@ -791,6 +791,186 @@ export class DockerService {
   //     return []
   //   }
   // }
+
+  /**
+   * Update a service container to a new image version while preserving volumes and data.
+   * Includes automatic rollback if the new container fails health checks.
+   */
+  async updateContainer(
+    serviceName: string,
+    targetVersion: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const service = await Service.query().where('service_name', serviceName).first()
+      if (!service) {
+        return { success: false, message: `Service ${serviceName} not found` }
+      }
+      if (!service.installed) {
+        return { success: false, message: `Service ${serviceName} is not installed` }
+      }
+      if (this.activeInstallations.has(serviceName)) {
+        return { success: false, message: `Service ${serviceName} already has an operation in progress` }
+      }
+
+      this.activeInstallations.add(serviceName)
+
+      // Compute new image string
+      const currentImage = service.container_image
+      const imageBase = currentImage.includes(':')
+        ? currentImage.substring(0, currentImage.lastIndexOf(':'))
+        : currentImage
+      const newImage = `${imageBase}:${targetVersion}`
+
+      // Step 1: Pull new image
+      this._broadcast(serviceName, 'update-pulling', `Pulling image ${newImage}...`)
+      const pullStream = await this.docker.pull(newImage)
+      await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+
+      // Step 2: Find and stop existing container
+      this._broadcast(serviceName, 'update-stopping', `Stopping current container...`)
+      const containers = await this.docker.listContainers({ all: true })
+      const existingContainer = containers.find((c) => c.Names.includes(`/${serviceName}`))
+
+      if (!existingContainer) {
+        this.activeInstallations.delete(serviceName)
+        return { success: false, message: `Container for ${serviceName} not found` }
+      }
+
+      const oldContainer = this.docker.getContainer(existingContainer.Id)
+
+      // Inspect to capture full config before stopping
+      const inspectData = await oldContainer.inspect()
+
+      if (existingContainer.State === 'running') {
+        await oldContainer.stop({ t: 15 })
+      }
+
+      // Step 3: Rename old container as safety net
+      const oldName = `${serviceName}_old`
+      await oldContainer.rename({ name: oldName })
+
+      // Step 4: Create new container with inspected config + new image
+      this._broadcast(serviceName, 'update-creating', `Creating updated container...`)
+
+      const hostConfig = inspectData.HostConfig || {}
+      const newContainerConfig: any = {
+        Image: newImage,
+        name: serviceName,
+        Env: inspectData.Config?.Env || undefined,
+        Cmd: inspectData.Config?.Cmd || undefined,
+        ExposedPorts: inspectData.Config?.ExposedPorts || undefined,
+        WorkingDir: inspectData.Config?.WorkingDir || undefined,
+        User: inspectData.Config?.User || undefined,
+        HostConfig: {
+          Binds: hostConfig.Binds || undefined,
+          PortBindings: hostConfig.PortBindings || undefined,
+          RestartPolicy: hostConfig.RestartPolicy || undefined,
+          DeviceRequests: hostConfig.DeviceRequests || undefined,
+          Devices: hostConfig.Devices || undefined,
+        },
+        NetworkingConfig: inspectData.NetworkSettings?.Networks
+          ? {
+              EndpointsConfig: Object.fromEntries(
+                Object.keys(inspectData.NetworkSettings.Networks).map((net) => [net, {}])
+              ),
+            }
+          : undefined,
+      }
+
+      // Remove undefined values from HostConfig
+      Object.keys(newContainerConfig.HostConfig).forEach((key) => {
+        if (newContainerConfig.HostConfig[key] === undefined) {
+          delete newContainerConfig.HostConfig[key]
+        }
+      })
+
+      let newContainer: any
+      try {
+        newContainer = await this.docker.createContainer(newContainerConfig)
+      } catch (createError) {
+        // Rollback: rename old container back
+        this._broadcast(serviceName, 'update-rollback', `Failed to create new container: ${createError.message}. Rolling back...`)
+        const rollbackContainer = this.docker.getContainer((await this.docker.listContainers({ all: true })).find((c) => c.Names.includes(`/${oldName}`))!.Id)
+        await rollbackContainer.rename({ name: serviceName })
+        await rollbackContainer.start()
+        this.activeInstallations.delete(serviceName)
+        return { success: false, message: `Failed to create updated container: ${createError.message}` }
+      }
+
+      // Step 5: Start new container
+      this._broadcast(serviceName, 'update-starting', `Starting updated container...`)
+      await newContainer.start()
+
+      // Step 6: Health check — verify container stays running for 5 seconds
+      await new Promise((resolve) => setTimeout(resolve, 5000))
+      const newContainerInfo = await newContainer.inspect()
+
+      if (newContainerInfo.State?.Running) {
+        // Healthy — clean up old container
+        try {
+          const oldContainerRef = this.docker.getContainer(
+            (await this.docker.listContainers({ all: true })).find((c) =>
+              c.Names.includes(`/${oldName}`)
+            )?.Id || ''
+          )
+          await oldContainerRef.remove({ force: true })
+        } catch {
+          // Old container may already be gone
+        }
+
+        // Update DB
+        service.container_image = newImage
+        service.available_update_version = null
+        await service.save()
+
+        this.activeInstallations.delete(serviceName)
+        this._broadcast(
+          serviceName,
+          'update-complete',
+          `Successfully updated ${serviceName} to ${targetVersion}`
+        )
+        return { success: true, message: `Service ${serviceName} updated to ${targetVersion}` }
+      } else {
+        // Unhealthy — rollback
+        this._broadcast(
+          serviceName,
+          'update-rollback',
+          `New container failed health check. Rolling back to previous version...`
+        )
+
+        try {
+          await newContainer.stop({ t: 5 }).catch(() => {})
+          await newContainer.remove({ force: true })
+        } catch {
+          // Best effort cleanup
+        }
+
+        // Restore old container
+        const oldContainers = await this.docker.listContainers({ all: true })
+        const oldRef = oldContainers.find((c) => c.Names.includes(`/${oldName}`))
+        if (oldRef) {
+          const rollbackContainer = this.docker.getContainer(oldRef.Id)
+          await rollbackContainer.rename({ name: serviceName })
+          await rollbackContainer.start()
+        }
+
+        this.activeInstallations.delete(serviceName)
+        return {
+          success: false,
+          message: `Update failed: new container did not stay running. Rolled back to previous version.`,
+        }
+      }
+    } catch (error) {
+      this.activeInstallations.delete(serviceName)
+      this._broadcast(
+        serviceName,
+        'update-rollback',
+        `Update failed: ${error.message}`
+      )
+      logger.error(`[DockerService] Update failed for ${serviceName}: ${error.message}`)
+      return { success: false, message: `Update failed: ${error.message}` }
+    }
+  }
 
   private _broadcast(service: string, status: string, message: string) {
     transmit.broadcast(BROADCAST_CHANNELS.SERVICE_INSTALLATION, {

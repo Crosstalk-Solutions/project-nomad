@@ -13,26 +13,67 @@ import LoadingSpinner from '~/components/LoadingSpinner'
 import useErrorNotification from '~/hooks/useErrorNotification'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
-import { IconCheck, IconDownload } from '@tabler/icons-react'
+import { useTransmit } from 'react-adonis-transmit'
+import { BROADCAST_CHANNELS } from '../../../constants/broadcast'
+import { IconArrowUp, IconCheck, IconDownload } from '@tabler/icons-react'
+import UpdateServiceModal from '~/components/UpdateServiceModal'
+
+function extractTag(containerImage: string): string {
+  if (!containerImage) return ''
+  const parts = containerImage.split(':')
+  return parts.length > 1 ? parts[parts.length - 1] : 'latest'
+}
 
 export default function SettingsPage(props: { system: { services: ServiceSlim[] } }) {
   const { openModal, closeAllModals } = useModals()
   const { showError } = useErrorNotification()
   const { isOnline } = useInternetStatus()
+  const { subscribe } = useTransmit()
   const installActivity = useServiceInstallationActivity()
 
   const [isInstalling, setIsInstalling] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [checkingUpdates, setCheckingUpdates] = useState(false)
 
   useEffect(() => {
     if (installActivity.length === 0) return
-    if (installActivity.some((activity) => activity.type === 'completed')) {
-      // If any activity is completed, we can clear the installActivity state
+    if (
+      installActivity.some(
+        (activity) => activity.type === 'completed' || activity.type === 'update-complete'
+      )
+    ) {
       setTimeout(() => {
-        window.location.reload() // Reload the page to reflect changes
-      }, 3000) // Clear after 3 seconds
+        window.location.reload()
+      }, 3000)
     }
   }, [installActivity])
+
+  // Listen for service update check completion
+  useEffect(() => {
+    const unsubscribe = subscribe(BROADCAST_CHANNELS.SERVICE_UPDATES, () => {
+      setCheckingUpdates(false)
+      window.location.reload()
+    })
+    return () => { unsubscribe() }
+  }, [])
+
+  async function handleCheckUpdates() {
+    try {
+      if (!isOnline) {
+        showError('You must have an internet connection to check for updates.')
+        return
+      }
+      setCheckingUpdates(true)
+      const response = await api.checkServiceUpdates()
+      if (!response?.success) {
+        throw new Error('Failed to dispatch update check')
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error)
+      showError(`Failed to check for updates: ${error.message || 'Unknown error'}`)
+      setCheckingUpdates(false)
+    }
+  }
 
   const handleInstallService = (service: ServiceSlim) => {
     openModal(
@@ -97,8 +138,8 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
       setTimeout(() => {
         setLoading(false)
-        window.location.reload() // Reload the page to reflect changes
-      }, 3000) // Add small delay to allow for the action to complete
+        window.location.reload()
+      }, 3000)
     } catch (error) {
       console.error(`Error affecting service ${record.service_name}:`, error)
       showError(`Failed to ${action} service: ${error.message || 'Unknown error'}`)
@@ -120,12 +161,42 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
       setTimeout(() => {
         setLoading(false)
-        window.location.reload() // Reload the page to reflect changes
-      }, 3000) // Add small delay to allow for the action to complete
+        window.location.reload()
+      }, 3000)
     } catch (error) {
       console.error(`Error force reinstalling service ${record.service_name}:`, error)
       showError(`Failed to force reinstall service: ${error.message || 'Unknown error'}`)
     }
+  }
+
+  function handleUpdateService(record: ServiceSlim) {
+    const currentTag = extractTag(record.container_image)
+    const latestVersion = record.available_update_version!
+
+    openModal(
+      <UpdateServiceModal
+        record={record}
+        currentTag={currentTag}
+        latestVersion={latestVersion}
+        onCancel={closeAllModals}
+        onUpdate={async (targetVersion: string) => {
+          closeAllModals()
+          try {
+            setLoading(true)
+            const response = await api.updateService(record.service_name, targetVersion)
+            if (!response?.success) {
+              throw new Error(response?.message || 'Update failed')
+            }
+          } catch (error) {
+            console.error(`Error updating service ${record.service_name}:`, error)
+            showError(`Failed to update service: ${error.message || 'Unknown error'}`)
+            setLoading(false)
+          }
+        }}
+        showError={showError}
+      />,
+      `${record.service_name}-update-modal`
+    )
   }
 
   const AppActions = ({ record }: { record: ServiceSlim }) => {
@@ -162,7 +233,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     if (!record) return null
     if (!record.installed) {
       return (
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <StyledButton
             icon={'IconDownload'}
             variant="primary"
@@ -178,7 +249,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     }
 
     return (
-      <div className="flex space-x-2">
+      <div className="flex flex-wrap gap-2">
         <StyledButton
           icon={'IconExternalLink'}
           onClick={() => {
@@ -187,6 +258,16 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         >
           Open
         </StyledButton>
+        {record.available_update_version && (
+          <StyledButton
+            icon="IconArrowUp"
+            variant="primary"
+            onClick={() => handleUpdateService(record)}
+            disabled={isInstalling || !isOnline}
+          >
+            Update
+          </StyledButton>
+        )}
         {record.status && record.status !== 'unknown' && (
           <>
             <StyledButton
@@ -254,14 +335,26 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
       <Head title="App Settings" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-4">Apps</h1>
-          <p className="text-gray-500 mb-4">
-            Manage the applications that are available in your Project N.O.M.A.D. instance.
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-semibold">Apps</h1>
+              <p className="text-gray-500 mt-1">
+                Manage the applications that are available in your Project N.O.M.A.D. instance. Nightly update checks will automatically detect when new versions of these apps are available.
+              </p>
+            </div>
+            <StyledButton
+              icon="IconRefreshAlert"
+              onClick={handleCheckUpdates}
+              disabled={checkingUpdates || !isOnline}
+              loading={checkingUpdates}
+            >
+              Check for Updates
+            </StyledButton>
+          </div>
           {loading && <LoadingSpinner fullscreen />}
           {!loading && (
             <StyledTable<ServiceSlim & { actions?: any }>
-              className="font-semibold"
+              className="font-semibold !overflow-x-auto"
               rowLines={true}
               columns={[
                 {
@@ -297,8 +390,29 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                     record.installed ? <IconCheck className="h-6 w-6 text-desert-green" /> : '',
                 },
                 {
+                  accessor: 'container_image',
+                  title: 'Version',
+                  render: (record) => {
+                    if (!record.installed) return null
+                    const currentTag = extractTag(record.container_image)
+                    if (record.available_update_version) {
+                      return (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-500">{currentTag}</span>
+                          <IconArrowUp className="h-4 w-4 text-desert-green" />
+                          <span className="text-desert-green font-semibold">
+                            {record.available_update_version}
+                          </span>
+                        </div>
+                      )
+                    }
+                    return <span className="text-gray-600">{currentTag}</span>
+                  },
+                },
+                {
                   accessor: 'actions',
                   title: 'Actions',
+                  className: '!whitespace-normal',
                   render: (record) => <AppActions record={record} />,
                 },
               ]}
@@ -313,3 +427,4 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     </SettingsLayout>
   )
 }
+
