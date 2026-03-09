@@ -43,7 +43,7 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
       features: [
         'Complete Wikipedia offline',
         'Medical references and first aid guides',
-        'WikiHow articles and tutorials',
+        'DIY repair guides and how-to content',
         'Project Gutenberg books and literature',
       ],
       services: [SERVICE_NAMES.KIWIX],
