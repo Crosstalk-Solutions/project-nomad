@@ -16,7 +16,7 @@ import {
   listDirectoryContents,
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
-import { join } from 'path'
+import { join, resolve, sep } from 'path'
 import { WikipediaOption, WikipediaState } from '../../types/downloads.js'
 import vine from '@vinejs/vine'
 import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
@@ -332,7 +332,13 @@ export class ZimService {
       fileName += '.zim'
     }
 
-    const fullPath = join(process.cwd(), ZIM_STORAGE_PATH, fileName)
+    const basePath = resolve(join(process.cwd(), ZIM_STORAGE_PATH))
+    const fullPath = resolve(join(basePath, fileName))
+
+    // Prevent path traversal — resolved path must stay within the storage directory
+    if (!fullPath.startsWith(basePath + sep)) {
+      throw new Error('Invalid filename')
+    }
 
     const exists = await getFileStatsIfExists(fullPath)
     if (!exists) {
