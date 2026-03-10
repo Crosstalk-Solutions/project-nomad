@@ -156,7 +156,7 @@
         {
           "name": "Comprehensive",
           "slug": "survival-comprehensive",
-          "description": "Complete prepper video library with long-term food storage strategies. Includes everything in Standard.",
+          "description": "Complete prepper library with food storage strategies and classic military strategy. Includes everything in Standard.",
           "includesTier": "survival-standard",
           "resources": [
             {
@@ -166,6 +166,14 @@
               "description": "Long-term food storage and survival meal preparation",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
               "size_mb": 2160
+            },
+            {
+              "id": "gutenberg_en_lcc-u",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Military Science",
+              "description": "Classic military strategy, tactics, and field manuals",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-u_2026-03.zim",
+              "size_mb": 1200
             }
           ]
         }
@@ -247,14 +255,6 @@
               "description": "Biology courses and textbooks",
               "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_bio_2025-01.zim",
               "size_mb": 2240
-            },
-            {
-              "id": "gutenberg_en_education",
-              "version": "2025-12",
-              "title": "Project Gutenberg: Education",
-              "description": "Classic educational texts and resources",
-              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_education_2025-12.zim",
-              "size_mb": 606
             }
           ]
         },
@@ -447,7 +447,7 @@
         {
           "name": "Comprehensive",
           "slug": "agriculture-comprehensive",
-          "description": "Complete self-sufficiency with homesteading videos and advanced techniques. Includes Standard.",
+          "description": "Complete self-sufficiency with homesteading videos, classic agricultural texts, and advanced techniques. Includes Standard.",
           "includesTier": "agriculture-standard",
           "resources": [
             {
@@ -457,6 +457,14 @@
               "description": "Beekeeping, animal husbandry, and sustainable living practices",
               "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
               "size_mb": 3970
+            },
+            {
+              "id": "gutenberg_en_lcc-s",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Agriculture",
+              "description": "Classic texts on farming, animal husbandry, plant cultivation, and food preservation",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-s_2026-03.zim",
+              "size_mb": 4300
             }
           ]
         }
