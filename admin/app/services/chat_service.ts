@@ -4,7 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
-import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { DEFAULT_QUERY_REWRITE_MODEL, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
 @inject()
@@ -217,6 +217,59 @@ export class ChatService {
         }`
       )
       throw new Error('Failed to delete chat session')
+    }
+  }
+
+  async getMessageCount(sessionId: number): Promise<number> {
+    try {
+      const count = await ChatMessage.query().where('session_id', sessionId).count('* as total')
+      return Number(count[0].$extras.total)
+    } catch (error) {
+      logger.error(
+        `[ChatService] Failed to get message count for session ${sessionId}: ${error instanceof Error ? error.message : error}`
+      )
+      return 0
+    }
+  }
+
+  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string) {
+    try {
+      const models = await this.ollamaService.getModels()
+      const titleModelAvailable = models?.some((m) => m.name === DEFAULT_QUERY_REWRITE_MODEL)
+
+      let title: string
+
+      if (!titleModelAvailable) {
+        title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
+      } else {
+        const response = await this.ollamaService.chat({
+          model: DEFAULT_QUERY_REWRITE_MODEL,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPTS.title_generation },
+            { role: 'user', content: userMessage },
+            { role: 'assistant', content: assistantMessage },
+          ],
+        })
+
+        title = response?.message?.content?.trim()
+        if (!title) {
+          title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
+        }
+      }
+
+      await this.updateSession(sessionId, { title })
+      logger.info(`[ChatService] Generated title for session ${sessionId}: "${title}"`)
+    } catch (error) {
+      logger.error(
+        `[ChatService] Failed to generate title for session ${sessionId}: ${error instanceof Error ? error.message : error}`
+      )
+      // Fall back to truncated user message
+      try {
+        const fallbackTitle = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
+        await this.updateSession(sessionId, { title: fallbackTitle })
+      } catch {
+        // Silently fail - session keeps "New Chat" title
+      }
     }
   }
 
