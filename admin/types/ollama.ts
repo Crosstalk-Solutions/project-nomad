@@ -32,6 +32,7 @@ export type OllamaChatRequest = {
   model: string
   messages: OllamaChatMessage[]
   stream?: boolean
+  sessionId?: number
 }
 
 export type OllamaChatResponse = {

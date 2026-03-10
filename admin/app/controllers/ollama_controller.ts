@@ -1,3 +1,4 @@
+import { ChatService } from '#services/chat_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
 import { modelNameSchema } from '#validators/download'
@@ -11,6 +12,7 @@ import type { Message } from 'ollama'
 @inject()
 export default class OllamaController {
   constructor(
+    private chatService: ChatService,
     private ollamaService: OllamaService,
     private ragService: RagService
   ) { }
@@ -87,19 +89,59 @@ export default class OllamaController {
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
       const think: boolean | 'medium' = thinkingCapability ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
 
+      // Separate sessionId from the Ollama request payload — Ollama rejects unknown fields
+      const { sessionId, ...ollamaRequest } = reqData
+
+      // Save user message to DB before streaming if sessionId provided
+      let userContent: string | null = null
+      if (sessionId) {
+        const lastUserMsg = [...reqData.messages].reverse().find((m) => m.role === 'user')
+        if (lastUserMsg) {
+          userContent = lastUserMsg.content
+          await this.chatService.addMessage(sessionId, 'user', userContent)
+        }
+      }
+
       if (reqData.stream) {
         logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
         // Headers already flushed above
-        const stream = await this.ollamaService.chatStream({ ...reqData, think })
+        const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think })
+        let fullContent = ''
         for await (const chunk of stream) {
+          if (chunk.message?.content) {
+            fullContent += chunk.message.content
+          }
           response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
         }
         response.response.end()
+
+        // Save assistant message and optionally generate title
+        if (sessionId && fullContent) {
+          await this.chatService.addMessage(sessionId, 'assistant', fullContent)
+          const messageCount = await this.chatService.getMessageCount(sessionId)
+          if (messageCount <= 2 && userContent) {
+            this.chatService.generateTitle(sessionId, userContent, fullContent).catch((err) => {
+              logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
+            })
+          }
+        }
         return
       }
 
       // Non-streaming (legacy) path
-      return await this.ollamaService.chat({ ...reqData, think })
+      const result = await this.ollamaService.chat({ ...ollamaRequest, think })
+
+      if (sessionId && result?.message?.content) {
+        await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
+        const messageCount = await this.chatService.getMessageCount(sessionId)
+        if (messageCount <= 2 && userContent) {
+          this.chatService.generateTitle(sessionId, userContent, result.message.content).catch((err) => {
+            logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
+          })
+        }
+      }
+
+      return result
     } catch (error) {
       if (reqData.stream) {
         response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
