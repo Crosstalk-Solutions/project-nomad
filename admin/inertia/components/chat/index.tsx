@@ -90,8 +90,9 @@ export default function Chat({
     mutationFn: (request: {
       model: string
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+      sessionId?: number
     }) => api.sendChatMessage({ ...request, stream: false }),
-    onSuccess: async (data, variables) => {
+    onSuccess: async (data) => {
       if (!data || !activeSessionId) {
         throw new Error('No response from Ollama')
       }
@@ -106,17 +107,9 @@ export default function Chat({
 
       setMessages((prev) => [...prev, assistantMessage])
 
-      // Save assistant message to backend
-      await api.addChatMessage(activeSessionId, 'assistant', assistantMessage.content)
-
-      // Update session title if it's a new chat
-      const currentSession = sessions.find((s) => s.id === activeSessionId)
-      if (currentSession && currentSession.title === 'New Chat') {
-        const userContent = variables.messages[variables.messages.length - 1].content
-        const newTitle = userContent.slice(0, 50) + (userContent.length > 50 ? '...' : '')
-        await api.updateChatSession(activeSessionId, { title: newTitle })
-        queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
-      }
+      // Refresh sessions to pick up backend-persisted messages and title
+      queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['chatSessions'] }), 3000)
     },
     onError: (error) => {
       console.error('Error sending message:', error)
@@ -230,9 +223,6 @@ export default function Chat({
 
       setMessages((prev) => [...prev, userMessage])
 
-      // Save user message to backend
-      await api.addChatMessage(sessionId, 'user', content)
-
       const chatMessages = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: 'user' as const, content },
@@ -255,7 +245,7 @@ export default function Chat({
 
         try {
           await api.streamChatMessage(
-            { model: selectedModel || 'llama3.2', messages: chatMessages, stream: true },
+            { model: selectedModel || 'llama3.2', messages: chatMessages, stream: true, sessionId: sessionId ? Number(sessionId) : undefined },
             (chunkContent, chunkThinking, done) => {
               if (chunkThinking.length > 0 && thinkingStartTime === null) {
                 thinkingStartTime = Date.now()
@@ -336,24 +326,20 @@ export default function Chat({
             )
           )
 
-          await api.addChatMessage(sessionId, 'assistant', fullContent)
-
-          const currentSession = sessions.find((s) => s.id === sessionId)
-          if (currentSession && currentSession.title === 'New Chat') {
-            const newTitle = content.slice(0, 50) + (content.length > 50 ? '...' : '')
-            await api.updateChatSession(sessionId, { title: newTitle })
-            queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
-          }
+          // Refresh sessions to pick up backend-persisted messages and title
+          queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+          setTimeout(() => queryClient.invalidateQueries({ queryKey: ['chatSessions'] }), 3000)
         }
       } else {
         // Non-streaming (legacy) path
         chatMutation.mutate({
           model: selectedModel || 'llama3.2',
           messages: chatMessages,
+          sessionId: sessionId ? Number(sessionId) : undefined,
         })
       }
     },
-    [activeSessionId, messages, selectedModel, chatMutation, queryClient, streamingEnabled, sessions]
+    [activeSessionId, messages, selectedModel, chatMutation, queryClient, streamingEnabled]
   )
 
   return (

@@ -10,6 +10,7 @@ export const chatSchema = vine.compile(
       })
     ),
     stream: vine.boolean().optional(),
+    sessionId: vine.number().positive().optional(),
   })
 )
 
