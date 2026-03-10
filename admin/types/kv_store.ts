@@ -1,6 +1,7 @@
 
 export const KV_STORE_SCHEMA = {
   'chat.suggestionsEnabled':    'boolean',
+  'chat.lastModel':             'string',
   'rag.docsEmbedded':           'boolean',
   'system.updateAvailable':     'boolean',
   'system.latestVersion':       'string',
