@@ -10,6 +10,7 @@ import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconX } from '@tabler/icons-react'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
 
 interface ChatProps {
   enabled: boolean
@@ -50,6 +51,8 @@ export default function Chat({
   })
 
   const activeSession = sessions.find((s) => s.id === activeSessionId)
+
+  const { data: lastModelSetting } = useSystemSetting({ key: 'chat.lastModel', enabled })
 
   const { data: installedModels = [], isLoading: isLoadingModels } = useQuery({
     queryKey: ['installedModels'],
@@ -127,12 +130,24 @@ export default function Chat({
     },
   })
 
-  // Set first model as selected by default
+  // Set default model: prefer last used model, fall back to first installed if last model not available
   useEffect(() => {
     if (installedModels.length > 0 && !selectedModel) {
-      setSelectedModel(installedModels[0].name)
+      const lastModel = lastModelSetting?.value as string | undefined
+      if (lastModel && installedModels.some((m) => m.name === lastModel)) {
+        setSelectedModel(lastModel)
+      } else {
+        setSelectedModel(installedModels[0].name)
+      }
     }
-  }, [installedModels, selectedModel])
+  }, [installedModels, selectedModel, lastModelSetting])
+
+  // Persist model selection
+  useEffect(() => {
+    if (selectedModel) {
+      api.updateSetting('chat.lastModel', selectedModel)
+    }
+  }, [selectedModel])
 
   const handleNewChat = useCallback(() => {
     // Just clear the active session and messages - don't create a session yet
