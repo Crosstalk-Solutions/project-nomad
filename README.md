@@ -1,5 +1,3 @@
-# *NOTE: Project N.O.M.A.D. is still in active development and should not be considered stable!*
-
 <div align="center">
 <img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/admin/public/project_nomad_logo.png" width="200" height="200"/>
 
