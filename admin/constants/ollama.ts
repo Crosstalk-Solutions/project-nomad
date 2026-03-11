@@ -64,6 +64,16 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
 
 export const DEFAULT_QUERY_REWRITE_MODEL = 'qwen2.5:3b' // default to qwen2.5 for query rewriting with good balance of text task performance and resource usage
 
+/**
+ * Adaptive RAG context limits based on model size.
+ * Smaller models get overwhelmed with too much context, so we cap it.
+ */
+export const RAG_CONTEXT_LIMITS: { maxParams: number; maxResults: number; maxTokens: number }[] = [
+  { maxParams: 3, maxResults: 2, maxTokens: 1000 },   // 1-3B models
+  { maxParams: 8, maxResults: 4, maxTokens: 2500 },   // 4-8B models
+  { maxParams: Infinity, maxResults: 5, maxTokens: 0 }, // 13B+ (no cap)
+]
+
 export const SYSTEM_PROMPTS = {
   default: `
  Format all responses using markdown for better readability. Vanilla markdown or GitHub-flavored markdown is preferred.
@@ -113,7 +123,7 @@ Ensure that your suggestions are comma-seperated with no conjunctions like "and"
 Do not use line breaks, new lines, or extra spacing to separate the suggestions.
 Format: suggestion1, suggestion2, suggestion3
 `,
-  title_generation: `You are a title generator. Given the start of a conversation, generate a concise, descriptive title under 60 characters. Return ONLY the title text with no quotes, punctuation wrapping, or extra formatting.`,
+  title_generation: `You are a title generator. Given the start of a conversation, generate a concise, descriptive title under 50 characters. Return ONLY the title text with no quotes, punctuation wrapping, or extra formatting.`,
   query_rewrite: `
 You are a query rewriting assistant. Your task is to reformulate the user's latest question to include relevant context from the conversation history.
 

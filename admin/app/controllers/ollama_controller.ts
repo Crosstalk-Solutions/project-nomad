@@ -5,7 +5,7 @@ import { modelNameSchema } from '#validators/download'
 import { chatSchema, getAvailableModelsSchema } from '#validators/ollama'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import { DEFAULT_QUERY_REWRITE_MODEL, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { DEFAULT_QUERY_REWRITE_MODEL, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import logger from '@adonisjs/core/services/logger'
 import type { Message } from 'ollama'
 
@@ -66,9 +66,28 @@ export default class OllamaController {
 
         logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
 
-        // If relevant context is found, inject as a system message
+        // If relevant context is found, inject as a system message with adaptive limits
         if (relevantDocs.length > 0) {
-          const contextText = relevantDocs
+          // Determine context budget based on model size
+          const { maxResults, maxTokens } = this.getContextLimitsForModel(reqData.model)
+          let trimmedDocs = relevantDocs.slice(0, maxResults)
+
+          // Apply token cap if set (estimate ~4 chars per token)
+          // Always include the first (most relevant) result — the cap only gates subsequent results
+          if (maxTokens > 0) {
+            const charCap = maxTokens * 4
+            let totalChars = 0
+            trimmedDocs = trimmedDocs.filter((doc, idx) => {
+              totalChars += doc.text.length
+              return idx === 0 || totalChars <= charCap
+            })
+          }
+
+          logger.debug(
+            `[RAG] Injecting ${trimmedDocs.length}/${relevantDocs.length} results (model: ${reqData.model}, maxResults: ${maxResults}, maxTokens: ${maxTokens || 'unlimited'})`
+          )
+
+          const contextText = trimmedDocs
             .map((doc, idx) => `[Context ${idx + 1}] (Relevance: ${(doc.score * 100).toFixed(1)}%)\n${doc.text}`)
             .join('\n\n')
 
@@ -174,6 +193,25 @@ export default class OllamaController {
     return await this.ollamaService.getModels()
   }
 
+  /**
+   * Determines RAG context limits based on model size extracted from the model name.
+   * Parses size indicators like "1b", "3b", "8b", "70b" from model names/tags.
+   */
+  private getContextLimitsForModel(modelName: string): { maxResults: number; maxTokens: number } {
+    // Extract parameter count from model name (e.g., "llama3.2:3b", "qwen2.5:1.5b", "gemma:7b")
+    const sizeMatch = modelName.match(/(\d+\.?\d*)[bB]/)
+    const paramBillions = sizeMatch ? parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
+
+    for (const tier of RAG_CONTEXT_LIMITS) {
+      if (paramBillions <= tier.maxParams) {
+        return { maxResults: tier.maxResults, maxTokens: tier.maxTokens }
+      }
+    }
+
+    // Fallback: no limits
+    return { maxResults: 5, maxTokens: 0 }
+  }
+
   private async rewriteQueryWithContext(
     messages: Message[]
   ): Promise<string | null> {
@@ -199,8 +237,8 @@ export default class OllamaController {
         })
         .join('\n')
 
-      const availableModels = await this.ollamaService.getAvailableModels({ query: null, limit: 500 })
-      const rewriteModelAvailable = availableModels?.models.some(model => model.name === DEFAULT_QUERY_REWRITE_MODEL)
+      const installedModels = await this.ollamaService.getModels(true)
+      const rewriteModelAvailable = installedModels?.some(model => model.name === DEFAULT_QUERY_REWRITE_MODEL)
       if (!rewriteModelAvailable) {
         logger.warn(`[RAG] Query rewrite model "${DEFAULT_QUERY_REWRITE_MODEL}" not available. Skipping query rewriting.`)
         const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')

@@ -16,11 +16,13 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
+import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
 
 @inject()
 export class RagService {
   private qdrant: QdrantClient | null = null
   private qdrantInitPromise: Promise<void> | null = null
+  private embeddingModelVerified = false
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_MODEL = 'nomic-embed-text:v1.5'
@@ -33,6 +35,7 @@ export class RagService {
   // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
   public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
   public static SEARCH_QUERY_PREFIX = 'search_query: '
+  public static EMBEDDING_BATCH_SIZE = 8 // Conservative batch size for low-end hardware
 
   constructor(
     private dockerService: DockerService,
@@ -75,6 +78,16 @@ export class RagService {
           },
         })
       }
+
+      // Create payload indexes for faster filtering (idempotent — Qdrant ignores duplicates)
+      await this.qdrant!.createPayloadIndex(collectionName, {
+        field_name: 'source',
+        field_schema: 'keyword',
+      })
+      await this.qdrant!.createPayloadIndex(collectionName, {
+        field_name: 'content_type',
+        field_schema: 'keyword',
+      })
     } catch (error) {
       logger.error('Error ensuring Qdrant collection:', error)
       throw error
@@ -148,14 +161,57 @@ export class RagService {
   /**
    * Preprocesses a query to improve retrieval by expanding it with context.
    * This helps match documents even when using different terminology.
+   * TODO: We could probably move this to a separate QueryPreprocessor class if it grows more complex, but for now it's manageable here.
    */
+  private static QUERY_EXPANSION_DICTIONARY: Record<string, string> = {
+    'bob': 'bug out bag',
+    'bov': 'bug out vehicle',
+    'bol': 'bug out location',
+    'edc': 'every day carry',
+    'mre': 'meal ready to eat',
+    'shtf': 'shit hits the fan',
+    'teotwawki': 'the end of the world as we know it',
+    'opsec': 'operational security',
+    'ifak': 'individual first aid kit',
+    'ghb': 'get home bag',
+    'ghi': 'get home in',
+    'wrol': 'without rule of law',
+    'emp': 'electromagnetic pulse',
+    'ham': 'ham amateur radio',
+    'nbr': 'nuclear biological radiological',
+    'cbrn': 'chemical biological radiological nuclear',
+    'sar': 'search and rescue',
+    'comms': 'communications radio',
+    'fifo': 'first in first out',
+    'mylar': 'mylar bag food storage',
+    'paracord': 'paracord 550 cord',
+    'ferro': 'ferro rod fire starter',
+    'bivvy': 'bivvy bivy emergency shelter',
+    'bdu': 'battle dress uniform',
+    'gmrs': 'general mobile radio service',
+    'frs': 'family radio service',
+    'nbc': 'nuclear biological chemical',
+  }
+
   private preprocessQuery(query: string): string {
-    // Future: this is a placeholder for more advanced query expansion techniques.
-    // For now, we simply trim whitespace. Improvements could include:
-    // - Synonym expansion using a thesaurus
-    // - Adding related terms based on domain knowledge
-    // - Using a language model to rephrase or elaborate the query
-    const expanded = query.trim()
+    let expanded = query.trim()
+
+    // Expand known domain abbreviations/acronyms
+    const words = expanded.toLowerCase().split(/\s+/)
+    const expansions: string[] = []
+
+    for (const word of words) {
+      const cleaned = word.replace(/[^\w]/g, '')
+      if (RagService.QUERY_EXPANSION_DICTIONARY[cleaned]) {
+        expansions.push(RagService.QUERY_EXPANSION_DICTIONARY[cleaned])
+      }
+    }
+
+    if (expansions.length > 0) {
+      expanded = `${expanded} ${expansions.join(' ')}`
+      logger.debug(`[RAG] Query expanded with domain terms: "${expanded}"`)
+    }
+
     logger.debug(`[RAG] Original query: "${query}"`)
     logger.debug(`[RAG] Preprocessed query: "${expanded}"`)
     return expanded
@@ -187,22 +243,26 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
-      const allModels = await this.ollamaService.getModels(true)
-      const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
+      if (!this.embeddingModelVerified) {
+        const allModels = await this.ollamaService.getModels(true)
+        const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
 
-      if (!embeddingModel) {
-        try {
-          const downloadResult = await this.ollamaService.downloadModel(RagService.EMBEDDING_MODEL)
-          if (!downloadResult.success) {
-            throw new Error(downloadResult.message || 'Unknown error during model download')
+        if (!embeddingModel) {
+          try {
+            const downloadResult = await this.ollamaService.downloadModel(RagService.EMBEDDING_MODEL)
+            if (!downloadResult.success) {
+              throw new Error(downloadResult.message || 'Unknown error during model download')
+            }
+          } catch (modelError) {
+            logger.error(
+              `[RAG] Embedding model ${RagService.EMBEDDING_MODEL} not found locally and failed to download:`,
+              modelError
+            )
+            this.embeddingModelVerified = false
+            return null
           }
-        } catch (modelError) {
-          logger.error(
-            `[RAG] Embedding model ${RagService.EMBEDDING_MODEL} not found locally and failed to download:`,
-            modelError
-          )
-          return null
         }
+        this.embeddingModelVerified = true
       }
 
       // TokenChunker uses character-based tokenization (1 char = 1 token)
@@ -227,7 +287,8 @@ export class RagService {
 
       const ollamaClient = await this.ollamaService.getClient()
 
-      const embeddings: number[][] = []
+      // Prepare all chunk texts with prefix and truncation
+      const prefixedChunks: string[] = []
       for (let i = 0; i < chunks.length; i++) {
         let chunkText = chunks[i]
 
@@ -237,7 +298,6 @@ export class RagService {
         const estimatedTokens = this.estimateTokenCount(withPrefix)
 
         if (estimatedTokens > RagService.MAX_SAFE_TOKENS) {
-          // This should be rare - log for debugging if it's occurring frequently
           const prefixTokens = this.estimateTokenCount(prefixText)
           const maxTokensForText = RagService.MAX_SAFE_TOKENS - prefixTokens
           logger.warn(
@@ -246,17 +306,30 @@ export class RagService {
           chunkText = this.truncateToTokenLimit(chunkText, maxTokensForText)
         }
 
-        logger.debug(`[RAG] Generating embedding for chunk ${i + 1}/${chunks.length}`)
+        prefixedChunks.push(RagService.SEARCH_DOCUMENT_PREFIX + chunkText)
+      }
 
-        const response = await ollamaClient.embeddings({
+      // Batch embed chunks for performance
+      const embeddings: number[][] = []
+      const batchSize = RagService.EMBEDDING_BATCH_SIZE
+      const totalBatches = Math.ceil(prefixedChunks.length / batchSize)
+
+      for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+        const batchStart = batchIdx * batchSize
+        const batch = prefixedChunks.slice(batchStart, batchStart + batchSize)
+
+        logger.debug(`[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`)
+
+        const response = await ollamaClient.embed({
           model: RagService.EMBEDDING_MODEL,
-          prompt: RagService.SEARCH_DOCUMENT_PREFIX + chunkText,
+          input: batch,
         })
 
-        embeddings.push(response.embedding)
+        embeddings.push(...response.embeddings)
 
         if (onProgress) {
-          await onProgress(((i + 1) / chunks.length) * 100)
+          const progress = ((batchStart + batch.length) / prefixedChunks.length) * 100
+          await onProgress(progress)
         }
       }
 
@@ -395,14 +468,7 @@ export class RagService {
     deleteAfterEmbedding: boolean,
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>
-  ): Promise<{
-    success: boolean
-    message: string
-    chunks?: number
-    hasMoreBatches?: boolean
-    articlesProcessed?: number
-    totalArticles?: number
-  }> {
+  ): Promise<ProcessZIMFileResponse> {
     const zimExtractionService = new ZIMExtractionService()
 
     // Process in batches to avoid lock timeout
@@ -540,14 +606,7 @@ export class RagService {
     deleteAfterEmbedding: boolean = false,
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>
-  ): Promise<{
-    success: boolean
-    message: string
-    chunks?: number
-    hasMoreBatches?: boolean
-    articlesProcessed?: number
-    totalArticles?: number
-  }> {
+  ): Promise<ProcessAndEmbedFileResponse> {
     try {
       const fileType = determineFileType(filepath)
       logger.debug(`[RAG] Processing file: ${filepath} (detected type: ${fileType})`)
@@ -631,14 +690,18 @@ export class RagService {
         return []
       }
 
-      const allModels = await this.ollamaService.getModels(true)
-      const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
+      if (!this.embeddingModelVerified) {
+        const allModels = await this.ollamaService.getModels(true)
+        const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
 
-      if (!embeddingModel) {
-        logger.warn(
-          `[RAG] ${RagService.EMBEDDING_MODEL} not found. Cannot perform similarity search.`
-        )
-        return []
+        if (!embeddingModel) {
+          logger.warn(
+            `[RAG] ${RagService.EMBEDDING_MODEL} not found. Cannot perform similarity search.`
+          )
+          this.embeddingModelVerified = false
+          return []
+        }
+        this.embeddingModelVerified = true
       }
 
       // Preprocess query for better matching
@@ -666,9 +729,9 @@ export class RagService {
         return []
       }
 
-      const response = await ollamaClient.embeddings({
+      const response = await ollamaClient.embed({
         model: RagService.EMBEDDING_MODEL,
-        prompt: prefixedQuery,
+        input: [prefixedQuery],
       })
 
       // Perform semantic search with a higher limit to enable reranking
@@ -678,7 +741,7 @@ export class RagService {
       )
 
       const searchResults = await this.qdrant!.search(RagService.CONTENT_COLLECTION_NAME, {
-        vector: response.embedding,
+        vector: response.embeddings[0],
         limit: searchLimit,
         score_threshold: scoreThreshold,
         with_payload: true,
@@ -687,7 +750,7 @@ export class RagService {
       logger.debug(`[RAG] Found ${searchResults.length} results above threshold ${scoreThreshold}`)
 
       // Map results with metadata for reranking
-      const resultsWithMetadata = searchResults.map((result) => ({
+      const resultsWithMetadata: RAGResult[] = searchResults.map((result) => ({
         text: (result.payload?.text as string) || '',
         score: result.score,
         keywords: (result.payload?.keywords as string) || '',
@@ -700,6 +763,7 @@ export class RagService {
         hierarchy: result.payload?.hierarchy as string | undefined,
         document_id: result.payload?.document_id as string | undefined,
         content_type: result.payload?.content_type as string | undefined,
+        source: result.payload?.source as string | undefined,
       }))
 
       const rerankedResults = this.rerankResults(resultsWithMetadata, keywords, query)
@@ -711,8 +775,11 @@ export class RagService {
         )
       })
 
+      // Apply source diversity penalty to avoid all results from the same document
+      const diverseResults = this.applySourceDiversity(rerankedResults)
+
       // Return top N results with enhanced metadata
-      return rerankedResults.slice(0, limit).map((result) => ({
+      return diverseResults.slice(0, limit).map((result) => ({
         text: result.text,
         score: result.finalScore,
         metadata: {
@@ -748,34 +815,10 @@ export class RagService {
    * outweigh the overhead.
    */
   private rerankResults(
-    results: Array<{
-      text: string
-      score: number
-      keywords: string
-      chunk_index: number
-      created_at: number
-      article_title?: string
-      section_title?: string
-      full_title?: string
-      hierarchy?: string
-      document_id?: string
-      content_type?: string
-    }>,
+    results: Array<RAGResult>,
     queryKeywords: string[],
     originalQuery: string
-  ): Array<{
-    text: string
-    score: number
-    finalScore: number
-    chunk_index: number
-    created_at: number
-    article_title?: string
-    section_title?: string
-    full_title?: string
-    hierarchy?: string
-    document_id?: string
-    content_type?: string
-  }> {
+  ): Array<RerankedRAGResult> {
     return results
       .map((result) => {
         let finalScore = result.score
@@ -852,6 +895,37 @@ export class RagService {
   }
 
   /**
+   * Applies a diversity penalty so results from the same source are down-weighted.
+   * Uses greedy selection: for each result, apply 0.85^n penalty where n is the
+   * number of results already selected from the same source.
+   */
+  private applySourceDiversity(
+    results: Array<RerankedRAGResult>
+  ) {
+    const sourceCounts = new Map<string, number>()
+    const DIVERSITY_PENALTY = 0.85
+
+    return results
+      .map((result) => {
+        const sourceKey = result.document_id || result.source || 'unknown'
+        const count = sourceCounts.get(sourceKey) || 0
+        const penalty = Math.pow(DIVERSITY_PENALTY, count)
+        const diverseScore = result.finalScore * penalty
+
+        sourceCounts.set(sourceKey, count + 1)
+
+        if (count > 0) {
+          logger.debug(
+            `[RAG] Source diversity penalty for "${sourceKey}": ${result.finalScore.toFixed(4)} → ${diverseScore.toFixed(4)} (seen ${count}x)`
+          )
+        }
+
+        return { ...result, finalScore: diverseScore }
+      })
+      .sort((a, b) => b.finalScore - a.finalScore)
+  }
+
+  /**
    * Retrieve all unique source files that have been stored in the knowledge base.
    * @returns Array of unique full source paths
    */
@@ -866,12 +940,12 @@ export class RagService {
       let offset: string | number | null | Record<string, unknown> = null
       const batchSize = 100
 
-      // Scroll through all points in the collection
+      // Scroll through all points in the collection (only fetch source field)
       do {
         const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
           limit: batchSize,
           offset: offset,
-          with_payload: true,
+          with_payload: ['source'],
           with_vector: false,
         })
 
