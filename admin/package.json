@@ -105,7 +105,7 @@
     "pdf-parse": "^2.4.5",
     "pdf2pic": "^3.2.0",
     "pino-pretty": "^13.0.0",
-    "pmtiles": "^4.3.0",
+    "pmtiles": "^4.4.0",
     "postcss": "^8.5.6",
     "react": "^19.1.0",
     "react-adonis-transmit": "^1.0.1",
