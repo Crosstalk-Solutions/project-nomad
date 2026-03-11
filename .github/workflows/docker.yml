@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Semantic version to label the Docker image under'
+        description: 'Semantic version to label the Docker image under (no "v" prefix, e.g. "1.2.3")'
         required: true
         type: string
       tag_latest:
@@ -46,4 +46,5 @@ jobs:
           push: true
           tags: |
             ghcr.io/crosstalk-solutions/project-nomad:${{ inputs.version }}
+            ghcr.io/crosstalk-solutions/project-nomad:v${{ inputs.version }}
             ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad:latest' || '' }}
