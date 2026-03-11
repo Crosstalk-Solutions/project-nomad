@@ -4,13 +4,16 @@
 
 ### Features
 - **AI Assistant**: Added improved user guidance for troubleshooting GPU pass-through issues
+- **AI Assistant**: The last used model is now automatically selected when a new chat is started
 - **Settings**: Nomad now automatically performs nightly checks for available app updates, and users can select and apply updates from the Apps page in Settings
 
 ### Bug Fixes
 - **Settings**: Fixed an issue where the AI Assistant settings page would be shown in navigation even if the AI Assistant was not installed, thus causing 404 errors when clicked
 - **Security**: Path traversal and SSRF mitigations
+- **AI Assistant**: Fixed an issue that was causing intermittent failures saving chat session titles
 
 ### Improvements
+- **AI Assistant**: Extensive performance improvements and improved RAG intelligence/context usage
 
 ## Version 1.28.0 - March 5, 2026
 
