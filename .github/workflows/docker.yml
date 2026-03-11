@@ -48,3 +48,7 @@ jobs:
             ghcr.io/crosstalk-solutions/project-nomad:${{ inputs.version }}
             ghcr.io/crosstalk-solutions/project-nomad:v${{ inputs.version }}
             ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad:latest' || '' }}
+          build-args: |
+            VERSION=${{ inputs.version }}
+            BUILD_DATE=${{ github.event.workflow_run.created_at }}
+            VCS_REF=${{ github.sha }}
