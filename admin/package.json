@@ -47,7 +47,7 @@
     "@japa/runner": "^4.2.0",
     "@swc/core": "1.11.24",
     "@tanstack/eslint-plugin-query": "^5.81.2",
-    "@types/dockerode": "^3.3.41",
+    "@types/dockerode": "^4.0.1",
     "@types/luxon": "^3.6.2",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.8",
