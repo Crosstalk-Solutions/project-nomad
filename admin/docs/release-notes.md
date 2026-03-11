@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.29.0 - March 11, 2026
 
 ### Features
 - **AI Assistant**: Added improved user guidance for troubleshooting GPU pass-through issues
