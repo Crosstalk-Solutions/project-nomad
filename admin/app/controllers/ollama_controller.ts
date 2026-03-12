@@ -1,11 +1,15 @@
 import { ChatService } from '#services/chat_service'
+import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
+import Service from '#models/service'
+import KVStore from '#models/kv_store'
 import { modelNameSchema } from '#validators/download'
 import { chatSchema, getAvailableModelsSchema } from '#validators/ollama'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DEFAULT_QUERY_REWRITE_MODEL, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
 import type { Message } from 'ollama'
 
@@ -13,6 +17,7 @@ import type { Message } from 'ollama'
 export default class OllamaController {
   constructor(
     private chatService: ChatService,
+    private dockerService: DockerService,
     private ollamaService: OllamaService,
     private ragService: RagService
   ) { }
@@ -169,6 +174,72 @@ export default class OllamaController {
       }
       throw error
     }
+  }
+
+  async configureRemote({ request, response }: HttpContext) {
+    const remoteUrl: string | null = request.input('remoteUrl', null)
+
+    const ollamaService = await Service.query().where('service_name', SERVICE_NAMES.OLLAMA).first()
+    if (!ollamaService) {
+      return response.status(404).send({ success: false, message: 'Ollama service record not found.' })
+    }
+
+    // Clear path: null or empty URL removes remote config and marks service as not installed
+    if (!remoteUrl || remoteUrl.trim() === '') {
+      await KVStore.clearValue('ai.remoteOllamaUrl')
+      ollamaService.installed = false
+      ollamaService.installation_status = 'idle'
+      await ollamaService.save()
+      return { success: true, message: 'Remote Ollama configuration cleared.' }
+    }
+
+    // Validate URL format
+    if (!remoteUrl.startsWith('http')) {
+      return response.status(400).send({
+        success: false,
+        message: 'Invalid URL. Must start with http:// or https://',
+      })
+    }
+
+    // Test connectivity
+    try {
+      const testResponse = await fetch(`${remoteUrl.replace(/\/$/, '')}/api/tags`, {
+        signal: AbortSignal.timeout(5000),
+      })
+      if (!testResponse.ok) {
+        return response.status(400).send({
+          success: false,
+          message: `Could not connect to Ollama at ${remoteUrl} (HTTP ${testResponse.status}). Make sure Ollama is running with OLLAMA_HOST=0.0.0.0.`,
+        })
+      }
+    } catch (error) {
+      return response.status(400).send({
+        success: false,
+        message: `Could not connect to Ollama at ${remoteUrl}. Make sure the host is reachable and Ollama is running with OLLAMA_HOST=0.0.0.0.`,
+      })
+    }
+
+    // Save remote URL and mark service as installed
+    await KVStore.setValue('ai.remoteOllamaUrl', remoteUrl.trim())
+    ollamaService.installed = true
+    ollamaService.installation_status = 'idle'
+    await ollamaService.save()
+
+    // Install Qdrant if not already installed (fire-and-forget)
+    const qdrantService = await Service.query().where('service_name', SERVICE_NAMES.QDRANT).first()
+    if (qdrantService && !qdrantService.installed) {
+      this.dockerService.createContainerPreflight(SERVICE_NAMES.QDRANT).catch((error) => {
+        logger.error('[OllamaController] Failed to start Qdrant preflight:', error)
+      })
+    }
+
+    // Mirror post-install side effects: disable suggestions, trigger docs discovery
+    await KVStore.setValue('chat.suggestionsEnabled', false)
+    this.ragService.discoverNomadDocs().catch((error) => {
+      logger.error('[OllamaController] Failed to discover Nomad docs:', error)
+    })
+
+    return { success: true, message: 'Remote Ollama configured.' }
   }
 
   async deleteModel({ request }: HttpContext) {
