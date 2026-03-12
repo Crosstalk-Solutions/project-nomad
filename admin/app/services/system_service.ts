@@ -410,6 +410,117 @@ export class SystemService {
     }
   }
 
+  async getDebugInfo(): Promise<string> {
+    const appVersion = SystemService.getAppVersion()
+    const environment = process.env.NODE_ENV || 'unknown'
+
+    const [systemInfo, services, internetStatus, versionCheck] = await Promise.all([
+      this.getSystemInfo(),
+      this.getServices({ installedOnly: false }),
+      this.getInternetStatus().catch(() => null),
+      this.checkLatestVersion().catch(() => null),
+    ])
+
+    const lines: string[] = [
+      'Project NOMAD Debug Info',
+      '========================',
+      `App Version: ${appVersion}`,
+      `Environment: ${environment}`,
+    ]
+
+    if (systemInfo) {
+      const { cpu, mem, os, disk, fsSize, uptime, graphics } = systemInfo
+
+      lines.push('')
+      lines.push('System:')
+      if (os.distro) lines.push(`  OS: ${os.distro}`)
+      if (os.hostname) lines.push(`  Hostname: ${os.hostname}`)
+      if (os.kernel) lines.push(`  Kernel: ${os.kernel}`)
+      if (os.arch) lines.push(`  Architecture: ${os.arch}`)
+      if (uptime?.uptime) lines.push(`  Uptime: ${this._formatUptime(uptime.uptime)}`)
+
+      lines.push('')
+      lines.push('Hardware:')
+      if (cpu.brand) {
+        lines.push(`  CPU: ${cpu.brand} (${cpu.cores} cores)`)
+      }
+      if (mem.total) {
+        const total = this._formatBytes(mem.total)
+        const used = this._formatBytes(mem.total - (mem.available || 0))
+        const available = this._formatBytes(mem.available || 0)
+        lines.push(`  RAM: ${total} total, ${used} used, ${available} available`)
+      }
+      if (graphics.controllers && graphics.controllers.length > 0) {
+        for (const gpu of graphics.controllers) {
+          const vram = gpu.vram ? ` (${gpu.vram} MB VRAM)` : ''
+          lines.push(`  GPU: ${gpu.model}${vram}`)
+        }
+      } else {
+        lines.push('  GPU: None detected')
+      }
+
+      // Disk info — try disk array first, fall back to fsSize
+      const diskEntries = disk.filter((d) => d.totalSize > 0)
+      if (diskEntries.length > 0) {
+        for (const d of diskEntries) {
+          const size = this._formatBytes(d.totalSize)
+          const type = d.tran?.toUpperCase() || (d.rota ? 'HDD' : 'SSD')
+          lines.push(`  Disk: ${size}, ${Math.round(d.percentUsed)}% used, ${type}`)
+        }
+      } else if (fsSize.length > 0) {
+        const realFs = fsSize.filter((f) => f.fs.startsWith('/dev/'))
+        const seen = new Set<number>()
+        for (const f of realFs) {
+          if (seen.has(f.size)) continue
+          seen.add(f.size)
+          lines.push(`  Disk: ${this._formatBytes(f.size)}, ${Math.round(f.use)}% used`)
+        }
+      }
+    }
+
+    const installed = services.filter((s) => s.installed)
+    lines.push('')
+    if (installed.length > 0) {
+      lines.push('Installed Services:')
+      for (const svc of installed) {
+        lines.push(`  ${svc.friendly_name} (${svc.service_name}): ${svc.status}`)
+      }
+    } else {
+      lines.push('Installed Services: None')
+    }
+
+    if (internetStatus !== null) {
+      lines.push('')
+      lines.push(`Internet Status: ${internetStatus ? 'Online' : 'Offline'}`)
+    }
+
+    if (versionCheck?.success) {
+      const updateMsg = versionCheck.updateAvailable
+        ? `Yes (${versionCheck.latestVersion} available)`
+        : `No (${versionCheck.currentVersion} is latest)`
+      lines.push(`Update Available: ${updateMsg}`)
+    }
+
+    return lines.join('\n')
+  }
+
+  private _formatUptime(seconds: number): string {
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor((seconds % 86400) / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`
+    if (hours > 0) return `${hours}h ${minutes}m`
+    return `${minutes}m`
+  }
+
+  private _formatBytes(bytes: number, decimals = 1): string {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i]
+  }
+
   async updateSetting(key: KVStoreKey, value: any): Promise<void> {
     if ((value === '' || value === undefined || value === null) && KV_STORE_SCHEMA[key] === 'string') {
       await KVStore.clearValue(key)
