@@ -211,6 +211,13 @@ class API {
     })()
   }
 
+  async getDebugInfo() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ debugInfo: string }>('/system/debug-info')
+      return response.data.debugInfo
+    })()
+  }
+
   async getInternetStatus() {
     return catchInternal(async () => {
       const response = await this.client.get<boolean>('/system/internet-status')
