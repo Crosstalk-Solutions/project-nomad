@@ -43,6 +43,16 @@ class API {
     })()
   }
 
+  async configureRemoteOllama(remoteUrl: string | null): Promise<{ success: boolean; message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/ollama/configure-remote',
+        { remoteUrl }
+      )
+      return response.data
+    })()
+  }
+
   async deleteModel(model: string): Promise<{ success: boolean; message: string }> {
     return catchInternal(async () => {
       const response = await this.client.delete('/ollama/models', { data: { model } })
