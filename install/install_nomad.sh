@@ -588,10 +588,9 @@ start_management_containers() {
 }
 
 get_local_ip() {
-  # Try hostname -I first, fall back to ip command for distros without hostname
-  if command -v hostname &> /dev/null; then
-    local_ip_address=$(hostname -I | awk '{print $1}')
-  else
+  # Try hostname -I first, fall back to ip command if it fails or isn't available
+  local_ip_address=$(hostname -I 2>/dev/null | awk '{print $1}')
+  if [[ -z "$local_ip_address" ]]; then
     local_ip_address=$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -1)
   fi
   if [[ -z "$local_ip_address" ]]; then
