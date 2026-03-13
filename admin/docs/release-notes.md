@@ -3,6 +3,7 @@
 ## Version 1.30.3 - March 25, 2026
 
 ### Features
+- **Install**: Added multi-distro Linux support — the install script now detects and supports Arch, Fedora/RHEL, openSUSE, Void, and Alpine in addition to Debian/Ubuntu
 
 ### Bug Fixes
 - **Benchmark**: Fixed an issue where CPU and Disk Write scores could be displayed as 0 if the measured values was less than half of the reference mark. Thanks @bortlesboat for the fix!
@@ -51,7 +52,6 @@
 - **Utility Scripts**: Added a check for the expected Docker Compose version (v2) in all utility scripts to provide clearer error messages and guidance if the environment is not set up correctly.
 - **Utility Scripts**: Added an additional warning to the installation script to inform about potential overwriting of existing customized configurations and the importance of backing up data before running the installation script again.
 - **Documentation**: Updated installation instructions to reflect the new option for manual deployment via Docker Compose without the install script.
-
 
 ## Version 1.29.0 - March 11, 2026
 

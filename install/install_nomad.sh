@@ -76,14 +76,101 @@ check_is_bash() {
     echo -e "${GREEN}#${RESET} This script is running in bash.\\n"
 }
 
-check_is_debian_based() {
-  if [[ ! -f /etc/debian_version ]]; then
-    header_red
-    echo -e "${RED}#${RESET} This script is designed to run on Debian-based systems only.\\n"
-    echo -e "${RED}#${RESET} Please run this script on a Debian-based system and try again."
-    exit 1
+detect_distro() {
+  # Detect the Linux distribution family for package manager selection
+  DISTRO_FAMILY="unknown"
+  DISTRO_ID="unknown"
+
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    DISTRO_ID="${ID}"
+    case "${ID}" in
+      debian|ubuntu|raspbian|linuxmint|pop|elementary|zorin|kali)
+        DISTRO_FAMILY="debian"
+        ;;
+      arch|manjaro|endeavouros|garuda|artix|cachyos)
+        DISTRO_FAMILY="arch"
+        ;;
+      fedora|rhel|centos|rocky|alma|ol|nobara)
+        DISTRO_FAMILY="rhel"
+        ;;
+      opensuse*|sles)
+        DISTRO_FAMILY="suse"
+        ;;
+      void)
+        DISTRO_FAMILY="void"
+        ;;
+      alpine)
+        DISTRO_FAMILY="alpine"
+        ;;
+      *)
+        # Fallback: check ID_LIKE for parent distro
+        case "${ID_LIKE}" in
+          *debian*|*ubuntu*)
+            DISTRO_FAMILY="debian"
+            ;;
+          *arch*)
+            DISTRO_FAMILY="arch"
+            ;;
+          *rhel*|*fedora*|*centos*)
+            DISTRO_FAMILY="rhel"
+            ;;
+          *suse*)
+            DISTRO_FAMILY="suse"
+            ;;
+          *)
+            DISTRO_FAMILY="unknown"
+            ;;
+        esac
+        ;;
+    esac
   fi
-    echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
+
+  if [[ "$DISTRO_FAMILY" == "unknown" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} Unable to detect your Linux distribution.\\n"
+    echo -e "${RED}#${RESET} Supported distro families: Debian/Ubuntu, Arch, Fedora/RHEL, openSUSE, Void, Alpine."
+    echo -e "${RED}#${RESET} You may try continuing, but package installation may fail."
+    read -p "Continue anyway? (y/N): " choice
+    case "$choice" in
+      y|Y ) echo -e "${YELLOW}#${RESET} Continuing with unknown distro...\\n" ;;
+      * ) exit 1 ;;
+    esac
+  else
+    echo -e "${GREEN}#${RESET} Detected distro: ${DISTRO_ID} (family: ${DISTRO_FAMILY})\\n"
+  fi
+}
+
+# Distro-agnostic package install wrapper
+pkg_install() {
+  case "$DISTRO_FAMILY" in
+    debian)
+      sudo apt-get update -qq && sudo apt-get install -y "$@"
+      ;;
+    arch)
+      sudo pacman -Sy --noconfirm "$@"
+      ;;
+    rhel)
+      if command -v dnf &> /dev/null; then
+        sudo dnf install -y "$@"
+      else
+        sudo yum install -y "$@"
+      fi
+      ;;
+    suse)
+      sudo zypper install -y "$@"
+      ;;
+    void)
+      sudo xbps-install -Sy "$@"
+      ;;
+    alpine)
+      sudo apk add "$@"
+      ;;
+    *)
+      echo -e "${RED}#${RESET} Cannot auto-install packages on this distro. Please install manually: $*"
+      return 1
+      ;;
+  esac
 }
 
 ensure_dependencies_installed() {
@@ -101,8 +188,7 @@ ensure_dependencies_installed() {
 
   if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
-    sudo apt-get update
-    sudo apt-get install -y "${missing_deps[@]}"
+    pkg_install "${missing_deps[@]}"
 
     # Verify installation
     for dep in "${missing_deps[@]}"; do
@@ -140,11 +226,8 @@ ensure_docker_installed() {
   if ! command -v docker &> /dev/null; then
     echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
     
-    # Update package database
-    sudo apt-get update
-    
     # Install prerequisites
-    sudo apt-get install -y ca-certificates curl
+    pkg_install ca-certificates curl
     
     # Create directory for keyrings
     # sudo install -m 0755 -d /etc/apt/keyrings
@@ -165,18 +248,33 @@ ensure_docker_installed() {
     # # Install Docker packages
     # sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    # Download the Docker convenience script
-    curl -fsSL https://get.docker.com -o get-docker.sh
-
-    # Run the Docker installation script
-    sudo sh get-docker.sh
+    # Install Docker using the best method for this distro
+    case "$DISTRO_FAMILY" in
+      arch)
+        # Arch has docker in the official repos; iptables-nft needed for networking
+        sudo pacman -Sy --noconfirm docker docker-compose docker-buildx iptables-nft
+        ;;
+      suse)
+        # openSUSE has docker in official repos
+        sudo zypper install -y docker docker-compose docker-buildx
+        ;;
+      *)
+        # For Debian, Fedora/RHEL, and others: use the convenience script
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        rm -f get-docker.sh
+        ;;
+    esac
 
     # Check if Docker was installed successfully
     if ! command -v docker &> /dev/null; then
       echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."
       exit 1
     fi
-    
+
+    # Enable and start Docker service
+    sudo systemctl enable --now docker
+
     echo -e "${GREEN}#${RESET} Docker installation completed.\\n"
   else
     echo -e "${GREEN}#${RESET} Docker is already installed.\\n"
@@ -242,26 +340,57 @@ setup_nvidia_container_toolkit() {
   fi
   
   echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
-  
-  # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
-      | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-      | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit repository. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! sudo apt-get update 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to update package list. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! sudo apt-get install -y nvidia-container-toolkit 2>/dev/null; then
+
+  # Add NVIDIA container toolkit repo and install - method varies by distro family
+  local nvidia_install_success=false
+
+  case "$DISTRO_FAMILY" in
+    debian)
+      if curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null \
+        && curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
+          | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+          | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1 \
+        && sudo apt-get update 2>/dev/null \
+        && sudo apt-get install -y nvidia-container-toolkit 2>/dev/null; then
+        nvidia_install_success=true
+      fi
+      ;;
+    rhel)
+      if curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo 2>/dev/null \
+          | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo > /dev/null 2>&1; then
+        if command -v dnf &> /dev/null; then
+          sudo dnf install -y nvidia-container-toolkit 2>/dev/null && nvidia_install_success=true
+        else
+          sudo yum install -y nvidia-container-toolkit 2>/dev/null && nvidia_install_success=true
+        fi
+      fi
+      ;;
+    suse)
+      if curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo 2>/dev/null \
+          | sudo tee /etc/zypp/repos.d/nvidia-container-toolkit.repo > /dev/null 2>&1 \
+        && sudo zypper install -y nvidia-container-toolkit 2>/dev/null; then
+        nvidia_install_success=true
+      fi
+      ;;
+    arch)
+      # nvidia-container-toolkit is available in the AUR or community repos
+      if command -v yay &> /dev/null; then
+        yay -S --noconfirm nvidia-container-toolkit 2>/dev/null && nvidia_install_success=true
+      elif command -v paru &> /dev/null; then
+        paru -S --noconfirm nvidia-container-toolkit 2>/dev/null && nvidia_install_success=true
+      elif sudo pacman -Sy --noconfirm nvidia-container-toolkit 2>/dev/null; then
+        nvidia_install_success=true
+      else
+        echo -e "${YELLOW}#${RESET} nvidia-container-toolkit requires an AUR helper (yay/paru) or manual install on Arch.\\n"
+      fi
+      ;;
+    *)
+      echo -e "${YELLOW}#${RESET} Automatic NVIDIA container toolkit installation not supported for ${DISTRO_FAMILY}.\\n"
+      echo -e "${YELLOW}#${RESET} Please install nvidia-container-toolkit manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html\\n"
+      ;;
+  esac
+
+  if ! $nvidia_install_success; then
     echo -e "${YELLOW}#${RESET} Warning: Failed to install NVIDIA container toolkit. Continuing anyway...\\n"
     return 0
   fi
@@ -459,7 +588,12 @@ start_management_containers() {
 }
 
 get_local_ip() {
-  local_ip_address=$(hostname -I | awk '{print $1}')
+  # Try hostname -I first, fall back to ip command for distros without hostname
+  if command -v hostname &> /dev/null; then
+    local_ip_address=$(hostname -I | awk '{print $1}')
+  else
+    local_ip_address=$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -1)
+  fi
   if [[ -z "$local_ip_address" ]]; then
     echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
     exit 1
@@ -533,8 +667,8 @@ success_message() {
 ###################################################################################################################################################################################################
 
 # Pre-flight checks
-check_is_debian_based
 check_is_bash
+detect_distro
 check_has_sudo
 ensure_dependencies_installed
 check_is_debug_mode
