@@ -51,6 +51,7 @@ export class OllamaService {
   private openai: OpenAI | null = null
   private baseUrl: string | null = null
   private initPromise: Promise<void> | null = null
+  private isOllamaNative: boolean | null = null
 
   constructor() {}
 
@@ -105,6 +106,18 @@ export class OllamaService {
       if (installedModels && installedModels.some((m) => m.name === model)) {
         logger.info(`[OllamaService] Model "${model}" is already installed.`)
         return { success: true, message: 'Model is already installed.' }
+      }
+
+      // Model pulling is an Ollama-only operation. Non-Ollama backends (LM Studio, llama.cpp, etc.)
+      // return HTTP 200 for unknown endpoints, so the pull would appear to succeed but do nothing.
+      if (this.isOllamaNative === false) {
+        logger.warn(
+          `[OllamaService] Non-Ollama backend detected — skipping model pull for "${model}". Load the model manually in your AI host.`
+        )
+        return {
+          success: false,
+          message: `Model "${model}" is not available in your AI host. Please load it manually (model pulling is only supported for Ollama backends).`,
+        }
       }
 
       // Stream pull via Ollama native API
@@ -287,12 +300,19 @@ export class OllamaService {
         { model, input },
         { timeout: 60000 }
       )
+      // Some backends (e.g. LM Studio) return HTTP 200 for unknown endpoints with an incompatible
+      // body — validate explicitly before accepting the result.
+      if (!Array.isArray(response.data?.embeddings)) {
+        throw new Error('Invalid /api/embed response — missing embeddings array')
+      }
       return { embeddings: response.data.embeddings }
     } catch {
-      // Fall back to OpenAI-compatible /v1/embeddings (processes one at a time then batches)
+      // Fall back to OpenAI-compatible /v1/embeddings
+      // Explicitly request float format — some backends (e.g. LM Studio) don't reliably
+      // implement the base64 encoding the OpenAI SDK requests by default.
       logger.info('[OllamaService] /api/embed unavailable, falling back to /v1/embeddings')
-      const results = await this.openai.embeddings.create({ model, input })
-      return { embeddings: results.data.map((e) => e.embedding) }
+      const results = await this.openai.embeddings.create({ model, input, encoding_format: 'float' })
+      return { embeddings: results.data.map((e) => e.embedding as number[]) }
     }
   }
 
@@ -309,11 +329,13 @@ export class OllamaService {
       if (!Array.isArray(response.data?.models)) {
         throw new Error('Not an Ollama-compatible /api/tags response')
       }
+      this.isOllamaNative = true
       const models: NomadInstalledModel[] = response.data.models
       if (includeEmbeddings) return models
       return models.filter((m) => !m.name.includes('embed'))
     } catch {
       // Fall back to the OpenAI-compatible /v1/models endpoint (LM Studio, llama.cpp, etc.)
+      this.isOllamaNative = false
       logger.info('[OllamaService] /api/tags unavailable, falling back to /v1/models')
       try {
         const modelList = await this.openai!.models.list()

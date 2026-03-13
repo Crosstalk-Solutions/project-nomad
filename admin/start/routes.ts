@@ -131,6 +131,8 @@ router
     router.get('/files', [RagController, 'getStoredFiles'])
     router.delete('/files', [RagController, 'deleteFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
+    router.get('/failed-jobs', [RagController, 'getFailedJobs'])
+    router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
     router.get('/job-status', [RagController, 'getJobStatus'])
     router.post('/sync', [RagController, 'scanAndSync'])
   })
