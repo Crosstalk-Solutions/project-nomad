@@ -1,0 +1,146 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for Project N.O.M.A.D.
+title: "[Feature]: "
+labels: ["enhancement", "needs-discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in improving Project N.O.M.A.D.! 
+        
+        **Please note:** Feature requests are not guaranteed to be implemented. All requests are evaluated based on alignment with the project's goals, feasibility, and community demand.
+        
+        **Before submitting:**
+        - Search existing feature requests to avoid duplicates
+        - Consider if this aligns with N.O.M.A.D.'s mission: offline-first knowledge and education
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: What area does this feature relate to?
+      options:
+        - New Service/Tool Integration
+        - AI Assistant Enhancement
+        - Knowledge Base/RAG Improvement
+        - Content Management (ZIM, Maps, Collections)
+        - UI/UX Improvement
+        - System Management
+        - Performance Optimization
+        - Documentation
+        - Security
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Is your feature request related to a pain point?
+      placeholder: I find it frustrating when... / It would be helpful if... / Users struggle with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or enhancement you'd like to see
+      placeholder: Add a feature that... / Change the behavior to... / Integrate with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: I've tried... / Another approach could be... / A workaround is...
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe a specific scenario where this feature would be valuable
+      placeholder: |
+        As a [type of user], when I [do something], I want to [accomplish something] so that [benefit].
+        
+        Example: Because I have a dedicated GPU, I want to be able to see in the UI if GPU support is enabled so that I can optimize performance and troubleshoot issues more easily.
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: Who would benefit from this feature?
+      description: What type of users would find this most valuable?
+      multiple: true
+      options:
+        - Individual/Home Users
+        - Families
+        - Teachers/Educators
+        - Students
+        - Survivalists/Preppers
+        - Developers/Contributors
+        - Organizations
+        - All Users
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this feature to you?
+      options:
+        - Critical - Blocking my use of N.O.M.A.D.
+        - High - Would significantly improve my experience
+        - Medium - Would be nice to have
+        - Low - Minor convenience
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-ideas
+    attributes:
+      label: Implementation Ideas (Optional)
+      description: If you have technical suggestions for how this could be implemented, share them here
+      placeholder: This could potentially use... / It might integrate with... / A possible approach is...
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or References
+      description: Are there similar features in other applications? Include links, screenshots, or descriptions
+      placeholder: Similar to how [app name] does... / See this example at [URL]
+
+  - type: dropdown
+    id: willing-to-contribute
+    attributes:
+      label: Would you be willing to help implement this?
+      description: Contributing increases the likelihood of implementation
+      options:
+        - "Yes - I can write the code"
+        - "Yes - I can help test"
+        - "Yes - I can help with documentation"
+        - "Maybe - with guidance"
+        - "No - I don't have the skills/time"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, diagrams, or information about the feature request
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched for existing feature requests that might be similar
+          required: true
+        - label: This feature aligns with N.O.M.A.D.'s mission of offline-first knowledge and education
+          required: true
+        - label: I understand that feature requests are not guaranteed to be implemented
+          required: true

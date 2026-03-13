@@ -1,0 +1,193 @@
+name: Bug Report
+description: Report a bug or issue with Project N.O.M.A.D.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us diagnose and fix the issue.
+        
+        **Before submitting:**
+        - Search existing issues to avoid duplicates
+        - Ensure you're running the latest version of N.O.M.A.D.
+        - Redact any personal or sensitive information from logs/configs
+        - Please don't submit issues related to running N.O.M.A.D. on Unraid or another NAS - we don't have plans to support these kinds of platforms at this time
+
+  - type: dropdown
+    id: issue-category
+    attributes:
+      label: Issue Category
+      description: What area is this issue related to?
+      options:
+        - Installation/Setup
+        - AI Assistant (Ollama)
+        - Knowledge Base/RAG (Document Upload)
+        - Docker/Container Issues
+        - GPU Configuration
+        - Content Downloads (ZIM, Maps, Collections)
+        - Service Management (Start/Stop/Update)
+        - System Performance/Resources
+        - UI/Frontend Issue
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Provide a clear and concise description of what the bug is
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe the expected outcome
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually occurred, including any error messages
+    validations:
+      required: true
+
+  - type: input
+    id: nomad-version
+    attributes:
+      label: N.O.M.A.D. Version
+      description: What version of N.O.M.A.D. are you running? (Check Settings > Update or run `docker ps` and check nomad_admin image tag)
+      placeholder: "e.g., 1.29.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you running N.O.M.A.D. on?
+      options:
+        - Ubuntu 24.04
+        - Ubuntu 22.04
+        - Ubuntu 20.04
+        - Debian 13 (Trixie)
+        - Debian 12 (Bookworm)
+        - Debian 11 (Bullseye)
+        - Other Debian-based
+        - Other (not yet officially supported)
+    validations:
+      required: true
+
+  - type: input
+    id: docker-version
+    attributes:
+      label: Docker Version
+      description: What version of Docker are you running? (`docker --version`)
+      placeholder: "e.g., Docker version 24.0.7"
+
+  - type: dropdown
+    id: gpu-present
+    attributes:
+      label: Do you have a dedicated GPU?
+      options:
+        - "Yes"
+        - "No"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: gpu-model
+    attributes:
+      label: GPU Model (if applicable)
+      description: What GPU model do you have? (Check Settings > System or run `nvidia-smi` if NVIDIA GPU)
+      placeholder: "e.g., NVIDIA GeForce RTX 3060"
+
+  - type: textarea
+    id: system-specs
+    attributes:
+      label: System Specifications
+      description: Provide relevant system specs (CPU, RAM, available disk space)
+      placeholder: |
+        CPU: 
+        RAM: 
+        Available Disk Space: 
+        GPU (if any): 
+
+  - type: textarea
+    id: service-status
+    attributes:
+      label: Service Status (if relevant)
+      description: If this is a service-related issue, what's the status of relevant services? (Check Settings > Apps or run `docker ps`)
+      placeholder: |
+        Paste output from `docker ps` or describe service states from the UI
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: |
+        Include any relevant logs or error messages. **Please redact any personal/sensitive information.**
+        
+        Useful commands for collecting logs:
+        - N.O.M.A.D. management app: `docker logs nomad_admin`
+        - Ollama: `docker logs nomad_ollama`
+        - Qdrant: `docker logs nomad_qdrant`
+        - Specific service: `docker logs nomad_<service-name>`
+      placeholder: Paste relevant log output here
+      render: shell
+
+  - type: textarea
+    id: browser-console
+    attributes:
+      label: Browser Console Errors (if UI issue)
+      description: If this is a UI issue, include any errors from your browser's developer console (F12)
+      placeholder: Paste browser console errors here
+      render: javascript
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain your problem (drag and drop images here)
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (network setup, custom configurations, recent changes, etc.)
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched for existing issues that might be related to this bug
+          required: true
+        - label: I am running the latest version of Project N.O.M.A.D. (or have noted my version above)
+          required: true
+        - label: I have redacted any personal or sensitive information from logs and screenshots
+          required: true
+        - label: This issue is NOT related to running N.O.M.A.D. on an unsupported/non-Debian-based OS
+          required: false
