@@ -1,5 +1,7 @@
 import { inject } from '@adonisjs/core'
-import { ChatRequest, Ollama } from 'ollama'
+import OpenAI from 'openai'
+import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
+import type { Stream } from 'openai/streaming.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
 import { FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
 import fs from 'node:fs/promises'
@@ -13,51 +15,91 @@ import Fuse, { IFuseOptions } from 'fuse.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
+import KVStore from '#models/kv_store'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
+export type NomadInstalledModel = {
+  name: string
+  size: number
+  digest?: string
+  details?: Record<string, any>
+}
+
+export type NomadChatResponse = {
+  message: { content: string; thinking?: string }
+  done: boolean
+  model: string
+}
+
+export type NomadChatStreamChunk = {
+  message: { content: string; thinking?: string }
+  done: boolean
+}
+
+type ChatInput = {
+  model: string
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  think?: boolean | 'medium'
+  stream?: boolean
+}
+
 @inject()
 export class OllamaService {
-  private ollama: Ollama | null = null
-  private ollamaInitPromise: Promise<void> | null = null
+  private openai: OpenAI | null = null
+  private baseUrl: string | null = null
+  private initPromise: Promise<void> | null = null
 
-  constructor() { }
+  constructor() {}
 
-  private async _initializeOllamaClient() {
-    if (!this.ollamaInitPromise) {
-      this.ollamaInitPromise = (async () => {
-        const dockerService = new (await import('./docker_service.js')).DockerService()
-        const qdrantUrl = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
-        if (!qdrantUrl) {
-          throw new Error('Ollama service is not installed or running.')
+  private async _initialize() {
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        // Check KVStore for a custom base URL (remote Ollama, LM Studio, llama.cpp, etc.)
+        const customUrl = (await KVStore.getValue('ai.remoteOllamaUrl')) as string | null
+        if (customUrl && customUrl.trim()) {
+          this.baseUrl = customUrl.trim().replace(/\/$/, '')
+        } else {
+          // Fall back to the local Ollama container managed by Docker
+          const dockerService = new (await import('./docker_service.js')).DockerService()
+          const ollamaUrl = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
+          if (!ollamaUrl) {
+            throw new Error('Ollama service is not installed or running.')
+          }
+          this.baseUrl = ollamaUrl.trim().replace(/\/$/, '')
         }
-        this.ollama = new Ollama({ host: qdrantUrl })
+
+        this.openai = new OpenAI({
+          apiKey: 'nomad', // Required by SDK; not validated by Ollama/LM Studio/llama.cpp
+          baseURL: `${this.baseUrl}/v1`,
+        })
       })()
     }
-    return this.ollamaInitPromise
+    return this.initPromise
   }
 
   private async _ensureDependencies() {
-    if (!this.ollama) {
-      await this._initializeOllamaClient()
+    if (!this.openai) {
+      await this._initialize()
     }
   }
 
   /**
-   * Downloads a model from the Ollama service with progress tracking. Where possible,
-   * one should dispatch a background job instead of calling this method directly to avoid long blocking.
-   * @param model Model name to download
-   * @returns Success status and message
+   * Downloads a model from Ollama with progress tracking. Only works with Ollama backends.
+   * Use dispatchModelDownload() for background job processing where possible.
    */
-  async downloadModel(model: string, progressCallback?: (percent: number) => void): Promise<{ success: boolean; message: string }> {
-    try {
-      await this._ensureDependencies()
-      if (!this.ollama) {
-        throw new Error('Ollama client is not initialized.')
-      }
+  async downloadModel(
+    model: string,
+    progressCallback?: (percent: number) => void
+  ): Promise<{ success: boolean; message: string }> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) {
+      return { success: false, message: 'AI service is not initialized.' }
+    }
 
+    try {
       // See if model is already installed
       const installedModels = await this.getModels()
       if (installedModels && installedModels.some((m) => m.name === model)) {
@@ -65,30 +107,42 @@ export class OllamaService {
         return { success: true, message: 'Model is already installed.' }
       }
 
-      // Returns AbortableAsyncIterator<ProgressResponse>
-      const downloadStream = await this.ollama.pull({
-        model,
-        stream: true,
-      })
+      // Stream pull via Ollama native API
+      const pullResponse = await axios.post(
+        `${this.baseUrl}/api/pull`,
+        { model, stream: true },
+        { responseType: 'stream', timeout: 0 }
+      )
 
-      for await (const chunk of downloadStream) {
-        if (chunk.completed && chunk.total) {
-          const percent = ((chunk.completed / chunk.total) * 100).toFixed(2)
-          const percentNum = parseFloat(percent)
-
-          this.broadcastDownloadProgress(model, percentNum)
-          if (progressCallback) {
-            progressCallback(percentNum)
+      await new Promise<void>((resolve, reject) => {
+        let buffer = ''
+        pullResponse.data.on('data', (chunk: Buffer) => {
+          buffer += chunk.toString()
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          for (const line of lines) {
+            if (!line.trim()) continue
+            try {
+              const parsed = JSON.parse(line)
+              if (parsed.completed && parsed.total) {
+                const percent = parseFloat(((parsed.completed / parsed.total) * 100).toFixed(2))
+                this.broadcastDownloadProgress(model, percent)
+                if (progressCallback) progressCallback(percent)
+              }
+            } catch {
+              // ignore parse errors on partial lines
+            }
           }
-        }
-      }
+        })
+        pullResponse.data.on('end', resolve)
+        pullResponse.data.on('error', reject)
+      })
 
       logger.info(`[OllamaService] Model "${model}" downloaded successfully.`)
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
       logger.error(
-        `[OllamaService] Failed to download model "${model}": ${error instanceof Error ? error.message : error
-        }`
+        `[OllamaService] Failed to download model "${model}": ${error instanceof Error ? error.message : error}`
       )
       return { success: false, message: 'Failed to download model.' }
     }
@@ -118,88 +172,192 @@ export class OllamaService {
     }
   }
 
-  public async getClient() {
+  public async chat(chatRequest: ChatInput): Promise<NomadChatResponse> {
     await this._ensureDependencies()
-    return this.ollama!
-  }
-
-  public async chat(chatRequest: ChatRequest & { stream?: boolean }) {
-    await this._ensureDependencies()
-    if (!this.ollama) {
-      throw new Error('Ollama client is not initialized.')
+    if (!this.openai) {
+      throw new Error('AI client is not initialized.')
     }
-    return await this.ollama.chat({
-      ...chatRequest,
+
+    const params: any = {
+      model: chatRequest.model,
+      messages: chatRequest.messages as ChatCompletionMessageParam[],
       stream: false,
-    })
+    }
+    if (chatRequest.think) {
+      params.think = chatRequest.think
+    }
+
+    const response = await this.openai.chat.completions.create(params)
+    const choice = response.choices[0]
+
+    return {
+      message: {
+        content: choice.message.content ?? '',
+        thinking: (choice.message as any).thinking ?? undefined,
+      },
+      done: true,
+      model: response.model,
+    }
   }
 
-  public async chatStream(chatRequest: ChatRequest) {
+  public async chatStream(chatRequest: ChatInput): Promise<AsyncIterable<NomadChatStreamChunk>> {
     await this._ensureDependencies()
-    if (!this.ollama) {
-      throw new Error('Ollama client is not initialized.')
+    if (!this.openai) {
+      throw new Error('AI client is not initialized.')
     }
-    return await this.ollama.chat({
-      ...chatRequest,
+
+    const params: any = {
+      model: chatRequest.model,
+      messages: chatRequest.messages as ChatCompletionMessageParam[],
       stream: true,
-    })
+    }
+    if (chatRequest.think) {
+      params.think = chatRequest.think
+    }
+
+    const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
+
+    async function* normalize(): AsyncGenerator<NomadChatStreamChunk> {
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta
+        yield {
+          message: {
+            content: delta?.content ?? '',
+            thinking: (delta as any)?.thinking ?? '',
+          },
+          done: chunk.choices[0]?.finish_reason !== null && chunk.choices[0]?.finish_reason !== undefined,
+        }
+      }
+    }
+
+    return normalize()
   }
 
   public async checkModelHasThinking(modelName: string): Promise<boolean> {
     await this._ensureDependencies()
-    if (!this.ollama) {
-      throw new Error('Ollama client is not initialized.')
+    if (!this.baseUrl) return false
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/show`,
+        { model: modelName },
+        { timeout: 5000 }
+      )
+      return Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+    } catch {
+      // Non-Ollama backends don't expose /api/show — assume no thinking support
+      return false
     }
-
-    const modelInfo = await this.ollama.show({
-      model: modelName,
-    })
-
-    return modelInfo.capabilities.includes('thinking')
   }
 
-  public async deleteModel(modelName: string) {
+  public async deleteModel(modelName: string): Promise<{ success: boolean; message: string }> {
     await this._ensureDependencies()
-    if (!this.ollama) {
-      throw new Error('Ollama client is not initialized.')
+    if (!this.baseUrl) {
+      return { success: false, message: 'AI service is not initialized.' }
     }
 
-    return await this.ollama.delete({
-      model: modelName,
-    })
+    try {
+      await axios.delete(`${this.baseUrl}/api/delete`, {
+        data: { model: modelName },
+        timeout: 10000,
+      })
+      return { success: true, message: `Model "${modelName}" deleted.` }
+    } catch (error) {
+      logger.error(
+        `[OllamaService] Failed to delete model "${modelName}": ${error instanceof Error ? error.message : error}`
+      )
+      return { success: false, message: 'Failed to delete model. This may not be an Ollama backend.' }
+    }
   }
 
-  public async getModels(includeEmbeddings = false) {
+  /**
+   * Generate embeddings for the given input strings.
+   * Tries the Ollama native /api/embed endpoint first, falls back to /v1/embeddings.
+   */
+  public async embed(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
     await this._ensureDependencies()
-    if (!this.ollama) {
-      throw new Error('Ollama client is not initialized.')
+    if (!this.baseUrl || !this.openai) {
+      throw new Error('AI service is not initialized.')
     }
-    const response = await this.ollama.list()
-    if (includeEmbeddings) {
-      return response.models
+
+    try {
+      // Prefer Ollama native endpoint (supports batch input natively)
+      const response = await axios.post(
+        `${this.baseUrl}/api/embed`,
+        { model, input },
+        { timeout: 60000 }
+      )
+      return { embeddings: response.data.embeddings }
+    } catch {
+      // Fall back to OpenAI-compatible /v1/embeddings (processes one at a time then batches)
+      logger.info('[OllamaService] /api/embed unavailable, falling back to /v1/embeddings')
+      const results = await this.openai.embeddings.create({ model, input })
+      return { embeddings: results.data.map((e) => e.embedding) }
     }
-    // Filter out embedding models
-    return response.models.filter((model) => !model.name.includes('embed'))
+  }
+
+  public async getModels(includeEmbeddings = false): Promise<NomadInstalledModel[]> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) {
+      throw new Error('AI service is not initialized.')
+    }
+
+    try {
+      // Prefer the Ollama native endpoint which includes size and metadata
+      const response = await axios.get(`${this.baseUrl}/api/tags`, { timeout: 5000 })
+      // LM Studio returns HTTP 200 for unknown endpoints with an incompatible body — validate explicitly
+      if (!Array.isArray(response.data?.models)) {
+        throw new Error('Not an Ollama-compatible /api/tags response')
+      }
+      const models: NomadInstalledModel[] = response.data.models
+      if (includeEmbeddings) return models
+      return models.filter((m) => !m.name.includes('embed'))
+    } catch {
+      // Fall back to the OpenAI-compatible /v1/models endpoint (LM Studio, llama.cpp, etc.)
+      logger.info('[OllamaService] /api/tags unavailable, falling back to /v1/models')
+      try {
+        const modelList = await this.openai!.models.list()
+        const models: NomadInstalledModel[] = modelList.data.map((m) => ({ name: m.id, size: 0 }))
+        if (includeEmbeddings) return models
+        return models.filter((m) => !m.name.includes('embed'))
+      } catch (err) {
+        logger.error(
+          `[OllamaService] Failed to list models: ${err instanceof Error ? err.message : err}`
+        )
+        return []
+      }
+    }
   }
 
   async getAvailableModels(
-    { sort, recommendedOnly, query, limit, force }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null, limit?: number, force?: boolean } = {
+    {
+      sort,
+      recommendedOnly,
+      query,
+      limit,
+      force,
+    }: {
+      sort?: 'pulls' | 'name'
+      recommendedOnly?: boolean
+      query: string | null
+      limit?: number
+      force?: boolean
+    } = {
       sort: 'pulls',
       recommendedOnly: false,
       query: null,
       limit: 15,
     }
-  ): Promise<{ models: NomadOllamaModel[], hasMore: boolean } | null> {
+  ): Promise<{ models: NomadOllamaModel[]; hasMore: boolean } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort, force)
       if (!models) {
-        // If we fail to get models from the API, return the fallback recommended models
         logger.warn(
           '[OllamaService] Returning fallback recommended models due to failure in fetching available models'
         )
         return {
           models: FALLBACK_RECOMMENDED_OLLAMA_MODELS,
-          hasMore: false
+          hasMore: false,
         }
       }
 
@@ -207,15 +365,13 @@ export class OllamaService {
         const filteredModels = query ? this.fuseSearchModels(models, query) : models
         return {
           models: filteredModels.slice(0, limit || 15),
-          hasMore: filteredModels.length > (limit || 15)
+          hasMore: filteredModels.length > (limit || 15),
         }
       }
 
-      // If recommendedOnly is true, only return the first three models (if sorted by pulls, these will be the top 3)
       const sortedByPulls = sort === 'pulls' ? models : this.sortModels(models, 'pulls')
       const firstThree = sortedByPulls.slice(0, 3)
 
-      // Only return the first tag of each of these models (should be the most lightweight variant)
       const recommendedModels = firstThree.map((model) => {
         return {
           ...model,
@@ -227,13 +383,13 @@ export class OllamaService {
         const filteredRecommendedModels = this.fuseSearchModels(recommendedModels, query)
         return {
           models: filteredRecommendedModels,
-          hasMore: filteredRecommendedModels.length > (limit || 15)
+          hasMore: filteredRecommendedModels.length > (limit || 15),
         }
       }
 
       return {
         models: recommendedModels,
-        hasMore: recommendedModels.length > (limit || 15)
+        hasMore: recommendedModels.length > (limit || 15),
       }
     } catch (error) {
       logger.error(
@@ -273,7 +429,6 @@ export class OllamaService {
 
       const rawModels = response.data.models as NomadOllamaModel[]
 
-      // Filter out tags where cloud is truthy, then remove models with no remaining tags
       const noCloud = rawModels
         .map((model) => ({
           ...model,
@@ -285,8 +440,7 @@ export class OllamaService {
       return this.sortModels(noCloud, sort)
     } catch (error) {
       logger.error(
-        `[OllamaService] Failed to retrieve models from Nomad API: ${error instanceof Error ? error.message : error
-        }`
+        `[OllamaService] Failed to retrieve models from Nomad API: ${error instanceof Error ? error.message : error}`
       )
       return null
     }
@@ -312,7 +466,6 @@ export class OllamaService {
 
       return models
     } catch (error) {
-      // Cache doesn't exist or is invalid
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         logger.warn(
           `[OllamaService] Error reading cache: ${error instanceof Error ? error.message : error}`
@@ -336,7 +489,6 @@ export class OllamaService {
 
   private sortModels(models: NomadOllamaModel[], sort?: 'pulls' | 'name'): NomadOllamaModel[] {
     if (sort === 'pulls') {
-      // Sort by estimated pulls (it should be a string like "1.2K", "500", "4M" etc.)
       models.sort((a, b) => {
         const parsePulls = (pulls: string) => {
           const multiplier = pulls.endsWith('K')
@@ -354,8 +506,6 @@ export class OllamaService {
       models.sort((a, b) => a.name.localeCompare(b.name))
     }
 
-    // Always sort model.tags by the size field in descending order
-    // Size is a string like '75GB', '8.5GB', '2GB' etc. Smaller models first
     models.forEach((model) => {
       if (model.tags && Array.isArray(model.tags)) {
         model.tags.sort((a, b) => {
@@ -368,7 +518,7 @@ export class OllamaService {
                   ? 1
                   : size.endsWith('TB')
                     ? 1_000
-                    : 0 // Unknown size format
+                    : 0
             return parseFloat(size) * multiplier
           }
           return parseSize(a.size) - parseSize(b.size)
@@ -392,11 +542,11 @@ export class OllamaService {
     const options: IFuseOptions<NomadOllamaModel> = {
       ignoreDiacritics: true,
       keys: ['name', 'description', 'tags.name'],
-      threshold: 0.3, // lower threshold for stricter matching
+      threshold: 0.3,
     }
 
     const fuse = new Fuse(models, options)
 
-    return fuse.search(query).map(result => result.item)
+    return fuse.search(query).map((result) => result.item)
   }
 }
