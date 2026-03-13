@@ -409,6 +409,20 @@ class API {
     })()
   }
 
+  async getFailedEmbedJobs(): Promise<EmbedJobWithProgress[] | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<EmbedJobWithProgress[]>('/rag/failed-jobs')
+      return response.data
+    })()
+  }
+
+  async cleanupFailedEmbedJobs(): Promise<{ message: string; cleaned: number; filesDeleted: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string; cleaned: number; filesDeleted: number }>('/rag/failed-jobs')
+      return response.data
+    })()
+  }
+
   async getStoredRAGFiles() {
     return catchInternal(async () => {
       const response = await this.client.get<{ files: string[] }>('/rag/files')

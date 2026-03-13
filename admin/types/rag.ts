@@ -4,6 +4,7 @@ export type EmbedJobWithProgress = {
   filePath: string
   progress: number
   status: string
+  error?: string
 }
 
 export type ProcessAndEmbedFileResponse = {
