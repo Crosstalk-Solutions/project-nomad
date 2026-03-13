@@ -285,8 +285,6 @@ export class RagService {
       // Extract text from chunk results
       const chunks = chunkResults.map((chunk) => chunk.text)
 
-      const ollamaClient = await this.ollamaService.getClient()
-
       // Prepare all chunk texts with prefix and truncation
       const prefixedChunks: string[] = []
       for (let i = 0; i < chunks.length; i++) {
@@ -320,10 +318,7 @@ export class RagService {
 
         logger.debug(`[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`)
 
-        const response = await ollamaClient.embed({
-          model: RagService.EMBEDDING_MODEL,
-          input: batch,
-        })
+        const response = await this.ollamaService.embed(RagService.EMBEDDING_MODEL, batch)
 
         embeddings.push(...response.embeddings)
 
@@ -710,8 +705,6 @@ export class RagService {
       logger.debug(`[RAG] Extracted keywords: [${keywords.join(', ')}]`)
 
       // Generate embedding for the query with search_query prefix
-      const ollamaClient = await this.ollamaService.getClient()
-
       // Ensure query doesn't exceed token limit
       const prefixTokens = this.estimateTokenCount(RagService.SEARCH_QUERY_PREFIX)
       const maxQueryTokens = RagService.MAX_SAFE_TOKENS - prefixTokens
@@ -729,10 +722,7 @@ export class RagService {
         return []
       }
 
-      const response = await ollamaClient.embed({
-        model: RagService.EMBEDDING_MODEL,
-        input: [prefixedQuery],
-      })
+      const response = await this.ollamaService.embed(RagService.EMBEDDING_MODEL, [prefixedQuery])
 
       // Perform semantic search with a higher limit to enable reranking
       const searchLimit = limit * 3 // Get more results for reranking

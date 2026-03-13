@@ -11,7 +11,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { DEFAULT_QUERY_REWRITE_MODEL, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
-import type { Message } from 'ollama'
+type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
 @inject()
 export default class OllamaController {
@@ -201,21 +201,21 @@ export default class OllamaController {
       })
     }
 
-    // Test connectivity
+    // Test connectivity via OpenAI-compatible /v1/models endpoint (works with Ollama, LM Studio, llama.cpp, etc.)
     try {
-      const testResponse = await fetch(`${remoteUrl.replace(/\/$/, '')}/api/tags`, {
+      const testResponse = await fetch(`${remoteUrl.replace(/\/$/, '')}/v1/models`, {
         signal: AbortSignal.timeout(5000),
       })
       if (!testResponse.ok) {
         return response.status(400).send({
           success: false,
-          message: `Could not connect to Ollama at ${remoteUrl} (HTTP ${testResponse.status}). Make sure Ollama is running with OLLAMA_HOST=0.0.0.0.`,
+          message: `Could not connect to ${remoteUrl} (HTTP ${testResponse.status}). Make sure the server is running and accessible. For Ollama, start it with OLLAMA_HOST=0.0.0.0.`,
         })
       }
     } catch (error) {
       return response.status(400).send({
         success: false,
-        message: `Could not connect to Ollama at ${remoteUrl}. Make sure the host is reachable and Ollama is running with OLLAMA_HOST=0.0.0.0.`,
+        message: `Could not connect to ${remoteUrl}. Make sure the server is running and reachable. For Ollama, start it with OLLAMA_HOST=0.0.0.0.`,
       })
     }
 
