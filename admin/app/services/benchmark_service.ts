@@ -32,7 +32,7 @@ import Dockerode from 'dockerode'
 // This provides basic protection against casual API abuse.
 // Note: Since NOMAD is open source, a determined attacker could extract this.
 // For stronger protection, see challenge-response authentication.
-const BENCHMARK_HMAC_SECRET = 'nomad-benchmark-v1-2026'
+const BENCHMARK_HMAC_SECRET = '778ba65d0bc0e23119e5ffce4b3716648a7d071f0a47ec3f'
 
 // Re-export default weights for use in service
 const SCORE_WEIGHTS = {
