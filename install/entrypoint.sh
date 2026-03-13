@@ -2,25 +2,80 @@
 
 set -e
 
-echo "Starting entrypoint script..."
-echo "Running wait-for-it.sh to ensure MySQL is ready..."
+echo "============================================"
+echo "  Project N.O.M.A.D. — Homelab Edition"
+echo "  Starting up..."
+echo "============================================"
 
-# Use wait-for-it.sh to wait for MySQL to be available
-# wait-for-it.sh <host>:<port> [-t timeout] [-- command args]
-/usr/local/bin/wait-for-it.sh ${DB_HOST}:${DB_PORT} -t 60 -- echo "MySQL is up and running!"
+# ---------------------------------------------------------------------------
+# Wait for database to be ready (no external dependencies like wait-for-it.sh)
+# ---------------------------------------------------------------------------
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-3306}"
+MAX_RETRIES=60
+RETRY_INTERVAL=2
 
-# Run AdonisJS migrations
-echo "Running AdonisJS migrations..."
+wait_for_tcp() {
+  local host="$1"
+  local port="$2"
+  node -e "
+    const net = require('net');
+    const s = new net.Socket();
+    s.setTimeout(2000);
+    s.connect($port, '$host', () => { s.destroy(); process.exit(0); });
+    s.on('error', () => process.exit(1));
+    s.on('timeout', () => { s.destroy(); process.exit(1); });
+  " 2>/dev/null
+}
+
+echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
+retries=0
+while [ $retries -lt $MAX_RETRIES ]; do
+  if wait_for_tcp "${DB_HOST}" "${DB_PORT}"; then
+    echo "Database is ready!"
+    break
+  fi
+  retries=$((retries + 1))
+  echo "  Waiting for database... (attempt ${retries}/${MAX_RETRIES})"
+  sleep $RETRY_INTERVAL
+done
+
+if [ $retries -eq $MAX_RETRIES ]; then
+  echo "ERROR: Database did not become ready in time. Continuing anyway..."
+fi
+
+# ---------------------------------------------------------------------------
+# Ensure storage directories exist
+# ---------------------------------------------------------------------------
+STORAGE_PATH="${NOMAD_STORAGE_PATH:-/app/storage}"
+echo "Ensuring storage directories exist at ${STORAGE_PATH}..."
+mkdir -p "${STORAGE_PATH}" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Run database migrations
+# ---------------------------------------------------------------------------
+echo "Running database migrations..."
 node ace migration:run --force
 
-# Seed the database if needed
+# ---------------------------------------------------------------------------
+# Seed the database
+# ---------------------------------------------------------------------------
 echo "Seeding the database..."
 node ace db:seed
 
-# Start background workers for all queues
-echo "Starting background workers for all queues..."
-node ace queue:work --all &
+# ---------------------------------------------------------------------------
+# Start background workers (only if not running as a dedicated worker)
+# ---------------------------------------------------------------------------
+if [ "${NOMAD_ROLE}" != "worker" ]; then
+  echo "Starting background workers for all queues..."
+  node ace queue:work --all &
+fi
 
-# Start the AdonisJS application
-echo "Starting AdonisJS application..."
+# ---------------------------------------------------------------------------
+# Start the application
+# ---------------------------------------------------------------------------
+echo "============================================"
+echo "  N.O.M.A.D. is ready!"
+echo "  Listening on port ${PORT:-8080}"
+echo "============================================"
 exec node bin/server.js

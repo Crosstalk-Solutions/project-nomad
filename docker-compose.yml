@@ -1,0 +1,201 @@
+# =============================================================================
+# PROJECT N.O.M.A.D. — Homelab Edition
+# Network Operations Monitoring and Automation Dashboard
+# Docker Compose Stack for NAS and Homelab Environments
+# =============================================================================
+#
+# Usage:
+#   1. Copy .env.example to .env and configure
+#   2. docker compose up -d
+#
+# Compatible with: Unraid, TrueNAS SCALE, standard Docker hosts
+# =============================================================================
+
+name: project-nomad
+
+services:
+  # ---------------------------------------------------------------------------
+  # Nomad Application (Web UI + API)
+  # ---------------------------------------------------------------------------
+  nomad-app:
+    image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    container_name: nomad-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ${NOMAD_DATA_DIR:-./data}/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./install/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=8080
+      - HOST=0.0.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - APP_KEY=${APP_KEY:?Set APP_KEY in .env}
+      - URL=${URL:-http://localhost:8080}
+      - DB_HOST=nomad-database
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-nomad}
+      - DB_USER=${DB_USER:-nomad}
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      - DB_SSL=false
+      - REDIS_HOST=nomad-cache
+      - REDIS_PORT=6379
+      - NOMAD_STORAGE_PATH=/app/storage
+      - NOMAD_API_URL=${NOMAD_API_URL:-}
+      - INTERNET_STATUS_TEST_URL=${INTERNET_STATUS_TEST_URL:-}
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    depends_on:
+      nomad-database:
+        condition: service_healthy
+      nomad-cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - nomad-internal
+    labels:
+      - "com.project-nomad.service=app"
+      - "com.project-nomad.description=Nomad Web Application"
+
+  # ---------------------------------------------------------------------------
+  # Nomad Worker (Background Job Processing)
+  # ---------------------------------------------------------------------------
+  nomad-worker:
+    image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    container_name: nomad-worker
+    restart: unless-stopped
+    volumes:
+      - ${NOMAD_DATA_DIR:-./data}/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=8081
+      - HOST=0.0.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - APP_KEY=${APP_KEY}
+      - URL=${URL:-http://localhost:8080}
+      - DB_HOST=nomad-database
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-nomad}
+      - DB_USER=${DB_USER:-nomad}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_SSL=false
+      - REDIS_HOST=nomad-cache
+      - REDIS_PORT=6379
+      - NOMAD_STORAGE_PATH=/app/storage
+    command: ["node", "ace", "queue:work", "--all"]
+    depends_on:
+      nomad-database:
+        condition: service_healthy
+      nomad-cache:
+        condition: service_healthy
+    networks:
+      - nomad-internal
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    labels:
+      - "com.project-nomad.service=worker"
+      - "com.project-nomad.description=Nomad Background Worker"
+
+  # ---------------------------------------------------------------------------
+  # Database (MySQL 8.0)
+  # ---------------------------------------------------------------------------
+  nomad-database:
+    image: mysql:8.0
+    container_name: nomad-database
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      - MYSQL_DATABASE=${DB_DATABASE:-nomad}
+      - MYSQL_USER=${DB_USER:-nomad}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - nomad-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - nomad-internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    labels:
+      - "com.project-nomad.service=database"
+      - "com.project-nomad.description=Nomad MySQL Database"
+
+  # ---------------------------------------------------------------------------
+  # Cache / Queue (Redis 7)
+  # ---------------------------------------------------------------------------
+  nomad-cache:
+    image: redis:7-alpine
+    container_name: nomad-cache
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ${NOMAD_DATA_DIR:-./data}/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nomad-internal
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    labels:
+      - "com.project-nomad.service=cache"
+      - "com.project-nomad.description=Nomad Redis Cache"
+
+  # ---------------------------------------------------------------------------
+  # Nginx Reverse Proxy
+  # ---------------------------------------------------------------------------
+  nomad-nginx:
+    image: nginx:alpine
+    container_name: nomad-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${NOMAD_DATA_DIR:-./data}/logs/nginx:/var/log/nginx
+    depends_on:
+      nomad-app:
+        condition: service_healthy
+    networks:
+      - nomad-internal
+    labels:
+      - "com.project-nomad.service=nginx"
+      - "com.project-nomad.description=Nomad Reverse Proxy"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  nomad-internal:
+    driver: bridge
+    name: nomad-internal
+
+# =============================================================================
+# Volumes
+# =============================================================================
+# Database uses a named Docker volume for optimal I/O performance.
+# This avoids NFS/SMB latency issues common on NAS systems.
+# All other data uses bind mounts configured via NOMAD_DATA_DIR.
+volumes:
+  nomad-db-data:
+    driver: local

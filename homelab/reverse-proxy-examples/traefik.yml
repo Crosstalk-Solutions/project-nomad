@@ -1,0 +1,65 @@
+# =============================================================================
+# PROJECT N.O.M.A.D. — Homelab Edition
+# Traefik Reverse Proxy Configuration
+# =============================================================================
+#
+# Add these labels to your nomad-app service in docker-compose.yml
+# when using Traefik as your reverse proxy.
+#
+# Prerequisites:
+#   - Traefik running with Docker provider enabled
+#   - A Traefik network (e.g., "traefik-public")
+#
+# Usage:
+#   Add to nomad-app service in docker-compose.yml:
+#     labels: (copy from below)
+#     networks:
+#       - nomad-internal
+#       - traefik-public
+#
+# =============================================================================
+
+# Docker Compose labels for nomad-app service:
+#
+# labels:
+#   - "traefik.enable=true"
+#   # HTTP router
+#   - "traefik.http.routers.nomad.rule=Host(`nomad.home.local`)"
+#   - "traefik.http.routers.nomad.entrypoints=web"
+#   # HTTPS router (optional — uncomment for TLS)
+#   # - "traefik.http.routers.nomad-secure.rule=Host(`nomad.home.local`)"
+#   # - "traefik.http.routers.nomad-secure.entrypoints=websecure"
+#   # - "traefik.http.routers.nomad-secure.tls=true"
+#   # - "traefik.http.routers.nomad-secure.tls.certresolver=letsencrypt"
+#   # Service
+#   - "traefik.http.services.nomad.loadbalancer.server.port=8080"
+#   # WebSocket support
+#   - "traefik.http.middlewares.nomad-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+#   # Large file upload support
+#   - "traefik.http.middlewares.nomad-buffering.buffering.maxRequestBodyBytes=10737418240"
+
+# =============================================================================
+# Traefik dynamic configuration file (alternative to labels)
+# Place in your Traefik dynamic config directory
+# =============================================================================
+
+http:
+  routers:
+    nomad:
+      rule: "Host(`nomad.home.local`)"
+      service: nomad
+      entryPoints:
+        - web
+      # Uncomment for TLS:
+      # tls:
+      #   certResolver: letsencrypt
+
+  services:
+    nomad:
+      loadBalancer:
+        servers:
+          - url: "http://nomad-app:8080"
+        healthCheck:
+          path: /api/health
+          interval: 30s
+          timeout: 5s
