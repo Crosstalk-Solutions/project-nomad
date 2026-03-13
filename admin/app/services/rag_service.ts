@@ -8,6 +8,8 @@ import { deleteFileIfExists, determineFileType, getFile, getFileStatsIfExists, l
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
+import JSZip from 'jszip'
+import * as cheerio from 'cheerio'
 import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
@@ -564,6 +566,86 @@ export class RagService {
     return await this.extractTXTText(fileBuffer)
   }
 
+  /**
+   * Extract text content from an EPUB file.
+   * EPUBs are ZIP archives containing XHTML content files.
+   * Reads the OPF manifest to determine reading order, then extracts
+   * text from each content document in sequence.
+   */
+  private async processEPUBFile(fileBuffer: Buffer): Promise<string> {
+    const zip = await JSZip.loadAsync(fileBuffer)
+
+    // Read container.xml to find the OPF file path
+    const containerXml = await zip.file('META-INF/container.xml')?.async('text')
+    if (!containerXml) {
+      throw new Error('Invalid EPUB: missing META-INF/container.xml')
+    }
+
+    // Parse container.xml to get the OPF rootfile path
+    const $container = cheerio.load(containerXml, { xml: true })
+    const opfPath = $container('rootfile').attr('full-path')
+    if (!opfPath) {
+      throw new Error('Invalid EPUB: no rootfile found in container.xml')
+    }
+
+    // Determine the base directory of the OPF file for resolving relative paths
+    const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : ''
+
+    // Read and parse the OPF file
+    const opfContent = await zip.file(opfPath)?.async('text')
+    if (!opfContent) {
+      throw new Error(`Invalid EPUB: OPF file not found at ${opfPath}`)
+    }
+
+    const $opf = cheerio.load(opfContent, { xml: true })
+
+    // Build a map of manifest items (id -> href)
+    const manifestItems = new Map<string, string>()
+    $opf('manifest item').each((_, el) => {
+      const id = $opf(el).attr('id')
+      const href = $opf(el).attr('href')
+      const mediaType = $opf(el).attr('media-type') || ''
+      // Only include XHTML/HTML content documents
+      if (id && href && (mediaType.includes('html') || mediaType.includes('xml'))) {
+        manifestItems.set(id, href)
+      }
+    })
+
+    // Get the reading order from the spine
+    const spineOrder: string[] = []
+    $opf('spine itemref').each((_, el) => {
+      const idref = $opf(el).attr('idref')
+      if (idref && manifestItems.has(idref)) {
+        spineOrder.push(manifestItems.get(idref)!)
+      }
+    })
+
+    // If no spine found, fall back to all manifest items
+    const contentFiles = spineOrder.length > 0
+      ? spineOrder
+      : Array.from(manifestItems.values())
+
+    // Extract text from each content file in order
+    const textParts: string[] = []
+    for (const href of contentFiles) {
+      const fullPath = opfDir + href
+      const content = await zip.file(fullPath)?.async('text')
+      if (content) {
+        const $ = cheerio.load(content)
+        // Remove script and style elements
+        $('script, style').remove()
+        const text = $('body').text().trim()
+        if (text) {
+          textParts.push(text)
+        }
+      }
+    }
+
+    const fullText = textParts.join('\n\n')
+    logger.debug(`[RAG] EPUB extracted ${textParts.length} chapters, ${fullText.length} characters total`)
+    return fullText
+  }
+
   private async embedTextAndCleanup(
     extractedText: string,
     filepath: string,
@@ -637,6 +719,9 @@ export class RagService {
           break
         case 'pdf':
           extractedText = await this.processPDFFile(fileBuffer!)
+          break
+        case 'epub':
+          extractedText = await this.processEPUBFile(fileBuffer!)
           break
         case 'text':
         default:
