@@ -10,7 +10,7 @@ import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
-import { ModelResponse } from 'ollama'
+import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -24,7 +24,7 @@ import { useSystemInfo } from '~/hooks/useSystemInfo'
 export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
-    installedModels: ModelResponse[]
+    installedModels: NomadInstalledModel[]
     settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string }
   }
 }) {
@@ -326,8 +326,8 @@ export default function ModelsPage(props: {
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
           <div className="bg-white rounded-lg border-2 border-gray-200 p-6">
             <p className="text-sm text-gray-500 mb-4">
-              Connect to an Ollama instance running on another machine in your local network.
-              The remote host must be started with <code className="bg-gray-100 px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
+              For remote Ollama instances, the host must be started with <code className="bg-gray-100 px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
             {props.models.settings.remoteOllamaUrl && (
               <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 mb-4">
@@ -339,7 +339,7 @@ export default function ModelsPage(props: {
                 <Input
                   name="remoteOllamaUrl"
                   label="Remote Ollama URL"
-                  placeholder="http://192.168.1.100:11434"
+                  placeholder="http://192.168.1.100:11434  (or :1234 for OpenAI API Compatible Apps)"
                   value={remoteOllamaUrl}
                   onChange={(e) => {
                     setRemoteOllamaUrl(e.target.value)
