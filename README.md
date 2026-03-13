@@ -1,10 +1,10 @@
 <div align="center">
 <img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/admin/public/project_nomad_logo.png" width="200" height="200"/>
 
-# Project N.O.M.A.D.
-### Node for Offline Media, Archives, and Data
+# Project N.O.M.A.D. — Homelab Edition
+### Network Operations Monitoring and Automation Dashboard
 
-**Knowledge That Never Goes Offline**
+**Knowledge That Never Goes Offline — Now Container-Native for Your Homelab**
 
 [![Website](https://img.shields.io/badge/Website-projectnomad.us-blue)](https://www.projectnomad.us)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2)](https://discord.com/invite/crosstalksolutions)
@@ -14,34 +14,94 @@
 
 ---
 
-Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
+Project N.O.M.A.D. Homelab Edition is a container-native fork of [Project N.O.M.A.D.](https://github.com/CrosstalkSolutions/project-nomad), optimized for NAS systems and homelab environments. It runs as a portable Docker Compose stack on **Unraid**, **TrueNAS SCALE**, and any standard Docker host.
 
-## Installation & Quickstart
-Project N.O.M.A.D. can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
+## Quick Start (Docker Compose)
 
-*Note: sudo/root privileges are required to run the install script*
-
-#### Quick Install
 ```bash
-sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
+# 1. Clone the repository
+git clone https://github.com/DocwatZ/project-nomad-homelab-edition.git
+cd project-nomad-homelab-edition
+
+# 2. Configure environment
+cp .env.example .env
+sed -i "s/^APP_KEY=replaceme/APP_KEY=$(openssl rand -hex 32)/" .env
+sed -i "s/^DB_PASSWORD=replaceme/DB_PASSWORD=$(openssl rand -base64 24)/" .env
+sed -i "s/^MYSQL_ROOT_PASSWORD=replaceme/MYSQL_ROOT_PASSWORD=$(openssl rand -base64 24)/" .env
+
+# 3. Create data directories
+sudo mkdir -p /opt/project-nomad/{storage,redis,logs/nginx}
+
+# 4. Start the stack
+docker compose up -d
 ```
 
-Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
+Open `http://localhost:8080` to access the dashboard.
 
-## How It Works
-N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
+## Container Architecture
 
-**Built-in capabilities include:**
-- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/), with document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
-- **Information Library** — offline Wikipedia, medical references, ebooks, and more via [Kiwix](https://kiwix.org/)
-- **Education Platform** — Khan Academy courses with progress tracking via [Kolibri](https://learningequality.org/kolibri/)
-- **Offline Maps** — downloadable regional maps via [ProtoMaps](https://protomaps.com)
-- **Data Tools** — encryption, encoding, and analysis via [CyberChef](https://gchq.github.io/CyberChef/)
-- **Notes** — local note-taking via [FlatNotes](https://github.com/dullage/flatnotes)
-- **System Benchmark** — hardware scoring with a [community leaderboard](https://benchmark.projectnomad.us)
-- **Easy Setup Wizard** — guided first-time configuration with curated content collections
+| Service | Image | Purpose |
+|---------|-------|---------|
+| **nomad-app** | project-nomad | Web UI + API server |
+| **nomad-worker** | project-nomad | Background job processing |
+| **nomad-database** | mysql:8.0 | Persistent data storage |
+| **nomad-cache** | redis:7-alpine | Cache + job queues |
+| **nomad-nginx** | nginx:alpine | Reverse proxy |
 
-N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM library manager, and content explorer.
+All services communicate over a private Docker network (`nomad-internal`).
+
+## NAS Compatibility
+
+| Platform | Storage Path | Guide |
+|----------|-------------|-------|
+| **Unraid** | `/mnt/user/appdata/project-nomad` | [Unraid Guide](docs/homelab/unraid-guide.md) |
+| **TrueNAS SCALE** | `/mnt/pool/apps/project-nomad` | [TrueNAS Guide](docs/homelab/truenas-guide.md) |
+| **Linux** | `/opt/project-nomad` | [Installation Guide](docs/homelab/installation-guide.md) |
+
+### NAS Install Templates
+
+- **Unraid**: [Community Apps XML template](homelab/unraid-template.xml)
+- **TrueNAS SCALE**: [Helm chart](homelab/truenas/)
+- **Any Docker host**: [docker-compose.yml](docker-compose.yml)
+
+## Storage Layout
+
+```
+NOMAD_DATA_DIR/
+├── storage/          # Content files (ZIM, maps, uploads) — NAS share OK
+├── redis/            # Redis persistence
+└── logs/
+    └── nginx/        # Nginx access/error logs
+```
+
+The MySQL database uses a **Docker named volume** for optimal I/O, avoiding NFS/SMB latency.
+
+## Reverse Proxy Support
+
+Works behind common homelab reverse proxies:
+
+| Proxy | Configuration |
+|-------|--------------|
+| **Nginx Proxy Manager** | [Setup guide](homelab/reverse-proxy-examples/nginx-proxy-manager.md) |
+| **Traefik** | [Traefik config](homelab/reverse-proxy-examples/traefik.yml) |
+| **Caddy** | [Caddyfile](homelab/reverse-proxy-examples/caddy.Caddyfile) |
+
+## Monitoring Agent
+
+Deploy lightweight monitoring agents on homelab nodes:
+
+```bash
+docker run -d --name nomad-agent \
+  -p 9100:9100 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /proc:/host/proc:ro \
+  -e NODE_NAME=my-server \
+  nomad-agent
+```
+
+Features: CPU/RAM/disk metrics, Docker container monitoring, Prometheus `/metrics` endpoint.
+
+See the [Agent Guide](docs/homelab/agent-guide.md) for details.
 
 ## What's Included
 
@@ -56,113 +116,69 @@ N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM l
 | System Benchmark | Built-in | Hardware scoring, Builder Tags, and community leaderboard |
 
 ## Device Requirements
-While many similar offline survival computers are designed to be run on bare-minimum, lightweight hardware, Project N.O.M.A.D. is quite the opposite. To install and run the
-available AI tools, we highly encourage the use of a beefy, GPU-backed device to make the most of your install.
-
-At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones installation of the management application itself, the following minimal specs are required:
-
-*Note: Project N.O.M.A.D. is not sponsored by any hardware manufacturer and is designed to be as hardware-agnostic as possible. The harware listed below is for example/comparison use only*
 
 #### Minimum Specs
-- Processor: 2 GHz dual-core processor or better
-- RAM: 4GB system memory
-- Storage: At least 5 GB free disk space
-- OS: Debian-based (Ubuntu recommended)
-- Stable internet connection (required during install only)
-
-To run LLM's and other included AI tools:
+- 2 GHz dual-core processor
+- 4 GB RAM (8 GB recommended)
+- 5 GB free disk space
+- Docker 20.10+ and Docker Compose v2+
+- Any Linux, Unraid, or TrueNAS SCALE host
 
 #### Optimal Specs
-- Processor: AMD Ryzen 7 or Intel Core i7 or better
-- RAM: 32 GB system memory
-- Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
-- Storage: At least 250 GB free disk space (preferably on SSD)
-- OS: Debian-based (Ubuntu recommended)
-- Stable internet connection (required during install only)
+- AMD Ryzen 7 / Intel Core i7 or better
+- 32 GB RAM
+- NVIDIA RTX 3060+ (for AI features)
+- 250 GB SSD
+- Stable internet connection (for initial content downloads)
 
-**For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
+## Documentation
 
-Again, Project N.O.M.A.D. itself is quite lightweight - it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
+| Guide | Description |
+|-------|-------------|
+| [Installation Guide](docs/homelab/installation-guide.md) | Docker Compose setup |
+| [Unraid Guide](docs/homelab/unraid-guide.md) | Unraid-specific installation |
+| [TrueNAS Guide](docs/homelab/truenas-guide.md) | TrueNAS SCALE installation |
+| [Agent Guide](docs/homelab/agent-guide.md) | Monitoring agent setup |
+| [Architecture](docs/homelab/architecture.md) | System design and data flow |
+| [Monitoring](docs/homelab/monitoring.md) | Monitoring stack and Prometheus integration |
+
+## Configuration
+
+All configuration is handled through environment variables in `.env`. See [`.env.example`](.env.example) for all options.
+
+Key settings:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_KEY` | — | Encryption key (**required**) |
+| `DB_PASSWORD` | — | Database password (**required**) |
+| `URL` | http://localhost:8080 | External access URL |
+| `NOMAD_DATA_DIR` | /opt/project-nomad | Host storage directory |
+| `PORT` | 8080 | Application port |
+| `LOG_LEVEL` | info | Log verbosity |
+
+## Updating
+
+```bash
+docker compose pull
+docker compose up -d
+```
 
 ## About Internet Usage & Privacy
 Project N.O.M.A.D. is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, N.O.M.A.D. does not require an internet connection and has ZERO built-in telemetry.
 
-To test internet connectivity, N.O.M.A.D. attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace` and checks for a successful response.
-
-## About Security
-By design, Project N.O.M.A.D. is intended to be open and available without hurdles - it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access it's resources), you can block/open ports to control which services are exposed.
-
-**Will authentication be added in the future?** Maybe. It's not currently a priority, but if there's enough demand for it, we may consider building in an optional authentication layer in a future release to support uses cases where multiple users need access to the same instance but with different permission levels (e.g. family use with parental controls, classroom use with teacher/admin accounts, etc.). For now, we recommend using network-level controls to manage access if you're planning to expose your N.O.M.A.D. instance to other devices on a local network. N.O.M.A.D. is not designed to be exposed directly to the internet, and we strongly advise against doing so unless you really know what you're doing, have taken appropriate security measures, and understand the risks involved.
-
 ## Contributing
-Contributions are welcome and appreciated! Please read this section fully to understand how to contribute to the project.
+Contributions are welcome and appreciated! Please read the [Contributing Guide](CONTRIBUTING.md) for details.
 
-### General Guidelines
-
-- **Open an issue first**: Before starting work on a new feature or bug fix, please open an issue to discuss your proposed changes. This helps ensure that your contribution aligns with the project's goals and avoids duplicate work. Title the issue clearly and provide a detailed description of the problem or feature you want to work on.
-- **Fork the repository**: Click the "Fork" button at the top right of the repository page to create a copy of the project under your GitHub account.
-- **Create a new branch**: In your forked repository, create a new branch for your work. Use a descriptive name for the branch that reflects the purpose of your changes (e.g., `fix/issue-123` or `feature/add-new-tool`).
-- **Make your changes**: Implement your changes in the new branch. Follow the existing code style and conventions used in the project. Be sure to test your changes locally to ensure they work as expected.
-- **Add Release Notes**: If your changes include new features, bug fixes, or improvements, please see the "Release Notes" section below to properly document your contribution for the next release.
-- **Conventional Commits**: When committing your changes, please use conventional commit messages to provide clear and consistent commit history. The format is `<type>(<scope>): <description>`, where:
-  - `type` is the type of change (e.g., `feat` for new features, `fix` for bug fixes, `docs` for documentation changes, etc.)
-  - `scope` is an optional area of the codebase that your change affects (e.g., `api`, `ui`, `docs`, etc.)
-  - `description` is a brief summary of the change
-- **Submit a pull request**: Once your changes are ready, submit a pull request to the main repository. Provide a clear description of your changes and reference any related issues. The project maintainers will review your pull request and may provide feedback or request changes before it can be merged.
-- **Be responsive to feedback**: If the maintainers request changes or provide feedback on your pull request, please respond in a timely manner. Stale pull requests may be closed if there is no activity for an extended period.
-- **Follow the project's code of conduct**: Please adhere to the project's code of conduct when interacting with maintainers and other contributors. Be respectful and considerate in your communications.
-- **No guarantee of acceptance**: The project is community-driven, and all contributions are appreciated, but acceptance is not guaranteed. The maintainers will evaluate each contribution based on its quality, relevance, and alignment with the project's goals.
-- **Thank you for contributing to Project N.O.M.A.D.!** Your efforts help make this project better for everyone.
-
-### Versioning
-This project uses semantic versioning. The version is managed in the root `package.json` 
-and automatically updated by semantic-release. For simplicity's sake, the "project-nomad" image
-uses the same version defined there instead of the version in `admin/package.json` (stays at 0.0.0), as it's the only published image derived from the code.
-
-### Release Notes
-Human-readable release notes live in [`admin/docs/release-notes.md`](admin/docs/release-notes.md) and are displayed in the Command Center's built-in documentation.
-
-When working on changes, add a summary to the `## Unreleased` section at the top of that file under the appropriate heading:
-
-- **Features** — new user-facing capabilities
-- **Bug Fixes** — corrections to existing behavior
-- **Improvements** — enhancements, refactors, docs, or dependency updates
-
-Use the format `- **Area**: Description` to stay consistent with existing entries. When a release is triggered, CI automatically stamps the version and date, commits the update, and pushes the content to the GitHub release.
+This project uses semantic versioning. The version is managed in the root `package.json`
+and automatically updated by semantic-release.
 
 ## Community & Resources
 
-- **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
-- **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
+- **Website:** [www.projectnomad.us](https://www.projectnomad.us)
+- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions)
+- **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us)
 
 ## License
 
 Project N.O.M.A.D. is licensed under the [Apache License 2.0](LICENSE).
-
-## Helper Scripts
-Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
-
-###
-
-###### Start Script - Starts all installed project containers
-```bash
-sudo bash /opt/project-nomad/start_nomad.sh
-```
-###
-
-###### Stop Script - Stops all installed project containers
-```bash
-sudo bash /opt/project-nomad/stop_nomad.sh
-```
-###
-
-###### Update Script - Attempts to pull the latest images for the Command Center and its dependencies (i.e. mysql) and recreate the containers. Note: this *only* updates the Command Center containers. It does not update the installable application containers - that should be done through the Command Center UI
-```bash
-sudo bash /opt/project-nomad/update_nomad.sh
-```
-
-###### Uninstall Script - Need to start fresh? Use the uninstall script to make your life easy. Note: this cannot be undone!
-```bash
-curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/uninstall_nomad.sh -o uninstall_nomad.sh && sudo bash uninstall_nomad.sh
-```
