@@ -35,7 +35,7 @@ For more control over the installation process, copy and paste the [Docker Compo
 N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
 
 **Built-in capabilities include:**
-- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/), with document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
+- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/) or you can use OpenAI API compatible software such as LM Studio or llama.cpp, with document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
 - **Information Library** — offline Wikipedia, medical references, ebooks, and more via [Kiwix](https://kiwix.org/)
 - **Education Platform** — Khan Academy courses with progress tracking via [Kolibri](https://learningequality.org/kolibri/)
 - **Offline Maps** — downloadable regional maps via [ProtoMaps](https://protomaps.com)
@@ -82,6 +82,16 @@ To run LLM's and other included AI tools:
 - Storage: At least 250 GB free disk space (preferably on SSD)
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
+
+#### Running AI models on a different host
+By default, N.O.M.A.D.'s installer will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio, llama.cpp).  
+Note that if you use Ollama on a different host, you must start the server with this option `OLLAMA_HOST=0.0.0.0`.  
+You are responsible for the setup of Ollama/OpenAI server on the other host.
+
+#### Running AI models on a different host
+By default, N.O.M.A.D. will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio, llama.cpp).  
+Note that if you use Ollama on a different host, you must start the server with this option `OLLAMA_HOST=0.0.0.0`.
+You are responsible for the setup of Ollama/OpenAI server on the other host.
 
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 

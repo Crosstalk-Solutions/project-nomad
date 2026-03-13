@@ -338,7 +338,7 @@ export default function ModelsPage(props: {
               <div className="flex-1">
                 <Input
                   name="remoteOllamaUrl"
-                  label="Remote Ollama URL"
+                  label="Remote Ollama/OpenAI API URL"
                   placeholder="http://192.168.1.100:11434  (or :1234 for OpenAI API Compatible Apps)"
                   value={remoteOllamaUrl}
                   onChange={(e) => {
