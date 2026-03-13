@@ -2,7 +2,7 @@
 <img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/admin/public/project_nomad_logo.png" width="200" height="200"/>
 
 # Project N.O.M.A.D. — Homelab Edition
-### Network Operations Monitoring and Automation Dashboard
+### with Network Operations Monitoring and Automation Dashboard
 
 **Knowledge That Never Goes Offline — Now Container-Native for Your Homelab**
 
