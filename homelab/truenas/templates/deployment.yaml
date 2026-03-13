@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-app
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: app
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: app
+    spec:
+      containers:
+        - name: nomad-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.app.port }}
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.app.nodeEnv | quote }}
+            - name: PORT
+              value: {{ .Values.app.port | quote }}
+            - name: HOST
+              value: "0.0.0.0"
+            - name: LOG_LEVEL
+              value: {{ .Values.app.logLevel | quote }}
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: app-key
+            - name: URL
+              value: {{ .Values.app.url | quote }}
+            - name: DB_HOST
+              value: {{ .Release.Name }}-database
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_DATABASE
+              value: {{ .Values.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.database.user | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: db-password
+            - name: DB_SSL
+              value: "false"
+            - name: REDIS_HOST
+              value: {{ .Release.Name }}-redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: NOMAD_STORAGE_PATH
+              value: "/app/storage"
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.app.port }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.app.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources.app | nindent 12 }}
+      volumes:
+        - name: storage
+          {{- if .Values.storage.data.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.data.existingClaim }}
+          {{- else if .Values.storage.data.hostPath }}
+          hostPath:
+            path: {{ .Values.storage.data.hostPath }}
+            type: DirectoryOrCreate
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data
+          {{- end }}

@@ -1,0 +1,11 @@
+{
+  "name": "nomad-agent",
+  "version": "1.0.0",
+  "description": "Project N.O.M.A.D. lightweight monitoring agent",
+  "type": "module",
+  "main": "agent.mjs",
+  "scripts": {
+    "start": "node agent.mjs"
+  },
+  "license": "Apache-2.0"
+}

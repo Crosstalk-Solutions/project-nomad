@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>ProjectNomad</Name>
+  <Repository>ghcr.io/crosstalk-solutions/project-nomad:latest</Repository>
+  <Registry>https://github.com/crosstalk-solutions/project-nomad/pkgs/container/project-nomad</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/DocwatZ/project-nomad-homelab-edition/issues</Support>
+  <Project>https://github.com/DocwatZ/project-nomad-homelab-edition</Project>
+  <Overview>
+    Project N.O.M.A.D. — Homelab Edition (Network Operations Monitoring and Automation Dashboard).
+    An offline-first knowledge server with AI chat, information library, education platform,
+    offline maps, and homelab monitoring. Requires MySQL 8.0 and Redis 7 containers.
+  </Overview>
+  <Category>HomeAutomation: Tools: Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:8080]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/DocwatZ/project-nomad-homelab-edition/main/homelab/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/DocwatZ/project-nomad-homelab-edition/main/admin/public/favicons/favicon-96x96.png</Icon>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>
+    Requires separate MySQL 8.0 and Redis 7 containers. See documentation for full stack setup.
+  </Requires>
+  <Config Name="Web UI Port" Target="8080" Default="8080" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Storage Path" Target="/app/storage" Default="/mnt/user/appdata/project-nomad/storage" Mode="rw" Description="Path for Nomad content storage (ZIM files, maps, uploads)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/project-nomad/storage</Config>
+  <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="ro" Description="Docker socket for container management" Type="Path" Display="advanced" Required="false" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="NODE_ENV" Target="NODE_ENV" Default="production" Mode="" Description="Node environment" Type="Variable" Display="advanced" Required="true" Mask="false">production</Config>
+  <Config Name="APP_KEY" Target="APP_KEY" Default="" Mode="" Description="Application encryption key. Generate with: openssl rand -hex 32" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="URL" Target="URL" Default="http://localhost:8080" Mode="" Description="External URL for accessing Nomad" Type="Variable" Display="always" Required="true" Mask="false">http://localhost:8080</Config>
+  <Config Name="DB_HOST" Target="DB_HOST" Default="nomad-database" Mode="" Description="MySQL database hostname" Type="Variable" Display="always" Required="true" Mask="false">nomad-database</Config>
+  <Config Name="DB_PORT" Target="DB_PORT" Default="3306" Mode="" Description="MySQL database port" Type="Variable" Display="advanced" Required="true" Mask="false">3306</Config>
+  <Config Name="DB_DATABASE" Target="DB_DATABASE" Default="nomad" Mode="" Description="MySQL database name" Type="Variable" Display="advanced" Required="true" Mask="false">nomad</Config>
+  <Config Name="DB_USER" Target="DB_USER" Default="nomad" Mode="" Description="MySQL database user" Type="Variable" Display="always" Required="true" Mask="false">nomad</Config>
+  <Config Name="DB_PASSWORD" Target="DB_PASSWORD" Default="" Mode="" Description="MySQL database password" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="DB_SSL" Target="DB_SSL" Default="false" Mode="" Description="Enable database SSL" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="REDIS_HOST" Target="REDIS_HOST" Default="nomad-cache" Mode="" Description="Redis hostname" Type="Variable" Display="always" Required="true" Mask="false">nomad-cache</Config>
+  <Config Name="REDIS_PORT" Target="REDIS_PORT" Default="6379" Mode="" Description="Redis port" Type="Variable" Display="advanced" Required="true" Mask="false">6379</Config>
+  <Config Name="LOG_LEVEL" Target="LOG_LEVEL" Default="info" Mode="" Description="Log level (debug, info, warn, error)" Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>
+  <Config Name="NOMAD_STORAGE_PATH" Target="NOMAD_STORAGE_PATH" Default="/app/storage" Mode="" Description="Internal storage path (do not change unless you know what you are doing)" Type="Variable" Display="advanced" Required="true" Mask="false">/app/storage</Config>
+</Container>

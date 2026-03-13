@@ -1,0 +1,118 @@
+# =============================================================================
+# PROJECT N.O.M.A.D. — Homelab Edition
+# TrueNAS SCALE Helm Values
+# =============================================================================
+
+# Application image
+image:
+  repository: ghcr.io/crosstalk-solutions/project-nomad
+  tag: latest
+  pullPolicy: Always
+
+# Replica count
+replicaCount: 1
+
+# Application settings
+app:
+  port: 8080
+  nodeEnv: production
+  logLevel: info
+  # Generate with: openssl rand -hex 32
+  appKey: ""
+  # External URL for accessing Nomad
+  url: "http://localhost:8080"
+
+# Database settings
+database:
+  enabled: true
+  image:
+    repository: mysql
+    tag: "8.0"
+  rootPassword: ""
+  name: nomad
+  user: nomad
+  password: ""
+  storage:
+    size: 10Gi
+    # TrueNAS storage class
+    storageClass: ""
+
+# Redis settings
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+  maxMemory: 256mb
+  storage:
+    size: 1Gi
+    storageClass: ""
+
+# Nginx reverse proxy
+nginx:
+  enabled: true
+  image:
+    repository: nginx
+    tag: alpine
+
+# Storage
+storage:
+  # Main data storage for Nomad content
+  data:
+    enabled: true
+    size: 100Gi
+    storageClass: ""
+    # Use an existing PVC
+    existingClaim: ""
+    # Host path (for TrueNAS ix-volumes)
+    hostPath: ""
+
+  # Log storage
+  logs:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: nomad.home.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits
+resources:
+  app:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  worker:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  database:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  redis:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

@@ -1,0 +1,49 @@
+# =============================================================================
+# PROJECT N.O.M.A.D. — Homelab Edition
+# Caddy Reverse Proxy Configuration
+# =============================================================================
+#
+# Usage:
+#   1. Replace "nomad.home.local" with your actual domain/hostname
+#   2. Place this file in your Caddy configuration directory
+#   3. Reload Caddy: caddy reload
+#
+# Caddy automatically provisions TLS certificates via Let's Encrypt
+# when using a public domain. For local domains, it generates
+# self-signed certificates automatically.
+# =============================================================================
+
+nomad.home.local {
+    # Reverse proxy to Nomad application
+    reverse_proxy nomad-app:8080 {
+        # Health checks
+        health_uri /api/health
+        health_interval 30s
+        health_timeout 5s
+
+        # WebSocket support
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+
+    # Large file upload support (10GB)
+    request_body {
+        max_size 10GB
+    }
+
+    # Access logging
+    log {
+        output file /var/log/caddy/nomad-access.log
+        format json
+    }
+
+    # Security headers
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}

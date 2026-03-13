@@ -1,0 +1,25 @@
+apiVersion: v2
+name: project-nomad
+description: >-
+  Project N.O.M.A.D. — Homelab Edition.
+  Network Operations Monitoring and Automation Dashboard.
+  Offline-first knowledge server with AI chat, information library,
+  education platform, offline maps, and homelab monitoring.
+type: application
+version: 1.0.0
+appVersion: "1.29.0"
+home: https://github.com/DocwatZ/project-nomad-homelab-edition
+icon: https://raw.githubusercontent.com/DocwatZ/project-nomad-homelab-edition/main/admin/public/favicons/favicon-96x96.png
+sources:
+  - https://github.com/DocwatZ/project-nomad-homelab-edition
+maintainers:
+  - name: DocwatZ
+    url: https://github.com/DocwatZ
+keywords:
+  - nomad
+  - homelab
+  - monitoring
+  - offline
+  - knowledge-base
+  - nas
+  - truenas
