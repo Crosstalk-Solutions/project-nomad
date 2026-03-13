@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from '@headlessui/react'
 import classNames from '~/lib/classNames'
-import { IconArrowLeft } from '@tabler/icons-react'
+import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
 import { IconMenu2, IconX } from '@tabler/icons-react'
+import DebugInfoModal from './DebugInfoModal'
 
 type SidebarItem = {
   name: string
@@ -21,6 +22,7 @@ interface StyledSidebarProps {
 
 const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [debugModalOpen, setDebugModalOpen] = useState(false)
   const { appVersion } = usePage().props as unknown as UsePageProps
 
   const currentPath = useMemo(() => {
@@ -77,6 +79,13 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
         </nav>
         <div className="mb-4 text-center text-sm text-gray-600">
           <p>Project N.O.M.A.D. Command Center v{appVersion}</p>
+          <button
+            onClick={() => setDebugModalOpen(true)}
+            className="mt-1 text-gray-500 hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
+          >
+            <IconBug className="size-3.5" />
+            Debug Info
+          </button>
         </div>
       </div>
     )
@@ -123,6 +132,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
       <div className="hidden xl:fixed xl:inset-y-0 xl:z-50 xl:flex xl:w-72 xl:flex-col">
         <Sidebar />
       </div>
+      <DebugInfoModal open={debugModalOpen} onClose={() => setDebugModalOpen(false)} />
     </>
   )
 }
