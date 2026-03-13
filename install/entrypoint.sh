@@ -15,11 +15,23 @@ DB_PORT="${DB_PORT:-3306}"
 MAX_RETRIES=60
 RETRY_INTERVAL=2
 
+wait_for_tcp() {
+  local host="$1"
+  local port="$2"
+  node -e "
+    const net = require('net');
+    const s = new net.Socket();
+    s.setTimeout(2000);
+    s.connect($port, '$host', () => { s.destroy(); process.exit(0); });
+    s.on('error', () => process.exit(1));
+    s.on('timeout', () => { s.destroy(); process.exit(1); });
+  " 2>/dev/null
+}
+
 echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
 retries=0
 while [ $retries -lt $MAX_RETRIES ]; do
-  if curl -sf "http://${DB_HOST}:${DB_PORT}" >/dev/null 2>&1 || \
-     node -e "const net = require('net'); const s = new net.Socket(); s.setTimeout(2000); s.connect(${DB_PORT}, '${DB_HOST}', () => { s.destroy(); process.exit(0); }); s.on('error', () => process.exit(1)); s.on('timeout', () => { s.destroy(); process.exit(1); });" 2>/dev/null; then
+  if wait_for_tcp "${DB_HOST}" "${DB_PORT}"; then
     echo "Database is ready!"
     break
   fi

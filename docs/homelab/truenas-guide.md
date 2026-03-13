@@ -105,17 +105,23 @@ If using the Nginx proxy (port 80):
 
 ### Permissions
 
-TrueNAS uses ACLs for dataset permissions. Set the dataset owner:
+TrueNAS uses ACLs for dataset permissions. Set the dataset owner to match the container user:
 
 ```bash
-# For Docker Compose deployments
+# Default container user is UID 1000. Verify with:
+docker compose exec nomad-app id
+
+# Set ownership accordingly
 chown -R 1000:1000 /mnt/pool/apps/project-nomad/storage
 ```
 
 Or configure ACLs in the TrueNAS UI:
 1. Go to **Storage** → select your dataset → **Edit Permissions**
-2. Set User: `1000`, Group: `1000`
-3. Apply recursively
+2. Set User to the UID shown by the command above (default: `1000`)
+3. Set Group to the GID shown (default: `1000`)
+4. Apply recursively
+
+> **Note:** If your TrueNAS user mapping differs, adjust the UID/GID to match your container runtime configuration.
 
 ## Updating on TrueNAS
 

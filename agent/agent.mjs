@@ -111,7 +111,7 @@ function collectNetworkMetrics() {
   return nets
 }
 
-/** Collect Docker container status via Docker socket */
+/** Collect Docker container status via Docker socket using Node.js http module */
 async function collectDockerMetrics() {
   const containers = []
 
@@ -119,21 +119,29 @@ async function collectDockerMetrics() {
     const socketPath = '/var/run/docker.sock'
     if (!existsSync(socketPath)) return containers
 
-    const response = await fetch('http://localhost/containers/json?all=true', {
-      socketPath,
-    }).catch(() => null)
-
-    if (response && response.ok) {
-      const data = await response.json()
-      for (const container of data) {
-        containers.push({
-          id: container.Id?.substring(0, 12),
-          name: container.Names?.[0]?.replace(/^\//, ''),
-          image: container.Image,
-          state: container.State,
-          status: container.Status,
+    // Use Node.js http module for Unix socket support (fetch API does not support socketPath)
+    const { request } = await import('node:http')
+    const data = await new Promise((resolve, reject) => {
+      const req = request({ socketPath, path: '/containers/json?all=true', method: 'GET' }, (res) => {
+        let body = ''
+        res.on('data', (chunk) => { body += chunk })
+        res.on('end', () => {
+          try { resolve(JSON.parse(body)) } catch { resolve([]) }
         })
-      }
+      })
+      req.on('error', () => resolve([]))
+      req.setTimeout(5000, () => { req.destroy(); resolve([]) })
+      req.end()
+    })
+
+    for (const container of data) {
+      containers.push({
+        id: container.Id?.substring(0, 12),
+        name: container.Names?.[0]?.replace(/^\//, ''),
+        image: container.Image,
+        state: container.State,
+        status: container.Status,
+      })
     }
   } catch {
     // Docker metrics may not be available
