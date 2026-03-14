@@ -594,6 +594,7 @@ download_management_compose_file() {
 
   if [[ "$NOMAD_PORT_DOZZLE" != "9999" ]]; then
     sed -i 's|"9999:8080"|"'"${NOMAD_PORT_DOZZLE}"':8080"|g' "$compose_file_path"
+    sed -i "s|DOZZLE_PORT=9999|DOZZLE_PORT=${NOMAD_PORT_DOZZLE}|g" "$compose_file_path"
   fi
 
   if [[ "$NOMAD_PORT_MYSQL" != "3306" ]]; then

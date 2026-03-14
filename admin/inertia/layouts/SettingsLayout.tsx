@@ -17,7 +17,7 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
-  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
+  const { aiAssistantName, dozzlePort } = usePage<{ aiAssistantName: string; dozzlePort: number }>().props
   const aiAssistantInstallStatus = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
   const navigation = [
@@ -29,7 +29,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
     {
       name: 'Service Logs & Metrics',
-      href: getServiceLink('9999'),
+      href: getServiceLink(String(dozzlePort ?? 9999)),
       icon: IconDashboard,
       current: false,
       target: '_blank',
