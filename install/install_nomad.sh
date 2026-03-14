@@ -142,6 +142,11 @@ generateRandomPass() {
   echo "$password"
 }
 
+is_wsl() {
+  # True if running inside WSL
+  grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null
+}
+
 ensure_docker_installed() {
   if ! command -v docker &> /dev/null; then
     echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
@@ -185,8 +190,16 @@ ensure_docker_installed() {
     
     echo -e "${GREEN}#${RESET} Docker installation completed.\\n"
   else
-    echo -e "${GREEN}#${RESET} Docker is already installed.\\n"
+    echo -e "${GREEN}#${RESET} Docker is already installed.\n"
     
+    # On WSL, if Docker is reachable, skip systemd checks (Docker Desktop case)
+    if is_wsl; then
+      if docker version >/dev/null 2>&1; then
+        echo -e "${GREEN}#${RESET} Docker is reachable (WSL/Docker Desktop). Skipping systemctl checks.\\n"
+        return 0
+      fi
+    fi
+
     # Check if Docker service is running
     if ! systemctl is-active --quiet docker; then
       echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
@@ -202,6 +215,7 @@ ensure_docker_installed() {
     fi
   fi
 }
+
 
 setup_nvidia_container_toolkit() {
   # This function attempts to set up NVIDIA GPU support but is non-blocking
@@ -309,10 +323,20 @@ setup_nvidia_container_toolkit() {
   
   # Restart Docker service
   echo -e "${YELLOW}#${RESET} Restarting Docker service...\\n"
-  if ! sudo systemctl restart docker 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to restart Docker service. You may need to restart it manually.\\n"
-    return 0
+  if is_wsl; then
+    # On WSL with Docker Desktop, there is no local docker.service; just check connectivity.
+    if ! docker info >/dev/null 2>&1; then
+      echo -e "${YELLOW}#${RESET} Warning: Cannot restart Docker via systemd on WSL. Make sure Docker Desktop is running.\\n"
+    else
+      echo -e "${GREEN}#${RESET} Docker is reachable on WSL. Skipping systemctl restart.\\n"
+    fi
+  else
+    if ! sudo systemctl restart docker 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to restart Docker service. You may need to restart it manually.\\n"
+      return 0
+    fi
   fi
+
   
   # Verify NVIDIA runtime is available
   echo -e "${YELLOW}#${RESET} Verifying NVIDIA runtime configuration...\\n"
@@ -570,10 +594,15 @@ verify_gpu_setup() {
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
-    if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q \"nvidia\"; then
+    if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q "nvidia"; then
       echo -e "${YELLOW}#${RESET} Tip: Your GPU is detected but Docker runtime is not configured.\\n"
-      echo -e "${YELLOW}#${RESET} Try restarting Docker: ${WHITE_R}sudo systemctl restart docker${RESET}\\n"
+      if is_wsl; then
+        echo -e "${YELLOW}#${RESET} On WSL, restart Docker Desktop from Windows after changing GPU settings.\\n"
+      else
+        echo -e "${YELLOW}#${RESET} Try restarting Docker: ${WHITE_R}sudo systemctl restart docker${RESET}\\n"
+      fi
     fi
+
   fi
 }
 
