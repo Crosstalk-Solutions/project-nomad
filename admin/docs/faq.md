@@ -13,12 +13,12 @@ No — that's the whole point. Once your content is downloaded, everything works
 
 ### What hardware do I need?
 N.O.M.A.D. is designed for capable hardware, especially if you want to use the AI features. Recommended:
-- Modern multi-core CPU
+- Modern multi-core CPU (AMD Ryzen 7 with Radeon graphics is the community sweet spot)
 - 16GB+ RAM (32GB+ for best AI performance)
-- SSD storage (size depends on content — 500GB minimum, 2TB+ recommended)
+- SSD storage (size depends on content — 500GB minimum, 1TB+ recommended)
 - NVIDIA or AMD GPU recommended for faster AI responses
 
-**For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
+**For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 
 ### How much storage do I need?
 It depends on what you download:
