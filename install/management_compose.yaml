@@ -19,7 +19,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8080
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - APP_KEY=replaceme
       - HOST=0.0.0.0
       - URL=replaceme
