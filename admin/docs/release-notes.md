@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **Install**: The installer now detects existing Docker Compose environments and offers an integrated installation mode. In integrated mode, NOMAD can join an existing Docker network for service discovery, reuse an existing MySQL or Redis instead of duplicating them, and coexist with other NVIDIA GPU containers (GPU time-sharing is automatic). NOMAD always manages its own compose file — the user's existing compose is never modified.
+
 ## Version 1.29.0 - March 11, 2026
 
 ### Features
