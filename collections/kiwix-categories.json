@@ -614,6 +614,87 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Entertainment & Recreation",
+      "slug": "entertainment",
+      "icon": "IconDeviceGamepad2",
+      "description": "Tabletop RPG knowledge, board game rules, chess strategy, sci-fi lore, and gaming guides for offline entertainment.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "entertainment-essential",
+          "description": "Tabletop RPG and board game knowledge \u2014 rules Q&A, strategy, and chess. Start here.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "rpg.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "RPG Stack Exchange",
+              "description": "Q&A for D&D, Pathfinder, FATE, and hundreds of tabletop RPG systems \u2014 rules, mechanics, GMing advice",
+              "url": "https://download.kiwix.org/zim/stack_exchange/rpg.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 321
+            },
+            {
+              "id": "boardgames.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Board Games Stack Exchange",
+              "description": "Rules clarifications and strategy for hundreds of board and card games",
+              "url": "https://download.kiwix.org/zim/stack_exchange/boardgames.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 102
+            },
+            {
+              "id": "chess.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Chess Stack Exchange",
+              "description": "Chess strategy, openings, endgames, puzzles, and engine analysis",
+              "url": "https://download.kiwix.org/zim/stack_exchange/chess.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 77
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "entertainment-standard",
+          "description": "Adds worldbuilding and sci-fi/fantasy reference. Includes everything in Essential.",
+          "includesTier": "entertainment-essential",
+          "resources": [
+            {
+              "id": "worldbuilding.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Worldbuilding Stack Exchange",
+              "description": "Setting design, lore creation, and fiction worldbuilding Q&A",
+              "url": "https://download.kiwix.org/zim/stack_exchange/worldbuilding.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 797
+            },
+            {
+              "id": "scifi.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Sci-Fi & Fantasy Stack Exchange",
+              "description": "Encyclopedic Q&A covering sci-fi and fantasy books, films, TV, and games",
+              "url": "https://download.kiwix.org/zim/stack_exchange/scifi.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 1200
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "entertainment-comprehensive",
+          "description": "Full entertainment reference including video game guides. Includes everything in Standard.",
+          "includesTier": "entertainment-standard",
+          "resources": [
+            {
+              "id": "gaming.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Gaming Stack Exchange (Arqade)",
+              "description": "Video game walkthroughs, tips, and technical troubleshooting",
+              "url": "https://download.kiwix.org/zim/stack_exchange/gaming.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 771
+            }
+          ]
+        }
+      ]
     }
   ]
 }
