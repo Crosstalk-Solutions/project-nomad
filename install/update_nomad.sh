@@ -124,10 +124,17 @@ get_local_ip() {
 }
 
 success_message() {
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
+  # Read the admin port from the existing compose file (handles remapped ports)
+  local admin_port
+  admin_port=$(grep -A1 'container_name: nomad_admin' /opt/project-nomad/compose.yml | head -1)
+  # Fallback: parse the ports binding for the admin service
+  admin_port=$(awk '/container_name: nomad_admin/{found=1} found && /ports:/{getline; print; exit}' /opt/project-nomad/compose.yml 2>/dev/null | sed -n 's/.*"\([0-9]*\):.*/\1/p')
+  admin_port="${admin_port:-8080}"
+
+  echo -e "${GREEN}#${RESET} Project N.O.M.A.D update completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
-  echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
+  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}/opt/project-nomad/start_nomad.sh${RESET}\\n"
+  echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:${admin_port} or http://${local_ip_address}:${admin_port}\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
 }
 
