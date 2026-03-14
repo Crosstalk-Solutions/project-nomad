@@ -44,6 +44,12 @@ script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
 
+# Default host ports for compose services (may be remapped if conflicts detected)
+NOMAD_PORT_ADMIN=8080
+NOMAD_PORT_DOZZLE=9999
+NOMAD_PORT_MYSQL=3306
+NOMAD_PORT_REDIS=6379
+
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
 #                                                                                           Functions                                                                                             #
@@ -140,6 +146,173 @@ generateRandomPass() {
   password=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
   
   echo "$password"
+}
+
+###################################################################################################################################################################################################
+#                                                                                                                                                                                                 #
+#                                                                              Port Conflict Detection & Resolution                                                                               #
+#                                                                                                                                                                                                 #
+###################################################################################################################################################################################################
+
+check_port_available() {
+  # Returns 0 if the port is available, 1 if in use
+  local port="$1"
+  if command -v ss &> /dev/null; then
+    if ss -tlnH "sport = :${port}" 2>/dev/null | grep -q ":${port}"; then
+      return 1
+    fi
+  elif command -v netstat &> /dev/null; then
+    if netstat -tln 2>/dev/null | grep -q ":${port} "; then
+      return 1
+    fi
+  else
+    # Fallback: try to bind the port briefly
+    if (echo >/dev/tcp/127.0.0.1/"$port") 2>/dev/null; then
+      return 1
+    fi
+  fi
+  return 0
+}
+
+find_alternate_ports() {
+  # Given a default port, returns up to 3 available alternatives
+  # Strategy: try +10000, +20000, +30000, then scan nearby ranges
+  local default_port="$1"
+  local alternates=()
+  local candidate
+
+  for offset in 10000 20000 30000; do
+    candidate=$((default_port + offset))
+    if [[ $candidate -le 65535 ]] && check_port_available "$candidate"; then
+      alternates+=("$candidate")
+      if [[ ${#alternates[@]} -ge 3 ]]; then
+        break
+      fi
+    fi
+  done
+
+  # If we still need more, scan upward from default+1000 in steps of 1000
+  if [[ ${#alternates[@]} -lt 3 ]]; then
+    for step in 1000 2000 5000 7000; do
+      candidate=$((default_port + step))
+      if [[ $candidate -le 65535 ]] && check_port_available "$candidate"; then
+        # Don't add duplicates
+        local is_dup=false
+        for existing in "${alternates[@]}"; do
+          if [[ "$existing" == "$candidate" ]]; then
+            is_dup=true
+            break
+          fi
+        done
+        if ! $is_dup; then
+          alternates+=("$candidate")
+          if [[ ${#alternates[@]} -ge 3 ]]; then
+            break
+          fi
+        fi
+      fi
+    done
+  fi
+
+  echo "${alternates[*]}"
+}
+
+get_port_process_info() {
+  # Returns a human-readable description of what's using a port
+  local port="$1"
+  local info=""
+  if command -v ss &> /dev/null; then
+    info=$(ss -tlnp "sport = :${port}" 2>/dev/null | tail -n +2 | head -1 | sed -n 's/.*users:(("\([^"]*\)".*/\1/p')
+  elif command -v netstat &> /dev/null; then
+    info=$(netstat -tlnp 2>/dev/null | grep ":${port} " | head -1 | awk '{print $NF}')
+  fi
+  if [[ -n "$info" ]]; then
+    echo "$info"
+  else
+    echo "unknown process"
+  fi
+}
+
+resolve_port_conflicts() {
+  echo -e "\n${YELLOW}#${RESET} Checking for port conflicts...\\n"
+
+  # Define the ports to check: variable_name default_port service_label
+  local port_defs=(
+    "NOMAD_PORT_ADMIN:${NOMAD_PORT_ADMIN}:Command Center"
+    "NOMAD_PORT_DOZZLE:${NOMAD_PORT_DOZZLE}:Dozzle (Log Viewer)"
+    "NOMAD_PORT_MYSQL:${NOMAD_PORT_MYSQL}:MySQL"
+    "NOMAD_PORT_REDIS:${NOMAD_PORT_REDIS}:Redis"
+  )
+
+  local has_conflicts=false
+
+  for def in "${port_defs[@]}"; do
+    IFS=':' read -r var_name default_port label <<< "$def"
+
+    if ! check_port_available "$default_port"; then
+      has_conflicts=true
+      local process_info
+      process_info=$(get_port_process_info "$default_port")
+
+      echo -e "${YELLOW}#${RESET} Port ${RED}${default_port}${RESET} is already in use by ${WHITE_R}${process_info}${RESET} (needed for ${WHITE_R}${label}${RESET})"
+
+      local alternates
+      alternates=$(find_alternate_ports "$default_port")
+      IFS=' ' read -ra alt_array <<< "$alternates"
+
+      if [[ ${#alt_array[@]} -eq 0 ]]; then
+        echo -e "${RED}#${RESET} Could not find any available alternate ports for ${label}."
+        echo -e "${RED}#${RESET} Please free up port ${default_port} and try again."
+        exit 1
+      fi
+
+      # Recommend the first alternate
+      local recommended="${alt_array[0]}"
+      local alt_display=""
+      for i in "${!alt_array[@]}"; do
+        if [[ $i -eq 0 ]]; then
+          alt_display+="${GREEN}${alt_array[$i]}${RESET} (recommended)"
+        else
+          alt_display+=", ${alt_array[$i]}"
+        fi
+      done
+
+      echo -e "${YELLOW}#${RESET} Available alternatives: ${alt_display}"
+      echo ""
+
+      local chosen_port=""
+      while [[ -z "$chosen_port" ]]; do
+        read -rp "$(echo -e "${WHITE_R}#${RESET}") Enter port for ${label} [${recommended}]: " user_input
+        user_input="${user_input:-$recommended}"
+
+        # Validate: must be a number between 1 and 65535
+        if ! [[ "$user_input" =~ ^[0-9]+$ ]] || [[ "$user_input" -lt 1 ]] || [[ "$user_input" -gt 65535 ]]; then
+          echo -e "${RED}#${RESET} Invalid port number. Must be between 1 and 65535."
+          continue
+        fi
+
+        # Check if the chosen port is available (unless it's the same as one we're already reassigning)
+        if [[ "$user_input" != "$default_port" ]] && ! check_port_available "$user_input"; then
+          echo -e "${RED}#${RESET} Port ${user_input} is also in use. Please choose another."
+          continue
+        fi
+
+        chosen_port="$user_input"
+      done
+
+      # Update the variable
+      eval "${var_name}=${chosen_port}"
+      echo -e "${GREEN}#${RESET} ${label} will use port ${GREEN}${chosen_port}${RESET}\\n"
+    else
+      echo -e "${GREEN}#${RESET} Port ${default_port} is available (${label})\\n"
+    fi
+  done
+
+  if $has_conflicts; then
+    echo -e "${GREEN}#${RESET} All port conflicts resolved.\\n"
+  else
+    echo -e "${GREEN}#${RESET} No port conflicts detected.\\n"
+  fi
 }
 
 ensure_docker_installed() {
@@ -409,6 +582,27 @@ download_management_compose_file() {
   sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
   sed -i "s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g" "$compose_file_path"
   sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
+
+  # Apply port overrides if any were remapped during conflict resolution
+  if [[ "$NOMAD_PORT_ADMIN" != "8080" ]]; then
+    # Update host port binding (host:container — only change the host side)
+    sed -i 's|"8080:8080"|"'"${NOMAD_PORT_ADMIN}"':8080"|g' "$compose_file_path"
+    # Note: PORT=8080 env var stays unchanged — that's the container-internal port.
+    # Update the URL to use the correct external port
+    sed -i "s|URL=http://${local_ip_address}:8080|URL=http://${local_ip_address}:${NOMAD_PORT_ADMIN}|g" "$compose_file_path"
+  fi
+
+  if [[ "$NOMAD_PORT_DOZZLE" != "9999" ]]; then
+    sed -i 's|"9999:8080"|"'"${NOMAD_PORT_DOZZLE}"':8080"|g' "$compose_file_path"
+  fi
+
+  if [[ "$NOMAD_PORT_MYSQL" != "3306" ]]; then
+    sed -i 's|"3306:3306"|"'"${NOMAD_PORT_MYSQL}"':3306"|g' "$compose_file_path"
+  fi
+
+  if [[ "$NOMAD_PORT_REDIS" != "6379" ]]; then
+    sed -i 's|"6379:6379"|"'"${NOMAD_PORT_REDIS}"':6379"|g' "$compose_file_path"
+  fi
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
@@ -581,7 +775,18 @@ success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
-  echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
+  echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:${NOMAD_PORT_ADMIN} or http://${local_ip_address}:${NOMAD_PORT_ADMIN}\\n"
+
+  # Show port map if any ports were remapped
+  if [[ "$NOMAD_PORT_ADMIN" != "8080" || "$NOMAD_PORT_DOZZLE" != "9999" || "$NOMAD_PORT_MYSQL" != "3306" || "$NOMAD_PORT_REDIS" != "6379" ]]; then
+    echo -e "${YELLOW}#${RESET} Custom port assignments:\\n"
+    printf "  ${WHITE_R}%-25s${RESET} %s\\n" "Command Center:" "http://${local_ip_address}:${NOMAD_PORT_ADMIN}"
+    printf "  ${WHITE_R}%-25s${RESET} %s\\n" "Dozzle (Log Viewer):" "http://${local_ip_address}:${NOMAD_PORT_DOZZLE}"
+    printf "  ${WHITE_R}%-25s${RESET} %s\\n" "MySQL:" "port ${NOMAD_PORT_MYSQL}"
+    printf "  ${WHITE_R}%-25s${RESET} %s\\n" "Redis:" "port ${NOMAD_PORT_REDIS}"
+    echo ""
+  fi
+
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
 }
 
@@ -604,6 +809,7 @@ accept_terms
 ensure_docker_installed
 setup_nvidia_container_toolkit
 get_local_ip
+resolve_port_conflicts
 create_nomad_directory
 download_wait_for_it_script
 download_entrypoint_script

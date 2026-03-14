@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **Install**: The installer now detects port conflicts before starting containers and suggests available alternatives instead of aborting. Users can accept the recommended port or enter a custom one. Custom port assignments are displayed in the post-install summary.
+
 ## Version 1.29.0 - March 11, 2026
 
 ### Features
