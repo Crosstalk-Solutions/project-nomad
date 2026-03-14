@@ -80,7 +80,7 @@ To run LLM's and other included AI tools:
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
 
-**For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
+**For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 
 Again, Project N.O.M.A.D. itself is quite lightweight - it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
 
