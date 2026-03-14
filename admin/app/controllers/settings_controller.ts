@@ -39,6 +39,10 @@ export default class SettingsController {
         return inertia.render('settings/legal');
     }
 
+    async support({ inertia }: HttpContext) {
+        return inertia.render('settings/support');
+    }
+
     async maps({ inertia }: HttpContext) {
         const baseAssetsCheck = await this.mapService.ensureBaseAssets();
         const regionFiles = await this.mapService.listRegions();
