@@ -67,7 +67,9 @@ check_confirmation() {
   echo -e "${YELLOW}#${RESET} host-based disk info collector to the new disk-collector sidecar."
   echo -e "${YELLOW}#${RESET} It will modify compose.yml and restart the full compose stack"
   echo -e "${YELLOW}#${RESET} to drop the old /tmp bind mount and start the disk-collector sidecar."
-  echo -e "${YELLOW}#${RESET} Please ensure you have a backup of your data before proceeding."
+  echo -e "${YELLOW}#${RESET} Please ensure you have a backup of your data before proceeding.\n"
+
+  echo -e "${RED}#${RESET} STOP: If you have customized your compose.yml or Nomad's storage setup (not common), please make these changes manually instead of using this script!\n"
   read -rp "Do you want to continue? (y/N) " response
   if [[ ! "$response" =~ ^[Yy]$ ]]; then
     echo -e "${RED}#${RESET} Aborting. No changes have been made."
