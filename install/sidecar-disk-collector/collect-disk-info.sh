@@ -12,16 +12,27 @@ log() {
 
 log "disk-collector sidecar starting..."
 
+# Write a valid placeholder immediately so admin has something to parse if the
+# file is missing (first install, user deleted it, etc.). The real data from the
+# first full collection cycle below will overwrite this within seconds.
+if [[ ! -f /storage/nomad-disk-info.json ]]; then
+    echo '{"diskLayout":{"blockdevices":[]},"fsSize":[]}' > /storage/nomad-disk-info.json
+    log "Created initial placeholder — will be replaced after first collection."
+fi
+
 while true; do
 
-    # Get disk layout
-    DISK_LAYOUT=$(lsblk --sysroot /host --json -o NAME,SIZE,TYPE,MODEL,SERIAL,VENDOR,ROTA,TRAN 2>/dev/null)
+    # Get disk layout (-b outputs SIZE in bytes as a number rather than a human-readable string)
+    DISK_LAYOUT=$(lsblk --sysroot /host --json -b -o NAME,SIZE,TYPE,MODEL,SERIAL,VENDOR,ROTA,TRAN 2>/dev/null)
     if [[ -z "$DISK_LAYOUT" ]]; then
         log "WARNING: lsblk --sysroot /host failed, using empty block devices"
         DISK_LAYOUT='{"blockdevices":[]}'
     fi
 
-    # Get filesystem usage by parsing /host/proc/mounts and running df on each mountpoint
+    # Get filesystem usage by parsing /host/proc/1/mounts (PID 1 = host init = root mount namespace)
+    # /host/proc/mounts is a symlink to /proc/self/mounts, which always reflects the CURRENT
+    # process's mount namespace (the container's), not the host's. /proc/1/mounts reflects the
+    # host init process's namespace, giving us the true host mount table.
     FS_JSON="["
     FIRST=1
     while IFS=' ' read -r dev mountpoint fstype opts _rest; do
@@ -38,7 +49,7 @@ while true; do
         [[ "$FIRST" -eq 0 ]] && FS_JSON+=","
         FS_JSON+="{\"fs\":\"${dev}\",\"size\":${size},\"used\":${used},\"available\":${avail},\"use\":${pct},\"mount\":\"${mountpoint}\"}"
         FIRST=0
-    done < /host/proc/mounts
+    done < /host/proc/1/mounts
     FS_JSON+="]"
 
     # Use a tmp file for atomic update
