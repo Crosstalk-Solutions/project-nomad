@@ -35,7 +35,7 @@ export default class SystemController {
         if (result.success) {
             response.send({ success: true, message: result.message });
         } else {
-            response.status(400).send({ error: result.message });
+            response.status(400).send({ success: false, message: result.message });
         }
     }
 
