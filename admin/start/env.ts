@@ -62,4 +62,15 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   NOMAD_API_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring a native (non-Docker) Ollama instance
+  | When set, the app connects to this URL instead of managing
+  | an Ollama Docker container. Useful on macOS where native
+  | Ollama can use Metal GPU acceleration.
+  | Example: http://host.docker.internal:11434
+  |----------------------------------------------------------
+  */
+  OLLAMA_HOST: Env.schema.string.optional(),
 })

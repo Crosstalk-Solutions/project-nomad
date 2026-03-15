@@ -24,6 +24,7 @@ import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
+import env from '#start/env'
 
 @inject()
 export class DockerService {
@@ -85,6 +86,14 @@ export class DockerService {
     action: 'start' | 'stop' | 'restart'
   ): Promise<{ success: boolean; message: string }> {
     try {
+      // Native Ollama cannot be managed via Docker
+      if (serviceName === SERVICE_NAMES.OLLAMA && DockerService.isNativeOllama()) {
+        return {
+          success: false,
+          message: `Ollama is running natively (not in Docker). Please manage it directly via the 'ollama' CLI or system service.`,
+        }
+      }
+
       const service = await Service.query().where('service_name', serviceName).first()
       if (!service || !service.installed) {
         return {
@@ -205,10 +214,35 @@ export class DockerService {
         }
       })
 
-      return Array.from(containerMap.entries()).map(([name, container]) => ({
+      const statuses = Array.from(containerMap.entries()).map(([name, container]) => ({
         service_name: name,
         status: container.State,
       }))
+
+      // If native Ollama is configured, check its status via HTTP
+      if (DockerService.isNativeOllama()) {
+        const nativeUrl = env.get('OLLAMA_HOST')!
+        let ollamaStatus = 'exited'
+        try {
+          const axios = (await import('axios')).default
+          const response = await axios.get(`${nativeUrl}/api/tags`, { timeout: 3000 })
+          if (response.status === 200) {
+            ollamaStatus = 'running'
+          }
+        } catch {
+          ollamaStatus = 'exited'
+        }
+
+        // Add or replace the Ollama entry
+        const existingIdx = statuses.findIndex((s) => s.service_name === SERVICE_NAMES.OLLAMA)
+        if (existingIdx >= 0) {
+          statuses[existingIdx].status = ollamaStatus
+        } else {
+          statuses.push({ service_name: SERVICE_NAMES.OLLAMA, status: ollamaStatus })
+        }
+      }
+
+      return statuses
     } catch (error: any) {
       logger.error(`Error fetching services status: ${error.message}`)
       return []
@@ -221,14 +255,21 @@ export class DockerService {
    * @param serviceName - The name of the service to get the URL for.
    * @returns - The URL as a string, or null if it cannot be determined.
    */
+  /**
+   * Check if Ollama is configured to run natively (outside Docker).
+   */
+  static isNativeOllama(): boolean {
+    return !!env.get('OLLAMA_HOST')
+  }
+
   async getServiceURL(serviceName: string): Promise<string | null> {
     if (!serviceName || serviceName.trim() === '') {
       return null
     }
 
-    if (serviceName === SERVICE_NAMES.OLLAMA) {
-      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
-      if (remoteUrl) return remoteUrl
+    // If native Ollama is configured, return the native URL directly
+    if (serviceName === SERVICE_NAMES.OLLAMA && DockerService.isNativeOllama()) {
+      return env.get('OLLAMA_HOST')!
     }
 
     const service = await Service.query()
@@ -671,6 +712,46 @@ export class DockerService {
         )
       }
 
+      // Native Ollama: skip container creation entirely, just mark as installed
+      if (service.service_name === SERVICE_NAMES.OLLAMA && DockerService.isNativeOllama()) {
+        const nativeUrl = env.get('OLLAMA_HOST')!
+        this._broadcast(
+          service.service_name,
+          'native-ollama',
+          `Native Ollama configured at ${nativeUrl}. Skipping Docker container creation...`
+        )
+
+        // Verify native Ollama is reachable
+        try {
+          const axios = (await import('axios')).default
+          await axios.get(`${nativeUrl}/api/tags`, { timeout: 5000 })
+          this._broadcast(service.service_name, 'native-ollama', `Native Ollama is reachable at ${nativeUrl}`)
+        } catch {
+          this._broadcast(
+            service.service_name,
+            'native-ollama-warning',
+            `Warning: Native Ollama at ${nativeUrl} is not reachable. Make sure Ollama is running.`
+          )
+        }
+
+        service.installed = true
+        service.installation_status = 'idle'
+        await service.save()
+        this.activeInstallations.delete(service.service_name)
+
+        // Trigger Nomad docs discovery
+        logger.info('[DockerService] Native Ollama configured. Triggering Nomad docs discovery...')
+        await KVStore.setValue('chat.suggestionsEnabled', false)
+        const ollamaService = new (await import('./ollama_service.js')).OllamaService()
+        const ragService = new (await import('./rag_service.js')).RagService(this, ollamaService)
+        ragService.discoverNomadDocs().catch((error) => {
+          logger.error('[DockerService] Failed to discover Nomad docs:', error)
+        })
+
+        this._broadcast(service.service_name, 'completed', `Native Ollama setup completed successfully.`)
+        return
+      }
+
       if (service.service_name === SERVICE_NAMES.CALIBREWEB) {
         await this._runPreinstallActions__CalibreWeb()
         this._broadcast(
@@ -865,7 +946,7 @@ export class DockerService {
         await KVStore.setValue('chat.suggestionsEnabled', false)
 
         logger.info('[DockerService] Ollama installation complete. Triggering Nomad docs discovery...')
-        
+
         // Need to use dynamic imports here to avoid circular dependency
         const ollamaService = new (await import('./ollama_service.js')).OllamaService()
         const ragService = new (await import('./rag_service.js')).RagService(this, ollamaService)
@@ -1354,7 +1435,7 @@ export class DockerService {
    *   AMD has no Docker runtime registration to query.
    * Fallback: lspci for host-based installs.
    */
-  private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'none'; toolkitMissing?: boolean }> {
+  private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'apple' | 'none'; toolkitMissing?: boolean }> {
     try {
       // Primary: Check Docker daemon for nvidia runtime (works from inside containers)
       try {
@@ -1430,6 +1511,29 @@ export class DockerService {
         }
       } catch {
         // KV store not available, continue
+      }
+
+      // Check for Apple Silicon (macOS with arm64)
+      try {
+        const { stdout: unameCheck } = await execAsync('uname -m 2>/dev/null || true')
+        const { stdout: osCheck } = await execAsync('uname -s 2>/dev/null || true')
+        if (osCheck.trim() === 'Darwin' && unameCheck.trim() === 'arm64') {
+          logger.info('[DockerService] Apple Silicon GPU (Metal) detected')
+          return { type: 'apple' }
+        }
+      } catch {
+        // uname not available, continue
+      }
+
+      // Also detect Apple Silicon from Docker host info (when running inside a container on macOS)
+      try {
+        const dockerInfo = await this.docker.info()
+        if (dockerInfo.OperatingSystem?.includes('Docker Desktop') && dockerInfo.Architecture === 'aarch64') {
+          logger.info('[DockerService] Apple Silicon GPU (Metal) detected via Docker Desktop')
+          return { type: 'apple' }
+        }
+      } catch {
+        // Docker info query failed, continue
       }
 
       logger.info('[DockerService] No GPU detected')

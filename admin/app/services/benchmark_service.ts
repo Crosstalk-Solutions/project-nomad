@@ -321,6 +321,12 @@ export class BenchmarkService {
         }
       }
 
+      // Fallback: Detect Apple Silicon GPU
+      if (!gpuModel && cpu.manufacturer?.toLowerCase().includes('apple')) {
+        // Apple Silicon uses unified memory with Metal GPU
+        gpuModel = `${cpu.brand} GPU (Metal)`
+      }
+
       // Fallback: Extract integrated GPU from CPU model name
       if (!gpuModel) {
         const cpuFullName = `${cpu.manufacturer} ${cpu.brand}`

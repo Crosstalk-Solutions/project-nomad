@@ -648,6 +648,86 @@ export class SystemService {
           // si.graphics() returned controllers (host install, not Docker) — GPU is working
           gpuHealth.status = 'ok'
           gpuHealth.ollamaGpuAccessible = true
+        // Check for Apple Silicon (native Ollama with Metal GPU)
+        const isAppleSilicon =
+          (dockerInfo.Architecture === 'aarch64' && dockerInfo.OperatingSystem?.includes('Docker Desktop')) ||
+          (os.platform === 'darwin' && os.arch === 'arm64')
+
+        if (isAppleSilicon) {
+          gpuHealth.hasAppleMetal = true
+
+          // If native Ollama is configured, Metal GPU is accessible
+          if (DockerService.isNativeOllama()) {
+            gpuHealth.status = 'apple_metal'
+            gpuHealth.ollamaGpuAccessible = true
+
+            // Populate graphics controllers with Apple Silicon GPU info
+            if (!graphics.controllers || graphics.controllers.length === 0) {
+              // Get Apple GPU info from system_profiler via Docker host
+              try {
+                const { exec: execChild } = await import('child_process')
+                const { promisify } = await import('util')
+                const execAsync = promisify(execChild)
+                const { stdout } = await execAsync(
+                  'system_profiler SPDisplaysDataType 2>/dev/null | grep "Chipset Model" | sed "s/.*: //"'
+                )
+                const gpuModel = stdout.trim()
+                if (gpuModel) {
+                  graphics.controllers = [{
+                    model: gpuModel,
+                    vendor: 'Apple',
+                    bus: 'Built-In',
+                    vram: 0, // Apple Silicon uses unified memory
+                    vramDynamic: true,
+                  }]
+                }
+              } catch {
+                // Fallback — we're inside Docker, can't run system_profiler
+                graphics.controllers = [{
+                  model: 'Apple Silicon GPU (Metal)',
+                  vendor: 'Apple',
+                  bus: 'Built-In',
+                  vram: 0,
+                  vramDynamic: true,
+                }]
+              }
+            }
+          } else {
+            // Apple Silicon detected but Ollama is in Docker (no Metal access)
+            gpuHealth.status = 'no_gpu'
+            gpuHealth.ollamaGpuAccessible = false
+          }
+        } else {
+          // Non-Apple: check for NVIDIA/AMD GPUs
+          // If si.graphics() returned no controllers (common inside Docker),
+          // fall back to nvidia runtime + nvidia-smi detection
+          if (!graphics.controllers || graphics.controllers.length === 0) {
+            const runtimes = dockerInfo.Runtimes || {}
+            if ('nvidia' in runtimes) {
+              gpuHealth.hasNvidiaRuntime = true
+              const nvidiaInfo = await this.getNvidiaSmiInfo()
+              if (Array.isArray(nvidiaInfo)) {
+                graphics.controllers = nvidiaInfo.map((gpu) => ({
+                  model: gpu.model,
+                  vendor: gpu.vendor,
+                  bus: "",
+                  vram: gpu.vram,
+                  vramDynamic: false,
+                }))
+                gpuHealth.status = 'ok'
+                gpuHealth.ollamaGpuAccessible = true
+              } else if (nvidiaInfo === 'OLLAMA_NOT_FOUND') {
+                gpuHealth.status = 'ollama_not_installed'
+              } else {
+                gpuHealth.status = 'passthrough_failed'
+                logger.warn(`NVIDIA runtime detected but GPU passthrough failed: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
+              }
+            }
+          } else {
+            // si.graphics() returned controllers (host install, not Docker) — GPU is working
+            gpuHealth.status = 'ok'
+            gpuHealth.ollamaGpuAccessible = true
+          }
         }
       } catch {
         // Docker info query failed, skip host-level enrichment
@@ -932,6 +1012,11 @@ export class SystemService {
       const serviceStatusList = await this.dockerService.getServicesStatus()
 
       for (const service of allServices) {
+        // Skip sync for native Ollama — it has no Docker container
+        if (service.service_name === SERVICE_NAMES.OLLAMA && DockerService.isNativeOllama()) {
+          continue
+        }
+
         const containerExists = serviceStatusList.find(
           (s) => s.service_name === service.service_name
         )
