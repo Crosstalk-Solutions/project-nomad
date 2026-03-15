@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosError, AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
@@ -25,13 +25,19 @@ class API {
   }
 
   async affectService(service_name: string, action: 'start' | 'stop' | 'restart') {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/services/affect',
         { service_name, action }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error affecting service:', error)
+      return undefined
+    }
   }
 
   async checkLatestVersion(force: boolean = false) {
@@ -192,13 +198,19 @@ class API {
   }
 
   async forceReinstallService(service_name: string) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         `/system/services/force-reinstall`,
         { service_name }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error force reinstalling service:', error)
+      return undefined
+    }
   }
 
   async getChatSuggestions(signal?: AbortSignal) {
@@ -452,13 +464,19 @@ class API {
   }
 
   async installService(service_name: string) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/services/install',
         { service_name }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error installing service:', error)
+      return undefined
+    }
   }
 
   async listCuratedMapCollections() {
