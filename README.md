@@ -61,7 +61,7 @@ available AI tools, we highly encourage the use of a beefy, GPU-backed device to
 
 At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones installation of the management application itself, the following minimal specs are required:
 
-*Note: Project N.O.M.A.D. is not sponsored by any hardware manufacturer and is designed to be as hardware-agnostic as possible. The harware listed below is for example/comparison use only*
+*Note: Project N.O.M.A.D. is not sponsored by any hardware manufacturer and is designed to be as hardware-agnostic as possible. The hardware listed below is for example/comparison use only*
 
 #### Minimum Specs
 - Processor: 2 GHz dual-core processor or better
