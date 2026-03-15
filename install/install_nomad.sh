@@ -38,7 +38,6 @@ START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
 WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
-COLLECT_DISK_INFO_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/collect_disk_info.sh"
 
 script_option_debug='true'
 accepted_terms='false'
@@ -381,12 +380,6 @@ create_nomad_directory(){
   sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
 }
 
-create_disk_info_file() {
-  # Disk info file MUST be created before the admin container starts.
-  # Otherwise, Docker will assume we meant to mount a directory and will create an empty directory at the mount point
-  echo '{}' > /tmp/nomad-disk-info.json
-}
-
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
 
@@ -461,24 +454,6 @@ download_sidecar_files() {
   fi
   chmod +x "$sidecar_script_path"
   echo -e "${GREEN}#${RESET} Sidecar updater script downloaded successfully to $sidecar_script_path.\\n"
-}
-
-download_and_start_collect_disk_info_script() {
-  local collect_disk_info_script_path="${NOMAD_DIR}/collect_disk_info.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading collect_disk_info script...\\n"
-  if ! curl -fsSL "$COLLECT_DISK_INFO_SCRIPT_URL" -o "$collect_disk_info_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the collect_disk_info script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$collect_disk_info_script_path"
-  echo -e "${GREEN}#${RESET} collect_disk_info script downloaded successfully to $collect_disk_info_script_path.\\n"
-
-  # Start script in background and store PID for easy removal on uninstall
-  echo -e "${YELLOW}#${RESET} Starting collect_disk_info script in the background...\\n"
-  nohup bash "$collect_disk_info_script_path" > /dev/null 2>&1 &
-  echo $! > "${NOMAD_DIR}/nomad-collect-disk-info.pid"
-  echo -e "${GREEN}#${RESET} collect_disk_info script started successfully.\\n"
 }
 
 download_helper_scripts() {
@@ -609,7 +584,6 @@ download_wait_for_it_script
 download_entrypoint_script
 download_sidecar_files
 download_helper_scripts
-download_and_start_collect_disk_info_script
 download_management_compose_file
 start_management_containers
 verify_gpu_setup

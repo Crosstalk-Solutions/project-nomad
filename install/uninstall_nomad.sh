@@ -17,8 +17,6 @@
 
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
-COLLECT_DISK_INFO_PID="/var/run/nomad-collect-disk-info.pid"
-DISK_INFO_FILE="/tmp/nomad-disk-info.json"
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -77,24 +75,6 @@ ensure_docker_installed() {
     fi
 }
 
-try_remove_disk_info_script() {
-    echo "Checking for running collect-disk-info script..."
-    if [ -f "$COLLECT_DISK_INFO_PID" ]; then
-        echo "Stopping collect-disk-info script..."
-        kill "$(cat "$COLLECT_DISK_INFO_PID")"
-        rm -f "$COLLECT_DISK_INFO_PID"
-        echo "collect-disk-info script stopped."
-    fi
-}
-
-try_remove_disk_info_file() {
-    if [ -f "$DISK_INFO_FILE" ]; then
-        echo "Removing disk info file..."
-        rm -f "$DISK_INFO_FILE"
-        echo "Disk info file removed."
-    fi
-}
-
 storage_cleanup() {
   read -p "Do you want to delete the Project N.O.M.A.D. storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored Nomad data and can't be undone! (y/N): " delete_dir_choice
   case "$delete_dir_choice" in
@@ -134,12 +114,6 @@ uninstall_nomad() {
     # Remove the shared update volume
     echo "Removing project-nomad_nomad-update-shared volume if it exists..."
     docker volume rm project-nomad_nomad-update-shared 2>/dev/null && echo "Volume removed." || echo "Volume already removed or not found."
-
-    # Try to stop the collect-disk-info script if it's running
-    try_remove_disk_info_script
-
-    # Try to remove the disk info file if it exists
-    try_remove_disk_info_file
 
     # Prompt user for storage cleanup and handle it if so
     storage_cleanup
