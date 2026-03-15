@@ -74,6 +74,19 @@ export default class RagController {
     return response.status(200).json({ message: result.message })
   }
 
+  public async getFailedJobs({ response }: HttpContext) {
+    const jobs = await EmbedFileJob.listFailedJobs()
+    return response.status(200).json(jobs)
+  }
+
+  public async cleanupFailedJobs({ response }: HttpContext) {
+    const result = await EmbedFileJob.cleanupFailedJobs()
+    return response.status(200).json({
+      message: `Cleaned up ${result.cleaned} failed job${result.cleaned !== 1 ? 's' : ''}${result.filesDeleted > 0 ? `, deleted ${result.filesDeleted} file${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
+      ...result,
+    })
+  }
+
   public async scanAndSync({ response }: HttpContext) {
     try {
       const syncResult = await this.ragService.scanAndSyncStorage()

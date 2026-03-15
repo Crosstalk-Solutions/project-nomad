@@ -380,7 +380,7 @@ export default function Chat({
                 >
                   {installedModels.map((model) => (
                     <option key={model.name} value={model.name}>
-                      {model.name} ({formatBytes(model.size)})
+                      {model.name}{model.size > 0 ? ` (${formatBytes(model.size)})` : ''}
                     </option>
                   ))}
                 </select>

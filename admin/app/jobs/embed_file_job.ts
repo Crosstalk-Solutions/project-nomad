@@ -6,6 +6,7 @@ import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
+import fs from 'node:fs/promises'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -222,6 +223,52 @@ export class EmbedFileJob {
       }
       throw error
     }
+  }
+
+  static async listFailedJobs(): Promise<EmbedJobWithProgress[]> {
+    const queueService = new QueueService()
+    const queue = queueService.getQueue(this.queue)
+    // Jobs that have failed at least once are in 'delayed' (retrying) or terminal 'failed' state.
+    // We identify them by job.data.status === 'failed' set in the catch block of handle().
+    const jobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
+
+    return jobs
+      .filter((job) => (job.data as any).status === 'failed')
+      .map((job) => ({
+        jobId: job.id!.toString(),
+        fileName: (job.data as EmbedFileJobParams).fileName,
+        filePath: (job.data as EmbedFileJobParams).filePath,
+        progress: 0,
+        status: 'failed',
+        error: (job.data as any).error,
+      }))
+  }
+
+  static async cleanupFailedJobs(): Promise<{ cleaned: number; filesDeleted: number }> {
+    const queueService = new QueueService()
+    const queue = queueService.getQueue(this.queue)
+    const allJobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
+    const failedJobs = allJobs.filter((job) => (job.data as any).status === 'failed')
+
+    let cleaned = 0
+    let filesDeleted = 0
+
+    for (const job of failedJobs) {
+      const filePath = (job.data as EmbedFileJobParams).filePath
+      if (filePath && filePath.includes(RagService.UPLOADS_STORAGE_PATH)) {
+        try {
+          await fs.unlink(filePath)
+          filesDeleted++
+        } catch {
+          // File may already be deleted — that's fine
+        }
+      }
+      await job.remove()
+      cleaned++
+    }
+
+    logger.info(`[EmbedFileJob] Cleaned up ${cleaned} failed jobs, deleted ${filesDeleted} files`)
+    return { cleaned, filesDeleted }
   }
 
   static async getStatus(filePath: string): Promise<{

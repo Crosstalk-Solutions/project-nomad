@@ -8,6 +8,7 @@ export const KV_STORE_SCHEMA = {
   'system.earlyAccess':         'boolean',
   'ui.hasVisitedEasySetup':     'boolean',
   'ai.assistantCustomName':     'string',
+  'ai.remoteOllamaUrl':         'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

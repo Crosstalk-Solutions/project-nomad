@@ -213,7 +213,7 @@ export default function ChatInterface({
           <p className="text-gray-700">
             This will dispatch a background download job for{' '}
             <span className="font-mono font-medium">{DEFAULT_QUERY_REWRITE_MODEL}</span> and may take some time to complete. The model
-            will be used to rewrite queries for improved RAG retrieval performance.
+            will be used to rewrite queries for improved RAG retrieval performance. Note that download is only supported when using Ollama. If using an OpenAI API interface, please download the model with that software.
           </p>
         </StyledModal>
       </div>
