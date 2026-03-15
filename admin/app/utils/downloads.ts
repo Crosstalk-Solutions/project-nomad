@@ -18,6 +18,7 @@ export async function doResumableDownload({
   url,
   filepath,
   timeout = 30000,
+  stallTimeout = 60000,
   signal,
   onProgress,
   onComplete,
@@ -88,10 +89,29 @@ export async function doResumableDownload({
     let lastProgressTime = Date.now()
     let lastDownloadedBytes = startByte
 
+    // Stall detection: abort if no data received within stallTimeout ms
+    let lastReceivedBytes = startByte
+    let stallTimer = setTimeout(() => {
+      cleanup(new Error(`Download stalled: no data received for ${stallTimeout}ms from ${url}`))
+    }, stallTimeout)
+
+    const resetStallTimer = () => {
+      clearTimeout(stallTimer)
+      stallTimer = setTimeout(() => {
+        cleanup(new Error(`Download stalled: no data received for ${stallTimeout}ms from ${url}`))
+      }, stallTimeout)
+    }
+
     // Progress tracking stream to monitor data flow
     const progressStream = new Transform({
       transform(chunk: Buffer, _: any, callback: Function) {
         downloadedBytes += chunk.length
+
+        // Reset stall timer on every chunk received
+        if (downloadedBytes > lastReceivedBytes) {
+          lastReceivedBytes = downloadedBytes
+          resetStallTimer()
+        }
 
         // Update progress tracking
         const now = Date.now()
@@ -118,6 +138,7 @@ export async function doResumableDownload({
 
     // Handle errors and cleanup
     const cleanup = (error?: Error) => {
+      clearTimeout(stallTimer)
       progressStream.destroy()
       response.data.destroy()
       writeStream.destroy()
@@ -136,6 +157,7 @@ export async function doResumableDownload({
     })
 
     writeStream.on('finish', async () => {
+      clearTimeout(stallTimer)
       if (onProgress) {
         onProgress({
           downloadedBytes,
@@ -191,7 +213,10 @@ export async function doResumableDownloadWithRetry({
 
       const isAborted = error.name === 'AbortError' || error.code === 'ABORT_ERR'
       const isNetworkError =
-        error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT'
+        error.code === 'ECONNRESET' ||
+        error.code === 'ENOTFOUND' ||
+        error.code === 'ETIMEDOUT' ||
+        (error.message as string)?.includes('stalled')
 
       onAttemptError?.(error, attempt)
       if (isAborted) {

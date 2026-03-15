@@ -7,6 +7,8 @@ export type DoResumableDownloadParams = {
   onProgress?: (progress: DoResumableDownloadProgress) => void
   onComplete?: (url: string, path: string) => void | Promise<void>
   forceNew?: boolean
+  /** How long (ms) to wait without receiving data before aborting. Defaults to 60000 (60s). */
+  stallTimeout?: number
 }
 
 export type DoResumableDownloadWithRetryParams = DoResumableDownloadParams & {
