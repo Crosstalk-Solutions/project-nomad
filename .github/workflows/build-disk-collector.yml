@@ -1,4 +1,4 @@
-name: Build Docker Image
+name: Build Disk Collector Image
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       tag_latest:
-        description: 'Also tag this image as :latest? (Keep false for RC and beta releases)'
+        description: 'Also tag this image as :latest?'
         required: false
         type: boolean
         default: false
@@ -22,9 +22,9 @@ jobs:
     steps:
       - name: check-auth
         id: check-auth
-        run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT      
+        run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
   build:
-    name: Build Docker image
+    name: Build disk-collector image
     needs: check_authorization
     if: needs.check_authorization.outputs.isAuthorized == 'true'
     runs-on: ubuntu-latest
@@ -43,12 +43,9 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
+          context: install/sidecar-disk-collector
           push: true
           tags: |
-            ghcr.io/crosstalk-solutions/project-nomad:${{ inputs.version }}
-            ghcr.io/crosstalk-solutions/project-nomad:v${{ inputs.version }}
-            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad:latest' || '' }}
-          build-args: |
-            VERSION=${{ inputs.version }}
-            BUILD_DATE=${{ github.event.workflow_run.created_at }}
-            VCS_REF=${{ github.sha }}
+            ghcr.io/crosstalk-solutions/project-nomad-disk-collector:${{ inputs.version }}
+            ghcr.io/crosstalk-solutions/project-nomad-disk-collector:v${{ inputs.version }}
+            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest' || '' }}
