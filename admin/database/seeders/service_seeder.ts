@@ -159,6 +159,38 @@ export default class ServiceSeeder extends BaseSeeder {
       is_dependency_service: false,
       depends_on: null,
     },
+    {
+      service_name: SERVICE_NAMES.NAVIDROME,
+      friendly_name: 'Music Server',
+      powered_by: 'Navidrome',
+      display_order: 4,
+      description:
+        'Stream your personal music library offline — supports Subsonic-compatible apps',
+      icon: 'IconMusic',
+      container_image: 'deluan/navidrome:0.60.3',
+      source_repo: 'https://github.com/navidrome/navidrome',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '4533/tcp': [{ HostPort: '4533' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/navidrome/data:/data`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/navidrome/music:/music:ro`,
+          ],
+        },
+        ExposedPorts: { '4533/tcp': {} },
+        Env: [
+          'ND_ENABLEINSIGHTSCOLLECTOR=false',
+          'ND_SCANNER_SCHEDULE=@every 1h',
+        ],
+      }),
+      ui_location: '4533',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      depends_on: null,
+    },
   ]
 
   async run() {

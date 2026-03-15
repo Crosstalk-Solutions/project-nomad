@@ -103,6 +103,19 @@ const ADDITIONAL_TOOLS: Capability[] = [
     services: [SERVICE_NAMES.CYBERCHEF],
     icon: 'IconChefHat',
   },
+  {
+    id: 'music',
+    name: 'Music Server',
+    technicalName: 'Navidrome',
+    description: 'Stream your personal music library offline — supports Subsonic-compatible apps',
+    features: [
+      'Web-based music player',
+      'Subsonic API for mobile apps',
+      'No internet required after setup',
+    ],
+    services: [SERVICE_NAMES.NAVIDROME],
+    icon: 'IconMusic',
+  },
 ]
 
 type WizardStep = 1 | 2 | 3 | 4
