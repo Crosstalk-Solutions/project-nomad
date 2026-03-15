@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **Install**: Added multi-distro Linux support — the install script now detects and supports Arch, Fedora/RHEL, openSUSE, Void, and Alpine in addition to Debian/Ubuntu
+
 ## Version 1.29.0 - March 11, 2026
 
 ### Features

@@ -17,13 +17,22 @@
 Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
 
 ## Installation & Quickstart
-Project N.O.M.A.D. can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
+Project N.O.M.A.D. can be installed on most Linux distributions. The install script automatically detects your distro and uses the appropriate package manager. Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
+
+#### Supported Distributions
+| Family | Distros |
+|--------|---------|
+| Debian/Ubuntu | Debian, Ubuntu, Raspbian, Linux Mint, Pop!_OS, Elementary, Zorin, Kali |
+| Arch | Arch Linux, Manjaro, EndeavourOS, Garuda, CachyOS |
+| Fedora/RHEL | Fedora, RHEL, CentOS, Rocky, AlmaLinux, Nobara |
+| openSUSE | openSUSE Leap, openSUSE Tumbleweed, SLES |
+| Other | Void Linux, Alpine Linux |
 
 *Note: sudo/root privileges are required to run the install script*
 
 #### Quick Install
 ```bash
-sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
 ```
 
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
@@ -67,7 +76,7 @@ At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones ins
 - Processor: 2 GHz dual-core processor or better
 - RAM: 4GB system memory
 - Storage: At least 5 GB free disk space
-- OS: Debian-based (Ubuntu recommended)
+- OS: Any supported Linux distribution (see [Supported Distributions](#supported-distributions))
 - Stable internet connection (required during install only)
 
 To run LLM's and other included AI tools:
@@ -77,7 +86,7 @@ To run LLM's and other included AI tools:
 - RAM: 32 GB system memory
 - Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
 - Storage: At least 250 GB free disk space (preferably on SSD)
-- OS: Debian-based (Ubuntu recommended)
+- OS: Any supported Linux distribution (see [Supported Distributions](#supported-distributions))
 - Stable internet connection (required during install only)
 
 **For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
