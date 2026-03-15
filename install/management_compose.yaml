@@ -11,7 +11,6 @@ services:
       - "8080:8080"
     volumes:
       - /opt/project-nomad/storage:/app/storage
-      - /tmp/nomad-disk-info.json:/app/storage/nomad-disk-info.json
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
       - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
@@ -95,6 +94,14 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
       - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml
       - nomad-update-shared:/shared # Shared volume for communication with admin container
+  disk-collector:
+    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
+    pull_policy: always
+    container_name: nomad_disk_collector
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
+      - /opt/project-nomad/storage:/storage
 
 volumes:
   nomad-update-shared:
