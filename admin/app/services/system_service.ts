@@ -499,26 +499,49 @@ export class SystemService {
           }
         }
 
-        // Run the probes when controllers are empty (common inside Docker) or
-        // when lspci gave us bogus discrete-GPU BAR0 values that need replacing.
-        if (
-          !graphics.controllers ||
-          graphics.controllers.length === 0 ||
-          hasLspciBogusDgpuVram
-        ) {
-          const runtimes = dockerInfo.Runtimes || {}
-          gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
+          // Override OS info — si.osInfo() returns container info, not the host's macOS
+          os.platform = 'darwin'
+          os.distro = 'macOS'
+          os.arch = 'arm64'
 
-          // AMD doesn't register a Docker runtime. Detection sources, in priority order:
-          //   1. KV 'gpu.type' (set by DockerService._detectGPUType after first Ollama install)
-          //   2. Marker file at /app/storage/.nomad-gpu-type (written by install_nomad.sh)
-          // The marker file matters because the System page should reflect AMD presence
-          // even before AI Assistant has been installed for the first time.
-          let savedGpuType: string | null | undefined = await KVStore.getValue('gpu.type') as string | undefined
-          if (!savedGpuType) {
-            try {
-              savedGpuType = (await readFile('/app/storage/.nomad-gpu-type', 'utf8')).trim()
-            } catch {}
+          // Get actual macOS version and hardware details from the host via Docker
+          if (dockerInfo.OperatingSystem?.includes('Docker Desktop')) {
+            os.distro = 'macOS (via Docker Desktop)'
+          }
+
+          // Get hostname from Docker
+          if (dockerInfo.Name && dockerInfo.Name !== 'docker-desktop') {
+            os.hostname = dockerInfo.Name
+          }
+
+          // Fix CPU info — si.cpu() returns empty manufacturer/brand inside Docker on macOS
+          if (!cpu.manufacturer || cpu.manufacturer === '-' || cpu.manufacturer.trim() === '') {
+            cpu.manufacturer = 'Apple'
+            // Construct a descriptive brand from core count
+            const coreCount = cpu.physicalCores || cpu.cores || 0
+            cpu.brand = `Apple Silicon (${coreCount}-core)`
+          }
+
+          // If native Ollama is configured, Metal GPU is accessible
+          if (DockerService.isNativeOllama()) {
+            gpuHealth.status = 'apple_metal'
+            gpuHealth.ollamaGpuAccessible = true
+
+            // Populate graphics controllers with Apple Silicon GPU info
+            if (!graphics.controllers || graphics.controllers.length === 0) {
+              const gpuLabel = cpu.brand || `Apple Silicon (${cpu.physicalCores || cpu.cores}-core)`
+              graphics.controllers = [{
+                model: `${gpuLabel} GPU (Metal)`,
+                vendor: 'Apple',
+                bus: 'Built-In',
+                vram: 0, // Apple Silicon uses unified memory — VRAM = system RAM
+                vramDynamic: true,
+              }]
+            }
+          } else {
+            // Apple Silicon detected but Ollama is in Docker (no Metal access)
+            gpuHealth.status = 'no_gpu'
+            gpuHealth.ollamaGpuAccessible = false
           }
           const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
           const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
