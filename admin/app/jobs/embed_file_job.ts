@@ -1,4 +1,4 @@
-import { Job } from 'bullmq'
+import { Job, UnrecoverableError } from 'bullmq'
 import { QueueService } from '#services/queue_service'
 import { EmbedJobWithProgress } from '../../types/rag.js'
 import { RagService } from '#services/rag_service'
@@ -42,7 +42,15 @@ export class EmbedFileJob {
     const ragService = new RagService(dockerService, ollamaService)
 
     try {
-      // Check if Ollama and Qdrant services are ready
+      // Check if Ollama and Qdrant services are installed and ready
+      // Use UnrecoverableError for "not installed" so BullMQ won't retry —
+      // retrying 30x when the service doesn't exist just wastes Redis connections
+      const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
+      if (!ollamaUrl) {
+        logger.warn('[EmbedFileJob] Ollama is not installed. Skipping embedding for: %s', fileName)
+        throw new UnrecoverableError('Ollama service is not installed. Install AI Assistant to enable file embeddings.')
+      }
+
       const existingModels = await ollamaService.getModels()
       if (!existingModels) {
         logger.warn('[EmbedFileJob] Ollama service not ready yet. Will retry...')
@@ -51,8 +59,8 @@ export class EmbedFileJob {
 
       const qdrantUrl = await dockerService.getServiceURL('nomad_qdrant')
       if (!qdrantUrl) {
-        logger.warn('[EmbedFileJob] Qdrant service not ready yet. Will retry...')
-        throw new Error('Qdrant service not ready yet')
+        logger.warn('[EmbedFileJob] Qdrant is not installed. Skipping embedding for: %s', fileName)
+        throw new UnrecoverableError('Qdrant service is not installed. Install AI Assistant to enable file embeddings.')
       }
 
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
