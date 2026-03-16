@@ -3,39 +3,119 @@
 @theme {
   --color-desert-white: #f6f6f4;
   --color-desert-sand: #f7eedc;
-  
+
   --color-desert-green-darker: #2a2a15;
   --color-desert-green-dark: #353518;
   --color-desert-green: #424420;
   --color-desert-green-light: #babaaa;
   --color-desert-green-lighter: #d4d4c8;
-  
+
   --color-desert-orange-dark: #8a3d0f;
   --color-desert-orange: #a84a12;
   --color-desert-orange-light: #c85815;
   --color-desert-orange-lighter: #e69556;
-  
+
   --color-desert-tan-dark: #6b5d4f;
   --color-desert-tan: #8b7355;
   --color-desert-tan-light: #a8927a;
   --color-desert-tan-lighter: #c9b99f;
-  
+
   --color-desert-red-dark: #7a2e2e;
   --color-desert-red: #994444;
   --color-desert-red-light: #b05555;
   --color-desert-red-lighter: #d88989;
-  
+
   --color-desert-olive-dark: #5a5c3a;
   --color-desert-olive: #6d7042;
   --color-desert-olive-light: #858a55;
   --color-desert-olive-lighter: #a5ab7d;
-  
+
   --color-desert-stone-dark: #5c5c54;
   --color-desert-stone: #75756a;
   --color-desert-stone-light: #8f8f82;
   --color-desert-stone-lighter: #afafa5;
+
+  /* Semantic surface/text tokens (for replacing generic gray/white Tailwind classes) */
+  --color-surface-primary: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-elevated: #ffffff;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-border-default: #d1d5db;
+  --color-border-subtle: #e5e7eb;
+
+  /* Button interactive states (green hover/active swap conflicts with text color inversion) */
+  --color-btn-green-hover: #353518;
+  --color-btn-green-active: #2a2a15;
 }
 
 body {
   background-color: var(--color-desert-sand);
+  color: var(--color-text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Night Ops — warm charcoal dark mode */
+[data-theme="dark"] {
+  /* Backgrounds: light sand → warm charcoal */
+  --color-desert-sand: #1c1b16;
+  --color-desert-white: #2a2918;
+
+  /* Text greens: dark text → light text for readability */
+  --color-desert-green-darker: #f7eedc;
+  --color-desert-green-dark: #e8dfc8;
+
+  /* Accent green: slightly brighter for dark bg visibility */
+  --color-desert-green: #525530;
+
+  /* Light variants → dark variants (hover bg, disabled states) */
+  --color-desert-green-light: #3a3c24;
+  --color-desert-green-lighter: #2d2e1c;
+
+  /* Orange: brighter for contrast on dark surfaces */
+  --color-desert-orange-dark: #c85815;
+  --color-desert-orange: #c85815;
+  --color-desert-orange-light: #e69556;
+  --color-desert-orange-lighter: #f0b87a;
+
+  /* Tan: lightened for readability */
+  --color-desert-tan-dark: #c9b99f;
+  --color-desert-tan: #a8927a;
+  --color-desert-tan-light: #8b7355;
+  --color-desert-tan-lighter: #6b5d4f;
+
+  /* Red: lightened for dark bg */
+  --color-desert-red-dark: #d88989;
+  --color-desert-red: #b05555;
+  --color-desert-red-light: #994444;
+  --color-desert-red-lighter: #7a2e2e;
+
+  /* Olive: lightened */
+  --color-desert-olive-dark: #a5ab7d;
+  --color-desert-olive: #858a55;
+  --color-desert-olive-light: #6d7042;
+  --color-desert-olive-lighter: #5a5c3a;
+
+  /* Stone: lightened */
+  --color-desert-stone-dark: #afafa5;
+  --color-desert-stone: #8f8f82;
+  --color-desert-stone-light: #75756a;
+  --color-desert-stone-lighter: #5c5c54;
+
+  /* Semantic surface overrides */
+  --color-surface-primary: #2a2918;
+  --color-surface-secondary: #353420;
+  --color-surface-elevated: #3d3c2a;
+  --color-text-primary: #f7eedc;
+  --color-text-secondary: #afafa5;
+  --color-text-muted: #8f8f82;
+  --color-border-default: #424420;
+  --color-border-subtle: #353420;
+
+  /* Button interactive states: darker green for hover/active on dark bg */
+  --color-btn-green-hover: #474a28;
+  --color-btn-green-active: #3a3c24;
+
+  color-scheme: dark;
 }

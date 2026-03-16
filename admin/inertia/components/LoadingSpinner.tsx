@@ -17,10 +17,10 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     return (
       <div className={`flex flex-col items-center justify-center ${className}`}>
         <div
-          className={`w-8 h-8 border-[3px] ${light ? 'border-white' : 'border-slate-400'} border-t-transparent rounded-full animate-spin`}
+          className={`w-8 h-8 border-[3px] ${light ? 'border-white' : 'border-text-muted'} border-t-transparent rounded-full animate-spin`}
         ></div>
         {!iconOnly && (
-          <div className={light ? 'text-white mt-2' : 'text-slate-800 mt-2'}>
+          <div className={light ? 'text-white mt-2' : 'text-text-primary mt-2'}>
             {text || 'Loading...'}
           </div>
         )}

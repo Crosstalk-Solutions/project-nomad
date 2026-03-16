@@ -159,7 +159,7 @@ export default function Chat({
         cancelText="Cancel"
         confirmVariant="danger"
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           Are you sure you want to delete all chat sessions? This action cannot be undone and all
           conversations will be permanently deleted.
         </p>
@@ -345,7 +345,7 @@ export default function Chat({
   return (
     <div
       className={classNames(
-        'flex border border-gray-200 overflow-hidden shadow-sm w-full',
+        'flex border border-border-subtle overflow-hidden shadow-sm w-full',
         isInModal ? 'h-full rounded-lg' : 'h-screen'
       )}
     >
@@ -358,17 +358,17 @@ export default function Chat({
         isInModal={isInModal}
       />
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between h-[75px] flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-800">
+        <div className="px-6 py-3 border-b border-border-subtle bg-surface-secondary flex items-center justify-between h-[75px] flex-shrink-0">
+          <h2 className="text-lg font-semibold text-text-primary">
             {activeSession?.title || 'New Chat'}
           </h2>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <label htmlFor="model-select" className="text-sm text-gray-600">
+              <label htmlFor="model-select" className="text-sm text-text-secondary">
                 Model:
               </label>
               {isLoadingModels ? (
-                <div className="text-sm text-gray-500">Loading models...</div>
+                <div className="text-sm text-text-muted">Loading models...</div>
               ) : installedModels.length === 0 ? (
                 <div className="text-sm text-red-600">No models installed</div>
               ) : (
@@ -376,7 +376,7 @@ export default function Chat({
                   id="model-select"
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-white"
+                  className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
                 >
                   {installedModels.map((model) => (
                     <option key={model.name} value={model.name}>
@@ -393,9 +393,9 @@ export default function Chat({
                     onClose()
                   }
                 }}
-                className="rounded-lg hover:bg-gray-100 transition-colors"
+                className="rounded-lg hover:bg-surface-secondary transition-colors"
               >
-                <IconX className="h-6 w-6 text-gray-500" />
+                <IconX className="h-6 w-6 text-text-muted" />
               </button>
             )}
           </div>
