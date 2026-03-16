@@ -45,8 +45,8 @@ export default function InfoCard({ title, icon, data, variant = 'default' }: Inf
         />
 
         <div className="relative flex items-center gap-3">
-          {icon && <div className="text-desert-white opacity-80">{icon}</div>}
-          <h3 className="text-lg font-bold text-desert-white uppercase tracking-wide">{title}</h3>
+          {icon && <div className="text-white opacity-80">{icon}</div>}
+          <h3 className="text-lg font-bold text-white uppercase tracking-wide">{title}</h3>
         </div>
         <div className="absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8">
           <div className="w-full h-full bg-desert-green-dark opacity-30 transform rotate-45" />

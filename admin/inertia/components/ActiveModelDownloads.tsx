@@ -33,7 +33,7 @@ const ActiveModelDownloads = ({ withHeader = false }: ActiveModelDownloadsProps)
                         </div>
                     ))
                 ) : (
-                    <p className="text-gray-500">No active model downloads</p>
+                    <p className="text-text-muted">No active model downloads</p>
                 )}
             </div>
         </>

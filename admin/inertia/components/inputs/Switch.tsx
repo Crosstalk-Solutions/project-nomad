@@ -26,12 +26,12 @@ export default function Switch({
           {label && (
             <label
               htmlFor={switchId}
-              className="text-base font-medium text-gray-900 cursor-pointer"
+              className="text-base font-medium text-text-primary cursor-pointer"
             >
               {label}
             </label>
           )}
-          {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
+          {description && <p className="text-sm text-text-muted mt-1">{description}</p>}
         </div>
       )}
       <div className="flex items-center ml-4">
@@ -45,7 +45,7 @@ export default function Switch({
           className={clsx(
             'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent',
             'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-desert-green focus:ring-offset-2',
-            checked ? 'bg-desert-green' : 'bg-gray-200',
+            checked ? 'bg-desert-green' : 'bg-border-default',
             disabled ? 'opacity-50 cursor-not-allowed' : ''
           )}
         >

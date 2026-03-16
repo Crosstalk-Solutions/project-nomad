@@ -37,11 +37,11 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
       {/* Header with Wikipedia branding */}
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
-          <IconWorld className="w-6 h-6 text-gray-700" />
+          <IconWorld className="w-6 h-6 text-text-primary" />
         </div>
         <div>
-          <h3 className="text-xl font-semibold text-gray-900">Wikipedia</h3>
-          <p className="text-sm text-gray-500">Select your preferred Wikipedia package</p>
+          <h3 className="text-xl font-semibold text-text-primary">Wikipedia</h3>
+          <p className="text-sm text-text-muted">Select your preferred Wikipedia package</p>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                   ? 'border-desert-green bg-desert-green/10'
                   : isSelected
                     ? 'border-lime-500 bg-lime-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    : 'border-border-subtle bg-surface-primary hover:border-border-default'
               )}
             >
               {/* Status badges */}
@@ -104,8 +104,8 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
 
               {/* Option content */}
               <div className="pr-16 flex flex-col h-full">
-                <h4 className="text-lg font-semibold text-gray-900 mb-1">{option.name}</h4>
-                <p className="text-sm text-gray-600 mb-3 flex-grow">{option.description}</p>
+                <h4 className="text-lg font-semibold text-text-primary mb-1">{option.name}</h4>
+                <p className="text-sm text-text-secondary mb-3 flex-grow">{option.description}</p>
                 <div className="flex items-center gap-3">
                   {/* Radio indicator */}
                   <div
@@ -115,7 +115,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                         ? isInstalled
                           ? 'border-desert-green bg-desert-green'
                           : 'border-lime-500 bg-lime-500'
-                        : 'border-gray-300'
+                        : 'border-border-default'
                     )}
                   >
                     {isSelected && <IconCheck size={12} className="text-white" />}
@@ -123,7 +123,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                   <span
                     className={classNames(
                       'text-sm font-medium px-2 py-1 rounded',
-                      option.size_mb === 0 ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-700'
+                      option.size_mb === 0 ? 'bg-surface-secondary text-text-muted' : 'bg-surface-secondary text-text-secondary'
                     )}
                   >
                     {option.size_mb === 0 ? 'No download' : formatBytes(option.size_mb * 1024 * 1024, 1)}

@@ -7,6 +7,7 @@ export const KV_STORE_SCHEMA = {
   'system.latestVersion':       'string',
   'system.earlyAccess':         'boolean',
   'ui.hasVisitedEasySetup':     'boolean',
+  'ui.theme':                   'string',
   'ai.assistantCustomName':     'string',
 } as const
 
