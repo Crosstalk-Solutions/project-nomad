@@ -2,6 +2,21 @@
 
 Dieses Skript lädt alle in `nomad-data-pdf-urls.txt` eingetragenen PDFs und Ressourcen in eine NOMAD-DATA-Ordnerstruktur.
 
+## Warum sehe ich die neuen ZIM-Kategorien / PDFs nicht?
+
+- **ZIM-Kategorien (Deutsch & Österreich, Klexikon, Koch-Wiki, …):** Die App lädt die Collection-Dateien von einer URL. Standard ist der **main**-Branch von Crosstalk-Solutions – dort sind die neuen Kategorien erst nach Merge des PRs. Damit du sie **sofort** siehst, muss die laufende NOMAD-Instanz die Umgebungsvariable **`NOMAD_COLLECTIONS_BASE_URL`** setzen (z.B. in der Docker-/Compose-Umgebung):
+  ```bash
+  NOMAD_COLLECTIONS_BASE_URL=https://raw.githubusercontent.com/neuhubereco/project-nomad/refs/heads/feature/collections-german-austria-zim
+  ```
+  Danach in der Oberfläche unter Einstellungen / Content Explorer die Collections neu laden („Collections aktualisieren“ o.ä.).  
+  **Hinweis:** Die App-Version muss den Code für `NOMAD_COLLECTIONS_BASE_URL` enthalten (z.B. Build von deinem Fork oder nach Merge des PRs).
+
+- **PDFs in der Knowledge Base:** Die App muss **`NOMAD_DATA_PATH`** auf den Ordner setzen, in dem deine NOMAD-DATA-Struktur liegt (z.B. wo die heruntergeladenen PDFs in 01_MEDIZIN, 04_SURVIVAL, … liegen). Dieser Pfad muss **im Container** erreichbar sein (z.B. Volume-Mount):
+  ```bash
+  NOMAD_DATA_PATH=/storage/nomad_data
+  ```
+  Wenn die PDFs auf dem Host unter `/home/nomad/nomad_data` liegen, muss dieses Verzeichnis z.B. als `/storage/nomad_data` in den Admin-Container gemountet sein. Anschließend in der App: **Knowledge Base → Scan and Sync** ausführen.
+
 ## 1. Live: Neue ZIM-Kategorien
 
 Die neuen ZIM-Kategorien (Deutsch & Österreich, Militär & Taktik, Kommunikation, Energie & Off-Grid) sind in `collections/kiwix-categories.json` eingetragen.
@@ -43,12 +58,11 @@ Es werden u.a. geladen:
 
 ## 3. RAG (Knowledge Base)
 
-Die App indexiert nur Inhalte unter **`NOMAD_DATA_PATH/10_EIGENE_PDFS_RAG`**.  
+Die App indexiert alle unterstützten Dateien (PDF, Text, Bilder) **im gesamten Ordner** `NOMAD_DATA_PATH` (also auch 01_MEDIZIN, 04_SURVIVAL, 07_FUNK, 08_VORRAT, 10_EIGENE_PDFS_RAG usw.).  
 
 Wenn du die heruntergeladenen PDFs auch in der Knowledge Base nutzen willst:
 
-- Entweder **Kopien/Symlinks** der gewünschten PDFs nach `NOMAD-DATA/10_EIGENE_PDFS_RAG/` legen (z.B. Unterordner `Survival`, `Funk`, `Medizin`),  
-- oder `NOMAD_DATA_PATH` auf deinen NOMAD-DATA-Root setzen und in der App nur diesen einen Baum nutzen; dann müsste die RAG-Logik um weitere Ordner (z.B. 04_SURVIVAL, 07_FUNK) erweitert werden.
+- `NOMAD_DATA_PATH` auf deinen NOMAD-DATA-Root setzen (z.B. `/opt/project-nomad/storage/nomad_data` oder `/home/nomad/nomad_data`). Die RAG-Sync durchsucht dann **alle** Unterordner (01_MEDIZIN, 04_SURVIVAL, 07_FUNK, …).
 
 Anschließend in der App: **Knowledge Base → Scan and Sync**.
 
