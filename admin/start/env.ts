@@ -27,6 +27,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   */
   NOMAD_STORAGE_PATH: Env.schema.string.optional(),
 
+  /**
+   * Optional path to NOMAD-DATA folder (e.g. /storage/nomad_data).
+   * When set, the RAG sync will also scan 10_EIGENE_PDFS_RAG for PDFs, text, and images to embed.
+   */
+  NOMAD_DATA_PATH: Env.schema.string.optional(),
+
   /*
   |----------------------------------------------------------
   | Variables for configuring session package
@@ -60,4 +66,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   NOMAD_API_URL: Env.schema.string.optional(),
+
+  /**
+   * Optional base URL for collection specs (kiwix-categories, maps, wikipedia).
+   * If set, replaces the default GitHub raw URL. Example for your fork:
+   * NOMAD_COLLECTIONS_BASE_URL=https://raw.githubusercontent.com/YOUR_USER/project-nomad/refs/heads/main
+   * Then the app fetches .../collections/kiwix-categories.json etc. So new ZIM categories go live after push.
+   */
+  NOMAD_COLLECTIONS_BASE_URL: Env.schema.string.optional(),
 })
