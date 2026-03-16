@@ -318,7 +318,19 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   }
 
   const primaryDisk = getPrimaryDisk()
-  const primaryFs = systemInfo?.fsSize?.[0]
+  // When falling back to fsSize (systeminformation), prefer real block devices
+  // over virtual filesystems like tmpfs which report misleading capacity.
+  const getPrimaryFs = () => {
+    if (!systemInfo?.fsSize || systemInfo.fsSize.length === 0) return null
+    const realDevices = systemInfo.fsSize.filter((fs) => fs.fs.startsWith('/dev/'))
+    if (realDevices.length > 0) {
+      return realDevices.reduce((largest, current) =>
+        current.size > largest.size ? current : largest
+      )
+    }
+    return systemInfo.fsSize[0]
+  }
+  const primaryFs = getPrimaryFs()
   const storageInfo = primaryDisk
     ? { totalSize: primaryDisk.totalSize, totalUsed: primaryDisk.totalUsed }
     : primaryFs

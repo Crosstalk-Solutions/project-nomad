@@ -50,6 +50,22 @@ while true; do
         FS_JSON+="{\"fs\":\"${dev}\",\"size\":${size},\"used\":${used},\"available\":${avail},\"use\":${pct},\"mount\":\"${mountpoint}\"}"
         FIRST=0
     done < /host/proc/1/mounts
+
+    # Fallback: if no real filesystems were found from the host mount table
+    # (e.g. /host/proc/1/mounts was unreadable), try the /storage mount directly.
+    # The disk-collector container always has /storage bind-mounted from the host,
+    # so df on /storage reflects the actual backing device and its capacity.
+    if [[ "$FIRST" -eq 1 ]] && mountpoint -q /storage 2>/dev/null; then
+        STATS=$(df -B1 /storage 2>/dev/null | awk 'NR==2{print $1,$2,$3,$4,$5}')
+        if [[ -n "$STATS" ]]; then
+            read -r dev size used avail pct <<< "$STATS"
+            pct="${pct/\%/}"
+            FS_JSON+="{\"fs\":\"${dev}\",\"size\":${size},\"used\":${used},\"available\":${avail},\"use\":${pct},\"mount\":\"/storage\"}"
+            FIRST=0
+            log "Used /storage mount as fallback for filesystem info."
+        fi
+    fi
+
     FS_JSON+="]"
 
     # Use a tmp file for atomic update
