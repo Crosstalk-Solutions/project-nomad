@@ -159,7 +159,7 @@ export default function ZimRemoteExplorer() {
         cancelText="Cancel"
         confirmVariant="primary"
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           Are you sure you want to download{' '}
           <strong>{record.title}</strong>? It may take some time for it
           to be available depending on the file size and your internet connection. The Kiwix
@@ -277,7 +277,7 @@ export default function ZimRemoteExplorer() {
           <div className="flex justify-between items-center">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Content Explorer</h1>
-              <p className="text-gray-500">Browse and download content for offline reading!</p>
+              <p className="text-text-muted">Browse and download content for offline reading!</p>
             </div>
           </div>
           {!isOnline && (
@@ -310,13 +310,13 @@ export default function ZimRemoteExplorer() {
           
           {/* Wikipedia Selector */}
           {isLoadingWikipedia ? (
-            <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
+            <div className="mt-8 bg-surface-primary rounded-lg border border-border-subtle p-6">
               <div className="flex justify-center py-6">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-desert-green"></div>
               </div>
             </div>
           ) : wikipediaState && wikipediaState.options.length > 0 ? (
-            <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
+            <div className="mt-8 bg-surface-primary rounded-lg border border-border-subtle p-6">
               <WikipediaSelector
                 options={wikipediaState.options}
                 currentSelection={wikipediaState.currentSelection}
@@ -332,12 +332,12 @@ export default function ZimRemoteExplorer() {
 
           {/* Tiered Category Collections */}
           <div className="flex items-center gap-3 mt-8 mb-4">
-            <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-              <IconBooks className="w-6 h-6 text-gray-700" />
+            <div className="w-10 h-10 rounded-full bg-surface-primary border border-border-subtle flex items-center justify-center shadow-sm">
+              <IconBooks className="w-6 h-6 text-text-primary" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900">Additional Content</h3>
-              <p className="text-sm text-gray-500">Curated collections for offline reference</p>
+              <h3 className="text-xl font-semibold text-text-primary">Additional Content</h3>
+              <p className="text-sm text-text-muted">Curated collections for offline reference</p>
             </div>
           </div>
           {categories && categories.length > 0 ? (
@@ -363,7 +363,7 @@ export default function ZimRemoteExplorer() {
               />
             </>
           ) : (
-            <p className="text-gray-500 mt-4">No curated content categories available.</p>
+            <p className="text-text-muted mt-4">No curated content categories available.</p>
           )}
           <StyledSectionHeader title="Browse the Kiwix Library" className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">
@@ -377,7 +377,7 @@ export default function ZimRemoteExplorer() {
                 debouncedSetQuery(e.target.value)
               }}
               className="w-1/3"
-              leftIcon={<IconSearch className="w-5 h-5 text-gray-400" />}
+              leftIcon={<IconSearch className="w-5 h-5 text-text-muted" />}
             />
           </div>
           <StyledTable<RemoteZimFileEntry & { actions?: any }>

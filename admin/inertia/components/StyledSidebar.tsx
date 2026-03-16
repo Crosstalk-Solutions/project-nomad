@@ -5,6 +5,7 @@ import { IconArrowLeft } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
 import { IconMenu2, IconX } from '@tabler/icons-react'
+import ThemeToggle from '~/components/ThemeToggle'
 
 type SidebarItem = {
   name: string
@@ -37,7 +38,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
           className={classNames(
             item.current
               ? 'bg-desert-green text-white'
-              : 'text-black hover:bg-desert-green-light hover:text-white',
+              : 'text-text-primary hover:bg-desert-green-light hover:text-white',
             'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
           )}
         >
@@ -53,7 +54,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-desert-sand px-6 ring-1 ring-white/5 pt-4 shadow-md">
         <div className="flex h-16 shrink-0 items-center">
           <img src="/project_nomad_logo.png" alt="Project Nomad Logo" className="h-16 w-16" />
-          <h1 className="ml-3 text-xl font-semibold text-black">{title}</h1>
+          <h1 className="ml-3 text-xl font-semibold text-text-primary">{title}</h1>
         </div>
         <nav className="flex flex-1 flex-col">
           <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -75,8 +76,9 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
             </li>
           </ul>
         </nav>
-        <div className="mb-4 text-center text-sm text-gray-600">
+        <div className="mb-4 flex flex-col items-center gap-1 text-sm text-text-secondary">
           <p>Project N.O.M.A.D. Command Center v{appVersion}</p>
+          <ThemeToggle />
         </div>
       </div>
     )

@@ -23,7 +23,7 @@ export default function ChatModal({ open, onClose }: ChatModalProps) {
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
           transition
-          className="relative bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[85vh] flex overflow-hidden transition-all data-[closed]:scale-95 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"
+          className="relative bg-surface-primary rounded-xl shadow-2xl w-full max-w-7xl h-[85vh] flex overflow-hidden transition-all data-[closed]:scale-95 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"
         >
           <Chat enabled={open} isInModal onClose={onClose} suggestionsEnabled={parseBoolean(settings.data?.value)} />
         </DialogPanel>

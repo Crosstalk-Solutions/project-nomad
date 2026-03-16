@@ -60,12 +60,12 @@ export default function UpdateServiceModal({
             icon={<IconArrowUp className="h-12 w-12 text-desert-green" />}
         >
             <div className="space-y-4">
-                <p className="text-gray-700">
+                <p className="text-text-primary">
                     Update <strong>{record.friendly_name || record.service_name}</strong> from{' '}
-                    <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">{currentTag}</code> to{' '}
-                    <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">{selectedVersion}</code>?
+                    <code className="bg-surface-secondary px-1.5 py-0.5 rounded text-sm">{currentTag}</code> to{' '}
+                    <code className="bg-surface-secondary px-1.5 py-0.5 rounded text-sm">{selectedVersion}</code>?
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-muted">
                     Your data and configuration will be preserved during the update.
                     {versions.find((v) => v.tag === selectedVersion)?.releaseUrl && (
                         <>
@@ -95,14 +95,14 @@ export default function UpdateServiceModal({
                         <>
                             <div className="mt-3 max-h-48 overflow-y-auto border rounded-lg divide-y">
                                 {loadingVersions ? (
-                                    <div className="p-4 text-center text-gray-500 text-sm">Loading versions...</div>
+                                    <div className="p-4 text-center text-text-muted text-sm">Loading versions...</div>
                                 ) : versions.length === 0 ? (
-                                    <div className="p-4 text-center text-gray-500 text-sm">No other versions available</div>
+                                    <div className="p-4 text-center text-text-muted text-sm">No other versions available</div>
                                 ) : (
                                     versions.map((v) => (
                                         <label
                                             key={v.tag}
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-secondary cursor-pointer"
                                         >
                                             <input
                                                 type="radio"
@@ -112,7 +112,7 @@ export default function UpdateServiceModal({
                                                 onChange={() => setSelectedVersion(v.tag)}
                                                 className="text-desert-green focus:ring-desert-green"
                                             />
-                                            <span className="text-sm font-medium text-gray-900">{v.tag}</span>
+                                            <span className="text-sm font-medium text-text-primary">{v.tag}</span>
                                             {v.isLatest && (
                                                 <span className="text-xs bg-desert-green/10 text-desert-green px-2 py-0.5 rounded-full">
                                                     Latest
@@ -133,7 +133,7 @@ export default function UpdateServiceModal({
                                     ))
                                 )}
                             </div>
-                            <p className="mt-2 text-sm text-gray-500">
+                            <p className="mt-2 text-sm text-text-muted">
                                 It's not recommended to upgrade to a new major version (e.g. 1.8.2 &rarr; 2.0.0) unless you have verified compatibility with your current configuration. Always review the release notes and test in a staging environment if possible.
                             </p>
                         </>

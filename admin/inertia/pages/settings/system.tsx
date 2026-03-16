@@ -71,7 +71,7 @@ export default function SettingsPage(props: {
         confirmText="Reinstall"
         cancelText="Cancel"
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           This will recreate the AI Assistant container with GPU support enabled.
           Your downloaded models will be preserved. The service will be briefly
           unavailable during reinstall.
@@ -313,7 +313,7 @@ export default function SettingsPage(props: {
                   style={{ width: `${memoryUsagePercent}%` }}
                 ></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold text-desert-white drop-shadow-md z-10">
+                  <span className="text-sm font-bold text-white drop-shadow-md z-10">
                     {memoryUsagePercent}% Utilized
                   </span>
                 </div>

@@ -32,7 +32,7 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
             </div>
           ))
         ) : (
-          <p className="text-gray-500">No active downloads</p>
+          <p className="text-text-muted">No active downloads</p>
         )}
       </div>
     </>
