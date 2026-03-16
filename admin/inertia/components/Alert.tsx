@@ -43,7 +43,7 @@ export default function Alert({
   }
 
   const getIconColor = () => {
-    if (variant === 'solid') return 'text-desert-white'
+    if (variant === 'solid') return 'text-white'
     switch (type) {
       case 'warning':
         return 'text-desert-orange'
@@ -81,15 +81,15 @@ export default function Alert({
       case 'solid':
         variantStyles.push(
           type === 'warning'
-            ? 'bg-desert-orange text-desert-white border border-desert-orange-dark'
+            ? 'bg-desert-orange text-white border border-desert-orange-dark'
             : type === 'error'
-              ? 'bg-desert-red text-desert-white border border-desert-red-dark'
+              ? 'bg-desert-red text-white border border-desert-red-dark'
               : type === 'success'
-                ? 'bg-desert-olive text-desert-white border border-desert-olive-dark'
+                ? 'bg-desert-olive text-white border border-desert-olive-dark'
                 : type === 'info'
-                  ? 'bg-desert-green text-desert-white border border-desert-green-dark'
+                  ? 'bg-desert-green text-white border border-desert-green-dark'
                   : type === 'info-inverted'
-                    ? 'bg-desert-tan text-desert-white border border-desert-tan-dark'
+                    ? 'bg-desert-tan text-white border border-desert-tan-dark'
                   : ''
         )
         return classNames(baseStyles, 'shadow-lg', ...variantStyles)
@@ -112,7 +112,7 @@ export default function Alert({
   }
 
   const getTitleColor = () => {
-    if (variant === 'solid') return 'text-desert-white'
+    if (variant === 'solid') return 'text-white'
 
     switch (type) {
       case 'warning':
@@ -131,7 +131,7 @@ export default function Alert({
   }
 
   const getMessageColor = () => {
-    if (variant === 'solid') return 'text-desert-white text-opacity-90'
+    if (variant === 'solid') return 'text-white text-opacity-90'
 
     switch (type) {
       case 'warning':
@@ -149,7 +149,7 @@ export default function Alert({
 
   const getCloseButtonStyles = () => {
     if (variant === 'solid') {
-      return 'text-desert-white hover:text-desert-white hover:bg-black hover:bg-opacity-20'
+      return 'text-white hover:text-white hover:bg-black hover:bg-opacity-20'
     }
 
     switch (type) {

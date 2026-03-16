@@ -11,6 +11,17 @@
 
   <title inertia>Project N.O.M.A.D</title>
 
+  <script>
+    (function() {
+      try {
+        var theme = localStorage.getItem('nomad:theme');
+        if (theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch(e) {}
+    })();
+  </script>
+
   @stack('dumper')
   @viteReactRefresh()
   @inertiaHead()

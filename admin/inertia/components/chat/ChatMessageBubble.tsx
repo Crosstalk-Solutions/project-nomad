@@ -12,7 +12,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     <div
       className={classNames(
         'max-w-[70%] rounded-lg px-4 py-3',
-        message.role === 'user' ? 'bg-desert-green text-white' : 'bg-gray-100 text-gray-800'
+        message.role === 'user' ? 'bg-desert-green text-white' : 'bg-surface-secondary text-text-primary'
       )}
     >
       {message.isThinking && message.thinking && (
@@ -27,13 +27,13 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         </div>
       )}
       {!message.isThinking && message.thinking && (
-        <details className="mb-3 rounded border border-gray-200 bg-gray-50 text-xs">
-          <summary className="cursor-pointer px-3 py-2 font-medium text-gray-500 hover:text-gray-700 select-none">
+        <details className="mb-3 rounded border border-border-subtle bg-surface-secondary text-xs">
+          <summary className="cursor-pointer px-3 py-2 font-medium text-text-muted hover:text-text-primary select-none">
             {message.thinkingDuration !== undefined
               ? `Thought for ${message.thinkingDuration}s`
               : 'Reasoning'}
           </summary>
-          <div className="px-3 pb-3 prose prose-xs max-w-none text-gray-600 max-h-48 overflow-y-auto border-t border-gray-200 pt-2">
+          <div className="px-3 pb-3 prose prose-xs max-w-none text-text-secondary max-h-48 overflow-y-auto border-t border-border-subtle pt-2">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.thinking}</ReactMarkdown>
           </div>
         </details>
@@ -77,7 +77,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               h2: ({ children }) => <h2 className="text-lg font-bold mb-2">{children}</h2>,
               h3: ({ children }) => <h3 className="text-base font-bold mb-2">{children}</h3>,
               blockquote: ({ children }) => (
-                <blockquote className="border-l-4 border-gray-400 pl-4 italic my-2">
+                <blockquote className="border-l-4 border-border-default pl-4 italic my-2">
                   {children}
                 </blockquote>
               ),
@@ -105,7 +105,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       <div
         className={classNames(
           'text-xs mt-2',
-          message.role === 'user' ? 'text-white/70' : 'text-gray-500'
+          message.role === 'user' ? 'text-white/70' : 'text-text-muted'
         )}
       >
         {message.timestamp.toLocaleTimeString([], {

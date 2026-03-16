@@ -81,7 +81,7 @@ export default function StorageProjectionBar({
           className={classNames(
             'absolute top-1/2 -translate-y-1/2 font-bold text-sm',
             projectedTotalPercent > 15
-              ? 'left-3 text-desert-white drop-shadow-md'
+              ? 'left-3 text-white drop-shadow-md'
               : 'right-3 text-desert-green'
           )}
         >

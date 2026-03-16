@@ -31,8 +31,8 @@ export type InstallActivityFeedProps = {
 
 const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, className, withHeader = false }) => {
   return (
-    <div className={classNames('bg-white shadow-sm rounded-lg p-6', className)}>
-      {withHeader && <h2 className="text-lg font-semibold text-gray-900">Installation Activity</h2>}
+    <div className={classNames('bg-surface-primary shadow-sm rounded-lg p-6', className)}>
+      {withHeader && <h2 className="text-lg font-semibold text-text-primary">Installation Activity</h2>}
       <ul role="list" className={classNames("space-y-6 text-desert-green", withHeader ? 'mt-6' : '')}>
         {activity.map((activityItem, activityItemIdx) => (
           <li key={activityItem.timestamp} className="relative flex gap-x-4">
@@ -42,7 +42,7 @@ const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, cla
                 'absolute left-0 top-0 flex w-6 justify-center'
               )}
             >
-              <div className="w-px bg-gray-200" />
+              <div className="w-px bg-border-subtle" />
             </div>
             <>
               <div className="relative flex size-6 flex-none items-center justify-center bg-transparent">
@@ -51,16 +51,16 @@ const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, cla
                 ) : activityItem.type === 'update-rollback' ? (
                   <IconCircleX aria-hidden="true" className="size-6 text-red-500" />
                 ) : (
-                  <div className="size-1.5 rounded-full bg-gray-100 ring-1 ring-gray-300" />
+                  <div className="size-1.5 rounded-full bg-surface-secondary ring-1 ring-border-default" />
                 )}
               </div>
-              <p className="flex-auto py-0.5 text-xs/5 text-gray-500">
-                <span className="font-semibold text-gray-900">{activityItem.service_name}</span> -{' '}
+              <p className="flex-auto py-0.5 text-xs/5 text-text-muted">
+                <span className="font-semibold text-text-primary">{activityItem.service_name}</span> -{' '}
                 {activityItem.type.charAt(0).toUpperCase() + activityItem.type.slice(1)}
               </p>
               <time
                 dateTime={activityItem.timestamp}
-                className="flex-none py-0.5 text-xs/5 text-gray-500"
+                className="flex-none py-0.5 text-xs/5 text-text-muted"
               >
                 {activityItem.timestamp}
               </time>

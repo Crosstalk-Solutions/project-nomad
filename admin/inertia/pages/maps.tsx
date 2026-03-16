@@ -20,10 +20,10 @@ export default function Maps(props: {
       <Head title="Maps" />
       <div className="relative w-full h-screen overflow-hidden">
         {/* Nav and alerts are overlayed */}
-        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between p-4 bg-gray-50 backdrop-blur-sm shadow-sm">
+        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between p-4 bg-surface-secondary backdrop-blur-sm shadow-sm">
           <Link href="/home" className="flex items-center">
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-gray-600">Back to Home</p>
+            <p className="text-lg text-text-secondary">Back to Home</p>
           </Link>
           <Link href="/settings/maps" className='mr-4'>
             <StyledButton variant="primary" icon="IconSettings">

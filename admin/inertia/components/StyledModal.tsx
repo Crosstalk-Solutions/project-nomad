@@ -48,7 +48,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
     >
       <DialogBackdrop
         transition
-        className="fixed inset-0 bg-gray-500/75 transition-opacity data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"
+        className="fixed inset-0 bg-black/50 transition-opacity data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"
       />
       <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
         <div
@@ -60,14 +60,14 @@ const StyledModal: React.FC<StyledModalProps> = ({
           <DialogPanel
             transition
             className={classNames(
-              'relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all data-[closed]:translate-y-4 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in sm:my-8  sm:p-6 data-[closed]:sm:translate-y-0 data-[closed]:sm:scale-95',
+              'relative transform overflow-hidden rounded-lg bg-surface-primary px-4 pb-4 pt-5 text-left shadow-xl transition-all data-[closed]:translate-y-4 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in sm:my-8  sm:p-6 data-[closed]:sm:translate-y-0 data-[closed]:sm:scale-95',
               large ? 'sm:max-w-7xl !w-full' : 'sm:max-w-lg'
             )}
           >
             <div>
               {icon && <div className="flex items-center justify-center">{icon}</div>}
               <div className="mt-3 text-center sm:mt-5">
-                <DialogTitle as="h3" className="text-base font-semibold text-gray-900">
+                <DialogTitle as="h3" className="text-base font-semibold text-text-primary">
                   {title}
                 </DialogTitle>
                 <div className="mt-2 !h-fit">{children}</div>

@@ -104,7 +104,7 @@ export default function MapsManager(props: {
         cancelText="Cancel"
         confirmVariant="danger"
       >
-        <p className="text-gray-700">
+        <p className="text-text-secondary">
           Are you sure you want to delete {file.name}? This action cannot be undone.
         </p>
       </StyledModal>,
@@ -136,7 +136,7 @@ export default function MapsManager(props: {
         cancelText="Cancel"
         confirmVariant="primary"
       >
-        <p className="text-gray-700">
+        <p className="text-text-secondary">
           Are you sure you want to download <strong>{isCollection ? record.name : record}</strong>?
           It may take some time for it to be available depending on the file size and your internet
           connection.
@@ -180,7 +180,7 @@ export default function MapsManager(props: {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
-              <p className="text-gray-500">Manage your stored map files and explore new regions!</p>
+              <p className="text-text-muted">Manage your stored map files and explore new regions!</p>
             </div>
             <div className="flex space-x-4">
 
@@ -220,7 +220,7 @@ export default function MapsManager(props: {
               />
             ))}
             {curatedCollections && curatedCollections.length === 0 && (
-              <p className="text-gray-500">No curated collections available.</p>
+              <p className="text-text-muted">No curated collections available.</p>
             )}
           </div>
           <div className="mt-12 mb-6 flex items-center justify-between">

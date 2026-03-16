@@ -9,11 +9,11 @@ interface BackToHomeHeaderProps {
 
 export default function BackToHomeHeader({ className, children }: BackToHomeHeaderProps) {
   return (
-    <div className={classNames('flex border-b border-gray-900/10 p-4', className)}>
+    <div className={classNames('flex border-b border-border-subtle p-4', className)}>
       <div className="justify-self-start">
         <Link href="/home" className="flex items-center">
           <IconArrowLeft className="mr-2" size={24} />
-          <p className="text-lg text-gray-600">Back to Home</p>
+          <p className="text-lg text-text-secondary">Back to Home</p>
         </Link>
       </div>
       <div className="flex-grow flex flex-col justify-center">{children}</div>

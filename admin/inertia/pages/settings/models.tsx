@@ -82,7 +82,7 @@ export default function ModelsPage(props: {
         confirmText="Reinstall"
         cancelText="Cancel"
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           This will recreate the {aiAssistantName} container with GPU support enabled.
           Your downloaded models will be preserved. The service will be briefly
           unavailable during reinstall.
@@ -190,7 +190,7 @@ export default function ModelsPage(props: {
         cancelText="Cancel"
         confirmVariant="primary"
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           Are you sure you want to delete this model? You will need to download it again if you want
           to use it in the future.
         </p>
@@ -224,7 +224,7 @@ export default function ModelsPage(props: {
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
-          <p className="text-gray-500 mb-4">
+          <p className="text-text-muted mb-4">
             Easily manage the {aiAssistantName}'s settings and installed models. We recommend
             starting with smaller models first to see how they perform on your system before moving
             on to larger ones.
@@ -259,7 +259,7 @@ export default function ModelsPage(props: {
           )}
 
           <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
-          <div className="bg-white rounded-lg border-2 border-gray-200 p-6">
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <div className="space-y-4">
               <Switch
                 checked={chatSuggestionsEnabled}
@@ -300,7 +300,7 @@ export default function ModelsPage(props: {
                 debouncedSetQuery(e.target.value)
               }}
               className="w-1/3"
-              leftIcon={<IconSearch className="w-5 h-5 text-gray-400" />}
+              leftIcon={<IconSearch className="w-5 h-5 text-text-muted" />}
             />
             <StyledButton
               variant="secondary"
@@ -323,7 +323,7 @@ export default function ModelsPage(props: {
                   return (
                     <div className="flex flex-col">
                       <p className="text-lg font-semibold">{record.name}</p>
-                      <p className="text-sm text-gray-500">{record.description}</p>
+                      <p className="text-sm text-text-muted">{record.description}</p>
                     </div>
                   )
                 },
@@ -342,49 +342,49 @@ export default function ModelsPage(props: {
             expandable={{
               expandedRowRender: (record) => (
                 <div className="pl-14">
-                  <div className="bg-white overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-white">
+                  <div className="bg-surface-primary overflow-hidden">
+                    <table className="min-w-full divide-y divide-border-subtle">
+                      <thead className="bg-surface-primary">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Tag
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Input Type
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Context Size
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Model Size
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Action
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-surface-primary divide-y divide-border-subtle">
                         {record.tags.map((tag, tagIndex) => {
                           const isInstalled = props.models.installedModels.some(
                             (mod) => mod.name === tag.name
                           )
                           return (
-                            <tr key={tagIndex} className="hover:bg-slate-50">
+                            <tr key={tagIndex} className="hover:bg-surface-secondary">
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-medium text-text-primary">
                                   {tag.name}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-600">{tag.input || 'N/A'}</span>
+                                <span className="text-sm text-text-secondary">{tag.input || 'N/A'}</span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-600">
+                                <span className="text-sm text-text-secondary">
                                   {tag.context || 'N/A'}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-600">{tag.size || 'N/A'}</span>
+                                <span className="text-sm text-text-secondary">{tag.size || 'N/A'}</span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StyledButton
