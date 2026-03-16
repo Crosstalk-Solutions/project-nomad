@@ -22,7 +22,7 @@ jobs:
       newVersion: ${{ steps.semver.outputs.new_release_version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
