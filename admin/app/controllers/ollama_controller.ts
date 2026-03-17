@@ -77,10 +77,10 @@ export default class OllamaController {
           const { maxResults, maxTokens } = this.getContextLimitsForModel(reqData.model)
           let trimmedDocs = relevantDocs.slice(0, maxResults)
 
-          // Apply token cap if set (estimate ~4 chars per token)
+          // Apply token cap if set (estimate ~3.5 chars per token)
           // Always include the first (most relevant) result — the cap only gates subsequent results
           if (maxTokens > 0) {
-            const charCap = maxTokens * 4
+            const charCap = maxTokens * 3.5
             let totalChars = 0
             trimmedDocs = trimmedDocs.filter((doc, idx) => {
               totalChars += doc.text.length
@@ -108,6 +108,19 @@ export default class OllamaController {
         }
       }
 
+      // If system messages are large (e.g. due to RAG context), request a context window big
+      // enough to fit them. Ollama respects num_ctx per-request; LM Studio ignores it gracefully.
+      const systemChars = reqData.messages
+        .filter((m) => m.role === 'system')
+        .reduce((sum, m) => sum + m.content.length, 0)
+      const estimatedSystemTokens = Math.ceil(systemChars / 3.5)
+      let numCtx: number | undefined
+      if (estimatedSystemTokens > 3000) {
+        const needed = estimatedSystemTokens + 2048 // leave room for conversation + response
+        numCtx = [8192, 16384, 32768, 65536].find((n) => n >= needed) ?? 65536
+        logger.debug(`[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`)
+      }
+
       // Check if the model supports "thinking" capability for enhanced response generation
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
@@ -129,7 +142,7 @@ export default class OllamaController {
       if (reqData.stream) {
         logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
         // Headers already flushed above
-        const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think })
+        const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think, numCtx })
         let fullContent = ''
         for await (const chunk of stream) {
           if (chunk.message?.content) {
@@ -153,7 +166,7 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think })
+      const result = await this.ollamaService.chat({ ...ollamaRequest, think, numCtx })
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)

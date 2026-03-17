@@ -44,6 +44,7 @@ type ChatInput = {
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
   think?: boolean | 'medium'
   stream?: boolean
+  numCtx?: number
 }
 
 @inject()
@@ -199,6 +200,9 @@ export class OllamaService {
     if (chatRequest.think) {
       params.think = chatRequest.think
     }
+    if (chatRequest.numCtx) {
+      params.num_ctx = chatRequest.numCtx
+    }
 
     const response = await this.openai.chat.completions.create(params)
     const choice = response.choices[0]
@@ -226,6 +230,9 @@ export class OllamaService {
     }
     if (chatRequest.think) {
       params.think = chatRequest.think
+    }
+    if (chatRequest.numCtx) {
+      params.num_ctx = chatRequest.numCtx
     }
 
     const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
