@@ -28,7 +28,6 @@ export type SpecCategory = {
 export type MapSpecResource = {
   id: string
   title: string
-  description: string
   size_mb: number
 }
 

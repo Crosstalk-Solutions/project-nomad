@@ -39,7 +39,6 @@ export const zimCategoriesSpecSchema = vine.object({
 export const mapResourceValidator = vine.object({
   id: vine.string(),
   title: vine.string(),
-  description: vine.string(),
   size_mb: vine.number().min(0).optional(),
 })
 

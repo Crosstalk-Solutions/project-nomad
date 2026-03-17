@@ -10,36 +10,11 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "alaska",
-          "title": "Alaska",
-          "description": "Topographic maps for the state of Alaska.",
-          "size_mb": 684
-        },
-        {
-          "id": "california",
-          "title": "California",
-          "description": "Topographic maps for the state of California.",
-          "size_mb": 1130
-        },
-        {
-          "id": "hawaii",
-          "title": "Hawaii",
-          "description": "Topographic maps for the state of Hawaii.",
-          "size_mb": 28
-        },
-        {
-          "id": "oregon",
-          "title": "Oregon",
-          "description": "Topographic maps for the state of Oregon.",
-          "size_mb": 380
-        },
-        {
-          "id": "washington",
-          "title": "Washington",
-          "description": "Topographic maps for the state of Washington.",
-          "size_mb": 467
-        }
+        { "id": "alaska", "title": "Alaska", "size_mb": 684 },
+        { "id": "california", "title": "California", "size_mb": 1130 },
+        { "id": "hawaii", "title": "Hawaii", "size_mb": 28 },
+        { "id": "oregon", "title": "Oregon", "size_mb": 380 },
+        { "id": "washington", "title": "Washington", "size_mb": 467 }
       ]
     },
     {
@@ -49,54 +24,14 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "arizona",
-          "title": "Arizona",
-          "description": "Topographic maps for the state of Arizona.",
-          "size_mb": 406
-        },
-        {
-          "id": "colorado",
-          "title": "Colorado",
-          "description": "Topographic maps for the state of Colorado.",
-          "size_mb": 454
-        },
-        {
-          "id": "idaho",
-          "title": "Idaho",
-          "description": "Topographic maps for the state of Idaho.",
-          "size_mb": 222
-        },
-        {
-          "id": "montana",
-          "title": "Montana",
-          "description": "Topographic maps for the state of Montana.",
-          "size_mb": 270
-        },
-        {
-          "id": "nevada",
-          "title": "Nevada",
-          "description": "Topographic maps for the state of Nevada.",
-          "size_mb": 201
-        },
-        {
-          "id": "new_mexico",
-          "title": "New Mexico",
-          "description": "Topographic maps for the state of New Mexico.",
-          "size_mb": 237
-        },
-        {
-          "id": "utah",
-          "title": "Utah",
-          "description": "Topographic maps for the state of Utah.",
-          "size_mb": 248
-        },
-        {
-          "id": "wyoming",
-          "title": "Wyoming",
-          "description": "Topographic maps for the state of Wyoming.",
-          "size_mb": 213
-        }
+        { "id": "arizona", "title": "Arizona", "size_mb": 406 },
+        { "id": "colorado", "title": "Colorado", "size_mb": 454 },
+        { "id": "idaho", "title": "Idaho", "size_mb": 222 },
+        { "id": "montana", "title": "Montana", "size_mb": 270 },
+        { "id": "nevada", "title": "Nevada", "size_mb": 201 },
+        { "id": "new_mexico", "title": "New Mexico", "size_mb": 237 },
+        { "id": "utah", "title": "Utah", "size_mb": 248 },
+        { "id": "wyoming", "title": "Wyoming", "size_mb": 213 }
       ]
     },
     {
@@ -106,30 +41,10 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "arkansas",
-          "title": "Arkansas",
-          "description": "Topographic maps for the state of Arkansas.",
-          "size_mb": 159
-        },
-        {
-          "id": "oklahoma",
-          "title": "Oklahoma",
-          "description": "Topographic maps for the state of Oklahoma.",
-          "size_mb": 209
-        },
-        {
-          "id": "louisiana",
-          "title": "Louisiana",
-          "description": "Topographic maps for the state of Louisiana.",
-          "size_mb": 199
-        },
-        {
-          "id": "texas",
-          "title": "Texas",
-          "description": "Topographic maps for the state of Texas.",
-          "size_mb": 861
-        }
+        { "id": "arkansas", "title": "Arkansas", "size_mb": 159 },
+        { "id": "oklahoma", "title": "Oklahoma", "size_mb": 209 },
+        { "id": "louisiana", "title": "Louisiana", "size_mb": 199 },
+        { "id": "texas", "title": "Texas", "size_mb": 861 }
       ]
     },
     {
@@ -139,30 +54,10 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "alabama",
-          "title": "Alabama",
-          "description": "Topographic maps for the state of Alabama.",
-          "size_mb": 236
-        },
-        {
-          "id": "kentucky",
-          "title": "Kentucky",
-          "description": "Topographic maps for the state of Kentucky.",
-          "size_mb": 198
-        },
-        {
-          "id": "mississippi",
-          "title": "Mississippi",
-          "description": "Topographic maps for the state of Mississippi.",
-          "size_mb": 134
-        },
-        {
-          "id": "tennessee",
-          "title": "Tennessee",
-          "description": "Topographic maps for the state of Tennessee.",
-          "size_mb": 233
-        }
+        { "id": "alabama", "title": "Alabama", "size_mb": 236 },
+        { "id": "kentucky", "title": "Kentucky", "size_mb": 198 },
+        { "id": "mississippi", "title": "Mississippi", "size_mb": 134 },
+        { "id": "tennessee", "title": "Tennessee", "size_mb": 233 }
       ]
     },
     {
@@ -172,54 +67,14 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "delaware",
-          "title": "Delaware",
-          "description": "Topographic maps for the state of Delaware.",
-          "size_mb": 30
-        },
-        {
-          "id": "florida",
-          "title": "Florida",
-          "description": "Topographic maps for the state of Florida.",
-          "size_mb": 1023
-        },
-        {
-          "id": "georgia",
-          "title": "Georgia",
-          "description": "Topographic maps for the state of Georgia.",
-          "size_mb": 386
-        },
-        {
-          "id": "maryland",
-          "title": "Maryland",
-          "description": "Topographic maps for the state of Maryland.",
-          "size_mb": 217
-        },
-        {
-          "id": "north_carolina",
-          "title": "North Carolina",
-          "description": "Topographic maps for the state of North Carolina.",
-          "size_mb": 458
-        },
-        {
-          "id": "south_carolina",
-          "title": "South Carolina",
-          "description": "Topographic maps for the state of South Carolina.",
-          "size_mb": 214
-        },
-        {
-          "id": "virginia",
-          "title": "Virginia",
-          "description": "Topographic maps for the state of Virginia.",
-          "size_mb": 446
-        },
-        {
-          "id": "west_virginia",
-          "title": "West Virginia",
-          "description": "Topographic maps for the state of West Virginia.",
-          "size_mb": 209
-        }
+        { "id": "delaware", "title": "Delaware", "size_mb": 30 },
+        { "id": "florida", "title": "Florida", "size_mb": 1023 },
+        { "id": "georgia", "title": "Georgia", "size_mb": 386 },
+        { "id": "maryland", "title": "Maryland", "size_mb": 217 },
+        { "id": "north_carolina", "title": "North Carolina", "size_mb": 458 },
+        { "id": "south_carolina", "title": "South Carolina", "size_mb": 214 },
+        { "id": "virginia", "title": "Virginia", "size_mb": 446 },
+        { "id": "west_virginia", "title": "West Virginia", "size_mb": 209 }
       ]
     },
     {
@@ -229,48 +84,13 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "iowa",
-          "title": "Iowa",
-          "description": "Topographic maps for the state of Iowa.",
-          "size_mb": 215
-        },
-        {
-          "id": "kansas",
-          "title": "Kansas",
-          "description": "Topographic maps for the state of Kansas.",
-          "size_mb": 204
-        },
-        {
-          "id": "minnesota",
-          "title": "Minnesota",
-          "description": "Topographic maps for the state of Minnesota.",
-          "size_mb": 410
-        },
-        {
-          "id": "missouri",
-          "title": "Missouri",
-          "description": "Topographic maps for the state of Missouri.",
-          "size_mb": 305
-        },
-        {
-          "id": "nebraska",
-          "title": "Nebraska",
-          "description": "Topographic maps for the state of Nebraska.",
-          "size_mb": 166
-        },
-        {
-          "id": "north_dakota",
-          "title": "North Dakota",
-          "description": "Topographic maps for the state of North Dakota.",
-          "size_mb": 193
-        },
-        {
-          "id": "south_dakota",
-          "title": "South Dakota",
-          "description": "Topographic maps for the state of South Dakota.",
-          "size_mb": 118
-        }
+        { "id": "iowa", "title": "Iowa", "size_mb": 215 },
+        { "id": "kansas", "title": "Kansas", "size_mb": 204 },
+        { "id": "minnesota", "title": "Minnesota", "size_mb": 410 },
+        { "id": "missouri", "title": "Missouri", "size_mb": 305 },
+        { "id": "nebraska", "title": "Nebraska", "size_mb": 166 },
+        { "id": "north_dakota", "title": "North Dakota", "size_mb": 193 },
+        { "id": "south_dakota", "title": "South Dakota", "size_mb": 118 }
       ]
     },
     {
@@ -280,36 +100,11 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "illinois",
-          "title": "Illinois",
-          "description": "Topographic maps for the state of Illinois.",
-          "size_mb": 411
-        },
-        {
-          "id": "indiana",
-          "title": "Indiana",
-          "description": "Topographic maps for the state of Indiana.",
-          "size_mb": 247
-        },
-        {
-          "id": "michigan",
-          "title": "Michigan",
-          "description": "Topographic maps for the state of Michigan.",
-          "size_mb": 422
-        },
-        {
-          "id": "ohio",
-          "title": "Ohio",
-          "description": "Topographic maps for the state of Ohio.",
-          "size_mb": 408
-        },
-        {
-          "id": "wisconsin",
-          "title": "Wisconsin",
-          "description": "Topographic maps for the state of Wisconsin.",
-          "size_mb": 407
-        }
+        { "id": "illinois", "title": "Illinois", "size_mb": 411 },
+        { "id": "indiana", "title": "Indiana", "size_mb": 247 },
+        { "id": "michigan", "title": "Michigan", "size_mb": 422 },
+        { "id": "ohio", "title": "Ohio", "size_mb": 408 },
+        { "id": "wisconsin", "title": "Wisconsin", "size_mb": 407 }
       ]
     },
     {
@@ -319,24 +114,9 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "new_jersey",
-          "title": "New Jersey",
-          "description": "Topographic maps for the state of New Jersey.",
-          "size_mb": 186
-        },
-        {
-          "id": "new_york",
-          "title": "New York",
-          "description": "Topographic maps for the state of New York.",
-          "size_mb": 516
-        },
-        {
-          "id": "pennsylvania",
-          "title": "Pennsylvania",
-          "description": "Topographic maps for the state of Pennsylvania.",
-          "size_mb": 419
-        }
+        { "id": "new_jersey", "title": "New Jersey", "size_mb": 186 },
+        { "id": "new_york", "title": "New York", "size_mb": 516 },
+        { "id": "pennsylvania", "title": "Pennsylvania", "size_mb": 419 }
       ]
     },
     {
@@ -346,42 +126,12 @@
       "icon": "IconMap",
       "language": "en",
       "resources": [
-        {
-          "id": "connecticut",
-          "title": "Connecticut",
-          "description": "Topographic maps for the state of Connecticut.",
-          "size_mb": 162
-        },
-        {
-          "id": "maine",
-          "title": "Maine",
-          "description": "Topographic maps for the state of Maine.",
-          "size_mb": 172
-        },
-        {
-          "id": "massachusetts",
-          "title": "Massachusetts",
-          "description": "Topographic maps for the state of Massachusetts.",
-          "size_mb": 259
-        },
-        {
-          "id": "new_hampshire",
-          "title": "New Hampshire",
-          "description": "Topographic maps for the state of New Hampshire.",
-          "size_mb": 92
-        },
-        {
-          "id": "rhode_island",
-          "title": "Rhode Island",
-          "description": "Topographic maps for the state of Rhode Island.",
-          "size_mb": 56
-        },
-        {
-          "id": "vermont",
-          "title": "Vermont",
-          "description": "Topographic maps for the state of Vermont.",
-          "size_mb": 73
-        }
+        { "id": "connecticut", "title": "Connecticut", "size_mb": 162 },
+        { "id": "maine", "title": "Maine", "size_mb": 172 },
+        { "id": "massachusetts", "title": "Massachusetts", "size_mb": 259 },
+        { "id": "new_hampshire", "title": "New Hampshire", "size_mb": 92 },
+        { "id": "rhode_island", "title": "Rhode Island", "size_mb": 56 },
+        { "id": "vermont", "title": "Vermont", "size_mb": 73 }
       ]
     }
   ]
