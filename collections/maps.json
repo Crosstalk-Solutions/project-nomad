@@ -1,5 +1,6 @@
 {
-  "spec_version": "2026-02-11",
+  "spec_version": "2026-03-16",
+  "base_url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles",
   "collections": [
     {
       "name": "Pacific Region",
@@ -13,7 +14,6 @@
           "version": "2025-12",
           "title": "Alaska",
           "description": "Topographic maps for the state of Alaska.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/alaska_2025-12.pmtiles",
           "size_mb": 684
         },
         {
@@ -21,15 +21,13 @@
           "version": "2025-12",
           "title": "California",
           "description": "Topographic maps for the state of California.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/california_2025-12.pmtiles",
-          "size_mb": 1100
+          "size_mb": 1130
         },
         {
           "id": "hawaii",
           "version": "2025-12",
           "title": "Hawaii",
           "description": "Topographic maps for the state of Hawaii.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/hawaii_2025-12.pmtiles",
           "size_mb": 28
         },
         {
@@ -37,16 +35,14 @@
           "version": "2025-12",
           "title": "Oregon",
           "description": "Topographic maps for the state of Oregon.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/oregon_2025-12.pmtiles",
-          "size_mb": 379
+          "size_mb": 380
         },
         {
           "id": "washington",
           "version": "2025-12",
           "title": "Washington",
           "description": "Topographic maps for the state of Washington.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/washington_2025-12.pmtiles",
-          "size_mb": 466
+          "size_mb": 467
         }
       ]
     },
@@ -62,31 +58,27 @@
           "version": "2025-12",
           "title": "Arizona",
           "description": "Topographic maps for the state of Arizona.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/arizona_2025-12.pmtiles",
-          "size_mb": 400
+          "size_mb": 406
         },
         {
           "id": "colorado",
           "version": "2025-12",
           "title": "Colorado",
           "description": "Topographic maps for the state of Colorado.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/colorado_2025-12.pmtiles",
-          "size_mb": 450
+          "size_mb": 454
         },
         {
           "id": "idaho",
           "version": "2025-12",
           "title": "Idaho",
           "description": "Topographic maps for the state of Idaho.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/idaho_2025-12.pmtiles",
-          "size_mb": 220
+          "size_mb": 222
         },
         {
           "id": "montana",
           "version": "2025-12",
           "title": "Montana",
           "description": "Topographic maps for the state of Montana.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/montana_2025-12.pmtiles",
           "size_mb": 270
         },
         {
@@ -94,32 +86,28 @@
           "version": "2025-12",
           "title": "Nevada",
           "description": "Topographic maps for the state of Nevada.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/nevada_2025-12.pmtiles",
-          "size_mb": 200
+          "size_mb": 201
         },
         {
           "id": "new_mexico",
           "version": "2025-12",
           "title": "New Mexico",
           "description": "Topographic maps for the state of New Mexico.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_mexico_2025-12.pmtiles",
-          "size_mb": 230
+          "size_mb": 237
         },
         {
           "id": "utah",
           "version": "2025-12",
           "title": "Utah",
           "description": "Topographic maps for the state of Utah.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/utah_2025-12.pmtiles",
-          "size_mb": 240
+          "size_mb": 248
         },
         {
           "id": "wyoming",
           "version": "2025-12",
           "title": "Wyoming",
           "description": "Topographic maps for the state of Wyoming.",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/wyoming_2025-12.pmtiles",
-          "size_mb": 210
+          "size_mb": 213
         }
       ]
     },
@@ -134,33 +122,29 @@
           "id": "arkansas",
           "version": "2025-12",
           "title": "Arkansas",
-          "description": "Topographic maps for the state of Arkansas",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/arkansas_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Arkansas.",
+          "size_mb": 159
         },
         {
           "id": "oklahoma",
           "version": "2025-12",
           "title": "Oklahoma",
-          "description": "Topographic maps for the state of Oklahoma",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/oklahoma_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Oklahoma.",
+          "size_mb": 209
         },
         {
           "id": "louisiana",
           "version": "2025-12",
           "title": "Louisiana",
-          "description": "Topographic maps for the state of Louisiana",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/louisiana_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Louisiana.",
+          "size_mb": 199
         },
         {
           "id": "texas",
           "version": "2025-12",
           "title": "Texas",
-          "description": "Topographic maps for the state of Texas",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/texas_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Texas.",
+          "size_mb": 861
         }
       ]
     },
@@ -175,33 +159,29 @@
           "id": "alabama",
           "version": "2025-12",
           "title": "Alabama",
-          "description": "Topographic maps for the state of Alabama",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/alabama_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Alabama.",
+          "size_mb": 236
         },
         {
           "id": "kentucky",
           "version": "2025-12",
           "title": "Kentucky",
-          "description": "Topographic maps for the state of Kentucky",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/kentucky_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Kentucky.",
+          "size_mb": 198
         },
         {
           "id": "mississippi",
           "version": "2025-12",
           "title": "Mississippi",
-          "description": "Topographic maps for the state of Mississippi",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/mississippi_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Mississippi.",
+          "size_mb": 134
         },
         {
           "id": "tennessee",
           "version": "2025-12",
           "title": "Tennessee",
-          "description": "Topographic maps for the state of Tennessee",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/tennessee_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Tennessee.",
+          "size_mb": 233
         }
       ]
     },
@@ -216,73 +196,57 @@
           "id": "delaware",
           "version": "2025-12",
           "title": "Delaware",
-          "description": "Topographic maps for the state of Delaware",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/delaware_2025-12.pmtiles",
-          "size_mb": 400
-        },
-        {
-          "id": "district_of_columbia",
-          "version": "2025-12",
-          "title": "District_Of_Columbia",
-          "description": "Topographic maps for the state of District_Of_Columbia",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/district_of_columbia_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Delaware.",
+          "size_mb": 30
         },
         {
           "id": "florida",
           "version": "2025-12",
           "title": "Florida",
-          "description": "Topographic maps for the state of Florida",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/florida_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Florida.",
+          "size_mb": 1023
         },
         {
           "id": "georgia",
           "version": "2025-12",
           "title": "Georgia",
-          "description": "Topographic maps for the state of Georgia",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/georgia_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Georgia.",
+          "size_mb": 386
         },
         {
           "id": "maryland",
           "version": "2025-12",
           "title": "Maryland",
-          "description": "Topographic maps for the state of Maryland",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/maryland_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Maryland.",
+          "size_mb": 217
         },
         {
           "id": "north_carolina",
           "version": "2025-12",
-          "title": "North_Carolina",
-          "description": "Topographic maps for the state of North_Carolina",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/north_carolina_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "North Carolina",
+          "description": "Topographic maps for the state of North Carolina.",
+          "size_mb": 458
         },
         {
           "id": "south_carolina",
           "version": "2025-12",
-          "title": "South_Carolina",
-          "description": "Topographic maps for the state of South_Carolina",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/south_carolina_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "South Carolina",
+          "description": "Topographic maps for the state of South Carolina.",
+          "size_mb": 214
         },
         {
           "id": "virginia",
           "version": "2025-12",
           "title": "Virginia",
-          "description": "Topographic maps for the state of Virginia",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/virginia_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Virginia.",
+          "size_mb": 446
         },
         {
           "id": "west_virginia",
           "version": "2025-12",
-          "title": "West_Virginia",
-          "description": "Topographic maps for the state of West_Virginia",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/west_virginia_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "West Virginia",
+          "description": "Topographic maps for the state of West Virginia.",
+          "size_mb": 209
         }
       ]
     },
@@ -297,57 +261,50 @@
           "id": "iowa",
           "version": "2025-12",
           "title": "Iowa",
-          "description": "Topographic maps for the state of Iowa",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/iowa_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Iowa.",
+          "size_mb": 215
         },
         {
           "id": "kansas",
           "version": "2025-12",
           "title": "Kansas",
-          "description": "Topographic maps for the state of Kansas",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/kansas_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Kansas.",
+          "size_mb": 204
         },
         {
           "id": "minnesota",
           "version": "2025-12",
           "title": "Minnesota",
-          "description": "Topographic maps for the state of Minnesota",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/minnesota_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Minnesota.",
+          "size_mb": 410
         },
         {
           "id": "missouri",
           "version": "2025-12",
           "title": "Missouri",
-          "description": "Topographic maps for the state of Missouri",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/missouri_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Missouri.",
+          "size_mb": 305
         },
         {
           "id": "nebraska",
           "version": "2025-12",
           "title": "Nebraska",
-          "description": "Topographic maps for the state of Nebraska",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/nebraska_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Nebraska.",
+          "size_mb": 166
         },
         {
           "id": "north_dakota",
           "version": "2025-12",
-          "title": "North_Dakota",
-          "description": "Topographic maps for the state of North_Dakota",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/north_dakota_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "North Dakota",
+          "description": "Topographic maps for the state of North Dakota.",
+          "size_mb": 193
         },
         {
           "id": "south_dakota",
           "version": "2025-12",
-          "title": "South_Dakota",
-          "description": "Topographic maps for the state of South_Dakota",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/south_dakota_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "South Dakota",
+          "description": "Topographic maps for the state of South Dakota.",
+          "size_mb": 118
         }
       ]
     },
@@ -362,33 +319,36 @@
           "id": "illinois",
           "version": "2025-12",
           "title": "Illinois",
-          "description": "Topographic maps for the state of Illinois",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/illinois_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Illinois.",
+          "size_mb": 411
         },
         {
-          "id": "indianamichigan",
+          "id": "indiana",
           "version": "2025-12",
-          "title": "Indianamichigan",
-          "description": "Topographic maps for the state of Indianamichigan",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/indianamichigan_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "Indiana",
+          "description": "Topographic maps for the state of Indiana.",
+          "size_mb": 247
+        },
+        {
+          "id": "michigan",
+          "version": "2025-12",
+          "title": "Michigan",
+          "description": "Topographic maps for the state of Michigan.",
+          "size_mb": 422
         },
         {
           "id": "ohio",
           "version": "2025-12",
           "title": "Ohio",
-          "description": "Topographic maps for the state of Ohio",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/ohio_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Ohio.",
+          "size_mb": 408
         },
         {
           "id": "wisconsin",
           "version": "2025-12",
           "title": "Wisconsin",
-          "description": "Topographic maps for the state of Wisconsin",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/wisconsin_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Wisconsin.",
+          "size_mb": 407
         }
       ]
     },
@@ -402,26 +362,23 @@
         {
           "id": "new_jersey",
           "version": "2025-12",
-          "title": "New_Jersey",
-          "description": "Topographic maps for the state of New_Jersey",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_jersey_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "New Jersey",
+          "description": "Topographic maps for the state of New Jersey.",
+          "size_mb": 186
         },
         {
           "id": "new_york",
           "version": "2025-12",
-          "title": "New_York",
-          "description": "Topographic maps for the state of New_York",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_york_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "New York",
+          "description": "Topographic maps for the state of New York.",
+          "size_mb": 516
         },
         {
           "id": "pennsylvania",
           "version": "2025-12",
           "title": "Pennsylvania",
-          "description": "Topographic maps for the state of Pennsylvania",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/pennsylvania_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Pennsylvania.",
+          "size_mb": 419
         }
       ]
     },
@@ -436,49 +393,43 @@
           "id": "connecticut",
           "version": "2025-12",
           "title": "Connecticut",
-          "description": "Topographic maps for the state of Connecticut",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/connecticut_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Connecticut.",
+          "size_mb": 162
         },
         {
           "id": "maine",
           "version": "2025-12",
           "title": "Maine",
-          "description": "Topographic maps for the state of Maine",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/maine_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Maine.",
+          "size_mb": 172
         },
         {
           "id": "massachusetts",
           "version": "2025-12",
           "title": "Massachusetts",
-          "description": "Topographic maps for the state of Massachusetts",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/massachusetts_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Massachusetts.",
+          "size_mb": 259
         },
         {
           "id": "new_hampshire",
           "version": "2025-12",
-          "title": "New_Hampshire",
-          "description": "Topographic maps for the state of New_Hampshire",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/new_hampshire_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "New Hampshire",
+          "description": "Topographic maps for the state of New Hampshire.",
+          "size_mb": 92
         },
         {
           "id": "rhode_island",
           "version": "2025-12",
-          "title": "Rhode_Island",
-          "description": "Topographic maps for the state of Rhode_Island",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/rhode_island_2025-12.pmtiles",
-          "size_mb": 400
+          "title": "Rhode Island",
+          "description": "Topographic maps for the state of Rhode Island.",
+          "size_mb": 56
         },
         {
           "id": "vermont",
           "version": "2025-12",
           "title": "Vermont",
-          "description": "Topographic maps for the state of Vermont",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/vermont_2025-12.pmtiles",
-          "size_mb": 400
+          "description": "Topographic maps for the state of Vermont.",
+          "size_mb": 73
         }
       ]
     }

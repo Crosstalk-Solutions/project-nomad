@@ -24,7 +24,7 @@ import type {
 
 const SPEC_URLS: Record<ManifestType, string> = {
   zim_categories: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
-  maps: 'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/collections/maps.json',
+  maps: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad-maps/refs/heads/master/collections/maps.json',
   wikipedia: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
 }
 
@@ -266,11 +266,14 @@ export class CollectionManifestService {
 
       // Get spec for URL/version lookup
       const mapSpec = await this.getCachedSpec<MapsSpec>('maps')
-      const mapResourceMap = new Map<string, SpecResource>()
+      const mapResourceMap = new Map<string, { version: string; url: string }>()
       if (mapSpec) {
         for (const col of mapSpec.collections) {
           for (const res of col.resources) {
-            mapResourceMap.set(res.id, res)
+            mapResourceMap.set(res.id, {
+              version: res.version,
+              url: `${mapSpec.base_url}/${res.id}_${res.version}.pmtiles`,
+            })
           }
         }
       }
