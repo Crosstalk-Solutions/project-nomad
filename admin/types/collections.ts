@@ -27,7 +27,6 @@ export type SpecCategory = {
 
 export type MapSpecResource = {
   id: string
-  version: string
   title: string
   description: string
   size_mb: number
@@ -49,6 +48,7 @@ export type ZimCategoriesSpec = {
 
 export type MapsSpec = {
   spec_version: string
+  data_version: string
   base_url: string
   collections: SpecCollection[]
 }

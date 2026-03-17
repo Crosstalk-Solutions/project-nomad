@@ -271,8 +271,8 @@ export class CollectionManifestService {
         for (const col of mapSpec.collections) {
           for (const res of col.resources) {
             mapResourceMap.set(res.id, {
-              version: res.version,
-              url: `${mapSpec.base_url}/${res.id}_${res.version}.pmtiles`,
+              version: mapSpec.data_version,
+              url: `${mapSpec.base_url}/${res.id}_${mapSpec.data_version}.pmtiles`,
             })
           }
         }

@@ -109,7 +109,7 @@ export class MapService implements IMapService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const filename = `${resource.id}_${resource.version}.pmtiles`
+      const filename = `${resource.id}_${spec.data_version}.pmtiles`
       const resourceUrl = `${spec.base_url}/${filename}`
 
       const existing = await RunDownloadJob.getByUrl(resourceUrl)
@@ -130,7 +130,7 @@ export class MapService implements IMapService {
         filetype: 'map',
         resourceMetadata: {
           resource_id: resource.id,
-          version: resource.version,
+          version: spec.data_version,
           collection_ref: slug,
         },
       })
