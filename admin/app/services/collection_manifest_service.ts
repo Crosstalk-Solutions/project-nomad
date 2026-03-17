@@ -24,7 +24,7 @@ import type {
 
 const SPEC_URLS: Record<ManifestType, string> = {
   zim_categories: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
-  maps: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad-maps/refs/heads/master/collections/maps.json',
+  maps: 'https://raw.githubusercontent.com/brianbrokeit/project-nomad/refs/heads/main/collections/maps.json',
   wikipedia: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
 }
 
