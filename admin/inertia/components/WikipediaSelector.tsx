@@ -1,7 +1,7 @@
 import { formatBytes } from '~/lib/util'
 import { WikipediaOption, WikipediaCurrentSelection } from '../../types/downloads'
 import classNames from 'classnames'
-import { IconCheck, IconDownload, IconWorld } from '@tabler/icons-react'
+import { IconCheck, IconDownload, IconWorld, IconAlertTriangle } from '@tabler/icons-react'
 import StyledButton from './StyledButton'
 import LoadingSpinner from './LoadingSpinner'
 
@@ -29,8 +29,9 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
   // Determine which option to highlight
   const highlightedOptionId = selectedOptionId ?? currentSelection?.optionId ?? null
 
-  // Check if current selection is downloading
+  // Check if current selection is downloading or failed
   const isDownloading = currentSelection?.status === 'downloading'
+  const isFailed = currentSelection?.status === 'failed'
 
   return (
     <div className="w-full">
@@ -55,6 +56,18 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
         </div>
       )}
 
+      {/* Failed status message */}
+      {isFailed && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <IconAlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm text-red-700">
+              Wikipedia download failed. Select a package and try again.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Options grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {options.map((option) => {
@@ -63,6 +76,8 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
             currentSelection?.optionId === option.id && currentSelection?.status === 'installed'
           const isCurrentDownloading =
             currentSelection?.optionId === option.id && currentSelection?.status === 'downloading'
+          const isCurrentFailed =
+            currentSelection?.optionId === option.id && currentSelection?.status === 'failed'
           const isPending = selectedOptionId === option.id && selectedOptionId !== currentSelection?.optionId
 
           return (
@@ -98,6 +113,12 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                   <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
                     <IconDownload size={12} />
                     Downloading
+                  </span>
+                )}
+                {isCurrentFailed && (
+                  <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <IconAlertTriangle size={12} />
+                    Failed
                   </span>
                 )}
               </div>
@@ -136,7 +157,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
       </div>
 
       {/* Submit button for Content Explorer mode */}
-      {showSubmitButton && selectedOptionId && selectedOptionId !== currentSelection?.optionId && (
+      {showSubmitButton && selectedOptionId && (selectedOptionId !== currentSelection?.optionId || isFailed) && (
         <div className="mt-4 flex justify-end">
           <StyledButton
             variant="primary"

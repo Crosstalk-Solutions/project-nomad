@@ -12,7 +12,7 @@ export class DownloadService {
   async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
     // Get regular file download jobs (zim, map, etc.)
     const queue = this.queueService.getQueue(RunDownloadJob.queue)
-    const fileJobs = await queue.getJobs(['waiting', 'active', 'delayed'])
+    const fileJobs = await queue.getJobs(['waiting', 'active', 'delayed', 'failed'])
 
     const fileDownloads = fileJobs.map((job) => ({
       jobId: job.id!.toString(),
@@ -20,11 +20,13 @@ export class DownloadService {
       progress: parseInt(job.progress.toString(), 10),
       filepath: normalize(job.data.filepath),
       filetype: job.data.filetype,
+      status: (job.failedReason ? 'failed' : 'active') as 'active' | 'failed',
+      failedReason: job.failedReason || undefined,
     }))
 
     // Get Ollama model download jobs
     const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
-    const modelJobs = await modelQueue.getJobs(['waiting', 'active', 'delayed'])
+    const modelJobs = await modelQueue.getJobs(['waiting', 'active', 'delayed', 'failed'])
 
     const modelDownloads = modelJobs.map((job) => ({
       jobId: job.id!.toString(),
@@ -32,6 +34,8 @@ export class DownloadService {
       progress: parseInt(job.progress.toString(), 10),
       filepath: job.data.modelName || 'Unknown Model', // Use model name as filepath
       filetype: 'model',
+      status: (job.failedReason ? 'failed' : 'active') as 'active' | 'failed',
+      failedReason: job.failedReason || undefined,
     }))
 
     const allDownloads = [...fileDownloads, ...modelDownloads]
@@ -39,7 +43,11 @@ export class DownloadService {
     // Filter by filetype if specified
     const filtered = allDownloads.filter((job) => !filetype || job.filetype === filetype)
 
-    // Sort so actively downloading items (progress > 0) appear first, then by progress descending
-    return filtered.sort((a, b) => b.progress - a.progress)
+    // Sort: active downloads first (by progress desc), then failed at the bottom
+    return filtered.sort((a, b) => {
+      if (a.status === 'failed' && b.status !== 'failed') return 1
+      if (a.status !== 'failed' && b.status === 'failed') return -1
+      return b.progress - a.progress
+    })
   }
 }
