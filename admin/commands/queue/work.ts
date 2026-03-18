@@ -65,8 +65,23 @@ export default class QueueWork extends BaseCommand {
         }
       )
 
-      worker.on('failed', (job, err) => {
+      worker.on('failed', async (job, err) => {
         this.logger.error(`[${queueName}] Job failed: ${job?.id}, Error: ${err.message}`)
+
+        // If this was a Wikipedia download, mark it as failed in the DB
+        if (job?.data?.filetype === 'zim' && job?.data?.url?.includes('wikipedia_en_')) {
+          try {
+            const { DockerService } = await import('#services/docker_service')
+            const { ZimService } = await import('#services/zim_service')
+            const dockerService = new DockerService()
+            const zimService = new ZimService(dockerService)
+            await zimService.onWikipediaDownloadComplete(job.data.url, false)
+          } catch (e: any) {
+            this.logger.error(
+              `[${queueName}] Failed to update Wikipedia status: ${e.message}`
+            )
+          }
+        }
       })
 
       worker.on('completed', (job) => {
