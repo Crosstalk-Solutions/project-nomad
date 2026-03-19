@@ -9,7 +9,7 @@ export default function SupportPage() {
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6 max-w-4xl">
           <h1 className="text-4xl font-semibold mb-4">Support the Project</h1>
-          <p className="text-gray-600 mb-10 text-lg">
+          <p className="text-text-muted mb-10 text-lg">
             Project NOMAD is 100% free and open source — no subscriptions, no paywalls, no catch.
             If you'd like to help keep the project going, here are a few ways to show your support.
           </p>
@@ -17,7 +17,7 @@ export default function SupportPage() {
           {/* Ko-fi */}
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-3">Buy Us a Coffee</h2>
-            <p className="text-gray-700 mb-4">
+            <p className="text-text-muted mb-4">
               Every contribution helps fund development, server costs, and new content packs for NOMAD.
               Even a small donation goes a long way.
             </p>
@@ -47,7 +47,7 @@ export default function SupportPage() {
                 className="w-full"
               />
             </a>
-            <p className="text-gray-700 mb-4">
+            <p className="text-text-muted mb-4">
               Rogue Support is a networking consultation service for home users.
               Think of it as Uber for computer networking — expert help when you need it.
             </p>
@@ -65,7 +65,7 @@ export default function SupportPage() {
           {/* Other Ways to Help */}
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-3">Other Ways to Help</h2>
-            <ul className="space-y-2 text-gray-700">
+            <ul className="space-y-2 text-text-muted">
               <li>
                 <a
                   href="https://github.com/Crosstalk-Solutions/project-nomad"

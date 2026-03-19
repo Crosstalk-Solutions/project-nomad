@@ -67,7 +67,7 @@ export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
         readOnly
         value={loading ? 'Loading...' : debugText}
         rows={18}
-        className="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-md p-3 resize-none focus:outline-none text-left"
+        className="w-full font-mono text-xs text-black bg-gray-50 border border-gray-200 rounded-md p-3 resize-none focus:outline-none text-left"
       />
 
       <div className="mt-3 flex items-center justify-between">
