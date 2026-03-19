@@ -81,9 +81,8 @@ services:
       timeout: 10s
       retries: 3
   updater:
-    build:
-      context: ./sidecar-updater
-      dockerfile: Dockerfile
+    image: ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest
+    pull_policy: always
     container_name: nomad_updater
     restart: unless-stopped
     volumes:
