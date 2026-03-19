@@ -83,7 +83,7 @@ export default class MapsController {
       })
     }
 
-    const styles = await this.mapService.generateStylesJSON(request.host())
+    const styles = await this.mapService.generateStylesJSON(request.host(), request.protocol())
     return response.json(styles)
   }
 
