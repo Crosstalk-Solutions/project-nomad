@@ -23,7 +23,7 @@ export default function MapComponent() {
           width: '100%',
           height: '100vh',
         }}
-        mapStyle={`http://${window.location.hostname}:${window.location.port}/api/maps/styles`}
+        mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
         mapLib={maplibregl}
         initialViewState={{
           longitude: -101,
