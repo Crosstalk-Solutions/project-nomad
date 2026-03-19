@@ -12,3 +12,6 @@ contact_links:
   - name: 🤝 Contributing Guide
     url: https://github.com/Crosstalk-Solutions/project-nomad/blob/main/CONTRIBUTING.md
     about: Learn how to contribute to Project N.O.M.A.D.
+  - name: 📅 Roadmap
+    url: https://roadmap.projectnomad.us
+    about: See our public roadmap, vote on features, and suggest new ones

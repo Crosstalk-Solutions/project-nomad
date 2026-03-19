@@ -6,13 +6,17 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for your interest in improving Project N.O.M.A.D.! 
+        Thanks for your interest in improving Project N.O.M.A.D.! Before you submit a feature request, consider checking our [roadmap](https://roadmap.projectnomad.us) to see if it's already planned or in progress. You're welcome to suggest new ideas there if you don't plan on opening PRs yourself.
+
         
         **Please note:** Feature requests are not guaranteed to be implemented. All requests are evaluated based on alignment with the project's goals, feasibility, and community demand.
         
         **Before submitting:**
-        - Search existing feature requests to avoid duplicates
+        - Search existing feature requests and our [roadmap](https://roadmap.projectnomad.us) to avoid duplicates
         - Consider if this aligns with N.O.M.A.D.'s mission: offline-first knowledge and education
+        - Consider the technical feasibility of the feature: N.O.M.A.D. is designed to be containerized and run on a wide range of hardware, so features that require heavy resources (aside from GPU-intensive tasks) or complex host configurations may be less likely to be implemented
+        - Consider the scope of the feature: Small, focused enhancements that can be implemented incrementally are more likely to be implemented than large, broad features that would require significant development effort or have an unclear path forward
+        - If you're able to contribute code, testing, or documentation, that significantly increases the chances of your feature being implemented
 
   - type: dropdown
     id: feature-category
