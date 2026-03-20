@@ -199,6 +199,16 @@ ensure_docker_installed() {
   fi
 }
 
+check_docker_compose() {
+  # Check if 'docker compose' (v2 plugin) is available
+  if ! docker compose version &>/dev/null; then
+    echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
+    echo -e "${YELLOW}#${RESET} This script requires 'docker compose' (v2), not 'docker-compose' (v1)."
+    echo -e "${YELLOW}#${RESET} Please read the Docker documentation at https://docs.docker.com/compose/install/ for instructions on how to install Docker Compose v2."
+    exit 1
+  fi
+}
+
 setup_nvidia_container_toolkit() {
   # This function attempts to set up NVIDIA GPU support but is non-blocking
   # Any failures will result in warnings but will NOT stop the installation process
@@ -550,6 +560,7 @@ check_is_debug_mode
 get_install_confirmation
 accept_terms
 ensure_docker_installed
+check_docker_compose
 setup_nvidia_container_toolkit
 get_local_ip
 create_nomad_directory
