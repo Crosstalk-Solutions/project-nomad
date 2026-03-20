@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.30.0 - March 20, 2026
 
 ### Features
 - **Night Ops**: Added our most requested feature — a dark mode theme for the Command Center interface! Activate it from the footer and enjoy the sleek new look during your late-night missions. Thanks @chriscrosstalk for the contribution!
