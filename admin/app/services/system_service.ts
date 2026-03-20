@@ -579,10 +579,21 @@ export class SystemService {
       return []
     }
 
+    // Deduplicate: same device path mounted in multiple places (Docker bind-mounts)
+    // Keep the entry with the largest size — that's the real partition
+    const deduped = new Map<string, NomadDiskInfoRaw['fsSize'][0]>()
+    for (const entry of fsSize) {
+      const existing = deduped.get(entry.fs)
+      if (!existing || entry.size > existing.size) {
+        deduped.set(entry.fs, entry)
+      }
+    }
+    const dedupedFsSize = Array.from(deduped.values())
+
     return diskLayout.blockdevices
       .filter((disk) => disk.type === 'disk') // Only physical disks
       .map((disk) => {
-        const filesystems = getAllFilesystems(disk, fsSize)
+        const filesystems = getAllFilesystems(disk, dedupedFsSize)
 
         // Across all partitions
         const totalUsed = filesystems.reduce((sum, p) => sum + (p.used || 0), 0)

@@ -10,6 +10,7 @@
 
 ### Bug Fixes
 - **Settings**: Storage usage display now prefers real block devices over tempfs. Thanks @Bortlesboat for the fix!
+- **Settings**: Fixed an issue where device matching and mount entry deduplication logic could cause incorrect storage usage reporting and missing devices in storage displays.
 - **Maps**: The Maps page now respects the request protocol (http vs https) to ensure map tiles load correctly. Thanks @davidgross for the bug report!
 - **Knowledge Base**: Fixed an issue where file embedding jobs could cause a retry storm if the Ollama service was unavailable. Thanks @skyam25 for the bug report!
 - **Curated Collections**: Fixed some broken links in the curated collections definitions (maps and ZIM files) that were causing some resources to fail to download.
