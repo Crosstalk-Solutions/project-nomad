@@ -221,14 +221,6 @@
           "size_mb": 400
         },
         {
-          "id": "district_of_columbia",
-          "version": "2025-12",
-          "title": "District_Of_Columbia",
-          "description": "Topographic maps for the state of District_Of_Columbia",
-          "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/district_of_columbia_2025-12.pmtiles",
-          "size_mb": 400
-        },
-        {
           "id": "florida",
           "version": "2025-12",
           "title": "Florida",
