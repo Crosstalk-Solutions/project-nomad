@@ -324,16 +324,11 @@ export default function ModelsPage(props: {
             </div>
           </div>
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
-          <div className="bg-white rounded-lg border-2 border-gray-200 p-6">
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+            <p className="text-sm text-text-secondary mb-4">
               Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
-              For remote Ollama instances, the host must be started with <code className="bg-gray-100 px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+              For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
-            {props.models.settings.remoteOllamaUrl && (
-              <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 mb-4">
-                Currently configured: <span className="font-mono">{props.models.settings.remoteOllamaUrl}</span>
-              </p>
-            )}
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <Input
@@ -376,9 +371,13 @@ export default function ModelsPage(props: {
           <ActiveModelDownloads withHeader />
 
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
-          <p className="text-sm text-desert-stone mb-4">
-            Model downloading is only supported when using an Ollama backend. If you are connected to an OpenAI API host (e.g. LM Studio), you will need to download models directly in that application.
-          </p>
+          <Alert
+            type="info"
+            variant="bordered"
+            title="Model downloading is only supported when using a Ollama backend."
+            message="If you are connected to an OpenAI API host (e.g. LM Studio), please download models directly in that application."
+            className="mb-4"
+          />
           <div className="flex justify-start items-center gap-3 mt-4">
             <Input
               name="search"
