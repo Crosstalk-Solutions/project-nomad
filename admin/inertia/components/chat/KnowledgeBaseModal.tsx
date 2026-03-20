@@ -10,6 +10,7 @@ import { IconX } from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -28,6 +29,13 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
   const { openModal, closeModal } = useModals()
   const queryClient = useQueryClient()
+
+  const DEFAULT_MAX_FILE_SIZE_MB = 100
+  const { data: maxFileSizeSetting } = useSystemSetting({ key: 'rag.maxFileSizeMB' })
+  const maxFileSizeMB = maxFileSizeSetting?.value
+    ? Number(maxFileSizeSetting.value)
+    : DEFAULT_MAX_FILE_SIZE_MB
+  const maxFileSize = maxFileSizeMB * 1024 * 1024
 
   const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
     queryKey: ['storedFiles'],
@@ -134,6 +142,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 ref={fileUploaderRef}
                 minFiles={1}
                 maxFiles={1}
+                maxFileSize={maxFileSize}
                 onUpload={(uploadedFiles) => {
                   setFiles(Array.from(uploadedFiles))
                 }}
