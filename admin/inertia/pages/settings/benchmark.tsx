@@ -40,7 +40,7 @@ export default function BenchmarkPage(props: {
   const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
-  const refetchLatestRef = useRef(refetchLatest)
+  const refetchLatestRef = useRef<(() => void) | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
@@ -308,7 +308,7 @@ export default function BenchmarkPage(props: {
       setProgress(data)
       if (data.status === 'completed' || data.status === 'error') {
         setIsRunning(false)
-        refetchLatestRef.current()
+        refetchLatestRef.current?.()
       }
     })
 
