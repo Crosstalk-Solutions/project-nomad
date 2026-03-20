@@ -53,6 +53,7 @@ export default function Chat({
   const activeSession = sessions.find((s) => s.id === activeSessionId)
 
   const { data: lastModelSetting } = useSystemSetting({ key: 'chat.lastModel', enabled })
+  const { data: remoteOllamaUrlSetting } = useSystemSetting({ key: 'ai.remoteOllamaUrl', enabled })
 
   const { data: installedModels = [], isLoading: isLoadingModels } = useQuery({
     queryKey: ['installedModels'],
@@ -363,6 +364,11 @@ export default function Chat({
             {activeSession?.title || 'New Chat'}
           </h2>
           <div className="flex items-center gap-4">
+            {remoteOllamaUrlSetting?.value && (
+              <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 font-medium">
+                Remote Connected
+              </span>
+            )}
             <div className="flex items-center gap-2">
               <label htmlFor="model-select" className="text-sm text-text-secondary">
                 Model:
