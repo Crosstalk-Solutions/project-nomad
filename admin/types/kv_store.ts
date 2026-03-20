@@ -9,6 +9,7 @@ export const KV_STORE_SCHEMA = {
   'ui.hasVisitedEasySetup':     'boolean',
   'ui.theme':                   'string',
   'ai.assistantCustomName':     'string',
+  'gpu.type':                   'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

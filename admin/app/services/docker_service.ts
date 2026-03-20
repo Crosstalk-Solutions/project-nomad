@@ -691,6 +691,7 @@ export class DockerService {
         const runtimes = dockerInfo.Runtimes || {}
         if ('nvidia' in runtimes) {
           logger.info('[DockerService] NVIDIA container runtime detected via Docker API')
+          await this._persistGPUType('nvidia')
           return { type: 'nvidia' }
         }
       } catch (error) {
@@ -722,10 +723,24 @@ export class DockerService {
         )
         if (amdCheck.trim()) {
           logger.info('[DockerService] AMD GPU detected via lspci')
+          await this._persistGPUType('amd')
           return { type: 'amd' }
         }
       } catch (error) {
         // lspci not available, continue
+      }
+
+      // Last resort: check if we previously detected a GPU and it's likely still present.
+      // This handles cases where live detection fails transiently (e.g., Docker daemon
+      // hiccup, runtime temporarily unavailable) but the hardware hasn't changed.
+      try {
+        const savedType = await KVStore.getValue('gpu.type')
+        if (savedType === 'nvidia' || savedType === 'amd') {
+          logger.info(`[DockerService] No GPU detected live, but KV store has '${savedType}' from previous detection. Using saved value.`)
+          return { type: savedType as 'nvidia' | 'amd' }
+        }
+      } catch {
+        // KV store not available, continue
       }
 
       logger.info('[DockerService] No GPU detected')
@@ -733,6 +748,15 @@ export class DockerService {
     } catch (error) {
       logger.warn(`[DockerService] Error detecting GPU type: ${error.message}`)
       return { type: 'none' }
+    }
+  }
+
+  private async _persistGPUType(type: 'nvidia' | 'amd'): Promise<void> {
+    try {
+      await KVStore.setValue('gpu.type', type)
+      logger.info(`[DockerService] Persisted GPU type '${type}' to KV store`)
+    } catch (error) {
+      logger.warn(`[DockerService] Failed to persist GPU type: ${error.message}`)
     }
   }
 
