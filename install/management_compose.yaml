@@ -18,7 +18,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /opt/project-nomad/storage:/app/storage
+      - /opt/project-nomad/storage:/app/storage # If you change the default storage path (/opt/project-nomad/storage), make sure to update the disk-collector config as well!
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
@@ -76,7 +76,7 @@ services:
       # Needs to match DB_PASSWORD in the admin service!
       - MYSQL_PASSWORD=replaceme
     volumes:
-      - /opt/project-nomad/mysql:/var/lib/mysql
+      - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -87,7 +87,7 @@ services:
     container_name: nomad_redis
     restart: unless-stopped
     volumes:
-      - /opt/project-nomad/redis:/data
+      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -101,7 +101,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml
+      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
       - nomad-update-shared:/shared # Shared volume for communication with admin container
   disk-collector:
     # Disk Collector is a lightweight privileged container that collects disk usage information from the host system and shares it with the admin container so it can be displayed in the UI. 
