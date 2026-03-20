@@ -112,7 +112,9 @@ const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
-export default function EasySetupWizard(props: { system: { services: ServiceSlim[] } }) {
+export default function EasySetupWizard(props: {
+  system: { services: ServiceSlim[]; remoteOllamaUrl: string }
+}) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const CORE_CAPABILITIES = buildCoreCapabilities(aiAssistantName)
 
@@ -122,8 +124,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAdditionalTools, setShowAdditionalTools] = useState(false)
-  const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(false)
-  const [remoteOllamaUrl, setRemoteOllamaUrl] = useState('')
+  const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(
+    () => !!props.system.remoteOllamaUrl
+  )
+  const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(() => props.system.remoteOllamaUrl ?? '')
   const [remoteOllamaUrlError, setRemoteOllamaUrlError] = useState<string | null>(null)
 
   // Category/tier selection state
@@ -843,7 +847,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             {remoteOllamaEnabled && remoteOllamaUrl ? (
               <Alert
                 title="Remote Ollama selected"
-                message="Models are managed on the remote machine. You can add models from Settings > AI Assistant after setup."
+                message="Models are managed on the remote machine. You can add models from Settings > AI Assistant after setup, note this is only supported when using Ollama, not LM Studio and other OpenAI API software."
                 type="info"
                 variant="bordered"
               />
