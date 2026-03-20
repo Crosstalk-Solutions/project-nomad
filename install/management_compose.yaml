@@ -29,12 +29,12 @@ services:
       - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
-      - REDIS_HOST=redis
+      - REDIS_HOST=valkey
       - REDIS_PORT=6379
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     healthcheck:
@@ -71,16 +71,16 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  redis:
-    image: redis:7-alpine
-    container_name: nomad_redis
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: nomad_valkey
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
-      - /opt/project-nomad/redis:/data
+      - /opt/project-nomad/valkey:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
