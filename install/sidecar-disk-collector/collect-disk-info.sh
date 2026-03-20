@@ -40,6 +40,10 @@ while true; do
         [[ "$fstype" =~ ^(tmpfs|devtmpfs|squashfs|sysfs|proc|devpts|cgroup|cgroup2|overlay|nsfs|autofs|hugetlbfs|mqueue|pstore|fusectl|binfmt_misc)$ ]] && continue
         [[ "$mountpoint" == "none" ]] && continue
 
+        # Skip Docker bind-mounts to individual files (e.g., /etc/resolv.conf, /etc/hostname, /etc/hosts)
+        # These are not real filesystem roots and report misleading sizes
+        [[ -f "/host${mountpoint}" ]] && continue
+
         STATS=$(df -B1 "/host${mountpoint}" 2>/dev/null | awk 'NR==2{print $2,$3,$4,$5}')
         [[ -z "$STATS" ]] && continue
 
