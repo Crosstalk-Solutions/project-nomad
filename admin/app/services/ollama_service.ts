@@ -248,13 +248,63 @@ export class OllamaService {
 
     const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
 
+    // Returns how many trailing chars of `text` could be the start of `tag`
+    function partialTagSuffix(tag: string, text: string): number {
+      for (let len = Math.min(tag.length - 1, text.length); len >= 1; len--) {
+        if (text.endsWith(tag.slice(0, len))) return len
+      }
+      return 0
+    }
+
     async function* normalize(): AsyncGenerator<NomadChatStreamChunk> {
+      // Stateful parser for <think>...</think> tags that may be split across chunks.
+      // Ollama provides thinking natively via delta.thinking; OpenAI-compatible backends
+      // (LM Studio, llama.cpp, etc.) embed them inline in delta.content.
+      let tagBuffer = ''
+      let inThink = false
+
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta
+        const nativeThinking: string = (delta as any)?.thinking ?? ''
+        const rawContent: string = delta?.content ?? ''
+
+        // Parse <think> tags out of the content stream
+        tagBuffer += rawContent
+        let parsedContent = ''
+        let parsedThinking = ''
+
+        while (tagBuffer.length > 0) {
+          if (inThink) {
+            const closeIdx = tagBuffer.indexOf('</think>')
+            if (closeIdx !== -1) {
+              parsedThinking += tagBuffer.slice(0, closeIdx)
+              tagBuffer = tagBuffer.slice(closeIdx + 8)
+              inThink = false
+            } else {
+              const hold = partialTagSuffix('</think>', tagBuffer)
+              parsedThinking += tagBuffer.slice(0, tagBuffer.length - hold)
+              tagBuffer = tagBuffer.slice(tagBuffer.length - hold)
+              break
+            }
+          } else {
+            const openIdx = tagBuffer.indexOf('<think>')
+            if (openIdx !== -1) {
+              parsedContent += tagBuffer.slice(0, openIdx)
+              tagBuffer = tagBuffer.slice(openIdx + 7)
+              inThink = true
+            } else {
+              const hold = partialTagSuffix('<think>', tagBuffer)
+              parsedContent += tagBuffer.slice(0, tagBuffer.length - hold)
+              tagBuffer = tagBuffer.slice(tagBuffer.length - hold)
+              break
+            }
+          }
+        }
+
         yield {
           message: {
-            content: delta?.content ?? '',
-            thinking: (delta as any)?.thinking ?? '',
+            content: parsedContent,
+            thinking: nativeThinking + parsedThinking,
           },
           done: chunk.choices[0]?.finish_reason !== null && chunk.choices[0]?.finish_reason !== undefined,
         }
