@@ -54,7 +54,7 @@ services:
       timeout: 10s
       retries: 3
   dozzle:
-    # Dozzle is optional, but it's lightweight and allows for easily viewing container logs. We recommend including it unless you have a specific reason not to
+    # Dozzle is an optional container that allows for easily viewing container logs. We recommend including it unless you have a specific reason not to. Note that if you don't install it, the "Service Logs & Metrics" link in Settings that launches Dozzle will not work.
     image: amir20/dozzle:v10.0
     container_name: nomad_dozzle
     restart: unless-stopped
