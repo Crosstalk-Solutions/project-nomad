@@ -258,7 +258,13 @@ export default function SystemUpdatePage(props: { system: Props }) {
 
         // Check if update is complete or errored
         if (response.stage === 'complete') {
-          // Give a moment for the new container to fully start
+          // Re-check version so the KV store clears the stale "update available" flag
+          // before we reload, otherwise the banner shows "current → current"
+          try {
+            await api.checkLatestVersion(true)
+          } catch {
+            // Non-critical - page reload will still work
+          }
           setTimeout(() => {
             window.location.reload()
           }, 2000)
