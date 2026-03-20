@@ -50,4 +50,15 @@ export class DownloadService {
       return b.progress - a.progress
     })
   }
+
+  async removeFailedJob(jobId: string): Promise<void> {
+    for (const queueName of [RunDownloadJob.queue, DownloadModelJob.queue]) {
+      const queue = this.queueService.getQueue(queueName)
+      const job = await queue.getJob(jobId)
+      if (job) {
+        await job.remove()
+        return
+      }
+    }
+  }
 }
