@@ -46,6 +46,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
       if (fileUploaderRef.current) {
         fileUploaderRef.current.clear()
       }
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
     },
     onError: (error: any) => {
       addNotification({
