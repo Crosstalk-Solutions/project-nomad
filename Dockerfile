@@ -45,7 +45,14 @@ COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app
 # Copy root package.json for version info
 COPY package.json /app/version.json
+
+# Copy docs and README for access within the container
 COPY admin/docs /app/docs
 COPY README.md /app/README.md
+
+# Copy entrypoint script and ensure it's executable
+COPY install/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 8080
-CMD ["node", "./bin/server.js"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

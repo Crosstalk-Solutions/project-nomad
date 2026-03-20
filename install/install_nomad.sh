@@ -31,14 +31,11 @@ GREEN='\033[1;32m' # Light Green.
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/entrypoint.sh"
 SIDECAR_UPDATER_DOCKERFILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
 SIDECAR_UPDATER_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
-WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
-
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
@@ -406,30 +403,6 @@ download_management_compose_file() {
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
 
-download_wait_for_it_script() {
-  local wait_for_it_script_path="${NOMAD_DIR}/wait-for-it.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading wait-for-it script...\\n"
-  if ! curl -fsSL "$WAIT_FOR_IT_SCRIPT_URL" -o "$wait_for_it_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the wait-for-it script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$wait_for_it_script_path"
-  echo -e "${GREEN}#${RESET} wait-for-it script downloaded successfully to $wait_for_it_script_path.\\n"
-}
-
-download_entrypoint_script() {
-  local entrypoint_script_path="${NOMAD_DIR}/entrypoint.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading entrypoint script...\\n"
-  if ! curl -fsSL "$ENTRYPOINT_SCRIPT_URL" -o "$entrypoint_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the entrypoint script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$entrypoint_script_path"
-  echo -e "${GREEN}#${RESET} entrypoint script downloaded successfully to $entrypoint_script_path.\\n"
-}
-
 download_sidecar_files() {
   # Create sidecar-updater directory if it doesn't exist
   if [[ ! -d "${NOMAD_DIR}/sidecar-updater" ]]; then
@@ -580,8 +553,6 @@ ensure_docker_installed
 setup_nvidia_container_toolkit
 get_local_ip
 create_nomad_directory
-download_wait_for_it_script
-download_entrypoint_script
 download_sidecar_files
 download_helper_scripts
 download_management_compose_file

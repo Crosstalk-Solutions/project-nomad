@@ -1,3 +1,11 @@
+# Project N.O.M.A.D. management services Docker Compose configuration
+#
+# This compose file defines the admin server, database, and other supporting services required to run Project N.O.M.A.D.
+# You can use this with `docker-compose up -d` to start all the necessary services with a single command after installation.
+#
+# Note: we recommend leaving all of the environment variables as-is except for any "replaceme" values,
+# which must be updated for the admin server to start successfully. The default values are optimized for ease of installation and use,
+# but you can customize them as needed (e.g. changing ports, database connection details, log level, etc.)
 name: project-nomad
 services:
   admin:
@@ -12,38 +20,35 @@ services:
     volumes:
       - /opt/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
-      - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
       - PORT=8080
       - LOG_LEVEL=info
-      - APP_KEY=replaceme
-      - HOST=0.0.0.0
-      - URL=replaceme
+      - APP_KEY=replaceme # Needs to be at least 16 chars or will fail validation and container won't start!
+      - HOST=0.0.0.0 # Leave this as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
+      - URL=replaceme # Should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
       - DB_HOST=mysql
-      - DB_PORT=3306
+      - DB_PORT=3306 # If you change the MySQL port, make sure to update this accordingly
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
-      - DB_PASSWORD=replaceme
+      - DB_PASSWORD=replaceme # Needs to match the MYSQL_PASSWORD in the mysql service!
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_PORT=6379 # If you change the Redis port, make sure to update this accordingly
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
-    entrypoint: ["/usr/local/bin/entrypoint.sh"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
   dozzle:
-    image: amir20/dozzle:v10.0
+    image: amir20/dozzle:v10.0 # Dozzle is optional, but note that the "Service Logs & Metrics" link in Settings points to it. We recommend including it unless you have a specific reason not to
     container_name: nomad_dozzle
     restart: unless-stopped
     ports:
@@ -61,7 +66,7 @@ services:
       - MYSQL_ROOT_PASSWORD=replaceme
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
-      - MYSQL_PASSWORD=replaceme
+      - MYSQL_PASSWORD=replaceme # Needs to match DB_PASSWORD in the admin service!
     volumes:
       - /opt/project-nomad/mysql:/var/lib/mysql
     healthcheck:
@@ -80,7 +85,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  updater:
+  updater: # Updater & disk-collector are lightweight sidecar containers that run alongside the admin container to handle updates and host disk usage collection, respectively.
     image: ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest
     pull_policy: always
     container_name: nomad_updater
