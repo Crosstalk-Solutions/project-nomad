@@ -83,19 +83,15 @@ To run LLM's and other included AI tools:
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
 
-#### Running AI models on a different host
-By default, N.O.M.A.D.'s installer will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio, llama.cpp).  
-Note that if you use Ollama on a different host, you must start the server with this option `OLLAMA_HOST=0.0.0.0`.  
-You are responsible for the setup of Ollama/OpenAI server on the other host.
-
-#### Running AI models on a different host
-By default, N.O.M.A.D. will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio, llama.cpp).  
-Note that if you use Ollama on a different host, you must start the server with this option `OLLAMA_HOST=0.0.0.0`.
-You are responsible for the setup of Ollama/OpenAI server on the other host.
-
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 
 Again, Project N.O.M.A.D. itself is quite lightweight - it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
+
+#### Running AI models on a different host
+By default, N.O.M.A.D.'s installer will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio).  
+Note that if you use Ollama on a different host, you must start the server with this option `OLLAMA_HOST=0.0.0.0`.  
+Ollama is the preferred way to use the AI assistant as it has features such as model download that OpenAI API does not support. So when using LM Studio for example, you will have to use LM Studio to download models.
+You are responsible for the setup of Ollama/OpenAI server on the other host.
 
 ## About Internet Usage & Privacy
 Project N.O.M.A.D. is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, N.O.M.A.D. does not require an internet connection and has ZERO built-in telemetry.
