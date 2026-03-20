@@ -23,6 +23,7 @@ services:
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
+      # PORT is the port the admin server listens on *inside* the container and should not be changed. If you want to change which port the admin interface is accessible from on the host, you can change the port mapping in the "ports" section (e.g. "9090:8080" to access it on port 9090 from the host)
       - PORT=8080
       - LOG_LEVEL=info
       # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
