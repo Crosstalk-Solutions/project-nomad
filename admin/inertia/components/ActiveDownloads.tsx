@@ -2,7 +2,8 @@ import useDownloads, { useDownloadsProps } from '~/hooks/useDownloads'
 import HorizontalBarChart from './HorizontalBarChart'
 import { extractFileName } from '~/lib/util'
 import StyledSectionHeader from './StyledSectionHeader'
-import { IconAlertTriangle } from '@tabler/icons-react'
+import { IconAlertTriangle, IconX } from '@tabler/icons-react'
+import api from '~/lib/api'
 
 interface ActiveDownloadProps {
   filetype?: useDownloadsProps['filetype']
@@ -10,7 +11,12 @@ interface ActiveDownloadProps {
 }
 
 const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) => {
-  const { data: downloads } = useDownloads({ filetype })
+  const { data: downloads, invalidate } = useDownloads({ filetype })
+
+  const handleDismiss = async (jobId: string) => {
+    await api.removeDownloadJob(jobId)
+    invalidate()
+  }
 
   return (
     <>
@@ -37,6 +43,13 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
                       Download failed{download.failedReason ? `: ${download.failedReason}` : ''}
                     </p>
                   </div>
+                  <button
+                    onClick={() => handleDismiss(download.jobId)}
+                    className="flex-shrink-0 p-1 rounded hover:bg-red-100 transition-colors"
+                    title="Dismiss failed download"
+                  >
+                    <IconX className="w-4 h-4 text-red-400 hover:text-red-600" />
+                  </button>
                 </div>
               ) : (
                 <HorizontalBarChart

@@ -532,6 +532,12 @@ class API {
     })()
   }
 
+  async removeDownloadJob(jobId: string): Promise<void> {
+    return catchInternal(async () => {
+      await this.client.delete(`/downloads/jobs/${jobId}`)
+    })()
+  }
+
   async runBenchmark(type: BenchmarkType, sync: boolean = false) {
     return catchInternal(async () => {
       const response = await this.client.post<RunBenchmarkResponse>(
