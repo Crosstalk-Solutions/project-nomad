@@ -40,7 +40,7 @@ createInertiaApp({
     createRoot(el).render(
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <TransmitProvider baseUrl={window.location.origin} enableLogging={true}>
+          <TransmitProvider baseUrl={window.location.origin} enableLogging={environment === 'development'}>
             <NotificationsProvider>
               <ModalsProvider>
                 <App {...props} />
