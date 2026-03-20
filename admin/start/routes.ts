@@ -92,6 +92,7 @@ router
   .group(() => {
     router.get('/jobs', [DownloadsController, 'index'])
     router.get('/jobs/:filetype', [DownloadsController, 'filetype'])
+    router.delete('/jobs/:jobId', [DownloadsController, 'removeJob'])
   })
   .prefix('/api/downloads')
 
