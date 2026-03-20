@@ -48,6 +48,15 @@ class API {
     })()
   }
 
+  async getRemoteOllamaStatus(): Promise<{ configured: boolean; connected: boolean }> {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ configured: boolean; connected: boolean }>(
+        '/ollama/remote-status'
+      )
+      return response.data
+    })()
+  }
+
   async configureRemoteOllama(remoteUrl: string | null): Promise<{ success: boolean; message: string }> {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(

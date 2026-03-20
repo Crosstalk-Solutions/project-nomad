@@ -108,6 +108,7 @@ router
     router.delete('/models', [OllamaController, 'deleteModel'])
     router.get('/installed-models', [OllamaController, 'installedModels'])
     router.post('/configure-remote', [OllamaController, 'configureRemote'])
+    router.get('/remote-status', [OllamaController, 'remoteStatus'])
   })
   .prefix('/api/ollama')
 

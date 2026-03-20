@@ -189,6 +189,21 @@ export default class OllamaController {
     }
   }
 
+  async remoteStatus() {
+    const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    if (!remoteUrl) {
+      return { configured: false, connected: false }
+    }
+    try {
+      const testResponse = await fetch(`${remoteUrl.replace(/\/$/, '')}/v1/models`, {
+        signal: AbortSignal.timeout(3000),
+      })
+      return { configured: true, connected: testResponse.ok }
+    } catch {
+      return { configured: true, connected: false }
+    }
+  }
+
   async configureRemote({ request, response }: HttpContext) {
     const remoteUrl: string | null = request.input('remoteUrl', null)
 
