@@ -853,6 +853,45 @@ export class DockerService {
       this._broadcast(serviceName, 'update-creating', `Creating updated container...`)
 
       const hostConfig = inspectData.HostConfig || {}
+
+      // Re-run GPU detection for Ollama so updates always reflect the current GPU environment.
+      // This handles cases where the NVIDIA Container Toolkit was installed after the initial
+      // Ollama setup, and ensures DeviceRequests are always built fresh rather than relying on
+      // round-tripping the Docker inspect format back into the create API.
+      let updatedDeviceRequests: any[] | undefined = undefined
+      if (serviceName === SERVICE_NAMES.OLLAMA) {
+        const gpuResult = await this._detectGPUType()
+
+        if (gpuResult.type === 'nvidia') {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `NVIDIA container runtime detected. Configuring updated container with GPU support...`
+          )
+          updatedDeviceRequests = [
+            {
+              Driver: 'nvidia',
+              Count: -1,
+              Capabilities: [['gpu']],
+            },
+          ]
+        } else if (gpuResult.type === 'amd') {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `AMD GPU detected. ROCm GPU acceleration is not yet supported — using CPU-only configuration.`
+          )
+        } else if (gpuResult.toolkitMissing) {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
+          )
+        } else {
+          this._broadcast(serviceName, 'update-gpu-config', `No GPU detected. Using CPU-only configuration.`)
+        }
+      }
+
       const newContainerConfig: any = {
         Image: newImage,
         name: serviceName,
@@ -865,7 +904,7 @@ export class DockerService {
           Binds: hostConfig.Binds || undefined,
           PortBindings: hostConfig.PortBindings || undefined,
           RestartPolicy: hostConfig.RestartPolicy || undefined,
-          DeviceRequests: hostConfig.DeviceRequests || undefined,
+          DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
           Devices: hostConfig.Devices || undefined,
         },
         NetworkingConfig: inspectData.NetworkSettings?.Networks
