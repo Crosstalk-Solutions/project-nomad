@@ -377,7 +377,7 @@ export default function ModelsPage(props: {
 
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
           <p className="text-sm text-desert-stone mb-4">
-            Model downloading is only supported when using a local Ollama backend. If you are connected to a remote AI host (e.g. LM Studio), download models directly in that application.
+            Model downloading is only supported when using an Ollama backend. If you are connected to an OpenAI API host (e.g. LM Studio), you will need to download models directly in that application.
           </p>
           <div className="flex justify-start items-center gap-3 mt-4">
             <Input
