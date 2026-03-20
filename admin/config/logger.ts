@@ -18,7 +18,7 @@ const loggerConfig = defineConfig({
         targets:
           targets()
             .pushIf(!app.inProduction, targets.pretty())
-            .pushIf(app.inProduction, targets.file({ destination: "/app/storage/logs/admin.log" }))
+            .pushIf(app.inProduction, targets.file({ destination: "/app/storage/logs/admin.log", mkdir: true }))
             .toArray(),
       },
     },
