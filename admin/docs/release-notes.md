@@ -1,5 +1,16 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **Collections**: Added Kiwix ZIM categories for German/Austria (DACH): "Deutsch & Österreich" with Wikipedia DE, Wiktionary, Wikibooks, Wikivoyage, Wikipedia Medizin, Klexikon, Koch-Wiki, and iFixit DE; "Militär & Taktik" (US Army Publications, Gutenberg Military Science, FAS Military Medicine); "Kommunikation & Sicherheit" (Ham Radio Q&A, Security Q&A); "Energie & Off-Grid" (Low Tech Magazine, 100 Rabbits)
+- **Collections**: Added map collection entries for Europe and Oberösterreich (Steyr, Garsten) with placeholder for user-supplied PMTiles
+- **Settings**: Optional `NOMAD_COLLECTIONS_BASE_URL` to load collection specs (kiwix-categories, maps, wikipedia) from a fork or custom URL instead of the default GitHub raw URL
+- **Install**: Added NOMAD-DATA PDF/download manifest (`install/nomad-data-pdf-urls.txt`) and script (`install/download-nomad-data-pdfs.sh`) for automated download of BBK, DGUV, FEMA, WHO, Zivilschutz AT, and other public-domain/preparedness PDFs into a structured folder
+
+### Improvements
+- **Docs**: Added `install/NOMAD-DATA-DOWNLOADS.md` with instructions for collections base URL, PDF script usage, RAG integration, and optional Austria PMTiles extract
+
 ## Version 1.29.0 - March 11, 2026
 
 ### Features

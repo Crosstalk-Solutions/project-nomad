@@ -132,7 +132,7 @@
         {
           "name": "Standard",
           "slug": "survival-standard",
-          "description": "Bug-out strategies and urban survival techniques. Includes everything in Essential.",
+          "description": "Bug-out strategies, urban survival, and Survivor Library. Includes everything in Essential.",
           "includesTier": "survival-essential",
           "resources": [
             {
@@ -150,13 +150,21 @@
               "description": "Comprehensive urban emergency preparedness video series",
               "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2025-11.zim",
               "size_mb": 2240
+            },
+            {
+              "id": "survivorlibrary.com_en_all",
+              "version": "2026-03",
+              "title": "Survivor Library",
+              "description": "Umfassende Offline-Bibliothek für Selbstversorgung, alte Handwerke, Pre-Industrial-Techniken",
+              "url": "https://download.kiwix.org/zim/zimit/survivorlibrary.com_en_all_2026-03.zim",
+              "size_mb": 2700
             }
           ]
         },
         {
           "name": "Comprehensive",
           "slug": "survival-comprehensive",
-          "description": "Complete prepper library with food storage strategies and classic military strategy. Includes everything in Standard.",
+          "description": "FEMA Ready.gov, CD3WD und Food Prepping. Includes everything in Standard.",
           "includesTier": "survival-standard",
           "resources": [
             {
@@ -168,12 +176,20 @@
               "size_mb": 2160
             },
             {
-              "id": "gutenberg_en_lcc-u",
-              "version": "2026-03",
-              "title": "Project Gutenberg: Military Science",
-              "description": "Classic military strategy, tactics, and field manuals",
-              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-u_2026-03.zim",
-              "size_mb": 1200
+              "id": "www.ready.gov_en",
+              "version": "2024-12",
+              "title": "Ready.gov (FEMA)",
+              "description": "FEMA emergency preparedness komplett offline",
+              "url": "https://download.kiwix.org/zim/zimit/www.ready.gov_en_2024-12.zim",
+              "size_mb": 2300
+            },
+            {
+              "id": "cd3wdproject.org_en_all",
+              "version": "2025-11",
+              "title": "CD3WD",
+              "description": "Off-Grid-Technologien, Wasserversorgung, Lebensmittelverarbeitung für Krisengebiete",
+              "url": "https://download.kiwix.org/zim/zimit/cd3wdproject.org_en_all_2025-11.zim",
+              "size_mb": 554
             }
           ]
         }
@@ -610,6 +626,250 @@
               "description": "Linux command reference and system administration",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-01.zim",
               "size_mb": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deutsch & Österreich",
+      "slug": "german",
+      "icon": "IconLanguage",
+      "description": "Deutschsprachige Offline-Inhalte: Wikipedia DE, Medizin, Wikibooks, Wiktionary, Wikivoyage für Österreich und DACH.",
+      "language": "de",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "german-essential",
+          "description": "Top Wikipedia-Artikel und deutsches Wörterbuch. Leichtgewichtig für den Einstieg.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "wikipedia_de_top_mini",
+              "version": "2026-01",
+              "title": "Wikipedia DE Top",
+              "description": "Die wichtigsten deutschsprachigen Wikipedia-Artikel",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_top_mini_2026-01.zim",
+              "size_mb": 122
+            },
+            {
+              "id": "wiktionary_de_all_nopic",
+              "version": "2026-01",
+              "title": "Wiktionary DE",
+              "description": "Deutsches Wörterbuch offline",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_de_all_nopic_2026-01.zim",
+              "size_mb": 1200
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "german-standard",
+          "description": "Medizin und Lehrbücher auf Deutsch. Inkl. Essential.",
+          "includesTier": "german-essential",
+          "resources": [
+            {
+              "id": "wikipedia_de_medicine_maxi",
+              "version": "2026-01",
+              "title": "Wikipedia Medizin DE",
+              "description": "Medizin-Artikel der deutschen Wikipedia mit Bildern",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_medicine_maxi_2026-01.zim",
+              "size_mb": 433
+            },
+            {
+              "id": "wikibooks_de_all_nopic",
+              "version": "2026-01",
+              "title": "Wikibooks DE",
+              "description": "Offene Lehrbücher: Garten, Reparatur, Haustechnik, Naturwissenschaften",
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_de_all_nopic_2026-01.zim",
+              "size_mb": 2700
+            },
+            {
+              "id": "klexikon_de_all_maxi",
+              "version": "2026-02",
+              "title": "Klexikon DE",
+              "description": "Kinder-Enzyklopädie für einfache Erklärungen",
+              "url": "https://download.kiwix.org/zim/other/klexikon_de_all_maxi_2026-02.zim",
+              "size_mb": 138
+            },
+            {
+              "id": "kochwiki.org_de_all_maxi",
+              "version": "2026-01",
+              "title": "Koch-Wiki DE",
+              "description": "Kochrezepte und Küchenwissen offline",
+              "url": "https://download.kiwix.org/zim/other/kochwiki.org_de_all_maxi_2026-01.zim",
+              "size_mb": 66
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "german-comprehensive",
+          "description": "Komplette deutsche Wikipedia und Wikivoyage. Inkl. Standard.",
+          "includesTier": "german-standard",
+          "resources": [
+            {
+              "id": "wikipedia_de_all_nopic",
+              "version": "2026-01",
+              "title": "Wikipedia DE komplett",
+              "description": "Gesamte deutschsprachige Wikipedia ohne Bilder",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim",
+              "size_mb": 14000
+            },
+            {
+              "id": "wikivoyage_de_all_maxi",
+              "version": "2026-01",
+              "title": "Wikivoyage DE",
+              "description": "Reise- und Geländeinfos für Österreich, Deutschland, Schweiz",
+              "url": "https://download.kiwix.org/zim/wikivoyage/wikivoyage_de_all_maxi_2026-01.zim",
+              "size_mb": 1200
+            },
+            {
+              "id": "ifixit_de_all",
+              "version": "2025-06",
+              "title": "iFixit DE",
+              "description": "Reparatur-Anleitungen für Geräte und DIY",
+              "url": "https://download.kiwix.org/zim/ifixit/ifixit_de_all_2025-06.zim",
+              "size_mb": 3200
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Militär & Taktik",
+      "slug": "military",
+      "icon": "IconShield",
+      "description": "US Army Field Manuals, Nahkampf, Unconventional Warfare, Militärmedizin und klassische Taktik.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "military-essential",
+          "description": "Alle US Army Publications: Field Manuals (FM), ATP, ADP, TC inkl. Combatives, Unconventional Warfare.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "armypubs_en_all",
+              "version": "2024-12",
+              "title": "US Army Publications",
+              "description": "Alle deklassifizierten Field Manuals: Nahkampf (FM 3-25.150), Guerrilla (FM 3-05.130), Survival, Infanterie, u.v.m.",
+              "url": "https://download.kiwix.org/zim/zimit/armypubs_en_all_2024-12.zim",
+              "size_mb": 7700
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "military-standard",
+          "description": "Klassische Militärwissenschaft und Taktik. Inkl. Essential.",
+          "includesTier": "military-essential",
+          "resources": [
+            {
+              "id": "gutenberg_en_lcc-u",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Military Science",
+              "description": "Klassische Texte zu Strategie, Taktik und Feldhandbüchern",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-u_2026-03.zim",
+              "size_mb": 1200
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "military-comprehensive",
+          "description": "Militärmedizin als Querverweis. Inkl. Standard.",
+          "includesTier": "military-standard",
+          "resources": [
+            {
+              "id": "fas-military-medicine_en",
+              "version": "2025-06",
+              "title": "FAS Military Medicine",
+              "description": "Taktische und Feldmedizin-Handbücher",
+              "url": "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
+              "size_mb": 78
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Kommunikation & Sicherheit",
+      "slug": "communications",
+      "icon": "IconRadio",
+      "description": "Amateurfunk (Ham Radio), Baofeng UV-5R, ATAK/CivTAK (Android Team Awareness Kit), OPSEC und IT-Sicherheit für Notfallkommunikation. ATAK/CivTAK- und Baofeng-Anleitungen (kein ZIM) in NOMAD-DATA/07_FUNK oder 10_EIGENE_PDFS_RAG ablegen.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "communications-essential",
+          "description": "Ham Radio Q&A: Frequenzen, Antennen, Lizenzen, Baofeng UV-5R-Betrieb. Meshtastic/LoRa, ATAK/CivTAK und Baofeng UV-5R-Anleitungen (tak.gov, Miklor, CHIRP) als PDF in NOMAD-DATA ablegen.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "ham.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Ham Radio Q&A",
+              "description": "Stack Exchange zu Amateurfunk, Antennen, Ausbreitung, Betrieb",
+              "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 72
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "communications-standard",
+          "description": "IT-Sicherheit und OPSEC. Inkl. Essential.",
+          "includesTier": "communications-essential",
+          "resources": [
+            {
+              "id": "security.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Security Q&A",
+              "description": "Verschlüsselung, Anonymität, sichere Kommunikation",
+              "url": "https://download.kiwix.org/zim/stack_exchange/security.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 420
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Energie & Off-Grid",
+      "slug": "energy",
+      "icon": "IconBolt",
+      "description": "Solar, Wärmepumpen, Wasserversorgung und nachhaltige Technik für autarke Versorgung.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "energy-essential",
+          "description": "Low Tech Magazine: Solar, Wärmepumpen, Wasser, nachhaltige Haustechnik.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "solar.lowtechmagazine.com_mul_all",
+              "version": "2025-01",
+              "title": "Low Tech Magazine (Solar)",
+              "description": "Solar, Wärmepumpen, Wasserversorgung, Low-Tech-Lösungen",
+              "url": "https://download.kiwix.org/zim/zimit/solar.lowtechmagazine.com_mul_all_2025-01.zim",
+              "size_mb": 668
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "energy-standard",
+          "description": "Off-Grid-Werkzeuge und Selbstversorgung. Inkl. Essential.",
+          "includesTier": "energy-essential",
+          "resources": [
+            {
+              "id": "100r.co_en_all",
+              "version": "2026-02",
+              "title": "100 Rabbits",
+              "description": "Off-Grid-Leben, Energie, Werkzeuge, Selbstversorgung",
+              "url": "https://download.kiwix.org/zim/zimit/100r.co_en_all_2026-02.zim",
+              "size_mb": 160
             }
           ]
         }

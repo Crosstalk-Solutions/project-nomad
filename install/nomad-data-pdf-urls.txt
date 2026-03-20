@@ -1,0 +1,83 @@
+# NOMAD-DATA PDF/Resource Download Manifest
+# Format: SUBDIR	URL
+# SUBDIR = folder under NOMAD_DATA (e.g. 04_SURVIVAL, 07_FUNK, 10_EIGENE_PDFS_RAG)
+# Run: install/download-nomad-data-pdfs.sh
+# ---
+
+# === 01_MEDIZIN / Notfall / WHO/IFRC ===
+04_SURVIVAL	https://www.ifrc.org/sites/default/files/2022-02/EN_GFARC_GUIDELINES_2020.pdf
+04_SURVIVAL	https://hlh.who.int/docs/librariesprovider4/hlh-documents/who-icrc-basic-emergency-care.pdf
+01_MEDIZIN	https://www.who.int/publications/i/item/WHO-MHP-HPS-EML-2023.02
+01_MEDIZIN	https://publikationen.dguv.de/widgets/pdf/download/article/826
+
+# === BBK (DE) Notfallvorsorge ===
+04_SURVIVAL	https://www.bbk.bund.de/SharedDocs/Downloads/DE/Mediathek/Publikationen/Buergerinformationen/Ratgeber/ratgeber-notfallvosorge-checkliste.pdf?__blob=publicationFile&v=10
+
+# === Österreich Zivilschutz ===
+04_SURVIVAL	https://www.zivilschutz.at/wp-content/uploads/2022/09/Blackout-Ratgeber_Web.pdf
+04_SURVIVAL	https://www.zivilschutz.at/wp-content/uploads/2022/09/Blackout_Folder_Web.pdf
+04_SURVIVAL	https://www.zivilschutz.at/wp-content/uploads/2022/06/Infoblatt-Sirenensignale.pdf
+04_SURVIVAL	https://www.zivilschutz.at/wp-content/uploads/2022/06/Infoblatt-Notrufnummern.pdf
+04_SURVIVAL	https://www.zivilschutz.at/wp-content/uploads/2022/09/Vorrat_Checkliste_Web-small-rgb.pdf
+04_SURVIVAL	https://www.bundesheer.at/pdf_pool/publikationen/risikolandschaft_oesterreich_2022.pdf
+04_SURVIVAL	https://www.bundesheer.at/archiv/a2022/pdf/blackout_kochbuch.pdf
+08_VORRAT	https://www.zivilschutz.at/wp-content/uploads/2022/09/Vorrat_Checkliste_Web-small-rgb.pdf
+
+# === FEMA / Ready.gov / CERT ===
+04_SURVIVAL	https://www.ready.gov/sites/default/files/2021-11/are-you-ready-guide.pdf
+04_SURVIVAL	https://www.ready.gov/sites/default/files/2025-02/fema_full-suite-hazard-info-sheets.pdf
+04_SURVIVAL	https://www.ready.gov/sites/default/files/2020-03/ready_evacuating.pdf
+04_SURVIVAL	https://www.ready.gov/sites/default/files/2020-03/ready_shelter.pdf
+04_SURVIVAL	https://www.ready.gov/sites/default/files/2020-03/ready_communications.pdf
+04_SURVIVAL	https://www.ready.gov/sites/default/files/2019.CERT_.Basic_.PM_FINAL_508c.pdf
+04_SURVIVAL	https://www.ready.gov/sites/default/files/documents/files/RRToolkit.pdf
+08_VORRAT	https://www.fema.gov/pdf/library/f&web.pdf
+
+# === FEMA ICS Formulare ===
+07_FUNK	https://training.fema.gov/emiweb/is/icsresource/assets/ics%20forms/ics%20form%20201,%20incident%20briefing%20(v3).pdf
+07_FUNK	https://training.fema.gov/emiweb/is/icsresource/assets/ics%20forms/nims%20ics%20forms%20booklet%20(v3).pdf
+
+# === CDC Wasser / Gesundheit ===
+04_SURVIVAL	https://www.cdc.gov/healthywater/pdf/drinking/HomeWaterTreatment.pdf
+04_SURVIVAL	https://www.cdc.gov/healthywater/pdf/emergency/foodandwater.pdf
+05_ENERGIE	https://www.cdc.gov/healthywater/pdf/drinking/HomeWaterTreatment.pdf
+08_VORRAT	https://www.cdc.gov/healthywater/pdf/emergency/foodandwater.pdf
+
+# === BLE/BZL Garten DE ===
+02_GARTEN	https://www.ble.de/SharedDocs/Downloads/DE/Pressemitteilungen/2023/230309_Eigener_Garten.pdf
+02_GARTEN	https://www.ble.de/SharedDocs/Downloads/DE/Pressemitteilungen/2024/240529_Schatten.pdf
+02_GARTEN	https://www.ble.de/SharedDocs/Downloads/DE/Pressemitteilungen/2022/221104_Kompost-Garten.pdf
+
+# === UBA Kompost ===
+02_GARTEN	https://www.umweltbundesamt.de/sites/default/files/medien/461/publikationen/4324.pdf
+
+# === FAO ===
+02_GARTEN	https://www.fao.org/fileadmin/templates/FCIT/PDF/briefing_guide.pdf
+02_GARTEN	https://www.fao.org/4/i3284e/i3284e.pdf
+
+# === NREL / IEA Energie ===
+05_ENERGIE	https://www.nrel.gov/docs/fy19osti/72564.pdf
+05_ENERGIE	https://www.nrel.gov/docs/fy15osti/64002.pdf
+
+# === HUD Gebäude-Wartung ===
+03_REPARATUR	https://www.hud.gov/sites/documents/hudgb1.pdf
+03_REPARATUR	https://www.hud.gov/sites/documents/hudgb5guid.pdf
+03_REPARATUR	https://www.hud.gov/sites/documents/hudgb6guid.pdf
+
+# === EPA Renovierung/Sicherheit ===
+03_REPARATUR	https://www.epa.gov/sites/default/files/2020-03/documents/small_entity_guide_9-23-11_w_new_cover.pdf
+03_REPARATUR	https://www.epa.gov/sites/default/files/2014-05/documents/initial_renovator-student_oct2011_0.pdf
+
+# === USDA Wood Handbook ===
+03_REPARATUR	https://research.fs.usda.gov/treesearch/download/37440.pdf
+
+# === Fuel/Energy ===
+08_VORRAT	https://www.energy.gov/sites/default/files/2019/01/f58/fuel-storage-guide.pdf
+
+# --- Kein direktes PDF / manuell oder SingleFile ---
+# MSD Manual DE: https://www.msdmanuals.com/de/heim (Website, kein Gesamt-PDF)
+# AWMF Leitlinien: https://register.awmf.org/ (Einzel-PDFs pro Leitlinie)
+# Meshtastic: https://meshtastic.org/docs/ (Docusaurus – SingleFile oder wget)
+# ATAK/CivTAK: https://tak.gov/ bzw. CivTAK-Docs (manuell)
+# Baofeng UV-5R: Miklor, sn0wlink, radiodoc/uv-5r – siehe CATEGORIES-TODO.md
+# DARC Notfunk: https://www.darc.de/der-club/referate/notfunk/dokumente/ (Seite, PDFs manuell laden)

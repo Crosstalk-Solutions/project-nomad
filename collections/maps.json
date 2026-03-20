@@ -481,6 +481,40 @@
           "size_mb": 400
         }
       ]
+    },
+    {
+      "name": "Europe",
+      "slug": "europe",
+      "description": "Offline-Karte für ganz Europa (Protomaps-Basemaps). Wanderwege, POIs und Wasserquellen. Kein Direkt-Download – Builds: https://maps.protomaps.com/builds | Anleitung: /docs/offline-karten-europa",
+      "icon": "IconMap",
+      "language": "de",
+      "resources": [
+        {
+          "id": "europe",
+          "version": "2025-03",
+          "title": "Europa",
+          "description": "Ganz Europa. Bitte per „Eigenes Kartenfile herunterladen“ mit eigener URL hinzufügen oder Datei manuell in storage/maps/pmtiles/ ablegen.",
+          "url": null,
+          "size_mb": 5000
+        }
+      ]
+    },
+    {
+      "name": "Oberösterreich (Steyr, Garsten)",
+      "slug": "oberoesterreich",
+      "description": "Hohe Auflösung für Oberösterreich, Steyr und Garsten. Wanderwege, POIs, Wasserquellen. Kein Direkt-Download – Builds: https://maps.protomaps.com/builds | Anleitung: /docs/offline-karten-europa",
+      "icon": "IconMap",
+      "language": "de",
+      "resources": [
+        {
+          "id": "oberoesterreich",
+          "version": "2025-03",
+          "title": "Oberösterreich (Steyr, Garsten)",
+          "description": "Hohe Auflösung. Bitte per „Eigenes Kartenfile herunterladen“ mit eigener URL hinzufügen oder Datei manuell in storage/maps/pmtiles/ ablegen.",
+          "url": null,
+          "size_mb": 500
+        }
+      ]
     }
   ]
 }
