@@ -7,7 +7,11 @@ const useEmbedJobs = (props: { enabled?: boolean } = {}) => {
   const queryData = useQuery({
     queryKey: ['embed-jobs'],
     queryFn: () => api.getActiveEmbedJobs().then((data) => data ?? []),
-    refetchInterval: 2000,
+    refetchInterval: (query) => {
+      const data = query.state.data
+      // Only poll when there are active jobs; otherwise use a slower interval
+      return data && data.length > 0 ? 2000 : 30000
+    },
     enabled: props.enabled ?? true,
   })
 
