@@ -15,9 +15,9 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 }) => {
   if (!fullscreen) {
     return (
-      <div className={`flex flex-col items-center justify-center ${className}`}>
+      <div className="flex flex-col items-center justify-center">
         <div
-          className={`w-8 h-8 border-[3px] ${light ? 'border-white' : 'border-text-muted'} border-t-transparent rounded-full animate-spin`}
+          className={`w-8 h-8 border-[3px] ${light ? 'border-white' : 'border-text-muted'} border-t-transparent rounded-full animate-spin ${className || ''}`}
         ></div>
         {!iconOnly && (
           <div className={light ? 'text-white mt-2' : 'text-text-primary mt-2'}>
