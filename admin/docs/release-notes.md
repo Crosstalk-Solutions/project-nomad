@@ -15,7 +15,9 @@
 - **Knowledge Base**: Fixed an issue where file embedding jobs could cause a retry storm if the Ollama service was unavailable. Thanks @skyam25 for the bug report!
 - **Curated Collections**: Fixed some broken links in the curated collections definitions (maps and ZIM files) that were causing some resources to fail to download.
 - **Easy Setup**: Fixed an issue where the "Start Here" badge would persist even after visiting the Easy Setup Wizard for the first time. Thanks @chriscrosstalk for the fix!
+- **UI**: Fixed an issue where the loading spinner could look strange in certain use cases.
 - **System Updates**: Fixed an issue where the update banner would persist even after the system was updated successfully. Thanks @chriscrosstalk for the fix!
+- **Performance**: Various small memory leak fixes and performance improvements across the UI to ensure a smoother experience.
 
 ### Improvements
 - **Ollama**: Improved GPU detection logic to ensure the latest GPU config is always passed to the Ollama container on update
