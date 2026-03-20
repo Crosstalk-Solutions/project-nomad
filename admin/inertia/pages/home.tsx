@@ -97,7 +97,7 @@ export default function Home(props: {
   const { data: easySetupVisited } = useSystemSetting({
     key: 'ui.hasVisitedEasySetup'
   })
-  const shouldHighlightEasySetup = easySetupVisited?.value ? easySetupVisited?.value !== 'true' : false
+  const shouldHighlightEasySetup = easySetupVisited?.value ? String(easySetupVisited.value) !== 'true' : false
 
   // Add installed services (non-dependency services only)
   props.system.services
