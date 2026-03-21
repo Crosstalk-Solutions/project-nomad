@@ -403,6 +403,15 @@ download_management_compose_file() {
   local db_root_password=$(generateRandomPass)
   local db_user_password=$(generateRandomPass)
 
+  # If MySQL data directory exists from a previous install attempt, remove it.
+  # MySQL only initializes credentials on first startup when the data dir is empty.
+  # If stale data exists, MySQL ignores the new passwords above and uses the old ones,
+  # causing "Access denied" errors when the admin container tries to connect.
+  if [[ -d "${NOMAD_DIR}/mysql" ]]; then
+    echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
+    sudo rm -rf "${NOMAD_DIR}/mysql"
+  fi
+
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
   sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
