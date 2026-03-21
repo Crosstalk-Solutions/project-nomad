@@ -10,9 +10,9 @@ export function getServiceLink(ui_location: string): string {
         // If it fails, it means it's not a valid URL
     }
 
-    // Check if the ui location is a port number
+    // Check if the ui location is a port number (strict: must be only digits)
     const parsedPort = parseInt(ui_location, 10);
-    if (!isNaN(parsedPort)) {
+    if (!isNaN(parsedPort) && String(parsedPort) === ui_location.trim()) {
         // If it's a port number, return a link to the service on that port
         return `http://${window.location.hostname}:${parsedPort}`;
     }

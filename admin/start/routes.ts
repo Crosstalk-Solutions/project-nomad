@@ -147,6 +147,7 @@ router
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
     router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions'])
     router.post('/services/update', [SystemController, 'updateService'])
+    router.post('/services/update-location', [SystemController, 'updateServiceLocation'])
     router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes'])
     router.get('/latest-version', [SystemController, 'checkLatestVersion'])
     router.post('/update', [SystemController, 'requestSystemUpdate'])

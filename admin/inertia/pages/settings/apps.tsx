@@ -17,6 +17,7 @@ import { useTransmit } from 'react-adonis-transmit'
 import { BROADCAST_CHANNELS } from '../../../constants/broadcast'
 import { IconArrowUp, IconCheck, IconDownload } from '@tabler/icons-react'
 import UpdateServiceModal from '~/components/UpdateServiceModal'
+import EditServiceUrlModal from '~/components/EditServiceUrlModal'
 
 function extractTag(containerImage: string): string {
   if (!containerImage) return ''
@@ -199,6 +200,29 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     )
   }
 
+  function handleEditUrl(record: ServiceSlim) {
+    openModal(
+      <EditServiceUrlModal
+        record={record}
+        onCancel={closeAllModals}
+        onSave={async (uiLocation: string) => {
+          closeAllModals()
+          try {
+            const response = await api.updateServiceLocation(record.service_name, uiLocation)
+            if (!response?.success) {
+              throw new Error(response?.message || 'Update failed')
+            }
+            window.location.reload()
+          } catch (error: any) {
+            console.error(`Error updating service URL for ${record.service_name}:`, error)
+            showError(`Failed to update service URL: ${error.message || 'Unknown error'}`)
+          }
+        }}
+      />,
+      `${record.service_name}-edit-url-modal`
+    )
+  }
+
   const AppActions = ({ record }: { record: ServiceSlim }) => {
     const ForceReinstallButton = () => (
       <StyledButton
@@ -257,6 +281,12 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
           }}
         >
           Open
+        </StyledButton>
+        <StyledButton
+          icon={'IconEdit'}
+          onClick={() => handleEditUrl(record)}
+        >
+          Edit URL
         </StyledButton>
         {record.available_update_version && (
           <StyledButton

@@ -191,6 +191,16 @@ class API {
     })()
   }
 
+  async updateServiceLocation(serviceName: string, uiLocation: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/update-location',
+        { service_name: serviceName, ui_location: uiLocation }
+      )
+      return response.data
+    })()
+  }
+
   async forceReinstallService(service_name: string) {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(

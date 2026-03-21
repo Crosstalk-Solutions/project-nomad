@@ -3,7 +3,7 @@ import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
 import { ContainerRegistryService } from '#services/container_registry_service'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
-import { affectServiceValidator, checkLatestVersionValidator, installServiceValidator, subscribeToReleaseNotesValidator, updateServiceValidator } from '#validators/system';
+import { affectServiceValidator, checkLatestVersionValidator, installServiceValidator, subscribeToReleaseNotesValidator, updateServiceLocationValidator, updateServiceValidator } from '#validators/system';
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -160,6 +160,18 @@ export default class SystemController {
         } else {
             response.status(400).send({ error: result.message })
         }
+    }
+
+    async updateServiceLocation({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(updateServiceLocationValidator)
+        const Service = (await import('#models/service')).default
+        const service = await Service.findBy('service_name', payload.service_name)
+        if (!service) {
+            return response.status(404).send({ error: 'Service not found' })
+        }
+        service.ui_location = payload.ui_location
+        await service.save()
+        return response.send({ success: true, message: 'Service location updated successfully' })
     }
 
     private async getHostArch(): Promise<string> {
