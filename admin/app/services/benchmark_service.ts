@@ -571,10 +571,10 @@ export class BenchmarkService {
    */
   private _normalizeScore(value: number, reference: number): number {
     if (value <= 0) return 0
-    // Log scale: score = 50 * (1 + log2(value/reference))
-    // This gives 50 at reference value, scales logarithmically
+    // Log scale with widened range: dividing log2 by 3 prevents scores from
+    // clamping to 0% for below-average hardware. Gives 50% at reference value.
     const ratio = value / reference
-    const score = 50 * (1 + Math.log2(Math.max(0.01, ratio)))
+    const score = 50 * (1 + Math.log2(Math.max(0.01, ratio)) / 3)
     return Math.min(100, Math.max(0, score)) / 100
   }
 
@@ -583,9 +583,9 @@ export class BenchmarkService {
    */
   private _normalizeScoreInverse(value: number, reference: number): number {
     if (value <= 0) return 1
-    // Inverse: lower values = higher scores
+    // Inverse: lower values = higher scores, with widened log range
     const ratio = reference / value
-    const score = 50 * (1 + Math.log2(Math.max(0.01, ratio)))
+    const score = 50 * (1 + Math.log2(Math.max(0.01, ratio)) / 3)
     return Math.min(100, Math.max(0, score)) / 100
   }
 
@@ -619,6 +619,7 @@ export class BenchmarkService {
     const eventsMatch = output.match(/events per second:\s*([\d.]+)/i)
     const totalTimeMatch = output.match(/total time:\s*([\d.]+)s/i)
     const totalEventsMatch = output.match(/total number of events:\s*(\d+)/i)
+    logger.debug(`[BenchmarkService] CPU output parsing - events/s: ${eventsMatch?.[1]}, total_time: ${totalTimeMatch?.[1]}, total_events: ${totalEventsMatch?.[1]}`)
 
     return {
       events_per_second: eventsMatch ? parseFloat(eventsMatch[1]) : 0,
