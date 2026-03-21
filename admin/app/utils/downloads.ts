@@ -6,6 +6,7 @@ import axios from 'axios'
 import { Transform } from 'stream'
 import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from './fs.js'
 import { createWriteStream } from 'fs'
+import { rename } from 'fs/promises'
 import path from 'path'
 
 /**
@@ -27,13 +28,16 @@ export async function doResumableDownload({
   const dirname = path.dirname(filepath)
   await ensureDirectoryExists(dirname)
 
-  // Check if partial file exists for resume
+  // Stage download to a .tmp file so consumers (e.g. Kiwix) never see a partial file
+  const tempPath = filepath + '.tmp'
+
+  // Check if partial .tmp file exists for resume
   let startByte = 0
   let appendMode = false
 
-  const existingStats = await getFileStatsIfExists(filepath)
+  const existingStats = await getFileStatsIfExists(tempPath)
   if (existingStats && !forceNew) {
-    startByte = existingStats.size
+    startByte = Number(existingStats.size)
     appendMode = true
   }
 
@@ -55,14 +59,24 @@ export async function doResumableDownload({
     }
   }
 
-  // If file is already complete and not forcing overwrite just return filepath
-  if (startByte === totalBytes && totalBytes > 0 && !forceNew) {
+  // If final file already exists at correct size, return early (idempotent)
+  const finalFileStats = await getFileStatsIfExists(filepath)
+  if (finalFileStats && Number(finalFileStats.size) === totalBytes && totalBytes > 0 && !forceNew) {
     return filepath
   }
 
-  // If server doesn't support range requests and we have a partial file, delete it
+  // If .tmp file is already at correct size (complete but never renamed), just rename it
+  if (startByte === totalBytes && totalBytes > 0 && !forceNew) {
+    await rename(tempPath, filepath)
+    if (onComplete) {
+      await onComplete(url, filepath)
+    }
+    return filepath
+  }
+
+  // If server doesn't support range requests and we have a partial .tmp file, delete it
   if (!supportsRangeRequests && startByte > 0) {
-    await deleteFileIfExists(filepath)
+    await deleteFileIfExists(tempPath)
     startByte = 0
     appendMode = false
   }
@@ -131,7 +145,7 @@ export async function doResumableDownload({
       },
     })
 
-    const writeStream = createWriteStream(filepath, {
+    const writeStream = createWriteStream(tempPath, {
       flags: appendMode ? 'a' : 'w',
     })
 
@@ -157,6 +171,13 @@ export async function doResumableDownload({
 
     writeStream.on('finish', async () => {
       clearStallTimer()
+      try {
+        // Atomically move the completed .tmp file to the final path
+        await rename(tempPath, filepath)
+      } catch (renameError) {
+        reject(renameError)
+        return
+      }
       if (onProgress) {
         onProgress({
           downloadedBytes,
