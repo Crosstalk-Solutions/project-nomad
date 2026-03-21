@@ -1,118 +1,123 @@
-import KVStore from '#models/kv_store';
-import { BenchmarkService } from '#services/benchmark_service';
-import { MapService } from '#services/map_service';
-import { OllamaService } from '#services/ollama_service';
-import { SystemService } from '#services/system_service';
-import { updateSettingSchema } from '#validators/settings';
-import { inject } from '@adonisjs/core';
+import KVStore from '#models/kv_store'
+import { BenchmarkService } from '#services/benchmark_service'
+import { MapService } from '#services/map_service'
+import { OllamaService } from '#services/ollama_service'
+import { SystemService } from '#services/system_service'
+import { updateSettingSchema } from '#validators/settings'
+import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import type { KVStoreKey } from '../../types/kv_store.js';
+import type { KVStoreKey } from '../../types/kv_store.js'
 
 @inject()
 export default class SettingsController {
-    constructor(
-        private systemService: SystemService,
-        private mapService: MapService,
-        private benchmarkService: BenchmarkService,
-        private ollamaService: OllamaService
-    ) { }
+  constructor(
+    private systemService: SystemService,
+    private mapService: MapService,
+    private benchmarkService: BenchmarkService,
+    private ollamaService: OllamaService
+  ) {}
 
-    async system({ inertia }: HttpContext) {
-        const systemInfo = await this.systemService.getSystemInfo();
-        return inertia.render('settings/system', {
-            system: {
-                info: systemInfo
-            }
-        });
-    }
+  async system({ inertia }: HttpContext) {
+    const systemInfo = await this.systemService.getSystemInfo()
+    return inertia.render('settings/system', {
+      system: {
+        info: systemInfo,
+      },
+    })
+  }
 
-    async apps({ inertia }: HttpContext) {
-        const services = await this.systemService.getServices({ installedOnly: false });
-        return inertia.render('settings/apps', {
-            system: {
-                services
-            }
-        });
-    }
-    
-    async legal({ inertia }: HttpContext) {
-        return inertia.render('settings/legal');
-    }
+  async apps({ inertia }: HttpContext) {
+    const services = await this.systemService.getServices({ installedOnly: false })
+    return inertia.render('settings/apps', {
+      system: {
+        services,
+      },
+    })
+  }
 
-    async support({ inertia }: HttpContext) {
-        return inertia.render('settings/support');
-    }
+  async legal({ inertia }: HttpContext) {
+    return inertia.render('settings/legal')
+  }
 
-    async maps({ inertia }: HttpContext) {
-        const baseAssetsCheck = await this.mapService.ensureBaseAssets();
-        const regionFiles = await this.mapService.listRegions();
-        return inertia.render('settings/maps', {
-            maps: {
-                baseAssetsExist: baseAssetsCheck,
-                regionFiles: regionFiles.files
-            }
-        });
-    }
+  async support({ inertia }: HttpContext) {
+    return inertia.render('settings/support')
+  }
 
-    async models({ inertia }: HttpContext) {
-        const availableModels = await this.ollamaService.getAvailableModels({ sort: 'pulls', recommendedOnly: false, query: null, limit: 15 });
-        const installedModels = await this.ollamaService.getModels().catch(() => [])
-        const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
-        const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
-        const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
-        return inertia.render('settings/models', {
-            models: {
-                availableModels: availableModels?.models || [],
-                installedModels: installedModels || [],
-                settings: {
-                    chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
-                    aiAssistantCustomName: aiAssistantCustomName ?? '',
-                    remoteOllamaUrl: remoteOllamaUrl ?? '',
-                }
-            }
-        });
-    }
+  async maps({ inertia }: HttpContext) {
+    const baseAssetsCheck = await this.mapService.ensureBaseAssets()
+    const regionFiles = await this.mapService.listRegions()
+    return inertia.render('settings/maps', {
+      maps: {
+        baseAssetsExist: baseAssetsCheck,
+        regionFiles: regionFiles.files,
+      },
+    })
+  }
 
-    async update({ inertia }: HttpContext) {
-        const updateInfo = await this.systemService.checkLatestVersion();
-        return inertia.render('settings/update', {
-            system: {
-                updateAvailable: updateInfo.updateAvailable,
-                latestVersion: updateInfo.latestVersion,
-                currentVersion: updateInfo.currentVersion
-            }
-        });
-    }
+  async models({ inertia }: HttpContext) {
+    const availableModels = await this.ollamaService.getAvailableModels({
+      sort: 'pulls',
+      recommendedOnly: false,
+      query: null,
+      limit: 15,
+    })
+    const installedModels = await this.ollamaService.getModels().catch(() => [])
+    const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
+    const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
+    const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    return inertia.render('settings/models', {
+      models: {
+        availableModels: availableModels?.models || [],
+        installedModels: installedModels || [],
+        settings: {
+          chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
+          aiAssistantCustomName: aiAssistantCustomName ?? '',
+          remoteOllamaUrl: remoteOllamaUrl ?? '',
+        },
+      },
+    })
+  }
 
-    async zim({ inertia }: HttpContext) {
-        return inertia.render('settings/zim/index')
-    }
+  async update({ inertia }: HttpContext) {
+    const updateInfo = await this.systemService.checkLatestVersion()
+    return inertia.render('settings/update', {
+      system: {
+        updateAvailable: updateInfo.updateAvailable,
+        latestVersion: updateInfo.latestVersion,
+        currentVersion: updateInfo.currentVersion,
+      },
+    })
+  }
 
-    async zimRemote({ inertia }: HttpContext) {
-        return inertia.render('settings/zim/remote-explorer');
-    }
+  async zim({ inertia }: HttpContext) {
+    return inertia.render('settings/zim/index')
+  }
 
-    async benchmark({ inertia }: HttpContext) {
-        const latestResult = await this.benchmarkService.getLatestResult();
-        const status = this.benchmarkService.getStatus();
-        return inertia.render('settings/benchmark', {
-            benchmark: {
-                latestResult,
-                status: status.status,
-                currentBenchmarkId: status.benchmarkId
-            }
-        });
-    }
+  async zimRemote({ inertia }: HttpContext) {
+    return inertia.render('settings/zim/remote-explorer')
+  }
 
-    async getSetting({ request, response }: HttpContext) {
-        const key = request.qs().key;
-        const value = await KVStore.getValue(key as KVStoreKey);
-        return response.status(200).send({ key, value });
-    }
+  async benchmark({ inertia }: HttpContext) {
+    const latestResult = await this.benchmarkService.getLatestResult()
+    const status = this.benchmarkService.getStatus()
+    return inertia.render('settings/benchmark', {
+      benchmark: {
+        latestResult,
+        status: status.status,
+        currentBenchmarkId: status.benchmarkId,
+      },
+    })
+  }
 
-    async updateSetting({ request, response }: HttpContext) {
-        const reqData = await request.validateUsing(updateSettingSchema);
-        await this.systemService.updateSetting(reqData.key, reqData.value);
-        return response.status(200).send({ success: true, message: 'Setting updated successfully' });
-    }
+  async getSetting({ request, response }: HttpContext) {
+    const key = request.qs().key
+    const value = await KVStore.getValue(key as KVStoreKey)
+    return response.status(200).send({ key, value })
+  }
+
+  async updateSetting({ request, response }: HttpContext) {
+    const reqData = await request.validateUsing(updateSettingSchema)
+    await this.systemService.updateSetting(reqData.key, reqData.value)
+    return response.status(200).send({ success: true, message: 'Setting updated successfully' })
+  }
 }
