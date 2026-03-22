@@ -6,72 +6,53 @@ Potential categories to add to the tiered collections system in `kiwix-categorie
 - [x] Medicine - Medical references, first aid, emergency care
 - [x] Survival & Preparedness - Food prep, prepper videos, repair guides
 - [x] Education & Reference - Wikipedia, textbooks, TED talks
+- [x] DIY & Repair - Woodworking, vehicle repair, home improvement, iFixit
+- [x] Agriculture & Food - Cooking, gardening, homesteading, food preservation
+- [x] Computing & Technology - freeCodeCamp, DevDocs, Arduino, Raspberry Pi, electronics
+- [x] Children & Family - African Storybooks, Gutenberg children's lit, Wikipedia for Schools, PhET simulations
+- [x] Languages & Reference - Wiktionary (EN, ES, FR, AR, DE, PT)
+- [x] History & Culture - Project Gutenberg history, History Q&A, Wikipedia History
+- [x] Legal & Civic - Civics guides, Gutenberg law, Law Q&A, Personal Finance Q&A
 
 ---
 
 ## High Priority
 
-### Technology & Programming
-Stack Overflow, developer documentation, coding tutorials
-- Stack Overflow (multiple tags available)
-- DevDocs documentation
-- freeCodeCamp
-- Programming language references
-
-### Children & Family
-Age-appropriate educational content for kids
-- Wikipedia for Schools
-- Wikibooks Children's Bookshelf
-- Khan Academy Kids (via Kolibri - separate system)
-- Storybooks, fairy tales
-
 ### Trades & Vocational
-Practical skills for building, fixing, and maintaining
-- Electrical wiring guides
-- Plumbing basics
-- Automotive repair
-- Woodworking
-- Welding fundamentals
+Practical skills beyond DIY — licensed trades and professional vocational content
+- Electrical wiring codes and guides
+- Plumbing fundamentals
+- Welding techniques
+- HVAC basics
+- Construction safety
 
-### Agriculture & Gardening
-Food production and farming (expand beyond what's in Survival)
-- Practical Plants database
-- Permaculture guides
-- Seed saving
-- Animal husbandry
-- Composting and soil management
+### Communications
+Emergency and amateur radio, networking
+- Ham radio guides (ARRL)
+- Emergency communication protocols (FEMA/NIMS)
+- Basic networking/IT
+- Signal procedures
 
 ---
 
 ## Medium Priority
 
-### Languages & Reference
-Dictionaries, language learning, translation
-- Wiktionary (multiple languages)
-- Language learning resources
-- Translation dictionaries
-- Grammar guides
+### Mental Health & Psychology
+- Psychology Stack Exchange
+- Mindfulness and wellness guides
+- Crisis support references
 
-### History & Culture
-Historical knowledge and cultural encyclopedias
-- Wikipedia History portal content
-- Historical documents
-- Cultural archives
-- Biographies
+### Religion & Philosophy
+Spiritual and philosophical texts
+- Religious texts (various traditions)
+- Philosophy references (Stanford Encyclopedia if available)
+- Ethics guides
 
-### Legal & Civic
-Laws, rights, and civic procedures
-- Legal references
-- Constitutional documents
-- Civic procedures
-- Rights and responsibilities
-
-### Communications
-Emergency and amateur radio, networking
-- Ham radio guides
-- Emergency communication protocols
-- Basic networking/IT
-- Signal procedures
+### Regional/Non-English Bundles
+Content in other languages
+- Spanish Wikipedia (mini)
+- French Wikipedia (mini)
+- Other major languages
 
 ---
 
@@ -79,22 +60,9 @@ Emergency and amateur radio, networking
 
 ### Entertainment
 Recreational reading and activities
-- Project Gutenberg (fiction categories)
+- Project Gutenberg fiction (lcc-pr: English literature)
 - Chess tutorials
-- Puzzles and games
 - Music theory
-
-### Religion & Philosophy
-Spiritual and philosophical texts
-- Religious texts (various traditions)
-- Philosophy references
-- Ethics guides
-
-### Regional/Non-English Bundles
-Content in other languages
-- Spanish language bundle
-- French language bundle
-- Other major languages
 
 ---
 

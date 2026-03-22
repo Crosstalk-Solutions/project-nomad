@@ -116,6 +116,7 @@ router
     router.post('/', [ChatsController, 'store'])
     router.delete('/all', [ChatsController, 'destroyAll'])
     router.get('/:id', [ChatsController, 'show'])
+    router.get('/:id/export', [ChatsController, 'exportMarkdown'])
     router.put('/:id', [ChatsController, 'update'])
     router.delete('/:id', [ChatsController, 'destroy'])
     router.post('/:id/messages', [ChatsController, 'addMessage'])

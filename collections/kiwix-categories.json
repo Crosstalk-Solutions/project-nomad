@@ -615,5 +615,306 @@
         }
       ]
     }
+  ,
+    {
+      "name": "Children & Family",
+      "slug": "children",
+      "icon": "IconAbc",
+      "description": "Age-appropriate educational content, storybooks, and family learning resources for young readers.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "children-essential",
+          "description": "Illustrated storybooks and children's literature classics. Lightweight and fun.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "storybooks-en_en_all",
+              "version": "2024-05",
+              "title": "African Storybooks",
+              "description": "Illustrated storybooks for early readers in English",
+              "url": "https://download.kiwix.org/zim/other/storybooks-en_en_all_2024-05.zim",
+              "size_mb": 77
+            },
+            {
+              "id": "gutenberg_en_lcc-pz",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Children's Literature",
+              "description": "Classic children's books and fairy tales from public domain",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-pz_2026-03.zim",
+              "size_mb": 490
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "children-standard",
+          "description": "Adds Wikipedia for Schools - curriculum-aligned articles for K-12 learners. Includes Essential.",
+          "includesTier": "children-essential",
+          "resources": [
+            {
+              "id": "wikipedia_en_schools",
+              "version": "2023-10",
+              "title": "Wikipedia for Schools",
+              "description": "Curriculum-aligned Wikipedia articles selected for K-12 education",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_schools_2023-10.zim",
+              "size_mb": 3800
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "children-comprehensive",
+          "description": "Full educational library with interactive science simulations and math tools. Includes Standard.",
+          "includesTier": "children-standard",
+          "resources": [
+            {
+              "id": "phet.colorado.edu_en_all",
+              "version": "2025-08",
+              "title": "PhET Interactive Simulations",
+              "description": "Interactive science and math simulations from University of Colorado",
+              "url": "https://download.kiwix.org/zim/phet/phet.colorado.edu_en_all_2025-08.zim",
+              "size_mb": 320
+            },
+            {
+              "id": "ted_mul_ted-ed-series",
+              "version": "2025-07",
+              "title": "TED-Ed: Think Like a Coder",
+              "description": "Animated educational series on logic, coding concepts, and problem solving",
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-ed-series_2025-07.zim",
+              "size_mb": 710
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Languages & Reference",
+      "slug": "languages",
+      "icon": "IconLanguage",
+      "description": "Dictionaries, language references, and translation tools for over 170 languages.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "languages-essential",
+          "description": "English dictionary and thesaurus for everyday language reference.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "wiktionary_en_all_nopic",
+              "version": "2025-10",
+              "title": "Wiktionary (English)",
+              "description": "Community-built dictionary with definitions, pronunciations, and etymology",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_en_all_nopic_2025-10.zim",
+              "size_mb": 1100
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "languages-standard",
+          "description": "Adds Spanish and French dictionaries for multilingual households. Includes Essential.",
+          "includesTier": "languages-essential",
+          "resources": [
+            {
+              "id": "wiktionary_es_all_nopic",
+              "version": "2025-10",
+              "title": "Wiktionary (Spanish)",
+              "description": "Spanish language dictionary with definitions and grammar notes",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_es_all_nopic_2025-10.zim",
+              "size_mb": 780
+            },
+            {
+              "id": "wiktionary_fr_all_nopic",
+              "version": "2025-10",
+              "title": "Wiktionary (French)",
+              "description": "French language dictionary with definitions and conjugations",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_fr_all_nopic_2025-10.zim",
+              "size_mb": 900
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "languages-comprehensive",
+          "description": "Extended multilingual library with Arabic, German, and Portuguese. Includes Standard.",
+          "includesTier": "languages-standard",
+          "resources": [
+            {
+              "id": "wiktionary_ar_all_nopic",
+              "version": "2025-10",
+              "title": "Wiktionary (Arabic)",
+              "description": "Arabic language dictionary and reference",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_ar_all_nopic_2025-10.zim",
+              "size_mb": 340
+            },
+            {
+              "id": "wiktionary_de_all_nopic",
+              "version": "2025-10",
+              "title": "Wiktionary (German)",
+              "description": "German language dictionary with definitions and grammar",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_de_all_nopic_2025-10.zim",
+              "size_mb": 700
+            },
+            {
+              "id": "wiktionary_pt_all_nopic",
+              "version": "2025-10",
+              "title": "Wiktionary (Portuguese)",
+              "description": "Portuguese language dictionary and reference",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_pt_all_nopic_2025-10.zim",
+              "size_mb": 560
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History & Culture",
+      "slug": "history",
+      "icon": "IconTimeline",
+      "description": "World history, biographies, geography, and cultural heritage from ancient to modern times.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "history-essential",
+          "description": "Classic historical texts and military history from public domain.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "gutenberg_en_lcc-d",
+              "version": "2026-03",
+              "title": "Project Gutenberg: History & Geography",
+              "description": "Classic works on world history, exploration, and civilizations",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-d_2026-03.zim",
+              "size_mb": 3800
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "history-standard",
+          "description": "Adds Stack Exchange history Q&A and biographies. Includes Essential.",
+          "includesTier": "history-essential",
+          "resources": [
+            {
+              "id": "history.stackexchange.com_en_all",
+              "version": "2025-12",
+              "title": "History Q&A",
+              "description": "Stack Exchange Q&A on historical events, people, and timelines",
+              "url": "https://download.kiwix.org/zim/stack_exchange/history.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 303
+            },
+            {
+              "id": "gutenberg_en_lcc-e",
+              "version": "2026-03",
+              "title": "Project Gutenberg: American History",
+              "description": "Founding documents, historical narratives, and American biographies",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-e_2026-03.zim",
+              "size_mb": 2600
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "history-comprehensive",
+          "description": "Deep cultural archive including philosophy, literature, and world biographies. Includes Standard.",
+          "includesTier": "history-standard",
+          "resources": [
+            {
+              "id": "wikipedia_en_history_maxi",
+              "version": "2025-11",
+              "title": "Wikipedia History & Culture",
+              "description": "Curated Wikipedia articles on history, biography, and cultural heritage",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_history_maxi_2025-11.zim",
+              "size_mb": 3100
+            },
+            {
+              "id": "gutenberg_en_lcc-b",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Philosophy & Biography",
+              "description": "Works on philosophy, psychology, ethics, and notable biographies",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-b_2026-03.zim",
+              "size_mb": 1900
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Legal & Civic",
+      "slug": "legal",
+      "icon": "IconScale",
+      "description": "Know your rights - legal references, civic documents, and law Q&A for everyday situations.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "legal-essential",
+          "description": "Core civic documents and foundational legal texts. Essential reference for any household.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "zimgit-zimgit-civics_en",
+              "version": "2024-08",
+              "title": "Civics & Government",
+              "description": "US government structure, Constitution, Bill of Rights, and civic participation guides",
+              "url": "https://download.kiwix.org/zim/other/zimgit-civics_en_2024-08.zim",
+              "size_mb": 12
+            },
+            {
+              "id": "gutenberg_en_lcc-k",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Law",
+              "description": "Historical legal texts, treatises, and foundational law documents",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-k_2026-03.zim",
+              "size_mb": 470
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "legal-standard",
+          "description": "Adds community legal Q&A for practical everyday legal questions. Includes Essential.",
+          "includesTier": "legal-essential",
+          "resources": [
+            {
+              "id": "law.stackexchange.com_en_all",
+              "version": "2025-12",
+              "title": "Law Q&A",
+              "description": "Stack Exchange Q&A covering contracts, tenant rights, employment, and everyday legal questions",
+              "url": "https://download.kiwix.org/zim/stack_exchange/law.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 229
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "legal-comprehensive",
+          "description": "Complete legal reference including personal finance and government data. Includes Standard.",
+          "includesTier": "legal-standard",
+          "resources": [
+            {
+              "id": "personalfinance.stackexchange.com_en_all",
+              "version": "2025-12",
+              "title": "Personal Finance Q&A",
+              "description": "Stack Exchange Q&A on budgeting, taxes, investing, and financial planning",
+              "url": "https://download.kiwix.org/zim/stack_exchange/personalfinance.stackexchange.com_en_all_2025-12.zim",
+              "size_mb": 407
+            },
+            {
+              "id": "wikipedia_en_wp_politics_maxi",
+              "version": "2025-11",
+              "title": "Wikipedia Politics & Government",
+              "description": "Curated Wikipedia articles on political systems, governments, and civic institutions",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_wp_politics_maxi_2025-11.zim",
+              "size_mb": 890
+            }
+          ]
+        }
+      ]
+    }
   ]
 }

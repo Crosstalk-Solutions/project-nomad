@@ -100,6 +100,40 @@ export default class ChatsController {
     }
   }
 
+  async exportMarkdown({ params, response }: HttpContext) {
+    const sessionId = parseInt(params.id)
+    const session = await this.chatService.getSession(sessionId)
+
+    if (!session) {
+      return response.status(404).json({ error: 'Session not found' })
+    }
+
+    const lines: string[] = [
+      `# ${session.title}`,
+      ``,
+      `**Model:** ${session.model}  `,
+      `**Exported:** ${new Date().toUTCString()}`,
+      ``,
+      `---`,
+      ``,
+    ]
+
+    for (const msg of session.messages ?? []) {
+      const label = msg.role === 'user' ? '**You**' : '**Assistant**'
+      lines.push(`${label}`, ``, msg.content, ``, `---`, ``)
+    }
+
+    const filename = session.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const markdown = lines.join('\n')
+
+    response.header('Content-Type', 'text/markdown; charset=utf-8')
+    response.header('Content-Disposition', `attachment; filename="${filename}.md"`)
+    return response.send(markdown)
+  }
+
   async destroyAll({ response }: HttpContext) {
     try {
       const result = await this.chatService.deleteAllSessions()
