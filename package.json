@@ -4,7 +4,13 @@
   "description": "\"",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "electron:install": "cd electron && npm install",
+    "electron:build": "cd electron && npm run build",
+    "electron:dev": "cd electron && npm run dev",
+    "electron:package:linux": "cd electron && npm run package:linux",
+    "electron:package:mac": "cd electron && npm run package:mac",
+    "electron:package:win": "cd electron && npm run package:win"
   },
   "author": "Crosstalk Solutions, LLC",
   "license": "ISC"

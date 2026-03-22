@@ -1,0 +1,49 @@
+{
+  "name": "nomad-desktop",
+  "version": "1.0.0",
+  "description": "Project N.O.M.A.D. Desktop Application",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "build": "tsc && cp src/loading.html dist/loading.html",
+    "dev": "npm run build && electron .",
+    "watch": "tsc --watch",
+    "package:linux": "npm run build && electron-builder --linux",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.7.0"
+  },
+  "build": {
+    "appId": "us.projectnomad.desktop",
+    "productName": "Project N.O.M.A.D.",
+    "copyright": "Copyright © 2025 Crosstalk Solutions, LLC",
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Network"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "assets/icon.icns",
+      "darkModeSupport": true
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    }
+  }
+}

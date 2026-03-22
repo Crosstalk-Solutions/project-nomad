@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+  <title>Project N.O.M.A.D.</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #0a0f1e;
+      --surface:   #0f172a;
+      --border:    #1e293b;
+      --accent:    #38bdf8;
+      --accent-dim:#0c4a6e;
+      --text:      #f1f5f9;
+      --muted:     #64748b;
+      --success:   #34d399;
+      --error:     #f87171;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      /* Allow dragging the frameless window by the body */
+      -webkit-app-region: drag;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    /* ── Layout ── */
+    .shell {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 40px;
+    }
+
+    /* ── Logo mark ── */
+    .logo-mark {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent-dim) 0%, #0f2d4a 100%);
+      border: 1px solid var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 0 32px rgba(56, 189, 248, 0.12);
+    }
+
+    .logo-mark svg {
+      width: 34px;
+      height: 34px;
+    }
+
+    /* ── Wordmark ── */
+    .wordmark {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .wordmark .dot { color: var(--accent); }
+
+    .tagline {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 52px;
+    }
+
+    /* ── Progress area ── */
+    .progress-area {
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .track {
+      width: 100%;
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .fill {
+      position: absolute;
+      inset: 0;
+      background: var(--accent);
+      border-radius: 1px;
+      width: 0%;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: left;
+    }
+
+    .fill.indeterminate {
+      width: 35%;
+      animation: slide 1.6s ease-in-out infinite;
+    }
+
+    .fill.success { background: var(--success); }
+    .fill.error   { background: var(--error); width: 100%; }
+
+    @keyframes slide {
+      0%   { transform: translateX(-110%); }
+      100% { transform: translateX(350%); }
+    }
+
+    .status-text {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      min-height: 20px;
+      transition: color 0.2s;
+    }
+
+    .status-text.success { color: var(--success); }
+    .status-text.error   { color: var(--error); }
+
+    /* ── Error retry button ── */
+    .retry-btn {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 20px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .retry-btn:hover {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: var(--accent);
+    }
+
+    .retry-btn.visible { display: block; }
+
+    /* ── Subtle version ── */
+    .version {
+      position: fixed;
+      bottom: 20px;
+      font-size: 11px;
+      color: #334155;
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- Logo mark -->
+    <div class="logo-mark">
+      <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Stylised signal-wave / satellite icon -->
+        <circle cx="17" cy="17" r="4" fill="#38bdf8"/>
+        <path d="M11 17 A6 6 0 0 1 23 17" stroke="#38bdf8" stroke-width="1.8"
+              stroke-linecap="round" fill="none"/>
+        <path d="M7 17 A10 10 0 0 1 27 17" stroke="#38bdf8" stroke-width="1.4"
+              stroke-linecap="round" fill="none" opacity="0.5"/>
+        <path d="M3 17 A14 14 0 0 1 31 17" stroke="#38bdf8" stroke-width="1"
+              stroke-linecap="round" fill="none" opacity="0.25"/>
+      </svg>
+    </div>
+
+    <!-- Wordmark -->
+    <div class="wordmark">
+      N<span class="dot">.</span>O<span class="dot">.</span>M<span class="dot">.</span>A<span class="dot">.</span>D<span class="dot">.</span>
+    </div>
+    <div class="tagline">Offline Knowledge Server</div>
+
+    <!-- Progress -->
+    <div class="progress-area">
+      <div class="track">
+        <div class="fill indeterminate" id="fill"></div>
+      </div>
+      <div class="status-text" id="status">Initializing…</div>
+      <button class="retry-btn" id="retry-btn">Try Again</button>
+    </div>
+
+  </div>
+
+  <div class="version">v<!-- version injected by build if needed --></div>
+
+  <script>
+    const fill      = document.getElementById('fill')
+    const statusEl  = document.getElementById('status')
+    const retryBtn  = document.getElementById('retry-btn')
+
+    function applyStatus({ message, progress, type }) {
+      statusEl.textContent = message
+
+      // Reset classes
+      fill.className      = 'fill'
+      statusEl.className  = 'status-text'
+      retryBtn.className  = 'retry-btn'
+
+      if (type === 'error') {
+        fill.classList.add('error')
+        statusEl.classList.add('error')
+        retryBtn.classList.add('visible')
+      } else if (type === 'success') {
+        fill.classList.add('success')
+        fill.style.width = '100%'
+        statusEl.classList.add('success')
+      } else {
+        fill.style.width = progress + '%'
+      }
+    }
+
+    retryBtn.addEventListener('click', () => {
+      // Reset UI to loading state
+      fill.className = 'fill indeterminate'
+      fill.style.width = ''
+      statusEl.className = 'status-text'
+      statusEl.textContent = 'Retrying…'
+      retryBtn.className = 'retry-btn'
+
+      if (window.nomadElectron) {
+        window.nomadElectron.retryLaunch()
+      }
+    })
+
+    // Hook into Electron IPC
+    if (window.nomadElectron) {
+      window.nomadElectron.onStatus(applyStatus)
+    }
+  </script>
+</body>
+</html>
