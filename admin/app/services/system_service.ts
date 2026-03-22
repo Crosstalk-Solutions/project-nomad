@@ -154,18 +154,22 @@ export class SystemService {
     vram: number
   }> | null> {
     try {
-      const containers = await this.dockerService.docker.listContainers({ all: false })
-      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
-      if (!ollamaContainer) {
-        return null
+      // If a remote Ollama URL is configured, use it directly without requiring a local container
+      const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (!remoteOllamaUrl) {
+        const containers = await this.dockerService.docker.listContainers({ all: false })
+        const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
+        if (!ollamaContainer) {
+          return null
+        }
+
+        const actualImage = (ollamaContainer.Image || '').toLowerCase()
+        if (actualImage.includes('ollama/ollama') || actualImage.startsWith('ollama:')) {
+          return null
+        }
       }
 
-      const actualImage = (ollamaContainer.Image || '').toLowerCase()
-      if (actualImage.includes('ollama/ollama') || actualImage.startsWith('ollama:')) {
-        return null
-      }
-
-      const ollamaUrl = await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
+      const ollamaUrl = remoteOllamaUrl || (await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA))
       if (!ollamaUrl) {
         return null
       }
@@ -354,7 +358,21 @@ export class SystemService {
               gpuHealth.status = 'ok'
               gpuHealth.ollamaGpuAccessible = true
             } else if (nvidiaInfo === 'OLLAMA_NOT_FOUND') {
-              gpuHealth.status = 'ollama_not_installed'
+              // No local Ollama container — check if a remote Ollama URL is configured
+              const externalOllamaGpu = await this.getExternalOllamaGpuInfo()
+              if (externalOllamaGpu) {
+                graphics.controllers = externalOllamaGpu.map((gpu) => ({
+                  model: gpu.model,
+                  vendor: gpu.vendor,
+                  bus: '',
+                  vram: gpu.vram,
+                  vramDynamic: false,
+                }))
+                gpuHealth.status = 'ok'
+                gpuHealth.ollamaGpuAccessible = true
+              } else {
+                gpuHealth.status = 'ollama_not_installed'
+              }
             } else {
               const externalOllamaGpu = await this.getExternalOllamaGpuInfo()
               if (externalOllamaGpu) {
