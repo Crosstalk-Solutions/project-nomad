@@ -112,7 +112,9 @@ const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
-export default function EasySetupWizard(props: { system: { services: ServiceSlim[] } }) {
+export default function EasySetupWizard(props: {
+  system: { services: ServiceSlim[]; remoteOllamaUrl: string }
+}) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const CORE_CAPABILITIES = buildCoreCapabilities(aiAssistantName)
 
@@ -122,6 +124,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAdditionalTools, setShowAdditionalTools] = useState(false)
+  const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(
+    () => !!props.system.remoteOllamaUrl
+  )
+  const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(() => props.system.remoteOllamaUrl ?? '')
+  const [remoteOllamaUrlError, setRemoteOllamaUrlError] = useState<string | null>(null)
 
   // Category/tier selection state
   const [selectedTiers, setSelectedTiers] = useState<Map<string, SpecTier>>(new Map())
@@ -331,8 +338,24 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     setIsProcessing(true)
 
     try {
+      // If using remote Ollama, configure it first before other installs
+      if (remoteOllamaEnabled && remoteOllamaUrl) {
+        const remoteResult = await api.configureRemoteOllama(remoteOllamaUrl)
+        if (!remoteResult?.success) {
+          const msg = (remoteResult as any)?.message || 'Failed to configure remote Ollama.'
+          setRemoteOllamaUrlError(msg)
+          setIsProcessing(false)
+          setCurrentStep(1)
+          return
+        }
+      }
+
       // All of these ops don't actually wait for completion, they just kick off the process, so we can run them in parallel without awaiting each one sequentially
-      const installPromises = selectedServices.map((serviceName) => api.installService(serviceName))
+      // Exclude Ollama from local install when using remote mode
+      const servicesToInstall = remoteOllamaEnabled
+        ? selectedServices.filter((s) => s !== SERVICE_NAMES.OLLAMA)
+        : selectedServices
+      const installPromises = servicesToInstall.map((serviceName) => api.installService(serviceName))
 
       await Promise.all(installPromises)
 
@@ -661,9 +684,53 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               <div>
                 <h3 className="text-lg font-semibold text-text-primary mb-4">Core Capabilities</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {existingCoreCapabilities.map((capability) =>
-                    renderCapabilityCard(capability, true)
-                  )}
+                  {existingCoreCapabilities.map((capability) => {
+                    if (capability.id === 'ai') {
+                      const isAiSelected = isCapabilitySelected(capability)
+                      return (
+                        <div key={capability.id}>
+                          {renderCapabilityCard(capability, true)}
+                          {isAiSelected && !isCapabilityInstalled(capability) && (
+                            <div
+                              className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={remoteOllamaEnabled}
+                                  onChange={(e) => {
+                                    setRemoteOllamaEnabled(e.target.checked)
+                                    setRemoteOllamaUrlError(null)
+                                  }}
+                                  className="w-4 h-4 accent-desert-green"
+                                />
+                                <span className="text-sm font-medium text-gray-700">Use remote Ollama instance</span>
+                              </label>
+                              {remoteOllamaEnabled && (
+                                <div className="mt-3">
+                                  <input
+                                    type="text"
+                                    value={remoteOllamaUrl}
+                                    onChange={(e) => {
+                                      setRemoteOllamaUrl(e.target.value)
+                                      setRemoteOllamaUrlError(null)
+                                    }}
+                                    placeholder="http://192.168.1.100:11434"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-desert-green"
+                                  />
+                                  {remoteOllamaUrlError && (
+                                    <p className="mt-1 text-xs text-red-600">{remoteOllamaUrlError}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                    return renderCapabilityCard(capability, true)
+                  })}
                 </div>
               </div>
             )}
@@ -777,8 +844,14 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                 <p className="text-sm text-text-muted">Select models to download for offline AI</p>
               </div>
             </div>
-
-            {isLoadingRecommendedModels ? (
+            {remoteOllamaEnabled && remoteOllamaUrl ? (
+              <Alert
+                title="Remote Ollama selected"
+                message="Models are managed on the remote machine. You can add models from Settings > AI Assistant after setup, note this is only supported when using Ollama, not LM Studio and other OpenAI API software."
+                type="info"
+                variant="bordered"
+              />
+            ) : isLoadingRecommendedModels ? (
               <div className="flex justify-center py-12">
                 <LoadingSpinner />
               </div>
