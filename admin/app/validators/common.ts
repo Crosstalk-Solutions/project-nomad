@@ -68,7 +68,14 @@ export const remoteDownloadValidatorOptional = vine.compile(
 export const filenameParamValidator = vine.compile(
   vine.object({
     params: vine.object({
-      filename: vine.string().trim().minLength(1).maxLength(4096),
+      filename: vine
+        .string()
+        .trim()
+        .minLength(1)
+        .maxLength(255)
+        .regex(/^[^/\\]*$/) // Disallow path separators to prevent traversal
+        .regex(/^(?!\.\.)/) // Disallow leading double-dots
+        .regex(/^[^<>:"|?*\x00-\x1f]+$/), // Disallow shell/filesystem special chars
     }),
   })
 )

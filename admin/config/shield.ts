@@ -1,3 +1,4 @@
+import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/shield'
 
 const shieldConfig = defineConfig({
@@ -6,8 +7,19 @@ const shieldConfig = defineConfig({
    * to learn more
    */
   csp: {
-    enabled: false,
-    directives: {},
+    enabled: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline required for Inertia.js page props
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
     reportOnly: false,
   },
 
@@ -16,8 +28,9 @@ const shieldConfig = defineConfig({
    * to learn more
    */
   csrf: {
-    enabled: false, // TODO: Enable CSRF protection
-    exceptRoutes: [],
+    enabled: true,
+    // Exempt health check and SSE/transmit endpoints from CSRF
+    exceptRoutes: ['/api/health', '/__transmit/events', '/__transmit/unsubscribe'],
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },
@@ -35,7 +48,7 @@ const shieldConfig = defineConfig({
    * Force browser to always use HTTPS
    */
   hsts: {
-    enabled: false, // TODO: Enable HSTS in production
+    enabled: app.inProduction,
     maxAge: '180 days',
   },
 
