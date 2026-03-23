@@ -614,6 +614,451 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Languages & Reference",
+      "slug": "languages",
+      "icon": "IconLanguage",
+      "description": "Dictionaries, language learning resources, and translation references for multilingual communication.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "languages-essential",
+          "description": "Core dictionary and language learning Q&A. Start here for basic reference needs.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "wiktionary_en_simple_all_nopic",
+              "version": "2026-01",
+              "title": "Simple English Wiktionary",
+              "description": "Simplified English dictionary with clear definitions for learners",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_en_simple_all_nopic_2026-01.zim",
+              "size_mb": 25
+            },
+            {
+              "id": "ell.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "English Language Learners Q&A",
+              "description": "Stack Exchange Q&A for learning English as a second language",
+              "url": "https://download.kiwix.org/zim/stack_exchange/ell.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 450
+            },
+            {
+              "id": "languagelearning.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Language Learning Q&A",
+              "description": "Stack Exchange Q&A for language learning techniques and strategies",
+              "url": "https://download.kiwix.org/zim/stack_exchange/languagelearning.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 11
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "languages-standard",
+          "description": "Full English dictionary and language usage expertise. Includes everything in Essential.",
+          "includesTier": "languages-essential",
+          "resources": [
+            {
+              "id": "english.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "English Language & Usage Q&A",
+              "description": "Stack Exchange Q&A for English grammar, etymology, and word usage",
+              "url": "https://download.kiwix.org/zim/stack_exchange/english.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 730
+            },
+            {
+              "id": "linguistics.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Linguistics Q&A",
+              "description": "Stack Exchange Q&A for scientific study of language",
+              "url": "https://download.kiwix.org/zim/stack_exchange/linguistics.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 82
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "languages-comprehensive",
+          "description": "Complete multilingual dictionary library with major world languages. Includes everything in Standard.",
+          "includesTier": "languages-standard",
+          "resources": [
+            {
+              "id": "wiktionary_en_all_nopic",
+              "version": "2026-02",
+              "title": "English Wiktionary",
+              "description": "Complete English Wiktionary - definitions, pronunciations, and translations",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_en_all_nopic_2026-02.zim",
+              "size_mb": 8200
+            },
+            {
+              "id": "wiktionary_es_all_nopic",
+              "version": "2025-12",
+              "title": "Spanish Wiktionary",
+              "description": "Spanish language dictionary and reference",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_es_all_nopic_2025-12.zim",
+              "size_mb": 542
+            },
+            {
+              "id": "wiktionary_fr_all_nopic",
+              "version": "2026-02",
+              "title": "French Wiktionary",
+              "description": "French language dictionary and reference",
+              "url": "https://download.kiwix.org/zim/wiktionary/wiktionary_fr_all_nopic_2026-02.zim",
+              "size_mb": 4500
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History & Culture",
+      "slug": "history",
+      "icon": "IconBook2",
+      "description": "Historical encyclopedias, cultural archives, biographies, and world reference materials.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "history-essential",
+          "description": "Core historical Q&A and world factbook for quick reference.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "history.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "History Q&A",
+              "description": "Stack Exchange Q&A for historical events, periods, and civilizations",
+              "url": "https://download.kiwix.org/zim/stack_exchange/history.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 304
+            },
+            {
+              "id": "hsm.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "History of Science & Math Q&A",
+              "description": "Stack Exchange Q&A for the history of scientific discoveries and mathematics",
+              "url": "https://download.kiwix.org/zim/stack_exchange/hsm.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 49
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "history-standard",
+          "description": "World factbook and classic historical texts. Includes everything in Essential.",
+          "includesTier": "history-essential",
+          "resources": [
+            {
+              "id": "theworldfactbook_en_all",
+              "version": "2026-02",
+              "title": "The World Factbook",
+              "description": "CIA World Factbook - comprehensive country profiles, demographics, and geopolitical data",
+              "url": "https://download.kiwix.org/zim/other/theworldfactbook_en_all_2026-02.zim",
+              "size_mb": 388
+            },
+            {
+              "id": "gutenberg_en_lcc-g",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Geography & History",
+              "description": "Classic texts on geography, anthropology, and world history",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-g_2026-03.zim",
+              "size_mb": 7500
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "history-comprehensive",
+          "description": "Complete historical library with biographies, mythology, and genealogy. Includes everything in Standard.",
+          "includesTier": "history-standard",
+          "resources": [
+            {
+              "id": "gutenberg_en_lcc-b",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Biography & Philosophy",
+              "description": "Classic biographies, philosophy texts, and cultural works",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-b_2026-03.zim",
+              "size_mb": 5900
+            },
+            {
+              "id": "mythology.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Mythology Q&A",
+              "description": "Stack Exchange Q&A for myths, legends, and folklore from world cultures",
+              "url": "https://download.kiwix.org/zim/stack_exchange/mythology.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 30
+            },
+            {
+              "id": "genealogy.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Genealogy Q&A",
+              "description": "Stack Exchange Q&A for family history research and record-keeping",
+              "url": "https://download.kiwix.org/zim/stack_exchange/genealogy.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 61
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Children & Family",
+      "slug": "children",
+      "icon": "IconFriends",
+      "description": "Age-appropriate educational content, storybooks, and family-oriented resources for young learners.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "children-essential",
+          "description": "Interactive children's books and educational stories. Safe, engaging content for young readers.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "prunelle_en_interactive-books",
+              "version": "2025-02",
+              "title": "Prunelle Interactive Books",
+              "description": "Interactive children's storybooks with engaging activities",
+              "url": "https://download.kiwix.org/zim/other/prunelle_en_interactive-books_2025-02.zim",
+              "size_mb": 359
+            },
+            {
+              "id": "prunelle_en_budding-authors",
+              "version": "2025-02",
+              "title": "Prunelle Budding Authors",
+              "description": "Creative writing stories and exercises for young authors",
+              "url": "https://download.kiwix.org/zim/other/prunelle_en_budding-authors_2025-02.zim",
+              "size_mb": 293
+            },
+            {
+              "id": "prunelle_en_draw-your-african-story",
+              "version": "2025-02",
+              "title": "Prunelle: Draw Your African Story",
+              "description": "Drawing and storytelling activities with African themes",
+              "url": "https://download.kiwix.org/zim/other/prunelle_en_draw-your-african-story_2025-02.zim",
+              "size_mb": 41
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "children-standard",
+          "description": "Parenting resources and educational video courses. Includes everything in Essential.",
+          "includesTier": "children-essential",
+          "resources": [
+            {
+              "id": "parenting.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Parenting Q&A",
+              "description": "Stack Exchange Q&A for child development, education, and family life",
+              "url": "https://download.kiwix.org/zim/stack_exchange/parenting.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 57
+            },
+            {
+              "id": "crashcourse_en_all",
+              "version": "2026-02",
+              "title": "Crash Course",
+              "description": "Engaging educational video series covering science, history, literature, and more",
+              "url": "https://download.kiwix.org/zim/other/crashcourse_en_all_2026-02.zim",
+              "size_mb": 21000
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "children-comprehensive",
+          "description": "Complete children's library with classic juvenile literature. Includes everything in Standard.",
+          "includesTier": "children-standard",
+          "resources": [
+            {
+              "id": "gutenberg_en_lcc-pz",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Juvenile Literature",
+              "description": "Classic children's books, fairy tales, and young adult fiction",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-pz_2026-03.zim",
+              "size_mb": 18000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Trades & Vocational",
+      "slug": "trades",
+      "icon": "IconHammer",
+      "description": "Practical skills for building, maintenance, and technical trades - electrical, plumbing, automotive, and more.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "trades-essential",
+          "description": "Core engineering and electrical knowledge for hands-on technical work.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "engineering.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Engineering Q&A",
+              "description": "Stack Exchange Q&A for mechanical, civil, and structural engineering",
+              "url": "https://download.kiwix.org/zim/stack_exchange/engineering.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 242
+            },
+            {
+              "id": "3dprinting.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "3D Printing Q&A",
+              "description": "Stack Exchange Q&A for 3D printing, materials, and fabrication",
+              "url": "https://download.kiwix.org/zim/stack_exchange/3dprinting.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 115
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "trades-standard",
+          "description": "Engineering textbooks and practical vehicle maintenance. Includes everything in Essential.",
+          "includesTier": "trades-essential",
+          "resources": [
+            {
+              "id": "ham.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Amateur Radio Q&A",
+              "description": "Stack Exchange Q&A for ham radio operation, licensing, and electronics",
+              "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 72
+            },
+            {
+              "id": "networkengineering.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Network Engineering Q&A",
+              "description": "Stack Exchange Q&A for network design, cabling, and infrastructure",
+              "url": "https://download.kiwix.org/zim/stack_exchange/networkengineering.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 124
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "trades-comprehensive",
+          "description": "Complete trades library with deep electrical engineering knowledge and classic technology texts. Includes everything in Standard.",
+          "includesTier": "trades-standard",
+          "resources": [
+            {
+              "id": "gutenberg_en_lcc-t",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Technology",
+              "description": "Classic technical manuals, engineering references, and industrial arts",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-t_2026-03.zim",
+              "size_mb": 12000
+            },
+            {
+              "id": "askubuntu.com_en_all",
+              "version": "2025-12",
+              "title": "Ask Ubuntu Q&A",
+              "description": "Stack Exchange Q&A for Linux system administration and troubleshooting",
+              "url": "https://download.kiwix.org/zim/stack_exchange/askubuntu.com_en_all_2025-12.zim",
+              "size_mb": 2600
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Entertainment",
+      "slug": "entertainment",
+      "icon": "IconDeviceGamepad2",
+      "description": "Recreational reading, games, puzzles, and cultural entertainment for downtime and morale.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "entertainment-essential",
+          "description": "Brain teasers and strategy games - chess puzzles and riddles for offline entertainment.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "chess.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Chess Q&A",
+              "description": "Stack Exchange Q&A for chess strategy, openings, and puzzles",
+              "url": "https://download.kiwix.org/zim/stack_exchange/chess.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 77
+            },
+            {
+              "id": "puzzling.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Puzzles & Riddles Q&A",
+              "description": "Stack Exchange Q&A for logic puzzles, riddles, and brain teasers",
+              "url": "https://download.kiwix.org/zim/stack_exchange/puzzling.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 532
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "entertainment-standard",
+          "description": "Board games, sci-fi reading, and classic fiction. Includes everything in Essential.",
+          "includesTier": "entertainment-essential",
+          "resources": [
+            {
+              "id": "boardgames.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Board Games Q&A",
+              "description": "Stack Exchange Q&A for board games, card games, and tabletop gaming",
+              "url": "https://download.kiwix.org/zim/stack_exchange/boardgames.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 102
+            },
+            {
+              "id": "scifi.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Science Fiction & Fantasy Q&A",
+              "description": "Stack Exchange Q&A for sci-fi and fantasy books, movies, and TV shows",
+              "url": "https://download.kiwix.org/zim/stack_exchange/scifi.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 1200
+            },
+            {
+              "id": "gutenberg_en_lcc-ps",
+              "version": "2026-03",
+              "title": "Project Gutenberg: American Fiction",
+              "description": "Classic American novels, short stories, and literary fiction",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-ps_2026-03.zim",
+              "size_mb": 15000
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "entertainment-comprehensive",
+          "description": "Complete entertainment library with music, movies, and video game knowledge. Includes everything in Standard.",
+          "includesTier": "entertainment-standard",
+          "resources": [
+            {
+              "id": "music.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Music Q&A",
+              "description": "Stack Exchange Q&A for music theory, practice, and instruments",
+              "url": "https://download.kiwix.org/zim/stack_exchange/music.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 323
+            },
+            {
+              "id": "movies.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Movies & TV Q&A",
+              "description": "Stack Exchange Q&A for films, television shows, and cinema",
+              "url": "https://download.kiwix.org/zim/stack_exchange/movies.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 271
+            },
+            {
+              "id": "gaming.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Gaming Q&A",
+              "description": "Stack Exchange Q&A for video games across all platforms",
+              "url": "https://download.kiwix.org/zim/stack_exchange/gaming.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 771
+            }
+          ]
+        }
+      ]
     }
   ]
 }

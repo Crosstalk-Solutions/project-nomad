@@ -6,58 +6,40 @@ Potential categories to add to the tiered collections system in `kiwix-categorie
 - [x] Medicine - Medical references, first aid, emergency care
 - [x] Survival & Preparedness - Food prep, prepper videos, repair guides
 - [x] Education & Reference - Wikipedia, textbooks, TED talks
+- [x] DIY & Repair - Woodworking, vehicle maintenance, home improvement
+- [x] Agriculture & Food - Cooking, gardening, food preservation
+- [x] Computing & Technology - Programming, electronics, maker projects
+- [x] Languages & Reference - Dictionaries, language learning, translation
+- [x] History & Culture - Historical Q&A, world factbook, biographies
+- [x] Children & Family - Children's books, educational videos, parenting
+- [x] Trades & Vocational - Engineering, 3D printing, automotive repair
+- [x] Entertainment - Chess, puzzles, fiction, music, movies
 
 ---
 
 ## High Priority
 
-### Technology & Programming
-Stack Overflow, developer documentation, coding tutorials
-- Stack Overflow (multiple tags available)
-- DevDocs documentation
-- freeCodeCamp
-- Programming language references
+### ~~Technology & Programming~~ ✅ (added as Computing & Technology)
+~~Stack Overflow, developer documentation, coding tutorials~~
 
-### Children & Family
-Age-appropriate educational content for kids
-- Wikipedia for Schools
-- Wikibooks Children's Bookshelf
-- Khan Academy Kids (via Kolibri - separate system)
-- Storybooks, fairy tales
+### ~~Children & Family~~ ✅
+~~Age-appropriate educational content for kids~~
 
-### Trades & Vocational
-Practical skills for building, fixing, and maintaining
-- Electrical wiring guides
-- Plumbing basics
-- Automotive repair
-- Woodworking
-- Welding fundamentals
+### ~~Trades & Vocational~~ ✅
+~~Practical skills for building, fixing, and maintaining~~
 
-### Agriculture & Gardening
-Food production and farming (expand beyond what's in Survival)
-- Practical Plants database
-- Permaculture guides
-- Seed saving
-- Animal husbandry
-- Composting and soil management
+### ~~Agriculture & Gardening~~ ✅ (added as Agriculture & Food)
+~~Food production and farming~~
 
 ---
 
 ## Medium Priority
 
-### Languages & Reference
-Dictionaries, language learning, translation
-- Wiktionary (multiple languages)
-- Language learning resources
-- Translation dictionaries
-- Grammar guides
+### ~~Languages & Reference~~ ✅
+~~Dictionaries, language learning, translation~~
 
-### History & Culture
-Historical knowledge and cultural encyclopedias
-- Wikipedia History portal content
-- Historical documents
-- Cultural archives
-- Biographies
+### ~~History & Culture~~ ✅
+~~Historical knowledge and cultural encyclopedias~~
 
 ### Legal & Civic
 Laws, rights, and civic procedures
@@ -77,12 +59,8 @@ Emergency and amateur radio, networking
 
 ## Nice To Have
 
-### Entertainment
-Recreational reading and activities
-- Project Gutenberg (fiction categories)
-- Chess tutorials
-- Puzzles and games
-- Music theory
+### ~~Entertainment~~ ✅
+~~Recreational reading and activities~~
 
 ### Religion & Philosophy
 Spiritual and philosophical texts
