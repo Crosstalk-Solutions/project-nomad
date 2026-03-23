@@ -10,6 +10,7 @@
     "build": "node ace build",
     "dev": "node ace serve --hmr",
     "test": "node ace test",
+    "test:unit": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
@@ -47,6 +48,8 @@
     "@japa/runner": "^4.2.0",
     "@swc/core": "1.11.24",
     "@tanstack/eslint-plugin-query": "^5.81.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/dockerode": "^3.3.41",
     "@types/luxon": "^3.6.2",
     "@types/node": "^22.15.18",
@@ -55,10 +58,12 @@
     "@types/stopword": "^2.0.3",
     "eslint": "^9.26.0",
     "hot-hook": "^0.4.0",
+    "jsdom": "^29.0.1",
     "prettier": "^3.5.3",
     "ts-node-maintained": "^10.9.5",
     "typescript": "~5.8.3",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "@adonisjs/auth": "^9.4.0",
