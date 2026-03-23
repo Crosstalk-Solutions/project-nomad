@@ -7,5 +7,10 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Crosstalk Solutions, LLC",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^29.0.1",
+    "vitest": "^4.1.1"
+  }
 }
