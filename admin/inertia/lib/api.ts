@@ -518,6 +518,13 @@ class API {
     })()
   }
 
+  async deleteZimFile(filename: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(`/zim/${filename}`)
+      return response.data
+    })()
+  }
+
   async listZimFiles() {
     return catchInternal(async () => {
       return await this.client.get<ListZimFilesResponse>('/zim/list')
