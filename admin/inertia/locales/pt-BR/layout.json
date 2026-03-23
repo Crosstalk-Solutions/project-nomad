@@ -1,0 +1,25 @@
+{
+  "header": {
+    "commandCenter": "Central de Comando"
+  },
+  "nav": {
+    "backToHome": "Voltar ao Início"
+  },
+  "footer": {
+    "version": "Project N.O.M.A.D. Central de Comando v{{version}}",
+    "debugInfo": "Informações de Depuração"
+  },
+  "sidebar": {
+    "settings": "Configurações",
+    "apps": "Aplicativos",
+    "benchmark": "Benchmark",
+    "contentExplorer": "Explorador de Conteúdo",
+    "contentManager": "Gerenciador de Conteúdo",
+    "mapsManager": "Gerenciador de Mapas",
+    "serviceLogs": "Logs e Métricas de Serviços",
+    "checkUpdates": "Verificar Atualizações",
+    "system": "Sistema",
+    "support": "Apoiar o Projeto",
+    "legal": "Avisos Legais"
+  }
+}

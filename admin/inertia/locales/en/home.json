@@ -1,0 +1,24 @@
+{
+  "title": "Command Center",
+  "easySetup": {
+    "label": "Easy Setup",
+    "description": "Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!",
+    "badge": "Start here!"
+  },
+  "installApps": {
+    "label": "Install Apps",
+    "description": "Not seeing your favorite app? Install it here!"
+  },
+  "docs": {
+    "label": "Docs",
+    "description": "Read Project N.O.M.A.D. manuals and guides"
+  },
+  "settingsCard": {
+    "label": "Settings",
+    "description": "Configure your N.O.M.A.D. settings"
+  },
+  "maps": {
+    "label": "Maps",
+    "description": "View offline maps"
+  }
+}

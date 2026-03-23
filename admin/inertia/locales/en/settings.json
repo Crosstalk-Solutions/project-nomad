@@ -1,0 +1,57 @@
+{
+  "system": {
+    "title": "System Information",
+    "subtitle": "Real-time monitoring and diagnostics",
+    "lastUpdated": "Last updated: {{time}}",
+    "refreshing": "Refreshing data every 30 seconds"
+  },
+  "sections": {
+    "resourceUsage": "Resource Usage",
+    "systemDetails": "System Details",
+    "memoryAllocation": "Memory Allocation",
+    "storageDevices": "Storage Devices",
+    "systemStatus": "System Status",
+    "preferences": "Preferences"
+  },
+  "labels": {
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "swapUsage": "Swap Usage",
+    "cores": "{{count}} cores",
+    "utilized": "{{percent}}% Utilized",
+    "totalRam": "Total RAM",
+    "usedRam": "Used RAM",
+    "availableRam": "Available RAM",
+    "systemUptime": "System Uptime",
+    "cpuCores": "CPU Cores",
+    "storageDevicesCount": "Storage Devices",
+    "noStorageDetected": "No storage devices detected"
+  },
+  "os": {
+    "distribution": "Distribution",
+    "kernelVersion": "Kernel Version",
+    "architecture": "Architecture",
+    "hostname": "Hostname",
+    "platform": "Platform"
+  },
+  "cpu": {
+    "manufacturer": "Manufacturer",
+    "brand": "Brand",
+    "cores": "Cores",
+    "physicalCores": "Physical Cores",
+    "virtualization": "Virtualization",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "gpu": {
+    "title": "Graphics",
+    "model": "Model",
+    "vendor": "Vendor",
+    "vram": "VRAM"
+  },
+  "storage": {
+    "normal": "Normal",
+    "warningHigh": "Warning - Usage High",
+    "criticalFull": "Critical - Disk Almost Full"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "goToSettings": "Go to Settings",
+    "reinstall": "Reinstall"
+  },
+  "alerts": {
+    "updateAvailable": "An update is available for Project N.O.M.A.D.!",
+    "diskWarningTitle": "Disk Space Running Low",
+    "diskCriticalTitle": "Disk Space Critically Low",
+    "diskMessage": "Disk \"{{diskName}}\" is {{usage}}% full. Free up space to avoid issues with downloads and services.",
+    "highMemoryTitle": "Very High Memory Usage Detected",
+    "highMemoryMessage": "System memory usage exceeds 90%. Performance degradation may occur.",
+    "gpuNotAccessibleTitle": "GPU Not Accessible to AI Assistant",
+    "gpuNotAccessibleMessage": "Your system has an NVIDIA GPU, but the AI Assistant can't access it. AI is running on CPU only, which is significantly slower.",
+    "fixReinstallAI": "Fix: Reinstall AI Assistant",
+    "reinstallAIConfirmTitle": "Reinstall AI Assistant?",
+    "reinstallAIConfirmMessage": "This will recreate the AI Assistant container with GPU support enabled. Your downloaded models will be preserved. The service will be briefly unavailable during reinstall.",
+    "reinstallSuccess": "AI Assistant is being reinstalled with GPU support. This page will reload shortly.",
+    "reinstallFailed": "Failed to reinstall: {{error}}"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "pt-BR": "Português (Brasil)"
+  }
+}

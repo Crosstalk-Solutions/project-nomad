@@ -1,0 +1,29 @@
+{
+  "buttons": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "goToSettings": "Ir para Configurações",
+    "reinstall": "Reinstalar"
+  },
+  "alerts": {
+    "updateAvailable": "Uma atualização está disponível para o Project N.O.M.A.D.!",
+    "diskWarningTitle": "Espaço em disco ficando baixo",
+    "diskCriticalTitle": "Espaço em disco criticamente baixo",
+    "diskMessage": "O disco \"{{diskName}}\" está {{usage}}% cheio. Libere espaço para evitar problemas com downloads e serviços.",
+    "highMemoryTitle": "Uso de memória muito alto detectado",
+    "highMemoryMessage": "O uso de memória do sistema excede 90%. Pode haver degradação de desempenho.",
+    "gpuNotAccessibleTitle": "GPU não acessível pelo Assistente de IA",
+    "gpuNotAccessibleMessage": "Seu sistema possui uma GPU NVIDIA, mas o Assistente de IA não consegue acessá-la. A IA está rodando apenas na CPU, o que é significativamente mais lento.",
+    "fixReinstallAI": "Corrigir: Reinstalar Assistente de IA",
+    "reinstallAIConfirmTitle": "Reinstalar Assistente de IA?",
+    "reinstallAIConfirmMessage": "Isso recriará o contêiner do Assistente de IA com suporte a GPU habilitado. Seus modelos baixados serão preservados. O serviço ficará brevemente indisponível durante a reinstalação.",
+    "reinstallSuccess": "O Assistente de IA está sendo reinstalado com suporte a GPU. Esta página será recarregada em breve.",
+    "reinstallFailed": "Falha ao reinstalar: {{error}}"
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "English",
+    "pt-BR": "Português (Brasil)"
+  }
+}
