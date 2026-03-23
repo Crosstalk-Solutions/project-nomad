@@ -113,6 +113,10 @@ export default class SystemController {
         return await this.systemService.subscribeToReleaseNotes(reqData.email);
     }
 
+    async getDiskStatus({}: HttpContext) {
+        return await this.systemService.getDiskStatus();
+    }
+
     async getDebugInfo({}: HttpContext) {
         const debugInfo = await this.systemService.getDebugInfo()
         return { debugInfo }

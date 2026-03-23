@@ -521,6 +521,59 @@ export class SystemService {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i]
   }
 
+  async getDiskStatus(): Promise<{
+    level: 'none' | 'warning' | 'critical'
+    threshold: number
+    highestUsage: number
+    diskName: string
+  }> {
+    try {
+      const diskInfoRawString = await getFile(
+        path.join(process.cwd(), SystemService.diskInfoFile),
+        'string'
+      )
+
+      const diskInfo = (
+        diskInfoRawString
+          ? JSON.parse(diskInfoRawString.toString())
+          : { diskLayout: { blockdevices: [] }, fsSize: [] }
+      ) as NomadDiskInfoRaw
+
+      const disks = this.calculateDiskUsage(diskInfo)
+
+      const warningStr = await KVStore.getValue('disk.warningThreshold')
+      const criticalStr = await KVStore.getValue('disk.criticalThreshold')
+      const warningThreshold = warningStr ? Number(warningStr) : 85
+      const criticalThreshold = criticalStr ? Number(criticalStr) : 95
+
+      let highestUsage = 0
+      let diskName = ''
+
+      for (const disk of disks) {
+        if (disk.percentUsed > highestUsage) {
+          highestUsage = disk.percentUsed
+          diskName = disk.name
+        }
+      }
+
+      let level: 'none' | 'warning' | 'critical' = 'none'
+      let threshold = 0
+
+      if (highestUsage >= criticalThreshold) {
+        level = 'critical'
+        threshold = criticalThreshold
+      } else if (highestUsage >= warningThreshold) {
+        level = 'warning'
+        threshold = warningThreshold
+      }
+
+      return { level, threshold, highestUsage, diskName }
+    } catch (error) {
+      logger.error('Error getting disk status:', error)
+      return { level: 'none', threshold: 0, highestUsage: 0, diskName: '' }
+    }
+  }
+
   async updateSetting(key: KVStoreKey, value: any): Promise<void> {
     if ((value === '' || value === undefined || value === null) && KV_STORE_SCHEMA[key] === 'string') {
       await KVStore.clearValue(key)
