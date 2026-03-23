@@ -1,0 +1,25 @@
+{
+  "header": {
+    "commandCenter": "Command Center"
+  },
+  "nav": {
+    "backToHome": "Back to Home"
+  },
+  "footer": {
+    "version": "Project N.O.M.A.D. Command Center v{{version}}",
+    "debugInfo": "Debug Info"
+  },
+  "sidebar": {
+    "settings": "Settings",
+    "apps": "Apps",
+    "benchmark": "Benchmark",
+    "contentExplorer": "Content Explorer",
+    "contentManager": "Content Manager",
+    "mapsManager": "Maps Manager",
+    "serviceLogs": "Service Logs & Metrics",
+    "checkUpdates": "Check for Updates",
+    "system": "System",
+    "support": "Support the Project",
+    "legal": "Legal Notices"
+  }
+}
