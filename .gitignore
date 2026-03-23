@@ -35,6 +35,7 @@ server/temp
 # IDE Files
 .vscode
 .idea
+.claude
 
 # Frontend assets compiled code
 admin/public/assets
