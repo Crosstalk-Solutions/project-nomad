@@ -1,5 +1,11 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **System**: Added disk space usage notifications — a dismissible warning banner appears across all pages when disk usage exceeds configurable thresholds (85% warning, 95% critical)
+- **i18n**: Added internationalization infrastructure with `react-i18next` — the Command Center UI now supports multiple languages, starting with English and Brazilian Portuguese (pt-BR). A language selector is available in Settings > System > Preferences
+
 ## Version 1.30.0 - March 20, 2026
 
 ### Features
