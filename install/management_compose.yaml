@@ -82,7 +82,7 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 10
   redis:
     image: redis:7-alpine
     container_name: nomad_redis
