@@ -29,38 +29,77 @@ export class SystemService {
   }
 
   async getInternetStatus(): Promise<boolean> {
-    const DEFAULT_TEST_URL = 'https://1.1.1.1/cdn-cgi/trace'
+    // NOTE: We treat "any HTTP response" as online (even 401/403/404/etc), because
+    // some networks block specific hosts (e.g. 1.1.1.1) or return non-200 responses.
+    // This is used for an "offline" UI hint, so false negatives are worse than
+    // occasional false positives.
+    const DEFAULT_TEST_URLS = [
+      'https://1.1.1.1/cdn-cgi/trace',
+      'https://api.github.com/',
+      'https://registry-1.docker.io/v2/',
+    ]
     const MAX_ATTEMPTS = 3
+    const TIMEOUT_MS = 5000
 
-    let testUrl = DEFAULT_TEST_URL
-    let customTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
+    const customTestUrlRaw = env.get('INTERNET_STATUS_TEST_URL')?.trim()
 
-    // check that customTestUrl is a valid URL, if provided
-    if (customTestUrl && customTestUrl !== '') {
+    const testUrls: string[] = [...DEFAULT_TEST_URLS]
+
+    if (customTestUrlRaw) {
       try {
-        new URL(customTestUrl)
-        testUrl = customTestUrl
-      } catch (error) {
+        const customUrl = new URL(customTestUrlRaw).toString()
+        // Put custom URL first
+        testUrls.unshift(customUrl)
+      } catch {
         logger.warn(
-          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrl}. Falling back to default URL.`
+          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrlRaw}. Falling back to default URLs.`
         )
       }
     }
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        const res = await axios.get(testUrl, { timeout: 5000 })
-        return res.status === 200
-      } catch (error) {
-        logger.warn(
-          `Internet status check attempt ${attempt}/${MAX_ATTEMPTS} failed: ${error instanceof Error ? error.message : error}`
-        )
+    // De-dupe URLs while preserving order
+    const seen = new Set<string>()
+    const dedupedUrls = testUrls.filter((u) => {
+      if (seen.has(u)) return false
+      seen.add(u)
+      return true
+    })
 
-        if (attempt < MAX_ATTEMPTS) {
-          // delay before next attempt
-          await new Promise((resolve) => setTimeout(resolve, 1000))
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      for (const url of dedupedUrls) {
+        try {
+          await axios.get(url, {
+            timeout: TIMEOUT_MS,
+            validateStatus: () => true,
+            headers: {
+              'User-Agent': 'project-nomad-internet-status-check',
+            },
+          })
+          return true
+        } catch (error) {
+          // Avoid log spam: only warn on the final attempt.
+          if (attempt === MAX_ATTEMPTS) {
+            logger.warn(
+              `Internet status check failed for ${url}: ${error instanceof Error ? error.message : error}`
+            )
+          }
         }
       }
+
+      if (attempt < MAX_ATTEMPTS) {
+        // delay before next attempt
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    }
+
+    // Final fallback: DNS resolution using system-configured resolvers.
+    // This catches cases where a specific HTTP endpoint is blocked but DNS/internet is working.
+    try {
+      const { lookup } = await import('node:dns/promises')
+      await lookup('github.com')
+      return true
+    } catch {
+      // ignore
     }
 
     logger.warn('All internet status check attempts failed.')

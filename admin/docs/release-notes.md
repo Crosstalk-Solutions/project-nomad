@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### Bug Fixes
+- **System**: Improve the internet connectivity check to avoid false “offline” warnings when specific endpoints (e.g. 1.1.1.1) are blocked.
+
 ## Version 1.30.0 - March 20, 2026
 
 ### Features
