@@ -659,6 +659,11 @@ export class SystemService {
         if (service.installed) {
           // If marked as installed but container doesn't exist, mark as not installed
           if (!containerExists) {
+            // Exception: remote Ollama is configured without a local container — don't reset it
+            if (service.service_name === SERVICE_NAMES.OLLAMA) {
+              const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+              if (remoteUrl) continue
+            }
             logger.warn(
               `Service ${service.service_name} is marked as installed but container does not exist. Marking as not installed.`
             )
