@@ -21,6 +21,16 @@ import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
 
+const PROTOMAPS_BUILDS_METADATA_URL = 'https://build-metadata.protomaps.dev/builds.json'
+const PROTOMAPS_BUILD_BASE_URL = 'https://build.protomaps.com'
+
+export interface ProtomapsBuildInfo {
+  url: string
+  date: string
+  size: number
+  key: string
+}
+
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
   'application/x-gzip',
@@ -396,6 +406,70 @@ export class MapService implements IMapService {
     template.glyphs = glyphs
 
     return template
+  }
+
+  async getGlobalMapInfo(): Promise<ProtomapsBuildInfo> {
+    const { default: axios } = await import('axios')
+    const response = await axios.get(PROTOMAPS_BUILDS_METADATA_URL, { timeout: 15000 })
+    const builds = response.data as Array<{ key: string; size: number }>
+
+    if (!builds || builds.length === 0) {
+      throw new Error('No protomaps builds found')
+    }
+
+    // Latest build first
+    const sorted = builds.sort((a, b) => b.key.localeCompare(a.key))
+    const latest = sorted[0]
+
+    const dateStr = latest.key.replace('.pmtiles', '')
+    const date = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
+
+    return {
+      url: `${PROTOMAPS_BUILD_BASE_URL}/${latest.key}`,
+      date,
+      size: latest.size,
+      key: latest.key,
+    }
+  }
+
+  async downloadGlobalMap(): Promise<{ filename: string; jobId?: string }> {
+    const info = await this.getGlobalMapInfo()
+
+    const existing = await RunDownloadJob.getByUrl(info.url)
+    if (existing) {
+      throw new Error(`Download already in progress for URL ${info.url}`)
+    }
+
+    const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', info.key)
+
+    // First, ensure base assets are present - the global map depends on them
+    const baseAssetsExist = await this.ensureBaseAssets()
+    if (!baseAssetsExist) {
+      throw new Error(
+        'Base map assets are missing and could not be downloaded. Please check your connection and try again.'
+      )
+    }
+
+    // forceNew: false so retries resume partial downloads
+    const result = await RunDownloadJob.dispatch({
+      url: info.url,
+      filepath,
+      timeout: 30000,
+      allowedMimeTypes: PMTILES_MIME_TYPES,
+      forceNew: false,
+      filetype: 'map',
+    })
+
+    if (!result.job) {
+      throw new Error('Failed to dispatch download job')
+    }
+
+    logger.info(`[MapService] Dispatched global map download job ${result.job.id}`)
+
+    return {
+      filename: info.key,
+      jobId: result.job?.id,
+    }
   }
 
   async delete(file: string): Promise<void> {

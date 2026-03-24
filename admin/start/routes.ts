@@ -78,6 +78,8 @@ router
     router.post('/download-remote', [MapsController, 'downloadRemote'])
     router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight'])
     router.post('/download-collection', [MapsController, 'downloadCollection'])
+    router.get('/global-map-info', [MapsController, 'globalMapInfo'])
+    router.post('/download-global-map', [MapsController, 'downloadGlobalMap'])
     router.delete('/:filename', [MapsController, 'delete'])
   })
   .prefix('/api/maps')
