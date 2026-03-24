@@ -194,6 +194,8 @@ ensure_docker_installed() {
     
     # On WSL, if Docker is reachable, skip systemd checks (Docker Desktop case)
     if is_wsl; then
+      export PATH="/usr/lib/wsl/lib:$PATH"
+      sudo mount --make-rshared /
       if docker version >/dev/null 2>&1; then
         echo -e "${GREEN}#${RESET} Docker is reachable (WSL/Docker Desktop). Skipping systemctl checks.\\n"
         return 0
