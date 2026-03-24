@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "Finding Project N.O.M.A.D containers..."
 

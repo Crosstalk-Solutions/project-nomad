@@ -42,6 +42,12 @@ perform_update() {
     sleep 1
 
     # Apply target image tag to compose.yml before pulling
+    # Validate target_tag contains only safe characters (alphanumeric, dots, hyphens, underscores)
+    if ! echo "$target_tag" | grep -qE '^[a-zA-Z0-9._-]+$'; then
+        log "ERROR: Invalid target tag '${target_tag}' - contains unsafe characters"
+        write_status "error" 0 "Invalid target tag - contains unsafe characters"
+        return 1
+    fi
     log "Applying image tag '${target_tag}' to compose.yml..."
     if sed -i "s|\(image: ghcr\.io/crosstalk-solutions/project-nomad\):.*|\1:${target_tag}|" "$COMPOSE_FILE" 2>> "$LOG_FILE"; then
         log "Successfully updated compose.yml admin image tag to '${target_tag}'"
@@ -78,7 +84,7 @@ perform_update() {
     
     for service in $SERVICES_TO_UPDATE; do
         log "Updating service: $service"
-        write_status "recreating" $current_progress "Recreating $service..."
+        write_status "recreating" "$current_progress" "Recreating $service..."
         
         # Stop the service
         log "  Stopping $service..."
@@ -94,7 +100,7 @@ perform_update() {
             log "  ✓ Successfully recreated $service"
         else
             log "  ERROR: Failed to recreate $service"
-            write_status "error" $current_progress "Failed to recreate $service - check logs"
+            write_status "error" "$current_progress" "Failed to recreate $service - check logs"
             return 1
         fi
         

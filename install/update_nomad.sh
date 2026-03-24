@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Project N.O.M.A.D. Update Script
 
@@ -21,6 +22,15 @@ WHITE_R='\033[39m' # Same as GRAY_R for terminals with white background.
 GRAY_R='\033[39m'
 RED='\033[1;31m' # Light Red.
 GREEN='\033[1;32m' # Light Green.
+
+###################################################################################################################################################################################################
+#                                                                                                                                                                                                 #
+#                                                                                  Constants & Variables                                                                                          #
+#                                                                                                                                                                                                 #
+###################################################################################################################################################################################################
+
+NOMAD_DIR="/opt/project-nomad"
+local_ip_address=''
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -61,7 +71,7 @@ check_is_debian_based() {
 }
 
 get_update_confirmation(){
-  read -p "This script will update Project N.O.M.A.D. and its dependencies on your machine. No data loss is expected, but you should always back up your data before proceeding. Are you sure you want to continue? (y/n): " choice
+  read -p "This script will update Project N.O.M.A.D. and its dependencies on your machine. No data loss is expected, but you should always back up your data before proceeding. Are you sure you want to continue? (y/n): " choice || true
   case "$choice" in
     y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the update."
@@ -136,7 +146,7 @@ get_local_ip() {
 success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
+  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
 }

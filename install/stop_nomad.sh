@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "Finding running Docker containers for Project N.O.M.A.D..."
 

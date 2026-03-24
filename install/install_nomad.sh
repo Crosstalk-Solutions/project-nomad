@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Project N.O.M.A.D. Installation Script
 
@@ -133,7 +134,8 @@ generateRandomPass() {
   local password
   
   # Generate random password using /dev/urandom
-  password=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
+  # tr may receive SIGPIPE when head closes early; this is expected behavior
+  password=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length" || true)
   
   echo "$password"
 }
@@ -337,7 +339,7 @@ setup_nvidia_container_toolkit() {
 get_install_confirmation(){
   echo -e "${YELLOW}#${RESET} This script will install Project N.O.M.A.D. and its dependencies on your machine."
   echo -e "${YELLOW}#${RESET} If you already have Project N.O.M.A.D. installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
-  read -p "Are you sure you want to continue? (y/N): " choice
+  read -p "Are you sure you want to continue? (y/N): " choice || true
   case "$choice" in
     y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the installation."
@@ -358,7 +360,7 @@ accept_terms() {
   printf "\n"
   echo "By accepting this agreement, you acknowledge that you have read and understood the terms and conditions of the Apache License 2.0 and agree to be bound by them while using Project N.O.M.A.D."
   echo -e "\n\n"
-  read -p "I have read and accept License Agreement & Terms of Use (y/N)? " choice
+  read -p "I have read and accept License Agreement & Terms of Use (y/N)? " choice || true
   case "$choice" in
     y|Y )
       accepted_terms='true'
@@ -399,18 +401,36 @@ download_management_compose_file() {
   fi
   echo -e "${GREEN}#${RESET} Docker compose file downloaded successfully to $compose_file_path.\\n"
 
-  local app_key=$(generateRandomPass)
-  local db_root_password=$(generateRandomPass)
-  local db_user_password=$(generateRandomPass)
+  local app_key
+  local db_root_password
+  local db_user_password
+  app_key=$(generateRandomPass)
+  db_root_password=$(generateRandomPass)
+  db_user_password=$(generateRandomPass)
 
   # Inject dynamic env values into the compose file
+  # Escape sed special characters in variables to prevent injection
+  # Using '#' as sed delimiter to avoid conflicts with '/' in URLs and IPs
+  # Escaping &, \, #, and . (regex special) in both patterns and replacements
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
-  sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
-  sed -i "s|APP_KEY=replaceme|APP_KEY=${app_key}|g" "$compose_file_path"
-  
-  sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
-  sed -i "s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g" "$compose_file_path"
-  sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
+
+  # Escape function for sed replacement strings (using '#' as delimiter)
+  # Escapes: backslash, ampersand, hash (our delimiter), and newline
+  sed_escape_replacement() {
+    printf '%s\n' "$1" | sed 's/[&#\\/]/\\&/g'
+  }
+
+  local escaped_ip escaped_app_key escaped_db_user_password escaped_db_root_password
+  escaped_ip=$(sed_escape_replacement "${local_ip_address}")
+  escaped_app_key=$(sed_escape_replacement "${app_key}")
+  escaped_db_user_password=$(sed_escape_replacement "${db_user_password}")
+  escaped_db_root_password=$(sed_escape_replacement "${db_root_password}")
+
+  sed -i "s#URL=replaceme#URL=http://${escaped_ip}:8080#g" "$compose_file_path"
+  sed -i "s#APP_KEY=replaceme#APP_KEY=${escaped_app_key}#g" "$compose_file_path"
+  sed -i "s#DB_PASSWORD=replaceme#DB_PASSWORD=${escaped_db_user_password}#g" "$compose_file_path"
+  sed -i "s#MYSQL_ROOT_PASSWORD=replaceme#MYSQL_ROOT_PASSWORD=${escaped_db_root_password}#g" "$compose_file_path"
+  sed -i "s#MYSQL_PASSWORD=replaceme#MYSQL_PASSWORD=${escaped_db_user_password}#g" "$compose_file_path"
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
