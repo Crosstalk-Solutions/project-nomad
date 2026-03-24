@@ -574,7 +574,11 @@ verify_gpu_setup() {
   else
     echo -e "${YELLOW}○${RESET} NVIDIA Container Toolkit not installed\\n"
   fi
-  
+
+ 
+  echo "=== docker info from script ==="
+  docker info || echo "docker info FAILED: $?"
+  echo "=== end docker info ==="
   # Check if Docker has NVIDIA runtime
   if docker info 2>/dev/null | grep -q \"nvidia\"; then
     echo -e "${GREEN}✓${RESET} Docker NVIDIA runtime configured\\n"
