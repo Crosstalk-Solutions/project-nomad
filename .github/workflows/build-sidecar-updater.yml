@@ -1,6 +1,8 @@
 name: Build Sidecar Updater Image
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -22,69 +24,49 @@ jobs:
     steps:
       - name: check-auth
         id: check-auth
-        run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "is_authorized=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
+          fi
 
   build:
-    name: Build sidecar-updater image (${{ matrix.platform }})
+    name: Build and push multi-arch sidecar-updater image
     needs: check_authorization
     if: needs.check_authorization.outputs.isAuthorized == 'true'
-    runs-on: ${{ matrix.runner }}
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-latest
-          - platform: linux/arm64
-            runner: ubuntu-latest-arm64
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: install/sidecar-updater
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater,push-by-digest=true,name-canonical=true,push=true
-      - name: Export digest
-        run: |
-          mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-      - name: Upload digest
-        uses: actions/upload-artifact@v4
-        with:
-          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-          retention-days: 1
-
-  merge:
-    name: Create and push multi-arch manifest
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Download digests
-        uses: actions/download-artifact@v4
-        with:
-          path: /tmp/digests
-          pattern: digests-*
-          merge-multiple: true
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Resolve version and tags
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            TAG_LATEST=${{ !github.event.release.prerelease }}
+          else
+            VERSION="${{ inputs.version }}"
+            TAG_LATEST=${{ inputs.tag_latest }}
+          fi
+
+          TAGS="ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:${VERSION}
+          ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:v${VERSION}"
+          if [ "$TAG_LATEST" = "true" ]; then
+            TAGS="$TAGS
+          ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:latest"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GitHub Container Registry
@@ -93,14 +75,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          docker buildx imagetools create \
-            -t ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:${{ inputs.version }} \
-            -t ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:v${{ inputs.version }} \
-            ${{ inputs.tag_latest && '-t ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:latest' || '' }} \
-            $(printf 'ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater@sha256:%s ' *)
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: install/sidecar-updater
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.vars.outputs.tags }}
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:${{ inputs.version }}
+          docker buildx imagetools inspect ghcr.io/${{ github.repository_owner }}/project-nomad-sidecar-updater:${{ steps.vars.outputs.version }}
