@@ -194,16 +194,19 @@ export class DockerService {
       }
     }
 
-    // Check if installation is already in progress (database-level)
-    if (service.installation_status === 'installing') {
+    // Atomic in-memory guard: check and set in a single operation to prevent
+    // race conditions where two requests pass the check before either sets the flag.
+    if (this.activeInstallations.has(serviceName)) {
       return {
         success: false,
         message: `Service ${serviceName} installation is already in progress`,
       }
     }
+    this.activeInstallations.add(serviceName)
 
-    // Double-check with in-memory tracking (race condition protection)
-    if (this.activeInstallations.has(serviceName)) {
+    // Now check database-level status (safe because the in-memory flag blocks concurrent callers)
+    if (service.installation_status === 'installing') {
+      this.activeInstallations.delete(serviceName)
       return {
         success: false,
         message: `Service ${serviceName} installation is already in progress`,
@@ -211,7 +214,6 @@ export class DockerService {
     }
 
     // Mark installation as in progress
-    this.activeInstallations.add(serviceName)
     service.installation_status = 'installing'
     await service.save()
 
@@ -513,7 +515,7 @@ export class DockerService {
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
         ...(containerConfig?.Env && { Env: containerConfig.Env }),
-        ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
+        ...(service.container_command ? { Cmd: service.container_command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((arg: string) => arg.replace(/^["']|["']$/g, '')) ?? [] } : {}),
         // Ensure container is attached to the Nomad docker network in production
         ...(process.env.NODE_ENV === 'production' && {
           NetworkingConfig: {

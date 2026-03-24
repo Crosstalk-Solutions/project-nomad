@@ -1,5 +1,6 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import logger from '@adonisjs/core/services/logger'
 import { BenchmarkService } from '#services/benchmark_service'
 import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
@@ -52,9 +53,11 @@ export default class BenchmarkController {
           result,
         })
       } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error)
+        logger.error(`[BenchmarkController] Sync benchmark failed: ${detail}`)
         return response.status(500).send({
           success: false,
-          error: error.message,
+          error: 'Benchmark execution failed',
         })
       }
     }
@@ -168,11 +171,12 @@ export default class BenchmarkController {
         percentile: submitResult.percentile,
       })
     } catch (error) {
-      // Pass through the status code from the service if available, otherwise default to 400
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`[BenchmarkController] Submit failed: ${detail}`)
       const statusCode = (error as any).statusCode || 400
       return response.status(statusCode).send({
         success: false,
-        error: error.message,
+        error: 'Failed to submit benchmark results',
       })
     }
   }

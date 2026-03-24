@@ -6,6 +6,7 @@ import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
 import { affectServiceValidator, checkLatestVersionValidator, installServiceValidator, subscribeToReleaseNotesValidator, updateServiceValidator } from '#validators/system';
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import { apiError } from '../helpers/api_response.js'
 
 @inject()
 export default class SystemController {
@@ -35,7 +36,7 @@ export default class SystemController {
         if (result.success) {
             response.send({ success: true, message: result.message });
         } else {
-            response.status(400).send({ error: result.message });
+            response.status(400).send({ success: false, error: result.message });
         }
     }
 
@@ -43,7 +44,7 @@ export default class SystemController {
         const payload = await request.validateUsing(affectServiceValidator);
         const result = await this.dockerService.affectContainer(payload.service_name, payload.action);
         if (!result) {
-            response.internalServerError({ error: 'Failed to affect service' });
+            response.internalServerError({ success: false, error: 'Failed to affect service' });
             return;
         }
         response.send({ success: result.success, message: result.message });
@@ -58,7 +59,7 @@ export default class SystemController {
         const payload = await request.validateUsing(installServiceValidator);
         const result = await this.dockerService.forceReinstall(payload.service_name);
         if (!result) {
-            response.internalServerError({ error: 'Failed to force reinstall service' });
+            response.internalServerError({ success: false, error: 'Failed to force reinstall service' });
             return;
         }
         response.send({ success: result.success, message: result.message });
@@ -94,6 +95,7 @@ export default class SystemController {
 
         if (!status) {
             response.status(500).send({
+                success: false,
                 error: 'Failed to retrieve update status',
             });
             return;
@@ -132,7 +134,7 @@ export default class SystemController {
             .first()
 
         if (!service) {
-            return response.status(404).send({ error: `Service ${serviceName} not found or not installed` })
+            return response.status(404).send({ success: false, error: `Service ${serviceName} not found or not installed` })
         }
 
         try {
@@ -142,9 +144,9 @@ export default class SystemController {
                 hostArch,
                 service.source_repo
             )
-            response.send({ versions: updates })
+            response.send({ success: true, versions: updates })
         } catch (error) {
-            response.status(500).send({ error: `Failed to fetch versions: ${error.message}` })
+            return apiError(response, 500, 'Failed to fetch available versions', error)
         }
     }
 
@@ -158,7 +160,7 @@ export default class SystemController {
         if (result.success) {
             response.send({ success: true, message: result.message })
         } else {
-            response.status(400).send({ error: result.message })
+            response.status(400).send({ success: false, error: result.message })
         }
     }
 

@@ -5,6 +5,7 @@ import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#val
 import KVStore from '#models/kv_store'
 import { SystemService } from '#services/system_service'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { apiSuccess, apiError } from '../helpers/api_response.js'
 
 @inject()
 export default class ChatsController {
@@ -13,9 +14,9 @@ export default class ChatsController {
   async inertia({ inertia, response }: HttpContext) {
     const aiAssistantInstalled = await this.systemService.checkServiceInstalled(SERVICE_NAMES.OLLAMA)
     if (!aiAssistantInstalled) {
-      return response.status(404).json({ error: 'AI Assistant service not installed' })
+      return response.status(404).json({ success: false, error: 'AI Assistant service not installed' })
     }
-    
+
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     return inertia.render('chat', {
       settings: {
@@ -29,11 +30,11 @@ export default class ChatsController {
   }
 
   async show({ params, response }: HttpContext) {
-    const sessionId = parseInt(params.id)
+    const sessionId = parseInt(params.id, 10)
     const session = await this.chatService.getSession(sessionId)
 
     if (!session) {
-      return response.status(404).json({ error: 'Session not found' })
+      return response.status(404).json({ success: false, error: 'Session not found' })
     }
 
     return session
@@ -45,58 +46,48 @@ export default class ChatsController {
       const session = await this.chatService.createSession(data.title, data.model)
       return response.status(201).json(session)
     } catch (error) {
-      return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to create session',
-      })
+      return apiError(response, 500, 'Failed to create session', error)
     }
   }
 
   async suggestions({ response }: HttpContext) {
     try {
       const suggestions = await this.chatService.getChatSuggestions()
-      return response.status(200).json({ suggestions })
+      return response.status(200).json({ success: true, suggestions })
     } catch (error) {
-      return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to get suggestions',
-      })
+      return apiError(response, 500, 'Failed to get suggestions', error)
     }
   }
 
   async update({ params, request, response }: HttpContext) {
     try {
-      const sessionId = parseInt(params.id)
+      const sessionId = parseInt(params.id, 10)
       const data = await request.validateUsing(updateSessionSchema)
       const session = await this.chatService.updateSession(sessionId, data)
       return session
     } catch (error) {
-      return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to update session',
-      })
+      return apiError(response, 500, 'Failed to update session', error)
     }
   }
 
   async destroy({ params, response }: HttpContext) {
     try {
-      const sessionId = parseInt(params.id)
+      const sessionId = parseInt(params.id, 10)
       await this.chatService.deleteSession(sessionId)
       return response.status(204)
     } catch (error) {
-      return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to delete session',
-      })
+      return apiError(response, 500, 'Failed to delete session', error)
     }
   }
 
   async addMessage({ params, request, response }: HttpContext) {
     try {
-      const sessionId = parseInt(params.id)
+      const sessionId = parseInt(params.id, 10)
       const data = await request.validateUsing(addMessageSchema)
       const message = await this.chatService.addMessage(sessionId, data.role, data.content)
       return response.status(201).json(message)
     } catch (error) {
-      return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to add message',
-      })
+      return apiError(response, 500, 'Failed to add message', error)
     }
   }
 
@@ -105,9 +96,7 @@ export default class ChatsController {
       const result = await this.chatService.deleteAllSessions()
       return response.status(200).json(result)
     } catch (error) {
-      return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to delete all sessions',
-      })
+      return apiError(response, 500, 'Failed to delete all sessions', error)
     }
   }
 }

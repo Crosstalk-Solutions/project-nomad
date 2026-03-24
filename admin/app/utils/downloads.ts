@@ -44,7 +44,7 @@ export async function doResumableDownload({
   })
 
   const contentType = headResponse.headers['content-type'] || ''
-  const totalBytes = parseInt(headResponse.headers['content-length'] || '0')
+  const totalBytes = parseInt(headResponse.headers['content-length'] || '0', 10)
   const supportsRangeRequests = headResponse.headers['accept-ranges'] === 'bytes'
 
   // If allowedMimeTypes is provided, check content type

@@ -623,7 +623,7 @@ export class BenchmarkService {
     return {
       events_per_second: eventsMatch ? parseFloat(eventsMatch[1]) : 0,
       total_time: totalTimeMatch ? parseFloat(totalTimeMatch[1]) : 30,
-      total_events: totalEventsMatch ? parseInt(totalEventsMatch[1]) : 0,
+      total_events: totalEventsMatch ? parseInt(totalEventsMatch[1], 10) : 0,
     }
   }
 

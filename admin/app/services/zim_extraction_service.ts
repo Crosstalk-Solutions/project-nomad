@@ -223,7 +223,7 @@ export class ZIMExtractionService {
                     });
                 }
                 // Start new section
-                const level = parseInt(tagName.substring(1)); // Extract number from h2, h3, h4
+                const level = parseInt(tagName.substring(1), 10); // Extract number from h2, h3, h4
                 currentSection = {
                     heading: $el.text().replace(/\[edit\]/gi, '').trim(),
                     content: [],
