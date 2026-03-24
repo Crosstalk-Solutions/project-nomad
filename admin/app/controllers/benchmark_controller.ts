@@ -81,32 +81,21 @@ export default class BenchmarkController {
    * Run a system-only benchmark (CPU, memory, disk)
    */
   async runSystem({ response }: HttpContext) {
-    const status = this.benchmarkService.getStatus()
-    if (status.status !== 'idle') {
-      return response.status(409).send({
-        success: false,
-        error: 'A benchmark is already running',
-      })
-    }
-
-    const benchmarkId = randomUUID()
-    await RunBenchmarkJob.dispatch({
-      benchmark_id: benchmarkId,
-      benchmark_type: 'system',
-      include_ai: false,
-    })
-
-    return response.status(201).send({
-      success: true,
-      benchmark_id: benchmarkId,
-      message: 'System benchmark started',
-    })
+    return this._runBenchmark('system', response)
   }
 
   /**
    * Run an AI-only benchmark
    */
   async runAI({ response }: HttpContext) {
+    return this._runBenchmark('ai', response)
+  }
+
+  /**
+   * Shared helper for dispatching a benchmark job.
+   * Checks for existing running benchmarks, dispatches the job, and returns the response.
+   */
+  private async _runBenchmark(type: BenchmarkType, response: HttpContext['response']) {
     const status = this.benchmarkService.getStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
@@ -118,14 +107,14 @@ export default class BenchmarkController {
     const benchmarkId = randomUUID()
     await RunBenchmarkJob.dispatch({
       benchmark_id: benchmarkId,
-      benchmark_type: 'ai',
-      include_ai: true,
+      benchmark_type: type,
+      include_ai: type === 'full' || type === 'ai',
     })
 
     return response.status(201).send({
       success: true,
       benchmark_id: benchmarkId,
-      message: 'AI benchmark started',
+      message: `${type === 'ai' ? 'AI' : type.charAt(0).toUpperCase() + type.slice(1)} benchmark started`,
     })
   }
 
