@@ -224,13 +224,13 @@ test.group('DockerService – container command splitting', () => {
 
   test('falsy container_command results in no Cmd property', ({ assert }) => {
     // Mirrors the ternary: service.container_command ? { Cmd: ... } : {}
-    const containerCommand: string | null = null
-    const spread = containerCommand ? { Cmd: containerCommand.split(' ') } : {}
+    const containerCommand = null as string | null
+    const spread = containerCommand ? { Cmd: (containerCommand as string).split(' ') } : {}
     assert.deepEqual(spread, {})
   })
 
   test('truthy container_command produces Cmd property', ({ assert }) => {
-    const containerCommand = '--workers 4 --timeout 30'
+    const containerCommand: string | null = '--workers 4 --timeout 30'
     const spread = containerCommand ? { Cmd: containerCommand.split(' ') } : {}
     assert.deepEqual(spread, { Cmd: ['--workers', '4', '--timeout', '30'] })
   })
