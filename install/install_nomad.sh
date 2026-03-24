@@ -78,14 +78,19 @@ check_is_bash() {
     echo -e "${GREEN}#${RESET} This script is running in bash.\\n"
 }
 
-check_is_debian_based() {
-  if [[ ! -f /etc/debian_version ]]; then
+check_os_compatibility() {
+  if [[ -f /etc/debian_version ]]; then
+    OS_TYPE="debian"
+    echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
+  elif [[ -f /etc/fedora-release ]]; then
+    OS_TYPE="fedora"
+    echo -e "${GREEN}#${RESET} This script is running on a Fedora system.\\n"
+  else
     header_red
-    echo -e "${RED}#${RESET} This script is designed to run on Debian-based systems only.\\n"
-    echo -e "${RED}#${RESET} Please run this script on a Debian-based system and try again."
+    echo -e "${RED}#${RESET} This script is designed to run on Debian-based or Fedora systems only.\\n"
+    echo -e "${RED}#${RESET} Please run this script on a supported system and try again."
     exit 1
   fi
-    echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
 }
 
 ensure_dependencies_installed() {
@@ -103,8 +108,12 @@ ensure_dependencies_installed() {
 
   if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
-    sudo apt-get update
-    sudo apt-get install -y "${missing_deps[@]}"
+    if [[ "$OS_TYPE" == "debian" ]]; then
+      sudo apt-get update
+      sudo apt-get install -y "${missing_deps[@]}"
+    elif [[ "$OS_TYPE" == "fedora" ]]; then
+      sudo dnf install -y "${missing_deps[@]}"
+    fi
 
     # Verify installation
     for dep in "${missing_deps[@]}"; do
@@ -142,11 +151,15 @@ ensure_docker_installed() {
   if ! command -v docker &> /dev/null; then
     echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
     
-    # Update package database
-    sudo apt-get update
-    
-    # Install prerequisites
-    sudo apt-get install -y ca-certificates curl
+    if [[ "$OS_TYPE" == "debian" ]]; then
+      # Update package database
+      sudo apt-get update
+      
+      # Install prerequisites
+      sudo apt-get install -y ca-certificates curl
+    elif [[ "$OS_TYPE" == "fedora" ]]; then
+      sudo dnf install -y curl
+    fi
     
     # Create directory for keyrings
     # sudo install -m 0755 -d /etc/apt/keyrings
@@ -245,27 +258,38 @@ setup_nvidia_container_toolkit() {
   
   echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
   
-  # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
-      | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-      | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit repository. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! sudo apt-get update 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to update package list. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! sudo apt-get install -y nvidia-container-toolkit 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to install NVIDIA container toolkit. Continuing anyway...\\n"
-    return 0
+  if [[ "$OS_TYPE" == "debian" ]]; then
+    # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
+    if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
+      return 0
+    fi
+    
+    if ! curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
+        | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+        | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit repository. Continuing anyway...\\n"
+      return 0
+    fi
+    
+    if ! sudo apt-get update 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to update package list. Continuing anyway...\\n"
+      return 0
+    fi
+    
+    if ! sudo apt-get install -y nvidia-container-toolkit 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to install NVIDIA container toolkit. Continuing anyway...\\n"
+      return 0
+    fi
+  elif [[ "$OS_TYPE" == "fedora" ]]; then
+    if ! curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo 2>/dev/null | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo > /dev/null 2>&1; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit repository. Continuing anyway...\\n"
+      return 0
+    fi
+    if ! sudo dnf install -y nvidia-container-toolkit 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to install NVIDIA container toolkit. Continuing anyway...\\n"
+      return 0
+    fi
   fi
   
   echo -e "${GREEN}#${RESET} NVIDIA container toolkit installed successfully.\\n"
@@ -552,7 +576,7 @@ success_message() {
 ###################################################################################################################################################################################################
 
 # Pre-flight checks
-check_is_debian_based
+check_os_compatibility
 check_is_bash
 check_has_sudo
 ensure_dependencies_installed
