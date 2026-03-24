@@ -41,6 +41,8 @@ export type DownloadJobWithProgress = {
   progress: number
   filepath: string
   filetype: string
+  status?: 'active' | 'failed'
+  failedReason?: string
 }
 
 // Wikipedia selector types

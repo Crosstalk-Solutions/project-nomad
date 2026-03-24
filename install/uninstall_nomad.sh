@@ -17,8 +17,6 @@
 
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
-COLLECT_DISK_INFO_PID="/var/run/nomad-collect-disk-info.pid"
-DISK_INFO_FILE="/tmp/nomad-disk-info.json"
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -77,22 +75,14 @@ ensure_docker_installed() {
     fi
 }
 
-try_remove_disk_info_script() {
-    echo "Checking for running collect-disk-info script..."
-    if [ -f "$COLLECT_DISK_INFO_PID" ]; then
-        echo "Stopping collect-disk-info script..."
-        kill "$(cat "$COLLECT_DISK_INFO_PID")"
-        rm -f "$COLLECT_DISK_INFO_PID"
-        echo "collect-disk-info script stopped."
-    fi
-}
-
-try_remove_disk_info_file() {
-    if [ -f "$DISK_INFO_FILE" ]; then
-        echo "Removing disk info file..."
-        rm -f "$DISK_INFO_FILE"
-        echo "Disk info file removed."
-    fi
+check_docker_compose() {
+  # Check if 'docker compose' (v2 plugin) is available
+  if ! docker compose version &>/dev/null; then
+    echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
+    echo -e "${YELLOW}#${RESET} This script requires 'docker compose' (v2), not 'docker-compose' (v1)."
+    echo -e "${YELLOW}#${RESET} Please read the Docker documentation at https://docs.docker.com/compose/install/ for instructions on how to install Docker Compose v2."
+    exit 1
+  fi
 }
 
 storage_cleanup() {
@@ -135,12 +125,6 @@ uninstall_nomad() {
     echo "Removing project-nomad_nomad-update-shared volume if it exists..."
     docker volume rm project-nomad_nomad-update-shared 2>/dev/null && echo "Volume removed." || echo "Volume already removed or not found."
 
-    # Try to stop the collect-disk-info script if it's running
-    try_remove_disk_info_script
-
-    # Try to remove the disk info file if it exists
-    try_remove_disk_info_file
-
     # Prompt user for storage cleanup and handle it if so
     storage_cleanup
 
@@ -156,5 +140,6 @@ check_has_sudo
 check_current_directory
 ensure_management_compose_file_exists
 ensure_docker_installed
+check_docker_compose
 get_uninstall_confirmation
 uninstall_nomad

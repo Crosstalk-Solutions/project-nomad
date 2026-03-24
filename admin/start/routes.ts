@@ -54,6 +54,7 @@ router
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
     router.get('/benchmark', [SettingsController, 'benchmark'])
+    router.get('/support', [SettingsController, 'support'])
   })
   .prefix('/settings')
 
@@ -91,6 +92,7 @@ router
   .group(() => {
     router.get('/jobs', [DownloadsController, 'index'])
     router.get('/jobs/:filetype', [DownloadsController, 'filetype'])
+    router.delete('/jobs/:jobId', [DownloadsController, 'removeJob'])
   })
   .prefix('/api/downloads')
 
@@ -135,6 +137,7 @@ router
 
 router
   .group(() => {
+    router.get('/debug-info', [SystemController, 'getDebugInfo'])
     router.get('/info', [SystemController, 'getSystemInfo'])
     router.get('/internet-status', [SystemController, 'getInternetStatus'])
     router.get('/services', [SystemController, 'getServices'])

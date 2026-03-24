@@ -106,7 +106,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         cancelText='Cancel'
         confirmVariant='primary'
       >
-        <p className='text-gray-700'>
+        <p className='text-text-primary'>
           This will scan the NOMAD's storage directories for any new files and queue them for processing. This is useful if you've manually added files to the storage or want to ensure everything is up to date.
           This may cause a temporary increase in resource usage if new files are found and being processed. Are you sure you want to proceed?
         </p>
@@ -117,18 +117,18 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
-          <h2 className="text-2xl font-semibold text-gray-800">Knowledge Base</h2>
+      <div className="bg-surface-primary rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-border-subtle shrink-0">
+          <h2 className="text-2xl font-semibold text-text-primary">Knowledge Base</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface-secondary rounded-lg transition-colors"
           >
-            <IconX className="h-6 w-6 text-gray-500" />
+            <IconX className="h-6 w-6 text-text-muted" />
           </button>
         </div>
         <div className="overflow-y-auto flex-1 p-6">
-          <div className="bg-white rounded-lg border shadow-md overflow-hidden">
+          <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden">
             <div className="p-6">
               <FileUploader
                 ref={fileUploaderRef}
@@ -151,7 +151,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 </StyledButton>
               </div>
             </div>
-            <div className="border-t bg-white p-6">
+            <div className="border-t bg-surface-primary p-6">
               <h3 className="text-lg font-semibold text-desert-green mb-4">
                 Why upload documents to your Knowledge Base?
               </h3>
@@ -232,7 +232,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   accessor: 'source',
                   title: 'File Name',
                   render(record) {
-                    return <span className="text-gray-700">{sourceToDisplayName(record.source)}</span>
+                    return <span className="text-text-primary">{sourceToDisplayName(record.source)}</span>
                   },
                 },
                 {
@@ -244,7 +244,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                     if (isConfirming) {
                       return (
                         <div className="flex items-center gap-2 justify-end">
-                          <span className="text-sm text-gray-600">Remove from knowledge base?</span>
+                          <span className="text-sm text-text-secondary">Remove from knowledge base?</span>
                           <StyledButton
                             variant='danger'
                             size='sm'

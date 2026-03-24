@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
@@ -40,6 +40,7 @@ export default function BenchmarkPage(props: {
   const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
+  const refetchLatestRef = useRef<(() => void) | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
@@ -60,6 +61,7 @@ export default function BenchmarkPage(props: {
     },
     initialData: props.benchmark.latestResult,
   })
+  refetchLatestRef.current = refetchLatest
 
   // Fetch all benchmark results for history
   const { data: benchmarkHistory } = useQuery({
@@ -306,14 +308,15 @@ export default function BenchmarkPage(props: {
       setProgress(data)
       if (data.status === 'completed' || data.status === 'error') {
         setIsRunning(false)
-        refetchLatest()
+        refetchLatestRef.current?.()
       }
     })
 
     return () => {
       unsubscribe()
     }
-  }, [subscribe, refetchLatest])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscribe])
 
   const formatBytes = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024)

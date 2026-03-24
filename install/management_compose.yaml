@@ -1,3 +1,11 @@
+# Project N.O.M.A.D. management services Docker Compose configuration
+#
+# This compose file defines the admin server, database, and other supporting services required to run Project N.O.M.A.D.
+# You can use this with `docker-compose up -d` to start all the necessary services with a single command after installation.
+#
+# Note: we recommend leaving all of the environment variables as-is except for any "replaceme" values,
+# which must be updated for the admin server to start successfully. The default values are optimized for ease of installation and use,
+# but you can customize them as needed (e.g. changing ports, database connection details, log level, etc.)
 name: project-nomad
 services:
   admin:
@@ -10,40 +18,44 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /opt/project-nomad/storage:/app/storage
-      - /tmp/nomad-disk-info.json:/app/storage/nomad-disk-info.json
+      - /opt/project-nomad/storage:/app/storage # If you change the default storage path (/opt/project-nomad/storage), make sure to update the disk-collector config as well!
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
-      - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
+      # PORT is the port the admin server listens on *inside* the container and should not be changed. If you want to change which port the admin interface is accessible from on the host, you can change the port mapping in the "ports" section (e.g. "9090:8080" to access it on port 9090 from the host)
       - PORT=8080
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
+      # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
       - APP_KEY=replaceme
+      # # Leave HOST as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
       - HOST=0.0.0.0
+      # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
       - URL=replaceme
       - DB_HOST=mysql
+      # If you change the MySQL port, make sure to update this accordingly
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
+      # Needs to match the MYSQL_PASSWORD in the mysql service!
       - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
+      # If you change the Redis port, make sure to update this accordingly
       - REDIS_PORT=6379
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
-    entrypoint: ["/usr/local/bin/entrypoint.sh"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
   dozzle:
+    # Dozzle is an optional container that allows for easily viewing container logs. We recommend including it unless you have a specific reason not to. Note that if you don't install it, the "Service Logs & Metrics" link in Settings that launches Dozzle will not work.
     image: amir20/dozzle:v10.0
     container_name: nomad_dozzle
     restart: unless-stopped
@@ -52,21 +64,20 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows Dozzle to read logs from the Host's Docker daemon
     environment:
-      - DOZZLE_ENABLE_ACTIONS=true # Enables the action buttons (restart, stop, etc.)
-      - DOZZLE_ENABLE_SHELL=true  # Enables web-based shell access
+      - DOZZLE_ENABLE_ACTIONS=false # Disabled — unauthenticated container stop/restart on LAN
+      - DOZZLE_ENABLE_SHELL=false  # Disabled — shell access + Docker socket = privilege escalation
   mysql:
     image: mysql:8.0
     container_name: nomad_mysql
     restart: unless-stopped
-    ports:
-      - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=replaceme
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
+      # Needs to match DB_PASSWORD in the admin service!
       - MYSQL_PASSWORD=replaceme
     volumes:
-      - /opt/project-nomad/mysql:/var/lib/mysql
+      - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -76,25 +87,33 @@ services:
     image: redis:7-alpine
     container_name: nomad_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
-      - /opt/project-nomad/redis:/data
+      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
   updater:
-    build:
-      context: ./sidecar-updater
-      dockerfile: Dockerfile
+    # Updater is a lightweight sidecar container that allows the admin container to be updated from within it's own UI
+    image: ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest
+    pull_policy: always
     container_name: nomad_updater
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml
+      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
       - nomad-update-shared:/shared # Shared volume for communication with admin container
+  disk-collector:
+    # Disk Collector is a lightweight privileged container that collects disk usage information from the host system and shares it with the admin container so it can be displayed in the UI. 
+    # It requires read-only access to the host filesystem and is designed to be as secure and limited in scope as possible while still providing the necessary functionality.
+    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
+    pull_policy: always
+    container_name: nomad_disk_collector
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
+      - /opt/project-nomad/storage:/storage
 
 volumes:
   nomad-update-shared:

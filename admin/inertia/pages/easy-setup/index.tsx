@@ -16,6 +16,7 @@ import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
+import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
 import classNames from 'classnames'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
@@ -296,34 +297,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   ])
 
   // Get primary disk/filesystem info for storage projection
-  // Try disk array first (Linux/production), fall back to fsSize (Windows/dev)
-  // Filter out invalid disks (totalSize === 0) and prefer disk with root mount or largest valid disk
-  const getPrimaryDisk = () => {
-    if (!systemInfo?.disk || systemInfo.disk.length === 0) return null
-
-    // Filter to only valid disks with actual storage
-    const validDisks = systemInfo.disk.filter((d) => d.totalSize > 0)
-    if (validDisks.length === 0) return null
-
-    // Prefer disk containing root mount (/) or /storage mount
-    const diskWithRoot = validDisks.find((d) =>
-      d.filesystems?.some((fs) => fs.mount === '/' || fs.mount === '/storage')
-    )
-    if (diskWithRoot) return diskWithRoot
-
-    // Fall back to largest valid disk
-    return validDisks.reduce((largest, current) =>
-      current.totalSize > largest.totalSize ? current : largest
-    )
-  }
-
-  const primaryDisk = getPrimaryDisk()
-  const primaryFs = systemInfo?.fsSize?.[0]
-  const storageInfo = primaryDisk
-    ? { totalSize: primaryDisk.totalSize, totalUsed: primaryDisk.totalUsed }
-    : primaryFs
-      ? { totalSize: primaryFs.size, totalUsed: primaryFs.used }
-      : null
+  const storageInfo = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
 
   const canProceedToNextStep = () => {
     if (!isOnline) return false // Must be online to proceed
@@ -444,7 +418,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       <nav aria-label="Progress" className="px-6 pt-6">
         <ol
           role="list"
-          className="divide-y divide-gray-300 rounded-md md:flex md:divide-y-0 md:justify-between border border-desert-green"
+          className="divide-y divide-border-default rounded-md md:flex md:divide-y-0 md:justify-between border border-desert-green"
         >
           {steps.map((step, stepIdx) => (
             <li key={step.number} className="relative md:flex-1 md:flex md:justify-center">
@@ -454,7 +428,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green">
                       <IconCheck aria-hidden="true" className="size-6 text-white" />
                     </span>
-                    <span className="ml-4 text-lg font-medium text-gray-900">{step.label}</span>
+                    <span className="ml-4 text-lg font-medium text-text-primary">{step.label}</span>
                   </span>
                 </div>
               ) : currentStep === step.number ? (
@@ -470,10 +444,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               ) : (
                 <div className="group flex items-center md:justify-center">
                   <span className="flex items-center px-6 py-2 text-sm font-medium">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-300">
-                      <span className="text-gray-500">{step.number}</span>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border-default">
+                      <span className="text-text-muted">{step.number}</span>
                     </span>
-                    <span className="ml-4 text-lg font-medium text-gray-500">{step.label}</span>
+                    <span className="ml-4 text-lg font-medium text-text-muted">{step.label}</span>
                   </span>
                 </div>
               )}
@@ -489,7 +463,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                       fill="none"
                       viewBox="0 0 22 80"
                       preserveAspectRatio="none"
-                      className={`size-full ${currentStep > step.number ? 'text-desert-green' : 'text-gray-300'}`}
+                      className={`size-full ${currentStep > step.number ? 'text-desert-green' : 'text-text-muted'}`}
                     >
                       <path
                         d="M0 -2L20 40L0 82"
@@ -565,7 +539,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             ? 'border-desert-green bg-desert-green/20 cursor-default'
             : selected
               ? 'border-desert-green bg-desert-green shadow-md cursor-pointer'
-              : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm cursor-pointer'
+              : 'border-desert-stone-light bg-surface-primary hover:border-desert-green hover:shadow-sm cursor-pointer'
         )}
       >
         <div className="flex items-start justify-between">
@@ -574,7 +548,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               <h3
                 className={classNames(
                   'text-xl font-bold',
-                  installed ? 'text-gray-700' : selected ? 'text-white' : 'text-gray-900'
+                  installed ? 'text-text-primary' : selected ? 'text-white' : 'text-text-primary'
                 )}
               >
                 {capability.name}
@@ -588,7 +562,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             <p
               className={classNames(
                 'text-sm mt-0.5',
-                installed ? 'text-gray-500' : selected ? 'text-green-100' : 'text-gray-500'
+                installed ? 'text-text-muted' : selected ? 'text-green-100' : 'text-text-muted'
               )}
             >
               Powered by {capability.technicalName}
@@ -596,7 +570,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             <p
               className={classNames(
                 'text-sm mt-3',
-                installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
+                installed ? 'text-text-secondary' : selected ? 'text-white' : 'text-text-secondary'
               )}
             >
               {capability.description}
@@ -605,7 +579,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
               <ul
                 className={classNames(
                   'mt-3 space-y-1',
-                  installed ? 'text-gray-600' : selected ? 'text-white' : 'text-gray-600'
+                  installed ? 'text-text-secondary' : selected ? 'text-white' : 'text-text-secondary'
                 )}
               >
                 {capability.features.map((feature, idx) => (
@@ -661,15 +635,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     return (
       <div className="space-y-8">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">What do you want NOMAD to do?</h2>
-          <p className="text-gray-600">
+          <h2 className="text-3xl font-bold text-text-primary mb-2">What do you want NOMAD to do?</h2>
+          <p className="text-text-secondary">
             Select the capabilities you need. You can always add more later.
           </p>
         </div>
 
         {allInstalled ? (
           <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">
+            <p className="text-text-secondary text-lg">
               All available capabilities are already installed!
             </p>
             <StyledButton
@@ -685,7 +659,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             {/* Core Capabilities */}
             {existingCoreCapabilities.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">Core Capabilities</h3>
+                <h3 className="text-lg font-semibold text-text-primary mb-4">Core Capabilities</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {existingCoreCapabilities.map((capability) =>
                     renderCapabilityCard(capability, true)
@@ -701,11 +675,11 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                   onClick={() => setShowAdditionalTools(!showAdditionalTools)}
                   className="flex items-center justify-between w-full text-left"
                 >
-                  <h3 className="text-md font-medium text-gray-500">Additional Tools</h3>
+                  <h3 className="text-md font-medium text-text-muted">Additional Tools</h3>
                   {showAdditionalTools ? (
-                    <IconChevronUp size={20} className="text-gray-400" />
+                    <IconChevronUp size={20} className="text-text-muted" />
                   ) : (
-                    <IconChevronDown size={20} className="text-gray-400" />
+                    <IconChevronDown size={20} className="text-text-muted" />
                   )}
                 </button>
                 {showAdditionalTools && (
@@ -726,8 +700,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Map Regions</h2>
-        <p className="text-gray-600">
+        <h2 className="text-3xl font-bold text-text-primary mb-2">Choose Map Regions</h2>
+        <p className="text-text-secondary">
           Select map region collections to download for offline use. You can always download more
           regions later.
         </p>
@@ -763,7 +737,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-gray-600 text-lg">No map collections available at this time.</p>
+          <p className="text-text-secondary text-lg">No map collections available at this time.</p>
         </div>
       )}
     </div>
@@ -779,8 +753,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Choose Content</h2>
-          <p className="text-gray-600">
+          <h2 className="text-3xl font-bold text-text-primary mb-2">Choose Content</h2>
+          <p className="text-text-secondary">
             {isAiSelected && isInformationSelected
               ? 'Select AI models and content categories for offline use.'
               : isAiSelected
@@ -795,12 +769,12 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         {isAiSelected && (
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                <IconCpu className="w-6 h-6 text-gray-700" />
+              <div className="w-10 h-10 rounded-full bg-surface-primary border border-border-subtle flex items-center justify-center shadow-sm">
+                <IconCpu className="w-6 h-6 text-text-primary" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">AI Models</h3>
-                <p className="text-sm text-gray-500">Select models to download for offline AI</p>
+                <h3 className="text-xl font-semibold text-text-primary">AI Models</h3>
+                <p className="text-sm text-text-muted">Select models to download for offline AI</p>
               </div>
             </div>
 
@@ -818,7 +792,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                       'p-4 rounded-lg border-2 transition-all cursor-pointer',
                       selectedAiModels.includes(model.name)
                         ? 'border-desert-green bg-desert-green shadow-md'
-                        : 'border-desert-stone-light bg-white hover:border-desert-green hover:shadow-sm',
+                        : 'border-desert-stone-light bg-surface-primary hover:border-desert-green hover:shadow-sm',
                       !isOnline && 'opacity-50 cursor-not-allowed'
                     )}
                   >
@@ -827,7 +801,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                         <h4
                           className={classNames(
                             'text-lg font-semibold mb-1',
-                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-gray-900'
+                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-primary'
                           )}
                         >
                           {model.name}
@@ -835,7 +809,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                         <p
                           className={classNames(
                             'text-sm mb-2',
-                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-gray-600'
+                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-secondary'
                           )}
                         >
                           {model.description}
@@ -846,7 +820,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                               'text-xs',
                               selectedAiModels.includes(model.name)
                                 ? 'text-green-100'
-                                : 'text-gray-500'
+                                : 'text-text-muted'
                             )}
                           >
                             Size: {model.tags[0].size}
@@ -870,8 +844,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">No recommended AI models available at this time.</p>
+              <div className="text-center py-8 bg-surface-secondary rounded-lg">
+                <p className="text-text-secondary">No recommended AI models available at this time.</p>
               </div>
             )}
           </div>
@@ -881,7 +855,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         {isInformationSelected && (
           <>
             {/* Divider between AI Models and Wikipedia */}
-            {isAiSelected && <hr className="my-8 border-gray-200" />}
+            {isAiSelected && <hr className="my-8 border-border-subtle" />}
 
             <div className="mb-8">
               {isLoadingWikipedia ? (
@@ -905,15 +879,15 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         {isInformationSelected && (
           <>
             {/* Divider between Wikipedia and Additional Content */}
-            <hr className="my-8 border-gray-200" />
+            <hr className="my-8 border-border-subtle" />
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                <IconBooks className="w-6 h-6 text-gray-700" />
+              <div className="w-10 h-10 rounded-full bg-surface-primary border border-border-subtle flex items-center justify-center shadow-sm">
+                <IconBooks className="w-6 h-6 text-text-primary" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Additional Content</h3>
-                <p className="text-sm text-gray-500">Curated collections for offline reference</p>
+                <h3 className="text-xl font-semibold text-text-primary">Additional Content</h3>
+                <p className="text-sm text-text-muted">Curated collections for offline reference</p>
               </div>
             </div>
 
@@ -955,7 +929,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         {/* Show message if no capabilities requiring content are selected */}
         {!isAiSelected && !isInformationSelected && (
           <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">
+            <p className="text-text-secondary text-lg">
               No content-based capabilities selected. You can skip this step or go back to select
               capabilities that require content.
             </p>
@@ -976,8 +950,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Review Your Selections</h2>
-          <p className="text-gray-600">Review your choices before starting the setup process.</p>
+          <h2 className="text-3xl font-bold text-text-primary mb-2">Review Your Selections</h2>
+          <p className="text-text-secondary">Review your choices before starting the setup process.</p>
         </div>
 
         {!hasSelections ? (
@@ -990,8 +964,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         ) : (
           <div className="space-y-6">
             {selectedServices.length > 0 && (
-              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
                   Capabilities to Install
                 </h3>
                 <ul className="space-y-2">
@@ -1000,9 +974,9 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     .map((capability) => (
                       <li key={capability.id} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
-                        <span className="text-gray-700">
+                        <span className="text-text-primary">
                           {capability.name}
-                          <span className="text-gray-400 text-sm ml-2">
+                          <span className="text-text-muted text-sm ml-2">
                             ({capability.technicalName})
                           </span>
                         </span>
@@ -1013,8 +987,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             )}
 
             {selectedMapCollections.length > 0 && (
-              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
                   Map Collections to Download ({selectedMapCollections.length})
                 </h3>
                 <ul className="space-y-2">
@@ -1023,7 +997,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     return (
                       <li key={slug} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
-                        <span className="text-gray-700">{collection?.name || slug}</span>
+                        <span className="text-text-primary">{collection?.name || slug}</span>
                       </li>
                     )
                   })}
@@ -1032,8 +1006,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             )}
 
             {selectedTiers.size > 0 && (
-              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
                   Content Categories ({selectedTiers.size})
                 </h3>
                 {Array.from(selectedTiers.entries()).map(([categorySlug, tier]) => {
@@ -1044,16 +1018,16 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                     <div key={categorySlug} className="mb-4 last:mb-0">
                       <div className="flex items-center mb-2">
                         <IconCheck size={20} className="text-desert-green mr-2" />
-                        <span className="text-gray-900 font-medium">
+                        <span className="text-text-primary font-medium">
                           {category.name} - {tier.name}
                         </span>
-                        <span className="text-gray-500 text-sm ml-2">
+                        <span className="text-text-muted text-sm ml-2">
                           ({resources.length} files)
                         </span>
                       </div>
                       <ul className="ml-7 space-y-1">
                         {resources.map((resource, idx) => (
-                          <li key={idx} className="text-sm text-gray-600">
+                          <li key={idx} className="text-sm text-text-secondary">
                             {resource.title}
                           </li>
                         ))}
@@ -1065,17 +1039,17 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             )}
 
             {selectedWikipedia && selectedWikipedia !== 'none' && (
-              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Wikipedia</h3>
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">Wikipedia</h3>
                 {(() => {
                   const option = wikipediaState?.options.find((o) => o.id === selectedWikipedia)
                   return option ? (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
-                        <span className="text-gray-700">{option.name}</span>
+                        <span className="text-text-primary">{option.name}</span>
                       </div>
-                      <span className="text-gray-500 text-sm">
+                      <span className="text-text-muted text-sm">
                         {option.size_mb > 0
                           ? `${(option.size_mb / 1024).toFixed(1)} GB`
                           : 'No download'}
@@ -1087,8 +1061,8 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
             )}
 
             {selectedAiModels.length > 0 && (
-              <div className="bg-white rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
                   AI Models to Download ({selectedAiModels.length})
                 </h3>
                 <ul className="space-y-2">
@@ -1098,10 +1072,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                       <li key={modelName} className="flex items-center justify-between">
                         <div className="flex items-center">
                           <IconCheck size={20} className="text-desert-green mr-2" />
-                          <span className="text-gray-700">{modelName}</span>
+                          <span className="text-text-primary">{modelName}</span>
                         </div>
                         {model?.tags?.[0]?.size && (
-                          <span className="text-gray-500 text-sm">{model.tags[0].size}</span>
+                          <span className="text-text-muted text-sm">{model.tags[0].size}</span>
                         )}
                       </li>
                     )
@@ -1135,7 +1109,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
         />
       )}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-md shadow-md">
+        <div className="bg-surface-primary rounded-md shadow-md">
           {renderStepIndicator()}
           {storageInfo && (
             <div className="px-6 pt-4">
@@ -1165,7 +1139,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
                   </StyledButton>
                 )}
 
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-text-secondary">
                   {(() => {
                     const count = [...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS].filter((cap) =>
                       cap.services.some((s) => selectedServices.includes(s))
