@@ -596,7 +596,7 @@ verify_gpu_setup() {
   echo -e "${YELLOW}===========================================${RESET}\\n"
   
   # Summary
-  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
+  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null; then
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
