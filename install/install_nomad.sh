@@ -575,10 +575,6 @@ verify_gpu_setup() {
     echo -e "${YELLOW}○${RESET} NVIDIA Container Toolkit not installed\\n"
   fi
 
- 
-  echo "=== docker info from script ==="
-  docker info || echo "docker info FAILED: $?"
-  echo "=== end docker info ==="
   # Check if Docker has NVIDIA runtime
   if docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}✓${RESET} Docker NVIDIA runtime configured\\n"
@@ -596,7 +592,7 @@ verify_gpu_setup() {
   echo -e "${YELLOW}===========================================${RESET}\\n"
   
   # Summary
-  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep "nvidia"; then
+  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
