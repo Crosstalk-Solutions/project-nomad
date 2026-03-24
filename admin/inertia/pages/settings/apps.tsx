@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { ServiceSlim } from '../../../types/services'
@@ -43,7 +43,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
       )
     ) {
       setTimeout(() => {
-        window.location.reload()
+        router.reload()
       }, 3000)
     }
   }, [installActivity])
@@ -52,7 +52,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
   useEffect(() => {
     const unsubscribe = subscribe(BROADCAST_CHANNELS.SERVICE_UPDATES, () => {
       setCheckingUpdates(false)
-      window.location.reload()
+      router.reload()
     })
     return () => { unsubscribe() }
   }, [])
@@ -138,7 +138,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
       setTimeout(() => {
         setLoading(false)
-        window.location.reload()
+        router.reload()
       }, 3000)
     } catch (error) {
       console.error(`Error affecting service ${record.service_name}:`, error)
@@ -161,7 +161,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
 
       setTimeout(() => {
         setLoading(false)
-        window.location.reload()
+        router.reload()
       }, 3000)
     } catch (error) {
       console.error(`Error force reinstalling service ${record.service_name}:`, error)

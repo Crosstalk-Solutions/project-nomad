@@ -1,5 +1,5 @@
 import { IconSend, IconWand } from '@tabler/icons-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import classNames from '~/lib/classNames'
 import { ChatMessage } from '../../../types/chat'
 import ChatMessageBubble from './ChatMessageBubble'
@@ -84,6 +84,14 @@ export default function ChatInterface({
     e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`
   }
 
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    setInput(suggestion)
+    // Focus the textarea after setting input
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 0)
+  }, [])
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-surface-primary shadow-sm">
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
@@ -102,13 +110,8 @@ export default function ChatInterface({
                     {chatSuggestions.map((suggestion, index) => (
                       <button
                         key={index}
-                        onClick={() => {
-                          setInput(suggestion)
-                          // Focus the textarea after setting input
-                          setTimeout(() => {
-                            textareaRef.current?.focus()
-                          }, 0)
-                        }}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        aria-label={`Use suggestion: ${suggestion}`}
                         className="px-4 py-2 bg-surface-secondary hover:bg-surface-secondary rounded-lg text-sm text-text-primary transition-colors"
                       >
                         {suggestion}
@@ -163,6 +166,7 @@ export default function ChatInterface({
               onChange={handleInput}
               onKeyDown={handleKeyDown}
               placeholder={`Type your message to ${aiAssistantName}... (Shift+Enter for new line)`}
+              aria-label={`Type your message to ${aiAssistantName}`}
               className="w-full resize-none rounded-lg border border-border-default px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
               rows={1}
               disabled={isLoading}
@@ -171,6 +175,7 @@ export default function ChatInterface({
           </div>
           <button
             type="submit"
+            aria-label="Send message"
             disabled={!input.trim() || isLoading}
             className={classNames(
               'p-3 rounded-lg transition-all duration-200 flex-shrink-0 mb-2',

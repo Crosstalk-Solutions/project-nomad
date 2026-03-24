@@ -1,3 +1,4 @@
+import React from 'react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -7,9 +8,11 @@ export interface ChatMessageBubbleProps {
   message: ChatMessage
 }
 
-export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   return (
     <div
+      role="article"
+      aria-label={`${message.role === 'user' ? 'User' : 'Assistant'} message`}
       className={classNames(
         'max-w-[70%] rounded-lg px-4 py-3',
         message.role === 'user' ? 'bg-desert-green text-white' : 'bg-surface-secondary text-text-primary'
@@ -116,3 +119,5 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     </div>
   )
 }
+
+export default React.memo(ChatMessageBubble)

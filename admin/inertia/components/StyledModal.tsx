@@ -45,6 +45,9 @@ const StyledModal: React.FC<StyledModalProps> = ({
         if (onClose) onClose()
       }}
       className="relative z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="styled-modal-title"
     >
       <DialogBackdrop
         transition
@@ -67,7 +70,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
             <div>
               {icon && <div className="flex items-center justify-center">{icon}</div>}
               <div className="mt-3 text-center sm:mt-5">
-                <DialogTitle as="h3" className="text-base font-semibold text-text-primary">
+                <DialogTitle as="h3" id="styled-modal-title" className="text-base font-semibold text-text-primary">
                   {title}
                 </DialogTitle>
                 <div className="mt-2 !h-fit">{children}</div>
