@@ -440,7 +440,13 @@ export class MapService implements IMapService {
       throw new Error(`Download already in progress for URL ${info.url}`)
     }
 
-    const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', info.key)
+    const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
+    const filepath = resolve(join(basePath, info.key))
+
+    // Prevent path traversal — resolved path must stay within the storage directory
+    if (!filepath.startsWith(basePath + sep)) {
+      throw new Error('Invalid filename')
+    }
 
     // First, ensure base assets are present - the global map depends on them
     const baseAssetsExist = await this.ensureBaseAssets()
