@@ -580,7 +580,7 @@ verify_gpu_setup() {
   docker info || echo "docker info FAILED: $?"
   echo "=== end docker info ==="
   # Check if Docker has NVIDIA runtime
-  if docker info 2>/dev/null | grep -q \"nvidia\"; then
+  if docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}✓${RESET} Docker NVIDIA runtime configured\\n"
   else
     echo -e "${YELLOW}○${RESET} Docker NVIDIA runtime not detected\\n"
