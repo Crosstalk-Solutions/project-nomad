@@ -12,9 +12,13 @@ export default class RagController {
   constructor(private ragService: RagService) { }
 
   public async upload({ request, response }: HttpContext) {
-    const uploadedFile = request.file('file')
+    const uploadedFile = request.file('file', { size: '50mb' })
     if (!uploadedFile) {
       return response.status(400).json({ error: 'No file uploaded' })
+    }
+
+    if (!uploadedFile.isValid) {
+      return response.status(422).json({ errors: uploadedFile.errors })
     }
 
     const randomSuffix = randomBytes(6).toString('hex')

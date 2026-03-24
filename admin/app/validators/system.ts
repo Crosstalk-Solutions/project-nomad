@@ -2,13 +2,13 @@ import vine from '@vinejs/vine'
 
 export const installServiceValidator = vine.compile(
   vine.object({
-    service_name: vine.string().trim(),
+    service_name: vine.string().trim().maxLength(100).regex(/^[a-zA-Z0-9_-]+$/),
   })
 )
 
 export const affectServiceValidator = vine.compile(
   vine.object({
-    service_name: vine.string().trim(),
+    service_name: vine.string().trim().maxLength(100).regex(/^[a-zA-Z0-9_-]+$/),
     action: vine.enum(['start', 'stop', 'restart']),
   })
 )
@@ -27,7 +27,7 @@ export const checkLatestVersionValidator = vine.compile(
 
 export const updateServiceValidator = vine.compile(
   vine.object({
-    service_name: vine.string().trim(),
-    target_version: vine.string().trim(),
+    service_name: vine.string().trim().maxLength(100).regex(/^[a-zA-Z0-9_-]+$/),
+    target_version: vine.string().trim().maxLength(50).regex(/^[a-zA-Z0-9._-]+$/),
   })
 )
