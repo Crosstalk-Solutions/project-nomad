@@ -4,6 +4,7 @@ import { extractFileName } from '~/lib/util'
 import StyledSectionHeader from './StyledSectionHeader'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import api from '~/lib/api'
+import { useTranslation } from 'react-i18next'
 
 interface ActiveDownloadProps {
   filetype?: useDownloadsProps['filetype']
@@ -11,6 +12,7 @@ interface ActiveDownloadProps {
 }
 
 const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) => {
+  const { t } = useTranslation()
   const { data: downloads, invalidate } = useDownloads({ filetype })
 
   const handleDismiss = async (jobId: string) => {
@@ -20,7 +22,7 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
 
   return (
     <>
-      {withHeader && <StyledSectionHeader title="Active Downloads" className="mt-12 mb-4" />}
+      {withHeader && <StyledSectionHeader title={t('common.activeDownloads')} className="mt-12 mb-4" />}
       <div className="space-y-4">
         {downloads && downloads.length > 0 ? (
           downloads.map((download) => (
@@ -67,7 +69,7 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
             </div>
           ))
         ) : (
-          <p className="text-text-muted">No active downloads</p>
+          <p className="text-text-muted">{t('common.noActiveDownloads')}</p>
         )}
       </div>
     </>

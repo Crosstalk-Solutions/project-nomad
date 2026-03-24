@@ -3,6 +3,7 @@ import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from '@headlessu
 import classNames from '~/lib/classNames'
 import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import { UsePageProps } from '../../types/system'
 import { IconMenu2, IconX } from '@tabler/icons-react'
 import ThemeToggle from '~/components/ThemeToggle'
@@ -22,6 +23,7 @@ interface StyledSidebarProps {
 }
 
 const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
+  const { t } = useTranslation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [debugModalOpen, setDebugModalOpen] = useState(false)
   const { appVersion } = usePage().props as unknown as UsePageProps
@@ -71,7 +73,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
                     className="flex flex-row items-center gap-x-3 text-desert-green text-sm font-semibold"
                   >
                     <IconArrowLeft aria-hidden="true" className="size-6 shrink-0" />
-                    Back to Home
+                    {t('common.backToHome')}
                   </a>
                 </li>
               </ul>
@@ -121,7 +123,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="-m-2.5 p-2.5"
                 >
-                  <span className="sr-only">Close sidebar</span>
+                  <span className="sr-only">{t('common.closeSidebar')}</span>
                   <IconX aria-hidden="true" className="size-6 text-white" />
                 </button>
               </div>

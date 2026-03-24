@@ -4,6 +4,7 @@ import { router, usePage } from '@inertiajs/react'
 import { ChatSession } from '../../../types/chat'
 import { IconMessage } from '@tabler/icons-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import KnowledgeBaseModal from './KnowledgeBaseModal'
 
 interface ChatSidebarProps {
@@ -23,6 +24,7 @@ export default function ChatSidebar({
   onClearHistory,
   isInModal = false,
 }: ChatSidebarProps) {
+  const { t } = useTranslation()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(
     () => new URLSearchParams(window.location.search).get('knowledge_base') === 'true'
@@ -42,13 +44,13 @@ export default function ChatSidebar({
     <div className="w-64 bg-surface-secondary border-r border-border-subtle flex flex-col h-full">
       <div className="p-4 border-b border-border-subtle h-[75px] flex items-center justify-center">
         <StyledButton onClick={onNewChat} icon="IconPlus" variant="primary" fullWidth>
-          New Chat
+          {t('chat.newChat')}
         </StyledButton>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
-          <div className="p-4 text-center text-text-muted text-sm">No previous chats</div>
+          <div className="p-4 text-center text-text-muted text-sm">{t('chat.noPreviousChats')}</div>
         ) : (
           <div className="p-2 space-y-1">
             {sessions.map((session) => (
@@ -103,7 +105,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          {isInModal ? 'Open in New Tab' : 'Back to Home'}
+          {isInModal ? t('chat.openInNewTab') : t('common.backToHome')}
         </StyledButton>
         <StyledButton
           onClick={() => {
@@ -114,7 +116,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          Models & Settings
+          {t('chat.modelsAndSettings')}
         </StyledButton>
         <StyledButton
           onClick={() => {
@@ -125,7 +127,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          Knowledge Base
+          {t('chat.knowledgeBase')}
         </StyledButton>
         {sessions.length > 0 && (
           <StyledButton
@@ -135,7 +137,7 @@ export default function ChatSidebar({
             size="sm"
             fullWidth
           >
-            Clear History
+            {t('chat.clearHistory')}
           </StyledButton>
         )}
       </div>

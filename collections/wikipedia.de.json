@@ -1,0 +1,53 @@
+{
+  "spec_version": "2026-02-11",
+  "options": [
+    {
+      "id": "none",
+      "name": "Kein Wikipedia",
+      "description": "Wikipedia-Installation überspringen",
+      "size_mb": 0,
+      "url": null,
+      "version": null
+    },
+    {
+      "id": "top-mini",
+      "name": "Kurzreferenz",
+      "description": "Top 100.000 Artikel mit minimalen Bildern. Ideal für schnelles Nachschlagen.",
+      "size_mb": 122,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_top_mini_2026-01.zim",
+      "version": "2026-01"
+    },
+    {
+      "id": "top-nopic",
+      "name": "Beliebte Artikel",
+      "description": "Top-Artikel ohne Bilder. Gute Balance zwischen Inhalt und Größe.",
+      "size_mb": 977,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_top_nopic_2026-01.zim",
+      "version": "2026-01"
+    },
+    {
+      "id": "all-mini",
+      "name": "Komplette Wikipedia (Kompakt)",
+      "description": "Alle 2,8+ Millionen Artikel im komprimierten Format.",
+      "size_mb": 3687,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_all_mini_2026-01.zim",
+      "version": "2026-01"
+    },
+    {
+      "id": "all-nopic",
+      "name": "Komplette Wikipedia (Ohne Bilder)",
+      "description": "Alle Artikel ohne Bilder. Umfassende Offline-Referenz.",
+      "size_mb": 13903,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim",
+      "version": "2026-01"
+    },
+    {
+      "id": "all-maxi",
+      "name": "Komplette Wikipedia (Vollständig)",
+      "description": "Das vollständige Erlebnis mit allen Bildern und Medien.",
+      "size_mb": 49965,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_de_all_maxi_2026-01.zim",
+      "version": "2026-01"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
@@ -19,6 +20,7 @@ import { IconCpu, IconDatabase, IconServer, IconDeviceDesktop, IconComponents } 
 export default function SettingsPage(props: {
   system: { info: SystemInformationResponse | undefined }
 }) {
+  const { t } = useTranslation()
   const { data: info } = useSystemInfo({
     initialData: props.system.info,
   })
@@ -44,7 +46,7 @@ export default function SettingsPage(props: {
   const handleForceReinstallOllama = () => {
     openModal(
       <StyledModal
-        title="Reinstall AI Assistant?"
+        title={t('system.reinstallAi')}
         onConfirm={async () => {
           closeAllModals()
           setReinstalling(true)
@@ -54,14 +56,14 @@ export default function SettingsPage(props: {
               throw new Error(response?.message || 'Force reinstall failed')
             }
             addNotification({
-              message: 'AI Assistant is being reinstalled with GPU support. This page will reload shortly.',
+              message: t('system.reinstallSuccess'),
               type: 'success',
             })
             try { localStorage.removeItem('nomad:gpu-banner-dismissed') } catch {}
             setTimeout(() => window.location.reload(), 5000)
           } catch (error) {
             addNotification({
-              message: `Failed to reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              message: t('system.reinstallFailed', { error: error instanceof Error ? error.message : 'Unknown error' }),
               type: 'error',
             })
             setReinstalling(false)
@@ -69,13 +71,11 @@ export default function SettingsPage(props: {
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Reinstall"
+        confirmText={t('system.reinstallConfirm')}
         cancelText="Cancel"
       >
         <p className="text-text-primary">
-          This will recreate the AI Assistant container with GPU support enabled.
-          Your downloaded models will be preserved. The service will be briefly
-          unavailable during reinstall.
+          {t('system.reinstallAiMessage')}
         </p>
       </StyledModal>,
       'gpu-health-force-reinstall-modal'
@@ -110,22 +110,21 @@ export default function SettingsPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title="System Information" />
+      <Head title={t('system.title')} />
       <div className="xl:pl-72 w-full">
         <main className="px-6 lg:px-12 py-6 lg:py-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-desert-green mb-2">System Information</h1>
+            <h1 className="text-4xl font-bold text-desert-green mb-2">{t('system.heading')}</h1>
             <p className="text-desert-stone-dark">
-              Real-time monitoring and diagnostics • Last updated: {new Date().toLocaleString()} •
-              Refreshing data every 30 seconds
+              {t('system.subtitle', { time: new Date().toLocaleString() })}
             </p>
           </div>
           {Number(memoryUsagePercent) > 90 && (
             <div className="mb-6">
               <Alert
                 type="error"
-                title="Very High Memory Usage Detected"
-                message="System memory usage exceeds 90%. Performance degradation may occur."
+                title={t('system.highMemory')}
+                message={t('system.highMemoryMessage')}
                 variant="bordered"
               />
             </div>
@@ -133,24 +132,24 @@ export default function SettingsPage(props: {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
               <div className="w-1 h-6 bg-desert-green" />
-              Resource Usage
+              {t('system.resourceUsage')}
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
                 <CircularGauge
                   value={info?.currentLoad.currentLoad || 0}
-                  label="CPU Usage"
+                  label={t('system.cpuUsage')}
                   size="lg"
                   variant="cpu"
-                  subtext={`${info?.cpu.cores || 0} cores`}
+                  subtext={t('system.coresCount', { count: info?.cpu.cores || 0 })}
                   icon={<IconCpu className="w-8 h-8" />}
                 />
               </div>
               <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
                 <CircularGauge
                   value={Number(memoryUsagePercent)}
-                  label="Memory Usage"
+                  label={t('system.memoryUsage')}
                   size="lg"
                   variant="memory"
                   subtext={`${formatBytes(memoryUsed)} / ${formatBytes(info?.mem.total || 0)}`}
@@ -160,7 +159,7 @@ export default function SettingsPage(props: {
               <div className="bg-desert-white rounded-lg p-6 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
                 <CircularGauge
                   value={Number(swapUsagePercent)}
-                  label="Swap Usage"
+                  label={t('system.swapUsage')}
                   size="lg"
                   variant="disk"
                   subtext={`${formatBytes(info?.mem.swapused || 0)} / ${formatBytes(info?.mem.swaptotal || 0)}`}
@@ -172,34 +171,34 @@ export default function SettingsPage(props: {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
               <div className="w-1 h-6 bg-desert-green" />
-              System Details
+              {t('system.systemDetails')}
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <InfoCard
-                title="Operating System"
+                title={t('system.operatingSystem')}
                 icon={<IconDeviceDesktop className="w-6 h-6" />}
                 variant="elevated"
                 data={[
-                  { label: 'Distribution', value: info?.os.distro },
-                  { label: 'Kernel Version', value: info?.os.kernel },
-                  { label: 'Architecture', value: info?.os.arch },
-                  { label: 'Hostname', value: info?.os.hostname },
-                  { label: 'Platform', value: info?.os.platform },
+                  { label: t('system.distribution'), value: info?.os.distro },
+                  { label: t('system.kernelVersion'), value: info?.os.kernel },
+                  { label: t('system.architecture'), value: info?.os.arch },
+                  { label: t('system.hostname'), value: info?.os.hostname },
+                  { label: t('system.platform'), value: info?.os.platform },
                 ]}
               />
               <InfoCard
-                title="Processor"
+                title={t('system.processor')}
                 icon={<IconCpu className="w-6 h-6" />}
                 variant="elevated"
                 data={[
-                  { label: 'Manufacturer', value: info?.cpu.manufacturer },
-                  { label: 'Brand', value: info?.cpu.brand },
-                  { label: 'Cores', value: info?.cpu.cores },
-                  { label: 'Physical Cores', value: info?.cpu.physicalCores },
+                  { label: t('system.manufacturer'), value: info?.cpu.manufacturer },
+                  { label: t('system.brand'), value: info?.cpu.brand },
+                  { label: t('system.cores'), value: info?.cpu.cores },
+                  { label: t('system.physicalCores'), value: info?.cpu.physicalCores },
                   {
-                    label: 'Virtualization',
-                    value: info?.cpu.virtualization ? 'Enabled' : 'Disabled',
+                    label: t('system.virtualization'),
+                    value: info?.cpu.virtualization ? t('system.enabled') : t('system.disabled'),
                   },
                 ]}
               />
@@ -208,12 +207,12 @@ export default function SettingsPage(props: {
                   <Alert
                     type="warning"
                     variant="bordered"
-                    title="GPU Not Accessible to AI Assistant"
-                    message="Your system has an NVIDIA GPU, but the AI Assistant can't access it. AI is running on CPU only, which is significantly slower."
+                    title={t('system.gpuNotAccessible')}
+                    message={t('system.gpuNotAccessibleMessage')}
                     dismissible={true}
                     onDismiss={handleDismissGpuBanner}
                     buttonProps={{
-                      children: 'Fix: Reinstall AI Assistant',
+                      children: t('system.fixReinstallAi'),
                       icon: 'IconRefresh',
                       variant: 'action',
                       size: 'sm',
@@ -226,7 +225,7 @@ export default function SettingsPage(props: {
               )}
               {info?.graphics?.controllers && info.graphics.controllers.length > 0 && (
                 <InfoCard
-                  title="Graphics"
+                  title={t('system.graphics')}
                   icon={<IconComponents className="w-6 h-6" />}
                   variant="elevated"
                   data={info.graphics.controllers.map((gpu, i) => {
@@ -234,7 +233,7 @@ export default function SettingsPage(props: {
                     return [
                       { label: `${prefix}Model`, value: gpu.model },
                       { label: `${prefix}Vendor`, value: gpu.vendor },
-                      { label: `${prefix}VRAM`, value: gpu.vram ? `${gpu.vram} MB` : 'N/A' },
+                      { label: `${prefix}VRAM`, value: gpu.vram ? `${gpu.vram} MB` : t('system.na') },
                     ]
                   }).flat()}
                 />
@@ -244,7 +243,7 @@ export default function SettingsPage(props: {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
               <div className="w-1 h-6 bg-desert-green" />
-              Memory Allocation
+              {t('system.memoryAllocation')}
             </h2>
             <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
@@ -253,7 +252,7 @@ export default function SettingsPage(props: {
                     {formatBytes(info?.mem.total || 0)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
-                    Total RAM
+                    {t('system.totalRam')}
                   </div>
                 </div>
                 <div className="text-center">
@@ -261,7 +260,7 @@ export default function SettingsPage(props: {
                     {formatBytes(memoryUsed)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
-                    Used RAM
+                    {t('system.usedRam')}
                   </div>
                 </div>
                 <div className="text-center">
@@ -269,7 +268,7 @@ export default function SettingsPage(props: {
                     {formatBytes(info?.mem.available || 0)}
                   </div>
                   <div className="text-sm text-desert-stone-dark uppercase tracking-wide">
-                    Available RAM
+                    {t('system.availableRam')}
                   </div>
                 </div>
               </div>
@@ -280,7 +279,7 @@ export default function SettingsPage(props: {
                 ></div>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-sm font-bold text-white drop-shadow-md z-10">
-                    {memoryUsagePercent}% Utilized
+                    {t('system.utilized', { percent: memoryUsagePercent })}
                   </span>
                 </div>
               </div>
@@ -289,7 +288,7 @@ export default function SettingsPage(props: {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
               <div className="w-1 h-6 bg-desert-green" />
-              Storage Devices
+              {t('system.storageDevices')}
             </h2>
 
             <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
@@ -299,17 +298,17 @@ export default function SettingsPage(props: {
                   progressiveBarColor={true}
                   statuses={[
                     {
-                      label: 'Normal',
+                      label: t('system.normal'),
                       min_threshold: 0,
                       color_class: 'bg-desert-olive',
                     },
                     {
-                      label: 'Warning - Usage High',
+                      label: t('system.warningUsageHigh'),
                       min_threshold: 75,
                       color_class: 'bg-desert-orange',
                     },
                     {
-                      label: 'Critical - Disk Almost Full',
+                      label: t('system.criticalDiskFull'),
                       min_threshold: 90,
                       color_class: 'bg-desert-red',
                     },
@@ -317,7 +316,7 @@ export default function SettingsPage(props: {
                 />
               ) : (
                 <div className="text-center text-desert-stone-dark py-8">
-                  No storage devices detected
+                  {t('system.noStorageDevices')}
                 </div>
               )}
             </div>
@@ -325,12 +324,12 @@ export default function SettingsPage(props: {
           <section>
             <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
               <div className="w-1 h-6 bg-desert-green" />
-              System Status
+              {t('system.systemStatus')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatusCard title="System Uptime" value={uptimeDisplay} />
-              <StatusCard title="CPU Cores" value={info?.cpu.cores || 0} />
-              <StatusCard title="Storage Devices" value={storageItems.length} />
+              <StatusCard title={t('system.systemUptime')} value={uptimeDisplay} />
+              <StatusCard title={t('system.cpuCores')} value={info?.cpu.cores || 0} />
+              <StatusCard title={t('system.storageDevices')} value={storageItems.length} />
             </div>
           </section>
         </main>

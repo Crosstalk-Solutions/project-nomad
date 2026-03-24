@@ -7,6 +7,7 @@ import {
   IconWifiOff,
 } from '@tabler/icons-react'
 import { Head, usePage } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
@@ -15,63 +16,6 @@ import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Alert from '~/components/Alert'
 import { SERVICE_NAMES } from '../../constants/service_names'
-
-// Maps is a Core Capability (display_order: 4)
-const MAPS_ITEM = {
-  label: 'Maps',
-  to: '/maps',
-  target: '',
-  description: 'View offline maps',
-  icon: <IconMapRoute size={48} />,
-  installed: true,
-  displayOrder: 4,
-  poweredBy: null,
-}
-
-// System items shown after all apps
-const SYSTEM_ITEMS = [
-  {
-    label: 'Easy Setup',
-    to: '/easy-setup',
-    target: '',
-    description:
-      'Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!',
-    icon: <IconBolt size={48} />,
-    installed: true,
-    displayOrder: 50,
-    poweredBy: null,
-  },
-  {
-    label: 'Install Apps',
-    to: '/settings/apps',
-    target: '',
-    description: 'Not seeing your favorite app? Install it here!',
-    icon: <IconPlus size={48} />,
-    installed: true,
-    displayOrder: 51,
-    poweredBy: null,
-  },
-  {
-    label: 'Docs',
-    to: '/docs/home',
-    target: '',
-    description: 'Read Project N.O.M.A.D. manuals and guides',
-    icon: <IconHelp size={48} />,
-    installed: true,
-    displayOrder: 52,
-    poweredBy: null,
-  },
-  {
-    label: 'Settings',
-    to: '/settings/system',
-    target: '',
-    description: 'Configure your N.O.M.A.D. settings',
-    icon: <IconSettings size={48} />,
-    installed: true,
-    displayOrder: 53,
-    poweredBy: null,
-  },
-]
 
 interface DashboardItem {
   label: string
@@ -89,6 +33,7 @@ export default function Home(props: {
     services: ServiceSlim[]
   }
 }) {
+  const { t } = useTranslation()
   const items: DashboardItem[] = []
   const updateInfo = useUpdateAvailable();
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -98,6 +43,62 @@ export default function Home(props: {
     key: 'ui.hasVisitedEasySetup'
   })
   const shouldHighlightEasySetup = easySetupVisited?.value ? String(easySetupVisited.value) !== 'true' : false
+
+  // Maps is a Core Capability (display_order: 4)
+  const MAPS_ITEM: DashboardItem = {
+    label: t('home.maps.label'),
+    to: '/maps',
+    target: '',
+    description: t('home.maps.description'),
+    icon: <IconMapRoute size={48} />,
+    installed: true,
+    displayOrder: 4,
+    poweredBy: null,
+  }
+
+  // System items shown after all apps
+  const SYSTEM_ITEMS: DashboardItem[] = [
+    {
+      label: t('home.easySetup.label'),
+      to: '/easy-setup',
+      target: '',
+      description: t('home.easySetup.description'),
+      icon: <IconBolt size={48} />,
+      installed: true,
+      displayOrder: 50,
+      poweredBy: null,
+    },
+    {
+      label: t('home.installApps.label'),
+      to: '/settings/apps',
+      target: '',
+      description: t('home.installApps.description'),
+      icon: <IconPlus size={48} />,
+      installed: true,
+      displayOrder: 51,
+      poweredBy: null,
+    },
+    {
+      label: t('home.docs.label'),
+      to: '/docs/home',
+      target: '',
+      description: t('home.docs.description'),
+      icon: <IconHelp size={48} />,
+      installed: true,
+      displayOrder: 52,
+      poweredBy: null,
+    },
+    {
+      label: t('home.settings.label'),
+      to: '/settings/system',
+      target: '',
+      description: t('home.settings.description'),
+      icon: <IconSettings size={48} />,
+      installed: true,
+      displayOrder: 53,
+      poweredBy: null,
+    },
+  ]
 
   // Add installed services (non-dependency services only)
   props.system.services
@@ -110,7 +111,7 @@ export default function Home(props: {
         target: '_blank',
         description:
           service.description ||
-          `Access the ${service.friendly_name || service.service_name} application`,
+          t('home.accessApp', { name: service.friendly_name || service.service_name }),
         icon: service.icon ? (
           <DynamicIcon icon={service.icon as DynamicIconName} className="!size-12" />
         ) : (
@@ -133,18 +134,18 @@ export default function Home(props: {
 
   return (
     <AppLayout>
-      <Head title="Command Center" />
+      <Head title={t('home.title')} />
       {
         updateInfo?.updateAvailable && (
           <div className='flex justify-center items-center p-4 w-full'>
             <Alert
-              title="An update is available for Project N.O.M.A.D.!"
+              title={t('home.updateAvailable')}
               type="info-inverted"
               variant="solid"
               className="w-full"
               buttonProps={{
                 variant: 'primary',
-                children: 'Go to Settings',
+                children: t('home.goToSettings'),
                 icon: 'IconSettings',
                 onClick: () => {
                   window.location.href = '/settings/update'
@@ -156,7 +157,7 @@ export default function Home(props: {
       }
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {items.map((item) => {
-          const isEasySetup = item.label === 'Easy Setup'
+          const isEasySetup = item.label === t('home.easySetup.label')
           const shouldHighlight = isEasySetup && shouldHighlightEasySetup
 
           return (
@@ -169,13 +170,13 @@ export default function Home(props: {
                       style={{ animationDuration: '1.5s' }}
                     ></span>
                     <span className="relative inline-flex items-center rounded-full px-2.5 py-1 bg-desert-orange-light text-xs font-semibold text-white shadow-sm">
-                      Start here!
+                      {t('home.startHere')}
                     </span>
                   </span>
                 )}
                 <div className="flex items-center justify-center mb-2">{item.icon}</div>
                 <h3 className="font-bold text-2xl">{item.label}</h3>
-                {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
+                {item.poweredBy && <p className="text-sm opacity-80">{t('home.poweredBy', { name: item.poweredBy })}</p>}
                 <p className="xl:text-lg mt-2">{item.description}</p>
               </div>
             </a>

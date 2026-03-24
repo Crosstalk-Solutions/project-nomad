@@ -28,7 +28,13 @@ import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
+import { getRepoRawUrl } from '../utils/misc.js'
+
+const WIKIPEDIA_DEFAULT_LOCALE = 'en'
+
+function getWikipediaOptionsUrl(locale: string): string {
+  return `${getRepoRawUrl()}/collections/wikipedia.${locale}.json`
+}
 
 @inject()
 export class ZimService {
@@ -252,7 +258,7 @@ export class ZimService {
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Check if any URL is a Wikipedia download and handle it
     for (const url of urls) {
-      if (url.includes('wikipedia_en_')) {
+      if (url.includes('/wikipedia_')) {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
@@ -296,7 +302,7 @@ export class ZimService {
     // Create InstalledResource entries for downloaded files
     for (const url of urls) {
       // Skip Wikipedia files (managed separately)
-      if (url.includes('wikipedia_en_')) continue
+      if (url.includes('/wikipedia_')) continue
 
       const filename = url.split('/').pop()
       if (!filename) continue
@@ -360,9 +366,10 @@ export class ZimService {
 
   // Wikipedia selector methods
 
-  async getWikipediaOptions(): Promise<WikipediaOption[]> {
+  async getWikipediaOptions(locale: string = WIKIPEDIA_DEFAULT_LOCALE): Promise<WikipediaOption[]> {
     try {
-      const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
+      const url = getWikipediaOptionsUrl(locale)
+      const response = await axios.get(url)
       const data = response.data
 
       const validated = await vine.validate({
@@ -372,6 +379,11 @@ export class ZimService {
 
       return validated.options
     } catch (error) {
+      // Fall back to default locale if the requested locale file doesn't exist
+      if (locale !== WIKIPEDIA_DEFAULT_LOCALE) {
+        logger.warn(`[ZimService] Wikipedia options not found for locale '${locale}', falling back to '${WIKIPEDIA_DEFAULT_LOCALE}'`)
+        return this.getWikipediaOptions(WIKIPEDIA_DEFAULT_LOCALE)
+      }
       logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
       throw new Error('Failed to fetch Wikipedia options')
     }
@@ -382,8 +394,8 @@ export class ZimService {
     return WikipediaSelection.query().first()
   }
 
-  async getWikipediaState(): Promise<WikipediaState> {
-    const options = await this.getWikipediaOptions()
+  async getWikipediaState(locale: string = WIKIPEDIA_DEFAULT_LOCALE): Promise<WikipediaState> {
+    const options = await this.getWikipediaOptions(locale)
     const selection = await this.getWikipediaSelection()
 
     return {
@@ -399,8 +411,8 @@ export class ZimService {
     }
   }
 
-  async selectWikipedia(optionId: string): Promise<{ success: boolean; jobId?: string; message?: string }> {
-    const options = await this.getWikipediaOptions()
+  async selectWikipedia(optionId: string, locale: string = WIKIPEDIA_DEFAULT_LOCALE): Promise<{ success: boolean; jobId?: string; message?: string }> {
+    const options = await this.getWikipediaOptions(locale)
     const selectedOption = options.find((opt) => opt.id === optionId)
 
     if (!selectedOption) {
@@ -537,7 +549,7 @@ export class ZimService {
       // We need to find what was previously installed
       const existingFiles = await this.list()
       const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+        f.name.startsWith('wikipedia_') && f.name !== selection.filename
       )
 
       for (const oldFile of wikipediaFiles) {

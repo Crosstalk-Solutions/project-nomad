@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 interface LoadingSpinnerProps {
   text?: string
   fullscreen?: boolean
@@ -13,6 +15,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   light = false,
   className,
 }) => {
+  const { t } = useTranslation()
   if (!fullscreen) {
     return (
       <div className="flex flex-col items-center justify-center">
@@ -21,7 +24,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         ></div>
         {!iconOnly && (
           <div className={light ? 'text-white mt-2' : 'text-text-primary mt-2'}>
-            {text || 'Loading...'}
+            {text || t('common.loadingEllipsis')}
           </div>
         )}
       </div>
@@ -31,7 +34,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return (
     <div className={className}>
       <div className="ui active inverted dimmer">
-        <div className="ui text loader">{!iconOnly && <span>{text || 'Loading'}</span>}</div>
+        <div className="ui text loader">{!iconOnly && <span>{text || t('common.loading')}</span>}</div>
       </div>
     </div>
   )

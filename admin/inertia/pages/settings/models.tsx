@@ -1,5 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { NomadOllamaModel } from '../../../types/ollama'
@@ -34,6 +35,7 @@ export default function ModelsPage(props: {
   const { openModal, closeAllModals } = useModals()
   const { debounce } = useDebounce()
   const { data: systemInfo } = useSystemInfo({})
+  const { t } = useTranslation()
 
   const [gpuBannerDismissed, setGpuBannerDismissed] = useState(() => {
     try {
@@ -54,7 +56,7 @@ export default function ModelsPage(props: {
   const handleForceReinstallOllama = () => {
     openModal(
       <StyledModal
-        title="Reinstall AI Assistant?"
+        title={t('models.reinstallTitle')}
         onConfirm={async () => {
           closeAllModals()
           setReinstalling(true)
@@ -64,14 +66,14 @@ export default function ModelsPage(props: {
               throw new Error(response?.message || 'Force reinstall failed')
             }
             addNotification({
-              message: `${aiAssistantName} is being reinstalled with GPU support. This page will reload shortly.`,
+              message: t('models.reinstallSuccess', { name: aiAssistantName }),
               type: 'success',
             })
             try { localStorage.removeItem('nomad:gpu-banner-dismissed') } catch {}
             setTimeout(() => window.location.reload(), 5000)
           } catch (error) {
             addNotification({
-              message: `Failed to reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              message: t('models.reinstallFailed', { error: error instanceof Error ? error.message : 'Unknown error' }),
               type: 'error',
             })
             setReinstalling(false)
@@ -79,14 +81,10 @@ export default function ModelsPage(props: {
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Reinstall"
-        cancelText="Cancel"
+        confirmText={t('models.reinstall')}
+        cancelText={t('models.cancel')}
       >
-        <p className="text-text-primary">
-          This will recreate the {aiAssistantName} container with GPU support enabled.
-          Your downloaded models will be preserved. The service will be briefly
-          unavailable during reinstall.
-        </p>
+        <p className="text-text-primary">{t('models.reinstallMessage', { name: aiAssistantName })}</p>
       </StyledModal>,
       'gpu-health-force-reinstall-modal'
     )
@@ -136,7 +134,7 @@ export default function ModelsPage(props: {
     setIsForceRefreshing(true)
     await refetch()
     setIsForceRefreshing(false)
-    addNotification({ message: 'Model list refreshed from remote.', type: 'success' })
+    addNotification({ message: t('models.refreshSuccess'), type: 'success' })
   }
 
   async function handleInstallModel(modelName: string) {
@@ -144,14 +142,14 @@ export default function ModelsPage(props: {
       const res = await api.downloadModel(modelName)
       if (res.success) {
         addNotification({
-          message: `Model download initiated for ${modelName}. It may take some time to complete.`,
+          message: t('models.downloadInitiated', { name: modelName }),
           type: 'success',
         })
       }
     } catch (error) {
       console.error('Error installing model:', error)
       addNotification({
-        message: `There was an error installing the model: ${modelName}. Please try again.`,
+        message: t('models.downloadError', { name: modelName }),
         type: 'error',
       })
     }
@@ -162,7 +160,7 @@ export default function ModelsPage(props: {
       const res = await api.deleteModel(modelName)
       if (res.success) {
         addNotification({
-          message: `Model deleted: ${modelName}.`,
+          message: t('models.deleteSuccess', { name: modelName }),
           type: 'success',
         })
       }
@@ -171,7 +169,7 @@ export default function ModelsPage(props: {
     } catch (error) {
       console.error('Error deleting model:', error)
       addNotification({
-        message: `There was an error deleting the model: ${modelName}. Please try again.`,
+        message: t('models.deleteError', { name: modelName }),
         type: 'error',
       })
     }
@@ -180,19 +178,18 @@ export default function ModelsPage(props: {
   async function confirmDeleteModel(model: string) {
     openModal(
       <StyledModal
-        title="Delete Model?"
+        title={t('models.deleteModelTitle')}
         onConfirm={() => {
           handleDeleteModel(model)
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t('models.delete')}
+        cancelText={t('models.cancel')}
         confirmVariant="primary"
       >
         <p className="text-text-primary">
-          Are you sure you want to delete this model? You will need to download it again if you want
-          to use it in the future.
+          {t('models.deleteModelMessage')}
         </p>
       </StyledModal>,
       'confirm-delete-model-modal'
@@ -205,14 +202,14 @@ export default function ModelsPage(props: {
     },
     onSuccess: () => {
       addNotification({
-        message: 'Setting updated successfully.',
+        message: t('models.settingUpdated'),
         type: 'success',
       })
     },
     onError: (error) => {
       console.error('Error updating setting:', error)
       addNotification({
-        message: 'There was an error updating the setting. Please try again.',
+        message: t('models.settingUpdateError'),
         type: 'error',
       })
     },
@@ -220,18 +217,16 @@ export default function ModelsPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title={`${aiAssistantName} Settings | Project N.O.M.A.D.`} />
+      <Head title={t('models.title', { name: aiAssistantName })} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
           <p className="text-text-muted mb-4">
-            Easily manage the {aiAssistantName}'s settings and installed models. We recommend
-            starting with smaller models first to see how they perform on your system before moving
-            on to larger ones.
+            {t('models.description', { name: aiAssistantName })}
           </p>
           {!isInstalled && (
             <Alert
-              title={`${aiAssistantName}'s dependencies are not installed. Please install them to manage AI models.`}
+              title={t('models.notInstalled', { name: aiAssistantName })}
               type="warning"
               variant="solid"
               className="!mt-6"
@@ -241,13 +236,13 @@ export default function ModelsPage(props: {
             <Alert
               type="warning"
               variant="bordered"
-              title="GPU Not Accessible"
-              message={`Your system has an NVIDIA GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
+              title={t('models.gpuNotAccessible')}
+              message={t('models.gpuNotAccessibleMessage', { name: aiAssistantName })}
               className="!mt-6"
               dismissible={true}
               onDismiss={handleDismissGpuBanner}
               buttonProps={{
-                children: `Fix: Reinstall ${aiAssistantName}`,
+                children: t('models.fixReinstall', { name: aiAssistantName }),
                 icon: 'IconRefresh',
                 variant: 'action',
                 size: 'sm',
@@ -258,7 +253,7 @@ export default function ModelsPage(props: {
             />
           )}
 
-          <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
+          <StyledSectionHeader title={t('models.settings')} className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <div className="space-y-4">
               <Switch
@@ -267,14 +262,14 @@ export default function ModelsPage(props: {
                   setChatSuggestionsEnabled(newVal)
                   updateSettingMutation.mutate({ key: 'chat.suggestionsEnabled', value: newVal })
                 }}
-                label="Chat Suggestions"
-                description="Display AI-generated conversation starters in the chat interface"
+                label={t('models.chatSuggestions')}
+                description={t('models.chatSuggestionsDescription')}
               />
               <Input
                 name="aiAssistantCustomName"
-                label="Assistant Name"
-                helpText='Give your AI assistant a custom name that will be used in the chat interface and other areas of the application.'
-                placeholder="AI Assistant"
+                label={t('models.assistantName')}
+                helpText={t('models.assistantNameHelp')}
+                placeholder={t('models.assistantNamePlaceholder')}
                 value={aiAssistantCustomName}
                 onChange={(e) => setAiAssistantCustomName(e.target.value)}
                 onBlur={() =>
@@ -288,12 +283,12 @@ export default function ModelsPage(props: {
           </div>
           <ActiveModelDownloads withHeader />
 
-          <StyledSectionHeader title="Models" className="mt-12 mb-4" />
+          <StyledSectionHeader title={t('models.modelsHeading')} className="mt-12 mb-4" />
           <div className="flex justify-start items-center gap-3 mt-4">
             <Input
               name="search"
               label=""
-              placeholder="Search language models.."
+              placeholder={t('models.searchPlaceholder')}
               value={queryUI}
               onChange={(e) => {
                 setQueryUI(e.target.value)
@@ -309,7 +304,7 @@ export default function ModelsPage(props: {
               loading={isForceRefreshing}
               className='mt-1'
             >
-              Refresh Models
+              {t('models.refreshModels')}
             </StyledButton>
           </div>
           <StyledTable<NomadOllamaModel>
@@ -318,7 +313,7 @@ export default function ModelsPage(props: {
             columns={[
               {
                 accessor: 'name',
-                title: 'Name',
+                title: t('models.columns.name'),
                 render(record) {
                   return (
                     <div className="flex flex-col">
@@ -330,11 +325,11 @@ export default function ModelsPage(props: {
               },
               {
                 accessor: 'estimated_pulls',
-                title: 'Estimated Pulls',
+                title: t('models.columns.estimatedPulls'),
               },
               {
                 accessor: 'model_last_updated',
-                title: 'Last Updated',
+                title: t('models.columns.lastUpdated'),
               },
             ]}
             data={availableModelData?.models || []}
@@ -347,19 +342,19 @@ export default function ModelsPage(props: {
                       <thead className="bg-surface-primary">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Tag
+                            {t('models.columns.tag')}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Input Type
+                            {t('models.columns.inputType')}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Context Size
+                            {t('models.columns.contextSize')}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Model Size
+                            {t('models.columns.modelSize')}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Action
+                            {t('models.columns.action')}
                           </th>
                         </tr>
                       </thead>
@@ -398,7 +393,7 @@ export default function ModelsPage(props: {
                                   }}
                                   icon={isInstalled ? 'IconTrash' : 'IconDownload'}
                                 >
-                                  {isInstalled ? 'Delete' : 'Install'}
+                                  {isInstalled ? t('models.delete') : t('models.install')}
                                 </StyledButton>
                               </td>
                             </tr>
@@ -419,7 +414,7 @@ export default function ModelsPage(props: {
                   setLimit((prev) => prev + 15)
                 }}
               >
-                Load More
+                {t('models.loadMore')}
               </StyledButton>
             )}
           </div>

@@ -1,4 +1,5 @@
 import { formatBytes } from '~/lib/util'
+import { useTranslation } from 'react-i18next'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CollectionWithStatus } from '../../types/collections'
 import classNames from 'classnames'
@@ -11,6 +12,7 @@ export interface CuratedCollectionCardProps {
 }
 
 const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collection, onClick, size = 'small' }) => {
+  const { t } = useTranslation()
   const totalSizeBytes = collection.resources?.reduce(
     (acc, resource) => acc + resource.size_mb * 1024 * 1024,
     0
@@ -41,16 +43,16 @@ const CuratedCollectionCard: React.FC<CuratedCollectionCardProps> = ({ collectio
             <div className="flex items-center">
               <IconCircleCheck
                 className="w-5 h-5 text-lime-400 ml-2"
-                title="All items downloaded"
+                title={t('common.allItemsDownloaded')}
               />
-              <p className="text-lime-400 text-sm ml-1">All items downloaded</p>
+              <p className="text-lime-400 text-sm ml-1">{t('common.allItemsDownloaded')}</p>
             </div>
           )}
         </div>
       </div>
       <p className="text-gray-200 grow">{collection.description}</p>
       <p className="text-gray-200 text-xs mt-2">
-        Items: {collection.resources?.length} | Size: {formatBytes(totalSizeBytes, 0)}
+        {t('common.items', { count: collection.resources?.length, size: formatBytes(totalSizeBytes, 0) })}
       </p>
     </div>
   )

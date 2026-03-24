@@ -1,18 +1,20 @@
 import useEmbedJobs from '~/hooks/useEmbedJobs'
 import HorizontalBarChart from './HorizontalBarChart'
 import StyledSectionHeader from './StyledSectionHeader'
+import { useTranslation } from 'react-i18next'
 
 interface ActiveEmbedJobsProps {
   withHeader?: boolean
 }
 
 const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
+  const { t } = useTranslation()
   const { data: jobs } = useEmbedJobs()
 
   return (
     <>
       {withHeader && (
-        <StyledSectionHeader title="Processing Queue" className="mt-12 mb-4" />
+        <StyledSectionHeader title={t('common.processingQueue')} className="mt-12 mb-4" />
       )}
       <div className="space-y-4">
         {jobs && jobs.length > 0 ? (
@@ -35,7 +37,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             </div>
           ))
         ) : (
-          <p className="text-text-muted">No files are currently being processed</p>
+          <p className="text-text-muted">{t('common.noFilesProcessing')}</p>
         )}
       </div>
     </>

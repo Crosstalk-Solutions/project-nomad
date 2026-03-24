@@ -1,4 +1,5 @@
 import { formatBytes } from '~/lib/util'
+import { useTranslation } from 'react-i18next'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CategoryWithStatus, SpecTier } from '../../types/collections'
 import classNames from 'classnames'
@@ -11,6 +12,7 @@ export interface CategoryCardProps {
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onClick }) => {
+  const { t } = useTranslation()
   // Calculate total size range across all tiers
   const getTierTotalSize = (tier: SpecTier, allTiers: SpecTier[]): number => {
     let total = tier.resources.reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
@@ -61,9 +63,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
 
       <div className="mt-4 pt-4 border-t border-white/20">
         <p className="text-sm text-gray-300 mb-2">
-          {category.tiers.length} tiers available
+          {t('contentExplorer.categoryCard.tiersAvailable', { count: category.tiers.length })}
           {!highlightedTierSlug && (
-            <span className="text-gray-400"> - Click to choose</span>
+            <span className="text-gray-400"> - {t('contentExplorer.categoryCard.clickToChoose')}</span>
           )}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -86,7 +88,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
           })}
         </div>
         <p className="text-gray-300 text-xs mt-3">
-          Size: {formatBytes(minSize, 1)} - {formatBytes(maxSize, 1)}
+          {t('contentExplorer.categoryCard.size', { min: formatBytes(minSize, 1), max: formatBytes(maxSize, 1) })}
         </p>
       </div>
     </div>
