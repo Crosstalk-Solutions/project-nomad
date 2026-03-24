@@ -20,6 +20,7 @@ import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
 import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
+import { middleware } from '#start/kernel'
 import transmit from '@adonisjs/transmit/services/main'
 
 transmit.registerRoutes()
@@ -104,7 +105,9 @@ router
   .group(() => {
     router.post('/chat', [OllamaController, 'chat'])
     router.get('/models', [OllamaController, 'availableModels'])
-    router.post('/models', [OllamaController, 'dispatchModelDownload'])
+    router
+      .post('/models', [OllamaController, 'dispatchModelDownload'])
+      .use(middleware.rateLimit({ limit: 5, window: 60 }))
     router.delete('/models', [OllamaController, 'deleteModel'])
     router.get('/installed-models', [OllamaController, 'installedModels'])
   })
@@ -126,7 +129,9 @@ router.get('/api/chat/suggestions', [ChatsController, 'suggestions'])
 
 router
   .group(() => {
-    router.post('/upload', [RagController, 'upload'])
+    router
+      .post('/upload', [RagController, 'upload'])
+      .use(middleware.rateLimit({ limit: 10, window: 60 }))
     router.get('/files', [RagController, 'getStoredFiles'])
     router.delete('/files', [RagController, 'deleteFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
@@ -142,7 +147,9 @@ router
     router.get('/internet-status', [SystemController, 'getInternetStatus'])
     router.get('/services', [SystemController, 'getServices'])
     router.post('/services/affect', [SystemController, 'affectService'])
-    router.post('/services/install', [SystemController, 'installService'])
+    router
+      .post('/services/install', [SystemController, 'installService'])
+      .use(middleware.rateLimit({ limit: 5, window: 60 }))
     router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
     router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions'])
@@ -173,9 +180,15 @@ router
 
 router
   .group(() => {
-    router.post('/run', [BenchmarkController, 'run'])
-    router.post('/run/system', [BenchmarkController, 'runSystem'])
-    router.post('/run/ai', [BenchmarkController, 'runAI'])
+    router
+      .post('/run', [BenchmarkController, 'run'])
+      .use(middleware.rateLimit({ limit: 3, window: 60 }))
+    router
+      .post('/run/system', [BenchmarkController, 'runSystem'])
+      .use(middleware.rateLimit({ limit: 3, window: 60 }))
+    router
+      .post('/run/ai', [BenchmarkController, 'runAI'])
+      .use(middleware.rateLimit({ limit: 3, window: 60 }))
     router.get('/results', [BenchmarkController, 'results'])
     router.get('/results/latest', [BenchmarkController, 'latest'])
     router.get('/results/:id', [BenchmarkController, 'show'])
