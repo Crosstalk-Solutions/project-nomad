@@ -56,9 +56,9 @@ const StyledButton: React.FC<StyledButtonProps> = ({
     switch (variant) {
       case 'primary':
         return clsx(
-          'bg-desert-green text-desert-white',
-          'hover:bg-desert-green-dark hover:shadow-lg',
-          'active:bg-desert-green-darker',
+          'bg-desert-green text-white',
+          'hover:bg-btn-green-hover hover:shadow-lg',
+          'active:bg-btn-green-active',
           'disabled:bg-desert-green-light disabled:text-desert-stone-light',
           baseTransition,
           baseHover
@@ -66,7 +66,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
 
       case 'secondary':
         return clsx(
-          'bg-desert-tan text-desert-white',
+          'bg-desert-tan text-white',
           'hover:bg-desert-tan-dark hover:shadow-lg',
           'active:bg-desert-tan-dark',
           'disabled:bg-desert-tan-lighter disabled:text-desert-stone-light',
@@ -76,7 +76,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
 
       case 'danger':
         return clsx(
-          'bg-desert-red text-desert-white',
+          'bg-desert-red text-white',
           'hover:bg-desert-red-dark hover:shadow-lg',
           'active:bg-desert-red-dark',
           'disabled:bg-desert-red-lighter disabled:text-desert-stone-light',
@@ -86,7 +86,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
 
       case 'action':
         return clsx(
-          'bg-desert-orange text-desert-white',
+          'bg-desert-orange text-white',
           'hover:bg-desert-orange-light hover:shadow-lg',
           'active:bg-desert-orange-dark',
           'disabled:bg-desert-orange-lighter disabled:text-desert-stone-light',
@@ -96,7 +96,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
 
       case 'success':
         return clsx(
-          'bg-desert-olive text-desert-white',
+          'bg-desert-olive text-white',
           'hover:bg-desert-olive-dark hover:shadow-lg',
           'active:bg-desert-olive-dark',
           'disabled:bg-desert-olive-lighter disabled:text-desert-stone-light',
@@ -116,8 +116,8 @@ const StyledButton: React.FC<StyledButtonProps> = ({
       case 'outline':
         return clsx(
           'bg-transparent border-2 border-desert-green text-desert-green',
-          'hover:bg-desert-green hover:text-desert-white hover:border-desert-green-dark',
-          'active:bg-desert-green-dark active:border-desert-green-darker',
+          'hover:bg-desert-green hover:text-white hover:border-btn-green-hover',
+          'active:bg-btn-green-hover active:border-btn-green-active',
           'disabled:border-desert-green-lighter disabled:text-desert-stone-light',
           baseTransition,
           baseHover

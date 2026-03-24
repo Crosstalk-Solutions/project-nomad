@@ -113,6 +113,11 @@ export default class SystemController {
         return await this.systemService.subscribeToReleaseNotes(reqData.email);
     }
 
+    async getDebugInfo({}: HttpContext) {
+        const debugInfo = await this.systemService.getDebugInfo()
+        return { debugInfo }
+    }
+
     async checkServiceUpdates({ response }: HttpContext) {
         await CheckServiceUpdatesJob.dispatch()
         response.send({ success: true, message: 'Service update check dispatched' })

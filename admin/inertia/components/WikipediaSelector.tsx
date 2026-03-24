@@ -1,7 +1,7 @@
 import { formatBytes } from '~/lib/util'
 import { WikipediaOption, WikipediaCurrentSelection } from '../../types/downloads'
 import classNames from 'classnames'
-import { IconCheck, IconDownload, IconWorld } from '@tabler/icons-react'
+import { IconCheck, IconDownload, IconWorld, IconAlertTriangle } from '@tabler/icons-react'
 import StyledButton from './StyledButton'
 import LoadingSpinner from './LoadingSpinner'
 
@@ -29,29 +29,42 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
   // Determine which option to highlight
   const highlightedOptionId = selectedOptionId ?? currentSelection?.optionId ?? null
 
-  // Check if current selection is downloading
+  // Check if current selection is downloading or failed
   const isDownloading = currentSelection?.status === 'downloading'
+  const isFailed = currentSelection?.status === 'failed'
 
   return (
     <div className="w-full">
       {/* Header with Wikipedia branding */}
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
-          <IconWorld className="w-6 h-6 text-gray-700" />
+          <IconWorld className="w-6 h-6 text-text-primary" />
         </div>
         <div>
-          <h3 className="text-xl font-semibold text-gray-900">Wikipedia</h3>
-          <p className="text-sm text-gray-500">Select your preferred Wikipedia package</p>
+          <h3 className="text-xl font-semibold text-text-primary">Wikipedia</h3>
+          <p className="text-sm text-text-muted">Select your preferred Wikipedia package</p>
         </div>
       </div>
 
       {/* Downloading status message */}
       {isDownloading && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-          <LoadingSpinner fullscreen={false} iconOnly className="size-5" />
+          <LoadingSpinner fullscreen={false} iconOnly className="size-4" />
           <span className="text-sm text-blue-700">
             Downloading Wikipedia... This may take a while for larger packages.
           </span>
+        </div>
+      )}
+
+      {/* Failed status message */}
+      {isFailed && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <IconAlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm text-red-700">
+              Wikipedia download failed. Select a package and try again.
+            </span>
+          </div>
         </div>
       )}
 
@@ -63,6 +76,8 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
             currentSelection?.optionId === option.id && currentSelection?.status === 'installed'
           const isCurrentDownloading =
             currentSelection?.optionId === option.id && currentSelection?.status === 'downloading'
+          const isCurrentFailed =
+            currentSelection?.optionId === option.id && currentSelection?.status === 'failed'
           const isPending = selectedOptionId === option.id && selectedOptionId !== currentSelection?.optionId
 
           return (
@@ -78,7 +93,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                   ? 'border-desert-green bg-desert-green/10'
                   : isSelected
                     ? 'border-lime-500 bg-lime-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    : 'border-border-subtle bg-surface-primary hover:border-border-default'
               )}
             >
               {/* Status badges */}
@@ -100,12 +115,18 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                     Downloading
                   </span>
                 )}
+                {isCurrentFailed && (
+                  <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <IconAlertTriangle size={12} />
+                    Failed
+                  </span>
+                )}
               </div>
 
               {/* Option content */}
               <div className="pr-16 flex flex-col h-full">
-                <h4 className="text-lg font-semibold text-gray-900 mb-1">{option.name}</h4>
-                <p className="text-sm text-gray-600 mb-3 flex-grow">{option.description}</p>
+                <h4 className="text-lg font-semibold text-text-primary mb-1">{option.name}</h4>
+                <p className="text-sm text-text-secondary mb-3 flex-grow">{option.description}</p>
                 <div className="flex items-center gap-3">
                   {/* Radio indicator */}
                   <div
@@ -115,7 +136,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                         ? isInstalled
                           ? 'border-desert-green bg-desert-green'
                           : 'border-lime-500 bg-lime-500'
-                        : 'border-gray-300'
+                        : 'border-border-default'
                     )}
                   >
                     {isSelected && <IconCheck size={12} className="text-white" />}
@@ -123,7 +144,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                   <span
                     className={classNames(
                       'text-sm font-medium px-2 py-1 rounded',
-                      option.size_mb === 0 ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-700'
+                      option.size_mb === 0 ? 'bg-surface-secondary text-text-muted' : 'bg-surface-secondary text-text-secondary'
                     )}
                   >
                     {option.size_mb === 0 ? 'No download' : formatBytes(option.size_mb * 1024 * 1024, 1)}
@@ -136,7 +157,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
       </div>
 
       {/* Submit button for Content Explorer mode */}
-      {showSubmitButton && selectedOptionId && selectedOptionId !== currentSelection?.optionId && (
+      {showSubmitButton && selectedOptionId && (selectedOptionId !== currentSelection?.optionId || isFailed) && (
         <div className="mt-4 flex justify-end">
           <StyledButton
             variant="primary"

@@ -63,7 +63,7 @@ const DownloadURLModal: React.FC<DownloadURLModalProps> = ({
       large
     >
       <div className="flex flex-col pb-4">
-        <p className="text-gray-700 mb-8">
+        <p className="text-text-secondary mb-8">
           Enter the URL of the map region file you wish to download. The URL must be publicly
           reachable and end with .pmtiles. A preflight check will be run to verify the file's
           availability, type, and approximate size.
@@ -76,11 +76,11 @@ const DownloadURLModal: React.FC<DownloadURLModalProps> = ({
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <div className="min-h-24 max-h-96 overflow-y-auto bg-gray-50 p-4 rounded border border-gray-300 text-left">
+        <div className="min-h-24 max-h-96 overflow-y-auto bg-surface-secondary p-4 rounded border border-border-default text-left">
           {messages.map((message, idx) => (
             <p
               key={idx}
-              className="text-sm text-gray-900 font-mono leading-relaxed break-words mb-3"
+              className="text-sm text-text-primary font-mono leading-relaxed break-words mb-3"
             >
               {message}
             </p>

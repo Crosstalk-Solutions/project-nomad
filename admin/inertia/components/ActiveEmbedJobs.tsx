@@ -35,7 +35,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             </div>
           ))
         ) : (
-          <p className="text-gray-500">No files are currently being processed</p>
+          <p className="text-text-muted">No files are currently being processed</p>
         )}
       </div>
     </>

@@ -1,0 +1,51 @@
+name: Build Disk Collector Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version to label the Docker image under (no "v" prefix, e.g. "1.2.3")'
+        required: true
+        type: string
+      tag_latest:
+        description: 'Also tag this image as :latest?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  check_authorization:
+    name: Check authorization to publish new Docker image
+    runs-on: ubuntu-latest
+    outputs:
+      isAuthorized: ${{ steps.check-auth.outputs.is_authorized }}
+    steps:
+      - name: check-auth
+        id: check-auth
+        run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
+  build:
+    name: Build disk-collector image
+    needs: check_authorization
+    if: needs.check_authorization.outputs.isAuthorized == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: install/sidecar-disk-collector
+          push: true
+          tags: |
+            ghcr.io/crosstalk-solutions/project-nomad-disk-collector:${{ inputs.version }}
+            ghcr.io/crosstalk-solutions/project-nomad-disk-collector:v${{ inputs.version }}
+            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest' || '' }}

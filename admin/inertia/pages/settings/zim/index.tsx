@@ -39,7 +39,7 @@ export default function ZimPage() {
         cancelText="Cancel"
         confirmVariant="danger"
       >
-        <p className="text-gray-700">
+        <p className="text-text-secondary">
           Are you sure you want to delete {file.name}? This action cannot be undone.
         </p>
       </StyledModal>,
@@ -62,7 +62,7 @@ export default function ZimPage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
-              <p className="text-gray-500">
+              <p className="text-text-muted">
                 Manage your stored content files.
               </p>
             </div>
@@ -94,7 +94,7 @@ export default function ZimPage() {
                 accessor: 'summary',
                 title: 'Summary',
                 render: (record) => (
-                  <span className="text-gray-600 text-sm line-clamp-2">
+                  <span className="text-text-secondary text-sm line-clamp-2">
                     {record.summary || '—'}
                   </span>
                 ),

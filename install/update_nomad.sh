@@ -94,6 +94,16 @@ ensure_docker_installed_and_running() {
   fi
 }
 
+check_docker_compose() {
+  # Check if 'docker compose' (v2 plugin) is available
+  if ! docker compose version &>/dev/null; then
+    echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
+    echo -e "${YELLOW}#${RESET} This script requires 'docker compose' (v2), not 'docker-compose' (v1)."
+    echo -e "${YELLOW}#${RESET} Please read the Docker documentation at https://docs.docker.com/compose/install/ for instructions on how to install Docker Compose v2."
+    exit 1
+  fi
+}
+
 ensure_docker_compose_file_exists() {
   if [ ! -f "/opt/project-nomad/compose.yml" ]; then
     echo -e "${RED}#${RESET} compose.yml file not found. Please ensure it exists at /opt/project-nomad/compose.yml."
@@ -145,6 +155,7 @@ check_has_sudo
 # Main update
 get_update_confirmation
 ensure_docker_installed_and_running
+check_docker_compose
 ensure_docker_compose_file_exists
 force_recreate
 get_local_ip

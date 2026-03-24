@@ -31,15 +31,11 @@ GREEN='\033[1;32m' # Light Green.
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/entrypoint.sh"
 SIDECAR_UPDATER_DOCKERFILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
 SIDECAR_UPDATER_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
-WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
-COLLECT_DISK_INFO_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/collect_disk_info.sh"
-
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
@@ -203,6 +199,16 @@ ensure_docker_installed() {
   fi
 }
 
+check_docker_compose() {
+  # Check if 'docker compose' (v2 plugin) is available
+  if ! docker compose version &>/dev/null; then
+    echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
+    echo -e "${YELLOW}#${RESET} This script requires 'docker compose' (v2), not 'docker-compose' (v1)."
+    echo -e "${YELLOW}#${RESET} Please read the Docker documentation at https://docs.docker.com/compose/install/ for instructions on how to install Docker Compose v2."
+    exit 1
+  fi
+}
+
 setup_nvidia_container_toolkit() {
   # This function attempts to set up NVIDIA GPU support but is non-blocking
   # Any failures will result in warnings but will NOT stop the installation process
@@ -329,7 +335,9 @@ setup_nvidia_container_toolkit() {
 }
 
 get_install_confirmation(){
-  read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/N): " choice
+  echo -e "${YELLOW}#${RESET} This script will install Project N.O.M.A.D. and its dependencies on your machine."
+  echo -e "${YELLOW}#${RESET} If you already have Project N.O.M.A.D. installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
+  read -p "Are you sure you want to continue? (y/N): " choice
   case "$choice" in
     y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the installation."
@@ -381,12 +389,6 @@ create_nomad_directory(){
   sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
 }
 
-create_disk_info_file() {
-  # Disk info file MUST be created before the admin container starts.
-  # Otherwise, Docker will assume we meant to mount a directory and will create an empty directory at the mount point
-  echo '{}' > /tmp/nomad-disk-info.json
-}
-
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
 
@@ -401,6 +403,15 @@ download_management_compose_file() {
   local db_root_password=$(generateRandomPass)
   local db_user_password=$(generateRandomPass)
 
+  # If MySQL data directory exists from a previous install attempt, remove it.
+  # MySQL only initializes credentials on first startup when the data dir is empty.
+  # If stale data exists, MySQL ignores the new passwords above and uses the old ones,
+  # causing "Access denied" errors when the admin container tries to connect.
+  if [[ -d "${NOMAD_DIR}/mysql" ]]; then
+    echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
+    sudo rm -rf "${NOMAD_DIR}/mysql"
+  fi
+
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
   sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
@@ -411,30 +422,6 @@ download_management_compose_file() {
   sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
-}
-
-download_wait_for_it_script() {
-  local wait_for_it_script_path="${NOMAD_DIR}/wait-for-it.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading wait-for-it script...\\n"
-  if ! curl -fsSL "$WAIT_FOR_IT_SCRIPT_URL" -o "$wait_for_it_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the wait-for-it script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$wait_for_it_script_path"
-  echo -e "${GREEN}#${RESET} wait-for-it script downloaded successfully to $wait_for_it_script_path.\\n"
-}
-
-download_entrypoint_script() {
-  local entrypoint_script_path="${NOMAD_DIR}/entrypoint.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading entrypoint script...\\n"
-  if ! curl -fsSL "$ENTRYPOINT_SCRIPT_URL" -o "$entrypoint_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the entrypoint script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$entrypoint_script_path"
-  echo -e "${GREEN}#${RESET} entrypoint script downloaded successfully to $entrypoint_script_path.\\n"
 }
 
 download_sidecar_files() {
@@ -461,24 +448,6 @@ download_sidecar_files() {
   fi
   chmod +x "$sidecar_script_path"
   echo -e "${GREEN}#${RESET} Sidecar updater script downloaded successfully to $sidecar_script_path.\\n"
-}
-
-download_and_start_collect_disk_info_script() {
-  local collect_disk_info_script_path="${NOMAD_DIR}/collect_disk_info.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading collect_disk_info script...\\n"
-  if ! curl -fsSL "$COLLECT_DISK_INFO_SCRIPT_URL" -o "$collect_disk_info_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the collect_disk_info script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$collect_disk_info_script_path"
-  echo -e "${GREEN}#${RESET} collect_disk_info script downloaded successfully to $collect_disk_info_script_path.\\n"
-
-  # Start script in background and store PID for easy removal on uninstall
-  echo -e "${YELLOW}#${RESET} Starting collect_disk_info script in the background...\\n"
-  nohup bash "$collect_disk_info_script_path" > /dev/null 2>&1 &
-  echo $! > "${NOMAD_DIR}/nomad-collect-disk-info.pid"
-  echo -e "${GREEN}#${RESET} collect_disk_info script started successfully.\\n"
 }
 
 download_helper_scripts() {
@@ -602,14 +571,12 @@ check_is_debug_mode
 get_install_confirmation
 accept_terms
 ensure_docker_installed
+check_docker_compose
 setup_nvidia_container_toolkit
 get_local_ip
 create_nomad_directory
-download_wait_for_it_script
-download_entrypoint_script
 download_sidecar_files
 download_helper_scripts
-download_and_start_collect_disk_info_script
 download_management_compose_file
 start_management_containers
 verify_gpu_setup

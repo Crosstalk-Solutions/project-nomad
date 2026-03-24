@@ -107,7 +107,7 @@ function ContentUpdatesSection() {
     <div className="mt-8">
       <StyledSectionHeader title="Content Updates" />
 
-      <div className="bg-white rounded-lg border shadow-md overflow-hidden p-6">
+      <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden p-6">
         <div className="flex items-center justify-between">
           <p className="text-desert-stone-dark">
             Check if newer versions of your installed ZIM files and maps are available.
@@ -258,7 +258,13 @@ export default function SystemUpdatePage(props: { system: Props }) {
 
         // Check if update is complete or errored
         if (response.stage === 'complete') {
-          // Give a moment for the new container to fully start
+          // Re-check version so the KV store clears the stale "update available" flag
+          // before we reload, otherwise the banner shows "current → current"
+          try {
+            await api.checkLatestVersion(true)
+          } catch {
+            // Non-critical - page reload will still work
+          }
           setTimeout(() => {
             window.location.reload()
           }, 2000)
@@ -431,7 +437,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
               />
             </div>
           )}
-          <div className="bg-white rounded-lg border shadow-md overflow-hidden">
+          <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden">
             <div className="p-8 text-center">
               <div className="flex justify-center mb-4">{getStatusIcon()}</div>
 
@@ -526,7 +532,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                 </div>
               )}
             </div>
-            <div className="border-t bg-white p-6">
+            <div className="border-t bg-surface-primary p-6">
               <h3 className="text-lg font-semibold text-desert-green mb-4">
                 What happens during an update?
               </h3>
@@ -596,7 +602,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
             />
           </div>
           <StyledSectionHeader title="Early Access" className="mt-8" />
-          <div className="bg-white rounded-lg border shadow-md overflow-hidden mt-6 p-6">
+          <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden mt-6 p-6">
             <Switch
               checked={earlyAccessSetting.data?.value || false}
               onChange={(newVal) => {
@@ -608,7 +614,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
             />
           </div>
           <ContentUpdatesSection />
-          <div className="bg-white rounded-lg border shadow-md overflow-hidden py-6 mt-12">
+          <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden py-6 mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
               <div>
                 <h2 className="max-w-xl text-lg font-bold text-desert-green sm:text-xl lg:col-span-7">
@@ -648,7 +654,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
 
           {showLogs && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col">
+              <div className="bg-surface-primary rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col">
                 <div className="p-6 border-b border-desert-stone-light flex justify-between items-center">
                   <h3 className="text-xl font-bold text-desert-green">Update Logs</h3>
                   <button

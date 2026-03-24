@@ -18,7 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         window.location.pathname !== '/home' && (
           <Link href="/home" className="absolute top-60 md:top-48 left-4 flex items-center">
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-gray-600">Back to Home</p>
+            <p className="text-lg text-text-secondary">Back to Home</p>
           </Link>
         )}
       <div

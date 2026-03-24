@@ -691,6 +691,7 @@ export class DockerService {
         const runtimes = dockerInfo.Runtimes || {}
         if ('nvidia' in runtimes) {
           logger.info('[DockerService] NVIDIA container runtime detected via Docker API')
+          await this._persistGPUType('nvidia')
           return { type: 'nvidia' }
         }
       } catch (error) {
@@ -722,10 +723,24 @@ export class DockerService {
         )
         if (amdCheck.trim()) {
           logger.info('[DockerService] AMD GPU detected via lspci')
+          await this._persistGPUType('amd')
           return { type: 'amd' }
         }
       } catch (error) {
         // lspci not available, continue
+      }
+
+      // Last resort: check if we previously detected a GPU and it's likely still present.
+      // This handles cases where live detection fails transiently (e.g., Docker daemon
+      // hiccup, runtime temporarily unavailable) but the hardware hasn't changed.
+      try {
+        const savedType = await KVStore.getValue('gpu.type')
+        if (savedType === 'nvidia' || savedType === 'amd') {
+          logger.info(`[DockerService] No GPU detected live, but KV store has '${savedType}' from previous detection. Using saved value.`)
+          return { type: savedType as 'nvidia' | 'amd' }
+        }
+      } catch {
+        // KV store not available, continue
       }
 
       logger.info('[DockerService] No GPU detected')
@@ -733,6 +748,15 @@ export class DockerService {
     } catch (error) {
       logger.warn(`[DockerService] Error detecting GPU type: ${error.message}`)
       return { type: 'none' }
+    }
+  }
+
+  private async _persistGPUType(type: 'nvidia' | 'amd'): Promise<void> {
+    try {
+      await KVStore.setValue('gpu.type', type)
+      logger.info(`[DockerService] Persisted GPU type '${type}' to KV store`)
+    } catch (error) {
+      logger.warn(`[DockerService] Failed to persist GPU type: ${error.message}`)
     }
   }
 
@@ -853,6 +877,45 @@ export class DockerService {
       this._broadcast(serviceName, 'update-creating', `Creating updated container...`)
 
       const hostConfig = inspectData.HostConfig || {}
+
+      // Re-run GPU detection for Ollama so updates always reflect the current GPU environment.
+      // This handles cases where the NVIDIA Container Toolkit was installed after the initial
+      // Ollama setup, and ensures DeviceRequests are always built fresh rather than relying on
+      // round-tripping the Docker inspect format back into the create API.
+      let updatedDeviceRequests: any[] | undefined = undefined
+      if (serviceName === SERVICE_NAMES.OLLAMA) {
+        const gpuResult = await this._detectGPUType()
+
+        if (gpuResult.type === 'nvidia') {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `NVIDIA container runtime detected. Configuring updated container with GPU support...`
+          )
+          updatedDeviceRequests = [
+            {
+              Driver: 'nvidia',
+              Count: -1,
+              Capabilities: [['gpu']],
+            },
+          ]
+        } else if (gpuResult.type === 'amd') {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `AMD GPU detected. ROCm GPU acceleration is not yet supported — using CPU-only configuration.`
+          )
+        } else if (gpuResult.toolkitMissing) {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
+          )
+        } else {
+          this._broadcast(serviceName, 'update-gpu-config', `No GPU detected. Using CPU-only configuration.`)
+        }
+      }
+
       const newContainerConfig: any = {
         Image: newImage,
         name: serviceName,
@@ -865,7 +928,7 @@ export class DockerService {
           Binds: hostConfig.Binds || undefined,
           PortBindings: hostConfig.PortBindings || undefined,
           RestartPolicy: hostConfig.RestartPolicy || undefined,
-          DeviceRequests: hostConfig.DeviceRequests || undefined,
+          DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
           Devices: hostConfig.Devices || undefined,
         },
         NetworkingConfig: inspectData.NetworkSettings?.Networks
