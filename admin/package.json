@@ -121,7 +121,7 @@
     "tar": "^7.5.11",
     "tesseract.js": "^7.0.0",
     "url-join": "^5.0.0",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.3"
   },
   "hotHook": {
     "boundaries": [
