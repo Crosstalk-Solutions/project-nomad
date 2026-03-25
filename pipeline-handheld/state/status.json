@@ -1,0 +1,15 @@
+{
+  "schema_version": "3.1",
+  "project_name": "emergency-bootstrap",
+  "phase": "scope",
+  "phases": {
+    "scope": "pending",
+    "seams": "pending",
+    "build": "pending",
+    "verify": "pending",
+    "repair": "pending"
+  },
+  "slices": {},
+  "last_updated": "",
+  "notes": ""
+}
