@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.30.3 - March 25, 2026
 
 ### Features
 
