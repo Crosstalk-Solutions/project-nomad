@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
@@ -12,6 +13,7 @@ import { ZimFileWithMetadata } from '../../../../types/zim'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 
 export default function ZimPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.KIWIX)
@@ -28,19 +30,19 @@ export default function ZimPage() {
   async function confirmDeleteFile(file: ZimFileWithMetadata) {
     openModal(
       <StyledModal
-        title="Confirm Delete?"
+        title={t('contentManager.confirmDelete')}
         onConfirm={() => {
           deleteFileMutation.mutateAsync(file)
           closeAllModals()
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t('contentManager.delete')}
+        cancelText={t('contentManager.cancel')}
         confirmVariant="danger"
       >
         <p className="text-text-secondary">
-          Are you sure you want to delete {file.name}? This action cannot be undone.
+          {t('contentManager.confirmDeleteMessage', { name: file.name })}
         </p>
       </StyledModal>,
       'confirm-delete-file-modal'
@@ -56,20 +58,20 @@ export default function ZimPage() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Manager | Project N.O.M.A.D." />
+      <Head title={t('contentManager.title')} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
+              <h1 className="text-4xl font-semibold mb-2">{t('contentManager.heading')}</h1>
               <p className="text-text-muted">
-                Manage your stored content files.
+                {t('contentManager.description')}
               </p>
             </div>
           </div>
           {!isInstalled && (
             <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
+              title={t('contentManager.kiwixNotInstalled')}
               type="warning"
               variant='solid'
               className="!mt-6"
@@ -83,7 +85,7 @@ export default function ZimPage() {
             columns={[
               {
                 accessor: 'title',
-                title: 'Title',
+                title: t('contentManager.columns.title'),
                 render: (record) => (
                   <span className="font-medium">
                     {record.title || record.name}
@@ -92,7 +94,7 @@ export default function ZimPage() {
               },
               {
                 accessor: 'summary',
-                title: 'Summary',
+                title: t('contentManager.columns.summary'),
                 render: (record) => (
                   <span className="text-text-secondary text-sm line-clamp-2">
                     {record.summary || '—'}
@@ -101,7 +103,7 @@ export default function ZimPage() {
               },
               {
                 accessor: 'actions',
-                title: 'Actions',
+                title: t('contentManager.columns.actions'),
                 render: (record) => (
                   <div className="flex space-x-2">
                     <StyledButton
@@ -111,7 +113,7 @@ export default function ZimPage() {
                         confirmDeleteFile(record)
                       }}
                     >
-                      Delete
+                      {t('contentManager.delete')}
                     </StyledButton>
                   </div>
                 ),

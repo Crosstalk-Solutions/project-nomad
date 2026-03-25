@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Footer from '~/components/Footer'
 import ChatButton from '~/components/chat/ChatButton'
 import ChatModal from '~/components/chat/ChatModal'
@@ -9,6 +10,7 @@ import { IconArrowLeft } from '@tabler/icons-react'
 import classNames from 'classnames'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const [isChatOpen, setIsChatOpen] = useState(false)
   const aiAssistantInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
@@ -18,7 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         window.location.pathname !== '/home' && (
           <Link href="/home" className="absolute top-60 md:top-48 left-4 flex items-center">
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <p className="text-lg text-text-secondary">{t('layout.backToHome')}</p>
           </Link>
         )}
       <div
@@ -26,7 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onClick={() => (window.location.href = '/home')}
       >
         <img src="/project_nomad_logo.png" alt="Project Nomad Logo" className="h-40 w-40" />
-        <h1 className="text-5xl font-bold text-desert-green">Command Center</h1>
+        <h1 className="text-5xl font-bold text-desert-green">{t('layout.commandCenter')}</h1>
       </div>
       <hr className={
         classNames(

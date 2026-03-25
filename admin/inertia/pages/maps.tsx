@@ -1,5 +1,6 @@
 import MapsLayout from '~/layouts/MapsLayout'
 import { Head, Link } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import MapComponent from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft } from '@tabler/icons-react'
@@ -9,25 +10,26 @@ import Alert from '~/components/Alert'
 export default function Maps(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
 }) {
+  const { t } = useTranslation()
   const alertMessage = !props.maps.baseAssetsExist
-    ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
+    ? t('maps.alertNoBaseAssets')
     : props.maps.regionFiles.length === 0
-      ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
+      ? t('maps.alertNoRegions')
       : null
 
   return (
     <MapsLayout>
-      <Head title="Maps" />
+      <Head title={t('maps.title')} />
       <div className="relative w-full h-screen overflow-hidden">
         {/* Nav and alerts are overlayed */}
         <div className="absolute top-0 left-0 right-0 z-50 flex justify-between p-4 bg-surface-secondary backdrop-blur-sm shadow-sm">
           <Link href="/home" className="flex items-center">
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <p className="text-lg text-text-secondary">{t('layout.backToHome')}</p>
           </Link>
           <Link href="/settings/maps" className='mr-4'>
             <StyledButton variant="primary" icon="IconSettings">
-              Manage Map Regions
+              {t('maps.manageRegions')}
             </StyledButton>
           </Link>
         </div>
@@ -40,7 +42,7 @@ export default function Maps(props: {
               className="w-full"
               buttonProps={{
                 variant: 'secondary',
-                children: 'Go to Map Settings',
+                children: t('maps.goToSettings'),
                 icon: 'IconSettings',
                 onClick: () => {
                   window.location.href = '/settings/maps'

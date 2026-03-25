@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -22,6 +23,7 @@ function sourceToDisplayName(source: string): string {
 }
 
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
+  const { t } = useTranslation()
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
@@ -40,7 +42,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onSuccess: (data) => {
       addNotification({
         type: 'success',
-        message: data?.message || 'Document uploaded and queued for processing',
+        message: data?.message || t('chat.uploadSuccess'),
       })
       setFiles([])
       if (fileUploaderRef.current) {
@@ -50,7 +52,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onError: (error: any) => {
       addNotification({
         type: 'error',
-        message: error?.message || 'Failed to upload document',
+        message: error?.message || t('chat.uploadFailed'),
       })
     },
   })
@@ -58,12 +60,12 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const deleteMutation = useMutation({
     mutationFn: (source: string) => api.deleteRAGFile(source),
     onSuccess: () => {
-      addNotification({ type: 'success', message: 'File removed from knowledge base.' })
+      addNotification({ type: 'success', message: t('chat.fileRemoved') })
       setConfirmDeleteSource(null)
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to delete file.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.fileDeleteFailed') })
       setConfirmDeleteSource(null)
     },
   })
@@ -73,13 +75,13 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onSuccess: (data) => {
       addNotification({
         type: 'success',
-        message: data?.message || 'Storage synced successfully. If new files were found, they have been queued for processing.',
+        message: data?.message || t('chat.syncSuccess'),
       })
     },
     onError: (error: any) => {
       addNotification({
         type: 'error',
-        message: error?.message || 'Failed to sync storage',
+        message: error?.message || t('chat.syncFailed'),
       })
     },
   })
@@ -93,7 +95,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const handleConfirmSync = () => {
     openModal(
       <StyledModal
-        title='Confirm Sync?'
+        title={t('chat.confirmSync')}
         onConfirm={() => {
           syncMutation.mutate()
           closeModal(
@@ -102,13 +104,11 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         }}
         onCancel={() => closeModal("confirm-sync-modal")}
         open={true}
-        confirmText='Confirm Sync'
-        cancelText='Cancel'
+        confirmText={t('chat.confirmSyncButton')}
         confirmVariant='primary'
       >
         <p className='text-text-primary'>
-          This will scan the NOMAD's storage directories for any new files and queue them for processing. This is useful if you've manually added files to the storage or want to ensure everything is up to date.
-          This may cause a temporary increase in resource usage if new files are found and being processed. Are you sure you want to proceed?
+          {t('chat.syncDescription')}
         </p>
       </StyledModal>,
       "confirm-sync-modal"
@@ -119,7 +119,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity">
       <div className="bg-surface-primary rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-border-subtle shrink-0">
-          <h2 className="text-2xl font-semibold text-text-primary">Knowledge Base</h2>
+          <h2 className="text-2xl font-semibold text-text-primary">{t('chat.knowledgeBaseTitle')}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-surface-secondary rounded-lg transition-colors"
@@ -147,13 +147,13 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   disabled={files.length === 0 || uploadMutation.isPending}
                   loading={uploadMutation.isPending}
                 >
-                  Upload
+                  {t('common.upload')}
                 </StyledButton>
               </div>
             </div>
             <div className="border-t bg-surface-primary p-6">
               <h3 className="text-lg font-semibold text-desert-green mb-4">
-                Why upload documents to your Knowledge Base?
+                {t('chat.whyUpload')}
               </h3>
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
@@ -162,14 +162,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      {aiAssistantName} Knowledge Base Integration
+                      {t('chat.kbIntegrationTitle', { name: aiAssistantName })}
                     </p>
                     <p className="text-sm text-desert-stone">
-                      When you upload documents to your Knowledge Base, NOMAD processes and embeds
-                      the content, making it directly accessible to {aiAssistantName}. This allows{' '}
-                      {aiAssistantName} to reference your specific documents during conversations,
-                      providing more accurate and personalized responses based on your uploaded
-                      data.
+                      {t('chat.kbIntegrationDescription', { name: aiAssistantName })}
                     </p>
                   </div>
                 </div>
@@ -179,13 +175,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      Enhanced Document Processing with OCR
+                      {t('chat.ocrTitle')}
                     </p>
                     <p className="text-sm text-desert-stone">
-                      NOMAD includes built-in Optical Character Recognition (OCR) capabilities,
-                      allowing it to extract text from image-based documents such as scanned PDFs or
-                      photos. This means that even if your documents are not in a standard text
-                      format, NOMAD can still process and embed their content for AI access.
+                      {t('chat.ocrDescription')}
                     </p>
                   </div>
                 </div>
@@ -195,11 +188,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      Information Library Integration
+                      {t('chat.libraryTitle')}
                     </p>
                     <p className="text-sm text-desert-stone">
-                      NOMAD will automatically discover and extract any content you save to your
-                      Information Library (if installed), making it instantly available to {aiAssistantName} without any extra steps.
+                      {t('chat.libraryDescription', { name: aiAssistantName })}
                     </p>
                   </div>
                 </div>
@@ -212,7 +204,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
           <div className="my-12">
             <div className='flex items-center justify-between mb-6'>
-              <StyledSectionHeader title="Stored Knowledge Base Files" className='!mb-0' />
+              <StyledSectionHeader title={t('chat.storedFiles')} className='!mb-0' />
               <StyledButton
                 variant="secondary"
                 size="md"
@@ -221,7 +213,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 disabled={syncMutation.isPending || uploadMutation.isPending}
                 loading={syncMutation.isPending || uploadMutation.isPending}
               >
-                Sync Storage
+                {t('chat.syncStorage')}
               </StyledButton>
             </div>
             <StyledTable<{ source: string }>
@@ -230,7 +222,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               columns={[
                 {
                   accessor: 'source',
-                  title: 'File Name',
+                  title: t('chat.fileName'),
                   render(record) {
                     return <span className="text-text-primary">{sourceToDisplayName(record.source)}</span>
                   },
@@ -244,14 +236,14 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                     if (isConfirming) {
                       return (
                         <div className="flex items-center gap-2 justify-end">
-                          <span className="text-sm text-text-secondary">Remove from knowledge base?</span>
+                          <span className="text-sm text-text-secondary">{t('chat.removeFromKb')}</span>
                           <StyledButton
                             variant='danger'
                             size='sm'
                             onClick={() => deleteMutation.mutate(record.source)}
                             disabled={isDeleting}
                           >
-                            {isDeleting ? 'Deleting…' : 'Confirm'}
+                            {isDeleting ? t('chat.deleting') : t('common.confirm')}
                           </StyledButton>
                           <StyledButton
                             variant='ghost'
@@ -259,7 +251,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                             onClick={() => setConfirmDeleteSource(null)}
                             disabled={isDeleting}
                           >
-                            Cancel
+                            {t('common.cancel')}
                           </StyledButton>
                         </div>
                       )
@@ -273,7 +265,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                           onClick={() => setConfirmDeleteSource(record.source)}
                           disabled={deleteMutation.isPending}
                           loading={deleteMutation.isPending && confirmDeleteSource === record.source}
-                        >Delete</StyledButton>
+                        >{t('common.delete')}</StyledButton>
                       </div>
                     )
                   },

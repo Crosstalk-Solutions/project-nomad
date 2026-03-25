@@ -5,6 +5,7 @@ import type { CategoryWithStatus, SpecTier, SpecResource } from '../../types/col
 import { resolveTierResources } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
 import classNames from 'classnames'
+import { useTranslation } from 'react-i18next'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 
 interface TierSelectionModalProps {
@@ -22,6 +23,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   selectedTierSlug,
   onSelectTier,
 }) => {
+  const { t } = useTranslation()
   // Local selection state - initialized from prop
   const [localSelectedSlug, setLocalSelectedSlug] = useState<string | null>(null)
 
@@ -116,7 +118,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                 {/* Content */}
                 <div className="p-6">
                   <p className="text-text-secondary mb-6">
-                    Select a tier based on your storage capacity and needs. Higher tiers include all content from lower tiers.
+                    {t('contentExplorer.tierModal.selectTierDescription')}
                   </p>
 
                   <div className="space-y-4">
@@ -149,7 +151,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                                 </h3>
                                 {includedTierName && (
                                   <span className="text-xs text-text-muted">
-                                    (includes {includedTierName})
+                                    ({t('contentExplorer.tierModal.includes', { name: includedTierName })})
                                   </span>
                                 )}
                               </div>
@@ -160,11 +162,11 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                                 <p className="text-xs text-text-muted mb-2 font-medium">
                                   {includedTierName ? (
                                     <>
-                                      {ownResourceCount} additional {ownResourceCount === 1 ? 'resource' : 'resources'}
-                                      <span className="text-text-muted"> (plus everything in {includedTierName})</span>
+                                      {t('contentExplorer.tierModal.additionalResources', { count: ownResourceCount })}
+                                      <span className="text-text-muted"> ({t('contentExplorer.tierModal.plusEverythingIn', { name: includedTierName })})</span>
                                     </>
                                   ) : (
-                                    <>{ownResourceCount} {ownResourceCount === 1 ? 'resource' : 'resources'} included</>
+                                    <>{t('contentExplorer.tierModal.resourcesIncluded', { count: ownResourceCount })}</>
                                   )}
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -206,7 +208,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                   <div className="mt-6 flex items-start gap-2 text-sm text-text-muted bg-blue-50 p-3 rounded">
                     <IconInfoCircle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
                     <p>
-                      You can change your selection at any time. Click Submit to confirm your choice.
+                      {t('contentExplorer.tierModal.changeNote')}
                     </p>
                   </div>
                 </div>
@@ -223,7 +225,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                         : 'bg-border-default text-text-muted cursor-not-allowed'
                     )}
                   >
-                    Submit
+                    {t('contentExplorer.tierModal.submit')}
                   </button>
                 </div>
               </Dialog.Panel>

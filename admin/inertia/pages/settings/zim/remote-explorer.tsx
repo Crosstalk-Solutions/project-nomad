@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '~/lib/api'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -36,6 +37,7 @@ const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
 export default function ZimRemoteExplorer() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const tableParentRef = useRef<HTMLDivElement>(null)
 
@@ -148,23 +150,18 @@ export default function ZimRemoteExplorer() {
   async function confirmDownload(record: RemoteZimFileEntry) {
     openModal(
       <StyledModal
-        title="Confirm Download?"
+        title={t('contentExplorer.confirmDownload')}
         onConfirm={() => {
           downloadFile(record)
           closeAllModals()
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Download"
-        cancelText="Cancel"
+        confirmText={t('contentExplorer.download')}
+        cancelText={t('contentExplorer.cancel')}
         confirmVariant="primary"
       >
-        <p className="text-text-primary">
-          Are you sure you want to download{' '}
-          <strong>{record.title}</strong>? It may take some time for it
-          to be available depending on the file size and your internet connection. The Kiwix
-          application will be restarted after the download is complete.
-        </p>
+        <p className="text-text-primary" dangerouslySetInnerHTML={{ __html: t('contentExplorer.confirmDownloadMessage', { title: record.title }) }} />
       </StyledModal>,
       'confirm-download-file-modal'
     )
@@ -196,7 +193,7 @@ export default function ZimRemoteExplorer() {
       await api.downloadCategoryTier(category.slug, tier.slug)
 
       addNotification({
-        message: `Started downloading "${category.name} - ${tier.name}"`,
+        message: t('contentExplorer.tierDownloadStarted', { name: `${category.name} - ${tier.name}` }),
         type: 'success',
       })
       invalidateDownloads()
@@ -206,7 +203,7 @@ export default function ZimRemoteExplorer() {
     } catch (error) {
       console.error('Error downloading tier resources:', error)
       addNotification({
-        message: 'An error occurred while starting downloads.',
+        message: t('contentExplorer.tierDownloadError'),
         type: 'error',
       })
     }
@@ -233,8 +230,8 @@ export default function ZimRemoteExplorer() {
         addNotification({
           message:
             selectedWikipedia === 'none'
-              ? 'Wikipedia removed successfully'
-              : 'Wikipedia download started',
+              ? t('contentExplorer.wikipediaRemoved')
+              : t('contentExplorer.wikipediaDownloadStarted'),
           type: 'success',
         })
         invalidateDownloads()
@@ -242,14 +239,14 @@ export default function ZimRemoteExplorer() {
         setSelectedWikipedia(null)
       } else {
         addNotification({
-          message: result?.message || 'Failed to change Wikipedia selection',
+          message: result?.message || t('contentExplorer.wikipediaSelectionFailed'),
           type: 'error',
         })
       }
     } catch (error) {
       console.error('Error selecting Wikipedia:', error)
       addNotification({
-        message: 'An error occurred while changing Wikipedia selection',
+        message: t('contentExplorer.wikipediaSelectionError'),
         type: 'error',
       })
     } finally {
@@ -261,7 +258,7 @@ export default function ZimRemoteExplorer() {
     mutationFn: () => api.refreshManifests(),
     onSuccess: () => {
       addNotification({
-        message: 'Successfully refreshed content collections.',
+        message: t('contentExplorer.refreshSuccess'),
         type: 'success',
       })
       queryClient.invalidateQueries({ queryKey: [CURATED_CATEGORIES_KEY] })
@@ -271,18 +268,18 @@ export default function ZimRemoteExplorer() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Explorer | Project N.O.M.A.D." />
+      <Head title={t('contentExplorer.title')} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex justify-between items-center">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">Content Explorer</h1>
-              <p className="text-text-muted">Browse and download content for offline reading!</p>
+              <h1 className="text-4xl font-semibold mb-2">{t('contentExplorer.heading')}</h1>
+              <p className="text-text-muted">{t('contentExplorer.description')}</p>
             </div>
           </div>
           {!isOnline && (
             <Alert
-              title="No internet connection. You may not be able to download files."
+              title={t('contentExplorer.noInternet')}
               message=""
               type="warning"
               variant="solid"
@@ -291,20 +288,20 @@ export default function ZimRemoteExplorer() {
           )}
           {!isInstalled && (
             <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded content files."
+              title={t('contentExplorer.kiwixNotInstalled')}
               type="warning"
               variant="solid"
               className="!mt-6"
             />
           )}
           <div className="mt-8 mb-6 flex items-center justify-between">
-            <StyledSectionHeader title="Curated Content" className="!mb-0" />
+            <StyledSectionHeader title={t('contentExplorer.curatedContent')} className="!mb-0" />
             <StyledButton
               onClick={() => refreshManifests.mutate()}
               disabled={refreshManifests.isPending || !isOnline}
               icon="IconRefresh"
             >
-              Force Refresh Collections
+              {t('contentExplorer.forceRefreshCollections')}
             </StyledButton>
           </div>
           
@@ -336,8 +333,8 @@ export default function ZimRemoteExplorer() {
               <IconBooks className="w-6 h-6 text-text-primary" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-text-primary">Additional Content</h3>
-              <p className="text-sm text-text-muted">Curated collections for offline reference</p>
+              <h3 className="text-xl font-semibold text-text-primary">{t('contentExplorer.additionalContent')}</h3>
+              <p className="text-sm text-text-muted">{t('contentExplorer.additionalContentSubtext')}</p>
             </div>
           </div>
           {categories && categories.length > 0 ? (
@@ -363,14 +360,14 @@ export default function ZimRemoteExplorer() {
               />
             </>
           ) : (
-            <p className="text-text-muted mt-4">No curated content categories available.</p>
+            <p className="text-text-muted mt-4">{t('contentExplorer.noCuratedCategories')}</p>
           )}
-          <StyledSectionHeader title="Browse the Kiwix Library" className="mt-12 mb-4" />
+          <StyledSectionHeader title={t('contentExplorer.browseKiwixLibrary')} className="mt-12 mb-4" />
           <div className="flex justify-start mt-4">
             <Input
               name="search"
               label=""
-              placeholder="Search available ZIM files..."
+              placeholder={t('contentExplorer.searchPlaceholder')}
               value={queryUI}
               onChange={(e) => {
                 setQueryUI(e.target.value)
@@ -394,30 +391,35 @@ export default function ZimRemoteExplorer() {
             columns={[
               {
                 accessor: 'title',
+                title: t('contentExplorer.columns.title'),
               },
               {
                 accessor: 'author',
+                title: t('contentExplorer.columns.author'),
               },
               {
                 accessor: 'summary',
+                title: t('contentExplorer.columns.summary'),
               },
               {
                 accessor: 'updated',
+                title: t('contentExplorer.columns.updated'),
                 render(record) {
-                  return new Intl.DateTimeFormat('en-US', {
+                  return new Intl.DateTimeFormat(undefined, {
                     dateStyle: 'medium',
                   }).format(new Date(record.updated))
                 },
               },
               {
                 accessor: 'size_bytes',
-                title: 'Size',
+                title: t('contentExplorer.columns.size'),
                 render(record) {
                   return formatBytes(record.size_bytes)
                 },
               },
               {
                 accessor: 'actions',
+                title: t('contentExplorer.columns.actions'),
                 render(record) {
                   return (
                     <div className="flex space-x-2">
@@ -427,7 +429,7 @@ export default function ZimRemoteExplorer() {
                           confirmDownload(record)
                         }}
                       >
-                        Download
+                        {t('contentExplorer.download')}
                       </StyledButton>
                     </div>
                   )

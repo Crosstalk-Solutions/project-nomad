@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import ChatSidebar from './ChatSidebar'
 import ChatInterface from './ChatInterface'
 import StyledModal from '../StyledModal'
@@ -27,6 +28,7 @@ export default function Chat({
   suggestionsEnabled = false,
   streamingEnabled = true,
 }: ChatProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
@@ -101,7 +103,7 @@ export default function Chat({
       const assistantMessage: ChatMessage = {
         id: `msg-${Date.now()}-assistant`,
         role: 'assistant',
-        content: data.message?.content || 'Sorry, I could not generate a response.',
+        content: data.message?.content || t('chat.errorNoResponse'),
         timestamp: new Date(),
       }
 
@@ -116,7 +118,7 @@ export default function Chat({
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now()}-error`,
         role: 'assistant',
-        content: 'Sorry, there was an error processing your request. Please try again.',
+        content: t('chat.errorProcessing'),
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
@@ -151,17 +153,15 @@ export default function Chat({
   const handleClearHistory = useCallback(() => {
     openModal(
       <StyledModal
-        title="Clear All Chat History?"
+        title={t('chat.clearAllHistory')}
         onConfirm={() => deleteAllSessionsMutation.mutate()}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Clear All"
-        cancelText="Cancel"
+        confirmText={t('chat.clearAll')}
         confirmVariant="danger"
       >
         <p className="text-text-primary">
-          Are you sure you want to delete all chat sessions? This action cannot be undone and all
-          conversations will be permanently deleted.
+          {t('chat.clearAllConfirm')}
         </p>
       </StyledModal>,
       'confirm-clear-history-modal'
@@ -203,7 +203,7 @@ export default function Chat({
 
       // Create a new session if none exists
       if (!sessionId) {
-        const newSession = await api.createChatSession('New Chat', selectedModel)
+        const newSession = await api.createChatSession(t('chat.newChat'), selectedModel)
         if (newSession) {
           sessionId = newSession.id
           setActiveSessionId(sessionId)
@@ -307,7 +307,7 @@ export default function Chat({
                 {
                   id: assistantMsgId,
                   role: 'assistant',
-                  content: 'Sorry, there was an error processing your request. Please try again.',
+                  content: t('chat.errorProcessing'),
                   timestamp: new Date(),
                 },
               ]
@@ -360,17 +360,17 @@ export default function Chat({
       <div className="flex-1 flex flex-col min-h-0">
         <div className="px-6 py-3 border-b border-border-subtle bg-surface-secondary flex items-center justify-between h-[75px] flex-shrink-0">
           <h2 className="text-lg font-semibold text-text-primary">
-            {activeSession?.title || 'New Chat'}
+            {activeSession?.title || t('chat.newChat')}
           </h2>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <label htmlFor="model-select" className="text-sm text-text-secondary">
-                Model:
+                {t('chat.model')}
               </label>
               {isLoadingModels ? (
-                <div className="text-sm text-text-muted">Loading models...</div>
+                <div className="text-sm text-text-muted">{t('chat.loadingModels')}</div>
               ) : installedModels.length === 0 ? (
-                <div className="text-sm text-red-600">No models installed</div>
+                <div className="text-sm text-red-600">{t('chat.noModelsInstalled')}</div>
               ) : (
                 <select
                   id="model-select"

@@ -12,6 +12,7 @@ import {
   getFileStatsIfExists,
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
+import { getRepoRawUrl } from '../utils/misc.js'
 import type {
   ManifestType,
   ZimCategoriesSpec,
@@ -22,10 +23,13 @@ import type {
   SpecTier,
 } from '../../types/collections.js'
 
-const SPEC_URLS: Record<ManifestType, string> = {
-  zim_categories: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
-  maps: 'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/collections/maps.json',
-  wikipedia: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
+function getSpecUrls(): Record<ManifestType, string> {
+  const rawUrl = getRepoRawUrl()
+  return {
+    zim_categories: `${rawUrl}/collections/kiwix-categories.json`,
+    maps: `${rawUrl}/collections/maps.json`,
+    wikipedia: `${rawUrl}/collections/wikipedia.json`,
+  }
 }
 
 const VALIDATORS: Record<ManifestType, any> = {
@@ -41,7 +45,7 @@ export class CollectionManifestService {
 
   async fetchAndCacheSpec(type: ManifestType): Promise<boolean> {
     try {
-      const response = await axios.get(SPEC_URLS[type], { timeout: 15000 })
+      const response = await axios.get(getSpecUrls()[type], { timeout: 15000 })
 
       const validated = await vine.validate({
         schema: VALIDATORS[type],

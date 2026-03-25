@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import StyledButton from '~/components/StyledButton'
@@ -22,6 +23,7 @@ const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 export default function MapsManager(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
@@ -44,13 +46,13 @@ export default function MapsManager(props: {
 
       const res = await api.downloadBaseMapAssets()
       if (!res) {
-        throw new Error('An unknown error occurred while downloading base assets.')
+        throw new Error(t('mapsManager.baseAssetsUnknownError'))
       }
 
       if (res.success) {
         addNotification({
           type: 'success',
-          message: 'Base map assets downloaded successfully.',
+          message: t('mapsManager.baseAssetsSuccess'),
         })
         router.reload()
       }
@@ -58,7 +60,7 @@ export default function MapsManager(props: {
       console.error('Error downloading base assets:', error)
       addNotification({
         type: 'error',
-        message: 'An error occurred while downloading the base map assets. Please try again.',
+        message: t('mapsManager.baseAssetsError'),
       })
     } finally {
       setDownloading(false)
@@ -71,7 +73,7 @@ export default function MapsManager(props: {
       invalidateDownloads()
       addNotification({
         type: 'success',
-        message: `Download for collection "${record.name}" has been queued.`,
+        message: t('mapsManager.downloadQueued', { name: record.name }),
       })
     } catch (error) {
       console.error('Error downloading collection:', error)
@@ -84,7 +86,7 @@ export default function MapsManager(props: {
       invalidateDownloads()
       addNotification({
         type: 'success',
-        message: 'Download has been queued.',
+        message: t('mapsManager.customDownloadQueued'),
       })
     } catch (error) {
       console.error('Error downloading custom file:', error)
@@ -94,18 +96,18 @@ export default function MapsManager(props: {
   async function confirmDeleteFile(file: FileEntry) {
     openModal(
       <StyledModal
-        title="Confirm Delete?"
+        title={t('mapsManager.confirmDelete')}
         onConfirm={() => {
           closeAllModals()
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t('mapsManager.delete')}
+        cancelText={t('mapsManager.cancel')}
         confirmVariant="danger"
       >
         <p className="text-text-secondary">
-          Are you sure you want to delete {file.name}? This action cannot be undone.
+          {t('mapsManager.confirmDeleteMessage', { name: file.name })}
         </p>
       </StyledModal>,
       'confirm-delete-file-modal'
@@ -116,12 +118,12 @@ export default function MapsManager(props: {
     const isCollection = 'resources' in record
     openModal(
       <StyledModal
-        title="Confirm Download?"
+        title={t('mapsManager.confirmDownload')}
         onConfirm={() => {
           if (isCollection) {
             if (record.all_installed) {
               addNotification({
-                message: `All resources in the collection "${record.name}" have already been downloaded.`,
+                message: t('mapsManager.allResourcesDownloaded', { name: record.name }),
                 type: 'info',
               })
               return
@@ -132,15 +134,11 @@ export default function MapsManager(props: {
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Download"
-        cancelText="Cancel"
+        confirmText={t('mapsManager.download')}
+        cancelText={t('mapsManager.cancel')}
         confirmVariant="primary"
       >
-        <p className="text-text-secondary">
-          Are you sure you want to download <strong>{isCollection ? record.name : record}</strong>?
-          It may take some time for it to be available depending on the file size and your internet
-          connection.
-        </p>
+        <p className="text-text-secondary" dangerouslySetInnerHTML={{ __html: t('mapsManager.confirmDownloadMessage', { name: isCollection ? record.name : record }) }} />
       </StyledModal>,
       'confirm-download-file-modal'
     )
@@ -149,7 +147,7 @@ export default function MapsManager(props: {
   async function openDownloadModal() {
     openModal(
       <DownloadURLModal
-        title="Download Map File"
+        title={t('mapsManager.downloadMapFileTitle')}
         suggestedURL="e.g. https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/california.pmtiles"
         onCancel={() => closeAllModals()}
         onPreflightSuccess={async (url) => {
@@ -165,7 +163,7 @@ export default function MapsManager(props: {
     mutationFn: () => api.refreshManifests(),
     onSuccess: () => {
       addNotification({
-        message: 'Successfully refreshed map collections.',
+        message: t('mapsManager.refreshSuccess'),
         type: 'success',
       })
       queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
@@ -174,13 +172,13 @@ export default function MapsManager(props: {
 
   return (
     <SettingsLayout>
-      <Head title="Maps Manager" />
+      <Head title={t('mapsManager.title')} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
-              <p className="text-text-muted">Manage your stored map files and explore new regions!</p>
+              <h1 className="text-4xl font-semibold mb-2">{t('mapsManager.heading')}</h1>
+              <p className="text-text-muted">{t('mapsManager.description')}</p>
             </div>
             <div className="flex space-x-4">
 
@@ -188,13 +186,13 @@ export default function MapsManager(props: {
           </div>
           {!props.maps.baseAssetsExist && (
             <Alert
-              title="The base map assets have not been installed. Please download them first to enable map functionality."
+              title={t('mapsManager.baseAssetsAlert')}
               type="warning"
               variant="solid"
               className="my-4"
               buttonProps={{
                 variant: 'secondary',
-                children: 'Download Base Assets',
+                children: t('mapsManager.downloadBaseAssets'),
                 icon: 'IconDownload',
                 loading: downloading,
                 onClick: () => downloadBaseAssets(),
@@ -202,13 +200,13 @@ export default function MapsManager(props: {
             />
           )}
           <div className="mt-8 mb-6 flex items-center justify-between">
-            <StyledSectionHeader title="Curated Map Regions" className="!mb-0" />
+            <StyledSectionHeader title={t('mapsManager.curatedMapRegions')} className="!mb-0" />
             <StyledButton
               onClick={() => refreshManifests.mutate()}
               disabled={refreshManifests.isPending}
               icon="IconRefresh"
             >
-              Force Refresh Collections
+              {t('mapsManager.forceRefreshCollections')}
             </StyledButton>
           </div>
           <div className="!mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -220,18 +218,18 @@ export default function MapsManager(props: {
               />
             ))}
             {curatedCollections && curatedCollections.length === 0 && (
-              <p className="text-text-muted">No curated collections available.</p>
+              <p className="text-text-muted">{t('mapsManager.noCuratedCollections')}</p>
             )}
           </div>
           <div className="mt-12 mb-6 flex items-center justify-between">
-            <StyledSectionHeader title="Stored Map Files" className="!mb-0" />
+            <StyledSectionHeader title={t('mapsManager.storedMapFiles')} className="!mb-0" />
             <StyledButton
               variant="primary"
               onClick={openDownloadModal}
               loading={downloading}
               icon="IconCloudDownload"
             >
-              Download a Custom Map File
+              {t('mapsManager.downloadCustomMapFile')}
             </StyledButton>
           </div>
           <StyledTable<FileEntry & { actions?: any }>
@@ -240,10 +238,10 @@ export default function MapsManager(props: {
             loading={false}
             compact
             columns={[
-              { accessor: 'name', title: 'Name' },
+              { accessor: 'name', title: t('mapsManager.columns.name') },
               {
                 accessor: 'actions',
-                title: 'Actions',
+                title: t('mapsManager.columns.actions'),
                 render: (record) => (
                   <div className="flex space-x-2">
                     <StyledButton
@@ -253,7 +251,7 @@ export default function MapsManager(props: {
                         confirmDeleteFile(record)
                       }}
                     >
-                      Delete
+                      {t('mapsManager.delete')}
                     </StyledButton>
                   </div>
                 ),

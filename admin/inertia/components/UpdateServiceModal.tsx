@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { ServiceSlim } from "../../types/services"
 import StyledModal from "./StyledModal"
 import { IconArrowUp } from "@tabler/icons-react"
@@ -22,6 +23,7 @@ export default function UpdateServiceModal({
     onUpdate,
     showError,
 }: UpdateServiceModalProps) {
+    const { t } = useTranslation()
     const [selectedVersion, setSelectedVersion] = useState(latestVersion)
     const [showAdvanced, setShowAdvanced] = useState(false)
     const [versions, setVersions] = useState<Array<{ tag: string; isLatest: boolean; releaseUrl?: string }>>([])
@@ -36,7 +38,7 @@ export default function UpdateServiceModal({
                 setVersions(result.versions)
             }
         } catch (error) {
-            showError('Failed to load available versions')
+            showError(t('updateService.failedToLoadVersions'))
         } finally {
             setLoadingVersions(false)
         }
@@ -50,23 +52,25 @@ export default function UpdateServiceModal({
 
     return (
         <StyledModal
-            title="Update Service"
+            title={t('updateService.title')}
             onConfirm={() => onUpdate(selectedVersion)}
             onCancel={onCancel}
             open={true}
-            confirmText="Update"
-            cancelText="Cancel"
+            confirmText={t('updateService.update')}
             confirmVariant="primary"
             icon={<IconArrowUp className="h-12 w-12 text-desert-green" />}
         >
             <div className="space-y-4">
-                <p className="text-text-primary">
-                    Update <strong>{record.friendly_name || record.service_name}</strong> from{' '}
-                    <code className="bg-surface-secondary px-1.5 py-0.5 rounded text-sm">{currentTag}</code> to{' '}
-                    <code className="bg-surface-secondary px-1.5 py-0.5 rounded text-sm">{selectedVersion}</code>?
-                </p>
+                <p className="text-text-primary" dangerouslySetInnerHTML={{
+                    __html: t('updateService.updateConfirmation', {
+                        name: record.friendly_name || record.service_name,
+                        from: currentTag,
+                        to: selectedVersion,
+                        interpolation: { escapeValue: false }
+                    })
+                }} />
                 <p className="text-sm text-text-muted">
-                    Your data and configuration will be preserved during the update.
+                    {t('updateService.dataPreserved')}
                     {versions.find((v) => v.tag === selectedVersion)?.releaseUrl && (
                         <>
                             {' '}
@@ -76,7 +80,7 @@ export default function UpdateServiceModal({
                                 rel="noopener noreferrer"
                                 className="text-desert-green hover:underline"
                             >
-                                View release notes
+                                {t('updateService.viewReleaseNotes')}
                             </a>
                         </>
                     )}
@@ -88,16 +92,16 @@ export default function UpdateServiceModal({
                         onClick={handleToggleAdvanced}
                         className="text-sm text-desert-green hover:underline font-medium"
                     >
-                        {showAdvanced ? 'Hide' : 'Show'} available versions
+                        {showAdvanced ? t('updateService.hideVersions') : t('updateService.showVersions')}
                     </button>
 
                     {showAdvanced && (
                         <>
                             <div className="mt-3 max-h-48 overflow-y-auto border rounded-lg divide-y">
                                 {loadingVersions ? (
-                                    <div className="p-4 text-center text-text-muted text-sm">Loading versions...</div>
+                                    <div className="p-4 text-center text-text-muted text-sm">{t('updateService.loadingVersions')}</div>
                                 ) : versions.length === 0 ? (
-                                    <div className="p-4 text-center text-text-muted text-sm">No other versions available</div>
+                                    <div className="p-4 text-center text-text-muted text-sm">{t('updateService.noVersionsAvailable')}</div>
                                 ) : (
                                     versions.map((v) => (
                                         <label
@@ -115,7 +119,7 @@ export default function UpdateServiceModal({
                                             <span className="text-sm font-medium text-text-primary">{v.tag}</span>
                                             {v.isLatest && (
                                                 <span className="text-xs bg-desert-green/10 text-desert-green px-2 py-0.5 rounded-full">
-                                                    Latest
+                                                    {t('updateService.latest')}
                                                 </span>
                                             )}
                                             {v.releaseUrl && (
@@ -126,7 +130,7 @@ export default function UpdateServiceModal({
                                                     className="ml-auto text-xs text-desert-green hover:underline"
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    Release notes
+                                                    {t('updateService.releaseNotes')}
                                                 </a>
                                             )}
                                         </label>
@@ -134,7 +138,7 @@ export default function UpdateServiceModal({
                                 )}
                             </div>
                             <p className="mt-2 text-sm text-text-muted">
-                                It's not recommended to upgrade to a new major version (e.g. 1.8.2 &rarr; 2.0.0) unless you have verified compatibility with your current configuration. Always review the release notes and test in a staging environment if possible.
+                                {t('updateService.majorVersionWarning')}
                             </p>
                         </>
                     )}

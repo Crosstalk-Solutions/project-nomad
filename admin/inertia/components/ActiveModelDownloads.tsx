@@ -1,17 +1,19 @@
 import useOllamaModelDownloads from '~/hooks/useOllamaModelDownloads'
 import HorizontalBarChart from './HorizontalBarChart'
 import StyledSectionHeader from './StyledSectionHeader'
+import { useTranslation } from 'react-i18next'
 
 interface ActiveModelDownloadsProps {
     withHeader?: boolean
 }
 
 const ActiveModelDownloads = ({ withHeader = false }: ActiveModelDownloadsProps) => {
+    const { t } = useTranslation()
     const { downloads } = useOllamaModelDownloads()
 
     return (
         <>
-            {withHeader && <StyledSectionHeader title="Active Model Downloads" className="mt-12 mb-4" />}
+            {withHeader && <StyledSectionHeader title={t('common.activeModelDownloads')} className="mt-12 mb-4" />}
             <div className="space-y-4">
                 {downloads && downloads.length > 0 ? (
                     downloads.map((download) => (
@@ -33,7 +35,7 @@ const ActiveModelDownloads = ({ withHeader = false }: ActiveModelDownloadsProps)
                         </div>
                     ))
                 ) : (
-                    <p className="text-text-muted">No active model downloads</p>
+                    <p className="text-text-muted">{t('common.noActiveModelDownloads')}</p>
                 )}
             </div>
         </>
