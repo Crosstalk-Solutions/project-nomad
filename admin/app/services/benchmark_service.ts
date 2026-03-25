@@ -23,16 +23,17 @@ import type {
   RepositoryStats,
 } from '../../types/benchmark.js'
 import { randomUUID, createHmac } from 'node:crypto'
+import env from '#start/env'
 import { DockerService } from './docker_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import Dockerode from 'dockerode'
 
-// HMAC secret for signing submissions to the benchmark repository
-// This provides basic protection against casual API abuse.
-// Note: Since NOMAD is open source, a determined attacker could extract this.
-// For stronger protection, see challenge-response authentication.
-const BENCHMARK_HMAC_SECRET = '778ba65d0bc0e23119e5ffce4b3716648a7d071f0a47ec3f'
+// HMAC secret for signing submissions to the benchmark repository.
+// Must be provided via the BENCHMARK_HMAC_SECRET environment variable.
+// The benchmark server uses this to verify that submissions originate from
+// a genuine NOMAD instance.  Never commit the real secret to source control.
+const BENCHMARK_HMAC_SECRET = env.get('BENCHMARK_HMAC_SECRET')
 
 // Re-export default weights for use in service
 const SCORE_WEIGHTS = {
@@ -157,6 +158,11 @@ export class BenchmarkService {
     }
 
     try {
+      // Refuse to submit if the signing secret is not configured
+      if (!BENCHMARK_HMAC_SECRET) {
+        throw new Error('Benchmark submission signing secret is not configured. Set the BENCHMARK_HMAC_SECRET environment variable.')
+      }
+
       // Generate HMAC signature for submission verification
       const timestamp = Date.now().toString()
       const payload = timestamp + JSON.stringify(submission)
