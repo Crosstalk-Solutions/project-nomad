@@ -245,12 +245,43 @@ setup_nvidia_container_toolkit() {
   
   echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
   
+  # Ensure gpg is available (needed to add NVIDIA apt repo key)
+  if ! command -v gpg &> /dev/null; then
+    echo -e "${YELLOW}#${RESET} gpg not found. Installing 'gnupg' (required for NVIDIA container toolkit repo setup)...\\n"
+    if ! sudo apt-get update 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to update package list to install gnupg. Continuing anyway...\\n"
+      return 0
+    fi
+    if ! sudo apt-get install -y gnupg 2>/dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to install gnupg. Continuing anyway...\\n"
+      return 0
+    fi
+    if ! command -v gpg &> /dev/null; then
+      echo -e "${YELLOW}#${RESET} Warning: gpg still not available after installing gnupg. Continuing anyway...\\n"
+      return 0
+    fi
+  fi
+
   # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
+  local nvidia_gpg_tmp="/tmp/nvidia-container-toolkit.gpgkey"
+  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -o "$nvidia_gpg_tmp" 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to download NVIDIA container toolkit GPG key. Continuing anyway...\\n"
     return 0
   fi
-  
+
+  if ! sudo mkdir -p /usr/share/keyrings 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to create /usr/share/keyrings directory. Continuing anyway...\\n"
+    sudo rm -f "$nvidia_gpg_tmp" 2>/dev/null || true
+    return 0
+  fi
+
+  if ! sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg "$nvidia_gpg_tmp" 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
+    sudo rm -f "$nvidia_gpg_tmp" 2>/dev/null || true
+    return 0
+  fi
+  sudo rm -f "$nvidia_gpg_tmp" 2>/dev/null || true
+
   if ! curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
       | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
       | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1; then
