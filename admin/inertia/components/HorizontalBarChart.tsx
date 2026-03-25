@@ -94,7 +94,7 @@ export default function HorizontalBarChart({
               className={classNames(
                 'absolute top-1/2 -translate-y-1/2 font-bold text-sm',
                 item.value > 15
-                  ? 'left-3 text-desert-white drop-shadow-md'
+                  ? 'left-3 text-white drop-shadow-md'
                   : 'right-3 text-desert-green'
               )}
             >

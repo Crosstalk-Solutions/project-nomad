@@ -61,7 +61,7 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
         {notifications.map((notification) => (
           <div
             key={notification.id}
-            className={`mb-4 p-4 rounded shadow-md border border-slate-300 bg-white max-w-96`}
+            className={`mb-4 p-4 rounded shadow-md border border-border-default bg-surface-primary max-w-96`}
             onClick={() => removeNotification(notification.id)}
           >
             <div className="flex flex-row items-start gap-3">

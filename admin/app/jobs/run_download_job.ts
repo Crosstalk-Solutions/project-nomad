@@ -82,14 +82,17 @@ export class RunDownloadJob {
             const zimService = new ZimService(dockerService)
             await zimService.downloadRemoteSuccessCallback([url], true)
 
-            // Dispatch an embedding job for the downloaded ZIM file
-            try {
-              await EmbedFileJob.dispatch({
-                fileName: url.split('/').pop() || '',
-                filePath: filepath,
-              })
-            } catch (error) {
-              console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+            // Only dispatch embedding job if AI Assistant (Ollama) is installed
+            const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
+            if (ollamaUrl) {
+              try {
+                await EmbedFileJob.dispatch({
+                  fileName: url.split('/').pop() || '',
+                  filePath: filepath,
+                })
+              } catch (error) {
+                console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+              }
             }
           } else if (filetype === 'map') {
             const mapsService = new MapService()

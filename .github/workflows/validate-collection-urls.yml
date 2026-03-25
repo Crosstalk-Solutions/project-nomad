@@ -1,0 +1,58 @@
+name: Validate Collection URLs
+
+on:
+  push:
+    paths:
+      - 'collections/**.json'
+  pull_request:
+    paths:
+      - 'collections/**.json'
+
+jobs:
+  validate-urls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract and validate URLs
+        run: |
+          FAILED=0
+          CHECKED=0
+          FAILED_URLS=""
+
+          # Recursively extract all non-null string URLs from every JSON file in collections/
+          URLS=$(jq -r '.. | .url? | select(type == "string")' collections/*.json | sort -u)
+
+          while IFS= read -r url; do
+            [ -z "$url" ] && continue
+            CHECKED=$((CHECKED + 1))
+            printf "Checking: %s ... " "$url"
+
+            # Use Range: bytes=0-0 to avoid downloading the full file.
+            # --max-filesize 1 aborts early if the server ignores the Range header
+            # and returns 200 with the full body. The HTTP status is still captured.
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --range 0-0 \
+              --max-filesize 1 \
+              --max-time 30 \
+              --location \
+              "$url")
+
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
+              echo "OK ($HTTP_CODE)"
+            else
+              echo "FAILED ($HTTP_CODE)"
+              FAILED=$((FAILED + 1))
+              FAILED_URLS="$FAILED_URLS\n  - $url (HTTP $HTTP_CODE)"
+            fi
+          done <<< "$URLS"
+
+          echo ""
+          echo "Checked $CHECKED URLs, $FAILED failed."
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo ""
+            echo "Broken URLs:"
+            printf "%b\n" "$FAILED_URLS"
+            exit 1
+          fi

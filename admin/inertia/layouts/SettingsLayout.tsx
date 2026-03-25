@@ -4,6 +4,7 @@ import {
   IconDashboard,
   IconFolder,
   IconGavel,
+  IconHeart,
   IconMapRoute,
   IconSettings,
   IconTerminal2,
@@ -41,11 +42,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       current: false,
     },
     { name: 'System', href: '/settings/system', icon: IconSettings, current: false },
+    { name: 'Support the Project', href: '/settings/support', icon: IconHeart, current: false },
     { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
   ]
 
   return (
-    <div className="min-h-screen flex flex-row bg-stone-50/90">
+    <div className="min-h-screen flex flex-row bg-surface-secondary/90">
       <StyledSidebar title="Settings" items={navigation} />
       {children}
     </div>

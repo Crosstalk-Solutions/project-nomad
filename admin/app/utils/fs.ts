@@ -138,14 +138,13 @@ export function matchesDevice(fsPath: string, deviceName: string): boolean {
   // Remove /dev/ and /dev/mapper/ prefixes
   const normalized = fsPath.replace('/dev/mapper/', '').replace('/dev/', '')
 
-  // Direct match
+  // Direct match (covers /dev/sda1 ↔ sda1, /dev/nvme0n1p1 ↔ nvme0n1p1)
   if (normalized === deviceName) {
     return true
   }
 
-  // LVM volumes use dashes instead of slashes
-  // e.g., ubuntu--vg-ubuntu--lv matches the device name
-  if (fsPath.includes(deviceName)) {
+  // LVM/device-mapper: e.g., /dev/mapper/ubuntu--vg-ubuntu--lv contains "ubuntu--lv"
+  if (fsPath.startsWith('/dev/mapper/') && fsPath.includes(deviceName)) {
     return true
   }
 

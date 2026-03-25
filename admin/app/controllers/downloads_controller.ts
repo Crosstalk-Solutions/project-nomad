@@ -15,4 +15,9 @@ export default class DownloadsController {
     const payload = await request.validateUsing(downloadJobsByFiletypeSchema)
     return this.downloadService.listDownloadJobs(payload.params.filetype)
   }
+
+  async removeJob({ params }: HttpContext) {
+    await this.downloadService.removeFailedJob(params.jobId)
+    return { success: true }
+  }
 }
