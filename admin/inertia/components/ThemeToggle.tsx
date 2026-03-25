@@ -13,7 +13,7 @@ export default function ThemeToggle({ compact = false }: ThemeToggleProps) {
     <button
       onClick={toggleTheme}
       className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors
-                 text-desert-stone hover:text-desert-green-darker"
+                 text-desert-stone hover:text-desert-green-darker cursor-pointer"
       aria-label={isDark ? 'Switch to Day Ops' : 'Switch to Night Ops'}
       title={isDark ? 'Switch to Day Ops' : 'Switch to Night Ops'}
     >

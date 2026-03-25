@@ -78,11 +78,11 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
             </li>
           </ul>
         </nav>
-        <div className="mb-4 flex flex-col items-center gap-1 text-sm text-text-secondary">
+        <div className="mb-4 flex flex-col items-center gap-1 text-sm text-text-secondary text-center">
           <p>Project N.O.M.A.D. Command Center v{appVersion}</p>
           <button
             onClick={() => setDebugModalOpen(true)}
-            className="mt-1 text-gray-500 hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
+            className="text-gray-500 hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
           >
             <IconBug className="size-3.5" />
             Debug Info
