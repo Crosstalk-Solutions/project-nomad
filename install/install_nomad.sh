@@ -31,8 +31,6 @@ GREEN='\033[1;32m' # Light Green.
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-SIDECAR_UPDATER_DOCKERFILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
-SIDECAR_UPDATER_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
@@ -424,32 +422,6 @@ download_management_compose_file() {
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
 
-download_sidecar_files() {
-  # Create sidecar-updater directory if it doesn't exist
-  if [[ ! -d "${NOMAD_DIR}/sidecar-updater" ]]; then
-    sudo mkdir -p "${NOMAD_DIR}/sidecar-updater"
-    sudo chown "$(whoami):$(whoami)" "${NOMAD_DIR}/sidecar-updater"
-  fi
-
-  local sidecar_dockerfile_path="${NOMAD_DIR}/sidecar-updater/Dockerfile"
-  local sidecar_script_path="${NOMAD_DIR}/sidecar-updater/update-watcher.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading sidecar updater Dockerfile...\\n"
-  if ! curl -fsSL "$SIDECAR_UPDATER_DOCKERFILE_URL" -o "$sidecar_dockerfile_path"; then
-    echo -e "${RED}#${RESET} Failed to download the sidecar updater Dockerfile. Please check the URL and try again."
-    exit 1
-  fi
-  echo -e "${GREEN}#${RESET} Sidecar updater Dockerfile downloaded successfully to $sidecar_dockerfile_path.\\n"
-
-  echo -e "${YELLOW}#${RESET} Downloading sidecar updater script...\\n"
-  if ! curl -fsSL "$SIDECAR_UPDATER_SCRIPT_URL" -o "$sidecar_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the sidecar updater script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$sidecar_script_path"
-  echo -e "${GREEN}#${RESET} Sidecar updater script downloaded successfully to $sidecar_script_path.\\n"
-}
-
 download_helper_scripts() {
   local start_script_path="${NOMAD_DIR}/start_nomad.sh"
   local stop_script_path="${NOMAD_DIR}/stop_nomad.sh"
@@ -575,7 +547,6 @@ check_docker_compose
 setup_nvidia_container_toolkit
 get_local_ip
 create_nomad_directory
-download_sidecar_files
 download_helper_scripts
 download_management_compose_file
 start_management_containers
