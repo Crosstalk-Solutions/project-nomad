@@ -93,7 +93,9 @@ For answers to common questions about Project N.O.M.A.D., please see our [FAQ](F
 ## About Internet Usage & Privacy
 Project N.O.M.A.D. is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, N.O.M.A.D. does not require an internet connection and has ZERO built-in telemetry.
 
-To test internet connectivity, N.O.M.A.D. attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace` and checks for a successful response.
+To test internet connectivity (used only to show an “offline” hint in the UI), N.O.M.A.D. performs a lightweight HTTP request. It tries Cloudflare’s utility endpoint (`https://1.1.1.1/cdn-cgi/trace`) first, and if that fails (e.g. the host is blocked in your network), it falls back to other endpoints (GitHub API and the Docker registry) before reporting offline.
+
+You can also override the first probe URL via the `INTERNET_STATUS_TEST_URL` environment variable.
 
 ## About Security
 By design, Project N.O.M.A.D. is intended to be open and available without hurdles - it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access it's resources), you can block/open ports to control which services are exposed.
