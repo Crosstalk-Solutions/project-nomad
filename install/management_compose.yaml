@@ -41,13 +41,13 @@ services:
       - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
-      - REDIS_HOST=redis
-      # If you change the Redis port, make sure to update this accordingly
+      - REDIS_HOST=valkey
+      # If you change the Valkey port, make sure to update this accordingly
       - REDIS_PORT=6379
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
@@ -83,14 +83,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  redis:
-    image: redis:7-alpine
-    container_name: nomad_redis
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: nomad_valkey
     restart: unless-stopped
     volumes:
-      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
+      - /opt/project-nomad/valkey:/data # Persist Valkey data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Valkey to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
