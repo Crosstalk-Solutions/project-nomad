@@ -16,19 +16,17 @@ import {
   listDirectoryContents,
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
+import { rewriteDownloadUrl } from '../utils/download_mirrors.js'
 import { join, resolve, sep } from 'path'
 import { WikipediaOption, WikipediaState } from '../../types/downloads.js'
-import vine from '@vinejs/vine'
-import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
-import type { CategoryWithStatus } from '../../types/collections.js'
+import type { CategoryWithStatus, WikipediaSpec } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
 
 @inject()
 export class ZimService {
@@ -106,7 +104,9 @@ export class ZimService {
       }
 
       // downloadLink['href'] will end with .meta4, we need to remove that to get the actual download URL
-      const download_url = downloadLink['href'].substring(0, downloadLink['href'].length - 6)
+      const download_url = rewriteDownloadUrl(
+        downloadLink['href'].substring(0, downloadLink['href'].length - 6)
+      )
       const file_name = download_url.split('/').pop() || `${entry.title}.zim`
       const sizeBytes = parseInt(downloadLink['length'], 10)
 
@@ -361,20 +361,14 @@ export class ZimService {
   // Wikipedia selector methods
 
   async getWikipediaOptions(): Promise<WikipediaOption[]> {
-    try {
-      const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
-      const data = response.data
-
-      const validated = await vine.validate({
-        schema: wikipediaOptionsFileSchema,
-        data,
-      })
-
-      return validated.options
-    } catch (error) {
-      logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
+    const manifestService = new CollectionManifestService()
+    const spec = await manifestService.getSpecWithFallback<WikipediaSpec>('wikipedia')
+    if (!spec) {
+      logger.error('[ZimService] Failed to fetch Wikipedia options: no spec available')
       throw new Error('Failed to fetch Wikipedia options')
     }
+
+    return spec.options
   }
 
   async getWikipediaSelection(): Promise<WikipediaSelection | null> {

@@ -7,6 +7,7 @@ import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
 import { MapService } from '#services/map_service'
 import { EmbedFileJob } from './embed_file_job.js'
+import { rewriteDownloadUrl } from '../utils/download_mirrors.js'
 
 export class RunDownloadJob {
   static get queue() {
@@ -18,7 +19,7 @@ export class RunDownloadJob {
   }
 
   static getJobId(url: string): string {
-    return createHash('sha256').update(url).digest('hex').slice(0, 16)
+    return createHash('sha256').update(rewriteDownloadUrl(url)).digest('hex').slice(0, 16)
   }
 
   async handle(job: Job) {
@@ -124,10 +125,11 @@ export class RunDownloadJob {
   static async dispatch(params: RunDownloadJobParams) {
     const queueService = new QueueService()
     const queue = queueService.getQueue(this.queue)
-    const jobId = this.getJobId(params.url)
+    const normalizedParams = { ...params, url: rewriteDownloadUrl(params.url) }
+    const jobId = this.getJobId(normalizedParams.url)
 
     try {
-      const job = await queue.add(this.key, params, {
+      const job = await queue.add(this.key, normalizedParams, {
         jobId,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2000 },
@@ -137,7 +139,7 @@ export class RunDownloadJob {
       return {
         job,
         created: true,
-        message: `Dispatched download job for URL ${params.url}`,
+        message: `Dispatched download job for URL ${normalizedParams.url}`,
       }
     } catch (error) {
       if (error.message.includes('job already exists')) {
@@ -145,7 +147,7 @@ export class RunDownloadJob {
         return {
           job: existing,
           created: false,
-          message: `Job already exists for URL ${params.url}`,
+          message: `Job already exists for URL ${normalizedParams.url}`,
         }
       }
       throw error

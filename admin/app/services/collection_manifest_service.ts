@@ -12,10 +12,12 @@ import {
   getFileStatsIfExists,
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
+import { rewriteDownloadUrl } from '../utils/download_mirrors.js'
 import type {
   ManifestType,
   ZimCategoriesSpec,
   MapsSpec,
+  WikipediaSpec,
   CategoryWithStatus,
   CollectionWithStatus,
   SpecResource,
@@ -77,7 +79,7 @@ export class CollectionManifestService {
   async getCachedSpec<T>(type: ManifestType): Promise<T | null> {
     const manifest = await CollectionManifest.find(type)
     if (!manifest) return null
-    return manifest.spec_data as T
+    return this.applyDownloadMirrors(type, manifest.spec_data) as T
   }
 
   async getSpecWithFallback<T>(type: ManifestType): Promise<T | null> {
@@ -168,6 +170,48 @@ export class CollectionManifestService {
     }
 
     return undefined
+  }
+
+  private applyDownloadMirrors(
+    type: ManifestType,
+    spec: ZimCategoriesSpec | MapsSpec | WikipediaSpec
+  ): ZimCategoriesSpec | MapsSpec | WikipediaSpec {
+    if (type === 'zim_categories') {
+      return {
+        ...spec,
+        categories: (spec as ZimCategoriesSpec).categories.map((category) => ({
+          ...category,
+          tiers: category.tiers.map((tier) => ({
+            ...tier,
+            resources: tier.resources.map((resource) => ({
+              ...resource,
+              url: rewriteDownloadUrl(resource.url),
+            })),
+          })),
+        })),
+      }
+    }
+
+    if (type === 'maps') {
+      return {
+        ...spec,
+        collections: (spec as MapsSpec).collections.map((collection) => ({
+          ...collection,
+          resources: collection.resources.map((resource) => ({
+            ...resource,
+            url: rewriteDownloadUrl(resource.url),
+          })),
+        })),
+      }
+    }
+
+    return {
+      ...spec,
+      options: (spec as WikipediaSpec).options.map((option) => ({
+        ...option,
+        url: option.url ? rewriteDownloadUrl(option.url) : option.url,
+      })),
+    }
   }
 
   // ---- Filename parsing ----

@@ -44,6 +44,10 @@ services:
       - REDIS_HOST=redis
       # If you change the Redis port, make sure to update this accordingly
       - REDIS_PORT=6379
+      # Optional: rewrite one or more download URL prefixes to mirrors.
+      # Example:
+      # - DOWNLOAD_MIRROR_RULES={"https://download.kiwix.org/zim/":"https://cdimage.debian.org/mirror/kiwix.org/zim/"}
+      - DOWNLOAD_MIRROR_RULES=
     depends_on:
       mysql:
         condition: service_healthy

@@ -13,6 +13,7 @@ import {
   getFile,
   ensureDirectoryExists,
 } from '../utils/fs.js'
+import { rewriteDownloadUrl } from '../utils/download_mirrors.js'
 import { join, resolve, sep } from 'path'
 import urlJoin from 'url-join'
 import { RunDownloadJob } from '#jobs/run_download_job'
@@ -61,9 +62,9 @@ export class MapService implements IMapService {
       'https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/'
     )
 
-    const resolvedURL = url ? new URL(url) : defaultTarFileURL
+    const resolvedURL = rewriteDownloadUrl((url ? new URL(url) : defaultTarFileURL).toString())
     await doResumableDownloadWithRetry({
-      url: resolvedURL.toString(),
+      url: resolvedURL,
       filepath: tempTarPath,
       timeout: 30000,
       max_retries: 2,
@@ -245,7 +246,7 @@ export class MapService implements IMapService {
 
       // Perform a HEAD request to get the content length
       const { default: axios } = await import('axios')
-      const response = await axios.head(url)
+      const response = await axios.head(rewriteDownloadUrl(url))
 
       if (response.status !== 200) {
         throw new Error(`Failed to fetch file info: ${response.status} ${response.statusText}`)

@@ -4,6 +4,7 @@ import axios from 'axios'
 import InstalledResource from '#models/installed_resource'
 import { RunDownloadJob } from '../jobs/run_download_job.js'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import { rewriteDownloadUrl } from '../utils/download_mirrors.js'
 import { join } from 'path'
 import type {
   ResourceUpdateCheckRequest,
@@ -49,12 +50,15 @@ export class CollectionUpdateService {
         timeout: 15000,
       })
 
-      logger.info(
-        `[CollectionUpdateService] Update check complete: ${response.data.length} update(s) available`
-      )
+      const updates = response.data.map((update) => ({
+        ...update,
+        download_url: rewriteDownloadUrl(update.download_url),
+      }))
+
+      logger.info(`[CollectionUpdateService] Update check complete: ${updates.length} update(s) available`)
 
       return {
-        updates: response.data,
+        updates,
         checked_at: new Date().toISOString(),
       }
     } catch (error) {
@@ -82,8 +86,10 @@ export class CollectionUpdateService {
   async applyUpdate(
     update: ResourceUpdateInfo
   ): Promise<{ success: boolean; jobId?: string; error?: string }> {
+    const downloadUrl = rewriteDownloadUrl(update.download_url)
+
     // Check if a download is already in progress for this URL
-    const existingJob = await RunDownloadJob.getByUrl(update.download_url)
+    const existingJob = await RunDownloadJob.getByUrl(downloadUrl)
     if (existingJob) {
       const state = await existingJob.getState()
       if (state === 'active' || state === 'waiting' || state === 'delayed') {
@@ -98,7 +104,7 @@ export class CollectionUpdateService {
     const filepath = this.buildFilepath(update, filename)
 
     const result = await RunDownloadJob.dispatch({
-      url: update.download_url,
+      url: downloadUrl,
       filepath,
       timeout: 30000,
       allowedMimeTypes:
