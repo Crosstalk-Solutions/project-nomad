@@ -22,6 +22,7 @@ The profile is designed for a dedicated Android device running Ubuntu/Linux wher
 - [Architecture](./ARCHITECTURE.md)
 - [Local API](./LOCAL_API.md)
 - [Seam Map](./SEAM_MAP.md)
+- [Collections Seam](./COLLECTIONS_SEAM.md)
 - [Bootstrap Prompt](./BOOTSTRAP_PROMPT.md)
 
 ## Intended use
