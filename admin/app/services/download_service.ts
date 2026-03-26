@@ -78,7 +78,18 @@ export class DownloadService {
       const queue = this.queueService.getQueue(queueName)
       const job = await queue.getJob(jobId)
       if (job) {
-        await job.remove()
+        try {
+          await job.remove()
+        } catch {
+          // Job may be locked by the worker after cancel. Remove the stale lock and retry.
+          try {
+            const client = await queue.client
+            await client.del(`bull:${queueName}:${jobId}:lock`)
+            await job.remove()
+          } catch {
+            // Last resort: already removed or truly stuck
+          }
+        }
         return
       }
     }
@@ -109,7 +120,18 @@ export class DownloadService {
     try {
       await job.remove()
     } catch {
-      // Job may still be locked by worker - it will fail on next progress check
+      // Job may still be locked by worker - try again after it reaches terminal state
+      try {
+        const updatedJob = await queue.getJob(jobId)
+        if (updatedJob) {
+          const state = await updatedJob.getState()
+          if (state === 'failed' || state === 'completed') {
+            await updatedJob.remove()
+          }
+        }
+      } catch {
+        // Best effort - job will be cleaned up on next dismiss attempt
+      }
     }
 
     // Delete the partial file from disk
@@ -120,6 +142,20 @@ export class DownloadService {
         await deleteFileIfExists(filepath + '.tmp')
       } catch {
         // File may not exist yet (waiting job)
+      }
+    }
+
+    // If this was a Wikipedia download, update selection status to failed
+    // (the worker's failed event may not fire if we removed the job first)
+    if (job.data.filetype === 'zim' && job.data.url?.includes('wikipedia_en_')) {
+      try {
+        const { DockerService } = await import('#services/docker_service')
+        const { ZimService } = await import('#services/zim_service')
+        const dockerService = new DockerService()
+        const zimService = new ZimService(dockerService)
+        await zimService.onWikipediaDownloadComplete(job.data.url, false)
+      } catch {
+        // Best effort
       }
     }
 

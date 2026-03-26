@@ -119,7 +119,7 @@ export class MapService implements IMapService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const existing = await RunDownloadJob.getByUrl(resource.url)
+      const existing = await RunDownloadJob.getActiveByUrl(resource.url)
       if (existing) {
         logger.warn(`[MapService] Download already in progress for URL ${resource.url}, skipping.`)
         continue
@@ -190,7 +190,7 @@ export class MapService implements IMapService {
       throw new Error(`Invalid PMTiles file URL: ${url}. URL must end with .pmtiles`)
     }
 
-    const existing = await RunDownloadJob.getByUrl(url)
+    const existing = await RunDownloadJob.getActiveByUrl(url)
     if (existing) {
       throw new Error(`Download already in progress for URL ${url}`)
     }

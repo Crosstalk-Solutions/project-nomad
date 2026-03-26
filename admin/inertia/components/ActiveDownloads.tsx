@@ -67,7 +67,10 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
         }
       }
 
-      prevBytesRef.current.set(jobId, { bytes: currentBytes, time: now })
+      // Only set initial observation; never advance timestamp when bytes unchanged
+      if (!prev) {
+        prevBytesRef.current.set(jobId, { bytes: currentBytes, time: now })
+      }
       return speedRef.current.get(jobId)?.at(-1) || 0
     },
     []

@@ -1,4 +1,4 @@
-import { Job } from 'bullmq'
+import { Job, UnrecoverableError } from 'bullmq'
 import { RunDownloadJobParams, DownloadProgressData } from '../../types/downloads.js'
 import { QueueService } from '#services/queue_service'
 import { doResumableDownload } from '../utils/downloads.js'
@@ -161,6 +161,12 @@ export class RunDownloadJob {
         url,
         filepath,
       }
+    } catch (error: any) {
+      // If this was a cancellation abort, don't let BullMQ retry
+      if (error?.message?.includes('aborted') || error?.message?.includes('cancelled')) {
+        throw new UnrecoverableError(`Download cancelled: ${error.message}`)
+      }
+      throw error
     } finally {
       // Clean up abort controller
       RunDownloadJob.abortControllers.delete(job.id!)
@@ -172,6 +178,29 @@ export class RunDownloadJob {
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(url)
     return await queue.getJob(jobId)
+  }
+
+  /**
+   * Check if a download is actively in progress for the given URL.
+   * Returns the job only if it's in an active state (active, waiting, delayed).
+   * If the job exists in a terminal state (failed, completed), removes it and returns undefined.
+   */
+  static async getActiveByUrl(url: string): Promise<Job | undefined> {
+    const job = await this.getByUrl(url)
+    if (!job) return undefined
+
+    const state = await job.getState()
+    if (state === 'active' || state === 'waiting' || state === 'delayed') {
+      return job
+    }
+
+    // Terminal state -- clean up stale job so it doesn't block re-download
+    try {
+      await job.remove()
+    } catch {
+      // May already be gone
+    }
+    return undefined
   }
 
   static async dispatch(params: RunDownloadJobParams) {
