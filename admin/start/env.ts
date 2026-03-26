@@ -60,4 +60,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   NOMAD_API_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring cloud LLM providers
+  |----------------------------------------------------------
+  */
+  MINIMAX_API_KEY: Env.schema.string.optional(),
 })

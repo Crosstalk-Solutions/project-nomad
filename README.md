@@ -37,7 +37,7 @@ For more control over the installation process, copy and paste the [Docker Compo
 N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
 
 **Built-in capabilities include:**
-- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/), with document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
+- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/), with optional cloud models via [MiniMax](https://platform.minimax.io), document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
 - **Information Library** — offline Wikipedia, medical references, ebooks, and more via [Kiwix](https://kiwix.org/)
 - **Education Platform** — Khan Academy courses with progress tracking via [Kolibri](https://learningequality.org/kolibri/)
 - **Offline Maps** — downloadable regional maps via [ProtoMaps](https://protomaps.com)
@@ -53,7 +53,7 @@ N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM l
 | Capability | Powered By | What You Get |
 |-----------|-----------|-------------|
 | Information Library | Kiwix | Offline Wikipedia, medical references, survival guides, ebooks |
-| AI Assistant | Ollama + Qdrant | Built-in chat with document upload and semantic search |
+| AI Assistant | Ollama + MiniMax + Qdrant | Built-in chat with local and cloud models, document upload and semantic search |
 | Education Platform | Kolibri | Khan Academy courses, progress tracking, multi-user support |
 | Offline Maps | ProtoMaps | Downloadable regional maps with search and navigation |
 | Data Tools | CyberChef | Encryption, encoding, hashing, and data analysis |
