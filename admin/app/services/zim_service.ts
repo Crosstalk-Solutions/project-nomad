@@ -26,6 +26,7 @@ import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
+import Service from '#models/service'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -250,12 +251,36 @@ export class ZimService {
   }
 
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
-    // Check if any URL is a Wikipedia download and handle it
+    // Validate each newly downloaded ZIM file before restarting kiwix.
+    // kiwix-serve exits on the first invalid file it encounters, which takes down
+    // the entire Information Library. Remove any files that fail validation.
+    const invalidUrls = new Set<string>()
     for (const url of urls) {
-      if (url.includes('wikipedia_en_')) {
-        await this.onWikipediaDownloadComplete(url, true)
+      const filename = url.split('/').pop()
+      if (!filename) continue
+
+      const isValid = await this.validateZimFile(filename)
+      const isWikipedia = url.includes('wikipedia_en_')
+
+      if (isWikipedia) {
+        await this.onWikipediaDownloadComplete(url, isValid)
+      }
+
+      if (!isValid) {
+        logger.warn(`[ZimService] Removing invalid ZIM file after download: ${filename}`)
+        invalidUrls.add(url)
+        try {
+          await this.delete(filename)
+        } catch (error) {
+          logger.error(
+            `[ZimService] Failed to remove invalid ZIM file ${filename}: ${error.message}`
+          )
+        }
       }
     }
+
+    // Filter out invalid URLs so we don't create InstalledResource entries for them
+    const validUrls = urls.filter((url) => !invalidUrls.has(url))
 
     if (restart) {
       // Check if there are any remaining ZIM download jobs before restarting
@@ -294,7 +319,7 @@ export class ZimService {
     }
 
     // Create InstalledResource entries for downloaded files
-    for (const url of urls) {
+    for (const url of validUrls) {
       // Skip Wikipedia files (managed separately)
       if (url.includes('wikipedia_en_')) continue
 
@@ -355,6 +380,95 @@ export class ZimService {
         .where('resource_type', 'zim')
         .delete()
       logger.info(`[ZimService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    }
+  }
+
+  /**
+   * Validates a ZIM file by attempting to load it with kiwix-serve in a temporary container.
+   * If kiwix-serve exits immediately with an "Unable to add" error, the file is invalid.
+   * If kiwix-serve stays running (serving successfully), the file is valid.
+   */
+  async validateZimFile(filename: string): Promise<boolean> {
+    // Short-circuit if the file doesn't exist on disk
+    const filePath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+    const fileStats = await getFileStatsIfExists(filePath)
+    if (!fileStats) {
+      logger.warn(`[ZimService] ZIM file does not exist, skipping validation: ${filename}`)
+      return false
+    }
+
+    const service = await Service.query().where('service_name', SERVICE_NAMES.KIWIX).first()
+    if (!service || !service.installed) {
+      logger.warn('[ZimService] Cannot validate ZIM file: Kiwix service not found or not installed')
+      return true
+    }
+
+    let containerConfig: any
+    if (typeof service.container_config === 'string') {
+      try {
+        containerConfig = JSON.parse(service.container_config)
+      } catch {
+        logger.warn(
+          '[ZimService] Cannot validate ZIM file: invalid container_config JSON for Kiwix service'
+        )
+        return true
+      }
+    } else {
+      containerConfig = service.container_config
+    }
+
+    const binds: string[] = Array.isArray(containerConfig?.HostConfig?.Binds)
+      ? containerConfig.HostConfig.Binds
+      : []
+    const zimBind = binds.find((b: string) => b.includes(':/data'))
+    if (!zimBind) {
+      logger.warn('[ZimService] Cannot validate ZIM file: No /data bind mount found in Kiwix config')
+      return true
+    }
+
+    const docker = this.dockerService.docker
+    const containerName = `nomad_zim_validate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const container = await docker.createContainer({
+      Image: service.container_image,
+      name: containerName,
+      Cmd: [filename, '--address=all'],
+      HostConfig: { Binds: [zimBind] },
+    })
+
+    try {
+      await container.start()
+
+      const exitPromise = container.wait() as Promise<{ StatusCode: number }>
+      let timeoutId: NodeJS.Timeout | undefined
+      const timeoutPromise = new Promise<'timeout'>((resolve) => {
+        timeoutId = setTimeout(() => resolve('timeout'), 5000)
+      })
+
+      const result = await Promise.race([exitPromise, timeoutPromise])
+
+      if (result === 'timeout') {
+        return true // Container stayed running — file is valid
+      }
+
+      clearTimeout(timeoutId)
+
+      const logs = await container.logs({ stdout: true, stderr: true })
+      const logOutput = Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs)
+
+      if (logOutput.includes('Unable to add')) {
+        logger.warn(
+          `[ZimService] ZIM file validation failed for ${filename}: kiwix-serve cannot load this file`
+        )
+        return false
+      }
+
+      return true
+    } catch (error) {
+      logger.error(`[ZimService] Error validating ZIM file ${filename}: ${error.message}`)
+      return true
+    } finally {
+      await container.stop({ t: 1 }).catch(() => {})
+      await container.remove().catch(() => {})
     }
   }
 
