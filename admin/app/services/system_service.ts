@@ -14,6 +14,7 @@ import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
+import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 
 
 @inject()
@@ -384,8 +385,9 @@ export class SystemService {
 
   async subscribeToReleaseNotes(email: string): Promise<{ success: boolean; message: string }> {
     try {
+      const baseUrl = env.get('NOMAD_API_URL') || NOMAD_API_DEFAULT_BASE_URL
       const response = await axios.post(
-        'https://api.projectnomad.us/api/v1/lists/release-notes/subscribe',
+        `${baseUrl}/api/v1/lists/release-notes/subscribe`,
         { email },
         { timeout: 5000 }
       )
@@ -399,13 +401,13 @@ export class SystemService {
 
       return {
         success: false,
-        message: `Failed to subscribe: ${response.statusText}`,
+        message: 'Failed to subscribe to release notes. Please try again later.',
       }
     } catch (error) {
-      logger.error('Error subscribing to release notes:', error)
+      logger.error({ err: error }, '[SystemService] Error subscribing to release notes')
       return {
         success: false,
-        message: `Failed to subscribe: ${error instanceof Error ? error.message : error}`,
+        message: 'Failed to subscribe to release notes. The service may be temporarily unavailable.',
       }
     }
   }
