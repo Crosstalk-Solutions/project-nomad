@@ -131,12 +131,20 @@ export default function ModelsPage(props: {
     initialData: { models: props.models.availableModels, hasMore: false },
   })
 
+  const isUsingFallback = availableModelData?.source === 'fallback'
+
   async function handleForceRefresh() {
     forceRefreshRef.current = true
     setIsForceRefreshing(true)
-    await refetch()
+    const result = await refetch()
     setIsForceRefreshing(false)
-    addNotification({ message: 'Model list refreshed from remote.', type: 'success' })
+    const refreshSource = result.data?.source
+    addNotification({
+      message: refreshSource === 'fallback'
+        ? 'Could not reach model service. Showing offline list.'
+        : 'Model list refreshed from remote.',
+      type: refreshSource === 'fallback' ? 'warning' : 'success',
+    })
   }
 
   async function handleInstallModel(modelName: string) {
@@ -312,6 +320,11 @@ export default function ModelsPage(props: {
               Refresh Models
             </StyledButton>
           </div>
+          {isUsingFallback && (
+            <Alert variant="info">
+              Showing offline model list. Connect to the internet and refresh for the full catalog.
+            </Alert>
+          )}
           <StyledTable<NomadOllamaModel>
             className="font-semibold mt-4"
             rowLines={true}

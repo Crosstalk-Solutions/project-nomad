@@ -249,6 +249,7 @@ class API {
       const response = await this.client.get<{
         models: NomadOllamaModel[]
         hasMore: boolean
+        source?: 'api' | 'fallback'
       }>('/ollama/models', {
         params: { sort: 'pulls', ...params },
       })
