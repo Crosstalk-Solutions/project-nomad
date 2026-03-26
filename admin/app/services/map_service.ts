@@ -141,6 +141,7 @@ export class MapService implements IMapService {
         allowedMimeTypes: PMTILES_MIME_TYPES,
         forceNew: true,
         filetype: 'map',
+        title: (resource as any).title || undefined,
         resourceMetadata: {
           resource_id: resource.id,
           version: resource.version,

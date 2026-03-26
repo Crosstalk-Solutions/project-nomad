@@ -23,11 +23,20 @@ export type DoResumableDownloadProgress = {
   url: string
 }
 
+export type DownloadProgressData = {
+  percent: number
+  downloadedBytes: number
+  totalBytes: number
+  lastProgressTime: number
+}
+
 export type RunDownloadJobParams = Omit<
   DoResumableDownloadParams,
   'onProgress' | 'onComplete' | 'signal'
 > & {
   filetype: string
+  title?: string
+  totalBytes?: number
   resourceMetadata?: {
     resource_id: string
     version: string
@@ -41,6 +50,10 @@ export type DownloadJobWithProgress = {
   progress: number
   filepath: string
   filetype: string
+  title?: string
+  downloadedBytes?: number
+  totalBytes?: number
+  lastProgressTime?: number
   status?: 'active' | 'failed'
   failedReason?: string
 }

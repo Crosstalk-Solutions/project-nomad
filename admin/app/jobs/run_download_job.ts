@@ -1,5 +1,5 @@
 import { Job } from 'bullmq'
-import { RunDownloadJobParams } from '../../types/downloads.js'
+import { RunDownloadJobParams, DownloadProgressData } from '../../types/downloads.js'
 import { QueueService } from '#services/queue_service'
 import { doResumableDownload } from '../utils/downloads.js'
 import { createHash } from 'crypto'
@@ -17,100 +17,153 @@ export class RunDownloadJob {
     return 'run-download'
   }
 
+  /** In-memory registry of abort controllers for active download jobs */
+  static abortControllers: Map<string, AbortController> = new Map()
+
   static getJobId(url: string): string {
     return createHash('sha256').update(url).digest('hex').slice(0, 16)
+  }
+
+  /** Redis key used to signal cancellation across processes */
+  static cancelKey(jobId: string): string {
+    return `nomad:download:cancel:${jobId}`
+  }
+
+  /** Signal cancellation via Redis so the worker process can pick it up */
+  static async signalCancel(jobId: string): Promise<void> {
+    const queueService = new QueueService()
+    const queue = queueService.getQueue(this.queue)
+    const client = await queue.client
+    await client.set(this.cancelKey(jobId), '1', 'EX', 300) // 5 min TTL
   }
 
   async handle(job: Job) {
     const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype, resourceMetadata } =
       job.data as RunDownloadJobParams
 
-    await doResumableDownload({
-      url,
-      filepath,
-      timeout,
-      allowedMimeTypes,
-      forceNew,
-      onProgress(progress) {
-        const progressPercent = (progress.downloadedBytes / (progress.totalBytes || 1)) * 100
-        job.updateProgress(Math.floor(progressPercent))
-      },
-      async onComplete(url) {
-        try {
-          // Create InstalledResource entry if metadata was provided
-          if (resourceMetadata) {
-            const { default: InstalledResource } = await import('#models/installed_resource')
-            const { DateTime } = await import('luxon')
-            const { getFileStatsIfExists, deleteFileIfExists } = await import('../utils/fs.js')
-            const stats = await getFileStatsIfExists(filepath)
+    // Register abort controller for this job
+    const abortController = new AbortController()
+    RunDownloadJob.abortControllers.set(job.id!, abortController)
 
-            // Look up the old entry so we can clean up the previous file after updating
-            const oldEntry = await InstalledResource.query()
-              .where('resource_id', resourceMetadata.resource_id)
-              .where('resource_type', filetype as 'zim' | 'map')
-              .first()
-            const oldFilePath = oldEntry?.file_path ?? null
+    // Get Redis client for checking cancel signals from the API process
+    const queueService = new QueueService()
+    const cancelRedis = await queueService.getQueue(RunDownloadJob.queue).client
+    let progressCount = 0
 
-            await InstalledResource.updateOrCreate(
-              { resource_id: resourceMetadata.resource_id, resource_type: filetype as 'zim' | 'map' },
-              {
-                version: resourceMetadata.version,
-                collection_ref: resourceMetadata.collection_ref,
-                url: url,
-                file_path: filepath,
-                file_size_bytes: stats ? Number(stats.size) : null,
-                installed_at: DateTime.now(),
+    try {
+      await doResumableDownload({
+        url,
+        filepath,
+        timeout,
+        allowedMimeTypes,
+        forceNew,
+        signal: abortController.signal,
+        onProgress(progress) {
+          const progressPercent = (progress.downloadedBytes / (progress.totalBytes || 1)) * 100
+          const progressData: DownloadProgressData = {
+            percent: Math.floor(progressPercent),
+            downloadedBytes: progress.downloadedBytes,
+            totalBytes: progress.totalBytes,
+            lastProgressTime: Date.now(),
+          }
+          job.updateProgress(progressData)
+
+          // Check for cancel signal every ~10 progress ticks to avoid hammering Redis
+          progressCount++
+          if (progressCount % 10 === 0) {
+            cancelRedis.get(RunDownloadJob.cancelKey(job.id!)).then((val: string | null) => {
+              if (val) {
+                cancelRedis.del(RunDownloadJob.cancelKey(job.id!))
+                abortController.abort()
               }
+            }).catch(() => {})
+          }
+        },
+        async onComplete(url) {
+          try {
+            // Create InstalledResource entry if metadata was provided
+            if (resourceMetadata) {
+              const { default: InstalledResource } = await import('#models/installed_resource')
+              const { DateTime } = await import('luxon')
+              const { getFileStatsIfExists, deleteFileIfExists } = await import('../utils/fs.js')
+              const stats = await getFileStatsIfExists(filepath)
+
+              // Look up the old entry so we can clean up the previous file after updating
+              const oldEntry = await InstalledResource.query()
+                .where('resource_id', resourceMetadata.resource_id)
+                .where('resource_type', filetype as 'zim' | 'map')
+                .first()
+              const oldFilePath = oldEntry?.file_path ?? null
+
+              await InstalledResource.updateOrCreate(
+                { resource_id: resourceMetadata.resource_id, resource_type: filetype as 'zim' | 'map' },
+                {
+                  version: resourceMetadata.version,
+                  collection_ref: resourceMetadata.collection_ref,
+                  url: url,
+                  file_path: filepath,
+                  file_size_bytes: stats ? Number(stats.size) : null,
+                  installed_at: DateTime.now(),
+                }
+              )
+
+              // Delete the old file if it differs from the new one
+              if (oldFilePath && oldFilePath !== filepath) {
+                try {
+                  await deleteFileIfExists(oldFilePath)
+                  console.log(`[RunDownloadJob] Deleted old file: ${oldFilePath}`)
+                } catch (deleteError) {
+                  console.warn(
+                    `[RunDownloadJob] Failed to delete old file ${oldFilePath}:`,
+                    deleteError
+                  )
+                }
+              }
+            }
+
+            if (filetype === 'zim') {
+              const dockerService = new DockerService()
+              const zimService = new ZimService(dockerService)
+              await zimService.downloadRemoteSuccessCallback([url], true)
+
+              // Only dispatch embedding job if AI Assistant (Ollama) is installed
+              const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
+              if (ollamaUrl) {
+                try {
+                  await EmbedFileJob.dispatch({
+                    fileName: url.split('/').pop() || '',
+                    filePath: filepath,
+                  })
+                } catch (error) {
+                  console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+                }
+              }
+            } else if (filetype === 'map') {
+              const mapsService = new MapService()
+              await mapsService.downloadRemoteSuccessCallback([url], false)
+            }
+          } catch (error) {
+            console.error(
+              `[RunDownloadJob] Error in download success callback for URL ${url}:`,
+              error
             )
-
-            // Delete the old file if it differs from the new one
-            if (oldFilePath && oldFilePath !== filepath) {
-              try {
-                await deleteFileIfExists(oldFilePath)
-                console.log(`[RunDownloadJob] Deleted old file: ${oldFilePath}`)
-              } catch (deleteError) {
-                console.warn(
-                  `[RunDownloadJob] Failed to delete old file ${oldFilePath}:`,
-                  deleteError
-                )
-              }
-            }
           }
+          job.updateProgress({
+            percent: 100,
+            downloadedBytes: 0,
+            totalBytes: 0,
+            lastProgressTime: Date.now(),
+          } as DownloadProgressData)
+        },
+      })
 
-          if (filetype === 'zim') {
-            const dockerService = new DockerService()
-            const zimService = new ZimService(dockerService)
-            await zimService.downloadRemoteSuccessCallback([url], true)
-
-            // Only dispatch embedding job if AI Assistant (Ollama) is installed
-            const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
-            if (ollamaUrl) {
-              try {
-                await EmbedFileJob.dispatch({
-                  fileName: url.split('/').pop() || '',
-                  filePath: filepath,
-                })
-              } catch (error) {
-                console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
-              }
-            }
-          } else if (filetype === 'map') {
-            const mapsService = new MapService()
-            await mapsService.downloadRemoteSuccessCallback([url], false)
-          }
-        } catch (error) {
-          console.error(
-            `[RunDownloadJob] Error in download success callback for URL ${url}:`,
-            error
-          )
-        }
-        job.updateProgress(100)
-      },
-    })
-
-    return {
-      url,
-      filepath,
+      return {
+        url,
+        filepath,
+      }
+    } finally {
+      // Clean up abort controller
+      RunDownloadJob.abortControllers.delete(job.id!)
     }
   }
 

@@ -618,6 +618,15 @@ class API {
     })()
   }
 
+  async cancelDownloadJob(jobId: string): Promise<{ success: boolean; message: string } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        `/downloads/jobs/${jobId}/cancel`
+      )
+      return response.data
+    })()
+  }
+
   async runBenchmark(type: BenchmarkType, sync: boolean = false) {
     return catchInternal(async () => {
       const response = await this.client.post<RunBenchmarkResponse>(

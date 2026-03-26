@@ -137,7 +137,7 @@ export class ZimService {
     }
   }
 
-  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
+  async downloadRemote(url: string, metadata?: { title?: string; summary?: string; author?: string; size_bytes?: number }): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`)
@@ -170,6 +170,8 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      title: metadata?.title,
+      totalBytes: metadata?.size_bytes,
       resourceMetadata,
     })
 
@@ -238,6 +240,8 @@ export class ZimService {
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
+        title: (resource as any).title || undefined,
+        totalBytes: (resource as any).size_mb ? (resource as any).size_mb * 1024 * 1024 : undefined,
         resourceMetadata: {
           resource_id: resource.id,
           version: resource.version,
@@ -272,7 +276,9 @@ export class ZimService {
       // Filter out completed jobs (progress === 100) to avoid race condition
       // where this job itself is still in the active queue
       const activeIncompleteJobs = activeJobs.filter((job) => {
-        const progress = typeof job.progress === 'number' ? job.progress : 0
+        const progress = typeof job.progress === 'object' && job.progress !== null
+          ? (job.progress as any).percent
+          : typeof job.progress === 'number' ? job.progress : 0
         return progress < 100
       })
 
@@ -497,6 +503,8 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      title: selectedOption.name,
+      totalBytes: selectedOption.size_mb ? selectedOption.size_mb * 1024 * 1024 : undefined,
     })
 
     if (!result || !result.job) {

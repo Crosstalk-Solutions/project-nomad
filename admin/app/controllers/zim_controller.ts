@@ -27,7 +27,7 @@ export default class ZimController {
   async downloadRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadWithMetadataValidator)
     assertNotPrivateUrl(payload.url)
-    const { filename, jobId } = await this.zimService.downloadRemote(payload.url)
+    const { filename, jobId } = await this.zimService.downloadRemote(payload.url, payload.metadata)
 
     return {
       message: 'Download started successfully',
