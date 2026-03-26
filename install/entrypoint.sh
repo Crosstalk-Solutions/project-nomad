@@ -21,4 +21,7 @@ node ace queue:work --all &
 
 # Start the AdonisJS application
 echo "Starting AdonisJS application..."
+    # Wait for DNS resolution (Debian dhcpcd race condition)
+    until ping -c1 8.8.8.8 >/dev/null 2>&1 || ping -c1 google.com >/dev/null 2>&1 || [ $SECONDS -gt 10 ]; do sleep 1; done
+
 exec node bin/server.js
