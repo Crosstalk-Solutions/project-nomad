@@ -199,7 +199,7 @@ export class OllamaService {
       query: null,
       limit: 15,
     }
-  ): Promise<{ models: NomadOllamaModel[], hasMore: boolean } | null> {
+  ): Promise<{ models: NomadOllamaModel[], hasMore: boolean, source: 'api' | 'fallback' } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort, force)
       if (!models) {
@@ -209,7 +209,8 @@ export class OllamaService {
         )
         return {
           models: FALLBACK_RECOMMENDED_OLLAMA_MODELS,
-          hasMore: false
+          hasMore: false,
+          source: 'fallback',
         }
       }
 
@@ -217,7 +218,8 @@ export class OllamaService {
         const filteredModels = query ? this.fuseSearchModels(models, query) : models
         return {
           models: filteredModels.slice(0, limit || 15),
-          hasMore: filteredModels.length > (limit || 15)
+          hasMore: filteredModels.length > (limit || 15),
+          source: 'api',
         }
       }
 
@@ -237,13 +239,15 @@ export class OllamaService {
         const filteredRecommendedModels = this.fuseSearchModels(recommendedModels, query)
         return {
           models: filteredRecommendedModels,
-          hasMore: filteredRecommendedModels.length > (limit || 15)
+          hasMore: filteredRecommendedModels.length > (limit || 15),
+          source: 'api',
         }
       }
 
       return {
         models: recommendedModels,
-        hasMore: recommendedModels.length > (limit || 15)
+        hasMore: recommendedModels.length > (limit || 15),
+        source: 'api',
       }
     } catch (error) {
       logger.error(
