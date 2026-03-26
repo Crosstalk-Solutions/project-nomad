@@ -1,5 +1,58 @@
 # Release Notes
 
+## Version 1.30.3 - March 25, 2026
+
+### Features
+
+### Bug Fixes
+- **Benchmark**: Fixed an issue where CPU and Disk Write scores could be displayed as 0 if the measured values was less than half of the reference mark. Thanks @bortlesboat for the fix!
+- **Content Manager**: Fixed a missing API client method that was causing ZIM file deletions to fail. Thanks @LuisMIguelFurlanettoSousa for the fix!
+- **Install**: Fixed an issue where the install script could incorrectly report the Docker NVIDIA runtime as missing. Thanks @brenex for the fix!
+- **Support the Project**: Fixed a broken link to Rogue Support. Thanks @chriscrosstalk for the fix!
+
+### Improvements
+- **AI Assistant**: Improved error reporting and handling for model downloads. Thanks @chriscrosstalk for the contribution!
+- **AI Assistant**: Bumped the default version of Ollama installed to v0.18.1 to take advantage of the latest performance improvements and bug fixes.
+- **Apps**: Improved error reporting and handling for service installation failures. Thanks @trek-e for the contribution!
+- **Collections**: Updated various curated collection links to their latest versions. Thanks @builder555 for the contribution!
+- **Cyberchef**: Bumped the default version of CyberChef installed to v10.22.1 to take advantage of the latest features and bug fixes.
+- **Docs**: Added a link to the step-by-step installation guide and video tutorial. Thanks @chriscrosstalk for the contribution!
+- **Install**: Increased the retries limit for the MySQL service in Docker Compose to improve stability during installation on systems with slower performance. Thanks @dx4956 for the contribution!
+- **Install**: Fixed an issue where stale data could cause credentials mismatch in MySQL on reinstall. Thanks @chriscrosstalk for the fix!
+
+## Version 1.30.0 - March 20, 2026
+
+### Features
+- **Night Ops**: Added our most requested feature — a dark mode theme for the Command Center interface! Activate it from the footer and enjoy the sleek new look during your late-night missions. Thanks @chriscrosstalk for the contribution!
+- **Debug Info**: Added a new "Debug Info" modal accessible from the footer that provides detailed system and application information for troubleshooting and support. Thanks @chriscrosstalk for the contribution!
+- **Support the Project**: Added a new "Support the Project" page in settings with links to community resources, donation options, and ways to contribute.
+- **Install**: The main Nomad image is now fully self-contained and directly usable with Docker Compose, allowing for more flexible and customizable installations without relying on external scripts. The image remains fully backwards compatible with existing installations, and the install script has been updated to reflect the simpler deployment process.
+
+### Bug Fixes
+- **Settings**: Storage usage display now prefers real block devices over tempfs. Thanks @Bortlesboat for the fix!
+- **Settings**: Fixed an issue where device matching and mount entry deduplication logic could cause incorrect storage usage reporting and missing devices in storage displays.
+- **Maps**: The Maps page now respects the request protocol (http vs https) to ensure map tiles load correctly. Thanks @davidgross for the bug report!
+- **Knowledge Base**: Fixed an issue where file embedding jobs could cause a retry storm if the Ollama service was unavailable. Thanks @skyam25 for the bug report!
+- **Curated Collections**: Fixed some broken links in the curated collections definitions (maps and ZIM files) that were causing some resources to fail to download.
+- **Easy Setup**: Fixed an issue where the "Start Here" badge would persist even after visiting the Easy Setup Wizard for the first time. Thanks @chriscrosstalk for the fix!
+- **UI**: Fixed an issue where the loading spinner could look strange in certain use cases.
+- **System Updates**: Fixed an issue where the update banner would persist even after the system was updated successfully. Thanks @chriscrosstalk for the fix!
+- **Performance**: Various small memory leak fixes and performance improvements across the UI to ensure a smoother experience.
+
+### Improvements
+- **Ollama**: Improved GPU detection logic to ensure the latest GPU config is always passed to the Ollama container on update
+- **Ollama**: The detected GPU type is now persisted in the database for more reliable configuration and troubleshooting across updates and restarts. Thanks @chriscrosstalk for the contribution!
+- **Downloads**: Users can now dismiss failed download notifications to reduce clutter in the UI. Thanks @chriscrosstalk for the contribution!
+- **Logging**: Changed the default log level to "info" to reduce noise and focus on important messages. Thanks @traxeon for the suggestion!
+- **Logging**: Nomad's internal logger now creates it's own log directory on startup if it doesn't already exist to prevent errors on fresh installs where the logs directory hasn't been created yet.
+- **Dozzle**: Dozzle shell access and container actions are now disabled by default. Thanks @traxeon for the recommendation!
+- **MySQL & Redis**: Removed port exposure to host by default for improved security. Ports can still be exposed manually if needed. Thanks @traxeon for the recommendation!
+- **Dependencies**: Various dependency updates to close security vulnerabilities and improve stability
+- **Utility Scripts**: Added a check for the expected Docker Compose version (v2) in all utility scripts to provide clearer error messages and guidance if the environment is not set up correctly.
+- **Utility Scripts**: Added an additional warning to the installation script to inform about potential overwriting of existing customized configurations and the importance of backing up data before running the installation script again.
+- **Documentation**: Updated installation instructions to reflect the new option for manual deployment via Docker Compose without the install script.
+
+
 ## Version 1.29.0 - March 11, 2026
 
 ### Features

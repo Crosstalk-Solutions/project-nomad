@@ -88,10 +88,29 @@ export async function doResumableDownload({
     let lastProgressTime = Date.now()
     let lastDownloadedBytes = startByte
 
+    // Stall detection: if no data arrives for 5 minutes, abort the download
+    const STALL_TIMEOUT_MS = 5 * 60 * 1000
+    let stallTimer: ReturnType<typeof setTimeout> | null = null
+
+    const clearStallTimer = () => {
+      if (stallTimer) {
+        clearTimeout(stallTimer)
+        stallTimer = null
+      }
+    }
+
+    const resetStallTimer = () => {
+      clearStallTimer()
+      stallTimer = setTimeout(() => {
+        cleanup(new Error('Download stalled - no data received for 5 minutes'))
+      }, STALL_TIMEOUT_MS)
+    }
+
     // Progress tracking stream to monitor data flow
     const progressStream = new Transform({
       transform(chunk: Buffer, _: any, callback: Function) {
         downloadedBytes += chunk.length
+        resetStallTimer()
 
         // Update progress tracking
         const now = Date.now()
@@ -118,6 +137,7 @@ export async function doResumableDownload({
 
     // Handle errors and cleanup
     const cleanup = (error?: Error) => {
+      clearStallTimer()
       progressStream.destroy()
       response.data.destroy()
       writeStream.destroy()
@@ -136,6 +156,7 @@ export async function doResumableDownload({
     })
 
     writeStream.on('finish', async () => {
+      clearStallTimer()
       if (onProgress) {
         onProgress({
           downloadedBytes,
@@ -151,7 +172,8 @@ export async function doResumableDownload({
       resolve(filepath)
     })
 
-    // Pipe: response -> progressStream -> writeStream
+    // Start stall timer and pipe: response -> progressStream -> writeStream
+    resetStallTimer()
     response.data.pipe(progressStream).pipe(writeStream)
   })
 }

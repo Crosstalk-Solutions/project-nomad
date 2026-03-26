@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosError, AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
@@ -25,13 +25,19 @@ class API {
   }
 
   async affectService(service_name: string, action: 'start' | 'stop' | 'restart') {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/services/affect',
         { service_name, action }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error affecting service:', error)
+      return undefined
+    }
   }
 
   async checkLatestVersion(force: boolean = false) {
@@ -192,13 +198,19 @@ class API {
   }
 
   async forceReinstallService(service_name: string) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         `/system/services/force-reinstall`,
         { service_name }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error force reinstalling service:', error)
+      return undefined
+    }
   }
 
   async getChatSuggestions(signal?: AbortSignal) {
@@ -208,6 +220,13 @@ class API {
         { signal }
       )
       return response.data.suggestions
+    })()
+  }
+
+  async getDebugInfo() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ debugInfo: string }>('/system/debug-info')
+      return response.data.debugInfo
     })()
   }
 
@@ -452,13 +471,19 @@ class API {
   }
 
   async installService(service_name: string) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/services/install',
         { service_name }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error installing service:', error)
+      return undefined
+    }
   }
 
   async listCuratedMapCollections() {
@@ -511,6 +536,13 @@ class API {
     })()
   }
 
+  async deleteZimFile(filename: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(`/zim/${filename}`)
+      return response.data
+    })()
+  }
+
   async listZimFiles() {
     return catchInternal(async () => {
       return await this.client.get<ListZimFilesResponse>('/zim/list')
@@ -522,6 +554,12 @@ class API {
       const endpoint = filetype ? `/downloads/jobs/${filetype}` : '/downloads/jobs'
       const response = await this.client.get<DownloadJobWithProgress[]>(endpoint)
       return response.data
+    })()
+  }
+
+  async removeDownloadJob(jobId: string): Promise<void> {
+    return catchInternal(async () => {
+      await this.client.delete(`/downloads/jobs/${jobId}`)
     })()
   }
 

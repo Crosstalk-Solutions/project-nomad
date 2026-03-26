@@ -3,11 +3,9 @@
 set -e
 
 echo "Starting entrypoint script..."
-echo "Running wait-for-it.sh to ensure MySQL is ready..."
 
-# Use wait-for-it.sh to wait for MySQL to be available
-# wait-for-it.sh <host>:<port> [-t timeout] [-- command args]
-/usr/local/bin/wait-for-it.sh ${DB_HOST}:${DB_PORT} -t 60 -- echo "MySQL is up and running!"
+# Ensure required storage directories exist (volume may be freshly mounted)
+mkdir -p /app/storage/logs /app/storage/kb_uploads
 
 # Run AdonisJS migrations
 echo "Running AdonisJS migrations..."

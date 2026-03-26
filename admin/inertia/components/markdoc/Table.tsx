@@ -9,11 +9,11 @@ export function Table({ children }: { children: React.ReactNode }) {
 }
 
 export function TableHead({ children }: { children: React.ReactNode }) {
-  return <thead className="bg-desert-green-dark">{children}</thead>
+  return <thead className="bg-desert-green">{children}</thead>
 }
 
 export function TableBody({ children }: { children: React.ReactNode }) {
-  return <tbody className="divide-y divide-desert-tan-lighter/50 bg-white">{children}</tbody>
+  return <tbody className="divide-y divide-desert-tan-lighter/50 bg-surface-primary">{children}</tbody>
 }
 
 export function TableRow({ children }: { children: React.ReactNode }) {
@@ -22,7 +22,7 @@ export function TableRow({ children }: { children: React.ReactNode }) {
 
 export function TableHeader({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-5 py-3 text-left text-sm font-semibold text-desert-white tracking-wide">
+    <th className="px-5 py-3 text-left text-sm font-semibold text-white tracking-wide">
       {children}
     </th>
   )

@@ -17,7 +17,11 @@ const useDownloads = (props: useDownloadsProps) => {
   const queryData = useQuery({
     queryKey: queryKey,
     queryFn: () => api.listDownloadJobs(props.filetype),
-    refetchInterval: 2000, // Refetch every 2 seconds to get updated progress
+    refetchInterval: (query) => {
+      const data = query.state.data
+      // Only poll when there are active downloads; otherwise use a slower interval
+      return data && data.length > 0 ? 2000 : 30000
+    },
     enabled: props.enabled ?? true,
   })
 

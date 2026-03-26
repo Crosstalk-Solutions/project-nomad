@@ -9,14 +9,14 @@ const ProgressBar = ({ progress, speed }: { progress: number; speed?: string }) 
 
   return (
     <div className="flex flex-col">
-      <div className="relative w-full h-2 bg-gray-200 rounded">
+      <div className="relative w-full h-2 bg-border-subtle rounded">
         <div
           className="absolute top-0 left-0 h-full bg-desert-green rounded"
           style={{ width: `${progress}%` }}
         />
       </div>
       {speed && (
-        <div className="mt-1 text-sm text-gray-500">
+        <div className="mt-1 text-sm text-text-muted">
           Est. Speed: {speed}
         </div>
       )}

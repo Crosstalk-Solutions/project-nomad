@@ -90,7 +90,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         confirmVariant="primary"
         icon={<IconDownload className="h-12 w-12 text-desert-green" />}
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           Are you sure you want to install {service.friendly_name || service.service_name}? This
           will start the service and make it available in your Project N.O.M.A.D. instance. It may
           take some time to complete.
@@ -214,7 +214,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
               confirmText={'Force Reinstall'}
               cancelText="Cancel"
             >
-              <p className="text-gray-700">
+              <p className="text-text-primary">
                 Are you sure you want to force reinstall {record.service_name}? This will{' '}
                 <strong>WIPE ALL DATA</strong> for this service and cannot be undone. You should
                 only do this if the service is malfunctioning and other troubleshooting steps have
@@ -285,7 +285,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                     confirmText={record.status === 'running' ? 'Stop' : 'Start'}
                     cancelText="Cancel"
                   >
-                    <p className="text-gray-700">
+                    <p className="text-text-primary">
                       Are you sure you want to {record.status === 'running' ? 'stop' : 'start'}{' '}
                       {record.service_name}?
                     </p>
@@ -311,7 +311,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                       confirmText={'Restart'}
                       cancelText="Cancel"
                     >
-                      <p className="text-gray-700">
+                      <p className="text-text-primary">
                         Are you sure you want to restart {record.service_name}?
                       </p>
                     </StyledModal>,
@@ -338,7 +338,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-4xl font-semibold">Apps</h1>
-              <p className="text-gray-500 mt-1">
+              <p className="text-text-muted mt-1">
                 Manage the applications that are available in your Project N.O.M.A.D. instance. Nightly update checks will automatically detect when new versions of these apps are available.
               </p>
             </div>
@@ -364,7 +364,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                     return (
                       <div className="flex flex-col">
                         <p>{record.friendly_name || record.service_name}</p>
-                        <p className="text-sm text-gray-500">{record.description}</p>
+                        <p className="text-sm text-text-muted">{record.description}</p>
                       </div>
                     )
                   },
@@ -398,7 +398,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                     if (record.available_update_version) {
                       return (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-gray-500">{currentTag}</span>
+                          <span className="text-text-muted">{currentTag}</span>
                           <IconArrowUp className="h-4 w-4 text-desert-green" />
                           <span className="text-desert-green font-semibold">
                             {record.available_update_version}
@@ -406,7 +406,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                         </div>
                       )
                     }
-                    return <span className="text-gray-600">{currentTag}</span>
+                    return <span className="text-text-secondary">{currentTag}</span>
                   },
                 },
                 {

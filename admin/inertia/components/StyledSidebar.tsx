@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from '@headlessui/react'
 import classNames from '~/lib/classNames'
-import { IconArrowLeft } from '@tabler/icons-react'
+import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
 import { IconMenu2, IconX } from '@tabler/icons-react'
+import ThemeToggle from '~/components/ThemeToggle'
+import DebugInfoModal from './DebugInfoModal'
 
 type SidebarItem = {
   name: string
@@ -21,6 +23,7 @@ interface StyledSidebarProps {
 
 const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [debugModalOpen, setDebugModalOpen] = useState(false)
   const { appVersion } = usePage().props as unknown as UsePageProps
 
   const currentPath = useMemo(() => {
@@ -37,7 +40,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
           className={classNames(
             item.current
               ? 'bg-desert-green text-white'
-              : 'text-black hover:bg-desert-green-light hover:text-white',
+              : 'text-text-primary hover:bg-desert-green-light hover:text-white',
             'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
           )}
         >
@@ -53,7 +56,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-desert-sand px-6 ring-1 ring-white/5 pt-4 shadow-md">
         <div className="flex h-16 shrink-0 items-center">
           <img src="/project_nomad_logo.png" alt="Project Nomad Logo" className="h-16 w-16" />
-          <h1 className="ml-3 text-xl font-semibold text-black">{title}</h1>
+          <h1 className="ml-3 text-xl font-semibold text-text-primary">{title}</h1>
         </div>
         <nav className="flex flex-1 flex-col">
           <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -75,8 +78,16 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
             </li>
           </ul>
         </nav>
-        <div className="mb-4 text-center text-sm text-gray-600">
+        <div className="mb-4 flex flex-col items-center gap-1 text-sm text-text-secondary text-center">
           <p>Project N.O.M.A.D. Command Center v{appVersion}</p>
+          <button
+            onClick={() => setDebugModalOpen(true)}
+            className="text-gray-500 hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
+          >
+            <IconBug className="size-3.5" />
+            Debug Info
+          </button>
+          <ThemeToggle />
         </div>
       </div>
     )
@@ -123,6 +134,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
       <div className="hidden xl:fixed xl:inset-y-0 xl:z-50 xl:flex xl:w-72 xl:flex-col">
         <Sidebar />
       </div>
+      <DebugInfoModal open={debugModalOpen} onClose={() => setDebugModalOpen(false)} />
     </>
   )
 }

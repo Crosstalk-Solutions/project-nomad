@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
 import { formatBytes } from '~/lib/util'
+import { getAllDiskDisplayItems } from '~/hooks/useDiskDisplayData'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
 import HorizontalBarChart from '~/components/HorizontalBarChart'
 import InfoCard from '~/components/systeminfo/InfoCard'
@@ -71,7 +72,7 @@ export default function SettingsPage(props: {
         confirmText="Reinstall"
         cancelText="Cancel"
       >
-        <p className="text-gray-700">
+        <p className="text-text-primary">
           This will recreate the AI Assistant container with GPU support enabled.
           Your downloaded models will be preserved. The service will be briefly
           unavailable during reinstall.
@@ -105,42 +106,7 @@ export default function SettingsPage(props: {
       : `${uptimeMinutes}m`
 
   // Build storage display items - fall back to fsSize when disk array is empty
-  // (Same approach as Easy Setup wizard fix from PR #90)
-  const validDisks = info?.disk?.filter((d) => d.totalSize > 0) || []
-  let storageItems: {
-    label: string
-    value: number
-    total: string
-    used: string
-    subtext: string
-  }[] = []
-  if (validDisks.length > 0) {
-    storageItems = validDisks.map((disk) => ({
-      label: disk.name || 'Unknown',
-      value: disk.percentUsed || 0,
-      total: disk.totalSize ? formatBytes(disk.totalSize) : 'N/A',
-      used: disk.totalUsed ? formatBytes(disk.totalUsed) : 'N/A',
-      subtext: `${formatBytes(disk.totalUsed || 0)} / ${formatBytes(disk.totalSize || 0)}`,
-    }))
-  } else if (info?.fsSize && info.fsSize.length > 0) {
-    // Deduplicate by size (same physical disk mounted in multiple places shows identical sizes)
-    const seen = new Set<number>()
-    const uniqueFs = info.fsSize.filter((fs) => {
-      if (fs.size <= 0 || seen.has(fs.size)) return false
-      seen.add(fs.size)
-      return true
-    })
-    // Prefer real block devices (/dev/), exclude virtual filesystems (efivarfs, tmpfs, etc.)
-    const realDevices = uniqueFs.filter((fs) => fs.fs.startsWith('/dev/'))
-    const displayFs = realDevices.length > 0 ? realDevices : uniqueFs
-    storageItems = displayFs.map((fs) => ({
-      label: fs.fs || 'Unknown',
-      value: fs.use || 0,
-      total: formatBytes(fs.size),
-      used: formatBytes(fs.used),
-      subtext: `${formatBytes(fs.used)} / ${formatBytes(fs.size)}`,
-    }))
-  }
+  const storageItems = getAllDiskDisplayItems(info?.disk, info?.fsSize)
 
   return (
     <SettingsLayout>
@@ -313,7 +279,7 @@ export default function SettingsPage(props: {
                   style={{ width: `${memoryUsagePercent}%` }}
                 ></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold text-desert-white drop-shadow-md z-10">
+                  <span className="text-sm font-bold text-white drop-shadow-md z-10">
                     {memoryUsagePercent}% Utilized
                   </span>
                 </div>

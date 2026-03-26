@@ -6,6 +6,7 @@ import { resolveTierResources } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
 import classNames from 'classnames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
+import StyledButton from './StyledButton'
 
 interface TierSelectionModalProps {
   isOpen: boolean
@@ -88,7 +89,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-lg bg-white shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-lg bg-surface-primary shadow-xl transition-all">
                 {/* Header */}
                 <div className="bg-desert-green px-6 py-4">
                   <div className="flex items-center justify-between">
@@ -101,7 +102,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                         <Dialog.Title className="text-xl font-semibold text-white">
                           {category.name}
                         </Dialog.Title>
-                        <p className="text-sm text-gray-200">{category.description}</p>
+                        <p className="text-sm text-text-muted">{category.description}</p>
                       </div>
                     </div>
                     <button
@@ -115,7 +116,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
 
                 {/* Content */}
                 <div className="p-6">
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-text-secondary mb-6">
                     Select a tier based on your storage capacity and needs. Higher tiers include all content from lower tiers.
                   </p>
 
@@ -138,30 +139,30 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                             'border-2 rounded-lg p-5 cursor-pointer transition-all',
                             isSelected
                               ? 'border-desert-green bg-desert-green/5 shadow-md'
-                              : 'border-gray-200 hover:border-desert-green/50 hover:shadow-sm'
+                              : 'border-border-subtle hover:border-desert-green/50 hover:shadow-sm'
                           )}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                                <h3 className="text-lg font-semibold text-text-primary">
                                   {tier.name}
                                 </h3>
                                 {includedTierName && (
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-text-muted">
                                     (includes {includedTierName})
                                   </span>
                                 )}
                               </div>
-                              <p className="text-gray-600 text-sm mb-3">{tier.description}</p>
+                              <p className="text-text-secondary text-sm mb-3">{tier.description}</p>
 
                               {/* Resources preview - only show this tier's own resources */}
-                              <div className="bg-gray-50 rounded p-3">
-                                <p className="text-xs text-gray-500 mb-2 font-medium">
+                              <div className="bg-surface-secondary rounded p-3">
+                                <p className="text-xs text-text-muted mb-2 font-medium">
                                   {includedTierName ? (
                                     <>
                                       {ownResourceCount} additional {ownResourceCount === 1 ? 'resource' : 'resources'}
-                                      <span className="text-gray-400"> (plus everything in {includedTierName})</span>
+                                      <span className="text-text-muted"> (plus everything in {includedTierName})</span>
                                     </>
                                   ) : (
                                     <>{ownResourceCount} {ownResourceCount === 1 ? 'resource' : 'resources'} included</>
@@ -172,8 +173,8 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                                     <div key={idx} className="flex items-start text-sm">
                                       <IconCheck size={14} className="text-desert-green mr-1.5 mt-0.5 flex-shrink-0" />
                                       <div>
-                                        <span className="text-gray-700">{resource.title}</span>
-                                        <span className="text-gray-400 text-xs ml-1">
+                                        <span className="text-text-primary">{resource.title}</span>
+                                        <span className="text-text-muted text-xs ml-1">
                                           ({formatBytes(resource.size_mb * 1024 * 1024, 0)})
                                         </span>
                                       </div>
@@ -184,14 +185,14 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                             </div>
 
                             <div className="ml-4 text-right flex-shrink-0">
-                              <div className="text-lg font-semibold text-gray-900">
+                              <div className="text-lg font-semibold text-text-primary">
                                 {formatBytes(totalSize, 1)}
                               </div>
                               <div className={classNames(
                                 'w-6 h-6 rounded-full border-2 flex items-center justify-center mt-2 ml-auto',
                                 isSelected
                                   ? 'border-desert-green bg-desert-green'
-                                  : 'border-gray-300'
+                                  : 'border-border-default'
                               )}>
                                 {isSelected && <IconCheck size={16} className="text-white" />}
                               </div>
@@ -203,7 +204,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                   </div>
 
                   {/* Info note */}
-                  <div className="mt-6 flex items-start gap-2 text-sm text-gray-500 bg-blue-50 p-3 rounded">
+                  <div className="mt-6 flex items-start gap-2 text-sm text-text-muted bg-blue-50 p-3 rounded">
                     <IconInfoCircle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
                     <p>
                       You can change your selection at any time. Click Submit to confirm your choice.
@@ -212,19 +213,15 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
-                  <button
+                <div className="bg-surface-secondary px-6 py-4 flex justify-end gap-3">
+                  <StyledButton
+                    variant='primary'
+                    size='lg'
                     onClick={handleSubmit}
                     disabled={!localSelectedSlug}
-                    className={classNames(
-                      'px-4 py-2 rounded-md font-medium transition-colors',
-                      localSelectedSlug
-                        ? 'bg-desert-green text-white hover:bg-desert-green/90'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    )}
                   >
                     Submit
-                  </button>
+                  </StyledButton>
                 </div>
               </Dialog.Panel>
             </Transition.Child>

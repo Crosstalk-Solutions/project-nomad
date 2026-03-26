@@ -25,7 +25,7 @@ export default function EasySetupWizardComplete() {
         />
       )}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-md shadow-md p-6">
+        <div className="bg-surface-primary rounded-md shadow-md p-6">
           <StyledSectionHeader title="App Installation Activity" className=" mb-4" />
           <InstallActivityFeed
             activity={installActivity}

@@ -31,14 +31,9 @@ GREEN='\033[1;32m' # Light Green.
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-ENTRYPOINT_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/entrypoint.sh"
-SIDECAR_UPDATER_DOCKERFILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
-SIDECAR_UPDATER_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
-WAIT_FOR_IT_SCRIPT_URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh"
-
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
@@ -202,6 +197,16 @@ ensure_docker_installed() {
   fi
 }
 
+check_docker_compose() {
+  # Check if 'docker compose' (v2 plugin) is available
+  if ! docker compose version &>/dev/null; then
+    echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
+    echo -e "${YELLOW}#${RESET} This script requires 'docker compose' (v2), not 'docker-compose' (v1)."
+    echo -e "${YELLOW}#${RESET} Please read the Docker documentation at https://docs.docker.com/compose/install/ for instructions on how to install Docker Compose v2."
+    exit 1
+  fi
+}
+
 setup_nvidia_container_toolkit() {
   # This function attempts to set up NVIDIA GPU support but is non-blocking
   # Any failures will result in warnings but will NOT stop the installation process
@@ -328,7 +333,9 @@ setup_nvidia_container_toolkit() {
 }
 
 get_install_confirmation(){
-  read -p "This script will install/update Project N.O.M.A.D. and its dependencies on your machine. Are you sure you want to continue? (y/N): " choice
+  echo -e "${YELLOW}#${RESET} This script will install Project N.O.M.A.D. and its dependencies on your machine."
+  echo -e "${YELLOW}#${RESET} If you already have Project N.O.M.A.D. installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
+  read -p "Are you sure you want to continue? (y/N): " choice
   case "$choice" in
     y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the installation."
@@ -394,6 +401,15 @@ download_management_compose_file() {
   local db_root_password=$(generateRandomPass)
   local db_user_password=$(generateRandomPass)
 
+  # If MySQL data directory exists from a previous install attempt, remove it.
+  # MySQL only initializes credentials on first startup when the data dir is empty.
+  # If stale data exists, MySQL ignores the new passwords above and uses the old ones,
+  # causing "Access denied" errors when the admin container tries to connect.
+  if [[ -d "${NOMAD_DIR}/mysql" ]]; then
+    echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
+    sudo rm -rf "${NOMAD_DIR}/mysql"
+  fi
+
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
   sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
@@ -404,56 +420,6 @@ download_management_compose_file() {
   sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
-}
-
-download_wait_for_it_script() {
-  local wait_for_it_script_path="${NOMAD_DIR}/wait-for-it.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading wait-for-it script...\\n"
-  if ! curl -fsSL "$WAIT_FOR_IT_SCRIPT_URL" -o "$wait_for_it_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the wait-for-it script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$wait_for_it_script_path"
-  echo -e "${GREEN}#${RESET} wait-for-it script downloaded successfully to $wait_for_it_script_path.\\n"
-}
-
-download_entrypoint_script() {
-  local entrypoint_script_path="${NOMAD_DIR}/entrypoint.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading entrypoint script...\\n"
-  if ! curl -fsSL "$ENTRYPOINT_SCRIPT_URL" -o "$entrypoint_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the entrypoint script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$entrypoint_script_path"
-  echo -e "${GREEN}#${RESET} entrypoint script downloaded successfully to $entrypoint_script_path.\\n"
-}
-
-download_sidecar_files() {
-  # Create sidecar-updater directory if it doesn't exist
-  if [[ ! -d "${NOMAD_DIR}/sidecar-updater" ]]; then
-    sudo mkdir -p "${NOMAD_DIR}/sidecar-updater"
-    sudo chown "$(whoami):$(whoami)" "${NOMAD_DIR}/sidecar-updater"
-  fi
-
-  local sidecar_dockerfile_path="${NOMAD_DIR}/sidecar-updater/Dockerfile"
-  local sidecar_script_path="${NOMAD_DIR}/sidecar-updater/update-watcher.sh"
-
-  echo -e "${YELLOW}#${RESET} Downloading sidecar updater Dockerfile...\\n"
-  if ! curl -fsSL "$SIDECAR_UPDATER_DOCKERFILE_URL" -o "$sidecar_dockerfile_path"; then
-    echo -e "${RED}#${RESET} Failed to download the sidecar updater Dockerfile. Please check the URL and try again."
-    exit 1
-  fi
-  echo -e "${GREEN}#${RESET} Sidecar updater Dockerfile downloaded successfully to $sidecar_dockerfile_path.\\n"
-
-  echo -e "${YELLOW}#${RESET} Downloading sidecar updater script...\\n"
-  if ! curl -fsSL "$SIDECAR_UPDATER_SCRIPT_URL" -o "$sidecar_script_path"; then
-    echo -e "${RED}#${RESET} Failed to download the sidecar updater script. Please check the URL and try again."
-    exit 1
-  fi
-  chmod +x "$sidecar_script_path"
-  echo -e "${GREEN}#${RESET} Sidecar updater script downloaded successfully to $sidecar_script_path.\\n"
 }
 
 download_helper_scripts() {
@@ -525,7 +491,7 @@ verify_gpu_setup() {
   fi
   
   # Check if Docker has NVIDIA runtime
-  if docker info 2>/dev/null | grep -q \"nvidia\"; then
+  if docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}✓${RESET} Docker NVIDIA runtime configured\\n"
   else
     echo -e "${YELLOW}○${RESET} Docker NVIDIA runtime not detected\\n"
@@ -541,11 +507,11 @@ verify_gpu_setup() {
   echo -e "${YELLOW}===========================================${RESET}\\n"
   
   # Summary
-  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q \"nvidia\"; then
+  if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
-    if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q \"nvidia\"; then
+    if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q "nvidia"; then
       echo -e "${YELLOW}#${RESET} Tip: Your GPU is detected but Docker runtime is not configured.\\n"
       echo -e "${YELLOW}#${RESET} Try restarting Docker: ${WHITE_R}sudo systemctl restart docker${RESET}\\n"
     fi
@@ -577,12 +543,10 @@ check_is_debug_mode
 get_install_confirmation
 accept_terms
 ensure_docker_installed
+check_docker_compose
 setup_nvidia_container_toolkit
 get_local_ip
 create_nomad_directory
-download_wait_for_it_script
-download_entrypoint_script
-download_sidecar_files
 download_helper_scripts
 download_management_compose_file
 start_management_containers

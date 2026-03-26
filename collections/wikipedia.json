@@ -1,5 +1,5 @@
 {
-  "spec_version": "2026-02-11",
+  "spec_version": "2026-03-23",
   "options": [
     {
       "id": "none",
@@ -37,7 +37,7 @@
       "id": "all-nopic",
       "name": "Complete Wikipedia (No Images)",
       "description": "All articles without images. Comprehensive offline reference.",
-      "size_mb": 25000,
+      "size_mb": 49000,
       "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_nopic_2025-12.zim",
       "version": "2025-12"
     },
@@ -45,9 +45,9 @@
       "id": "all-maxi",
       "name": "Complete Wikipedia (Full)",
       "description": "The complete experience with all images and media.",
-      "size_mb": 102000,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2024-01.zim",
-      "version": "2024-01"
+      "size_mb": 118000,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2026-02.zim",
+      "version": "2026-02"
     }
   ]
 }

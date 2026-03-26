@@ -74,19 +74,19 @@ function StyledTable<T extends { [key: string]: any }>({
   return (
     <div
       className={classNames(
-        'w-full overflow-x-auto bg-white ring-1 ring-gray-300 sm:mx-0 sm:rounded-lg p-1 shadow-md',
+        'w-full overflow-x-auto bg-surface-primary ring-1 ring-border-default sm:mx-0 sm:rounded-lg p-1 shadow-md',
         className
       )}
       ref={ref}
       {...containerProps}
     >
       <table className="min-w-full overflow-auto" {...restTableProps}>
-        <thead className='border-b border-gray-200 '>
+        <thead className='border-b border-border-subtle '>
           <tr>
             {expandable && (
               <th
                 className={classNames(
-                  'whitespace-nowrap text-left font-semibold text-gray-900 w-12',
+                  'whitespace-nowrap text-left font-semibold text-text-primary w-12',
                   compact ? `${leftPadding} py-2` : `${leftPadding} py-4  pr-3`
                 )}
               />
@@ -95,7 +95,7 @@ function StyledTable<T extends { [key: string]: any }>({
               <th
                 key={index}
                 className={classNames(
-                  'whitespace-nowrap text-left font-semibold text-gray-900',
+                  'whitespace-nowrap text-left font-semibold text-text-primary',
                   compact ? `${leftPadding} py-2` : `${leftPadding} py-4  pr-3`
                 )}
               >
@@ -121,8 +121,8 @@ function StyledTable<T extends { [key: string]: any }>({
                         'translateY' in record ? 'translateY(' + record.transformY + 'px)' : undefined,
                     }}
                     className={classNames(
-                      rowLines ? 'border-b border-gray-200' : '',
-                      onRowClick ? `cursor-pointer hover:bg-gray-100 ` : ''
+                      rowLines ? 'border-b border-border-subtle' : '',
+                      onRowClick ? `cursor-pointer hover:bg-surface-secondary ` : ''
                     )}
                   >
                     {expandable && (
@@ -134,7 +134,7 @@ function StyledTable<T extends { [key: string]: any }>({
                         onClick={(e) => toggleRowExpansion(record, recordIdx, e)}
                       >
                         <button
-                          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                          className="text-text-muted hover:text-text-primary focus:outline-none"
                           aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
                         >
                           <svg
@@ -172,7 +172,7 @@ function StyledTable<T extends { [key: string]: any }>({
                     ))}
                   </tr>
                   {expandable && isExpanded && (
-                    <tr className="bg-gray-50">
+                    <tr className="bg-surface-secondary">
                       <td colSpan={columns.length + 1}>
                         {expandable.expandedRowRender(record, recordIdx)}
                       </td>
@@ -183,7 +183,7 @@ function StyledTable<T extends { [key: string]: any }>({
             })}
           {!loading && data.length === 0 && (
             <tr>
-              <td colSpan={columns.length + (expandable ? 1 : 0)} className="!text-center py-8 text-gray-500">
+              <td colSpan={columns.length + (expandable ? 1 : 0)} className="!text-center py-8 text-text-muted">
                 {noDataText}
               </td>
             </tr>

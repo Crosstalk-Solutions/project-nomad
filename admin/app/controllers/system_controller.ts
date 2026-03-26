@@ -35,7 +35,7 @@ export default class SystemController {
         if (result.success) {
             response.send({ success: true, message: result.message });
         } else {
-            response.status(400).send({ error: result.message });
+            response.status(400).send({ success: false, message: result.message });
         }
     }
 
@@ -111,6 +111,11 @@ export default class SystemController {
     async subscribeToReleaseNotes({ request }: HttpContext) {
         const reqData = await request.validateUsing(subscribeToReleaseNotesValidator);
         return await this.systemService.subscribeToReleaseNotes(reqData.email);
+    }
+
+    async getDebugInfo({}: HttpContext) {
+        const debugInfo = await this.systemService.getDebugInfo()
+        return { debugInfo }
     }
 
     async checkServiceUpdates({ response }: HttpContext) {

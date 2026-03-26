@@ -75,6 +75,16 @@ ensure_docker_installed() {
     fi
 }
 
+check_docker_compose() {
+  # Check if 'docker compose' (v2 plugin) is available
+  if ! docker compose version &>/dev/null; then
+    echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
+    echo -e "${YELLOW}#${RESET} This script requires 'docker compose' (v2), not 'docker-compose' (v1)."
+    echo -e "${YELLOW}#${RESET} Please read the Docker documentation at https://docs.docker.com/compose/install/ for instructions on how to install Docker Compose v2."
+    exit 1
+  fi
+}
+
 storage_cleanup() {
   read -p "Do you want to delete the Project N.O.M.A.D. storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored Nomad data and can't be undone! (y/N): " delete_dir_choice
   case "$delete_dir_choice" in
@@ -130,5 +140,6 @@ check_has_sudo
 check_current_directory
 ensure_management_compose_file_exists
 ensure_docker_installed
+check_docker_compose
 get_uninstall_confirmation
 uninstall_nomad
