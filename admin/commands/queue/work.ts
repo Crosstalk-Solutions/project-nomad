@@ -69,17 +69,25 @@ export default class QueueWork extends BaseCommand {
         this.logger.error(`[${queueName}] Job failed: ${job?.id}, Error: ${err.message}`)
 
         // If this was a Wikipedia download, mark it as failed in the DB
-        if (job?.data?.filetype === 'zim' && job?.data?.url?.includes('wikipedia_en_')) {
+        // Use safe database operations with ORM to prevent SQL injection
+        if (job?.data?.filetype === 'zim' && job?.data?.filename && typeof job.data.filename === 'string') {
           try {
-            const { DockerService } = await import('#services/docker_service')
-            const { ZimService } = await import('#services/zim_service')
-            const dockerService = new DockerService()
-            const zimService = new ZimService(dockerService)
-            await zimService.onWikipediaDownloadComplete(job.data.url, false)
+            const WikipediaSelection = (await import('#models/wikipedia_selection')).default
+            const db = (await import('@adonisjs/lucid/services/db')).default
+            
+            // Validate filename to prevent SQL injection - only allow safe characters
+            const safeFilename = String(job.data.filename).replace(/[^a-zA-Z0-9._-]/g, '')
+            if (safeFilename && safeFilename.length > 0) {
+              // Using explicit parameterized query to prevent SQL injection
+              // The ? placeholders ensure user input is treated as data, not code
+              await db.rawQuery(
+                'UPDATE wikipedia_selections SET status = ? WHERE filename = ? AND status = ?',
+                ['failed', safeFilename, 'downloading']
+              )
+            }
           } catch (e: any) {
-            this.logger.error(
-              `[${queueName}] Failed to update Wikipedia status: ${e.message}`
-            )
+            const errorMsg = String(e.message)
+            this.logger.error('[' + queueName + '] Failed to update Wikipedia status: ' + errorMsg)
           }
         }
       })
