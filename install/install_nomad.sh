@@ -94,6 +94,11 @@ ensure_dependencies_installed() {
     missing_deps+=("curl")
   fi
 
+  # Check for gpg (required for NVIDIA container toolkit keyring)
+  if ! command -v gpg &> /dev/null; then
+    missing_deps+=("gpg")
+  fi
+
   # Check for whiptail (used for dialogs, though not currently active)
   # if ! command -v whiptail &> /dev/null; then
   #   missing_deps+=("whiptail")
