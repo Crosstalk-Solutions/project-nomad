@@ -505,6 +505,15 @@ export class DockerService {
         }
       }
 
+      const ollamaEnv: string[] = []
+      if (service.service_name === SERVICE_NAMES.OLLAMA) {
+        ollamaEnv.push('OLLAMA_NO_CLOUD=1')
+        const flashAttentionEnabled = await KVStore.getValue('ai.ollamaFlashAttention')
+        if (flashAttentionEnabled !== false) {
+          ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
+        }
+      }
+
       this._broadcast(
         service.service_name,
         'creating',
@@ -522,7 +531,7 @@ export class DockerService {
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
-        ...(containerConfig?.Env && { Env: containerConfig.Env }),
+        Env: [...(containerConfig?.Env ?? []), ...ollamaEnv],
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         // Ensure container is attached to the Nomad docker network in production
         ...(process.env.NODE_ENV === 'production' && {
