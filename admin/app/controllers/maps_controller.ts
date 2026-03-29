@@ -83,7 +83,13 @@ export default class MapsController {
       })
     }
 
-    const styles = await this.mapService.generateStylesJSON(request.host(), request.protocol())
+    const forwardedProto = request.headers()['x-forwarded-proto'];
+
+    const protocol: string = forwardedProto
+      ? (typeof forwardedProto === 'string' ? forwardedProto : request.protocol())
+      : request.protocol();
+
+    const styles = await this.mapService.generateStylesJSON(request.host(), protocol)
     return response.json(styles)
   }
 

@@ -446,8 +446,20 @@ export class MapService implements IMapService {
       }
     }
 
-    const host = specifiedHost || getHost()
-    const withProtocol = host.startsWith('http') ? host : `${protocol}://${host}`
+    function specifiedHostOrDefault() {
+      if(specifiedHost === null) {
+        return getHost()
+      }
+      try {
+        const specifiedUrl = new URL(specifiedHost)
+        return specifiedUrl.host
+      } catch (error) {
+        return getHost()
+      }
+    }
+
+    const host = specifiedHostOrDefault();
+    const withProtocol = `${protocol}://${host}`
     const baseUrlPath =
       process.env.NODE_ENV === 'production' ? childPath : urlJoin(this.mapStoragePath, childPath)
 
