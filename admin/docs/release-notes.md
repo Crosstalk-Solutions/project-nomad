@@ -1,5 +1,25 @@
 # Release Notes
 
+## Version 1.30.3 - March 25, 2026
+
+### Features
+
+### Bug Fixes
+- **Benchmark**: Fixed an issue where CPU and Disk Write scores could be displayed as 0 if the measured values was less than half of the reference mark. Thanks @bortlesboat for the fix!
+- **Content Manager**: Fixed a missing API client method that was causing ZIM file deletions to fail. Thanks @LuisMIguelFurlanettoSousa for the fix!
+- **Install**: Fixed an issue where the install script could incorrectly report the Docker NVIDIA runtime as missing. Thanks @brenex for the fix!
+- **Support the Project**: Fixed a broken link to Rogue Support. Thanks @chriscrosstalk for the fix!
+
+### Improvements
+- **AI Assistant**: Improved error reporting and handling for model downloads. Thanks @chriscrosstalk for the contribution!
+- **AI Assistant**: Bumped the default version of Ollama installed to v0.18.1 to take advantage of the latest performance improvements and bug fixes.
+- **Apps**: Improved error reporting and handling for service installation failures. Thanks @trek-e for the contribution!
+- **Collections**: Updated various curated collection links to their latest versions. Thanks @builder555 for the contribution!
+- **Cyberchef**: Bumped the default version of CyberChef installed to v10.22.1 to take advantage of the latest features and bug fixes.
+- **Docs**: Added a link to the step-by-step installation guide and video tutorial. Thanks @chriscrosstalk for the contribution!
+- **Install**: Increased the retries limit for the MySQL service in Docker Compose to improve stability during installation on systems with slower performance. Thanks @dx4956 for the contribution!
+- **Install**: Fixed an issue where stale data could cause credentials mismatch in MySQL on reinstall. Thanks @chriscrosstalk for the fix!
+
 ## Version 1.30.0 - March 20, 2026
 
 ### Features

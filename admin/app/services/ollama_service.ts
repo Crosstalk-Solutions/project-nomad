@@ -51,7 +51,7 @@ export class OllamaService {
    * @param model Model name to download
    * @returns Success status and message
    */
-  async downloadModel(model: string, progressCallback?: (percent: number) => void): Promise<{ success: boolean; message: string }> {
+  async downloadModel(model: string, progressCallback?: (percent: number) => void): Promise<{ success: boolean; message: string; retryable?: boolean }> {
     try {
       await this._ensureDependencies()
       if (!this.ollama) {
@@ -86,11 +86,21 @@ export class OllamaService {
       logger.info(`[OllamaService] Model "${model}" downloaded successfully.`)
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(
-        `[OllamaService] Failed to download model "${model}": ${error instanceof Error ? error.message : error
-        }`
+        `[OllamaService] Failed to download model "${model}": ${errorMessage}`
       )
-      return { success: false, message: 'Failed to download model.' }
+
+      // Check for version mismatch (Ollama 412 response)
+      const isVersionMismatch = errorMessage.includes('newer version of Ollama')
+      const userMessage = isVersionMismatch
+        ? 'This model requires a newer version of Ollama. Please update AI Assistant from the Apps page.'
+        : `Failed to download model: ${errorMessage}`
+
+      // Broadcast failure to connected clients so UI can show the error
+      this.broadcastDownloadError(model, userMessage)
+
+      return { success: false, message: userMessage, retryable: !isVersionMismatch }
     }
   }
 
@@ -377,6 +387,15 @@ export class OllamaService {
     })
 
     return models
+  }
+
+  private broadcastDownloadError(model: string, error: string) {
+    transmit.broadcast(BROADCAST_CHANNELS.OLLAMA_MODEL_DOWNLOAD, {
+      model,
+      percent: -1,
+      error,
+      timestamp: new Date().toISOString(),
+    })
   }
 
   private broadcastDownloadProgress(model: string, percent: number) {

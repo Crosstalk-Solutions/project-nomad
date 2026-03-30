@@ -615,10 +615,10 @@ export class DockerService {
      * At least one .zim file must be available before we can start the kiwix container.
      * We'll download the lightweight mini Wikipedia Top 100 zim file for this purpose.
      **/
-    const WIKIPEDIA_ZIM_URL = rewriteDownloadUrl(
-      'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/install/wikipedia_en_100_mini_2025-06.zim'
-    )
-    const filename = 'wikipedia_en_100_mini_2025-06.zim'
+
+    const WIKIPEDIA_ZIM_URL =
+      'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/install/wikipedia_en_100_mini_2026-01.zim'
+    const filename = 'wikipedia_en_100_mini_2026-01.zim'
     const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
     logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
 
