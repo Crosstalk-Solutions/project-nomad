@@ -66,11 +66,20 @@ export class DownloadService {
         try {
           await job.remove()
         } catch {
-          // Job is locked by an active worker — move it to failed state first,
-          // then remove. This handles the case where the UI shows a job as failed
-          // (failedReason is set) but BullMQ still considers it active due to retries.
-          await job.moveToFailed(new Error('Manually dismissed'), '0', false)
-          await job.remove()
+          // Job is locked by an active worker — move it to failed state first
+          // so it won't be retried. The remove may still fail if the lock hasn't
+          // released, so we catch that too and let the next dismiss attempt clean it up.
+          try {
+            await job.moveToFailed(new Error('Manually dismissed'), '0', false)
+          } catch {
+            // Already in failed state or lock contention — acceptable
+          }
+          try {
+            await job.remove()
+          } catch {
+            // Lock still held — job is now in failed state with retries discarded,
+            // so it will be removable on the next attempt
+          }
         }
         return
       }
