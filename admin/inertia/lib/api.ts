@@ -536,6 +536,42 @@ class API {
     })()
   }
 
+  async listCustomLibraries() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ id: number; name: string; base_url: string; is_default: boolean }[]>(
+        '/zim/custom-libraries'
+      )
+      return response.data
+    })()
+  }
+
+  async addCustomLibrary(name: string, base_url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        library: { id: number; name: string; base_url: string }
+      }>('/zim/custom-libraries', { name, base_url })
+      return response.data
+    })()
+  }
+
+  async removeCustomLibrary(id: number) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(`/zim/custom-libraries/${id}`)
+      return response.data
+    })()
+  }
+
+  async browseLibrary(url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        directories: { name: string; url: string }[]
+        files: { name: string; url: string; size_bytes: number | null }[]
+      }>('/zim/browse-library', { params: { url } })
+      return response.data
+    })()
+  }
+
   async deleteZimFile(filename: string) {
     return catchInternal(async () => {
       const response = await this.client.delete<{ message: string }>(`/zim/${filename}`)
