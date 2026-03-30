@@ -56,7 +56,22 @@ export class DownloadService {
       const queue = this.queueService.getQueue(queueName)
       const job = await queue.getJob(jobId)
       if (job) {
-        await job.remove()
+        // Discard pending retries so BullMQ won't reschedule the job
+        try {
+          await job.discard()
+        } catch {
+          // Job may already be in a terminal state
+        }
+
+        try {
+          await job.remove()
+        } catch {
+          // Job is locked by an active worker — move it to failed state first,
+          // then remove. This handles the case where the UI shows a job as failed
+          // (failedReason is set) but BullMQ still considers it active due to retries.
+          await job.moveToFailed(new Error('Manually dismissed'), '0', false)
+          await job.remove()
+        }
         return
       }
     }

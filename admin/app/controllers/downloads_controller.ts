@@ -16,8 +16,15 @@ export default class DownloadsController {
     return this.downloadService.listDownloadJobs(payload.params.filetype)
   }
 
-  async removeJob({ params }: HttpContext) {
-    await this.downloadService.removeFailedJob(params.jobId)
-    return { success: true }
+  async removeJob({ params, response }: HttpContext) {
+    try {
+      await this.downloadService.removeFailedJob(params.jobId)
+      return { success: true }
+    } catch (error) {
+      return response.status(422).json({
+        success: false,
+        message: `Could not remove job: ${error.message}`,
+      })
+    }
   }
 }
