@@ -4,6 +4,7 @@ import { extractFileName } from '~/lib/util'
 import StyledSectionHeader from './StyledSectionHeader'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import api from '~/lib/api'
+import { useState } from 'react'
 
 interface ActiveDownloadProps {
   filetype?: useDownloadsProps['filetype']
@@ -12,10 +13,20 @@ interface ActiveDownloadProps {
 
 const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) => {
   const { data: downloads, invalidate } = useDownloads({ filetype })
+  const [cancelling, setCancelling] = useState<Set<string>>(new Set())
 
-  const handleDismiss = async (jobId: string) => {
+  const handleRemove = async (jobId: string) => {
+    setCancelling((prev) => new Set(prev).add(jobId))
     await api.removeDownloadJob(jobId)
+    // Retry after a short delay in case the job was locked
+    await new Promise((r) => setTimeout(r, 1000))
+    await api.removeDownloadJob(jobId).catch(() => {})
     invalidate()
+    setCancelling((prev) => {
+      const next = new Set(prev)
+      next.delete(jobId)
+      return next
+    })
   }
 
   return (
@@ -44,7 +55,7 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
                     </p>
                   </div>
                   <button
-                    onClick={() => handleDismiss(download.jobId)}
+                    onClick={() => handleRemove(download.jobId)}
                     className="flex-shrink-0 p-1 rounded hover:bg-red-100 transition-colors"
                     title="Dismiss failed download"
                   >
@@ -52,17 +63,29 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
                   </button>
                 </div>
               ) : (
-                <HorizontalBarChart
-                  items={[
-                    {
-                      label: extractFileName(download.filepath) || download.url,
-                      value: download.progress,
-                      total: '100%',
-                      used: `${download.progress}%`,
-                      type: download.filetype,
-                    },
-                  ]}
-                />
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <HorizontalBarChart
+                      items={[
+                        {
+                          label: extractFileName(download.filepath) || download.url,
+                          value: download.progress,
+                          total: '100%',
+                          used: `${download.progress}%`,
+                          type: download.filetype,
+                        },
+                      ]}
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleRemove(download.jobId)}
+                    disabled={cancelling.has(download.jobId)}
+                    className="flex-shrink-0 p-1 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                    title="Cancel download"
+                  >
+                    <IconX className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                  </button>
+                </div>
               )}
             </div>
           ))

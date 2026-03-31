@@ -3,6 +3,7 @@ import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { DownloadJobWithProgress } from '../../types/downloads.js'
+import WikipediaSelection from '#models/wikipedia_selection'
 import { normalize } from 'path'
 
 @inject()
@@ -51,12 +52,46 @@ export class DownloadService {
     })
   }
 
-  async removeFailedJob(jobId: string): Promise<void> {
+  async removeJob(jobId: string): Promise<void> {
     for (const queueName of [RunDownloadJob.queue, DownloadModelJob.queue]) {
       const queue = this.queueService.getQueue(queueName)
       const job = await queue.getJob(jobId)
       if (job) {
-        await job.remove()
+        // If this is a Wikipedia download, reset the selection status
+        const jobUrl = job.data?.url || ''
+        if (jobUrl.includes('wikipedia')) {
+          const selection = await WikipediaSelection.query()
+            .where('url', jobUrl)
+            .where('status', 'downloading')
+            .first()
+          if (selection) {
+            selection.status = 'none'
+            selection.url = null
+            selection.filename = null
+            await selection.save()
+          }
+        }
+
+        try {
+          await job.discard()
+        } catch {
+          // Job may already be in a terminal state
+        }
+
+        try {
+          await job.remove()
+        } catch {
+          try {
+            await job.moveToFailed(new Error('Cancelled'), '0', false)
+          } catch {
+            // Already in failed state or lock contention
+          }
+          try {
+            await job.remove()
+          } catch {
+            // Lock still held — will be removable on next attempt
+          }
+        }
         return
       }
     }
