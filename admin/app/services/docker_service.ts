@@ -140,6 +140,11 @@ export class DockerService {
       return null
     }
 
+    if (serviceName === SERVICE_NAMES.OLLAMA) {
+      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (remoteUrl) return remoteUrl
+    }
+
     const service = await Service.query()
       .where('service_name', serviceName)
       .andWhere('installed', true)
