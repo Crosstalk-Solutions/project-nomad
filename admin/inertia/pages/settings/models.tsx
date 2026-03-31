@@ -10,7 +10,7 @@ import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
-import { ModelResponse } from 'ollama'
+import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -24,8 +24,8 @@ import { useSystemInfo } from '~/hooks/useSystemInfo'
 export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
-    installedModels: ModelResponse[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string }
+    installedModels: NomadInstalledModel[]
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -97,6 +97,43 @@ export default function ModelsPage(props: {
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
   )
+  const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
+  const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
+  const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
+
+  async function handleSaveRemoteOllama() {
+    setRemoteOllamaError(null)
+    setRemoteOllamaSaving(true)
+    try {
+      const res = await api.configureRemoteOllama(remoteOllamaUrl || null)
+      if (res?.success) {
+        addNotification({ message: res.message, type: 'success' })
+        router.reload()
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to configure remote Ollama.'
+      setRemoteOllamaError(msg)
+    } finally {
+      setRemoteOllamaSaving(false)
+    }
+  }
+
+  async function handleClearRemoteOllama() {
+    setRemoteOllamaError(null)
+    setRemoteOllamaSaving(true)
+    try {
+      const res = await api.configureRemoteOllama(null)
+      if (res?.success) {
+        setRemoteOllamaUrl('')
+        addNotification({ message: 'Remote Ollama configuration cleared.', type: 'success' })
+        router.reload()
+      }
+    } catch (error: any) {
+      setRemoteOllamaError(error?.message || 'Failed to clear remote Ollama.')
+    } finally {
+      setRemoteOllamaSaving(false)
+    }
+  }
 
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
@@ -286,9 +323,61 @@ export default function ModelsPage(props: {
               />
             </div>
           </div>
+          <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+            <p className="text-sm text-text-secondary mb-4">
+              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
+              For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+            </p>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Input
+                  name="remoteOllamaUrl"
+                  label="Remote Ollama/OpenAI API URL"
+                  placeholder="http://192.168.1.100:11434  (or :1234 for OpenAI API Compatible Apps)"
+                  value={remoteOllamaUrl}
+                  onChange={(e) => {
+                    setRemoteOllamaUrl(e.target.value)
+                    setRemoteOllamaError(null)
+                  }}
+                />
+                {remoteOllamaError && (
+                  <p className="text-sm text-red-600 mt-1">{remoteOllamaError}</p>
+                )}
+              </div>
+              <StyledButton
+                variant="primary"
+                onClick={handleSaveRemoteOllama}
+                loading={remoteOllamaSaving}
+                disabled={remoteOllamaSaving || !remoteOllamaUrl}
+                className="mb-0.5"
+              >
+                Save &amp; Test
+              </StyledButton>
+              {props.models.settings.remoteOllamaUrl && (
+                <StyledButton
+                  variant="danger"
+                  onClick={handleClearRemoteOllama}
+                  loading={remoteOllamaSaving}
+                  disabled={remoteOllamaSaving}
+                  className="mb-0.5"
+                >
+                  Clear
+                </StyledButton>
+              )}
+            </div>
+          </div>
+
           <ActiveModelDownloads withHeader />
 
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
+          <Alert
+            type="info"
+            variant="bordered"
+            title="Model downloading is only supported when using a Ollama backend."
+            message="If you are connected to an OpenAI API host (e.g. LM Studio), please download models directly in that application."
+            className="mb-4"
+          />
           <div className="flex justify-start items-center gap-3 mt-4">
             <Input
               name="search"
