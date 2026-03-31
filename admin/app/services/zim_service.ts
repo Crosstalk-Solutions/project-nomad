@@ -521,25 +521,47 @@ export class ZimService {
   }
 
   async onWikipediaDownloadComplete(url: string, success: boolean): Promise<void> {
+    const filename = url.split('/').pop() || ''
     const selection = await this.getWikipediaSelection()
 
-    if (!selection || selection.url !== url) {
-      logger.warn(`[ZimService] Wikipedia download complete callback for unknown URL: ${url}`)
-      return
+    // Determine which Wikipedia option this file belongs to by matching filename
+    let matchedOptionId: string | null = null
+    try {
+      const options = await this.getWikipediaOptions()
+      for (const opt of options) {
+        if (opt.url && opt.url.split('/').pop() === filename) {
+          matchedOptionId = opt.id
+          break
+        }
+      }
+    } catch {
+      // If we can't fetch options, try to continue with existing selection
     }
 
     if (success) {
-      // Update status to installed
-      selection.status = 'installed'
-      await selection.save()
+      // Update or create the selection record
+      // Match by filename (not URL) so mirror downloads are recognized
+      if (selection) {
+        selection.option_id = matchedOptionId || selection.option_id
+        selection.url = url
+        selection.filename = filename
+        selection.status = 'installed'
+        await selection.save()
+      } else {
+        await WikipediaSelection.create({
+          option_id: matchedOptionId || 'unknown',
+          url: url,
+          filename: filename,
+          status: 'installed',
+        })
+      }
 
-      logger.info(`[ZimService] Wikipedia download completed successfully: ${selection.filename}`)
+      logger.info(`[ZimService] Wikipedia download completed successfully: ${filename}`)
 
-      // Delete the old Wikipedia file if it exists and is different
-      // We need to find what was previously installed
+      // Delete old Wikipedia files (keep only the newly installed one)
       const existingFiles = await this.list()
       const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+        f.name.startsWith('wikipedia_en_') && f.name !== filename
       )
 
       for (const oldFile of wikipediaFiles) {
@@ -551,10 +573,14 @@ export class ZimService {
         }
       }
     } else {
-      // Download failed - keep the selection record but mark as failed
-      selection.status = 'failed'
-      await selection.save()
-      logger.error(`[ZimService] Wikipedia download failed for: ${selection.filename}`)
+      // Download failed - update selection if it matches this file
+      if (selection && (!selection.filename || selection.filename === filename)) {
+        selection.status = 'failed'
+        await selection.save()
+        logger.error(`[ZimService] Wikipedia download failed for: ${filename}`)
+      } else {
+        logger.error(`[ZimService] Wikipedia download failed for: ${filename} (no matching selection)`)
+      }
     }
   }
 
