@@ -107,6 +107,8 @@ router
     router.post('/models', [OllamaController, 'dispatchModelDownload'])
     router.delete('/models', [OllamaController, 'deleteModel'])
     router.get('/installed-models', [OllamaController, 'installedModels'])
+    router.post('/configure-remote', [OllamaController, 'configureRemote'])
+    router.get('/remote-status', [OllamaController, 'remoteStatus'])
   })
   .prefix('/api/ollama')
 
@@ -130,6 +132,8 @@ router
     router.get('/files', [RagController, 'getStoredFiles'])
     router.delete('/files', [RagController, 'deleteFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
+    router.get('/failed-jobs', [RagController, 'getFailedJobs'])
+    router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
     router.get('/job-status', [RagController, 'getJobStatus'])
     router.post('/sync', [RagController, 'scanAndSync'])
   })

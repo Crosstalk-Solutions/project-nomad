@@ -46,6 +46,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
       if (fileUploaderRef.current) {
         fileUploaderRef.current.clear()
       }
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
     },
     onError: (error: any) => {
       addNotification({
@@ -65,6 +66,17 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onError: (error: any) => {
       addNotification({ type: 'error', message: error?.message || 'Failed to delete file.' })
       setConfirmDeleteSource(null)
+    },
+  })
+
+  const cleanupFailedMutation = useMutation({
+    mutationFn: () => api.cleanupFailedEmbedJobs(),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Failed jobs cleaned up.' })
+      queryClient.invalidateQueries({ queryKey: ['failedEmbedJobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to clean up jobs.' })
     },
   })
 
@@ -207,7 +219,20 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
             </div>
           </div>
           <div className="my-8">
-            <ActiveEmbedJobs withHeader={true} />
+            <div className="flex items-center justify-between mb-4">
+              <StyledSectionHeader title="Processing Queue" className="!mb-0" />
+              <StyledButton
+                variant="danger"
+                size="md"
+                icon="IconTrash"
+                onClick={() => cleanupFailedMutation.mutate()}
+                loading={cleanupFailedMutation.isPending}
+                disabled={cleanupFailedMutation.isPending}
+              >
+                Clean Up Failed
+              </StyledButton>
+            </div>
+            <ActiveEmbedJobs withHeader={false} />
           </div>
 
           <div className="my-12">

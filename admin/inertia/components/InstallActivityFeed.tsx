@@ -12,16 +12,30 @@ export type InstallActivityFeedProps = {
       | 'created'
       | 'preinstall'
       | 'preinstall-complete'
+      | 'preinstall-error'
       | 'starting'
       | 'started'
       | 'finalizing'
       | 'completed'
+      | 'checking-dependencies'
+      | 'dependency-installed'
+      | 'image-exists'
+      | 'gpu-config'
+      | 'stopping'
+      | 'removing'
+      | 'recreating'
+      | 'cleanup-warning'
+      | 'no-volumes'
+      | 'volume-removed'
+      | 'volume-cleanup-warning'
+      | 'error'
       | 'update-pulling'
       | 'update-stopping'
       | 'update-creating'
       | 'update-starting'
       | 'update-complete'
       | 'update-rollback'
+      | (string & {})
     timestamp: string
     message: string
   }>
@@ -48,7 +62,7 @@ const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, cla
               <div className="relative flex size-6 flex-none items-center justify-center bg-transparent">
                 {activityItem.type === 'completed' || activityItem.type === 'update-complete' ? (
                   <IconCircleCheck aria-hidden="true" className="size-6 text-indigo-600" />
-                ) : activityItem.type === 'update-rollback' ? (
+                ) : activityItem.type === 'error' || activityItem.type === 'update-rollback' || activityItem.type === 'preinstall-error' ? (
                   <IconCircleX aria-hidden="true" className="size-6 text-red-500" />
                 ) : (
                   <div className="size-1.5 rounded-full bg-surface-secondary ring-1 ring-border-default" />
@@ -56,7 +70,7 @@ const InstallActivityFeed: React.FC<InstallActivityFeedProps> = ({ activity, cla
               </div>
               <p className="flex-auto py-0.5 text-xs/5 text-text-muted">
                 <span className="font-semibold text-text-primary">{activityItem.service_name}</span> -{' '}
-                {activityItem.type.charAt(0).toUpperCase() + activityItem.type.slice(1)}
+                {activityItem.message || activityItem.type.charAt(0).toUpperCase() + activityItem.type.slice(1)}
               </p>
               <time
                 dateTime={activityItem.timestamp}
