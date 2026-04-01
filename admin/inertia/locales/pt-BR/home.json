@@ -1,0 +1,24 @@
+{
+  "title": "Central de Comando",
+  "easySetup": {
+    "label": "Configuração Rápida",
+    "description": "Não sabe por onde começar? Use o assistente de configuração para configurar seu N.O.M.A.D. rapidamente!",
+    "badge": "Comece aqui!"
+  },
+  "installApps": {
+    "label": "Instalar Apps",
+    "description": "Não encontra seu app favorito? Instale aqui!"
+  },
+  "docs": {
+    "label": "Documentação",
+    "description": "Leia os manuais e guias do Project N.O.M.A.D."
+  },
+  "settingsCard": {
+    "label": "Configurações",
+    "description": "Configure as opções do seu N.O.M.A.D."
+  },
+  "maps": {
+    "label": "Mapas",
+    "description": "Visualizar mapas offline"
+  }
+}

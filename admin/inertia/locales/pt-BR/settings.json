@@ -1,0 +1,57 @@
+{
+  "system": {
+    "title": "Informações do Sistema",
+    "subtitle": "Monitoramento e diagnósticos em tempo real",
+    "lastUpdated": "Última atualização: {{time}}",
+    "refreshing": "Atualizando dados a cada 30 segundos"
+  },
+  "sections": {
+    "resourceUsage": "Uso de Recursos",
+    "systemDetails": "Detalhes do Sistema",
+    "memoryAllocation": "Alocação de Memória",
+    "storageDevices": "Dispositivos de Armazenamento",
+    "systemStatus": "Status do Sistema",
+    "preferences": "Preferências"
+  },
+  "labels": {
+    "cpuUsage": "Uso de CPU",
+    "memoryUsage": "Uso de Memória",
+    "swapUsage": "Uso de Swap",
+    "cores": "{{count}} núcleos",
+    "utilized": "{{percent}}% Utilizado",
+    "totalRam": "RAM Total",
+    "usedRam": "RAM Usada",
+    "availableRam": "RAM Disponível",
+    "systemUptime": "Tempo Ativo",
+    "cpuCores": "Núcleos de CPU",
+    "storageDevicesCount": "Dispositivos de Armazenamento",
+    "noStorageDetected": "Nenhum dispositivo de armazenamento detectado"
+  },
+  "os": {
+    "distribution": "Distribuição",
+    "kernelVersion": "Versão do Kernel",
+    "architecture": "Arquitetura",
+    "hostname": "Nome do Host",
+    "platform": "Plataforma"
+  },
+  "cpu": {
+    "manufacturer": "Fabricante",
+    "brand": "Modelo",
+    "cores": "Núcleos",
+    "physicalCores": "Núcleos Físicos",
+    "virtualization": "Virtualização",
+    "enabled": "Habilitado",
+    "disabled": "Desabilitado"
+  },
+  "gpu": {
+    "title": "Placa de Vídeo",
+    "model": "Modelo",
+    "vendor": "Fabricante",
+    "vram": "VRAM"
+  },
+  "storage": {
+    "normal": "Normal",
+    "warningHigh": "Alerta - Uso Elevado",
+    "criticalFull": "Crítico - Disco Quase Cheio"
+  }
+}
