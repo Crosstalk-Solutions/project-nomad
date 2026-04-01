@@ -3,7 +3,7 @@ import { BenchmarkService } from '#services/benchmark_service'
 import { MapService } from '#services/map_service'
 import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
-import { updateSettingSchema } from '#validators/settings'
+import { getSettingSchema, updateSettingSchema } from '#validators/settings'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { KVStoreKey } from '../../types/kv_store.js'
@@ -110,9 +110,9 @@ export default class SettingsController {
   }
 
   async getSetting({ request, response }: HttpContext) {
-    const key = request.qs().key
-    const value = await KVStore.getValue(key as KVStoreKey)
-    return response.status(200).send({ key, value })
+    const { key } = await getSettingSchema.validate({ key: request.qs().key });
+    const value = await KVStore.getValue(key);
+    return response.status(200).send({ key, value });
   }
 
   async updateSetting({ request, response }: HttpContext) {
