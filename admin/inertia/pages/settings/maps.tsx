@@ -16,8 +16,10 @@ import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import type { CollectionWithStatus } from '../../../types/collections'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
+import { formatBytes } from '~/lib/util'
 
 const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
+const GLOBAL_MAP_INFO_KEY = 'global-map-info'
 
 export default function MapsManager(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
@@ -36,6 +38,31 @@ export default function MapsManager(props: {
   const { invalidate: invalidateDownloads } = useDownloads({
     filetype: 'map',
     enabled: true,
+  })
+
+  const { data: globalMapInfo } = useQuery({
+    queryKey: [GLOBAL_MAP_INFO_KEY],
+    queryFn: () => api.getGlobalMapInfo(),
+    refetchOnWindowFocus: false,
+  })
+
+  const downloadGlobalMap = useMutation({
+    mutationFn: () => api.downloadGlobalMap(),
+    onSuccess: () => {
+      invalidateDownloads()
+      addNotification({
+        type: 'success',
+        message: 'Global map download has been queued. This is a large file (~125 GB) and may take a while.',
+      })
+      closeAllModals()
+    },
+    onError: (error) => {
+      console.error('Error downloading global map:', error)
+      addNotification({
+        type: 'error',
+        message: 'Failed to start the global map download. Please try again.',
+      })
+    },
   })
 
   async function downloadBaseAssets() {
@@ -146,6 +173,29 @@ export default function MapsManager(props: {
     )
   }
 
+  async function confirmGlobalMapDownload() {
+    if (!globalMapInfo) return
+    openModal(
+      <StyledModal
+        title="Download Global Map?"
+        onConfirm={() => downloadGlobalMap.mutate()}
+        onCancel={closeAllModals}
+        open={true}
+        confirmText="Download"
+        cancelText="Cancel"
+        confirmVariant="primary"
+        confirmLoading={downloadGlobalMap.isPending}
+      >
+        <p className="text-text-secondary">
+          This will download the full Protomaps global map ({formatBytes(globalMapInfo.size, 1)}, build {globalMapInfo.date}).
+          Covers the entire planet so you won't need individual region files.
+          Make sure you have enough disk space.
+        </p>
+      </StyledModal>,
+      'confirm-global-map-download-modal'
+    )
+  }
+
   async function openDownloadModal() {
     openModal(
       <DownloadURLModal
@@ -198,6 +248,23 @@ export default function MapsManager(props: {
                 icon: 'IconDownload',
                 loading: downloading,
                 onClick: () => downloadBaseAssets(),
+              }}
+            />
+          )}
+          {globalMapInfo && (
+            <Alert
+              title="Global Map Coverage Available"
+              message={`Download a complete worldwide map from Protomaps (${formatBytes(globalMapInfo.size, 1)}, build ${globalMapInfo.date}). This is a large file but covers the entire planet — no individual region downloads needed.`}
+              type="info-inverted"
+              variant="bordered"
+              className="mt-8"
+              icon="IconWorld"
+              buttonProps={{
+                variant: 'primary',
+                children: 'Download Global Map',
+                icon: 'IconCloudDownload',
+                loading: downloadGlobalMap.isPending,
+                onClick: () => confirmGlobalMapDownload(),
               }}
             />
           )}
