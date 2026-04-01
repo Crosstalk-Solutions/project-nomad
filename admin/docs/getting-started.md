@@ -159,6 +159,8 @@ N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing a
 
 **Note:** Selecting a different Wikipedia package replaces the previously downloaded version. Only one Wikipedia selection is active at a time.
 
+If the page warns that Kiwix is not installed yet, click **Install Kiwix** on that page first. N.O.M.A.D. will install the reader service for you, then the warning will clear after the page refreshes.
+
 ### System Benchmark
 
 ![System Benchmark with NOMAD Score and Builder Tag](/docs/benchmark.png)

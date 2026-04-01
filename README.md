@@ -66,6 +66,17 @@ curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/r
 
 On macOS, the installer targets the management stack and uses a user-writable default install directory. Linux-specific host integrations such as the disk collector and NVIDIA runtime checks are skipped.
 
+After installation:
+- Open `http://localhost:8080`
+- Open `http://localhost:9999` for container logs
+- If a content page says Kiwix is not installed, use the new `Install Kiwix` button directly from the page or install it from Settings -> Apps
+
+Compatibility notes for macOS:
+- Docker Desktop is required
+- The default install directory is `~/.project-nomad`
+- Apple Silicon currently runs the published `linux/amd64` images under emulation
+- Linux-only host integrations such as disk collector and NVIDIA runtime setup are intentionally skipped
+
 For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install).
 
 ### Advanced Installation
@@ -163,23 +174,43 @@ Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need
 ###
 
 ###### Start Script - Starts all installed project containers
+Debian/Linux:
 ```bash
 sudo bash /opt/project-nomad/start_nomad.sh
+```
+macOS:
+```bash
+bash ~/.project-nomad/start_nomad.sh
 ```
 ###
 
 ###### Stop Script - Stops all installed project containers
+Debian/Linux:
 ```bash
 sudo bash /opt/project-nomad/stop_nomad.sh
+```
+macOS:
+```bash
+bash ~/.project-nomad/stop_nomad.sh
 ```
 ###
 
 ###### Update Script - Attempts to pull the latest images for the Command Center and its dependencies (i.e. mysql) and recreate the containers. Note: this *only* updates the Command Center containers. It does not update the installable application containers - that should be done through the Command Center UI
+Debian/Linux:
 ```bash
 sudo bash /opt/project-nomad/update_nomad.sh
 ```
+macOS:
+```bash
+bash ~/.project-nomad/update_nomad.sh
+```
 
 ###### Uninstall Script - Need to start fresh? Use the uninstall script to make your life easy. Note: this cannot be undone!
+Debian/Linux:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/uninstall_nomad.sh -o uninstall_nomad.sh && sudo bash uninstall_nomad.sh
+```
+macOS:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/uninstall_nomad.sh -o uninstall_nomad.sh && bash uninstall_nomad.sh
 ```
