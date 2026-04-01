@@ -509,7 +509,9 @@ export class DockerService {
         Image: finalImage,
         name: service.service_name,
         Labels: {
-          'com.docker.compose.project': 'project-nomad',
+          ...(containerConfig?.Labels ?? {}),
+          'com.docker.compose.project': 'project-nomad-managed',
+          'io.project-nomad.managed': 'true',
         },
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: gpuHostConfig,
