@@ -166,7 +166,7 @@ generateRandomPass() {
   local password
   
   # Generate random password using /dev/urandom
-  password=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
+  password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
   
   echo "$password"
 }
@@ -459,17 +459,27 @@ create_nomad_directory(){
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
   local compose_url="$MANAGEMENT_COMPOSE_FILE_URL"
+  local local_compose_source=""
 
   if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
     compose_url="$MANAGEMENT_COMPOSE_MACOS_URL"
+    local_compose_source="$(cd "$(dirname "$0")" && pwd)/management_compose.macos.yaml"
   elif [[ "$TARGET_PLATFORM" == 'linux' ]]; then
     compose_url="$MANAGEMENT_COMPOSE_LINUX_URL"
+    local_compose_source="$(cd "$(dirname "$0")" && pwd)/management_compose.linux.yaml"
   fi
 
   echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
-  if ! curl -fsSL "$compose_url" -o "$compose_file_path"; then
-    echo -e "${RED}#${RESET} Failed to download the docker compose file. Please check the URL and try again."
-    exit 1
+  if [[ -n "$local_compose_source" && -f "$local_compose_source" ]]; then
+    if ! cp "$local_compose_source" "$compose_file_path"; then
+      echo -e "${RED}#${RESET} Failed to copy the local docker compose template from $local_compose_source."
+      exit 1
+    fi
+  else
+    if ! curl -fsSL "$compose_url" -o "$compose_file_path"; then
+      echo -e "${RED}#${RESET} Failed to download the docker compose file. Please check the URL and try again."
+      exit 1
+    fi
   fi
   echo -e "${GREEN}#${RESET} Docker compose file downloaded successfully to $compose_file_path.\\n"
 
@@ -492,7 +502,19 @@ download_management_compose_file() {
 
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
-  perl -0pi -e "s|__NOMAD_DIR__|\Q${NOMAD_DIR}\E|g; s|URL=replaceme|URL=http://${local_ip_address}:8080|g; s|APP_KEY=replaceme|APP_KEY=${app_key}|g; s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g; s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g; s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
+  NOMAD_DIR_REPLACEMENT="${NOMAD_DIR}" \
+  LOCAL_IP_REPLACEMENT="${local_ip_address}" \
+  APP_KEY_REPLACEMENT="${app_key}" \
+  DB_PASSWORD_REPLACEMENT="${db_user_password}" \
+  DB_ROOT_PASSWORD_REPLACEMENT="${db_root_password}" \
+  perl -0pi -e '
+    s|__NOMAD_DIR__|$ENV{NOMAD_DIR_REPLACEMENT}|g;
+    s|URL=replaceme|URL=http://$ENV{LOCAL_IP_REPLACEMENT}:8080|g;
+    s|APP_KEY=replaceme|APP_KEY=$ENV{APP_KEY_REPLACEMENT}|g;
+    s|DB_PASSWORD=replaceme|DB_PASSWORD=$ENV{DB_PASSWORD_REPLACEMENT}|g;
+    s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=$ENV{DB_ROOT_PASSWORD_REPLACEMENT}|g;
+    s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=$ENV{DB_PASSWORD_REPLACEMENT}|g;
+  ' "$compose_file_path"
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }

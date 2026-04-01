@@ -21,6 +21,36 @@ Project N.O.M.A.D. can be installed on Debian-based Linux systems and now has an
 
 *Note: Debian/Linux install uses sudo/root privileges. The macOS installer path uses a user-writable install directory by default.*
 
+### Prerequisites
+
+#### Debian-based Linux
+- `bash`
+- `curl`
+- `sudo` access
+- internet connection during installation
+
+The installer will install Docker for you if it is missing.
+
+#### macOS
+- `bash`
+- `curl`
+- Docker Desktop installed
+- Docker Desktop running
+- `docker` command available in your shell
+- internet connection during installation
+
+Install Docker Desktop with Homebrew:
+```bash
+brew install --cask docker
+open -a Docker
+```
+
+Verify Docker before running the installer:
+```bash
+docker --version
+docker info
+```
+
 ### Quick Install (Debian-based Linux)
 ```bash
 sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
