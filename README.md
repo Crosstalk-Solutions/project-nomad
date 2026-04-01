@@ -17,21 +17,29 @@
 Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
 
 ## Installation & Quickstart
-Project N.O.M.A.D. can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
+Project N.O.M.A.D. can be installed on Debian-based Linux systems and now has an installer path for macOS. Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
 
-*Note: sudo/root privileges are required to run the install script*
+*Note: Debian/Linux install uses sudo/root privileges. The macOS installer path uses a user-writable install directory by default.*
 
-### Quick Install (Debian-based OS Only)
+### Quick Install (Debian-based Linux)
 ```bash
 sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
 ```
 
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
 
+### Quick Install (macOS)
+Install Docker Desktop first, make sure it is running, then run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && bash install_nomad.sh
+```
+
+On macOS, the installer targets the management stack and uses a user-writable default install directory. Linux-specific host integrations such as the disk collector and NVIDIA runtime checks are skipped.
+
 For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install).
 
 ### Advanced Installation
-For more control over the installation process, copy and paste the [Docker Compose template](https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
+For more control over the installation process, copy and paste the [Linux Docker Compose template](https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml) or the macOS template at [install/management_compose.macos.yaml](install/management_compose.macos.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
 
 ## How It Works
 N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
@@ -72,7 +80,7 @@ At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones ins
 - Processor: 2 GHz dual-core processor or better
 - RAM: 4GB system memory
 - Storage: At least 5 GB free disk space
-- OS: Debian-based (Ubuntu recommended)
+- OS: Debian-based Linux or macOS
 - Stable internet connection (required during install only)
 
 To run LLM's and other included AI tools:
@@ -82,7 +90,7 @@ To run LLM's and other included AI tools:
 - RAM: 32 GB system memory
 - Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
 - Storage: At least 250 GB free disk space (preferably on SSD)
-- OS: Debian-based (Ubuntu recommended)
+- OS: Debian-based Linux
 - Stable internet connection (required during install only)
 
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
@@ -120,7 +128,7 @@ Contributions are welcome and appreciated! Please see [CONTRIBUTING.md](CONTRIBU
 Project N.O.M.A.D. is licensed under the [Apache License 2.0](LICENSE).
 
 ## Helper Scripts
-Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
+Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory. On Debian/Linux the default is `/opt/project-nomad`; on macOS the default installer path is `~/.project-nomad`.
 
 ###
 

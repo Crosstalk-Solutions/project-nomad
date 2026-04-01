@@ -29,14 +29,17 @@ GREEN='\033[1;32m' # Light Green.
 ###################################################################################################################################################################################################
 
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
-NOMAD_DIR="/opt/project-nomad"
+NOMAD_DIR="${NOMAD_DIR:-}"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
+MANAGEMENT_COMPOSE_LINUX_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.linux.yaml"
+MANAGEMENT_COMPOSE_MACOS_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.macos.yaml"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
+TARGET_PLATFORM=''
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -55,6 +58,11 @@ header_red() {
 }
 
 check_has_sudo() {
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    echo -e "${GREEN}#${RESET} macOS install path does not require sudo by default.\\n"
+    return 0
+  fi
+
   if sudo -n true 2>/dev/null; then
     echo -e "${GREEN}#${RESET} User has sudo permissions.\\n"
   else
@@ -76,14 +84,30 @@ check_is_bash() {
     echo -e "${GREEN}#${RESET} This script is running in bash.\\n"
 }
 
-check_is_debian_based() {
-  if [[ ! -f /etc/debian_version ]]; then
-    header_red
-    echo -e "${RED}#${RESET} This script is designed to run on Debian-based systems only.\\n"
-    echo -e "${RED}#${RESET} Please run this script on a Debian-based system and try again."
-    exit 1
-  fi
-    echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
+detect_platform() {
+  case "$(uname -s)" in
+    Darwin)
+      TARGET_PLATFORM='macos'
+      NOMAD_DIR="${NOMAD_DIR:-${HOME}/.project-nomad}"
+      echo -e "${GREEN}#${RESET} Detected macOS host.\\n"
+      ;;
+    Linux)
+      if [[ ! -f /etc/debian_version ]]; then
+        header_red
+        echo -e "${RED}#${RESET} Linux support currently targets Debian-based systems only.\\n"
+        echo -e "${RED}#${RESET} Debian defaults are preserved; other Linux distributions are not supported by this installer yet."
+        exit 1
+      fi
+      TARGET_PLATFORM='linux'
+      NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
+      echo -e "${GREEN}#${RESET} Detected Debian-based Linux host.\\n"
+      ;;
+    *)
+      header_red
+      echo -e "${RED}#${RESET} Unsupported operating system: $(uname -s)"
+      exit 1
+      ;;
+  esac
 }
 
 ensure_dependencies_installed() {
@@ -98,6 +122,17 @@ ensure_dependencies_installed() {
   # if ! command -v whiptail &> /dev/null; then
   #   missing_deps+=("whiptail")
   # fi
+
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+      echo -e "${RED}#${RESET} Missing required dependencies: ${missing_deps[*]}"
+      echo -e "${YELLOW}#${RESET} Install them on macOS and rerun the installer."
+      exit 1
+    fi
+
+    echo -e "${GREEN}#${RESET} Required dependencies are available.\\n"
+    return 0
+  fi
 
   if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
@@ -137,6 +172,23 @@ generateRandomPass() {
 }
 
 ensure_docker_installed() {
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    if ! command -v docker &> /dev/null; then
+      echo -e "${RED}#${RESET} Docker Desktop CLI not found."
+      echo -e "${YELLOW}#${RESET} Install Docker Desktop for macOS and make sure the 'docker' command is available."
+      exit 1
+    fi
+
+    if ! docker info &> /dev/null; then
+      echo -e "${RED}#${RESET} Docker Desktop does not appear to be running."
+      echo -e "${YELLOW}#${RESET} Start Docker Desktop and rerun the installer."
+      exit 1
+    fi
+
+    echo -e "${GREEN}#${RESET} Docker Desktop is available and running.\\n"
+    return 0
+  fi
+
   if ! command -v docker &> /dev/null; then
     echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
     
@@ -208,6 +260,11 @@ check_docker_compose() {
 }
 
 setup_nvidia_container_toolkit() {
+  if [[ "$TARGET_PLATFORM" != 'linux' ]]; then
+    echo -e "${YELLOW}#${RESET} Skipping NVIDIA container toolkit setup on ${TARGET_PLATFORM}.\\n"
+    return 0
+  fi
+
   # This function attempts to set up NVIDIA GPU support but is non-blocking
   # Any failures will result in warnings but will NOT stop the installation process
   
@@ -372,8 +429,12 @@ create_nomad_directory(){
   # Ensure the main installation directory exists
   if [[ ! -d "$NOMAD_DIR" ]]; then
     echo -e "${YELLOW}#${RESET} Creating directory for Project N.O.M.A.D at $NOMAD_DIR...\\n"
-    sudo mkdir -p "$NOMAD_DIR"
-    sudo chown "$(whoami):$(whoami)" "$NOMAD_DIR"
+    if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+      mkdir -p "$NOMAD_DIR"
+    else
+      sudo mkdir -p "$NOMAD_DIR"
+      sudo chown "$(whoami):$(whoami)" "$NOMAD_DIR"
+    fi
 
     echo -e "${GREEN}#${RESET} Directory created successfully.\\n"
   else
@@ -381,17 +442,32 @@ create_nomad_directory(){
   fi
 
   # Also ensure the directory has a /storage/logs/ subdirectory
-  sudo mkdir -p "${NOMAD_DIR}/storage/logs"
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    mkdir -p "${NOMAD_DIR}/storage/logs"
+  else
+    sudo mkdir -p "${NOMAD_DIR}/storage/logs"
+  fi
 
   # Create a admin.log file in the logs directory
-  sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    touch "${NOMAD_DIR}/storage/logs/admin.log"
+  else
+    sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
+  fi
 }
 
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
+  local compose_url="$MANAGEMENT_COMPOSE_FILE_URL"
+
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    compose_url="$MANAGEMENT_COMPOSE_MACOS_URL"
+  elif [[ "$TARGET_PLATFORM" == 'linux' ]]; then
+    compose_url="$MANAGEMENT_COMPOSE_LINUX_URL"
+  fi
 
   echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
-  if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
+  if ! curl -fsSL "$compose_url" -o "$compose_file_path"; then
     echo -e "${RED}#${RESET} Failed to download the docker compose file. Please check the URL and try again."
     exit 1
   fi
@@ -407,17 +483,16 @@ download_management_compose_file() {
   # causing "Access denied" errors when the admin container tries to connect.
   if [[ -d "${NOMAD_DIR}/mysql" ]]; then
     echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
-    sudo rm -rf "${NOMAD_DIR}/mysql"
+    if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+      rm -rf "${NOMAD_DIR}/mysql"
+    else
+      sudo rm -rf "${NOMAD_DIR}/mysql"
+    fi
   fi
 
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
-  sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
-  sed -i "s|APP_KEY=replaceme|APP_KEY=${app_key}|g" "$compose_file_path"
-  
-  sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
-  sed -i "s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g" "$compose_file_path"
-  sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
+  perl -0pi -e "s|__NOMAD_DIR__|\Q${NOMAD_DIR}\E|g; s|URL=replaceme|URL=http://${local_ip_address}:8080|g; s|APP_KEY=replaceme|APP_KEY=${app_key}|g; s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g; s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g; s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
@@ -446,12 +521,20 @@ download_helper_scripts() {
   fi
   chmod +x "$update_script_path"
 
+  perl -0pi -e "s|NOMAD_DIR=\"\\$\\{NOMAD_DIR:-/opt/project-nomad\\}\"|NOMAD_DIR=\"${NOMAD_DIR}\"|" "$update_script_path"
+
   echo -e "${GREEN}#${RESET} Helper scripts downloaded successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
 }
 
 start_management_containers() {
   echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
-  if ! sudo docker compose -p project-nomad -f "${NOMAD_DIR}/compose.yml" up -d; then
+  local docker_cmd=(docker compose -p project-nomad -f "${NOMAD_DIR}/compose.yml" up -d)
+
+  if [[ "$TARGET_PLATFORM" == 'linux' ]]; then
+    docker_cmd=(sudo "${docker_cmd[@]}")
+  fi
+
+  if ! "${docker_cmd[@]}"; then
     echo -e "${RED}#${RESET} Failed to start management containers. Please check the logs and try again."
     exit 1
   fi
@@ -459,13 +542,25 @@ start_management_containers() {
 }
 
 get_local_ip() {
-  local_ip_address=$(hostname -I | awk '{print $1}')
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    local_ip_address=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
+  else
+    local_ip_address=$(hostname -I | awk '{print $1}')
+  fi
+
   if [[ -z "$local_ip_address" ]]; then
-    echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
-    exit 1
+    local_ip_address="localhost"
   fi
 }
 verify_gpu_setup() {
+  if [[ "$TARGET_PLATFORM" == 'macos' ]]; then
+    echo -e "\\n${YELLOW}#${RESET} GPU Setup Verification\\n"
+    echo -e "${YELLOW}===========================================${RESET}\\n"
+    echo -e "${YELLOW}○${RESET} Host GPU passthrough checks are only supported on Linux right now.\\n"
+    echo -e "${YELLOW}#${RESET} The management stack can run on macOS, but GPU acceleration validation is skipped.\\n"
+    return 0
+  fi
+
   # This function only displays GPU setup status and is completely non-blocking
   # It never exits or returns error codes - purely informational
   
@@ -520,7 +615,7 @@ verify_gpu_setup() {
 
 success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
-  echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
+  echo -e "${GREEN}#${RESET} Installation files are located at ${NOMAD_DIR}\\n\n"
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
@@ -533,7 +628,7 @@ success_message() {
 ###################################################################################################################################################################################################
 
 # Pre-flight checks
-check_is_debian_based
+detect_platform
 check_is_bash
 check_has_sudo
 ensure_dependencies_installed

@@ -40,7 +40,7 @@ WHITE_R='\033[39m'
 # Constants
 ###############################################################################
 
-NOMAD_DIR="/opt/project-nomad"
+NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
 COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 SIDECAR_DIR="${NOMAD_DIR}/sidecar-updater"
 COMPOSE_PROJECT_NAME="project-nomad"
@@ -73,6 +73,11 @@ check_confirmation() {
 }
 
 check_has_sudo() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    echo -e "${GREEN}#${RESET} macOS path does not require sudo by default.\n"
+    return 0
+  fi
+
   if sudo -n true 2>/dev/null; then
     echo -e "${GREEN}#${RESET} Sudo permissions confirmed.\n"
   else
@@ -87,7 +92,7 @@ check_docker_running() {
     echo -e "${RED}#${RESET} Docker is not installed. Cannot proceed."
     exit 1
   fi
-  if ! systemctl is-active --quiet docker; then
+  if ! docker info &>/dev/null; then
     echo -e "${RED}#${RESET} Docker is not running. Please start Docker and try again."
     exit 1
   fi
@@ -128,18 +133,21 @@ backup_compose_file() {
 }
 
 fix_sidecar_volume_mount() {
+  local readonly_mount="${NOMAD_DIR}:${NOMAD_DIR}:ro"
+  local writable_mount="${NOMAD_DIR}:${NOMAD_DIR}"
+
   # Idempotent: skip if :ro is already absent from the sidecar mount line
-  if ! grep -q '/opt/project-nomad:/opt/project-nomad:ro' "$COMPOSE_FILE"; then
+  if ! grep -q "$readonly_mount" "$COMPOSE_FILE"; then
     echo -e "${GREEN}#${RESET} Sidecar volume mount is already writable — no change needed.\n"
     return 0
   fi
 
   echo -e "${YELLOW}#${RESET} Removing :ro restriction from sidecar volume mount in compose.yml..."
-  sed -i 's|/opt/project-nomad:/opt/project-nomad:ro.*|/opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml|' "$COMPOSE_FILE"
+  perl -0pi -e "s|\\Q${readonly_mount}\\E.*|${writable_mount} # Writable access required so the updater can set the correct image tag in compose.yml|g" "$COMPOSE_FILE"
 
-  if grep -q '/opt/project-nomad:/opt/project-nomad:ro' "$COMPOSE_FILE"; then
+  if grep -q "$readonly_mount" "$COMPOSE_FILE"; then
     echo -e "${RED}#${RESET} Failed to remove :ro from compose.yml. Please update it manually:"
-    echo -e "${WHITE_R}    - /opt/project-nomad:/opt/project-nomad:ro${RESET}  →  ${WHITE_R}- /opt/project-nomad:/opt/project-nomad${RESET}"
+    echo -e "${WHITE_R}    - ${readonly_mount}${RESET}  →  ${WHITE_R}- ${writable_mount}${RESET}"
     exit 1
   fi
 

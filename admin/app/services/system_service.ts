@@ -4,6 +4,7 @@ import { DockerService } from '#services/docker_service'
 import { ServiceSlim } from '../../types/services.js'
 import logger from '@adonisjs/core/services/logger'
 import si from 'systeminformation'
+import { Systeminformation } from 'systeminformation'
 import { GpuHealthStatus, NomadDiskInfo, NomadDiskInfoRaw, SystemInformationResponse } from '../../types/system.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { readFileSync } from 'fs'
@@ -468,7 +469,7 @@ export class SystemService {
           lines.push(`  Disk: ${size}, ${Math.round(d.percentUsed)}% used, ${type}`)
         }
       } else if (fsSize.length > 0) {
-        const realFs = fsSize.filter((f) => f.fs.startsWith('/dev/'))
+        const realFs = this._getDisplayableFilesystems(fsSize)
         const seen = new Set<number>()
         for (const f of realFs) {
           if (seen.has(f.size)) continue
@@ -519,6 +520,30 @@ export class SystemService {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i]
+  }
+
+  private _getDisplayableFilesystems(fsSize: Systeminformation.FsSizeData[]): Systeminformation.FsSizeData[] {
+    const linuxBlockDevices = fsSize.filter((f) => f.fs.startsWith('/dev/'))
+    if (linuxBlockDevices.length > 0) {
+      return linuxBlockDevices
+    }
+
+    return fsSize.filter((f) => {
+      const mount = f.mount || ''
+      const device = f.fs || ''
+
+      if (!mount || mount.startsWith('/var/lib/docker')) return false
+      if (
+        device.startsWith('overlay') ||
+        device.startsWith('tmpfs') ||
+        device.startsWith('shm') ||
+        device.startsWith('devtmpfs')
+      ) {
+        return false
+      }
+
+      return true
+    })
   }
 
   async updateSetting(key: KVStoreKey, value: any): Promise<void> {

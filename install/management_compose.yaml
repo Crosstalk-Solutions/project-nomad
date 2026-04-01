@@ -32,6 +32,7 @@ services:
       - HOST=0.0.0.0
       # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
       - URL=replaceme
+      - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
       - DB_HOST=mysql
       # If you change the MySQL port, make sure to update this accordingly
       - DB_PORT=3306
@@ -100,6 +101,8 @@ services:
     pull_policy: always
     container_name: nomad_updater
     restart: unless-stopped
+    environment:
+      - NOMAD_DIR=/opt/project-nomad
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
       - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly

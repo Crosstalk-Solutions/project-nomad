@@ -1,0 +1,97 @@
+# Project N.O.M.A.D. management services Docker Compose configuration
+#
+# macOS variant. This keeps the management stack working on Docker Desktop
+# and intentionally omits Linux-only host integrations such as disk-collector.
+name: project-nomad
+services:
+  admin:
+    image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    pull_policy: always
+    container_name: nomad_admin
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - __NOMAD_DIR__/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - nomad-update-shared:/app/update-shared
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - LOG_LEVEL=info
+      - APP_KEY=replaceme
+      - HOST=0.0.0.0
+      - URL=replaceme
+      - NOMAD_STORAGE_PATH=__NOMAD_DIR__/storage
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=nomad
+      - DB_USER=nomad_user
+      - DB_PASSWORD=replaceme
+      - DB_NAME=nomad
+      - DB_SSL=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  dozzle:
+    image: amir20/dozzle:v10.0
+    container_name: nomad_dozzle
+    restart: unless-stopped
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOZZLE_ENABLE_ACTIONS=false
+      - DOZZLE_ENABLE_SHELL=false
+  mysql:
+    image: mysql:8.0
+    container_name: nomad_mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=replaceme
+      - MYSQL_DATABASE=nomad
+      - MYSQL_USER=nomad_user
+      - MYSQL_PASSWORD=replaceme
+    volumes:
+      - __NOMAD_DIR__/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    container_name: nomad_redis
+    restart: unless-stopped
+    volumes:
+      - __NOMAD_DIR__/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  updater:
+    image: ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest
+    pull_policy: always
+    container_name: nomad_updater
+    restart: unless-stopped
+    environment:
+      - NOMAD_DIR=__NOMAD_DIR__
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - __NOMAD_DIR__:__NOMAD_DIR__
+      - nomad-update-shared:/shared
+
+volumes:
+  nomad-update-shared:
+    driver: local

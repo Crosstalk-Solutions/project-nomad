@@ -6,7 +6,8 @@ SHARED_DIR="/shared"
 REQUEST_FILE="${SHARED_DIR}/update-request"
 STATUS_FILE="${SHARED_DIR}/update-status"
 LOG_FILE="${SHARED_DIR}/update-log"
-COMPOSE_FILE="/opt/project-nomad/compose.yml"
+NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
+COMPOSE_FILE="${COMPOSE_FILE:-${NOMAD_DIR}/compose.yml}"
 COMPOSE_PROJECT_NAME="project-nomad"
 
 log() {

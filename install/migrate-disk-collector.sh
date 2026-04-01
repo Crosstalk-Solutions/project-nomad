@@ -35,7 +35,7 @@ WHITE_R='\033[39m'
 # Constants
 ###############################################################################
 
-NOMAD_DIR="/opt/project-nomad"
+NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
 COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 COMPOSE_PROJECT_NAME="project-nomad"
 
@@ -53,6 +53,11 @@ check_is_bash() {
 }
 
 check_has_sudo() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    echo -e "${RED}#${RESET} The disk-collector migration is Linux-only and is not supported on macOS."
+    exit 1
+  fi
+
   if sudo -n true 2>/dev/null; then
     echo -e "${GREEN}#${RESET} Sudo permissions confirmed.\n"
   else
@@ -83,7 +88,7 @@ check_docker_running() {
     echo -e "${RED}#${RESET} Docker is not installed. Cannot proceed."
     exit 1
   fi
-  if ! systemctl is-active --quiet docker; then
+  if ! docker info &>/dev/null; then
     echo -e "${RED}#${RESET} Docker is not running. Please start Docker and try again."
     exit 1
   fi
@@ -167,7 +172,7 @@ add_disk_collector_service() {
     print "    restart: unless-stopped"
     print "    volumes:"
     print "      - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible"
-    print "      - /opt/project-nomad/storage:/storage  # Shared storage dir — disk info written here is read by the admin container"
+    print "      - '"${NOMAD_DIR}"'/storage:/storage  # Shared storage dir — disk info written here is read by the admin container"
     print ""
   }
   {print}' "$COMPOSE_FILE" > "${COMPOSE_FILE}.tmp" && mv "${COMPOSE_FILE}.tmp" "$COMPOSE_FILE"

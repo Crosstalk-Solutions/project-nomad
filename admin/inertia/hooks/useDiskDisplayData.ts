@@ -12,6 +12,41 @@ type DiskDisplayItem = {
   usedBytes: number
 }
 
+function getDisplayableFilesystems(
+  fsSize: Systeminformation.FsSizeData[] | undefined
+): Systeminformation.FsSizeData[] {
+  if (!fsSize || fsSize.length === 0) return []
+
+  const seen = new Set<number>()
+  const uniqueFs = fsSize.filter((fs) => {
+    if (fs.size <= 0 || seen.has(fs.size)) return false
+    seen.add(fs.size)
+    return true
+  })
+
+  const linuxBlockDevices = uniqueFs.filter((fs) => fs.fs.startsWith('/dev/'))
+  if (linuxBlockDevices.length > 0) {
+    return linuxBlockDevices
+  }
+
+  return uniqueFs.filter((fs) => {
+    const mount = fs.mount || ''
+    const device = fs.fs || ''
+
+    if (!mount || mount.startsWith('/var/lib/docker')) return false
+    if (
+      device.startsWith('overlay') ||
+      device.startsWith('tmpfs') ||
+      device.startsWith('shm') ||
+      device.startsWith('devtmpfs')
+    ) {
+      return false
+    }
+
+    return true
+  })
+}
+
 /** Get all valid disks formatted for display (settings/system page) */
 export function getAllDiskDisplayItems(
   disks: NomadDiskInfo[] | undefined,
@@ -32,14 +67,7 @@ export function getAllDiskDisplayItems(
   }
 
   if (fsSize && fsSize.length > 0) {
-    const seen = new Set<number>()
-    const uniqueFs = fsSize.filter((fs) => {
-      if (fs.size <= 0 || seen.has(fs.size)) return false
-      seen.add(fs.size)
-      return true
-    })
-    const realDevices = uniqueFs.filter((fs) => fs.fs.startsWith('/dev/'))
-    const displayFs = realDevices.length > 0 ? realDevices : uniqueFs
+    const displayFs = getDisplayableFilesystems(fsSize)
     return displayFs.map((fs) => ({
       label: fs.fs || 'Unknown',
       value: fs.use || 0,
@@ -70,7 +98,7 @@ export function getPrimaryDiskInfo(
   }
 
   if (fsSize && fsSize.length > 0) {
-    const realDevices = fsSize.filter((fs) => fs.fs.startsWith('/dev/'))
+    const realDevices = getDisplayableFilesystems(fsSize)
     const primary =
       realDevices.length > 0
         ? realDevices.reduce((a, b) => (b.size > a.size ? b : a))
