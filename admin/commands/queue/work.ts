@@ -61,6 +61,7 @@ export default class QueueWork extends BaseCommand {
         {
           connection: queueConfig.connection,
           concurrency: this.getConcurrencyForQueue(queueName),
+          lockDuration: 300000,
           autorun: true,
         }
       )
