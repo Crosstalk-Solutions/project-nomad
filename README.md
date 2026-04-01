@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/admin/public/project_nomad_logo.png" width="200" height="200"/>
+<img src="admin/public/project_nomad_logo.webp" width="200" height="200"/>
 
 # Project N.O.M.A.D.
 ### Node for Offline Media, Archives, and Data

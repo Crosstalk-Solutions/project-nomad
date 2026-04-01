@@ -31,7 +31,7 @@ const FadingImage = ({  alt = "Fading image", className = "" }) => {
       isVisible ? 'opacity-100' : 'opacity-0'
     }`}>
       <img
-        src={`/project_nomad_logo.png`}
+        src={`/project_nomad_logo.webp`}
         alt={alt}
         className={`w-64 h-64 ${className}`}
       />
