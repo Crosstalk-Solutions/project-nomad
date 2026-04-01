@@ -20,4 +20,8 @@ export default class DownloadsController {
     await this.downloadService.removeFailedJob(params.jobId)
     return { success: true }
   }
+
+  async cancelJob({ params }: HttpContext) {
+    return this.downloadService.cancelJob(params.jobId)
+  }
 }

@@ -137,13 +137,13 @@ export class ZimService {
     }
   }
 
-  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
+  async downloadRemote(url: string, metadata?: { title?: string; summary?: string; author?: string; size_bytes?: number }): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`)
     }
 
-    const existing = await RunDownloadJob.getByUrl(url)
+    const existing = await RunDownloadJob.getActiveByUrl(url)
     if (existing) {
       throw new Error('A download for this URL is already in progress')
     }
@@ -170,6 +170,8 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      title: metadata?.title,
+      totalBytes: metadata?.size_bytes,
       resourceMetadata,
     })
 
@@ -219,7 +221,7 @@ export class ZimService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const existingJob = await RunDownloadJob.getByUrl(resource.url)
+      const existingJob = await RunDownloadJob.getActiveByUrl(resource.url)
       if (existingJob) {
         logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)
         continue
@@ -238,6 +240,8 @@ export class ZimService {
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
+        title: (resource as any).title || undefined,
+        totalBytes: (resource as any).size_mb ? (resource as any).size_mb * 1024 * 1024 : undefined,
         resourceMetadata: {
           resource_id: resource.id,
           version: resource.version,
@@ -272,7 +276,9 @@ export class ZimService {
       // Filter out completed jobs (progress === 100) to avoid race condition
       // where this job itself is still in the active queue
       const activeIncompleteJobs = activeJobs.filter((job) => {
-        const progress = typeof job.progress === 'number' ? job.progress : 0
+        const progress = typeof job.progress === 'object' && job.progress !== null
+          ? (job.progress as any).percent
+          : typeof job.progress === 'number' ? job.progress : 0
         return progress < 100
       })
 
@@ -458,7 +464,7 @@ export class ZimService {
     }
 
     // Check if already downloading
-    const existingJob = await RunDownloadJob.getByUrl(selectedOption.url)
+    const existingJob = await RunDownloadJob.getActiveByUrl(selectedOption.url)
     if (existingJob) {
       return { success: false, message: 'Download already in progress' }
     }
@@ -497,6 +503,8 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      title: selectedOption.name,
+      totalBytes: selectedOption.size_mb ? selectedOption.size_mb * 1024 * 1024 : undefined,
     })
 
     if (!result || !result.job) {
