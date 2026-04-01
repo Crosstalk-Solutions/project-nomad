@@ -6,7 +6,6 @@ import { SystemService } from '#services/system_service'
 import { getSettingSchema, updateSettingSchema } from '#validators/settings'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import type { KVStoreKey } from '../../types/kv_store.js'
 
 @inject()
 export default class SettingsController {
