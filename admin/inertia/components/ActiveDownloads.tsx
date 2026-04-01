@@ -25,6 +25,8 @@ function getDownloadStatus(download: {
   status?: string
 }): DownloadStatus {
   if (download.status === 'failed') return 'failed'
+  if (download.status === 'waiting' || download.status === 'delayed') return 'queued'
+  // Fallback heuristic for model jobs and in-flight jobs from before this deploy
   if (download.progress === 0 && !download.lastProgressTime) return 'queued'
   if (download.lastProgressTime) {
     const elapsed = Date.now() - download.lastProgressTime

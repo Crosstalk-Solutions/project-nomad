@@ -54,7 +54,7 @@ export type DownloadJobWithProgress = {
   downloadedBytes?: number
   totalBytes?: number
   lastProgressTime?: number
-  status?: 'active' | 'failed'
+  status?: 'active' | 'waiting' | 'delayed' | 'failed'
   failedReason?: string
 }
 

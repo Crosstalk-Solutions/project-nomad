@@ -48,7 +48,25 @@ export class RunDownloadJob {
     // Get Redis client for checking cancel signals from the API process
     const queueService = new QueueService()
     const cancelRedis = await queueService.getQueue(RunDownloadJob.queue).client
-    let progressCount = 0
+
+    let lastKnownProgress: Pick<DownloadProgressData, 'downloadedBytes' | 'totalBytes'> = {
+      downloadedBytes: 0,
+      totalBytes: 0,
+    }
+
+    // Poll Redis for cancel signal every 2s — independent of progress events so cancellation
+    // works even when the stream is stalled and no onProgress ticks are firing.
+    let cancelPollInterval: ReturnType<typeof setInterval> | null = setInterval(async () => {
+      try {
+        const val = await cancelRedis.get(RunDownloadJob.cancelKey(job.id!))
+        if (val) {
+          await cancelRedis.del(RunDownloadJob.cancelKey(job.id!))
+          abortController.abort()
+        }
+      } catch {
+        // Redis errors are non-fatal; in-process AbortController covers same-process cancels
+      }
+    }, 2000)
 
     try {
       await doResumableDownload({
@@ -67,17 +85,7 @@ export class RunDownloadJob {
             lastProgressTime: Date.now(),
           }
           job.updateProgress(progressData)
-
-          // Check for cancel signal every ~10 progress ticks to avoid hammering Redis
-          progressCount++
-          if (progressCount % 10 === 0) {
-            cancelRedis.get(RunDownloadJob.cancelKey(job.id!)).then((val: string | null) => {
-              if (val) {
-                cancelRedis.del(RunDownloadJob.cancelKey(job.id!))
-                abortController.abort()
-              }
-            }).catch(() => {})
-          }
+          lastKnownProgress = { downloadedBytes: progress.downloadedBytes, totalBytes: progress.totalBytes }
         },
         async onComplete(url) {
           try {
@@ -150,8 +158,8 @@ export class RunDownloadJob {
           }
           job.updateProgress({
             percent: 100,
-            downloadedBytes: 0,
-            totalBytes: 0,
+            downloadedBytes: lastKnownProgress.downloadedBytes,
+            totalBytes: lastKnownProgress.totalBytes,
             lastProgressTime: Date.now(),
           } as DownloadProgressData)
         },
@@ -168,7 +176,10 @@ export class RunDownloadJob {
       }
       throw error
     } finally {
-      // Clean up abort controller
+      if (cancelPollInterval !== null) {
+        clearInterval(cancelPollInterval)
+        cancelPollInterval = null
+      }
       RunDownloadJob.abortControllers.delete(job.id!)
     }
   }

@@ -25,11 +25,26 @@ export class DownloadService {
   }
 
   async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
-    // Get regular file download jobs (zim, map, etc.)
+    // Get regular file download jobs (zim, map, etc.) — query each state separately so we can
+    // tag each job with its actual BullMQ state rather than guessing from progress data.
     const queue = this.queueService.getQueue(RunDownloadJob.queue)
-    const fileJobs = await queue.getJobs(['waiting', 'active', 'delayed', 'failed'])
+    type FileJobState = 'waiting' | 'active' | 'delayed' | 'failed'
 
-    const fileDownloads = fileJobs.map((job) => {
+    const [waitingJobs, activeJobs, delayedJobs, failedJobs] = await Promise.all([
+      queue.getJobs(['waiting']),
+      queue.getJobs(['active']),
+      queue.getJobs(['delayed']),
+      queue.getJobs(['failed']),
+    ])
+
+    const taggedFileJobs: Array<{ job: (typeof waitingJobs)[0]; state: FileJobState }> = [
+      ...waitingJobs.map((j) => ({ job: j, state: 'waiting' as const })),
+      ...activeJobs.map((j) => ({ job: j, state: 'active' as const })),
+      ...delayedJobs.map((j) => ({ job: j, state: 'delayed' as const })),
+      ...failedJobs.map((j) => ({ job: j, state: 'failed' as const })),
+    ]
+
+    const fileDownloads = taggedFileJobs.map(({ job, state }) => {
       const parsed = this.parseProgress(job.progress)
       return {
         jobId: job.id!.toString(),
@@ -41,7 +56,7 @@ export class DownloadService {
         downloadedBytes: parsed.downloadedBytes,
         totalBytes: parsed.totalBytes || job.data.totalBytes || undefined,
         lastProgressTime: parsed.lastProgressTime,
-        status: (job.failedReason ? 'failed' : 'active') as 'active' | 'failed',
+        status: state,
         failedReason: job.failedReason || undefined,
       }
     })
@@ -113,22 +128,41 @@ export class DownloadService {
     RunDownloadJob.abortControllers.get(jobId)?.abort()
     RunDownloadJob.abortControllers.delete(jobId)
 
-    // Give the worker a moment to pick up the cancel signal and release the job lock
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Poll for terminal state (up to 4s at 250ms intervals) — cooperates with BullMQ's lifecycle
+    // instead of force-removing an active job and losing the worker's failure/cleanup path.
+    const POLL_INTERVAL_MS = 250
+    const POLL_TIMEOUT_MS = 4000
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+    let reachedTerminal = false
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+      try {
+        const state = await job.getState()
+        if (state === 'failed' || state === 'completed' || state === 'unknown') {
+          reachedTerminal = true
+          break
+        }
+      } catch {
+        reachedTerminal = true // getState() throws if job is already gone
+        break
+      }
+    }
+
+    if (!reachedTerminal) {
+      console.warn(`[DownloadService] cancelJob: job ${jobId} did not reach terminal state within timeout, removing anyway`)
+    }
 
     // Remove the BullMQ job
     try {
       await job.remove()
     } catch {
-      // Job may still be locked by worker - try again after it reaches terminal state
+      // Lock contention fallback: clear lock and retry once
       try {
+        const client = await queue.client
+        await client.del(`bull:${RunDownloadJob.queue}:${jobId}:lock`)
         const updatedJob = await queue.getJob(jobId)
-        if (updatedJob) {
-          const state = await updatedJob.getState()
-          if (state === 'failed' || state === 'completed') {
-            await updatedJob.remove()
-          }
-        }
+        if (updatedJob) await updatedJob.remove()
       } catch {
         // Best effort - job will be cleaned up on next dismiss attempt
       }
