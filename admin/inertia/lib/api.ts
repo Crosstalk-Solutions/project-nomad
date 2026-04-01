@@ -518,6 +518,29 @@ class API {
     }
   }
 
+  async getGlobalMapInfo() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        url: string
+        date: string
+        size: number
+        key: string
+      }>('/maps/global-map-info')
+      return response.data
+    })()
+  }
+
+  async downloadGlobalMap() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        filename: string
+        jobId?: string
+      }>('/maps/download-global-map')
+      return response.data
+    })()
+  }
+
   async listCuratedMapCollections() {
     return catchInternal(async () => {
       const response = await this.client.get<CollectionWithStatus[]>(
