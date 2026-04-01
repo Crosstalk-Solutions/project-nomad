@@ -269,6 +269,31 @@ export default function ZimRemoteExplorer() {
     },
   })
 
+  const installKiwix = useMutation({
+    mutationFn: () => api.installService(SERVICE_NAMES.KIWIX),
+    onSuccess: (result) => {
+      if (result?.success) {
+        addNotification({
+          message: 'Kiwix installation started. This may take a few minutes.',
+          type: 'success',
+        })
+        queryClient.invalidateQueries({ queryKey: ['installed-services'] })
+        return
+      }
+
+      addNotification({
+        message: result?.message || 'Failed to start Kiwix installation.',
+        type: 'error',
+      })
+    },
+    onError: () => {
+      addNotification({
+        message: 'Failed to start Kiwix installation.',
+        type: 'error',
+      })
+    },
+  })
+
   return (
     <SettingsLayout>
       <Head title="Content Explorer | Project N.O.M.A.D." />
@@ -290,12 +315,20 @@ export default function ZimRemoteExplorer() {
             />
           )}
           {!isInstalled && (
-            <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded content files."
-              type="warning"
-              variant="solid"
-              className="!mt-6"
-            />
+            <div className="mt-6 space-y-3">
+              <Alert
+                title="The Kiwix application is not installed. Please install it to view downloaded content files."
+                type="warning"
+                variant="solid"
+              />
+              <StyledButton
+                onClick={() => installKiwix.mutate()}
+                disabled={!isOnline || installKiwix.isPending}
+                icon="IconDownload"
+              >
+                {installKiwix.isPending ? 'Installing Kiwix...' : 'Install Kiwix'}
+              </StyledButton>
+            </div>
           )}
           <div className="mt-8 mb-6 flex items-center justify-between">
             <StyledSectionHeader title="Curated Content" className="!mb-0" />

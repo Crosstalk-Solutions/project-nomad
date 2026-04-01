@@ -8,12 +8,14 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Alert from '~/components/Alert'
+import { useNotifications } from '~/context/NotificationContext'
 import { ZimFileWithMetadata } from '../../../../types/zim'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 
 export default function ZimPage() {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
+  const { addNotification } = useNotifications()
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.KIWIX)
   const { data, isLoading } = useQuery<ZimFileWithMetadata[]>({
     queryKey: ['zim-files'],
@@ -54,6 +56,31 @@ export default function ZimPage() {
     },
   })
 
+  const installKiwix = useMutation({
+    mutationFn: () => api.installService(SERVICE_NAMES.KIWIX),
+    onSuccess: (result) => {
+      if (result?.success) {
+        addNotification({
+          message: 'Kiwix installation started. This may take a few minutes.',
+          type: 'success',
+        })
+        queryClient.invalidateQueries({ queryKey: ['installed-services'] })
+        return
+      }
+
+      addNotification({
+        message: result?.message || 'Failed to start Kiwix installation.',
+        type: 'error',
+      })
+    },
+    onError: () => {
+      addNotification({
+        message: 'Failed to start Kiwix installation.',
+        type: 'error',
+      })
+    },
+  })
+
   return (
     <SettingsLayout>
       <Head title="Content Manager | Project N.O.M.A.D." />
@@ -68,12 +95,20 @@ export default function ZimPage() {
             </div>
           </div>
           {!isInstalled && (
-            <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
-              type="warning"
-              variant='solid'
-              className="!mt-6"
-            />
+            <div className="mt-6 space-y-3">
+              <Alert
+                title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
+                type="warning"
+                variant='solid'
+              />
+              <StyledButton
+                onClick={() => installKiwix.mutate()}
+                disabled={installKiwix.isPending}
+                icon={'IconDownload'}
+              >
+                {installKiwix.isPending ? 'Installing Kiwix...' : 'Install Kiwix'}
+              </StyledButton>
+            </div>
           )}
           <StyledTable<ZimFileWithMetadata & { actions?: any }>
             className="font-semibold mt-4"
