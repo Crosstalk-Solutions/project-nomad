@@ -137,6 +137,7 @@ router
 
 router
   .group(() => {
+    router.get('/disk-status', [SystemController, 'getDiskStatus'])
     router.get('/debug-info', [SystemController, 'getDebugInfo'])
     router.get('/info', [SystemController, 'getSystemInfo'])
     router.get('/internet-status', [SystemController, 'getInternetStatus'])

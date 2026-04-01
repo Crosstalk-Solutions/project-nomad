@@ -223,6 +223,18 @@ class API {
     })()
   }
 
+  async getDiskStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        level: 'none' | 'warning' | 'critical'
+        threshold: number
+        highestUsage: number
+        diskName: string
+      }>('/system/disk-status')
+      return response.data
+    })()
+  }
+
   async getDebugInfo() {
     return catchInternal(async () => {
       const response = await this.client.get<{ debugInfo: string }>('/system/debug-info')

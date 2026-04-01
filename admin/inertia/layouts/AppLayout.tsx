@@ -7,6 +7,7 @@ import { SERVICE_NAMES } from '../../constants/service_names'
 import { Link } from '@inertiajs/react'
 import { IconArrowLeft } from '@tabler/icons-react'
 import classNames from 'classnames'
+import DiskAlertBanner from '~/components/DiskAlertBanner'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isChatOpen, setIsChatOpen] = useState(false)
@@ -33,6 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           "text-desert-green font-semibold h-[1.5px] bg-desert-green border-none",
           window.location.pathname !== '/home' ? "mt-12 md:mt-0" : "mt-0"
         )} />
+      <DiskAlertBanner />
       <div className="flex-1 w-full bg-desert">{children}</div>
       <Footer />
 
