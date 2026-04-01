@@ -513,6 +513,11 @@ export class DockerService {
       const container = await this.docker.createContainer({
         Image: finalImage,
         name: service.service_name,
+        Labels: {
+          ...(containerConfig?.Labels ?? {}),
+          'com.docker.compose.project': 'project-nomad-managed',
+          'io.project-nomad.managed': 'true',
+        },
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
