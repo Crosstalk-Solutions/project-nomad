@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosError, AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
@@ -7,8 +7,7 @@ import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import { EmbedJobWithProgress } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
-import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
-import { ChatResponse, ModelResponse } from 'ollama'
+import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
 
@@ -25,13 +24,19 @@ class API {
   }
 
   async affectService(service_name: string, action: 'start' | 'stop' | 'restart') {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/services/affect',
         { service_name, action }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error affecting service:', error)
+      return undefined
+    }
   }
 
   async checkLatestVersion(force: boolean = false) {
@@ -39,6 +44,25 @@ class API {
       const response = await this.client.get<CheckLatestVersionResult>('/system/latest-version', {
         params: { force },
       })
+      return response.data
+    })()
+  }
+
+  async getRemoteOllamaStatus(): Promise<{ configured: boolean; connected: boolean }> {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ configured: boolean; connected: boolean }>(
+        '/ollama/remote-status'
+      )
+      return response.data
+    })()
+  }
+
+  async configureRemoteOllama(remoteUrl: string | null): Promise<{ success: boolean; message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/ollama/configure-remote',
+        { remoteUrl }
+      )
       return response.data
     })()
   }
@@ -192,13 +216,19 @@ class API {
   }
 
   async forceReinstallService(service_name: string) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         `/system/services/force-reinstall`,
         { service_name }
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error force reinstalling service:', error)
+      return undefined
+    }
   }
 
   async getChatSuggestions(signal?: AbortSignal) {
@@ -227,7 +257,7 @@ class API {
 
   async getInstalledModels() {
     return catchInternal(async () => {
-      const response = await this.client.get<ModelResponse[]>('/ollama/installed-models')
+      const response = await this.client.get<NomadInstalledModel[]>('/ollama/installed-models')
       return response.data
     })()
   }
@@ -246,7 +276,7 @@ class API {
 
   async sendChatMessage(chatRequest: OllamaChatRequest) {
     return catchInternal(async () => {
-      const response = await this.client.post<ChatResponse>('/ollama/chat', chatRequest)
+      const response = await this.client.post<NomadChatResponse>('/ollama/chat', chatRequest)
       return response.data
     })()
   }
@@ -407,6 +437,20 @@ class API {
     })()
   }
 
+  async getFailedEmbedJobs(): Promise<EmbedJobWithProgress[] | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<EmbedJobWithProgress[]>('/rag/failed-jobs')
+      return response.data
+    })()
+  }
+
+  async cleanupFailedEmbedJobs(): Promise<{ message: string; cleaned: number; filesDeleted: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string; cleaned: number; filesDeleted: number }>('/rag/failed-jobs')
+      return response.data
+    })()
+  }
+
   async getStoredRAGFiles() {
     return catchInternal(async () => {
       const response = await this.client.get<{ files: string[] }>('/rag/files')
@@ -459,11 +503,40 @@ class API {
   }
 
   async installService(service_name: string) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/system/services/install',
         { service_name }
       )
+      return response.data
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error installing service:', error)
+      return undefined
+    }
+  }
+
+  async getGlobalMapInfo() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        url: string
+        date: string
+        size: number
+        key: string
+      }>('/maps/global-map-info')
+      return response.data
+    })()
+  }
+
+  async downloadGlobalMap() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        filename: string
+        jobId?: string
+      }>('/maps/download-global-map')
       return response.data
     })()
   }
@@ -515,6 +588,13 @@ class API {
           query,
         },
       })
+    })()
+  }
+
+  async deleteZimFile(filename: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(`/zim/${filename}`)
+      return response.data
     })()
   }
 

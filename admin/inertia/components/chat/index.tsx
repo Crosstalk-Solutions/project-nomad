@@ -53,6 +53,14 @@ export default function Chat({
   const activeSession = sessions.find((s) => s.id === activeSessionId)
 
   const { data: lastModelSetting } = useSystemSetting({ key: 'chat.lastModel', enabled })
+  const { data: remoteOllamaUrlSetting } = useSystemSetting({ key: 'ai.remoteOllamaUrl', enabled })
+
+  const { data: remoteStatus } = useQuery({
+    queryKey: ['remoteOllamaStatus'],
+    queryFn: () => api.getRemoteOllamaStatus(),
+    enabled: enabled && !!remoteOllamaUrlSetting?.value,
+    refetchInterval: 15000,
+  })
 
   const { data: installedModels = [], isLoading: isLoadingModels } = useQuery({
     queryKey: ['installedModels'],
@@ -363,6 +371,18 @@ export default function Chat({
             {activeSession?.title || 'New Chat'}
           </h2>
           <div className="flex items-center gap-4">
+            {remoteOllamaUrlSetting?.value && (
+              <span
+                className={classNames(
+                  'text-xs rounded px-2 py-1 font-medium',
+                  remoteStatus?.connected === false
+                    ? 'text-red-700 bg-red-50 border border-red-200'
+                    : 'text-green-700 bg-green-50 border border-green-200'
+                )}
+              >
+                {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
+              </span>
+            )}
             <div className="flex items-center gap-2">
               <label htmlFor="model-select" className="text-sm text-text-secondary">
                 Model:
@@ -380,7 +400,7 @@ export default function Chat({
                 >
                   {installedModels.map((model) => (
                     <option key={model.name} value={model.name}>
-                      {model.name} ({formatBytes(model.size)})
+                      {model.name}{model.size > 0 ? ` (${formatBytes(model.size)})` : ''}
                     </option>
                   ))}
                 </select>

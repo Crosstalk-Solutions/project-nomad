@@ -102,6 +102,7 @@
     "maplibre-gl": "^4.7.1",
     "mysql2": "^3.14.1",
     "ollama": "^0.6.3",
+    "openai": "^6.27.0",
     "pdf-parse": "^2.4.5",
     "pdf2pic": "^3.2.0",
     "pino-pretty": "^13.0.0",
@@ -121,7 +122,8 @@
     "tar": "^7.5.11",
     "tesseract.js": "^7.0.0",
     "url-join": "^5.0.0",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.0",
+    "jszip": "^3.10.1"
   },
   "hotHook": {
     "boundaries": [

@@ -140,6 +140,11 @@ export class DockerService {
       return null
     }
 
+    if (serviceName === SERVICE_NAMES.OLLAMA) {
+      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (remoteUrl) return remoteUrl
+    }
+
     const service = await Service.query()
       .where('service_name', serviceName)
       .andWhere('installed', true)
@@ -508,6 +513,11 @@ export class DockerService {
       const container = await this.docker.createContainer({
         Image: finalImage,
         name: service.service_name,
+        Labels: {
+          ...(containerConfig?.Labels ?? {}),
+          'com.docker.compose.project': 'project-nomad-managed',
+          'io.project-nomad.managed': 'true',
+        },
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
@@ -615,8 +625,8 @@ export class DockerService {
      * We'll download the lightweight mini Wikipedia Top 100 zim file for this purpose.
      **/
     const WIKIPEDIA_ZIM_URL =
-      'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/install/wikipedia_en_100_mini_2025-06.zim'
-    const filename = 'wikipedia_en_100_mini_2025-06.zim'
+      'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/install/wikipedia_en_100_mini_2026-01.zim'
+    const filename = 'wikipedia_en_100_mini_2026-01.zim'
     const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
     logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
 

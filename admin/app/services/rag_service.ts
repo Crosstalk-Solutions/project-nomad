@@ -8,6 +8,8 @@ import { deleteFileIfExists, determineFileType, getFile, getFileStatsIfExists, l
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
+import JSZip from 'jszip'
+import * as cheerio from 'cheerio'
 import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
@@ -23,15 +25,18 @@ export class RagService {
   private qdrant: QdrantClient | null = null
   private qdrantInitPromise: Promise<void> | null = null
   private embeddingModelVerified = false
+  private resolvedEmbeddingModel: string | null = null
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_MODEL = 'nomic-embed-text:v1.5'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
   public static MODEL_CONTEXT_LENGTH = 2048 // nomic-embed-text has 2K token context
-  public static MAX_SAFE_TOKENS = 1800 // Leave buffer for prefix and tokenization variance
-  public static TARGET_TOKENS_PER_CHUNK = 1700 // Target 1700 tokens per chunk for embedding
+  public static MAX_SAFE_TOKENS = 1600 // Leave buffer for prefix and tokenization variance
+  public static TARGET_TOKENS_PER_CHUNK = 1500 // Target 1500 tokens per chunk for embedding
   public static PREFIX_TOKEN_BUDGET = 10 // Reserve ~10 tokens for prefixes
-  public static CHAR_TO_TOKEN_RATIO = 3 // Approximate chars per token
+  public static CHAR_TO_TOKEN_RATIO = 2 // Conservative chars-per-token estimate; technical docs
+                                         // (numbers, symbols, abbreviations) tokenize denser
+                                         // than plain prose (~3), so 2 avoids context overflows
   // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
   public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
   public static SEARCH_QUERY_PREFIX = 'search_query: '
@@ -245,7 +250,9 @@ export class RagService {
 
       if (!this.embeddingModelVerified) {
         const allModels = await this.ollamaService.getModels(true)
-        const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
+        const embeddingModel =
+          allModels.find((model) => model.name === RagService.EMBEDDING_MODEL) ??
+          allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
 
         if (!embeddingModel) {
           try {
@@ -262,6 +269,7 @@ export class RagService {
             return null
           }
         }
+        this.resolvedEmbeddingModel = embeddingModel?.name ?? RagService.EMBEDDING_MODEL
         this.embeddingModelVerified = true
       }
 
@@ -284,8 +292,6 @@ export class RagService {
 
       // Extract text from chunk results
       const chunks = chunkResults.map((chunk) => chunk.text)
-
-      const ollamaClient = await this.ollamaService.getClient()
 
       // Prepare all chunk texts with prefix and truncation
       const prefixedChunks: string[] = []
@@ -320,10 +326,7 @@ export class RagService {
 
         logger.debug(`[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`)
 
-        const response = await ollamaClient.embed({
-          model: RagService.EMBEDDING_MODEL,
-          input: batch,
-        })
+        const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? RagService.EMBEDDING_MODEL, batch)
 
         embeddings.push(...response.embeddings)
 
@@ -564,6 +567,86 @@ export class RagService {
     return await this.extractTXTText(fileBuffer)
   }
 
+  /**
+   * Extract text content from an EPUB file.
+   * EPUBs are ZIP archives containing XHTML content files.
+   * Reads the OPF manifest to determine reading order, then extracts
+   * text from each content document in sequence.
+   */
+  private async processEPUBFile(fileBuffer: Buffer): Promise<string> {
+    const zip = await JSZip.loadAsync(fileBuffer)
+
+    // Read container.xml to find the OPF file path
+    const containerXml = await zip.file('META-INF/container.xml')?.async('text')
+    if (!containerXml) {
+      throw new Error('Invalid EPUB: missing META-INF/container.xml')
+    }
+
+    // Parse container.xml to get the OPF rootfile path
+    const $container = cheerio.load(containerXml, { xml: true })
+    const opfPath = $container('rootfile').attr('full-path')
+    if (!opfPath) {
+      throw new Error('Invalid EPUB: no rootfile found in container.xml')
+    }
+
+    // Determine the base directory of the OPF file for resolving relative paths
+    const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : ''
+
+    // Read and parse the OPF file
+    const opfContent = await zip.file(opfPath)?.async('text')
+    if (!opfContent) {
+      throw new Error(`Invalid EPUB: OPF file not found at ${opfPath}`)
+    }
+
+    const $opf = cheerio.load(opfContent, { xml: true })
+
+    // Build a map of manifest items (id -> href)
+    const manifestItems = new Map<string, string>()
+    $opf('manifest item').each((_, el) => {
+      const id = $opf(el).attr('id')
+      const href = $opf(el).attr('href')
+      const mediaType = $opf(el).attr('media-type') || ''
+      // Only include XHTML/HTML content documents
+      if (id && href && (mediaType.includes('html') || mediaType.includes('xml'))) {
+        manifestItems.set(id, href)
+      }
+    })
+
+    // Get the reading order from the spine
+    const spineOrder: string[] = []
+    $opf('spine itemref').each((_, el) => {
+      const idref = $opf(el).attr('idref')
+      if (idref && manifestItems.has(idref)) {
+        spineOrder.push(manifestItems.get(idref)!)
+      }
+    })
+
+    // If no spine found, fall back to all manifest items
+    const contentFiles = spineOrder.length > 0
+      ? spineOrder
+      : Array.from(manifestItems.values())
+
+    // Extract text from each content file in order
+    const textParts: string[] = []
+    for (const href of contentFiles) {
+      const fullPath = opfDir + href
+      const content = await zip.file(fullPath)?.async('text')
+      if (content) {
+        const $ = cheerio.load(content)
+        // Remove script and style elements
+        $('script, style').remove()
+        const text = $('body').text().trim()
+        if (text) {
+          textParts.push(text)
+        }
+      }
+    }
+
+    const fullText = textParts.join('\n\n')
+    logger.debug(`[RAG] EPUB extracted ${textParts.length} chapters, ${fullText.length} characters total`)
+    return fullText
+  }
+
   private async embedTextAndCleanup(
     extractedText: string,
     filepath: string,
@@ -638,6 +721,9 @@ export class RagService {
         case 'pdf':
           extractedText = await this.processPDFFile(fileBuffer!)
           break
+        case 'epub':
+          extractedText = await this.processEPUBFile(fileBuffer!)
+          break
         case 'text':
         default:
           extractedText = await this.processTextFile(fileBuffer!)
@@ -692,7 +778,9 @@ export class RagService {
 
       if (!this.embeddingModelVerified) {
         const allModels = await this.ollamaService.getModels(true)
-        const embeddingModel = allModels.find((model) => model.name === RagService.EMBEDDING_MODEL)
+        const embeddingModel =
+          allModels.find((model) => model.name === RagService.EMBEDDING_MODEL) ??
+          allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
 
         if (!embeddingModel) {
           logger.warn(
@@ -701,6 +789,7 @@ export class RagService {
           this.embeddingModelVerified = false
           return []
         }
+        this.resolvedEmbeddingModel = embeddingModel.name
         this.embeddingModelVerified = true
       }
 
@@ -710,8 +799,6 @@ export class RagService {
       logger.debug(`[RAG] Extracted keywords: [${keywords.join(', ')}]`)
 
       // Generate embedding for the query with search_query prefix
-      const ollamaClient = await this.ollamaService.getClient()
-
       // Ensure query doesn't exceed token limit
       const prefixTokens = this.estimateTokenCount(RagService.SEARCH_QUERY_PREFIX)
       const maxQueryTokens = RagService.MAX_SAFE_TOKENS - prefixTokens
@@ -729,10 +816,7 @@ export class RagService {
         return []
       }
 
-      const response = await ollamaClient.embed({
-        model: RagService.EMBEDDING_MODEL,
-        input: [prefixedQuery],
-      })
+      const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? RagService.EMBEDDING_MODEL, [prefixedQuery])
 
       // Perform semantic search with a higher limit to enable reranking
       const searchLimit = limit * 3 // Get more results for reranking

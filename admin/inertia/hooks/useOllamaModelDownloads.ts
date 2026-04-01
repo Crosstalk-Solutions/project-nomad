@@ -5,6 +5,7 @@ export type OllamaModelDownload = {
     model: string
     percent: number
     timestamp: string
+    error?: string
 }
 
 export default function useOllamaModelDownloads() {
@@ -17,7 +18,19 @@ export default function useOllamaModelDownloads() {
             setDownloads((prev) => {
                 const updated = new Map(prev)
 
-                if (data.percent >= 100) {
+                if (data.percent === -1) {
+                    // Download failed — show error state, auto-remove after 15 seconds
+                    updated.set(data.model, data)
+                    const errorTimeout = setTimeout(() => {
+                        timeoutsRef.current.delete(errorTimeout)
+                        setDownloads((current) => {
+                            const next = new Map(current)
+                            next.delete(data.model)
+                            return next
+                        })
+                    }, 15000)
+                    timeoutsRef.current.add(errorTimeout)
+                } else if (data.percent >= 100) {
                     // If download is complete, keep it for a short time before removing to allow UI to show 100% progress
                     updated.set(data.model, data)
                     const timeout = setTimeout(() => {

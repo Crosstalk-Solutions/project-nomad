@@ -36,7 +36,7 @@ export default function SupportPage() {
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-3">Need Help With Your Home Network?</h2>
             <a
-              href="https://roguesupport.com"
+              href="https://rogue.support"
               target="_blank"
               rel="noopener noreferrer"
               className="block mb-4 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
@@ -52,12 +52,12 @@ export default function SupportPage() {
               Think of it as Uber for computer networking — expert help when you need it.
             </p>
             <a
-              href="https://roguesupport.com"
+              href="https://rogue.support"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-blue-600 hover:underline font-medium"
             >
-              Visit RogueSupport.com
+              Visit Rogue.Support
               <IconExternalLink size={16} />
             </a>
           </section>
