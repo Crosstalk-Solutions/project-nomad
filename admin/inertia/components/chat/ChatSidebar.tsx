@@ -89,7 +89,7 @@ export default function ChatSidebar({
         )}
       </div>
       <div className="p-4 flex flex-col items-center justify-center gap-y-2">
-        <img src="/project_nomad_logo.png" alt="Project Nomad Logo" className="h-28 w-28 mb-6" />
+        <img src="/project_nomad_logo.webp" alt="Project Nomad Logo" className="h-28 w-28 mb-6" />
         <StyledButton
           onClick={() => {
             if (isInModal) {
