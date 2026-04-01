@@ -14,7 +14,7 @@ import { ModelResponse } from 'ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
@@ -29,6 +29,7 @@ export default function ModelsPage(props: {
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
+  const queryClient = useQueryClient()
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
@@ -109,6 +110,31 @@ export default function ModelsPage(props: {
   const forceRefreshRef = useRef(false)
   const [isForceRefreshing, setIsForceRefreshing] = useState(false)
 
+  const installOllama = useMutation({
+    mutationFn: () => api.installService(SERVICE_NAMES.OLLAMA),
+    onSuccess: (result) => {
+      if (result?.success) {
+        addNotification({
+          message: `${aiAssistantName} installation started. This may take a few minutes.`,
+          type: 'success',
+        })
+        queryClient.invalidateQueries({ queryKey: ['installed-services'] })
+        return
+      }
+
+      addNotification({
+        message: result?.message || `Failed to start ${aiAssistantName} installation.`,
+        type: 'error',
+      })
+    },
+    onError: () => {
+      addNotification({
+        message: `Failed to start ${aiAssistantName} installation.`,
+        type: 'error',
+      })
+    },
+  })
+
   const { data: availableModelData, isFetching, refetch } = useQuery({
     queryKey: ['ollama', 'availableModels', query, limit],
     queryFn: async () => {
@@ -140,6 +166,14 @@ export default function ModelsPage(props: {
   }
 
   async function handleInstallModel(modelName: string) {
+    if (!isInstalled) {
+      addNotification({
+        message: `Install ${aiAssistantName} before downloading AI models.`,
+        type: 'error',
+      })
+      return
+    }
+
     try {
       const res = await api.downloadModel(modelName)
       if (res.success) {
@@ -230,12 +264,22 @@ export default function ModelsPage(props: {
             on to larger ones.
           </p>
           {!isInstalled && (
-            <Alert
-              title={`${aiAssistantName}'s dependencies are not installed. Please install them to manage AI models.`}
-              type="warning"
-              variant="solid"
-              className="!mt-6"
-            />
+            <div className="mt-6 space-y-3">
+              <Alert
+                title={`${aiAssistantName}'s dependencies are not installed. Please install them to manage AI models.`}
+                type="warning"
+                variant="solid"
+              />
+              <StyledButton
+                onClick={() => installOllama.mutate()}
+                disabled={installOllama.isPending}
+                icon="IconDownload"
+              >
+                {installOllama.isPending
+                  ? `Installing ${aiAssistantName}...`
+                  : `Install ${aiAssistantName}`}
+              </StyledButton>
+            </div>
           )}
           {isInstalled && systemInfo?.gpuHealth?.status === 'passthrough_failed' && !gpuBannerDismissed && (
             <Alert
@@ -397,6 +441,7 @@ export default function ModelsPage(props: {
                                     }
                                   }}
                                   icon={isInstalled ? 'IconTrash' : 'IconDownload'}
+                                  disabled={!isInstalled}
                                 >
                                   {isInstalled ? 'Delete' : 'Install'}
                                 </StyledButton>

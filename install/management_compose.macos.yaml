@@ -22,6 +22,7 @@ services:
       - APP_KEY=replaceme
       - HOST=0.0.0.0
       - URL=replaceme
+      - NOMAD_PLATFORM=macos
       - NOMAD_STORAGE_PATH=__NOMAD_DIR__/storage
       - DB_HOST=mysql
       - DB_PORT=3306

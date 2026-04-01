@@ -162,14 +162,21 @@ export class DockerService {
       const portBindings = parsedConfig.HostConfig.PortBindings
       const hostPorts = Object.values(portBindings)
       if (!hostPorts || !Array.isArray(hostPorts) || hostPorts.length === 0) {
-        return null
+        // Fall through to ExposedPorts if there is no host port binding.
+      } else {
+        const hostPortsArray = hostPorts.flat() as { HostPort: string }[]
+        const hostPortsStrings = hostPortsArray.map((binding) => binding.HostPort)
+        if (hostPortsStrings.length > 0) {
+          return `http://${hostname}:${hostPortsStrings[0]}`
+        }
       }
+    }
 
-      const hostPortsArray = hostPorts.flat() as { HostPort: string }[]
-      const hostPortsStrings = hostPortsArray.map((binding) => binding.HostPort)
-      if (hostPortsStrings.length > 0) {
-        return `http://${hostname}:${hostPortsStrings[0]}`
-      }
+    const exposedPorts = parsedConfig?.ExposedPorts
+    const exposedPort = exposedPorts ? Object.keys(exposedPorts)[0] : null
+    if (exposedPort) {
+      const internalPort = exposedPort.split('/')[0]
+      return `http://${hostname}:${internalPort}`
     }
 
     // Otherwise, return null if we can't determine a URL

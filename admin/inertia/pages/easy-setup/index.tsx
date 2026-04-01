@@ -121,6 +121,29 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  const waitForServiceInstall = async (serviceName: string, timeoutMs = 180000) => {
+    const start = Date.now()
+
+    while (Date.now() - start < timeoutMs) {
+      const services = await api.getSystemServices()
+      const service = services?.find((entry) => entry.service_name === serviceName)
+
+      if (service?.installed) {
+        return
+      }
+
+      if (service?.installation_status === 'error') {
+        throw new Error(`${service.friendly_name || serviceName} failed to install.`)
+      }
+
+      await sleep(2000)
+    }
+
+    throw new Error(`Timed out waiting for ${serviceName} to finish installing.`)
+  }
   const [showAdditionalTools, setShowAdditionalTools] = useState(false)
 
   // Category/tier selection state
@@ -335,6 +358,10 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
       const installPromises = selectedServices.map((serviceName) => api.installService(serviceName))
 
       await Promise.all(installPromises)
+
+      if (selectedAiModels.length > 0) {
+        await waitForServiceInstall(SERVICE_NAMES.OLLAMA)
+      }
 
       // Download collections, category tiers, and AI models
       const categoryTierPromises: Promise<any>[] = []

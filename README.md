@@ -75,6 +75,7 @@ Compatibility notes for macOS:
 - Docker Desktop is required
 - The default install directory is `~/.project-nomad`
 - Apple Silicon currently runs the published `linux/amd64` images under emulation
+- If you already run Ollama locally on macOS, N.O.M.A.D. now keeps its internal Ollama service off the host `11434` port to avoid collisions
 - Linux-only host integrations such as disk collector and NVIDIA runtime setup are intentionally skipped
 
 For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install).

@@ -10,6 +10,14 @@ export default class ServiceSeeder extends BaseSeeder {
     'NOMAD_STORAGE_PATH',
     '/opt/project-nomad/storage'
   )
+  private static NOMAD_PLATFORM = env.get('NOMAD_PLATFORM', 'linux')
+  private static OLLAMA_HOST_CONFIG = {
+    RestartPolicy: { Name: 'unless-stopped' },
+    Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/ollama:/root/.ollama`],
+    ...(ServiceSeeder.NOMAD_PLATFORM === 'macos'
+      ? {}
+      : { PortBindings: { '11434/tcp': [{ HostPort: '11434' }] } }),
+  }
   private static DEFAULT_SERVICES: Omit<
     ModelAttributes<Service>,
     'created_at' | 'updated_at' | 'metadata' | 'id' | 'available_update_version' | 'update_checked_at'
@@ -74,11 +82,7 @@ export default class ServiceSeeder extends BaseSeeder {
       source_repo: 'https://github.com/ollama/ollama',
       container_command: 'serve',
       container_config: JSON.stringify({
-        HostConfig: {
-          RestartPolicy: { Name: 'unless-stopped' },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/ollama:/root/.ollama`],
-          PortBindings: { '11434/tcp': [{ HostPort: '11434' }] },
-        },
+        HostConfig: ServiceSeeder.OLLAMA_HOST_CONFIG,
         ExposedPorts: { '11434/tcp': {} },
       }),
       ui_location: '/chat',
@@ -170,5 +174,23 @@ export default class ServiceSeeder extends BaseSeeder {
     )
 
     await Service.createMany([...newServices])
+
+    if (ServiceSeeder.NOMAD_PLATFORM === 'macos') {
+      const ollamaService = await Service.query()
+        .where('service_name', SERVICE_NAMES.OLLAMA)
+        .first()
+
+      if (ollamaService) {
+        const updatedConfig = JSON.stringify({
+          HostConfig: ServiceSeeder.OLLAMA_HOST_CONFIG,
+          ExposedPorts: { '11434/tcp': {} },
+        })
+
+        if (ollamaService.container_config !== updatedConfig) {
+          ollamaService.container_config = updatedConfig
+          await ollamaService.save()
+        }
+      }
+    }
   }
 }
