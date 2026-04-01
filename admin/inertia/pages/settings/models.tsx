@@ -17,6 +17,7 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
+import { formatBytes } from '~/lib/util'
 import useDebounce from '~/hooks/useDebounce'
 import ActiveModelDownloads from '~/components/ActiveModelDownloads'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
@@ -323,6 +324,64 @@ export default function ModelsPage(props: {
               />
             </div>
           </div>
+
+          <StyledSectionHeader title="Installed Models" className="mt-12 mb-4" />
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+            {props.models.installedModels.length === 0 ? (
+              <p className="text-text-muted">
+                No models installed. Browse the model catalog below to get started.
+              </p>
+            ) : (
+              <table className="min-w-full divide-y divide-border-subtle">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Model
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Parameters
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Disk Size
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {props.models.installedModels.map((model) => (
+                    <tr key={model.name} className="hover:bg-surface-secondary">
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-medium text-text-primary">{model.name}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-text-secondary">
+                          {model.details.parameter_size || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-text-secondary">
+                          {formatBytes(model.size)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <StyledButton
+                          variant="danger"
+                          size="sm"
+                          onClick={() => confirmDeleteModel(model.name)}
+                          icon="IconTrash"
+                        >
+                          Delete
+                        </StyledButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <p className="text-sm text-text-secondary mb-4">
