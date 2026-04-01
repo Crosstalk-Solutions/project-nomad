@@ -73,6 +73,18 @@ export default class MapsController {
     return await this.mapService.listRegions()
   }
 
+  async globalMapInfo({}: HttpContext) {
+    return await this.mapService.getGlobalMapInfo()
+  }
+
+  async downloadGlobalMap({}: HttpContext) {
+    const result = await this.mapService.downloadGlobalMap()
+    return {
+      message: 'Download started successfully',
+      ...result,
+    }
+  }
+
   async styles({ request, response }: HttpContext) {
     // Automatically ensure base assets are present before generating styles
     const baseAssetsExist = await this.mapService.ensureBaseAssets()
