@@ -53,7 +53,8 @@ export default defineConfig({
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/inertia/inertia_provider'),
     () => import('@adonisjs/transmit/transmit_provider'),
-    () => import('#providers/map_static_provider')
+    () => import('#providers/map_static_provider'),
+    () => import('#providers/kiwix_migration_provider'),
   ],
 
   /*
