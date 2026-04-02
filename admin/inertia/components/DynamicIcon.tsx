@@ -1,36 +1,26 @@
 import classNames from 'classnames'
-import * as TablerIcons from '@tabler/icons-react'
+import { icons } from '../lib/icons'
 
-export type DynamicIconName = keyof typeof TablerIcons
+export type { DynamicIconName } from '../lib/icons'
 
 interface DynamicIconProps {
-  icon?: DynamicIconName
+  icon?: keyof typeof icons
   className?: string
   stroke?: number
   onClick?: () => void
 }
 
-/**
- * Renders a dynamic icon from the TablerIcons library based on the provided icon name.
- * @param icon - The name of the icon to render.
- * @param className - Optional additional CSS classes to apply to the icon.
- * @param stroke - Optional stroke width for the icon.
- * @returns A React element representing the icon, or null if no matching icon is found.
- */
 const DynamicIcon: React.FC<DynamicIconProps> = ({ icon, className, stroke, onClick }) => {
   if (!icon) return null
 
-  const Icon = TablerIcons[icon]
+  const Icon = icons[icon]
 
   if (!Icon) {
-    console.warn(`Icon "${icon}" not found in TablerIcons.`)
+    console.warn(`Icon "${icon}" not found in icon map.`)
     return null
   }
 
-  return (
-    // @ts-ignore
-    <Icon className={classNames('h-5 w-5', className)} stroke={stroke || 2} onClick={onClick} />
-  )
+  return <Icon className={classNames('h-5 w-5', className)} strokeWidth={stroke ?? 2} onClick={onClick} />
 }
 
 export default DynamicIcon
