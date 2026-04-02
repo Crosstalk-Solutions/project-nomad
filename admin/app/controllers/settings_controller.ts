@@ -64,6 +64,7 @@ export default class SettingsController {
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     return inertia.render('settings/models', {
       models: {
         availableModels: availableModels?.models || [],
@@ -72,6 +73,7 @@ export default class SettingsController {
           chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
           aiAssistantCustomName: aiAssistantCustomName ?? '',
           remoteOllamaUrl: remoteOllamaUrl ?? '',
+          ollamaFlashAttention: ollamaFlashAttention ?? true,
         },
       },
     })

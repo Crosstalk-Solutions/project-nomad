@@ -26,7 +26,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -94,6 +94,9 @@ export default function ModelsPage(props: {
   }
   const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
     props.models.settings.chatSuggestionsEnabled
+  )
+  const [ollamaFlashAttention, setOllamaFlashAttention] = useState(
+    props.models.settings.ollamaFlashAttention
   )
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
@@ -307,6 +310,15 @@ export default function ModelsPage(props: {
                 }}
                 label="Chat Suggestions"
                 description="Display AI-generated conversation starters in the chat interface"
+              />
+              <Switch
+                checked={ollamaFlashAttention}
+                onChange={(newVal) => {
+                  setOllamaFlashAttention(newVal)
+                  updateSettingMutation.mutate({ key: 'ai.ollamaFlashAttention', value: newVal })
+                }}
+                label="Flash Attention"
+                description="Enables OLLAMA_FLASH_ATTENTION=1 for improved memory efficiency. Disable if you experience instability. Takes effect after reinstalling the AI Assistant."
               />
               <Input
                 name="aiAssistantCustomName"
