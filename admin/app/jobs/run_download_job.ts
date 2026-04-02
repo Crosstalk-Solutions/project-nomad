@@ -54,6 +54,11 @@ export class RunDownloadJob {
       totalBytes: 0,
     }
 
+    // Track whether cancellation was explicitly requested by the user (via Redis signal
+    // or in-process AbortController). BullMQ lock mismatches can also abort the download
+    // stream, but those should be retried — only user-initiated cancels are unrecoverable.
+    let userCancelled = false
+
     // Poll Redis for cancel signal every 2s — independent of progress events so cancellation
     // works even when the stream is stalled and no onProgress ticks are firing.
     let cancelPollInterval: ReturnType<typeof setInterval> | null = setInterval(async () => {
@@ -61,7 +66,8 @@ export class RunDownloadJob {
         const val = await cancelRedis.get(RunDownloadJob.cancelKey(job.id!))
         if (val) {
           await cancelRedis.del(RunDownloadJob.cancelKey(job.id!))
-          abortController.abort()
+          userCancelled = true
+          abortController.abort('user-cancel')
         }
       } catch {
         // Redis errors are non-fatal; in-process AbortController covers same-process cancels
@@ -176,8 +182,10 @@ export class RunDownloadJob {
         filepath,
       }
     } catch (error: any) {
-      // If this was a cancellation abort, don't let BullMQ retry
-      if (error?.message?.includes('aborted') || error?.message?.includes('cancelled')) {
+      // Only prevent retries for user-initiated cancellations. BullMQ lock mismatches
+      // can also abort the stream, and those should be retried with backoff.
+      // Check both the flag (Redis poll) and abort reason (in-process cancel).
+      if (userCancelled || abortController.signal.reason === 'user-cancel') {
         throw new UnrecoverableError(`Download cancelled: ${error.message}`)
       }
       throw error
@@ -228,8 +236,8 @@ export class RunDownloadJob {
     try {
       const job = await queue.add(this.key, params, {
         jobId,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 2000 },
+        attempts: 10,
+        backoff: { type: 'exponential', delay: 30000 },
         removeOnComplete: true,
       })
 

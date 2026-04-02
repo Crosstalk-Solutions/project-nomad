@@ -125,7 +125,7 @@ export class DownloadService {
     await RunDownloadJob.signalCancel(jobId)
 
     // Also try in-memory abort (works if worker is in same process)
-    RunDownloadJob.abortControllers.get(jobId)?.abort()
+    RunDownloadJob.abortControllers.get(jobId)?.abort('user-cancel')
     RunDownloadJob.abortControllers.delete(jobId)
 
     // Poll for terminal state (up to 4s at 250ms intervals) — cooperates with BullMQ's lifecycle
