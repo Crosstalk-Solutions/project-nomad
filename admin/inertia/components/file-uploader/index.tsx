@@ -29,7 +29,7 @@ const FileUploader = forwardRef<FileUploaderRef, FileUploaderProps>((props, ref)
   const {
     minFiles = 0,
     maxFiles = 1,
-    maxFileSize = 10485760, // default to 10MB
+    maxFileSize = 104857600, // default to 100MB
     fileTypes,
     disabled = false,
     onUpload,
