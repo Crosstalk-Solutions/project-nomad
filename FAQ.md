@@ -12,6 +12,12 @@ Note: As of 3/24/2026, only the core services defined in the `docker-compose.yml
 
 Yes, you can customize the storage location for NOMAD's content by modifying the `docker-compose.yml` file to adjust the appropriate bind mounts to point to your desired storage location on your host machine. Please refer to the [Advanced Installation](README.md#advanced-installation) section of the README for more details on how to do this.
 
+## Can I store NOMAD's data on an external drive or network storage?
+
+Short answer: yes, but we can't do it for you (and we recommend a local drive for best performance).
+
+Long answer: Custom storage paths, mount points, and external drives (like iSCSI or SMB/NFS volumes) **are possible**, but this will be up to your individual configuration on the host before NOMAD starts, and then passed in via the compose.yml as this is a *host-level concern*, not a NOMAD-level concern (see above for details). NOMAD itself can't configure this for you, nor could we support all possible configurations in the install script.
+
 ## Can I run NOMAD on MAC, WSL2, or a non-Debian-based Distro?
 
 See [Why does NOMAD require a Debian-based OS?](#why-does-nomad-require-a-debian-based-os)
