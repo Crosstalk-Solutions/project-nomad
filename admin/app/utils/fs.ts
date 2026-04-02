@@ -5,6 +5,7 @@ import { createReadStream } from 'fs'
 import { LSBlockDevice, NomadDiskInfoRaw } from '../../types/system.js'
 
 export const ZIM_STORAGE_PATH = '/storage/zim'
+export const KIWIX_LIBRARY_XML_PATH = '/storage/zim/kiwix-library.xml'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
@@ -49,7 +50,7 @@ export async function listDirectoryContentsRecursive(path: string): Promise<File
 export async function ensureDirectoryExists(path: string): Promise<void> {
   try {
     await stat(path)
-  } catch (error) {
+  } catch (error: any) {
     if (error.code === 'ENOENT') {
       await mkdir(path, { recursive: true })
     }
@@ -73,7 +74,7 @@ export async function getFile(
       return createReadStream(path)
     }
     return await readFile(path)
-  } catch (error) {
+  } catch (error: any) {
     if (error.code === 'ENOENT') {
       return null
     }
@@ -90,7 +91,7 @@ export async function getFileStatsIfExists(
       size: stats.size,
       modifiedTime: stats.mtime,
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.code === 'ENOENT') {
       return null
     }
@@ -101,7 +102,7 @@ export async function getFileStatsIfExists(
 export async function deleteFileIfExists(path: string): Promise<void> {
   try {
     await unlink(path)
-  } catch (error) {
+  } catch (error: any) {
     if (error.code !== 'ENOENT') {
       throw error
     }
