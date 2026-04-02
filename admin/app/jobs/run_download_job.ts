@@ -84,7 +84,11 @@ export class RunDownloadJob {
             totalBytes: progress.totalBytes,
             lastProgressTime: Date.now(),
           }
-          job.updateProgress(progressData)
+          job.updateProgress(progressData).catch((err) => {
+            // Job was removed from Redis (e.g. cancelled) between the callback firing
+            // and the Redis write completing — this is expected and safe to ignore.
+            if (err?.code !== -1) throw err
+          })
           lastKnownProgress = { downloadedBytes: progress.downloadedBytes, totalBytes: progress.totalBytes }
         },
         async onComplete(url) {
@@ -161,7 +165,9 @@ export class RunDownloadJob {
             downloadedBytes: lastKnownProgress.downloadedBytes,
             totalBytes: lastKnownProgress.totalBytes,
             lastProgressTime: Date.now(),
-          } as DownloadProgressData)
+          } as DownloadProgressData).catch((err) => {
+            if (err?.code !== -1) throw err
+          })
         },
       })
 
