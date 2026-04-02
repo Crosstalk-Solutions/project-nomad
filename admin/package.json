@@ -47,6 +47,7 @@
     "@japa/runner": "^4.2.0",
     "@swc/core": "1.11.24",
     "@tanstack/eslint-plugin-query": "^5.81.2",
+    "@types/compression": "^1.8.1",
     "@types/dockerode": "^4.0.1",
     "@types/luxon": "^3.6.2",
     "@types/node": "^22.15.18",
@@ -94,10 +95,12 @@
     "better-sqlite3": "^12.1.1",
     "bullmq": "^5.65.1",
     "cheerio": "^1.2.0",
+    "compression": "^1.8.1",
     "dockerode": "^4.0.7",
     "edge.js": "^6.2.1",
     "fast-xml-parser": "^5.5.7",
     "fuse.js": "^7.1.0",
+    "jszip": "^3.10.1",
     "luxon": "^3.6.1",
     "maplibre-gl": "^4.7.1",
     "mysql2": "^3.14.1",
@@ -122,8 +125,7 @@
     "tar": "^7.5.11",
     "tesseract.js": "^7.0.0",
     "url-join": "^5.0.0",
-    "yaml": "^2.8.3",
-    "jszip": "^3.10.1"
+    "yaml": "^2.8.3"
   },
   "hotHook": {
     "boundaries": [

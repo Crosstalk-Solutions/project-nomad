@@ -19,6 +19,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   URL: Env.schema.string(),
   LOG_LEVEL: Env.schema.string(),
   INTERNET_STATUS_TEST_URL: Env.schema.string.optional(),
+  DISABLE_COMPRESSION: Env.schema.boolean.optional(),
 
   /*
   |----------------------------------------------------------

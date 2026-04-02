@@ -28,6 +28,8 @@
 - **Docs**: Re-formatted the Quick Install command into multiple lines for better readability in the README. Thanks @samsara-02 for the contribution!
 - **Docs**: Updated the CONTRIBUTING and FAQ guides with the latest information and clarified some common questions. Thanks @jakeaturner for the contribution!
 - **Ops**: Bumped GitHub Actions to their latest versions. Thanks @salmanmkc for the contribution!
+- **Performance**: Shrunk the bundle size of the Command Center UI significantly by optimizing dependencies and tree-shaking, resulting in faster load times and a snappier user experience. Thanks @jakeaturner for the contribution!
+- **Performance**: Implemented gzip compression by default for all HTTP registered routes from the Command Center backend to further improve performance, especially on slower connections. The DISABLE_COMPRESSION environment variable can be used to turn off this feature if needed. Thanks @jakeaturner for the contribution!
 
 ## Version 1.30.3 - March 25, 2026
 
