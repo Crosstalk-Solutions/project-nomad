@@ -44,7 +44,9 @@ export class DownloadModelJob {
     // Services are ready, initiate the download with progress tracking
     const result = await ollamaService.downloadModel(modelName, (progressPercent) => {
       if (progressPercent) {
-        job.updateProgress(Math.floor(progressPercent))
+        job.updateProgress(Math.floor(progressPercent)).catch((err) => {
+          if (err?.code !== -1) throw err
+        })
         logger.info(
           `[DownloadModelJob] Model ${modelName}: ${progressPercent}%`
         )
@@ -56,6 +58,8 @@ export class DownloadModelJob {
         status: 'downloading',
         progress: progressPercent,
         progress_timestamp: new Date().toISOString(),
+      }).catch((err) => {
+        if (err?.code !== -1) throw err
       })
     })
 

@@ -31,6 +31,17 @@ export class EmbedFileJob {
     return createHash('sha256').update(filePath).digest('hex').slice(0, 16)
   }
 
+  /** Calls job.updateProgress but silently ignores "Missing key" errors (code -1),
+   *  which occur when the job has been removed from Redis (e.g. cancelled externally)
+   *  between the time the await was issued and the Redis write completed. */
+  private async safeUpdateProgress(job: Job, progress: number): Promise<void> {
+    try {
+      await job.updateProgress(progress)
+    } catch (err: any) {
+      if (err?.code !== -1) throw err
+    }
+  }
+
   async handle(job: Job) {
     const { filePath, fileName, batchOffset, totalArticles } = job.data as EmbedFileJobParams
 
@@ -67,7 +78,7 @@ export class EmbedFileJob {
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
       // Update progress starting
-      await job.updateProgress(5)
+      await this.safeUpdateProgress(job, 5)
       await job.updateData({
         ...job.data,
         status: 'processing',
@@ -78,7 +89,7 @@ export class EmbedFileJob {
 
       // Progress callback: maps service-reported 0-100% into the 5-95% job range
       const onProgress = async (percent: number) => {
-        await job.updateProgress(Math.min(95, Math.round(5 + percent * 0.9)))
+        await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
       }
 
       // Process and embed the file
@@ -117,7 +128,7 @@ export class EmbedFileJob {
           ? Math.round((nextOffset / totalArticles) * 100)
           : 50
 
-        await job.updateProgress(progress)
+        await this.safeUpdateProgress(job, progress)
         await job.updateData({
           ...job.data,
           status: 'batch_completed',
@@ -138,7 +149,7 @@ export class EmbedFileJob {
 
       // Final batch or non-batched file - mark as complete
       const totalChunks = (job.data.chunks || 0) + (result.chunks || 0)
-      await job.updateProgress(100)
+      await this.safeUpdateProgress(job, 100)
       await job.updateData({
         ...job.data,
         status: 'completed',
