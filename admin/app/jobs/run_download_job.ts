@@ -67,7 +67,7 @@ export class RunDownloadJob {
         if (val) {
           await cancelRedis.del(RunDownloadJob.cancelKey(job.id!))
           userCancelled = true
-          abortController.abort()
+          abortController.abort('user-cancel')
         }
       } catch {
         // Redis errors are non-fatal; in-process AbortController covers same-process cancels
@@ -184,7 +184,8 @@ export class RunDownloadJob {
     } catch (error: any) {
       // Only prevent retries for user-initiated cancellations. BullMQ lock mismatches
       // can also abort the stream, and those should be retried with backoff.
-      if (userCancelled) {
+      // Check both the flag (Redis poll) and abort reason (in-process cancel).
+      if (userCancelled || abortController.signal.reason === 'user-cancel') {
         throw new UnrecoverableError(`Download cancelled: ${error.message}`)
       }
       throw error
