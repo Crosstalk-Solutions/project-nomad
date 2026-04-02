@@ -228,8 +228,8 @@ export class RunDownloadJob {
     try {
       const job = await queue.add(this.key, params, {
         jobId,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 2000 },
+        attempts: 10,
+        backoff: { type: 'exponential', delay: 30000 },
         removeOnComplete: true,
       })
 
