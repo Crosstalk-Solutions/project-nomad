@@ -19,6 +19,7 @@ import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
+import { invalidateAssistantNameCache } from '../../config/inertia.js'
 
 @inject()
 export class SystemService {
@@ -206,7 +207,7 @@ export class SystemService {
   }
 
   async getServices({ installedOnly = true }: { installedOnly?: boolean }): Promise<ServiceSlim[]> {
-    await this._syncContainersWithDatabase() // Sync up before fetching to ensure we have the latest status
+    const statuses = await this._syncContainersWithDatabase() // Sync and reuse the fetched status list
 
     const query = Service.query()
       .orderBy('display_order', 'asc')
@@ -234,8 +235,6 @@ export class SystemService {
     if (!services || services.length === 0) {
       return []
     }
-
-    const statuses = await this.dockerService.getServicesStatus()
 
     const toReturn: ServiceSlim[] = []
 
@@ -638,6 +637,9 @@ export class SystemService {
     } else {
       await KVStore.setValue(key, value)
     }
+    if (key === 'ai.assistantCustomName') {
+      invalidateAssistantNameCache()
+    }
   }
 
   /**
@@ -645,8 +647,9 @@ export class SystemService {
    * It will mark services as not installed if their corresponding containers do not exist, regardless of their running state.
    * Handles cases where a container might have been manually removed, ensuring the database reflects the actual existence of containers.
    * Containers that exist but are stopped, paused, or restarting will still be considered installed.
+   * Returns the fetched service status list so callers can reuse it without a second Docker API call.
    */
-  private async _syncContainersWithDatabase() {
+  private async _syncContainersWithDatabase(): Promise<{ service_name: string; status: string }[]> {
     try {
       const allServices = await Service.all()
       const serviceStatusList = await this.dockerService.getServicesStatus()
@@ -683,8 +686,11 @@ export class SystemService {
           }
         }
       }
+
+      return serviceStatusList
     } catch (error) {
       logger.error('Error syncing containers with database:', error)
+      return []
     }
   }
 
