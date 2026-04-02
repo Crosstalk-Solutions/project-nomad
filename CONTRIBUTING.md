@@ -74,11 +74,11 @@ Because Nomad relies heavily on Docker, we actually recommend against installing
 1. **Sync with upstream** before starting any new work. We prefer rebasing over merge commits to keep a clean, linear git history as much as possible (this also makes it easier for maintainers to review and merge your changes). To sync with upstream:
    ```bash
    git fetch upstream
-   git checkout main
-   git rebase upstream/main
+   git checkout dev
+   git rebase upstream/dev
    ```
 
-2. **Create a feature branch** off `main` with a descriptive name:
+2. **Create a feature branch** off `dev` with a descriptive name:
    ```bash
    git checkout -b fix/issue-123
    # or
@@ -130,26 +130,7 @@ chore(deps): bump docker-compose to v2.24
 
 Human-readable release notes live in [`admin/docs/release-notes.md`](admin/docs/release-notes.md) and are displayed directly in the Command Center UI.
 
-When your changes include anything user-facing, **add a summary to the `## Unreleased` section** at the top of that file under the appropriate heading:
-
-- **Features** — new user-facing capabilities
-- **Bug Fixes** — corrections to existing behavior
-- **Improvements** — enhancements, refactors, docs, or dependency updates
-
-Use the format `- **Area**: Description` to stay consistent with existing entries.
-
-**Example:**
-```markdown
-## Unreleased
-
-### Features
-- **Maps**: Added support for downloading South America regional maps
-
-### Bug Fixes
-- **AI Chat**: Fixed document upload failing on filenames with special characters
-```
-
-> When a release is triggered, CI automatically stamps the version and date, commits the update, and publishes the content to the GitHub release. You do not need to do this manually.
+If your PR is merged in, the maintainers will update the release notes with a summary of your contribution and credit you as the author. You do not need to add this yourself in the PR (please don't, as it may cause merge conflicts), but you can include a suggested note in the PR description if you like.
 
 ---
 
@@ -165,7 +146,7 @@ This project uses [Semantic Versioning](https://semver.org/). Versions are manag
    ```bash
    git push origin your-branch-name
    ```
-2. Open a pull request against the `main` branch of this repository
+2. Open a pull request against the `dev` branch of this repository
 3. In the PR description:
    - Summarize what your changes do and why
    - Reference the related issue (e.g., `Closes #123`)
