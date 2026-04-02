@@ -19,7 +19,10 @@ import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
-  public static NOMAD_NETWORK = 'project-nomad_default'    
+  public static NOMAD_NETWORK = 'project-nomad_default'
+
+  private _servicesStatusCache: { data: { service_name: string; status: string }[]; expiresAt: number } | null = null
+  private _servicesStatusInflight: Promise<{ service_name: string; status: string }[]> | null = null
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)
@@ -58,6 +61,7 @@ export class DockerService {
       const dockerContainer = this.docker.getContainer(container.Id)
       if (action === 'stop') {
         await dockerContainer.stop()
+        this.invalidateServicesStatusCache()
         return {
           success: true,
           message: `Service ${serviceName} stopped successfully`,
@@ -70,11 +74,13 @@ export class DockerService {
           if (isLegacy) {
             logger.info('[DockerService] Kiwix on legacy glob config — running migration instead of restart.')
             await this.migrateKiwixToLibraryMode()
+            this.invalidateServicesStatusCache()
             return { success: true, message: 'Kiwix migrated to library mode successfully.' }
           }
         }
 
         await dockerContainer.restart()
+        this.invalidateServicesStatusCache()
 
         return {
           success: true,
@@ -91,6 +97,7 @@ export class DockerService {
         }
 
         await dockerContainer.start()
+        this.invalidateServicesStatusCache()
 
         return {
           success: true,
@@ -113,13 +120,37 @@ export class DockerService {
 
   /**
    * Fetches the status of all Docker containers related to Nomad services. (those prefixed with 'nomad_')
+   * Results are cached for 5 seconds and concurrent callers share a single in-flight request,
+   * preventing Docker socket congestion during rapid page navigation.
    */
-  async getServicesStatus(): Promise<
-    {
-      service_name: string
-      status: string
-    }[]
-  > {
+  async getServicesStatus(): Promise<{ service_name: string; status: string }[]> {
+    const now = Date.now()
+    if (this._servicesStatusCache && now < this._servicesStatusCache.expiresAt) {
+      return this._servicesStatusCache.data
+    }
+    if (this._servicesStatusInflight) return this._servicesStatusInflight
+
+    this._servicesStatusInflight = this._fetchServicesStatus().then((data) => {
+      this._servicesStatusCache = { data, expiresAt: Date.now() + 5000 }
+      this._servicesStatusInflight = null
+      return data
+    }).catch((err) => {
+      this._servicesStatusInflight = null
+      throw err
+    })
+    return this._servicesStatusInflight
+  }
+
+  /**
+   * Invalidates the services status cache. Call this after any container state change
+   * (start, stop, restart, install, uninstall) so the next read reflects reality.
+   */
+  invalidateServicesStatusCache() {
+    this._servicesStatusCache = null
+    this._servicesStatusInflight = null
+  }
+
+  private async _fetchServicesStatus(): Promise<{ service_name: string; status: string }[]> {
     try {
       const containers = await this.docker.listContainers({ all: true })
       const containerMap = new Map<string, Docker.ContainerInfo>()
@@ -363,6 +394,7 @@ export class DockerService {
       service.installed = false
       service.installation_status = 'installing'
       await service.save()
+      this.invalidateServicesStatusCache()
 
       // Step 5: Recreate the container
       this._broadcast(serviceName, 'recreating', `Recreating container...`)
@@ -569,6 +601,7 @@ export class DockerService {
       service.installed = true
       service.installation_status = 'idle'
       await service.save()
+      this.invalidateServicesStatusCache()
 
       // Remove from active installs tracking
       this.activeInstallations.delete(service.service_name)

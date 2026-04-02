@@ -3,6 +3,12 @@ import { SystemService } from '#services/system_service'
 import { defineConfig } from '@adonisjs/inertia'
 import type { InferSharedProps } from '@adonisjs/inertia/types'
 
+let _assistantNameCache: { value: string; expiresAt: number } | null = null
+
+export function invalidateAssistantNameCache() {
+  _assistantNameCache = null
+}
+
 const inertiaConfig = defineConfig({
   /**
    * Path to the Edge view that will be used as the root view for Inertia responses
@@ -16,8 +22,14 @@ const inertiaConfig = defineConfig({
     appVersion: () => SystemService.getAppVersion(),
     environment: process.env.NODE_ENV || 'production',
     aiAssistantName: async () => {
+      const now = Date.now()
+      if (_assistantNameCache && now < _assistantNameCache.expiresAt) {
+        return _assistantNameCache.value
+      }
       const customName = await KVStore.getValue('ai.assistantCustomName')
-      return (customName && customName.trim()) ? customName : 'AI Assistant'
+      const value = (customName && customName.trim()) ? customName : 'AI Assistant'
+      _assistantNameCache = { value, expiresAt: now + 60_000 }
+      return value
     },
   },
 
