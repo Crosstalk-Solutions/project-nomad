@@ -24,6 +24,7 @@ function sourceToDisplayName(source: string): string {
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false)
   const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
   const { openModal, closeModal } = useModals()
@@ -37,23 +38,6 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => api.uploadDocument(file),
-    onSuccess: (data) => {
-      addNotification({
-        type: 'success',
-        message: data?.message || 'Document uploaded and queued for processing',
-      })
-      setFiles([])
-      if (fileUploaderRef.current) {
-        fileUploaderRef.current.clear()
-      }
-      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
-    },
-    onError: (error: any) => {
-      addNotification({
-        type: 'error',
-        message: error?.message || 'Failed to upload document',
-      })
-    },
   })
 
   const deleteMutation = useMutation({
@@ -96,9 +80,34 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     },
   })
 
-  const handleUpload = () => {
-    if (files.length > 0) {
-      uploadMutation.mutate(files[0])
+  const handleUpload = async () => {
+    if (files.length === 0) return
+    setIsUploading(true)
+    let successCount = 0
+    const failedNames: string[] = []
+
+    for (const file of files) {
+      try {
+        await uploadMutation.mutateAsync(file)
+        successCount++
+      } catch (error: any) {
+        failedNames.push(file.name)
+      }
+    }
+
+    setIsUploading(false)
+    setFiles([])
+    fileUploaderRef.current?.clear()
+    queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+
+    if (successCount > 0) {
+      addNotification({
+        type: 'success',
+        message: `${successCount} file${successCount > 1 ? 's' : ''} queued for processing.`,
+      })
+    }
+    for (const name of failedNames) {
+      addNotification({ type: 'error', message: `Failed to upload: ${name}` })
     }
   }
 
@@ -145,7 +154,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               <FileUploader
                 ref={fileUploaderRef}
                 minFiles={1}
-                maxFiles={1}
+                maxFiles={5}
                 onUpload={(uploadedFiles) => {
                   setFiles(Array.from(uploadedFiles))
                 }}
@@ -156,8 +165,8 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   size="lg"
                   icon="IconUpload"
                   onClick={handleUpload}
-                  disabled={files.length === 0 || uploadMutation.isPending}
-                  loading={uploadMutation.isPending}
+                  disabled={files.length === 0 || isUploading}
+                  loading={isUploading}
                 >
                   Upload
                 </StyledButton>
@@ -243,8 +252,8 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 size="md"
                 icon='IconRefresh'
                 onClick={handleConfirmSync}
-                disabled={syncMutation.isPending || uploadMutation.isPending}
-                loading={syncMutation.isPending || uploadMutation.isPending}
+                disabled={syncMutation.isPending || isUploading}
+                loading={syncMutation.isPending || isUploading}
               >
                 Sync Storage
               </StyledButton>
