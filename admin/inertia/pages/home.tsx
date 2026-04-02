@@ -6,7 +6,7 @@ import {
   IconSettings,
   IconWifiOff,
 } from '@tabler/icons-react'
-import { Head, usePage } from '@inertiajs/react'
+import { Head, Link, router, usePage } from '@inertiajs/react'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
@@ -146,9 +146,7 @@ export default function Home(props: {
                 variant: 'primary',
                 children: 'Go to Settings',
                 icon: 'IconSettings',
-                onClick: () => {
-                  window.location.href = '/settings/update'
-                },
+                onClick: () => router.visit('/settings/update'),
               }}
             />
           </div>
@@ -159,26 +157,34 @@ export default function Home(props: {
           const isEasySetup = item.label === 'Easy Setup'
           const shouldHighlight = isEasySetup && shouldHighlightEasySetup
 
-          return (
-            <a key={item.label} href={item.to} target={item.target}>
-              <div className="relative rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-text-primary text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4">
-                {shouldHighlight && (
-                  <span className="absolute top-2 right-2 flex items-center justify-center">
-                    <span
-                      className="animate-ping absolute inline-flex w-16 h-6 rounded-full bg-desert-orange-light opacity-75"
-                      style={{ animationDuration: '1.5s' }}
-                    ></span>
-                    <span className="relative inline-flex items-center rounded-full px-2.5 py-1 bg-desert-orange-light text-xs font-semibold text-white shadow-sm">
-                      Start here!
-                    </span>
+          const tileContent = (
+            <div className="relative rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-text-primary text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4">
+              {shouldHighlight && (
+                <span className="absolute top-2 right-2 flex items-center justify-center">
+                  <span
+                    className="animate-ping absolute inline-flex w-16 h-6 rounded-full bg-desert-orange-light opacity-75"
+                    style={{ animationDuration: '1.5s' }}
+                  ></span>
+                  <span className="relative inline-flex items-center rounded-full px-2.5 py-1 bg-desert-orange-light text-xs font-semibold text-white shadow-sm">
+                    Start here!
                   </span>
-                )}
-                <div className="flex items-center justify-center mb-2">{item.icon}</div>
-                <h3 className="font-bold text-2xl">{item.label}</h3>
-                {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
-                <p className="xl:text-lg mt-2">{item.description}</p>
-              </div>
+                </span>
+              )}
+              <div className="flex items-center justify-center mb-2">{item.icon}</div>
+              <h3 className="font-bold text-2xl">{item.label}</h3>
+              {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
+              <p className="xl:text-lg mt-2">{item.description}</p>
+            </div>
+          )
+
+          return item.target === '_blank' ? (
+            <a key={item.label} href={item.to} target="_blank" rel="noopener noreferrer">
+              {tileContent}
             </a>
+          ) : (
+            <Link key={item.label} href={item.to}>
+              {tileContent}
+            </Link>
           )
         })}
       </div>

@@ -13,7 +13,12 @@ const dbConfig = defineConfig({
         user: env.get('DB_USER'),
         password: env.get('DB_PASSWORD'),
         database: env.get('DB_DATABASE'),
-        ssl: env.get('DB_SSL') ?? true, // Default to true
+        ssl: env.get('DB_SSL') ? {} : false,
+      },
+      pool: {
+        min: 2,
+        max: 15,
+        acquireTimeoutMillis: 10000, // Fail fast (10s) instead of silently hanging for ~60s
       },
       migrations: {
         naturalSort: true,

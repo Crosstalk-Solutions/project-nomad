@@ -1,5 +1,5 @@
 import MapsLayout from '~/layouts/MapsLayout'
-import { Head, Link } from '@inertiajs/react'
+import { Head, Link, router } from '@inertiajs/react'
 import MapComponent from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft } from '@tabler/icons-react'
@@ -42,9 +42,7 @@ export default function Maps(props: {
                 variant: 'secondary',
                 children: 'Go to Map Settings',
                 icon: 'IconSettings',
-                onClick: () => {
-                  window.location.href = '/settings/maps'
-                },
+                onClick: () => router.visit('/settings/maps'),
               }}
             />
           </div>
