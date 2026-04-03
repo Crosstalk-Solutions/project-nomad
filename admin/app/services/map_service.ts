@@ -511,8 +511,18 @@ export class MapService implements IMapService {
     }
   }
 
-  /*
-   * Gets the appropriate public URL for a map asset depending on environment
+  /**
+   * Gets the appropriate public URL for a map asset depending on environment. The host and protocol that the user
+   * is accessing the maps from must match the host and protocol used in the generated URLs, otherwise maps will fail to load.
+   * If you make changes to this function, you need to ensure it handles all the following cases correctly:
+   * - No host provided (should default to localhost or env URL)
+   * - Host provided as full URL (e.g. "http://example.com:8080")
+   * - Host provided as host:port (e.g. "example.com:8080")
+   * - Host provided as bare hostname (e.g. "example.com")
+   * @param specifiedHost - the host as provided by the user/request, can be null or in various formats (full URL, host:port, bare hostname)
+   * @param childPath - the path to append to the base URL (e.g. "basemaps-assets", "pmtiles")
+   * @param protocol - the protocol to use in the generated URL (e.g. "http", "https"), defaults to "http"
+   * @returns the public URL for the map asset
    */
   private getPublicFileBaseUrl(specifiedHost: string | null, childPath: string, protocol: string = 'http'): string {
     function getHost() {
@@ -528,15 +538,20 @@ export class MapService implements IMapService {
     }
 
     function specifiedHostOrDefault() {
-      if(specifiedHost === null) {
+      if (specifiedHost === null) {
         return getHost()
       }
+      // Try as a full URL first (e.g. "http://example.com:8080")
       try {
         const specifiedUrl = new URL(specifiedHost)
-        return specifiedUrl.host
-      } catch (error) {
-        return getHost()
-      }
+        if (specifiedUrl.host) return specifiedUrl.host
+      } catch {}
+      // Try as a bare host or host:port (e.g. "nomad-box:8080", "192.168.1.1:8080", "example.com")
+      try {
+        const specifiedUrl = new URL(`http://${specifiedHost}`)
+        if (specifiedUrl.host) return specifiedUrl.host
+      } catch {}
+      return getHost()
     }
 
     const host = specifiedHostOrDefault();
