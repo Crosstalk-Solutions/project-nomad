@@ -22,7 +22,7 @@ export default function MapComponent() {
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [markerName, setMarkerName] = useState('')
   const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
-  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null)
+  const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
 
   // Add the PMTiles protocol to maplibre-gl
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function MapComponent() {
   }, [])
 
   const handleDeleteMarker = useCallback(
-    (id: string) => {
+    (id: number) => {
       if (selectedMarkerId === id) setSelectedMarkerId(null)
       deleteMarker(id)
     },

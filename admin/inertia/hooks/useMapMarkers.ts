@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import api from '~/lib/api'
 
 export const PIN_COLORS = [
   { id: 'orange', label: 'Orange', hex: '#a84a12' },
@@ -12,7 +13,7 @@ export const PIN_COLORS = [
 export type PinColorId = typeof PIN_COLORS[number]['id']
 
 export interface MapMarker {
-  id: string
+  id: number
   name: string
   longitude: number
   latitude: number
@@ -20,60 +21,66 @@ export interface MapMarker {
   createdAt: string
 }
 
-const STORAGE_KEY = 'nomad:map-markers'
-
-function getInitialMarkers(): MapMarker[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (Array.isArray(parsed)) return parsed
-    }
-  } catch {}
-  return []
-}
-
-function persist(markers: MapMarker[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(markers))
-  } catch {}
-}
-
 export function useMapMarkers() {
-  const [markers, setMarkers] = useState<MapMarker[]>(getInitialMarkers)
+  const [markers, setMarkers] = useState<MapMarker[]>([])
+  const [loaded, setLoaded] = useState(false)
 
-  const addMarker = useCallback((name: string, longitude: number, latitude: number, color: PinColorId = 'orange'): MapMarker => {
-    const marker: MapMarker = {
-      id: crypto.randomUUID(),
-      name,
-      longitude,
-      latitude,
-      color,
-      createdAt: new Date().toISOString(),
+  // Load markers from API on mount
+  useEffect(() => {
+    api.listMapMarkers().then((data) => {
+      if (data) {
+        setMarkers(
+          data.map((m) => ({
+            id: m.id,
+            name: m.name,
+            longitude: m.longitude,
+            latitude: m.latitude,
+            color: m.color as PinColorId,
+            createdAt: m.created_at,
+          }))
+        )
+      }
+      setLoaded(true)
+    })
+  }, [])
+
+  const addMarker = useCallback(
+    async (name: string, longitude: number, latitude: number, color: PinColorId = 'orange') => {
+      const result = await api.createMapMarker({ name, longitude, latitude, color })
+      if (result) {
+        const marker: MapMarker = {
+          id: result.id,
+          name: result.name,
+          longitude: result.longitude,
+          latitude: result.latitude,
+          color: result.color as PinColorId,
+          createdAt: result.created_at,
+        }
+        setMarkers((prev) => [...prev, marker])
+        return marker
+      }
+      return null
+    },
+    []
+  )
+
+  const updateMarker = useCallback(async (id: number, updates: { name?: string; color?: string }) => {
+    const result = await api.updateMapMarker(id, updates)
+    if (result) {
+      setMarkers((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? { ...m, name: result.name, color: result.color as PinColorId }
+            : m
+        )
+      )
     }
-    setMarkers((prev) => {
-      const next = [...prev, marker]
-      persist(next)
-      return next
-    })
-    return marker
   }, [])
 
-  const updateMarker = useCallback((id: string, name: string) => {
-    setMarkers((prev) => {
-      const next = prev.map((m) => (m.id === id ? { ...m, name } : m))
-      persist(next)
-      return next
-    })
+  const deleteMarker = useCallback(async (id: number) => {
+    await api.deleteMapMarker(id)
+    setMarkers((prev) => prev.filter((m) => m.id !== id))
   }, [])
 
-  const deleteMarker = useCallback((id: string) => {
-    setMarkers((prev) => {
-      const next = prev.filter((m) => m.id !== id)
-      persist(next)
-      return next
-    })
-  }, [])
-
-  return { markers, addMarker, updateMarker, deleteMarker }
+  return { markers, loaded, addMarker, updateMarker, deleteMarker }
 }
