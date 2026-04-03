@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.31.0 - April 3, 2026
 
 ### Features
 - **AI Assistant**: Added support for remote OpenAI-compatible hosts (e.g. Ollama, LM Studio, etc.) to support running models on seperate hardware from the Command Center host. Thanks @hestela for the contribution!
