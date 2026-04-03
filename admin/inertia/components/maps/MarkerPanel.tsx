@@ -5,10 +5,10 @@ import type { MapMarker } from '~/hooks/useMapMarkers'
 
 interface MarkerPanelProps {
   markers: MapMarker[]
-  onDelete: (id: string) => void
+  onDelete: (id: number) => void
   onFlyTo: (longitude: number, latitude: number) => void
-  onSelect: (id: string | null) => void
-  selectedMarkerId: string | null
+  onSelect: (id: number | null) => void
+  selectedMarkerId: number | null
 }
 
 export default function MarkerPanel({

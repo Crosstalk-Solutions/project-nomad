@@ -571,6 +571,39 @@ class API {
     })()
   }
 
+  async listMapMarkers() {
+    return catchInternal(async () => {
+      const response = await this.client.get<
+        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }>
+      >('/maps/markers')
+      return response.data
+    })()
+  }
+
+  async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<
+        { id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }
+      >('/maps/markers', data)
+      return response.data
+    })()
+  }
+
+  async updateMapMarker(id: number, data: { name?: string; color?: string }) {
+    return catchInternal(async () => {
+      const response = await this.client.patch<
+        { id: number; name: string; longitude: number; latitude: number; color: string }
+      >(`/maps/markers/${id}`, data)
+      return response.data
+    })()
+  }
+
+  async deleteMapMarker(id: number) {
+    return catchInternal(async () => {
+      await this.client.delete(`/maps/markers/${id}`)
+    })()
+  }
+
   async listRemoteZimFiles({
     start = 0,
     count = 12,
