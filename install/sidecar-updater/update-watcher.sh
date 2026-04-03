@@ -71,7 +71,7 @@ perform_update() {
     log "Recreating containers individually (excluding updater)..."
     
     # List of services to update (excluding updater)
-    SERVICES_TO_UPDATE="admin mysql redis dozzle"
+    SERVICES_TO_UPDATE="admin mysql valkey dozzle"
     
     local current_progress=65
     local progress_per_service=8  # (95 - 65) / 4 services ≈ 8% per service
