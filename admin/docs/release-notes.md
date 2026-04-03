@@ -8,13 +8,16 @@
 - **Information Library (Kiwix)**: The Kiwix container now uses an XML library file approach instead of a glob-based approach to inform the Kiwix container of available ZIM files. This allows for much more robust handling of ZIM files and avoids issues with the container failing to start due to incomplete/corrupt ZIM files being present in the storage directory. Thanks @jakeaturner for the contribution!
 - **RAG**: Added support for EPUB file embedding into the Knowledge Base. Thanks @arn6694 for the contribution!
 - **RAG**: Added support for multiple file uploads (<=5, 100mb each) to the Knowledge Base. Thanks @jakeaturner for the contribution!
+- **Maps**: Added support for customizable location markers on the map with database persistence. Thanks @chriscrosstalk for the contribution!
 - **Maps**: The global map file can now be downloaded directly from PMTiles for users who want to the full map and/or regions outside of the U.S. that haven't been added to the curated collections yet. Thanks @bgauger for the contribution!
+- **Maps**: Added a scale bar to the map viewer with imperial and metric options. Thanks @chriscrosstalk for the contribution!
 - **Downloads**: Added support/improvements for rich progress, friendly names, cancellation, and live status updates for active downloads in the UI. Thanks @chriscrosstalk for the contribution!
 - **UI**: Converted all PNGs to WEBP for reduced image sizes and improved performance. Thanks @hestela for the contribution!
 - **UI**: Added an Installed Models section to AI Assistant settings. Thanks @chriscrosstalk for the contribution!
 
 ### Bug Fixes
 - **Maps**: The maps API endpoints now properly check for "X-Forwarded-Proto" to support scenarios where the Command Center is behind a reverse proxy that terminates TLS. Thanks @davidgross for the fix!
+- **Maps**: Fixed an issue where the maps API endpoints could fail with an internal error if a hostname was used to access the Command Center instead of an IP address or localhost. Thanks @jakeaturner for the fix!
 - **Queue**: Increased the BullMQ lockDuration to prevent jobs from being killed prematurely on slower systems. Thanks @bgauger for the contribution!
 - **Queue**: Added better handling for very large downloads and user-initated cancellations. Thanks @bgauger for the contribution!
 - **Install**: The install script now checks for the presence of gpg (required for NVIDIA toolkit install) and automatically attempts to install it if it's missing. Thanks @chriscrosstalk for the fix!
