@@ -11,6 +11,9 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { useEffect, useRef, useState, useCallback } from 'react'
+
+type ScaleUnit = 'imperial' | 'metric'
+
 import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { PinColorId } from '~/hooks/useMapMarkers'
 import MarkerPin from './MarkerPin'
@@ -23,6 +26,17 @@ export default function MapComponent() {
   const [markerName, setMarkerName] = useState('')
   const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
+  const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
+    () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
+  )
+
+  const toggleScaleUnit = useCallback(() => {
+    setScaleUnit((prev) => {
+      const next = prev === 'metric' ? 'imperial' : 'metric'
+      localStorage.setItem('nomad:map-scale-unit', next)
+      return next
+    })
+  }, [])
 
   // Add the PMTiles protocol to maplibre-gl
   useEffect(() => {
@@ -83,7 +97,45 @@ export default function MapComponent() {
       >
         <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
         <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
-        <ScaleControl position="bottom-left" maxWidth={150} unit="imperial" />
+        <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
+        <div style={{ position: 'absolute', bottom: '30px', left: '10px', zIndex: 2 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              borderRadius: '4px',
+              boxShadow: '0 0 0 2px rgba(0,0,0,0.1)',
+              overflow: 'hidden',
+              fontSize: '11px',
+              fontWeight: 600,
+              lineHeight: 1,
+            }}
+          >
+            <button
+              onClick={() => { if (scaleUnit !== 'metric') toggleScaleUnit() }}
+              style={{
+                background: scaleUnit === 'metric' ? '#424420' : 'white',
+                color: scaleUnit === 'metric' ? 'white' : '#666',
+                border: 'none',
+                padding: '4px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              Metric
+            </button>
+            <button
+              onClick={() => { if (scaleUnit !== 'imperial') toggleScaleUnit() }}
+              style={{
+                background: scaleUnit === 'imperial' ? '#424420' : 'white',
+                color: scaleUnit === 'imperial' ? 'white' : '#666',
+                border: 'none',
+                padding: '4px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              Imperial
+            </button>
+          </div>
+        </div>
 
         {/* Existing markers */}
         {markers.map((marker) => (
