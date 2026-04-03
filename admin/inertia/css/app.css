@@ -119,3 +119,40 @@ body {
 
   color-scheme: dark;
 }
+
+/* MapLibre popup styling for dark mode */
+[data-theme="dark"] .maplibregl-popup-content {
+  background: #2a2918;
+  color: #f7eedc;
+}
+
+[data-theme="dark"] .maplibregl-popup-content input {
+  background: #353420;
+  color: #f7eedc;
+  border-color: #424420;
+}
+
+[data-theme="dark"] .maplibregl-popup-content input::placeholder {
+  color: #8f8f82;
+}
+
+[data-theme="dark"] .maplibregl-popup-tip {
+  border-top-color: #2a2918;
+}
+
+[data-theme="dark"] .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #2a2918;
+}
+
+[data-theme="dark"] .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #2a2918;
+}
+
+[data-theme="dark"] .maplibregl-popup-close-button {
+  color: #afafa5;
+}
+
+[data-theme="dark"] .maplibregl-popup-close-button:hover {
+  color: #f7eedc;
+  background: #353420;
+}
