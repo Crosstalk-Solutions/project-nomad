@@ -4,7 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
-import { DEFAULT_QUERY_REWRITE_MODEL, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
 @inject()
@@ -232,29 +232,22 @@ export class ChatService {
     }
   }
 
-  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string) {
+  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string, model: string) {
     try {
-      const models = await this.ollamaService.getModels()
-      const titleModelAvailable = models?.some((m) => m.name === DEFAULT_QUERY_REWRITE_MODEL)
-
       let title: string
 
-      if (!titleModelAvailable) {
-        title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
-      } else {
-        const response = await this.ollamaService.chat({
-          model: DEFAULT_QUERY_REWRITE_MODEL,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPTS.title_generation },
-            { role: 'user', content: userMessage },
-            { role: 'assistant', content: assistantMessage },
-          ],
-        })
+      const response = await this.ollamaService.chat({
+        model,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPTS.title_generation },
+          { role: 'user', content: userMessage },
+          { role: 'assistant', content: assistantMessage },
+        ],
+      })
 
-        title = response?.message?.content?.trim()
-        if (!title) {
-          title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
-        }
+      title = response?.message?.content?.trim()
+      if (!title) {
+        title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
       }
 
       await this.updateSession(sessionId, { title })
