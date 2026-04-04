@@ -36,10 +36,18 @@ export const zimCategoriesSpecSchema = vine.object({
   ),
 })
 
+export const mapResourceValidator = vine.object({
+  id: vine.string(),
+  title: vine.string(),
+  size_mb: vine.number().min(0).optional(),
+})
+
 // ---- Maps spec (versioned) ----
 
 export const mapsSpecSchema = vine.object({
   spec_version: vine.string(),
+  data_version: vine.string(),
+  base_url: vine.string().url(),
   collections: vine.array(
     vine.object({
       slug: vine.string(),
@@ -47,7 +55,7 @@ export const mapsSpecSchema = vine.object({
       description: vine.string(),
       icon: vine.string(),
       language: vine.string().minLength(2).maxLength(5),
-      resources: vine.array(specResourceValidator).minLength(1),
+      resources: vine.array(mapResourceValidator).minLength(1),
     })
   ).minLength(1),
 })

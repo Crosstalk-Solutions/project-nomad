@@ -25,13 +25,19 @@ export type SpecCategory = {
   tiers: SpecTier[]
 }
 
+export type MapSpecResource = {
+  id: string
+  title: string
+  size_mb: number
+}
+
 export type SpecCollection = {
   name: string
   slug: string
   description: string
   icon: string
   language: string
-  resources: SpecResource[]
+  resources: MapSpecResource[]
 }
 
 export type ZimCategoriesSpec = {
@@ -41,6 +47,8 @@ export type ZimCategoriesSpec = {
 
 export type MapsSpec = {
   spec_version: string
+  data_version: string
+  base_url: string
   collections: SpecCollection[]
 }
 

@@ -109,15 +109,12 @@ export class MapService implements IMapService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const existing = await RunDownloadJob.getByUrl(resource.url)
-      if (existing) {
-        logger.warn(`[MapService] Download already in progress for URL ${resource.url}, skipping.`)
-        continue
-      }
+      const filename = `${resource.id}_${spec.data_version}.pmtiles`
+      const resourceUrl = `${spec.base_url}/${filename}`
 
-      const filename = resource.url.split('/').pop()
-      if (!filename) {
-        logger.warn(`[MapService] Could not determine filename from URL ${resource.url}, skipping.`)
+      const existing = await RunDownloadJob.getByUrl(resourceUrl)
+      if (existing) {
+        logger.warn(`[MapService] Download already in progress for URL ${resourceUrl}, skipping.`)
         continue
       }
 
@@ -125,7 +122,7 @@ export class MapService implements IMapService {
       const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
       await RunDownloadJob.dispatch({
-        url: resource.url,
+        url: resourceUrl,
         filepath,
         timeout: 30000,
         allowedMimeTypes: PMTILES_MIME_TYPES,
@@ -133,7 +130,7 @@ export class MapService implements IMapService {
         filetype: 'map',
         resourceMetadata: {
           resource_id: resource.id,
-          version: resource.version,
+          version: spec.data_version,
           collection_ref: slug,
         },
       })
