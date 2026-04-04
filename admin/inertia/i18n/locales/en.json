@@ -39,7 +39,11 @@
     "updateAvailable": "An update is available for Project N.O.M.A.D.!",
     "goToSettings": "Go to Settings",
     "startHere": "Start here!",
-    "poweredBy": "Powered by"
+    "poweredBy": "Powered by",
+    "easySetupDesc": "Not sure where to start? Use the setup wizard to quickly configure your N.O.M.A.D.!",
+    "installAppsDesc": "Not seeing your favorite app? Install it here!",
+    "docsDesc": "Read Project N.O.M.A.D. manuals and guides",
+    "settingsDesc": "Configure your N.O.M.A.D. settings"
   },
   "menu": {
     "maps": "Maps",
@@ -50,6 +54,7 @@
   },
   "maps": {
     "title": "Offline Maps",
+    "viewOffline": "View offline maps",
     "search": "Search locations...",
     "noResults": "No results found",
     "loadingMap": "Loading map...",
@@ -69,10 +74,16 @@
     "apps": "Apps",
     "models": "Models",
     "maps": "Maps",
+    "mapsManager": "Maps Manager",
     "benchmark": "Benchmark",
     "update": "Update",
+    "checkUpdates": "Check for Updates",
     "legal": "Legal",
-    "support": "Support"
+    "support": "Support",
+    "supportProject": "Support the Project",
+    "contentExplorer": "Content Explorer",
+    "contentManager": "Content Manager",
+    "serviceLogs": "Service Logs & Metrics"
   },
   "system": {
     "title": "System Settings",
