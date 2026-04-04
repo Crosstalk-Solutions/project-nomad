@@ -1,0 +1,133 @@
+{
+  "common": {
+    "home": "Home",
+    "settings": "Settings",
+    "docs": "Docs",
+    "chat": "Chat",
+    "maps": "Maps",
+    "search": "Search",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "install": "Install",
+    "uninstall": "Uninstall",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "unknown": "Unknown",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "submit": "Submit",
+    "reset": "Reset"
+  },
+  "home": {
+    "title": "Command Center",
+    "subtitle": "Your offline knowledge and education hub",
+    "updateAvailable": "An update is available for Project N.O.M.A.D.!",
+    "goToSettings": "Go to Settings",
+    "startHere": "Start here!",
+    "poweredBy": "Powered by"
+  },
+  "menu": {
+    "maps": "Maps",
+    "easySetup": "Easy Setup",
+    "installApps": "Install Apps",
+    "docs": "Docs",
+    "settings": "Settings"
+  },
+  "maps": {
+    "title": "Offline Maps",
+    "search": "Search locations...",
+    "noResults": "No results found",
+    "loadingMap": "Loading map...",
+    "offline": "Offline map - no internet required"
+  },
+  "chat": {
+    "title": "AI Assistant",
+    "placeholder": "Ask me anything...",
+    "thinking": "Thinking...",
+    "noMessages": "Start a conversation with the AI assistant",
+    "uploadDocument": "Upload Document",
+    "knowledgeBase": "Knowledge Base"
+  },
+  "settings": {
+    "title": "Settings",
+    "system": "System",
+    "apps": "Apps",
+    "models": "Models",
+    "maps": "Maps",
+    "benchmark": "Benchmark",
+    "update": "Update",
+    "legal": "Legal",
+    "support": "Support"
+  },
+  "system": {
+    "title": "System Settings",
+    "hostname": "Hostname",
+    "version": "Version",
+    "uptime": "Uptime",
+    "storage": "Storage",
+    "memory": "Memory",
+    "cpu": "CPU",
+    "network": "Network",
+    "theme": "Theme",
+    "language": "Language",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode"
+  },
+  "apps": {
+    "title": "Install Apps",
+    "installed": "Installed",
+    "notInstalled": "Not Installed",
+    "installing": "Installing...",
+    "noApps": "No apps available"
+  },
+  "models": {
+    "title": "AI Models",
+    "download": "Download",
+    "downloading": "Downloading...",
+    "downloaded": "Downloaded",
+    "delete": "Delete Model",
+    "noModels": "No models installed"
+  },
+  "easySetup": {
+    "title": "Easy Setup",
+    "welcome": "Welcome to Project N.O.M.A.D.!",
+    "getStarted": "Let's get you started with the basics.",
+    "next": "Next",
+    "skip": "Skip",
+    "complete": "Complete"
+  },
+  "docs": {
+    "title": "Documentation",
+    "searchDocs": "Search documentation...",
+    "noResults": "No documentation found"
+  },
+  "about": {
+    "title": "About Project N.O.M.A.D.",
+    "description": "Project N.O.M.A.D. (Node for Offline Media, Archives, and Data) is an offline-first knowledge and education server.",
+    "version": "Version",
+    "license": "License",
+    "github": "GitHub",
+    "website": "Website"
+  },
+  "errors": {
+    "notFound": "Page Not Found",
+    "serverError": "Server Error",
+    "goHome": "Go to Home",
+    "tryAgain": "Try Again"
+  }
+}
