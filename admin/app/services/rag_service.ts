@@ -1013,6 +1013,16 @@ export class RagService {
    * Retrieve all unique source files that have been stored in the knowledge base.
    * @returns Array of unique full source paths
    */
+  public async hasDocuments(): Promise<boolean> {
+    try {
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+      const collectionInfo = await this.qdrant!.getCollection(RagService.CONTENT_COLLECTION_NAME)
+      return (collectionInfo.points_count ?? 0) > 0
+    } catch {
+      return false
+    }
+  }
+
   public async getStoredFiles(): Promise<string[]> {
     try {
       await this._ensureCollection(
