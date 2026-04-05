@@ -19,9 +19,18 @@ type SidebarItem = {
 interface StyledSidebarProps {
   title: string
   items: SidebarItem[]
+  /** Defaults to /home */
+  backHref?: string
+  /** Defaults to "Back to Home" */
+  backLabel?: string
 }
 
-const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
+const StyledSidebar: React.FC<StyledSidebarProps> = ({
+  title,
+  items,
+  backHref = '/home',
+  backLabel = 'Back to Home',
+}) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [debugModalOpen, setDebugModalOpen] = useState(false)
   const { appVersion } = usePage().props as unknown as UsePageProps
@@ -75,11 +84,11 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
                 ))}
                 <li className="ml-2 mt-4">
                   <Link
-                    href="/home"
+                    href={backHref}
                     className="flex flex-row items-center gap-x-3 text-desert-green text-sm font-semibold"
                   >
                     <IconArrowLeft aria-hidden="true" className="size-6 shrink-0" />
-                    Back to Home
+                    {backLabel}
                   </Link>
                 </li>
               </ul>

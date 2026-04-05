@@ -215,6 +215,16 @@ class API {
     })()
   }
 
+  async updateServiceUiLocation(serviceId: number, uiLocation: string) {
+    return catchInternal(async () => {
+      const response = await this.client.patch<{ success: boolean; message: string }>(
+        `/system/services/${serviceId}`,
+        { ui_location: uiLocation }
+      )
+      return response.data
+    })()
+  }
+
   async forceReinstallService(service_name: string) {
     try {
       const response = await this.client.post<{ success: boolean; message: string }>(
