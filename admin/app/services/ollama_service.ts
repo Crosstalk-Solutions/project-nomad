@@ -53,6 +53,7 @@ export class OllamaService {
   private baseUrl: string | null = null
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
+  private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
 
   constructor() {}
 
@@ -96,6 +97,26 @@ export class OllamaService {
     model: string,
     progressCallback?: (percent: number) => void
   ): Promise<{ success: boolean; message: string; retryable?: boolean }> {
+    // Deduplicate concurrent downloads of the same model
+    const existing = this.activeDownloads.get(model)
+    if (existing) {
+      logger.info(`[OllamaService] Download already in progress for "${model}", waiting on existing download.`)
+      return existing
+    }
+
+    const downloadPromise = this._doDownloadModel(model, progressCallback)
+    this.activeDownloads.set(model, downloadPromise)
+    try {
+      return await downloadPromise
+    } finally {
+      this.activeDownloads.delete(model)
+    }
+  }
+
+  private async _doDownloadModel(
+    model: string,
+    progressCallback?: (percent: number) => void
+  ): Promise<{ success: boolean; message: string; retryable?: boolean }> {
     await this._ensureDependencies()
     if (!this.baseUrl) {
       return { success: false, message: 'AI service is not initialized.' }
@@ -130,6 +151,7 @@ export class OllamaService {
 
       await new Promise<void>((resolve, reject) => {
         let buffer = ''
+        let lastPercent = -1
         pullResponse.data.on('data', (chunk: Buffer) => {
           buffer += chunk.toString()
           const lines = buffer.split('\n')
@@ -140,8 +162,11 @@ export class OllamaService {
               const parsed = JSON.parse(line)
               if (parsed.completed && parsed.total) {
                 const percent = parseFloat(((parsed.completed / parsed.total) * 100).toFixed(2))
-                this.broadcastDownloadProgress(model, percent)
-                if (progressCallback) progressCallback(percent)
+                if (percent !== lastPercent) {
+                  lastPercent = percent
+                  this.broadcastDownloadProgress(model, percent)
+                  if (progressCallback) progressCallback(percent)
+                }
               }
             } catch {
               // ignore parse errors on partial lines

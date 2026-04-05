@@ -2,7 +2,7 @@ import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 import { readFile, writeFile, rename, readdir } from 'fs/promises'
 import { join } from 'path'
 import { Archive } from '@openzim/libzim'
-import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists } from '../utils/fs.js'
+import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists, isValidZimFile } from '../utils/fs.js'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 
@@ -54,8 +54,12 @@ export class KiwixLibraryService {
    *
    * Returns null on any error so callers can fall back gracefully.
    */
-  private _readZimMetadata(zimFilePath: string): Partial<KiwixBook> | null {
+  private async _readZimMetadata(zimFilePath: string): Promise<Partial<KiwixBook> | null> {
     try {
+      if (!(await isValidZimFile(zimFilePath))) {
+        logger.warn(`[KiwixLibraryService] Skipping invalid/corrupted ZIM file: ${zimFilePath}`)
+        return null
+      }
       const archive = new Archive(zimFilePath)
 
       const getMeta = (key: string): string | undefined => {
@@ -197,17 +201,22 @@ export class KiwixLibraryService {
     const excludeSet = new Set(opts?.excludeFilenames ?? [])
     const zimFiles = entries.filter((name) => name.endsWith('.zim') && !excludeSet.has(name))
 
-    const books: KiwixBook[] = zimFiles.map((filename) => {
-      const meta = this._readZimMetadata(join(dirPath, filename))
+    const books: KiwixBook[] = []
+    for (const filename of zimFiles) {
+      const meta = await this._readZimMetadata(join(dirPath, filename))
+      if (meta === null) {
+        logger.warn(`[KiwixLibraryService] Skipping unreadable ZIM file: ${filename}`)
+        continue
+      }
       const containerPath = `${CONTAINER_DATA_PATH}/${filename}`
-      return {
+      books.push({
         ...meta,
         // Override fields that must be derived locally, not from ZIM metadata
         id: meta?.id ?? filename.slice(0, -4),
         path: containerPath,
         title: meta?.title ?? this._filenameToTitle(filename),
-      }
-    })
+      })
+    }
 
     const xml = this._buildXml(books)
     await this._atomicWrite(xml)
@@ -239,7 +248,12 @@ export class KiwixLibraryService {
     }
 
     const fullPath = join(process.cwd(), ZIM_STORAGE_PATH, zimFilename)
-    const meta = this._readZimMetadata(fullPath)
+    const meta = await this._readZimMetadata(fullPath)
+
+    if (meta === null) {
+      logger.error(`[KiwixLibraryService] Cannot add ${zimFilename}: file is invalid or corrupted.`)
+      return
+    }
 
     existingBooks.push({
       ...meta,

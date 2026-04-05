@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, unlink } from 'fs/promises'
+import { mkdir, open, readdir, readFile, stat, unlink } from 'fs/promises'
 import path, { join } from 'path'
 import { FileEntry } from '../../types/files.js'
 import { createReadStream } from 'fs'
@@ -96,6 +96,28 @@ export async function getFileStatsIfExists(
       return null
     }
     throw error
+  }
+}
+
+/**
+ * Validates that a file has the ZIM magic number (0x44D495A).
+ * Must be called before passing a file to @openzim/libzim Archive,
+ * because a corrupted ZIM causes a native C++ abort that cannot be
+ * caught by JS try/catch.
+ */
+export async function isValidZimFile(filePath: string): Promise<boolean> {
+  let fh
+  try {
+    fh = await open(filePath, 'r')
+    const buf = Buffer.alloc(4)
+    const { bytesRead } = await fh.read(buf, 0, 4, 0)
+    if (bytesRead < 4) return false
+    // ZIM magic number: 72 17 32 04 (little-endian 0x044D4953)
+    return buf[0] === 0x5a && buf[1] === 0x49 && buf[2] === 0x4d && buf[3] === 0x04
+  } catch {
+    return false
+  } finally {
+    await fh?.close()
   }
 }
 
