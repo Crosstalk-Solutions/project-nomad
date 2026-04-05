@@ -15,6 +15,7 @@ import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
 import OllamaController from '#controllers/ollama_controller'
 import RagController from '#controllers/rag_controller'
+import AdvancedSettingsController from '#controllers/advanced_settings_controller'
 import SettingsController from '#controllers/settings_controller'
 import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
@@ -55,6 +56,7 @@ router
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
     router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
+    router.get('/advanced/apps', [AdvancedSettingsController, 'apps'])
   })
   .prefix('/settings')
 
@@ -157,6 +159,7 @@ router
     router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
     router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions'])
+    router.patch('/services/:id', [AdvancedSettingsController, 'updateServiceUiLocation'])
     router.post('/services/update', [SystemController, 'updateService'])
     router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes'])
     router.get('/latest-version', [SystemController, 'checkLatestVersion'])

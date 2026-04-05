@@ -31,3 +31,9 @@ export const updateServiceValidator = vine.compile(
     target_version: vine.string().trim(),
   })
 )
+
+export const updateServiceUiLocationValidator = vine.compile(
+  vine.object({
+    ui_location: vine.string().trim().minLength(1),
+  })
+)
