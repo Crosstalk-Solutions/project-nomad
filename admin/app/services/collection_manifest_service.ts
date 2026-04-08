@@ -220,8 +220,13 @@ export class CollectionManifestService {
 
       for (const file of zimFiles) {
         console.log(`Processing ZIM file: ${file.name}`)
-        // Skip Wikipedia files (managed by WikipediaSelection model)
-        if (file.name.startsWith('wikipedia_en_')) continue
+        // Skip Wikipedia files managed by the WikipediaSelection model, but allow
+        // topic-specific Wikipedia ZIMs that are part of curated collection tiers
+        // (e.g. wikipedia_en_medicine_maxi).
+        if (file.name.startsWith('wikipedia_en_')) {
+          const parsed = CollectionManifestService.parseZimFilename(file.name)
+          if (!parsed || !specResourceMap.has(parsed.resource_id)) continue
+        }
 
         const parsed = CollectionManifestService.parseZimFilename(file.name)
         console.log(`Parsed ZIM filename:`, parsed)
