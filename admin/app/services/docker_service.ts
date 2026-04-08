@@ -18,6 +18,7 @@ export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
   public static NOMAD_NETWORK = 'project-nomad_default'
+  public static COMPOSE_PROJECT = 'project-nomad'
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)
@@ -508,6 +509,9 @@ export class DockerService {
       const container = await this.docker.createContainer({
         Image: finalImage,
         name: service.service_name,
+        Labels: {
+          'com.docker.compose.project': DockerService.COMPOSE_PROJECT,
+        },
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
@@ -919,6 +923,10 @@ export class DockerService {
       const newContainerConfig: any = {
         Image: newImage,
         name: serviceName,
+        Labels: {
+          ...(inspectData.Config?.Labels || {}),
+          'com.docker.compose.project': DockerService.COMPOSE_PROJECT,
+        },
         Env: inspectData.Config?.Env || undefined,
         Cmd: inspectData.Config?.Cmd || undefined,
         ExposedPorts: inspectData.Config?.ExposedPorts || undefined,
