@@ -29,7 +29,7 @@ import { KiwixLibraryService } from './kiwix_library_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
+const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/collections/wikipedia.json'
 
 @inject()
 export class ZimService {

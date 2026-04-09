@@ -40,13 +40,17 @@ WHITE_R='\033[39m'
 # Constants
 ###############################################################################
 
-NOMAD_DIR="/opt/project-nomad"
+# Load install location from config saved by installer, fallback to default
+if [[ -f /etc/project-nomad.conf ]]; then
+  source /etc/project-nomad.conf
+fi
+NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
 COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 SIDECAR_DIR="${NOMAD_DIR}/sidecar-updater"
 COMPOSE_PROJECT_NAME="project-nomad"
 
-SIDECAR_DOCKERFILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
-SIDECAR_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
+SIDECAR_DOCKERFILE_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
+SIDECAR_SCRIPT_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
 
 ###############################################################################
 # Pre-flight Checks
@@ -129,17 +133,17 @@ backup_compose_file() {
 
 fix_sidecar_volume_mount() {
   # Idempotent: skip if :ro is already absent from the sidecar mount line
-  if ! grep -q '/opt/project-nomad:/opt/project-nomad:ro' "$COMPOSE_FILE"; then
+  if ! grep -q "${NOMAD_DIR}:${NOMAD_DIR}:ro" "$COMPOSE_FILE"; then
     echo -e "${GREEN}#${RESET} Sidecar volume mount is already writable — no change needed.\n"
     return 0
   fi
 
   echo -e "${YELLOW}#${RESET} Removing :ro restriction from sidecar volume mount in compose.yml..."
-  sed -i 's|/opt/project-nomad:/opt/project-nomad:ro.*|/opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml|' "$COMPOSE_FILE"
+  sed -i "s|${NOMAD_DIR}:${NOMAD_DIR}:ro.*|${NOMAD_DIR}:${NOMAD_DIR} # Writable access required so the updater can set the correct image tag in compose.yml|" "$COMPOSE_FILE"
 
-  if grep -q '/opt/project-nomad:/opt/project-nomad:ro' "$COMPOSE_FILE"; then
+  if grep -q "${NOMAD_DIR}:${NOMAD_DIR}:ro" "$COMPOSE_FILE"; then
     echo -e "${RED}#${RESET} Failed to remove :ro from compose.yml. Please update it manually:"
-    echo -e "${WHITE_R}    - /opt/project-nomad:/opt/project-nomad:ro${RESET}  →  ${WHITE_R}- /opt/project-nomad:/opt/project-nomad${RESET}"
+    echo -e "${WHITE_R}    - ${NOMAD_DIR}:${NOMAD_DIR}:ro${RESET}  →  ${WHITE_R}- ${NOMAD_DIR}:${NOMAD_DIR}${RESET}"
     exit 1
   fi
 

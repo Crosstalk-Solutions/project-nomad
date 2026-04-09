@@ -29,11 +29,11 @@ GREEN='\033[1;32m' # Light Green.
 ###################################################################################################################################################################################################
 
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
-NOMAD_DIR="/opt/project-nomad"
-MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
-STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
-UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
+NOMAD_DIR="/opt/project-nomad"  # Default; overridden by prompt_install_location()
+MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/management_compose.yaml"
+START_SCRIPT_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/start_nomad.sh"
+STOP_SCRIPT_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/stop_nomad.sh"
+UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/update_nomad.sh"
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
@@ -99,10 +99,10 @@ ensure_dependencies_installed() {
     missing_deps+=("gpg")
   fi
 
-  # Check for whiptail (used for dialogs, though not currently active)
-  # if ! command -v whiptail &> /dev/null; then
-  #   missing_deps+=("whiptail")
-  # fi
+  # Ensure at least one interactive dialog tool is available; prefer zenity (GUI) but fall back to whiptail (terminal TUI)
+  if ! command -v zenity &>/dev/null && ! command -v whiptail &>/dev/null; then
+    missing_deps+=("whiptail")
+  fi
 
   if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
@@ -139,6 +139,65 @@ generateRandomPass() {
   password=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
   
   echo "$password"
+}
+
+prompt_install_location() {
+  local default_dir="/opt/project-nomad"
+
+  echo -e "${YELLOW}#${RESET} Choose an installation directory for Project N.O.M.A.D."
+  echo -e "${YELLOW}#${RESET} You can install to an external drive (e.g. /media/user/MyDrive/project-nomad).\\n"
+
+  # Try zenity first — pops up a native GUI dialog window if a display is available
+  if command -v zenity &>/dev/null && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    local chosen
+    chosen=$(zenity --entry \
+      --title="Project N.O.M.A.D. Installation" \
+      --text="Choose installation directory:\n(e.g. /media/username/MyDrive/project-nomad for an external drive)" \
+      --entry-text="$default_dir" 2>/dev/null)
+    local exit_code=$?
+    if [[ $exit_code -eq 1 ]]; then
+      echo "Installation cancelled by user."
+      exit 0
+    fi
+    if [[ $exit_code -eq 0 && -n "$chosen" ]]; then
+      NOMAD_DIR="$chosen"
+      echo -e "${GREEN}#${RESET} Installation directory set to: $NOMAD_DIR\\n"
+      return
+    fi
+    # zenity ran but returned empty — fall through to whiptail/read
+  fi
+
+  # Try whiptail — terminal TUI dialog (works over SSH, headless)
+  if command -v whiptail &>/dev/null; then
+    local chosen
+    chosen=$(whiptail --inputbox \
+      "Choose installation directory:\n(e.g. /media/username/MyDrive/project-nomad for an external drive)" \
+      12 72 "$default_dir" \
+      --title "Project N.O.M.A.D. Installation" 3>&1 1>&2 2>&3)
+    local exit_code=$?
+    if [[ $exit_code -eq 1 ]]; then
+      echo "Installation cancelled by user."
+      exit 0
+    fi
+    if [[ $exit_code -eq 0 && -n "$chosen" ]]; then
+      NOMAD_DIR="$chosen"
+      echo -e "${GREEN}#${RESET} Installation directory set to: $NOMAD_DIR\\n"
+      return
+    fi
+  fi
+
+  # Plain read fallback
+  read -p "Install path [$default_dir]: " chosen
+  if [[ -n "$chosen" ]]; then
+    NOMAD_DIR="$chosen"
+  fi
+  echo -e "${GREEN}#${RESET} Installation directory set to: $NOMAD_DIR\\n"
+}
+
+save_install_config() {
+  echo -e "${YELLOW}#${RESET} Saving installation config to /etc/project-nomad.conf...\\n"
+  echo "NOMAD_DIR=\"${NOMAD_DIR}\"" | sudo tee /etc/project-nomad.conf > /dev/null
+  echo -e "${GREEN}#${RESET} Installation config saved.\\n"
 }
 
 ensure_docker_installed() {
@@ -390,6 +449,10 @@ create_nomad_directory(){
 
   # Create a admin.log file in the logs directory
   sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
+
+  # Write .env alongside compose.yml so Docker Compose resolves ${NOMAD_DIR} without any hardcoding
+  echo "NOMAD_DIR=${NOMAD_DIR}" | sudo tee "${NOMAD_DIR}/.env" > /dev/null
+  echo -e "${GREEN}#${RESET} Docker Compose .env written to ${NOMAD_DIR}/.env\\n"
 }
 
 download_management_compose_file() {
@@ -423,7 +486,7 @@ download_management_compose_file() {
   sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
   sed -i "s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g" "$compose_file_path"
   sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
-  
+
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
 }
 
@@ -525,7 +588,7 @@ verify_gpu_setup() {
 
 success_message() {
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
-  echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
+  echo -e "${GREEN}#${RESET} Installation files are located at ${NOMAD_DIR}\\n\n"
   echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
@@ -547,6 +610,8 @@ check_is_debug_mode
 # Main install
 get_install_confirmation
 accept_terms
+prompt_install_location
+save_install_config
 ensure_docker_installed
 check_docker_compose
 setup_nvidia_container_toolkit

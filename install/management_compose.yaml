@@ -3,13 +3,16 @@
 # This compose file defines the admin server, database, and other supporting services required to run Project N.O.M.A.D.
 # You can use this with `docker-compose up -d` to start all the necessary services with a single command after installation.
 #
+# Paths are provided via the NOMAD_DIR variable, which the installer writes to a .env file
+# in the same directory as this compose file. Docker Compose reads that .env automatically.
+#
 # Note: we recommend leaving all of the environment variables as-is except for any "replaceme" values,
 # which must be updated for the admin server to start successfully. The default values are optimized for ease of installation and use,
 # but you can customize them as needed (e.g. changing ports, database connection details, log level, etc.)
 name: project-nomad
 services:
   admin:
-    image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    image: ghcr.io/flynnty/project-nomad:latest
     pull_policy: always
     container_name: nomad_admin
     restart: unless-stopped
@@ -18,7 +21,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /opt/project-nomad/storage:/app/storage # If you change the default storage path (/opt/project-nomad/storage), make sure to update the disk-collector config as well!
+      - ${NOMAD_DIR}/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
@@ -45,6 +48,8 @@ services:
       # If you change the Redis port, make sure to update this accordingly
       - REDIS_PORT=6379
       - DISABLE_COMPRESSION=false # Most reverse proxies (Nginx, Caddy, etc.) will skip compression if the response is already compressed so this is usally a win all around, but if this causes issues with your setup you can set it to "true" to disable gzip in the admin server
+      # HOST-side storage path — used when the admin service launches child containers via the Docker socket
+      - NOMAD_STORAGE_PATH=${NOMAD_DIR}/storage
     depends_on:
       mysql:
         condition: service_healthy
@@ -78,7 +83,7 @@ services:
       # Needs to match DB_PASSWORD in the admin service!
       - MYSQL_PASSWORD=replaceme
     volumes:
-      - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
+      - ${NOMAD_DIR}/mysql:/var/lib/mysql # Persist MySQL data on the host. Host persistence is important to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -89,7 +94,7 @@ services:
     container_name: nomad_redis
     restart: unless-stopped
     volumes:
-      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
+      - ${NOMAD_DIR}/redis:/data # Persist Redis data on the host. Host persistence is important to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -97,24 +102,27 @@ services:
       retries: 3
   updater:
     # Updater is a lightweight sidecar container that allows the admin container to be updated from within it's own UI
-    image: ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest
+    image: ghcr.io/flynnty/project-nomad-sidecar-updater:latest
     pull_policy: always
     container_name: nomad_updater
     restart: unless-stopped
+    environment:
+      # Path to compose.yml on the host so the updater can pin image tags during updates
+      - NOMAD_COMPOSE_FILE=${NOMAD_DIR}/compose.yml
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
+      - ${NOMAD_DIR}:${NOMAD_DIR} # Writable access required so the updater can set the correct image tag in compose.yml
       - nomad-update-shared:/shared # Shared volume for communication with admin container
   disk-collector:
-    # Disk Collector is a lightweight privileged container that collects disk usage information from the host system and shares it with the admin container so it can be displayed in the UI. 
+    # Disk Collector is a lightweight privileged container that collects disk usage information from the host system and shares it with the admin container so it can be displayed in the UI.
     # It requires read-only access to the host filesystem and is designed to be as secure and limited in scope as possible while still providing the necessary functionality.
-    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
+    image: ghcr.io/flynnty/project-nomad-disk-collector:latest
     pull_policy: always
     container_name: nomad_disk_collector
     restart: unless-stopped
     volumes:
       - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
-      - /opt/project-nomad/storage:/storage
+      - ${NOMAD_DIR}/storage:/storage
 
 volumes:
   nomad-update-shared:

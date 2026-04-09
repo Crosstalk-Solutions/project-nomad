@@ -25,7 +25,7 @@ Project N.O.M.A.D. can be installed on any Debian-based operating system (we rec
 ```bash
 sudo apt-get update && \
 sudo apt-get install -y curl && \
-curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh \
+curl -fsSL https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/install_nomad.sh \
   -o install_nomad.sh && \
 sudo bash install_nomad.sh
 ```
@@ -35,7 +35,7 @@ Project N.O.M.A.D. is now installed on your device! Open a browser and navigate 
 For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install).
 
 ### Advanced Installation
-For more control over the installation process, copy and paste the [Docker Compose template](https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
+For more control over the installation process, copy and paste the [Docker Compose template](https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/management_compose.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
 
 ## How It Works
 N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
@@ -130,28 +130,28 @@ Contributions are welcome and appreciated! Please see [CONTRIBUTING.md](CONTRIBU
 Project N.O.M.A.D. is licensed under the [Apache License 2.0](LICENSE).
 
 ## Helper Scripts
-Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
+Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory (default: `/opt/project-nomad`, or the custom path you chose during installation — check `/etc/project-nomad.conf`).
 
 ###
 
 ###### Start Script - Starts all installed project containers
 ```bash
-sudo bash /opt/project-nomad/start_nomad.sh
+source /etc/project-nomad.conf && sudo bash "${NOMAD_DIR}/start_nomad.sh"
 ```
 ###
 
 ###### Stop Script - Stops all installed project containers
 ```bash
-sudo bash /opt/project-nomad/stop_nomad.sh
+source /etc/project-nomad.conf && sudo bash "${NOMAD_DIR}/stop_nomad.sh"
 ```
 ###
 
 ###### Update Script - Attempts to pull the latest images for the Command Center and its dependencies (i.e. mysql) and recreate the containers. Note: this *only* updates the Command Center containers. It does not update the installable application containers - that should be done through the Command Center UI
 ```bash
-sudo bash /opt/project-nomad/update_nomad.sh
+source /etc/project-nomad.conf && sudo bash "${NOMAD_DIR}/update_nomad.sh"
 ```
 
 ###### Uninstall Script - Need to start fresh? Use the uninstall script to make your life easy. Note: this cannot be undone!
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/uninstall_nomad.sh -o uninstall_nomad.sh && sudo bash uninstall_nomad.sh
+curl -fsSL https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/uninstall_nomad.sh -o uninstall_nomad.sh && sudo bash uninstall_nomad.sh
 ```

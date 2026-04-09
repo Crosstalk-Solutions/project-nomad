@@ -35,7 +35,11 @@ WHITE_R='\033[39m'
 # Constants
 ###############################################################################
 
-NOMAD_DIR="/opt/project-nomad"
+# Load install location from config saved by installer, fallback to default
+if [[ -f /etc/project-nomad.conf ]]; then
+  source /etc/project-nomad.conf
+fi
+NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
 COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 COMPOSE_PROJECT_NAME="project-nomad"
 
@@ -159,15 +163,15 @@ add_disk_collector_service() {
   echo -e "${YELLOW}#${RESET} Adding disk-collector service to compose.yml..."
 
   # Insert the disk-collector service block before the top-level `volumes:` key
-  awk '/^volumes:/{
+  awk -v nomad_dir="$NOMAD_DIR" '/^volumes:/{
     print "  disk-collector:"
-    print "    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest"
+    print "    image: ghcr.io/flynnty/project-nomad-disk-collector:latest"
     print "    pull_policy: always"
     print "    container_name: nomad_disk_collector"
     print "    restart: unless-stopped"
     print "    volumes:"
     print "      - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible"
-    print "      - /opt/project-nomad/storage:/storage  # Shared storage dir — disk info written here is read by the admin container"
+    print "      - " nomad_dir "/storage:/storage  # Shared storage dir — disk info written here is read by the admin container"
     print ""
   }
   {print}' "$COMPOSE_FILE" > "${COMPOSE_FILE}.tmp" && mv "${COMPOSE_FILE}.tmp" "$COMPOSE_FILE"
