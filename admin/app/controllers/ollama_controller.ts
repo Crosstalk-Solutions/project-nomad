@@ -10,6 +10,7 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DEFAULT_QUERY_REWRITE_MODEL, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { selectRewriteModel } from '../utils/rag_utils.js'
 import logger from '@adonisjs/core/services/logger'
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -336,17 +337,20 @@ export default class OllamaController {
         })
         .join('\n')
 
-      const installedModels = await this.ollamaService.getModels(true)
-      const rewriteModelAvailable = installedModels?.some(model => model.name === DEFAULT_QUERY_REWRITE_MODEL)
-      if (!rewriteModelAvailable) {
-        logger.warn(`[RAG] Query rewrite model "${DEFAULT_QUERY_REWRITE_MODEL}" not available. Skipping query rewriting.`)
+      const installedModels = await this.ollamaService.getModels(false)
+      const { model: rewriteModel, isFallback } = selectRewriteModel(installedModels ?? [], DEFAULT_QUERY_REWRITE_MODEL)
+      if (!rewriteModel) {
+        logger.warn('[RAG] No models available for query rewriting. Skipping query rewriting.')
         const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')
         return lastUserMessage?.content || null
       }
 
-      // FUTURE ENHANCEMENT: allow the user to specify which model to use for rewriting
+      if (isFallback) {
+        logger.info(`[RAG] Query rewrite model "${DEFAULT_QUERY_REWRITE_MODEL}" not available. Falling back to "${rewriteModel}".`)
+      }
+
       const response = await this.ollamaService.chat({
-        model: DEFAULT_QUERY_REWRITE_MODEL,
+        model: rewriteModel,
         messages: [
           {
             role: 'system',
