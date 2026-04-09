@@ -200,7 +200,7 @@ export default function MapsManager(props: {
     openModal(
       <DownloadURLModal
         title="Download Map File"
-        suggestedURL="e.g. https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/california.pmtiles"
+        suggestedURL="e.g. https://github.com/flynnty/project-nomad-maps/raw/refs/heads/master/pmtiles/california.pmtiles"
         onCancel={() => closeAllModals()}
         onPreflightSuccess={async (url) => {
           await downloadCustomFile(url)

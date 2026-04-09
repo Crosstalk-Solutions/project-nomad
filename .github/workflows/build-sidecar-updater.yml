@@ -46,6 +46,6 @@ jobs:
           context: install/sidecar-updater
           push: true
           tags: |
-            ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:${{ inputs.version }}
-            ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:v${{ inputs.version }}
-            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest' || '' }}
+            ghcr.io/flynnty/project-nomad-sidecar-updater:${{ inputs.version }}
+            ghcr.io/flynnty/project-nomad-sidecar-updater:v${{ inputs.version }}
+            ${{ inputs.tag_latest && 'ghcr.io/flynnty/project-nomad-sidecar-updater:latest' || '' }}

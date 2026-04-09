@@ -15,7 +15,11 @@
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
-NOMAD_DIR="/opt/project-nomad"
+# Load install location from config saved by installer, fallback to default
+if [[ -f /etc/project-nomad.conf ]]; then
+  source /etc/project-nomad.conf
+fi
+NOMAD_DIR="${NOMAD_DIR:-/opt/project-nomad}"
 MANAGEMENT_COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 
 ###################################################################################################################################################################################################
