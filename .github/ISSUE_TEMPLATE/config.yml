@@ -10,7 +10,7 @@ contact_links:
     url: https://benchmark.projectnomad.us
     about: View the N.O.M.A.D. benchmark leaderboard
   - name: 🤝 Contributing Guide
-    url: https://github.com/flynnty/project-nomad/blob/main/CONTRIBUTING.md
+    url: https://github.com/Crosstalk-Solutions/project-nomad/blob/main/CONTRIBUTING.md
     about: Learn how to contribute to Project N.O.M.A.D.
   - name: 📅 Roadmap
     url: https://roadmap.projectnomad.us

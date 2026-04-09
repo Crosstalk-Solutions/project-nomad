@@ -28,7 +28,7 @@ Here's the disk-collector service configuration to add to your `compose.yml`:
 
 ```yml
   disk-collector:
-    image: ghcr.io/flynnty/project-nomad-disk-collector:latest
+    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
     pull_policy: always
     container_name: nomad_disk_collector
     restart: unless-stopped

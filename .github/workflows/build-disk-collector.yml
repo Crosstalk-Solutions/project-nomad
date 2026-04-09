@@ -46,6 +46,6 @@ jobs:
           context: install/sidecar-disk-collector
           push: true
           tags: |
-            ghcr.io/flynnty/project-nomad-disk-collector:${{ inputs.version }}
-            ghcr.io/flynnty/project-nomad-disk-collector:v${{ inputs.version }}
-            ${{ inputs.tag_latest && 'ghcr.io/flynnty/project-nomad-disk-collector:latest' || '' }}
+            ghcr.io/crosstalk-solutions/project-nomad-disk-collector:${{ inputs.version }}
+            ghcr.io/crosstalk-solutions/project-nomad-disk-collector:v${{ inputs.version }}
+            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest' || '' }}

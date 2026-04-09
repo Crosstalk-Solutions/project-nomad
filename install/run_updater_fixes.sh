@@ -49,8 +49,8 @@ COMPOSE_FILE="${NOMAD_DIR}/compose.yml"
 SIDECAR_DIR="${NOMAD_DIR}/sidecar-updater"
 COMPOSE_PROJECT_NAME="project-nomad"
 
-SIDECAR_DOCKERFILE_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
-SIDECAR_SCRIPT_URL="https://raw.githubusercontent.com/flynnty/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
+SIDECAR_DOCKERFILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/Dockerfile"
+SIDECAR_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/sidecar-updater/update-watcher.sh"
 
 ###############################################################################
 # Pre-flight Checks

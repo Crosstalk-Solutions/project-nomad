@@ -68,7 +68,7 @@ export class MapService implements IMapService {
 
     const defaultTarFileURL = new URL(
       this.baseAssetsTarFile,
-      'https://github.com/flynnty/project-nomad-maps/raw/refs/heads/master/'
+      'https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/'
     )
 
     const resolvedURL = url ? new URL(url) : defaultTarFileURL

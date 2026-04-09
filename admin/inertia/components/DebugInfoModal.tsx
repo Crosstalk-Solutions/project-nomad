@@ -90,7 +90,7 @@ export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
         </button>
 
         <a
-          href="https://github.com/flynnty/project-nomad/issues"
+          href="https://github.com/Crosstalk-Solutions/project-nomad/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-desert-green hover:underline"
