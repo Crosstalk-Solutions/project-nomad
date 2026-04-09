@@ -55,20 +55,24 @@ export function getAllDiskDisplayItems(
     const seen = new Set<number>()
     const uniqueFs = fsSize.filter((fs) => {
       if (fs.size <= 0 || seen.has(fs.size)) return false
+      if (storageMount && fs.mount === '/app/storage') return false
       seen.add(fs.size)
       return true
     })
     const realDevices = uniqueFs.filter((fs) => fs.fs.startsWith('/dev/'))
     const displayFs = realDevices.length > 0 ? realDevices : uniqueFs
-    return displayFs.map((fs) => ({
-      label: fs.fs || 'Unknown',
-      value: fs.use || 0,
-      total: formatBytes(fs.size),
-      used: formatBytes(fs.used),
-      subtext: `${formatBytes(fs.used)} / ${formatBytes(fs.size)}`,
-      totalBytes: fs.size,
-      usedBytes: fs.used,
-    }))
+    return [
+      ...storageMountItem,
+      ...displayFs.map((fs) => ({
+        label: fs.fs || 'Unknown',
+        value: fs.use || 0,
+        total: formatBytes(fs.size),
+        used: formatBytes(fs.used),
+        subtext: `${formatBytes(fs.used)} / ${formatBytes(fs.size)}`,
+        totalBytes: fs.size,
+        usedBytes: fs.used,
+      })),
+    ]
   }
 
   return []
