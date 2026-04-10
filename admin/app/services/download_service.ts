@@ -5,6 +5,8 @@ import { DownloadModelJob } from '#jobs/download_model_job'
 import { DownloadJobWithProgress, DownloadProgressData } from '../../types/downloads.js'
 import { normalize } from 'path'
 import { deleteFileIfExists } from '../utils/fs.js'
+import transmit from '@adonisjs/transmit/services/main'
+import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 
 @inject()
 export class DownloadService {
@@ -111,14 +113,32 @@ export class DownloadService {
   }
 
   async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    // Try the file download queue first (the original PR #554 path)
     const queue = this.queueService.getQueue(RunDownloadJob.queue)
     const job = await queue.getJob(jobId)
 
-    if (!job) {
-      // Job already completed (removeOnComplete: true) or doesn't exist
-      return { success: true, message: 'Job not found (may have already completed)' }
+    if (job) {
+      return await this._cancelFileDownloadJob(jobId, job, queue)
     }
 
+    // Fall through to the model download queue
+    const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
+    const modelJob = await modelQueue.getJob(jobId)
+
+    if (modelJob) {
+      return await this._cancelModelDownloadJob(jobId, modelJob, modelQueue)
+    }
+
+    // Not found in either queue
+    return { success: true, message: 'Job not found (may have already completed)' }
+  }
+
+  /** Cancel a content download (zim, map, pmtiles, etc.) — original PR #554 logic */
+  private async _cancelFileDownloadJob(
+    jobId: string,
+    job: any,
+    queue: any
+  ): Promise<{ success: boolean; message: string }> {
     const filepath = job.data.filepath
 
     // Signal the worker process to abort the download via Redis
@@ -128,45 +148,8 @@ export class DownloadService {
     RunDownloadJob.abortControllers.get(jobId)?.abort('user-cancel')
     RunDownloadJob.abortControllers.delete(jobId)
 
-    // Poll for terminal state (up to 4s at 250ms intervals) — cooperates with BullMQ's lifecycle
-    // instead of force-removing an active job and losing the worker's failure/cleanup path.
-    const POLL_INTERVAL_MS = 250
-    const POLL_TIMEOUT_MS = 4000
-    const deadline = Date.now() + POLL_TIMEOUT_MS
-    let reachedTerminal = false
-
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
-      try {
-        const state = await job.getState()
-        if (state === 'failed' || state === 'completed' || state === 'unknown') {
-          reachedTerminal = true
-          break
-        }
-      } catch {
-        reachedTerminal = true // getState() throws if job is already gone
-        break
-      }
-    }
-
-    if (!reachedTerminal) {
-      console.warn(`[DownloadService] cancelJob: job ${jobId} did not reach terminal state within timeout, removing anyway`)
-    }
-
-    // Remove the BullMQ job
-    try {
-      await job.remove()
-    } catch {
-      // Lock contention fallback: clear lock and retry once
-      try {
-        const client = await queue.client
-        await client.del(`bull:${RunDownloadJob.queue}:${jobId}:lock`)
-        const updatedJob = await queue.getJob(jobId)
-        if (updatedJob) await updatedJob.remove()
-      } catch {
-        // Best effort - job will be cleaned up on next dismiss attempt
-      }
-    }
+    await this._pollForTerminalState(job, jobId)
+    await this._removeJobWithLockFallback(job, queue, RunDownloadJob.queue, jobId)
 
     // Delete the partial file from disk
     if (filepath) {
@@ -194,5 +177,88 @@ export class DownloadService {
     }
 
     return { success: true, message: 'Download cancelled and partial file deleted' }
+  }
+
+  /** Cancel an Ollama model download — mirrors the file cancel pattern but skips file cleanup */
+  private async _cancelModelDownloadJob(
+    jobId: string,
+    job: any,
+    queue: any
+  ): Promise<{ success: boolean; message: string }> {
+    const modelName: string = job.data?.modelName ?? 'unknown'
+
+    // Signal the worker process to abort the pull via Redis
+    await DownloadModelJob.signalCancel(jobId)
+
+    // Also try in-memory abort (works if worker is in same process)
+    DownloadModelJob.abortControllers.get(jobId)?.abort('user-cancel')
+    DownloadModelJob.abortControllers.delete(jobId)
+
+    await this._pollForTerminalState(job, jobId)
+    await this._removeJobWithLockFallback(job, queue, DownloadModelJob.queue, jobId)
+
+    // Broadcast a cancelled event so the frontend hook clears the entry. We use percent: -2
+    // (distinct from -1 = error) so the hook can route it to a 2s auto-clear instead of the
+    // 15s error display. The frontend ALSO removes the entry optimistically from the API
+    // response, so this is belt-and-suspenders for cases where the SSE arrives first.
+    transmit.broadcast(BROADCAST_CHANNELS.OLLAMA_MODEL_DOWNLOAD, {
+      model: modelName,
+      jobId,
+      percent: -2,
+      status: 'cancelled',
+      timestamp: new Date().toISOString(),
+    })
+
+    // Note on partial blob cleanup: Ollama manages model blobs internally at
+    // /root/.ollama/models/blobs/. We deliberately do NOT call /api/delete here — Ollama's
+    // expected behavior is to retain partial blobs so a re-pull resumes from where it left
+    // off. If the user wants to reclaim that space, they can re-pull and let it complete,
+    // or delete the partially-downloaded model from the AI Settings page.
+    return { success: true, message: 'Model download cancelled' }
+  }
+
+  /** Wait up to 4s (250ms intervals) for the job to reach a terminal state */
+  private async _pollForTerminalState(job: any, jobId: string): Promise<void> {
+    const POLL_INTERVAL_MS = 250
+    const POLL_TIMEOUT_MS = 4000
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+      try {
+        const state = await job.getState()
+        if (state === 'failed' || state === 'completed' || state === 'unknown') {
+          return
+        }
+      } catch {
+        return // getState() throws if job is already gone
+      }
+    }
+
+    console.warn(
+      `[DownloadService] cancelJob: job ${jobId} did not reach terminal state within timeout, removing anyway`
+    )
+  }
+
+  /** Remove a BullMQ job, clearing a stale worker lock if the first attempt fails */
+  private async _removeJobWithLockFallback(
+    job: any,
+    queue: any,
+    queueName: string,
+    jobId: string
+  ): Promise<void> {
+    try {
+      await job.remove()
+    } catch {
+      // Lock contention fallback: clear lock and retry once
+      try {
+        const client = await queue.client
+        await client.del(`bull:${queueName}:${jobId}:lock`)
+        const updatedJob = await queue.getJob(jobId)
+        if (updatedJob) await updatedJob.remove()
+      } catch {
+        // Best effort - job will be cleaned up on next dismiss attempt
+      }
+    }
   }
 }
