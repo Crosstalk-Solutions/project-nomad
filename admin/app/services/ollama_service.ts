@@ -91,10 +91,21 @@ export class OllamaService {
   /**
    * Downloads a model from Ollama with progress tracking. Only works with Ollama backends.
    * Use dispatchModelDownload() for background job processing where possible.
+   *
+   * @param signal Optional AbortSignal — when triggered, the underlying axios stream is cancelled
+   *               and the method returns a non-retryable failure so callers can mark the job
+   *               unrecoverable in BullMQ and avoid the 40-attempt retry storm.
+   * @param jobId Optional BullMQ job id — included in progress broadcasts so the frontend can
+   *              correlate Transmit events to a cancellable job.
    */
   async downloadModel(
     model: string,
-    progressCallback?: (percent: number) => void
+    progressCallback?: (
+      percent: number,
+      bytes?: { downloadedBytes: number; totalBytes: number }
+    ) => void,
+    signal?: AbortSignal,
+    jobId?: string
   ): Promise<{ success: boolean; message: string; retryable?: boolean }> {
     await this._ensureDependencies()
     if (!this.baseUrl) {
@@ -121,15 +132,45 @@ export class OllamaService {
         }
       }
 
-      // Stream pull via Ollama native API
+      // Stream pull via Ollama native API. axios supports `signal` natively for AbortController
+      // integration — when triggered, the request errors with code 'ERR_CANCELED' which we detect
+      // in the catch block below to return a non-retryable cancel result.
       const pullResponse = await axios.post(
         `${this.baseUrl}/api/pull`,
         { model, stream: true },
-        { responseType: 'stream', timeout: 0 }
+        { responseType: 'stream', timeout: 0, signal }
       )
+
+      // Ollama's pull API reports progress per-digest (each blob). A single model can contain
+      // multiple blobs (weights, tokenizer, template, etc.) and each is reported in turn.
+      // Aggregate across all digests so the UI shows a single monotonically-increasing total,
+      // matching the behavior of the content download progress (Active Downloads section).
+      const digestProgress = new Map<string, { completed: number; total: number }>()
+
+      // Throttle broadcasts to once per BROADCAST_THROTTLE_MS — Ollama can emit hundreds of
+      // progress events per second for fast connections, which would flood the Transmit SSE
+      // channel and cause jittery speed calculations on the frontend.
+      const BROADCAST_THROTTLE_MS = 500
+      let lastBroadcastAt = 0
 
       await new Promise<void>((resolve, reject) => {
         let buffer = ''
+        // If the abort fires after headers are received but mid-stream, axios's signal handling
+        // destroys the stream which surfaces as an 'error' event — wire the signal listener so
+        // the promise rejects promptly with a recognizable cancel reason.
+        const onAbort = () => {
+          const err: any = new Error('Download cancelled')
+          err.code = 'ERR_CANCELED'
+          pullResponse.data.destroy(err)
+        }
+        if (signal) {
+          if (signal.aborted) {
+            onAbort()
+            return
+          }
+          signal.addEventListener('abort', onAbort, { once: true })
+        }
+
         pullResponse.data.on('data', (chunk: Buffer) => {
           buffer += chunk.toString()
           const lines = buffer.split('\n')
@@ -138,23 +179,74 @@ export class OllamaService {
             if (!line.trim()) continue
             try {
               const parsed = JSON.parse(line)
-              if (parsed.completed && parsed.total) {
-                const percent = parseFloat(((parsed.completed / parsed.total) * 100).toFixed(2))
-                this.broadcastDownloadProgress(model, percent)
-                if (progressCallback) progressCallback(percent)
+              if (parsed.completed && parsed.total && parsed.digest) {
+                // Update this digest's progress — take the max seen value so transient
+                // out-of-order updates don't make the aggregate jump backwards.
+                const existing = digestProgress.get(parsed.digest)
+                digestProgress.set(parsed.digest, {
+                  completed: Math.max(existing?.completed ?? 0, parsed.completed),
+                  total: Math.max(existing?.total ?? 0, parsed.total),
+                })
+
+                // Compute aggregate across all known blobs
+                let aggCompleted = 0
+                let aggTotal = 0
+                for (const { completed, total } of digestProgress.values()) {
+                  aggCompleted += completed
+                  aggTotal += total
+                }
+
+                const percent = aggTotal > 0
+                  ? parseFloat(((aggCompleted / aggTotal) * 100).toFixed(2))
+                  : 0
+
+                // Throttle broadcasts. Always call the progressCallback though — the worker
+                // uses it to update job state in Redis, which should reflect the latest view.
+                const now = Date.now()
+                if (now - lastBroadcastAt >= BROADCAST_THROTTLE_MS) {
+                  lastBroadcastAt = now
+                  this.broadcastDownloadProgress(model, percent, jobId, {
+                    downloadedBytes: aggCompleted,
+                    totalBytes: aggTotal,
+                  })
+                }
+                if (progressCallback) {
+                  progressCallback(percent, {
+                    downloadedBytes: aggCompleted,
+                    totalBytes: aggTotal,
+                  })
+                }
               }
             } catch {
               // ignore parse errors on partial lines
             }
           }
         })
-        pullResponse.data.on('end', resolve)
-        pullResponse.data.on('error', reject)
+        pullResponse.data.on('end', () => {
+          if (signal) signal.removeEventListener('abort', onAbort)
+          resolve()
+        })
+        pullResponse.data.on('error', (err: any) => {
+          if (signal) signal.removeEventListener('abort', onAbort)
+          reject(err)
+        })
       })
 
       logger.info(`[OllamaService] Model "${model}" downloaded successfully.`)
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
+      // Detect axios cancel (signal-triggered abort). Don't broadcast an error event for
+      // user-initiated cancels — the cancel handler in DownloadService already broadcasts
+      // a cancelled state. Returning retryable: false prevents BullMQ retries.
+      const isCancelled =
+        axios.isCancel(error) ||
+        (error as any)?.code === 'ERR_CANCELED' ||
+        (error as any)?.name === 'CanceledError'
+      if (isCancelled) {
+        logger.info(`[OllamaService] Model "${model}" download cancelled by user.`)
+        return { success: false, message: 'Download cancelled', retryable: false }
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(
         `[OllamaService] Failed to download model "${model}": ${errorMessage}`
@@ -628,10 +720,19 @@ export class OllamaService {
     })
   }
 
-  private broadcastDownloadProgress(model: string, percent: number) {
+  private broadcastDownloadProgress(
+    model: string,
+    percent: number,
+    jobId?: string,
+    bytes?: { downloadedBytes: number; totalBytes: number }
+  ) {
+    // Conditional spread on jobId/bytes — Transmit's Broadcastable type rejects fields whose
+    // value is `undefined`, so we omit each key entirely when its value isn't available.
     transmit.broadcast(BROADCAST_CHANNELS.OLLAMA_MODEL_DOWNLOAD, {
       model,
       percent,
+      ...(jobId ? { jobId } : {}),
+      ...(bytes ? { downloadedBytes: bytes.downloadedBytes, totalBytes: bytes.totalBytes } : {}),
       timestamp: new Date().toISOString(),
     })
     logger.info(`[OllamaService] Download progress for model "${model}": ${percent}%`)
