@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -10,6 +10,7 @@ import { IconX } from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
+import { SERVICE_NAMES } from '../../../constants/service_names'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -28,6 +29,19 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
   const { openModal, closeModal } = useModals()
   const queryClient = useQueryClient()
+
+  const [isStartingQdrant, setIsStartingQdrant] = useState(false)
+
+  const { data: healthStatus } = useQuery({
+    queryKey: ['qdrantHealth'],
+    queryFn: () => api.checkRAGHealth(),
+    refetchInterval: isStartingQdrant ? 3_000 : 30_000,
+  })
+  const qdrantOffline = healthStatus?.online === false
+
+  useEffect(() => {
+    if (!qdrantOffline) setIsStartingQdrant(false)
+  }, [qdrantOffline])
 
   const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
     queryKey: ['storedFiles'],
@@ -77,6 +91,17 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     },
     onError: (error: any) => {
       addNotification({ type: 'error', message: error?.message || 'Failed to clean up jobs.' })
+    },
+  })
+
+  const startQdrantMutation = useMutation({
+    mutationFn: () => api.affectService(SERVICE_NAMES.QDRANT, 'start'),
+    onSuccess: () => {
+      setIsStartingQdrant(true)
+      queryClient.invalidateQueries({ queryKey: ['qdrantHealth'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to start Qdrant.' })
     },
   })
 
@@ -140,6 +165,22 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           </button>
         </div>
         <div className="overflow-y-auto flex-1 p-6">
+          {qdrantOffline && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950 dark:border-red-800 dark:text-red-300 flex items-center justify-between gap-4">
+              <span>
+                <strong>Knowledge Base unavailable:</strong> The Qdrant vector database is offline.
+              </span>
+              <StyledButton
+                variant="danger"
+                size="sm"
+                onClick={() => startQdrantMutation.mutate()}
+                loading={startQdrantMutation.isPending || isStartingQdrant}
+                disabled={startQdrantMutation.isPending || isStartingQdrant}
+              >
+                {isStartingQdrant ? 'Starting…' : 'Start Qdrant'}
+              </StyledButton>
+            </div>
+          )}
           <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden">
             <div className="p-6">
               <FileUploader
@@ -156,7 +197,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   size="lg"
                   icon="IconUpload"
                   onClick={handleUpload}
-                  disabled={files.length === 0 || uploadMutation.isPending}
+                  disabled={files.length === 0 || uploadMutation.isPending || qdrantOffline}
                   loading={uploadMutation.isPending}
                 >
                   Upload
@@ -227,7 +268,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 icon="IconTrash"
                 onClick={() => cleanupFailedMutation.mutate()}
                 loading={cleanupFailedMutation.isPending}
-                disabled={cleanupFailedMutation.isPending}
+                disabled={cleanupFailedMutation.isPending || qdrantOffline}
               >
                 Clean Up Failed
               </StyledButton>
@@ -243,7 +284,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 size="md"
                 icon='IconRefresh'
                 onClick={handleConfirmSync}
-                disabled={syncMutation.isPending || uploadMutation.isPending}
+                disabled={syncMutation.isPending || uploadMutation.isPending || qdrantOffline}
                 loading={syncMutation.isPending || uploadMutation.isPending}
               >
                 Sync Storage
