@@ -253,6 +253,22 @@ export default function MapsManager(props: {
               }}
             />
           )}
+          {globalMapInfo && globalMapAlreadyDownloaded && (
+            <Alert
+              title="Global Map Installed"
+              message={`Your global map build ${globalMapInfo.date} (${formatBytes(globalMapInfo.size, 1)}) is stored locally and ready for offline use.`}
+              type="success"
+              variant="bordered"
+              className="mt-8"
+              icon="IconCircleCheck"
+              buttonProps={{
+                variant: 'secondary',
+                children: 'Download latest build',
+                icon: 'IconRefresh',
+                onClick: () => confirmGlobalMapDownload(),
+              }}
+            />
+          )}
           {globalMapInfo && !globalMapAlreadyDownloaded && (
             <Alert
               title="Global Map Coverage Available"
