@@ -11,8 +11,11 @@ const useServiceInstalledStatus = (serviceName: string) => {
   const isInstalled = data?.some(
     (service) => service.service_name === serviceName && service.installed
   )
+  const serviceLocation = data?.find(
+    (service) => service.service_name === serviceName && service.installed
+  )?.ui_location
 
-  return { isInstalled, loading: isFetching }
+  return { isInstalled, serviceLocation, loading: isFetching }
 }
 
 export default useServiceInstalledStatus

@@ -604,6 +604,12 @@ class API {
     })()
   }
 
+  async uploadZimFile(formData: FormData) {
+    return catchInternal(async () => {
+      return await this.client.postForm<ListZimFilesResponse>('/zim/upload', formData)
+    })()
+  }
+
   async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[] | undefined> {
     return catchInternal(async () => {
       const endpoint = filetype ? `/downloads/jobs/${filetype}` : '/downloads/jobs'

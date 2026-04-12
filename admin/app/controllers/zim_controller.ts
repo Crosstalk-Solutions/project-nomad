@@ -41,6 +41,17 @@ export default class ZimController {
     return await this.zimService.listCuratedCategories()
   }
 
+  async uploadFile({ request, response }: HttpContext) {
+    const zimFile = request.file('zimFile', { extnames: ['zim'] })
+    if (!zimFile) {
+      return response.badRequest('`zimFile` required')
+    }
+    if (zimFile.hasErrors) {
+      return response.badRequest('`zimFile` extension must be .zim')
+    }
+    return await this.zimService.uploadFile(zimFile)
+  }
+
   async downloadCategoryTier({ request }: HttpContext) {
     const payload = await request.validateUsing(downloadCategoryTierValidator)
     const resources = await this.zimService.downloadCategoryTier(
@@ -72,6 +83,26 @@ export default class ZimController {
 
     return {
       message: 'ZIM file deleted successfully',
+    }
+  }
+
+  async downloadFile({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(filenameParamValidator)
+
+    try {
+      let fileName = payload.params.filename
+      if (!fileName.endsWith('.zim')) {
+        fileName += '.zim'
+      }
+      const filePath = await this.zimService.getFilePath(fileName)
+      return response.attachment(filePath, fileName)
+    } catch (error) {
+      if (error.message === 'not_found') {
+        return response.status(404).send({
+          message: `ZIM file with key ${payload.params.filename} not found`,
+        })
+      }
+      throw error // Re-throw any other errors and let the global error handler catch
     }
   }
 

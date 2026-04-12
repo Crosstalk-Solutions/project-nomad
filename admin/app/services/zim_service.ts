@@ -47,6 +47,15 @@ export class ZimService {
     }
   }
 
+  async getFilePath(fileName: string) {
+    const filePath = join(process.cwd(), ZIM_STORAGE_PATH, fileName)
+    const exists = await getFileStatsIfExists(filePath)
+    if (!exists) {
+      throw new Error('not_found')
+    }
+    return filePath
+  }
+
   async listRemote({
     start,
     count,
@@ -185,6 +194,22 @@ export class ZimService {
     return {
       filename,
       jobId: result.job.id,
+    }
+  }
+
+  async uploadFile(file: MultipartFile) {
+    const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
+    await ensureDirectoryExists(dirPath)
+    let fileName = file.clientName
+    if (!fileName.endsWith('.zim')) {
+      fileName += '.zim'
+    }
+    file.move(dirPath, { name: fileName, overwrite: false })
+    const kiwixLibraryService = new KiwixLibraryService()
+    try {
+      await kiwixLibraryService.rebuildFromDisk()
+    } catch (err) {
+      logger.error('[ZimService] Failed to rebuild kiwix library from disk:', err)
     }
   }
 
