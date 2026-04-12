@@ -171,10 +171,12 @@ router
     router.get('/curated-categories', [ZimController, 'listCuratedCategories'])
     router.post('/download-remote', [ZimController, 'downloadRemote'])
     router.post('/download-category-tier', [ZimController, 'downloadCategoryTier'])
+    router.post('/upload', [ZimController, 'uploadFile'])
 
     router.get('/wikipedia', [ZimController, 'getWikipediaState'])
     router.post('/wikipedia/select', [ZimController, 'selectWikipedia'])
     router.delete('/:filename', [ZimController, 'delete'])
+    router.get('/:filename/download', [ZimController, 'downloadFile'])
   })
   .prefix('/api/zim')
 
