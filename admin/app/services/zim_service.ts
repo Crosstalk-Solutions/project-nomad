@@ -257,7 +257,7 @@ export class ZimService {
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Check if any URL is a Wikipedia download and handle it
     for (const url of urls) {
-      if (url.includes('wikipedia_en_')) {
+      if (url.includes('wikipedia_fr_')) {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
@@ -321,7 +321,7 @@ export class ZimService {
     // Create InstalledResource entries for downloaded files
     for (const url of urls) {
       // Skip Wikipedia files (managed separately)
-      if (url.includes('wikipedia_en_')) continue
+      if (url.includes('wikipedia_fr_')) continue
 
       const filename = url.split('/').pop()
       if (!filename) continue
@@ -570,7 +570,7 @@ export class ZimService {
       // We need to find what was previously installed
       const existingFiles = await this.list()
       const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+        f.name.startsWith('wikipedia_fr_') && f.name !== selection.filename
       )
 
       for (const oldFile of wikipediaFiles) {

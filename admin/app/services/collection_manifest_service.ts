@@ -221,7 +221,7 @@ export class CollectionManifestService {
       for (const file of zimFiles) {
         console.log(`Processing ZIM file: ${file.name}`)
         // Skip Wikipedia files (managed by WikipediaSelection model)
-        if (file.name.startsWith('wikipedia_en_')) continue
+        if (file.name.startsWith('wikipedia_fr_')) continue
 
         const parsed = CollectionManifestService.parseZimFilename(file.name)
         console.log(`Parsed ZIM filename:`, parsed)
