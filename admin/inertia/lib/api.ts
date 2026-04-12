@@ -2,33 +2,14 @@ import axios, { AxiosError, AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
-import {
-  CheckLatestVersionResult,
-  SystemInformationResponse,
-  SystemUpdateStatus,
-} from '../../types/system'
+import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import { EmbedJobWithProgress } from '../../types/rag'
-import type {
-  CategoryWithStatus,
-  CollectionWithStatus,
-  ContentUpdateCheckResult,
-  ResourceUpdateInfo,
-} from '../../types/collections'
+import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
-import {
-  NomadChatResponse,
-  NomadInstalledModel,
-  NomadOllamaModel,
-  OllamaChatRequest,
-} from '../../types/ollama'
+import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
-import {
-  BenchmarkType,
-  RunBenchmarkResponse,
-  SubmitBenchmarkResponse,
-  UpdateBuilderTagResponse,
-} from '../../types/benchmark'
+import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
 
 class API {
   private client: AxiosInstance
@@ -76,9 +57,7 @@ class API {
     })()
   }
 
-  async configureRemoteOllama(
-    remoteUrl: string | null
-  ): Promise<{ success: boolean; message: string }> {
+  async configureRemoteOllama(remoteUrl: string | null): Promise<{ success: boolean; message: string }> {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/ollama/configure-remote',
@@ -120,20 +99,14 @@ class API {
     })()
   }
 
-  async downloadCategoryTier(
-    categorySlug: string,
-    tierSlug: string
-  ): Promise<{
+  async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<{
     message: string
     categorySlug: string
     tierSlug: string
     resources: string[] | null
   }> {
     return catchInternal(async () => {
-      const response = await this.client.post('/zim/download-category-tier', {
-        categorySlug,
-        tierSlug,
-      })
+      const response = await this.client.post('/zim/download-category-tier', { categorySlug, tierSlug })
       return response.data
     })()
   }
@@ -205,14 +178,11 @@ class API {
     })()
   }
 
-  async refreshManifests(): Promise<
-    { success: boolean; changed: Record<string, boolean> } | undefined
-  > {
+  async refreshManifests(): Promise<{ success: boolean; changed: Record<string, boolean> } | undefined> {
     return catchInternal(async () => {
-      const response = await this.client.post<{
-        success: boolean
-        changed: Record<string, boolean>
-      }>('/manifests/refresh')
+      const response = await this.client.post<{ success: boolean; changed: Record<string, boolean> }>(
+        '/manifests/refresh'
+      )
       return response.data
     })()
   }
@@ -263,9 +233,10 @@ class API {
 
   async getChatSuggestions(signal?: AbortSignal) {
     return catchInternal(async () => {
-      const response = await this.client.get<{ suggestions: string[] }>('/chat/suggestions', {
-        signal,
-      })
+      const response = await this.client.get<{ suggestions: string[] }>(
+        '/chat/suggestions',
+        { signal }
+      )
       return response.data.suggestions
     })()
   }
@@ -291,12 +262,7 @@ class API {
     })()
   }
 
-  async getAvailableModels(params: {
-    query?: string
-    recommendedOnly?: boolean
-    limit?: number
-    force?: boolean
-  }) {
+  async getAvailableModels(params: { query?: string; recommendedOnly?: boolean; limit?: number; force?: boolean }) {
     return catchInternal(async () => {
       const response = await this.client.get<{
         models: NomadOllamaModel[]
@@ -350,13 +316,15 @@ class API {
           let data: any
           try {
             data = JSON.parse(line.slice(6))
-          } catch {
-            continue /* skip malformed chunks */
-          }
+          } catch { continue /* skip malformed chunks */ }
 
           if (data.error) throw new Error('The model encountered an error. Please try again.')
 
-          onChunk(data.message?.content ?? '', data.message?.thinking ?? '', data.done ?? false)
+          onChunk(
+            data.message?.content ?? '',
+            data.message?.thinking ?? '',
+            data.done ?? false
+          )
         }
       }
     } finally {
@@ -366,18 +334,14 @@ class API {
 
   async getBenchmarkResults() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ results: BenchmarkResult[]; total: number }>(
-        '/benchmark/results'
-      )
+      const response = await this.client.get<{ results: BenchmarkResult[], total: number }>('/benchmark/results')
       return response.data
     })()
   }
 
   async getLatestBenchmarkResult() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ result: BenchmarkResult | null }>(
-        '/benchmark/results/latest'
-      )
+      const response = await this.client.get<{ result: BenchmarkResult | null }>('/benchmark/results/latest')
       return response.data
     })()
   }
@@ -480,15 +444,9 @@ class API {
     })()
   }
 
-  async cleanupFailedEmbedJobs(): Promise<
-    { message: string; cleaned: number; filesDeleted: number } | undefined
-  > {
+  async cleanupFailedEmbedJobs(): Promise<{ message: string; cleaned: number; filesDeleted: number } | undefined> {
     return catchInternal(async () => {
-      const response = await this.client.delete<{
-        message: string
-        cleaned: number
-        filesDeleted: number
-      }>('/rag/failed-jobs')
+      const response = await this.client.delete<{ message: string; cleaned: number; filesDeleted: number }>('/rag/failed-jobs')
       return response.data
     })()
   }
@@ -502,9 +460,7 @@ class API {
 
   async deleteRAGFile(source: string) {
     return catchInternal(async () => {
-      const response = await this.client.delete<{ message: string }>('/rag/files', {
-        data: { source },
-      })
+      const response = await this.client.delete<{ message: string }>('/rag/files', { data: { source } })
       return response.data
     })()
   }
@@ -587,7 +543,9 @@ class API {
 
   async listCuratedMapCollections() {
     return catchInternal(async () => {
-      const response = await this.client.get<CollectionWithStatus[]>('/maps/curated-collections')
+      const response = await this.client.get<CollectionWithStatus[]>(
+        '/maps/curated-collections'
+      )
       return response.data
     })()
   }
@@ -666,9 +624,7 @@ class API {
     })()
   }
 
-  async cancelDownloadJob(
-    jobId: string
-  ): Promise<{ success: boolean; message: string } | undefined> {
+  async cancelDownloadJob(jobId: string): Promise<{ success: boolean; message: string } | undefined> {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(
         `/downloads/jobs/${jobId}/cancel`
@@ -681,7 +637,7 @@ class API {
     return catchInternal(async () => {
       const response = await this.client.post<RunBenchmarkResponse>(
         `/benchmark/run${sync ? '?sync=true' : ''}`,
-        { benchmark_type: type }
+        { benchmark_type: type },
       )
       return response.data
     })()
@@ -698,24 +654,17 @@ class API {
 
   async submitBenchmark(benchmark_id: string, anonymous: boolean) {
     try {
-      const response = await this.client.post<SubmitBenchmarkResponse>('/benchmark/submit', {
-        benchmark_id,
-        anonymous,
-      })
+      const response = await this.client.post<SubmitBenchmarkResponse>('/benchmark/submit', { benchmark_id, anonymous })
       return response.data
     } catch (error: any) {
       // For 409 Conflict errors, throw a specific error that the UI can handle
       if (error.response?.status === 409) {
-        const err = new Error(
-          error.response?.data?.error ||
-            'This benchmark has already been submitted to the repository'
-        )
-        ;(err as any).status = 409
+        const err = new Error(error.response?.data?.error || 'This benchmark has already been submitted to the repository')
+          ; (err as any).status = 409
         throw err
       }
       // For other errors, extract the message and throw
-      const errorMessage =
-        error.response?.data?.error || error.message || 'Failed to submit benchmark'
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to submit benchmark'
       throw new Error(errorMessage)
     }
   }
@@ -766,10 +715,10 @@ class API {
 
   async updateBuilderTag(benchmark_id: string, builder_tag: string) {
     return catchInternal(async () => {
-      const response = await this.client.post<UpdateBuilderTagResponse>('/benchmark/builder-tag', {
-        benchmark_id,
-        builder_tag,
-      })
+      const response = await this.client.post<UpdateBuilderTagResponse>(
+        '/benchmark/builder-tag',
+        { benchmark_id, builder_tag }
+      )
       return response.data
     })()
   }
@@ -793,9 +742,10 @@ class API {
 
   async getSetting(key: string) {
     return catchInternal(async () => {
-      const response = await this.client.get<{ key: string; value: any }>('/system/settings', {
-        params: { key },
-      })
+      const response = await this.client.get<{ key: string; value: any }>(
+        '/system/settings',
+        { params: { key } }
+      )
       return response.data
     })()
   }
