@@ -414,23 +414,23 @@
       ]
     },
     {
-      "name": "Agriculture & Food",
+      "name": "Agriculture et alimentation",
       "slug": "agriculture",
       "icon": "IconPlant",
-      "description": "Grow and prepare your own food - gardening, cooking techniques, and food preservation.",
-      "language": "en",
+      "description": "Cultivez et préparez votre propre nourriture — jardinage, techniques culinaires et conservation des aliments.",
+      "language": "fr",
       "tiers": [
         {
-          "name": "Essential",
+          "name": "Essentiel",
           "slug": "agriculture-essential",
-          "description": "Quick recipes and cooking basics for everyday meal preparation.",
+          "description": "Recettes rapides et bases de cuisine pour la préparation des repas au quotidien.",
           "recommended": true,
           "resources": [
             {
               "id": "foss.cooking_en_all",
               "version": "2026-02",
               "title": "FOSS Cooking",
-              "description": "Quick and easy cooking guides and recipes",
+              "description": "Guides et recettes de cuisine rapides et faciles",
               "url": "https://download.kiwix.org/zim/zimit/foss.cooking_en_all_2026-02.zim",
               "size_mb": 24
             },
@@ -438,7 +438,7 @@
               "id": "based.cooking_en_all",
               "version": "2026-02",
               "title": "Based.Cooking",
-              "description": "Simple, practical recipes from the community",
+              "description": "Recettes simples et pratiques de la communauté",
               "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2026-02.zim",
               "size_mb": 16
             }
@@ -447,111 +447,111 @@
         {
           "name": "Standard",
           "slug": "agriculture-standard",
-          "description": "Gardening knowledge and cooking expertise from community Q&A. Includes Essential.",
+          "description": "Connaissances en jardinage et expertise culinaire via des Q&R communautaires. Inclut le contenu Essentiel.",
           "includesTier": "agriculture-essential",
           "resources": [
             {
               "id": "gardening.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Gardening Q&A",
-              "description": "Stack Exchange Q&A for growing your own food, plant care, and landscaping",
+              "title": "Jardinage Q&R",
+              "description": "Questions-réponses Stack Exchange sur la culture potagère, l'entretien des plantes et l'aménagement paysager",
               "url": "https://download.kiwix.org/zim/stack_exchange/gardening.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 923
             },
             {
               "id": "cooking.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Cooking Q&A",
-              "description": "Stack Exchange Q&A for cooking techniques, food safety, and recipes",
+              "title": "Cuisine Q&R",
+              "description": "Questions-réponses Stack Exchange sur les techniques culinaires, la sécurité alimentaire et les recettes",
               "url": "https://download.kiwix.org/zim/stack_exchange/cooking.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 236
             },
             {
               "id": "zimgit-food-preparation_en",
               "version": "2025-04",
-              "title": "Food for Preppers",
-              "description": "Recipes and techniques for food preservation and long-term storage",
+              "title": "Alimentation pour survivalistes",
+              "description": "Recettes et techniques de conservation des aliments et stockage longue durée",
               "url": "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
               "size_mb": 98
             }
           ]
         },
         {
-          "name": "Comprehensive",
+          "name": "Complet",
           "slug": "agriculture-comprehensive",
-          "description": "Complete self-sufficiency with homesteading videos, classic agricultural texts, and advanced techniques. Includes Standard.",
+          "description": "Autonomie complète avec vidéos d'autosuffisance, textes agricoles classiques et techniques avancées. Inclut le contenu Standard.",
           "includesTier": "agriculture-standard",
           "resources": [
             {
               "id": "lrnselfreliance_en_all",
               "version": "2025-12",
-              "title": "Learning Self-Reliance: Homesteading",
-              "description": "Beekeeping, animal husbandry, and sustainable living practices",
+              "title": "Autosuffisance : vie à la ferme",
+              "description": "Apiculture, élevage et pratiques de vie durable",
               "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
               "size_mb": 3970
             },
             {
-              "id": "gutenberg_en_lcc-s",
-              "version": "2026-03",
-              "title": "Project Gutenberg: Agriculture",
-              "description": "Classic texts on farming, animal husbandry, plant cultivation, and food preservation",
-              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-s_2026-03.zim",
-              "size_mb": 4300
+              "id": "wikivoyage_fr_all_maxi",
+              "version": "2026-01",
+              "title": "Wikivoyage",
+              "description": "Guide de voyage collaboratif — régions françaises, terroirs et savoir-faire locaux",
+              "url": "https://download.kiwix.org/zim/wikivoyage/wikivoyage_fr_all_maxi_2026-01.zim",
+              "size_mb": 800
             }
           ]
         }
       ]
     },
     {
-      "name": "Computing & Technology",
+      "name": "Informatique et technologie",
       "slug": "computing",
       "icon": "IconCode",
-      "description": "Programming tutorials, electronics projects, and technical documentation for makers and developers.",
-      "language": "en",
+      "description": "Tutoriels de programmation, projets électroniques et documentation technique pour les makers et développeurs.",
+      "language": "fr",
       "tiers": [
         {
-          "name": "Essential",
+          "name": "Essentiel",
           "slug": "computing-essential",
-          "description": "Learn to code with interactive tutorials and core programming documentation.",
+          "description": "Apprenez à coder avec des tutoriels interactifs et la documentation de programmation essentielle.",
           "recommended": true,
           "resources": [
             {
               "id": "freecodecamp_en_all",
               "version": "2026-02",
               "title": "freeCodeCamp",
-              "description": "Interactive programming tutorials - JavaScript, algorithms, and data structures",
+              "description": "Tutoriels de programmation interactifs — JavaScript, algorithmes et structures de données",
               "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2026-02.zim",
               "size_mb": 8
             },
             {
               "id": "devdocs_en_python",
               "version": "2026-02",
-              "title": "Python Documentation",
-              "description": "Complete Python language reference and tutorials",
+              "title": "Documentation Python",
+              "description": "Référence complète du langage Python et tutoriels",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-02.zim",
               "size_mb": 4
             },
             {
               "id": "devdocs_en_javascript",
               "version": "2026-01",
-              "title": "JavaScript Documentation",
-              "description": "MDN JavaScript reference and guides",
+              "title": "Documentation JavaScript",
+              "description": "Référence et guides JavaScript MDN",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-01.zim",
               "size_mb": 3
             },
             {
               "id": "devdocs_en_html",
               "version": "2026-01",
-              "title": "HTML Documentation",
-              "description": "MDN HTML elements and attributes reference",
+              "title": "Documentation HTML",
+              "description": "Référence MDN des éléments et attributs HTML",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-01.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_css",
               "version": "2026-01",
-              "title": "CSS Documentation",
-              "description": "MDN CSS properties and selectors reference",
+              "title": "Documentation CSS",
+              "description": "Référence MDN des propriétés et sélecteurs CSS",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-01.zim",
               "size_mb": 5
             }
@@ -560,86 +560,86 @@
         {
           "name": "Standard",
           "slug": "computing-standard",
-          "description": "Maker projects with Arduino and Raspberry Pi, plus more programming docs. Includes Essential.",
+          "description": "Projets maker avec Arduino et Raspberry Pi, plus de documentation de programmation. Inclut le contenu Essentiel.",
           "includesTier": "computing-essential",
           "resources": [
             {
               "id": "arduino.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Arduino Q&A",
-              "description": "Stack Exchange Q&A for Arduino microcontroller projects",
+              "title": "Arduino Q&R",
+              "description": "Questions-réponses Stack Exchange sur les projets de microcontrôleurs Arduino",
               "url": "https://download.kiwix.org/zim/stack_exchange/arduino.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 247
             },
             {
               "id": "raspberrypi.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Raspberry Pi Q&A",
-              "description": "Stack Exchange Q&A for Raspberry Pi projects and troubleshooting",
+              "title": "Raspberry Pi Q&R",
+              "description": "Questions-réponses Stack Exchange sur les projets et dépannage Raspberry Pi",
               "url": "https://download.kiwix.org/zim/stack_exchange/raspberrypi.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 285
             },
             {
               "id": "devdocs_en_node",
               "version": "2026-02",
-              "title": "Node.js Documentation",
-              "description": "Node.js API reference and guides",
+              "title": "Documentation Node.js",
+              "description": "Référence API Node.js et guides",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_node_2026-02.zim",
               "size_mb": 1
             },
             {
               "id": "devdocs_en_react",
               "version": "2026-02",
-              "title": "React Documentation",
-              "description": "React library reference and tutorials",
+              "title": "Documentation React",
+              "description": "Référence et tutoriels de la bibliothèque React",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_react_2026-02.zim",
               "size_mb": 3
             },
             {
               "id": "devdocs_en_git",
               "version": "2026-01",
-              "title": "Git Documentation",
-              "description": "Git version control reference",
+              "title": "Documentation Git",
+              "description": "Référence du système de contrôle de version Git",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-01.zim",
               "size_mb": 1
             }
           ]
         },
         {
-          "name": "Comprehensive",
+          "name": "Complet",
           "slug": "computing-comprehensive",
-          "description": "Deep electronics knowledge and extensive Q&A for hardware projects. Includes Standard.",
+          "description": "Connaissances approfondies en électronique et Q&R extensives pour les projets matériels. Inclut le contenu Standard.",
           "includesTier": "computing-standard",
           "resources": [
             {
               "id": "electronics.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Electronics Q&A",
-              "description": "Stack Exchange Q&A for circuit design, components, and electrical engineering",
+              "title": "Électronique Q&R",
+              "description": "Questions-réponses Stack Exchange sur la conception de circuits, les composants et le génie électrique",
               "url": "https://download.kiwix.org/zim/stack_exchange/electronics.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 3800
             },
             {
               "id": "robotics.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Robotics Q&A",
-              "description": "Stack Exchange Q&A for robotics projects and automation",
+              "title": "Robotique Q&R",
+              "description": "Questions-réponses Stack Exchange sur les projets de robotique et l'automatisation",
               "url": "https://download.kiwix.org/zim/stack_exchange/robotics.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 233
             },
             {
               "id": "devdocs_en_docker",
               "version": "2026-01",
-              "title": "Docker Documentation",
-              "description": "Docker container reference and guides",
+              "title": "Documentation Docker",
+              "description": "Référence et guides des conteneurs Docker",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-01.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_bash",
               "version": "2026-01",
-              "title": "Linux Documentation",
-              "description": "Linux command reference and system administration",
+              "title": "Documentation Linux",
+              "description": "Référence des commandes Linux et administration système",
               "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-01.zim",
               "size_mb": 1
             }
