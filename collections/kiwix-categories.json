@@ -1,48 +1,48 @@
 {
-  "spec_version": "2026-03-15",
+  "spec_version": "2026-04-12",
   "categories": [
     {
-      "name": "Medicine",
+      "name": "Médecine",
       "slug": "medicine",
       "icon": "IconStethoscope",
-      "description": "Medical references, guides, and encyclopedias for healthcare information and emergency preparedness.",
-      "language": "en",
+      "description": "Références médicales, guides et encyclopédies pour l'information de santé et la préparation aux urgences.",
+      "language": "fr",
       "tiers": [
         {
-          "name": "Essential",
+          "name": "Essentiel",
           "slug": "medicine-essential",
-          "description": "Core medical references for first aid, medications, and emergency care. Start here.",
+          "description": "Références médicales de base pour les premiers secours, les médicaments et les soins d'urgence. Commencez ici.",
           "recommended": true,
           "resources": [
             {
               "id": "zimgit-medicine_en",
               "version": "2024-08",
-              "title": "Medical Library",
-              "description": "Field and emergency medicine books and guides",
+              "title": "Bibliothèque médicale",
+              "description": "Livres et guides de médecine de terrain et d'urgence",
               "url": "https://download.kiwix.org/zim/other/zimgit-medicine_en_2024-08.zim",
               "size_mb": 67
             },
             {
               "id": "nhs.uk_en_medicines",
               "version": "2025-12",
-              "title": "NHS Medicines A to Z",
-              "description": "How medicines work, dosages, side effects, and interactions",
+              "title": "Médicaments de A à Z (NHS)",
+              "description": "Fonctionnement des médicaments, posologies, effets secondaires et interactions",
               "url": "https://download.kiwix.org/zim/zimit/nhs.uk_en_medicines_2025-12.zim",
               "size_mb": 16
             },
             {
               "id": "fas-military-medicine_en",
               "version": "2025-06",
-              "title": "Military Medicine",
-              "description": "Tactical and field medicine manuals",
+              "title": "Médecine militaire",
+              "description": "Manuels de médecine tactique et de terrain",
               "url": "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
               "size_mb": 78
             },
             {
               "id": "wwwnc.cdc.gov_en_all",
               "version": "2024-11",
-              "title": "CDC Health Information",
-              "description": "Disease prevention, travel health, and outbreak information",
+              "title": "Informations sanitaires (CDC)",
+              "description": "Prévention des maladies, santé des voyageurs et informations sur les épidémies",
               "url": "https://download.kiwix.org/zim/zimit/wwwnc.cdc.gov_en_all_2024-11.zim",
               "size_mb": 170
             }
@@ -51,38 +51,38 @@
         {
           "name": "Standard",
           "slug": "medicine-standard",
-          "description": "Comprehensive medical encyclopedia with detailed health information. Includes everything in Essential.",
+          "description": "Encyclopédie médicale complète avec des informations de santé détaillées. Inclut tout le contenu Essentiel.",
           "includesTier": "medicine-essential",
           "resources": [
             {
               "id": "medlineplus.gov_en_all",
               "version": "2025-01",
               "title": "MedlinePlus",
-              "description": "NIH's consumer health encyclopedia - diseases, conditions, drugs, supplements",
+              "description": "Encyclopédie de santé grand public — maladies, traitements, médicaments, compléments",
               "url": "https://download.kiwix.org/zim/zimit/medlineplus.gov_en_all_2025-01.zim",
               "size_mb": 1800
             }
           ]
         },
         {
-          "name": "Comprehensive",
+          "name": "Complet",
           "slug": "medicine-comprehensive",
-          "description": "Professional-level medical references and textbooks. Includes everything in Standard.",
+          "description": "Références médicales de niveau professionnel et manuels. Inclut tout le contenu Standard.",
           "includesTier": "medicine-standard",
           "resources": [
             {
-              "id": "wikipedia_en_medicine_maxi",
+              "id": "wikipedia_fr_medicine_maxi",
               "version": "2026-01",
-              "title": "Wikipedia Medicine",
-              "description": "Curated medical articles from Wikipedia with images",
-              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-01.zim",
-              "size_mb": 2000
+              "title": "Wikipédia Médecine",
+              "description": "Articles médicaux sélectionnés de Wikipédia avec images",
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_fr_medicine_maxi_2026-01.zim",
+              "size_mb": 1500
             },
             {
               "id": "libretexts.org_en_med",
               "version": "2025-01",
-              "title": "LibreTexts Medicine",
-              "description": "Open-source medical textbooks and educational content",
+              "title": "LibreTexts Médecine",
+              "description": "Manuels médicaux open-source et contenu éducatif",
               "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_med_2025-01.zim",
               "size_mb": 1100
             },
@@ -90,7 +90,7 @@
               "id": "librepathology_en_all_maxi",
               "version": "2025-09",
               "title": "LibrePathology",
-              "description": "Pathology reference for disease identification",
+              "description": "Référence en pathologie pour l'identification des maladies",
               "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2025-09.zim",
               "size_mb": 76
             }

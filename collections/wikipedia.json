@@ -1,52 +1,52 @@
 {
-  "spec_version": "2026-03-23",
+  "spec_version": "2026-04-12",
   "options": [
     {
       "id": "none",
-      "name": "No Wikipedia",
-      "description": "Skip Wikipedia installation",
+      "name": "Pas de Wikipédia",
+      "description": "Ne pas installer Wikipédia",
       "size_mb": 0,
       "url": null,
       "version": null
     },
     {
       "id": "top-mini",
-      "name": "Quick Reference",
-      "description": "Top 100,000 articles with minimal images. Great for quick lookups.",
-      "size_mb": 313,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_mini_2025-12.zim",
+      "name": "Référence rapide",
+      "description": "Les 100 000 articles les plus consultés avec un minimum d'images. Idéal pour des recherches rapides.",
+      "size_mb": 200,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_fr_top_mini_2025-12.zim",
       "version": "2025-12"
     },
     {
       "id": "top-nopic",
-      "name": "Popular Articles",
-      "description": "Top articles without images. Good balance of content and size.",
-      "size_mb": 2100,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2025-12.zim",
+      "name": "Articles populaires",
+      "description": "Les articles les plus consultés sans images. Bon compromis entre contenu et taille.",
+      "size_mb": 1200,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_fr_top_nopic_2025-12.zim",
       "version": "2025-12"
     },
     {
       "id": "all-mini",
-      "name": "Complete Wikipedia (Compact)",
-      "description": "All 6+ million articles in condensed format.",
-      "size_mb": 11400,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2025-12.zim",
+      "name": "Wikipédia complet (compact)",
+      "description": "Les 2,6 millions d'articles en format condensé.",
+      "size_mb": 6000,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_fr_all_mini_2025-12.zim",
       "version": "2025-12"
     },
     {
       "id": "all-nopic",
-      "name": "Complete Wikipedia (No Images)",
-      "description": "All articles without images. Comprehensive offline reference.",
-      "size_mb": 49000,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_nopic_2025-12.zim",
+      "name": "Wikipédia complet (sans images)",
+      "description": "Tous les articles sans images. Référence hors-ligne complète.",
+      "size_mb": 25000,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_fr_all_nopic_2025-12.zim",
       "version": "2025-12"
     },
     {
       "id": "all-maxi",
-      "name": "Complete Wikipedia (Full)",
-      "description": "The complete experience with all images and media.",
-      "size_mb": 118000,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2026-02.zim",
+      "name": "Wikipédia complet (intégral)",
+      "description": "L'expérience complète avec toutes les images et médias.",
+      "size_mb": 60000,
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_fr_all_maxi_2026-02.zim",
       "version": "2026-02"
     }
   ]
