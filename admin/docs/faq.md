@@ -114,6 +114,18 @@ The Maps feature requires downloaded map data. If you see a blank area:
 3. Wait for downloads to complete
 4. Return to Maps and refresh
 
+### ERROR: Failed to load the XML library file '/data/kiwix-library.xml'
+
+This usually means the Information Library service started before its Kiwix library index was fully initialized.
+
+Try this recovery flow:
+1. Go to **[Apps](/settings/apps)**
+2. Stop **Information Library (Kiwix)**
+3. Wait 10-15 seconds, then start it again
+4. If the error persists, run **Force Reinstall** for Information Library from the same page
+
+After restart/reinstall completes, refresh the Information Library page.
+
 ### AI responses are slow
 
 Local AI requires significant computing power. To improve speed:
