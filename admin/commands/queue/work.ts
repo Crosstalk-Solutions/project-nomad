@@ -76,7 +76,7 @@ export default class QueueWork extends BaseCommand {
         this.logger.error(`[${queueName}] Job failed: ${job?.id}, Error: ${err.message}`)
 
         // If this was a Wikipedia download, mark it as failed in the DB
-        if (job?.data?.filetype === 'zim' && job?.data?.url?.includes('wikipedia_en_')) {
+        if (job?.data?.filetype === 'zim' && job?.data?.url?.includes('wikipedia_fr_')) {
           try {
             const { DockerService } = await import('#services/docker_service')
             const { ZimService } = await import('#services/zim_service')
