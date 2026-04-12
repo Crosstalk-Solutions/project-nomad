@@ -349,31 +349,31 @@
       ]
     },
     {
-      "name": "DIY & Repair",
+      "name": "Bricolage et réparation",
       "slug": "diy",
       "icon": "IconTool",
-      "description": "Fix it yourself - repair guides, home improvement, woodworking, and vehicle maintenance.",
-      "language": "en",
+      "description": "Réparez vous-même — guides de réparation, amélioration de l'habitat, menuiserie et entretien automobile.",
+      "language": "fr",
       "tiers": [
         {
-          "name": "Essential",
+          "name": "Essentiel",
           "slug": "diy-essential",
-          "description": "Core repair knowledge - woodworking basics and vehicle maintenance Q&A.",
+          "description": "Connaissances de base en réparation — menuiserie et entretien automobile en Q&R.",
           "recommended": true,
           "resources": [
             {
               "id": "woodworking.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Woodworking Q&A",
-              "description": "Stack Exchange Q&A for carpentry, joinery, and woodcraft",
+              "title": "Menuiserie Q&R",
+              "description": "Questions-réponses Stack Exchange sur la menuiserie, l'assemblage et l'ébénisterie",
               "url": "https://download.kiwix.org/zim/stack_exchange/woodworking.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 99
             },
             {
               "id": "mechanics.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "Motor Vehicle Maintenance Q&A",
-              "description": "Stack Exchange Q&A for car and motorcycle repair",
+              "title": "Entretien automobile Q&R",
+              "description": "Questions-réponses Stack Exchange sur la réparation de voitures et motos",
               "url": "https://download.kiwix.org/zim/stack_exchange/mechanics.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 321
             }
@@ -382,32 +382,32 @@
         {
           "name": "Standard",
           "slug": "diy-standard",
-          "description": "Home improvement expertise with thousands of Q&A threads. Includes Essential.",
+          "description": "Expertise en amélioration de l'habitat avec des milliers de fils de discussion Q&R. Inclut le contenu Essentiel.",
           "includesTier": "diy-essential",
           "resources": [
             {
               "id": "diy.stackexchange.com_en_all",
               "version": "2026-02",
-              "title": "DIY & Home Improvement Q&A",
-              "description": "Stack Exchange Q&A for home repairs, electrical, plumbing, and construction",
+              "title": "Bricolage et amélioration de l'habitat Q&R",
+              "description": "Questions-réponses Stack Exchange sur les réparations domestiques, l'électricité, la plomberie et la construction",
               "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 1900
             }
           ]
         },
         {
-          "name": "Comprehensive",
+          "name": "Complet",
           "slug": "diy-comprehensive",
-          "description": "Complete repair library with step-by-step guides for electronics and appliances. Includes Standard.",
+          "description": "Bibliothèque complète de réparation avec des guides pas à pas pour l'électronique et l'électroménager. Inclut le contenu Standard.",
           "includesTier": "diy-standard",
           "resources": [
             {
-              "id": "ifixit_en_all",
+              "id": "ifixit_fr_all",
               "version": "2025-12",
-              "title": "iFixit Repair Guides",
-              "description": "Step-by-step repair guides for electronics, appliances, and vehicles",
-              "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
-              "size_mb": 3380
+              "title": "Guides de réparation iFixit",
+              "description": "Guides de réparation pas à pas pour l'électronique, l'électroménager et les véhicules",
+              "url": "https://download.kiwix.org/zim/ifixit/ifixit_fr_all_2025-12.zim",
+              "size_mb": 2500
             }
           ]
         }
