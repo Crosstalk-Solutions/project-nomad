@@ -99,31 +99,31 @@
       ]
     },
     {
-      "name": "Survival & Preparedness",
+      "name": "Survie et préparation",
       "slug": "survival",
       "icon": "IconShieldCheck",
-      "description": "Emergency preparedness, bug-out planning, and tactical survival skills for crisis situations.",
-      "language": "en",
+      "description": "Préparation aux urgences, planification d'évacuation et compétences de survie pour les situations de crise.",
+      "language": "fr",
       "tiers": [
         {
-          "name": "Essential",
+          "name": "Essentiel",
           "slug": "survival-essential",
-          "description": "Core survival concepts and winter preparedness videos. Start here for emergency basics.",
+          "description": "Concepts de survie essentiels et vidéos de préparation hivernale. Commencez ici pour les bases d'urgence.",
           "recommended": true,
           "resources": [
             {
               "id": "canadian_prepper_winterprepping_en",
               "version": "2026-02",
-              "title": "Canadian Prepper: Winter Prepping",
-              "description": "Video guides for winter survival and cold weather emergencies",
+              "title": "Canadian Prepper : Préparation hivernale",
+              "description": "Guides vidéo pour la survie hivernale et les urgences par temps froid",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_winterprepping_en_2026-02.zim",
               "size_mb": 1340
             },
             {
               "id": "canadian_prepper_bugoutroll_en",
               "version": "2025-08",
-              "title": "Canadian Prepper: Bug Out Roll",
-              "description": "Essential gear selection for your bug-out bag",
+              "title": "Canadian Prepper : Kit d'évacuation",
+              "description": "Sélection de l'équipement essentiel pour votre sac d'évacuation",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim",
               "size_mb": 975
             }
@@ -132,14 +132,14 @@
         {
           "name": "Standard",
           "slug": "survival-standard",
-          "description": "Bug-out strategies and urban survival techniques. Includes everything in Essential.",
+          "description": "Stratégies d'évacuation et techniques de survie urbaine. Inclut tout le contenu Essentiel.",
           "includesTier": "survival-essential",
           "resources": [
             {
               "id": "canadian_prepper_bugoutconcepts_en",
               "version": "2026-02",
-              "title": "Canadian Prepper: Bug Out Concepts",
-              "description": "Strategies and planning for emergency evacuation",
+              "title": "Canadian Prepper : Concepts d'évacuation",
+              "description": "Stratégies et planification pour l'évacuation d'urgence",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutconcepts_en_2026-02.zim",
               "size_mb": 2890
             },
@@ -147,33 +147,33 @@
               "id": "urban-prepper_en_all",
               "version": "2026-02",
               "title": "Urban Prepper",
-              "description": "Comprehensive urban emergency preparedness video series",
+              "description": "Série vidéo complète sur la préparation aux urgences en milieu urbain",
               "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2026-02.zim",
               "size_mb": 2240
             }
           ]
         },
         {
-          "name": "Comprehensive",
+          "name": "Complet",
           "slug": "survival-comprehensive",
-          "description": "Complete prepper library with food storage strategies and classic military strategy. Includes everything in Standard.",
+          "description": "Bibliothèque complète du survivaliste avec stockage alimentaire et stratégie militaire classique. Inclut tout le contenu Standard.",
           "includesTier": "survival-standard",
           "resources": [
             {
               "id": "canadian_prepper_preppingfood_en",
               "version": "2025-09",
-              "title": "Canadian Prepper: Prepping Food",
-              "description": "Long-term food storage and survival meal preparation",
+              "title": "Canadian Prepper : Préparation alimentaire",
+              "description": "Stockage alimentaire longue durée et préparation de repas de survie",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
               "size_mb": 2160
             },
             {
-              "id": "gutenberg_en_lcc-u",
+              "id": "gutenberg_fr_all",
               "version": "2026-03",
-              "title": "Project Gutenberg: Military Science",
-              "description": "Classic military strategy, tactics, and field manuals",
-              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-u_2026-03.zim",
-              "size_mb": 1200
+              "title": "Projet Gutenberg français",
+              "description": "Textes classiques français incluant stratégie militaire, tactique et manuels de terrain",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_fr_all_2026-03.zim",
+              "size_mb": 1500
             }
           ]
         }
