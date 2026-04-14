@@ -1,12 +1,30 @@
 {
-  "spec_version": "2026-03-15",
+  "spec_version": "2026-04-12",
+  "kiwix_api": "https://library.kiwix.org/catalog/v2/entries",
+  "languages": [
+    { "iso1": "en", "iso3": "eng", "name": "English",    "name_local": "English"     },
+    { "iso1": "es", "iso3": "spa", "name": "Spanish",    "name_local": "Español"     },
+    { "iso1": "ca", "iso3": "cat", "name": "Catalan",    "name_local": "Català"      },
+    { "iso1": "eu", "iso3": "eus", "name": "Basque",     "name_local": "Euskera"     },
+    { "iso1": "fr", "iso3": "fra", "name": "French",     "name_local": "Français"    },
+    { "iso1": "it", "iso3": "ita", "name": "Italian",    "name_local": "Italiano"    },
+    { "iso1": "de", "iso3": "deu", "name": "German",     "name_local": "Deutsch"     },
+    { "iso1": "pt", "iso3": "por", "name": "Portuguese", "name_local": "Português"   },
+    { "iso1": "ru", "iso3": "rus", "name": "Russian",    "name_local": "Русский"     },
+    { "iso1": "ar", "iso3": "ara", "name": "Arabic",     "name_local": "العربية"     },
+    { "iso1": "zh", "iso3": "zho", "name": "Chinese",    "name_local": "中文"         },
+    { "iso1": "ja", "iso3": "jpn", "name": "Japanese",   "name_local": "日本語"       },
+    { "iso1": "nl", "iso3": "nld", "name": "Dutch",      "name_local": "Nederlands"  },
+    { "iso1": "uk", "iso3": "ukr", "name": "Ukrainian",  "name_local": "Українська"  },
+    { "iso1": "pl", "iso3": "pol", "name": "Polish",     "name_local": "Polski"      },
+    { "iso1": "tr", "iso3": "tur", "name": "Turkish",    "name_local": "Türkçe"      }
+  ],
   "categories": [
     {
       "name": "Medicine",
       "slug": "medicine",
       "icon": "IconStethoscope",
       "description": "Medical references, guides, and encyclopedias for healthcare information and emergency preparedness.",
-      "language": "en",
       "tiers": [
         {
           "name": "Essential",
@@ -55,12 +73,13 @@
           "includesTier": "medicine-essential",
           "resources": [
             {
-              "id": "medlineplus.gov_en_all",
-              "version": "2025-01",
+              "id": "medlineplus_all",
               "title": "MedlinePlus",
               "description": "NIH's consumer health encyclopedia - diseases, conditions, drugs, supplements",
-              "url": "https://download.kiwix.org/zim/zimit/medlineplus.gov_en_all_2025-01.zim",
-              "size_mb": 1800
+              "size_mb": 1855,
+              "zim_name": "medlineplus.gov_{lang}_all",
+              "available_languages": ["en", "es"],
+              "size_mb_by_lang": { "en": 1855, "es": 1685 }
             }
           ]
         },
@@ -103,7 +122,6 @@
       "slug": "survival",
       "icon": "IconShieldCheck",
       "description": "Emergency preparedness, bug-out planning, and tactical survival skills for crisis situations.",
-      "language": "en",
       "tiers": [
         {
           "name": "Essential",
@@ -184,7 +202,6 @@
       "slug": "education",
       "icon": "IconSchool",
       "description": "Encyclopedias, textbooks, tutorials, and educational videos for self-directed learning.",
-      "language": "en",
       "tiers": [
         {
           "name": "Essential",
@@ -193,12 +210,19 @@
           "recommended": true,
           "resources": [
             {
-              "id": "wikibooks_en_all_nopic",
-              "version": "2026-01",
+              "id": "wikibooks_all_nopic",
               "title": "Wikibooks",
               "description": "Open-content textbooks covering math, science, computing, and more",
-              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_nopic_2026-01.zim",
-              "size_mb": 3100
+              "size_mb": 3100,
+              "zim_name": "wikibooks_{lang}_all",
+              "zim_flavour": "nopic",
+              "available_languages": ["en", "es", "ca", "eu", "fr", "it", "de", "pt", "ru", "ar", "zh", "ja", "nl", "uk", "pl", "tr"],
+              "size_mb_by_lang": {
+                "en": 3100, "es": 107, "fr": 212, "de": 2733,
+                "it": 200, "pt": 150, "ru": 300, "ar": 100,
+                "zh": 200, "ja": 250, "nl": 150, "uk": 80,
+                "pl": 150, "tr": 80, "ca": 100, "eu": 50
+              }
             }
           ]
         },
@@ -217,12 +241,17 @@
               "size_mb": 5610
             },
             {
-              "id": "wikiversity_en_all_maxi",
-              "version": "2026-02",
+              "id": "wikiversity_all_maxi",
               "title": "Wikiversity",
               "description": "Tutorials, courses, and learning materials for all levels",
-              "url": "https://download.kiwix.org/zim/wikiversity/wikiversity_en_all_maxi_2026-02.zim",
-              "size_mb": 2370
+              "size_mb": 2370,
+              "zim_name": "wikiversity_{lang}_all",
+              "zim_flavour": "maxi",
+              "available_languages": ["en", "es", "fr", "de", "zh", "ja"],
+              "size_mb_by_lang": {
+                "en": 2278, "es": 59, "fr": 488, "de": 1366,
+                "zh": 100, "ja": 150
+              }
             },
             {
               "id": "libretexts.org_en_math",
@@ -265,12 +294,19 @@
           "includesTier": "education-standard",
           "resources": [
             {
-              "id": "wikibooks_en_all_maxi",
-              "version": "2026-01",
+              "id": "wikibooks_all_maxi",
               "title": "Wikibooks (With Images)",
               "description": "Open textbooks with full illustrations and diagrams",
-              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_maxi_2026-01.zim",
-              "size_mb": 5400
+              "size_mb": 5400,
+              "zim_name": "wikibooks_{lang}_all",
+              "zim_flavour": "maxi",
+              "available_languages": ["en", "es", "ca", "eu", "fr", "it", "de", "pt", "ru", "ar", "zh", "ja", "nl", "uk", "pl", "tr"],
+              "size_mb_by_lang": {
+                "en": 5400, "es": 333, "fr": 1922, "de": 3439,
+                "it": 500, "pt": 400, "ru": 700, "ar": 300,
+                "zh": 500, "ja": 600, "nl": 400, "uk": 200,
+                "pl": 400, "tr": 200, "ca": 250, "eu": 100
+              }
             },
             {
               "id": "ted_mul_ted-conference",
@@ -321,7 +357,6 @@
       "slug": "diy",
       "icon": "IconTool",
       "description": "Fix it yourself - repair guides, home improvement, woodworking, and vehicle maintenance.",
-      "language": "en",
       "tiers": [
         {
           "name": "Essential",
@@ -370,12 +405,17 @@
           "includesTier": "diy-standard",
           "resources": [
             {
-              "id": "ifixit_en_all",
-              "version": "2025-12",
+              "id": "ifixit_all",
               "title": "iFixit Repair Guides",
               "description": "Step-by-step repair guides for electronics, appliances, and vehicles",
-              "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
-              "size_mb": 3380
+              "size_mb": 3404,
+              "zim_name": "ifixit_{lang}_all",
+              "available_languages": ["en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "nl", "tr"],
+              "size_mb_by_lang": {
+                "en": 3404, "es": 3510, "fr": 3483, "de": 3426,
+                "it": 3471, "pt": 3464, "ru": 3461, "zh": 2960,
+                "ja": 3278, "nl": 3440, "tr": 3466
+              }
             }
           ]
         }
@@ -386,7 +426,6 @@
       "slug": "agriculture",
       "icon": "IconPlant",
       "description": "Grow and prepare your own food - gardening, cooking techniques, and food preservation.",
-      "language": "en",
       "tiers": [
         {
           "name": "Essential",
@@ -475,7 +514,6 @@
       "slug": "computing",
       "icon": "IconCode",
       "description": "Programming tutorials, electronics projects, and technical documentation for makers and developers.",
-      "language": "en",
       "tiers": [
         {
           "name": "Essential",
@@ -484,12 +522,16 @@
           "recommended": true,
           "resources": [
             {
-              "id": "freecodecamp_en_all",
-              "version": "2026-02",
+              "id": "freecodecamp_all",
               "title": "freeCodeCamp",
               "description": "Interactive programming tutorials - JavaScript, algorithms, and data structures",
-              "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2026-02.zim",
-              "size_mb": 8
+              "size_mb": 8,
+              "zim_name": "freecodecamp_{lang}_all",
+              "available_languages": ["en", "es", "de", "it", "pt", "ja", "zh", "uk"],
+              "size_mb_by_lang": {
+                "en": 8, "es": 8, "de": 7, "it": 8,
+                "pt": 8, "ja": 8, "zh": 7, "uk": 8
+              }
             },
             {
               "id": "devdocs_en_python",

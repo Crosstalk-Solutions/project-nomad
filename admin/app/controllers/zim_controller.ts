@@ -45,7 +45,8 @@ export default class ZimController {
     const payload = await request.validateUsing(downloadCategoryTierValidator)
     const resources = await this.zimService.downloadCategoryTier(
       payload.categorySlug,
-      payload.tierSlug
+      payload.tierSlug,
+      payload.language
     )
 
     return {
@@ -83,6 +84,6 @@ export default class ZimController {
 
   async selectWikipedia({ request }: HttpContext) {
     const payload = await request.validateUsing(selectWikipediaValidator)
-    return this.zimService.selectWikipedia(payload.optionId)
+    return this.zimService.selectWikipedia(payload.optionId, payload.language)
   }
 }

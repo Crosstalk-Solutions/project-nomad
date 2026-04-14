@@ -99,14 +99,16 @@ class API {
     })()
   }
 
-  async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<{
+  async downloadCategoryTier(categorySlug: string, tierSlug: string, language?: string): Promise<{
     message: string
     categorySlug: string
     tierSlug: string
     resources: string[] | null
   }> {
     return catchInternal(async () => {
-      const response = await this.client.post('/zim/download-category-tier', { categorySlug, tierSlug })
+      const body: Record<string, string> = { categorySlug, tierSlug }
+      if (language) body.language = language
+      const response = await this.client.post('/zim/download-category-tier', body)
       return response.data
     })()
   }
@@ -728,14 +730,17 @@ class API {
   }
 
   async selectWikipedia(
-    optionId: string
+    optionId: string,
+    language?: string
   ): Promise<{ success: boolean; jobId?: string; message?: string } | undefined> {
     return catchInternal(async () => {
+      const body: Record<string, string> = { optionId }
+      if (language) body.language = language
       const response = await this.client.post<{
         success: boolean
         jobId?: string
         message?: string
-      }>('/zim/wikipedia/select', { optionId })
+      }>('/zim/wikipedia/select', body)
       return response.data
     })()
   }

@@ -17,23 +17,128 @@ import {
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
 import { join, resolve, sep } from 'path'
-import { WikipediaOption, WikipediaState } from '../../types/downloads.js'
-import vine from '@vinejs/vine'
-import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
+import { WikipediaOption, WikipediaOptionsFile, WikipediaState } from '../../types/downloads.js'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
+import KVStore from '#models/kv_store'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
-import type { CategoryWithStatus } from '../../types/collections.js'
+import type { CategoryWithStatus, SpecResource, ZimCategoriesSpec } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
+
+// In-memory cache for Kiwix API URL resolution (5-minute TTL)
+const kiwixUrlCache = new Map<string, { url: string; timestamp: number }>()
+const KIWIX_CACHE_TTL = 5 * 60 * 1000
 
 @inject()
 export class ZimService {
   constructor(private dockerService: DockerService) { }
+
+  // ---- Language preference methods ----
+
+  async getContentLanguage(): Promise<string> {
+    const lang = await KVStore.getValue('content.language')
+    return lang || 'en'
+  }
+
+  async setContentLanguage(iso1: string): Promise<void> {
+    await KVStore.setValue('content.language', iso1)
+  }
+
+  // ---- Kiwix API URL resolution ----
+
+  /**
+   * Resolves the latest download URL for a ZIM file from the Kiwix catalog API.
+   * @param zimName - The ZIM name (e.g. "ifixit_es_all", "wikipedia_es_all")
+   * @param flavour - Optional flavour filter (e.g. "maxi", "nopic", "mini")
+   * @returns The direct download URL (without .meta4 suffix)
+   */
+  async resolveKiwixUrl(zimName: string, flavour?: string): Promise<string> {
+    const cacheKey = `${zimName}:${flavour || ''}`
+    const cached = kiwixUrlCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < KIWIX_CACHE_TTL) {
+      return cached.url
+    }
+
+    const apiUrl = 'https://library.kiwix.org/catalog/v2/entries'
+    const res = await axios.get(apiUrl, {
+      params: { name: zimName, count: 10 },
+      responseType: 'text',
+    })
+
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '',
+      textNodeName: '#text',
+    })
+    const result = parser.parse(res.data)
+
+    const entries = result?.feed?.entry
+      ? Array.isArray(result.feed.entry)
+        ? result.feed.entry
+        : [result.feed.entry]
+      : []
+
+    // Find the entry matching the exact name and optionally the flavour
+    const match = entries.find((entry: any) => {
+      const nameMatch = entry.name === zimName
+      if (!nameMatch) return false
+      if (!flavour) return true
+      return entry.flavour === flavour
+    })
+
+    if (!match) {
+      throw new Error(`No Kiwix entry found for name="${zimName}" flavour="${flavour || 'any'}"`)
+    }
+
+    const links = Array.isArray(match.link) ? match.link : [match.link]
+    const downloadLink = links.find((link: any) =>
+      typeof link === 'object' &&
+      link.rel === 'http://opds-spec.org/acquisition/open-access' &&
+      typeof link.href === 'string'
+    )
+
+    if (!downloadLink) {
+      throw new Error(`No download link found for ${zimName}`)
+    }
+
+    // Remove .meta4 suffix to get direct download URL
+    let url = downloadLink.href
+    if (url.endsWith('.meta4')) {
+      url = url.substring(0, url.length - 6)
+    }
+
+    kiwixUrlCache.set(cacheKey, { url, timestamp: Date.now() })
+    return url
+  }
+
+  /**
+   * Resolves the download URL for a SpecResource in a given language.
+   * For multi-language resources (with zim_name template), resolves via Kiwix API.
+   * For English-only resources (with url), returns the static URL.
+   */
+  async resolveResourceUrl(
+    resource: SpecResource,
+    language: string
+  ): Promise<{ url: string; resourceId: string; sizeMb: number }> {
+    if (resource.zim_name) {
+      // Multi-language resource: resolve via Kiwix API
+      const effectiveLang = resource.available_languages?.includes(language) ? language : 'en'
+      const resolvedName = resource.zim_name.replace('{lang}', effectiveLang)
+      const url = await this.resolveKiwixUrl(resolvedName, resource.zim_flavour)
+      const sizeMb = resource.size_mb_by_lang?.[effectiveLang] ?? resource.size_mb
+      return { url, resourceId: resolvedName, sizeMb }
+    }
+
+    // English-only resource: use static URL
+    if (!resource.url) {
+      throw new Error(`Resource ${resource.id} has no URL and no zim_name template`)
+    }
+    return { url: resource.url, resourceId: resource.id, sizeMb: resource.size_mb }
+  }
 
   async list() {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
@@ -193,9 +298,9 @@ export class ZimService {
     return manifestService.getCategoriesWithStatus()
   }
 
-  async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<string[] | null> {
+  async downloadCategoryTier(categorySlug: string, tierSlug: string, language?: string): Promise<string[] | null> {
     const manifestService = new CollectionManifestService()
-    const spec = await manifestService.getSpecWithFallback<import('../../types/collections.js').ZimCategoriesSpec>('zim_categories')
+    const spec = await manifestService.getSpecWithFallback<ZimCategoriesSpec>('zim_categories')
     if (!spec) {
       throw new Error('Could not load ZIM categories spec')
     }
@@ -210,42 +315,55 @@ export class ZimService {
       throw new Error(`Tier not found: ${tierSlug}`)
     }
 
+    const effectiveLanguage = language || await this.getContentLanguage()
     const allResources = CollectionManifestService.resolveTierResources(tier, category.tiers)
 
-    // Filter out already installed
+    // Filter out already installed (using language-resolved resource IDs)
     const installed = await InstalledResource.query().where('resource_type', 'zim')
     const installedIds = new Set(installed.map((r) => r.resource_id))
-    const toDownload = allResources.filter((r) => !installedIds.has(r.id))
+
+    const toDownload: Array<{ resource: SpecResource; url: string; resourceId: string; sizeMb: number }> = []
+
+    for (const resource of allResources) {
+      try {
+        const resolved = await this.resolveResourceUrl(resource, effectiveLanguage)
+        if (!installedIds.has(resolved.resourceId)) {
+          toDownload.push({ resource, ...resolved })
+        }
+      } catch (error) {
+        logger.error(`[ZimService] Failed to resolve URL for resource ${resource.id}:`, error)
+      }
+    }
 
     if (toDownload.length === 0) return null
 
     const downloadFilenames: string[] = []
 
-    for (const resource of toDownload) {
-      const existingJob = await RunDownloadJob.getActiveByUrl(resource.url)
+    for (const { resource, url, resourceId, sizeMb } of toDownload) {
+      const existingJob = await RunDownloadJob.getActiveByUrl(url)
       if (existingJob) {
-        logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)
+        logger.warn(`[ZimService] Download already in progress for ${url}, skipping.`)
         continue
       }
 
-      const filename = resource.url.split('/').pop()
+      const filename = url.split('/').pop()
       if (!filename) continue
 
       downloadFilenames.push(filename)
       const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
       await RunDownloadJob.dispatch({
-        url: resource.url,
+        url,
         filepath,
         timeout: 30000,
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
-        title: (resource as any).title || undefined,
-        totalBytes: (resource as any).size_mb ? (resource as any).size_mb * 1024 * 1024 : undefined,
+        title: resource.title || undefined,
+        totalBytes: sizeMb ? sizeMb * 1024 * 1024 : undefined,
         resourceMetadata: {
-          resource_id: resource.id,
-          version: resource.version,
+          resource_id: resourceId,
+          version: resource.version || '',
           collection_ref: categorySlug,
         },
       })
@@ -257,7 +375,7 @@ export class ZimService {
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     // Check if any URL is a Wikipedia download and handle it
     for (const url of urls) {
-      if (url.includes('wikipedia_en_')) {
+      if (/wikipedia_[a-z]{2,3}_/.test(url)) {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
@@ -319,9 +437,10 @@ export class ZimService {
     }
 
     // Create InstalledResource entries for downloaded files
+    const currentLanguage = await this.getContentLanguage()
     for (const url of urls) {
       // Skip Wikipedia files (managed separately)
-      if (url.includes('wikipedia_en_')) continue
+      if (/wikipedia_[a-z]{2,3}_/.test(url)) continue
 
       const filename = url.split('/').pop()
       if (!filename) continue
@@ -341,6 +460,7 @@ export class ZimService {
             url: url,
             file_path: filepath,
             file_size_bytes: stats ? Number(stats.size) : null,
+            language: currentLanguage,
             installed_at: DateTime.now(),
           }
         )
@@ -391,21 +511,22 @@ export class ZimService {
 
   // Wikipedia selector methods
 
-  async getWikipediaOptions(): Promise<WikipediaOption[]> {
-    try {
-      const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
-      const data = response.data
+  async getWikipediaSpec(): Promise<WikipediaOptionsFile> {
+    // Use the manifest service for fetch + cache fallback (consistent with category specs)
+    const manifestService = new CollectionManifestService()
+    const spec = await manifestService.getSpecWithFallback<WikipediaOptionsFile>('wikipedia')
 
-      const validated = await vine.validate({
-        schema: wikipediaOptionsFileSchema,
-        data,
-      })
-
-      return validated.options
-    } catch (error) {
-      logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
-      throw new Error('Failed to fetch Wikipedia options')
+    if (!spec) {
+      logger.error(`[ZimService] Failed to fetch Wikipedia spec (no cache available)`)
+      throw new Error('Failed to fetch Wikipedia spec')
     }
+
+    return spec
+  }
+
+  async getWikipediaOptions(): Promise<WikipediaOption[]> {
+    const spec = await this.getWikipediaSpec()
+    return spec.options
   }
 
   async getWikipediaSelection(): Promise<WikipediaSelection | null> {
@@ -414,34 +535,50 @@ export class ZimService {
   }
 
   async getWikipediaState(): Promise<WikipediaState> {
-    const options = await this.getWikipediaOptions()
+    const spec = await this.getWikipediaSpec()
     const selection = await this.getWikipediaSelection()
+    const selectedLanguage = await this.getContentLanguage()
 
     return {
-      options,
+      options: spec.options,
+      languages: spec.languages,
+      selectedLanguage,
       currentSelection: selection
         ? {
           optionId: selection.option_id,
           status: selection.status,
           filename: selection.filename,
           url: selection.url,
+          language: selection.language,
         }
         : null,
     }
   }
 
-  async selectWikipedia(optionId: string): Promise<{ success: boolean; jobId?: string; message?: string }> {
-    const options = await this.getWikipediaOptions()
-    const selectedOption = options.find((opt) => opt.id === optionId)
+  async selectWikipedia(optionId: string, language?: string): Promise<{ success: boolean; jobId?: string; message?: string }> {
+    const spec = await this.getWikipediaSpec()
+    const selectedOption = spec.options.find((opt) => opt.id === optionId)
 
     if (!selectedOption) {
       throw new Error(`Invalid Wikipedia option: ${optionId}`)
     }
 
+    // Resolve the effective language
+    const effectiveLanguage = language || await this.getContentLanguage()
+
+    // Persist the language preference if provided
+    if (language) {
+      await this.setContentLanguage(language)
+    }
+
     const currentSelection = await this.getWikipediaSelection()
 
-    // If same as currently installed, no action needed
-    if (currentSelection?.option_id === optionId && currentSelection.status === 'installed') {
+    // If same option AND same language as currently installed, no action needed
+    if (
+      currentSelection?.option_id === optionId &&
+      currentSelection.language === effectiveLanguage &&
+      currentSelection.status === 'installed'
+    ) {
       return { success: true, message: 'Already installed' }
     }
 
@@ -452,17 +589,16 @@ export class ZimService {
           await this.delete(currentSelection.filename)
           logger.info(`[ZimService] Deleted Wikipedia file: ${currentSelection.filename}`)
         } catch (error) {
-          // File might already be deleted, that's OK
           logger.warn(`[ZimService] Could not delete Wikipedia file (may already be gone): ${currentSelection.filename}`)
         }
       }
 
-      // Update or create the selection record (always use first record)
       if (currentSelection) {
         currentSelection.option_id = 'none'
         currentSelection.url = null
         currentSelection.filename = null
         currentSelection.status = 'none'
+        currentSelection.language = effectiveLanguage
         await currentSelection.save()
       } else {
         await WikipediaSelection.create({
@@ -470,10 +606,10 @@ export class ZimService {
           url: null,
           filename: null,
           status: 'none',
+          language: effectiveLanguage,
         })
       }
 
-      // Restart Kiwix to reflect the change
       await this.dockerService
         .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
         .catch((error) => {
@@ -483,19 +619,32 @@ export class ZimService {
       return { success: true, message: 'Wikipedia removed' }
     }
 
-    // Start download for the new Wikipedia option
-    if (!selectedOption.url) {
-      throw new Error('Selected Wikipedia option has no download URL')
+    // Resolve the download URL dynamically via Kiwix API if the option has a zim_name template
+    let downloadUrl: string
+    let sizeMb = selectedOption.size_mb
+
+    if (selectedOption.zim_name) {
+      const resolvedName = selectedOption.zim_name.replace('{lang}', effectiveLanguage)
+      try {
+        downloadUrl = await this.resolveKiwixUrl(resolvedName, selectedOption.zim_flavour)
+      } catch (error) {
+        logger.error(`[ZimService] Failed to resolve Kiwix URL for ${resolvedName}:`, error)
+        throw new Error(`Could not resolve download URL for Wikipedia ${optionId} in ${effectiveLanguage}`)
+      }
+      sizeMb = selectedOption.size_mb_by_lang?.[effectiveLanguage] ?? selectedOption.size_mb
+    } else if (selectedOption.url) {
+      downloadUrl = selectedOption.url
+    } else {
+      throw new Error('Selected Wikipedia option has no download URL or zim_name template')
     }
 
     // Check if already downloading
-    const existingJob = await RunDownloadJob.getActiveByUrl(selectedOption.url)
+    const existingJob = await RunDownloadJob.getActiveByUrl(downloadUrl)
     if (existingJob) {
       return { success: false, message: 'Download already in progress' }
     }
 
-    // Extract filename from URL
-    const filename = selectedOption.url.split('/').pop()
+    const filename = downloadUrl.split('/').pop()
     if (!filename) {
       throw new Error('Could not determine filename from URL')
     }
@@ -506,43 +655,45 @@ export class ZimService {
     let selection: WikipediaSelection
     if (currentSelection) {
       currentSelection.option_id = optionId
-      currentSelection.url = selectedOption.url
+      currentSelection.url = downloadUrl
       currentSelection.filename = filename
       currentSelection.status = 'downloading'
+      currentSelection.language = effectiveLanguage
       await currentSelection.save()
       selection = currentSelection
     } else {
       selection = await WikipediaSelection.create({
         option_id: optionId,
-        url: selectedOption.url,
+        url: downloadUrl,
         filename: filename,
         status: 'downloading',
+        language: effectiveLanguage,
       })
     }
 
     // Dispatch download job
     const result = await RunDownloadJob.dispatch({
-      url: selectedOption.url,
+      url: downloadUrl,
       filepath,
       timeout: 30000,
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
       title: selectedOption.name,
-      totalBytes: selectedOption.size_mb ? selectedOption.size_mb * 1024 * 1024 : undefined,
+      totalBytes: sizeMb ? sizeMb * 1024 * 1024 : undefined,
     })
 
     if (!result || !result.job) {
-      // Revert status on failure to dispatch
       selection.option_id = currentSelection?.option_id || 'none'
       selection.url = currentSelection?.url || null
       selection.filename = currentSelection?.filename || null
       selection.status = currentSelection?.status || 'none'
+      selection.language = currentSelection?.language || 'en'
       await selection.save()
       throw new Error('Failed to dispatch download job')
     }
 
-    logger.info(`[ZimService] Started Wikipedia download for ${optionId}: ${filename}`)
+    logger.info(`[ZimService] Started Wikipedia download for ${optionId} (${effectiveLanguage}): ${filename}`)
 
     return {
       success: true,
@@ -560,17 +711,15 @@ export class ZimService {
     }
 
     if (success) {
-      // Update status to installed
       selection.status = 'installed'
       await selection.save()
 
       logger.info(`[ZimService] Wikipedia download completed successfully: ${selection.filename}`)
 
-      // Delete the old Wikipedia file if it exists and is different
-      // We need to find what was previously installed
+      // Delete old Wikipedia files (any language) that are different from the newly installed one
       const existingFiles = await this.list()
       const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+        /^wikipedia_[a-z]{2,3}_/.test(f.name) && f.name !== selection.filename
       )
 
       for (const oldFile of wikipediaFiles) {
@@ -582,7 +731,6 @@ export class ZimService {
         }
       }
     } else {
-      // Download failed - keep the selection record but mark as failed
       selection.status = 'failed'
       await selection.save()
       logger.error(`[ZimService] Wikipedia download failed for: ${selection.filename}`)

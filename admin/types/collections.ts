@@ -1,10 +1,17 @@
+import type { WikipediaLanguage } from './downloads.js'
+
 export type SpecResource = {
   id: string
-  version: string
+  version?: string
   title: string
   description: string
-  url: string
+  url?: string             // present for English-only resources (static URL)
   size_mb: number
+  // Multi-language fields (only present for resources available in multiple languages)
+  zim_name?: string        // template e.g. "ifixit_{lang}_all"
+  zim_flavour?: string     // e.g. "maxi", "nopic"
+  available_languages?: string[]  // iso1 codes of languages this resource is available in
+  size_mb_by_lang?: Record<string, number>
 }
 
 export type SpecTier = {
@@ -21,7 +28,6 @@ export type SpecCategory = {
   slug: string
   icon: string
   description: string
-  language: string
   tiers: SpecTier[]
 }
 
@@ -36,6 +42,8 @@ export type SpecCollection = {
 
 export type ZimCategoriesSpec = {
   spec_version: string
+  kiwix_api: string
+  languages: WikipediaLanguage[]
   categories: SpecCategory[]
 }
 

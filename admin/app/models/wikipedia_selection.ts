@@ -19,6 +19,9 @@ export default class WikipediaSelection extends BaseModel {
   @column()
   declare status: 'none' | 'downloading' | 'installed' | 'failed'
 
+  @column()
+  declare language: string
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 

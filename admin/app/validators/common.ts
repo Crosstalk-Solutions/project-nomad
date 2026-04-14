@@ -85,12 +85,14 @@ export const downloadCategoryTierValidator = vine.compile(
   vine.object({
     categorySlug: vine.string().trim().minLength(1),
     tierSlug: vine.string().trim().minLength(1),
+    language: vine.string().trim().minLength(2).maxLength(5).optional(),
   })
 )
 
 export const selectWikipediaValidator = vine.compile(
   vine.object({
     optionId: vine.string().trim().minLength(1),
+    language: vine.string().trim().minLength(2).maxLength(5).optional(),
   })
 )
 

@@ -28,6 +28,9 @@ export default class InstalledResource extends BaseModel {
   @column()
   declare file_size_bytes: number | null
 
+  @column()
+  declare language: string | null
+
   @column.dateTime()
   declare installed_at: DateTime
 }

@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../types/collections'
-import { resolveTierResources } from '~/lib/collections'
+import { resolveTierResources, getResourceSizeForLang, isResourceAvailableInLang } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
 import classNames from 'classnames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
@@ -13,6 +13,7 @@ interface TierSelectionModalProps {
   onClose: () => void
   category: CategoryWithStatus | null
   selectedTierSlug?: string | null
+  language?: string
   onSelectTier: (category: CategoryWithStatus, tier: SpecTier) => void
 }
 
@@ -21,6 +22,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   onClose,
   category,
   selectedTierSlug,
+  language = 'en',
   onSelectTier,
 }) => {
   // Local selection state - initialized from prop
@@ -41,7 +43,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   }
 
   const getTierTotalSize = (tier: SpecTier): number => {
-    return getAllResourcesForTier(tier).reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
+    return getAllResourcesForTier(tier).reduce((acc, r) => acc + getResourceSizeForLang(r, language) * 1024 * 1024, 0)
   }
 
   const handleTierClick = (tier: SpecTier) => {
@@ -175,8 +177,11 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                                       <div>
                                         <span className="text-text-primary">{resource.title}</span>
                                         <span className="text-text-muted text-xs ml-1">
-                                          ({formatBytes(resource.size_mb * 1024 * 1024, 0)})
+                                          ({formatBytes(getResourceSizeForLang(resource, language) * 1024 * 1024, 0)})
                                         </span>
+                                        {language !== 'en' && !isResourceAvailableInLang(resource, language) && (
+                                          <span className="text-xs text-amber-600 ml-1">(EN only)</span>
+                                        )}
                                       </div>
                                     </div>
                                   ))}

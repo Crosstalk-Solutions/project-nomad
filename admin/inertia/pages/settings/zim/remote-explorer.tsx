@@ -23,6 +23,7 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconBooks } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
+import { useContentLanguage } from '~/hooks/useContentLanguage'
 import CategoryCard from '~/components/CategoryCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
@@ -51,6 +52,9 @@ export default function ZimRemoteExplorer() {
   // Category/tier selection state
   const [tierModalOpen, setTierModalOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState<CategoryWithStatus | null>(null)
+
+  // Language preference
+  const { language: contentLanguage, setLanguage: setContentLanguage } = useContentLanguage()
 
   // Wikipedia selection state
   const [selectedWikipedia, setSelectedWikipedia] = useState<string | null>(null)
@@ -193,7 +197,7 @@ export default function ZimRemoteExplorer() {
 
   const handleTierSelect = async (category: CategoryWithStatus, tier: SpecTier) => {
     try {
-      await api.downloadCategoryTier(category.slug, tier.slug)
+      await api.downloadCategoryTier(category.slug, tier.slug, contentLanguage)
 
       addNotification({
         message: `Started downloading "${category.name} - ${tier.name}"`,
@@ -228,7 +232,7 @@ export default function ZimRemoteExplorer() {
 
     setIsSubmittingWikipedia(true)
     try {
-      const result = await api.selectWikipedia(selectedWikipedia)
+      const result = await api.selectWikipedia(selectedWikipedia, contentLanguage)
       if (result?.success) {
         addNotification({
           message:
@@ -319,9 +323,12 @@ export default function ZimRemoteExplorer() {
             <div className="mt-8 bg-surface-primary rounded-lg border border-border-subtle p-6">
               <WikipediaSelector
                 options={wikipediaState.options}
+                languages={wikipediaState.languages || []}
                 currentSelection={wikipediaState.currentSelection}
                 selectedOptionId={selectedWikipedia}
+                selectedLanguage={contentLanguage}
                 onSelect={handleWikipediaSelect}
+                onLanguageChange={(lang) => setContentLanguage(lang)}
                 disabled={!isOnline}
                 showSubmitButton
                 onSubmit={handleWikipediaSubmit}
@@ -348,6 +355,7 @@ export default function ZimRemoteExplorer() {
                     key={category.slug}
                     category={category}
                     selectedTier={null}
+                    language={contentLanguage}
                     onClick={handleCategoryClick}
                   />
                 ))}
@@ -359,6 +367,7 @@ export default function ZimRemoteExplorer() {
                 onClose={closeTierModal}
                 category={activeCategory}
                 selectedTierSlug={activeCategory?.installedTierSlug}
+                language={contentLanguage}
                 onSelectTier={handleTierSelect}
               />
             </>

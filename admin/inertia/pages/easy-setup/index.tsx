@@ -19,7 +19,8 @@ import { useSystemInfo } from '~/hooks/useSystemInfo'
 import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
 import classNames from 'classnames'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
-import { resolveTierResources } from '~/lib/collections'
+import { resolveTierResources, getResourceSizeForLang } from '~/lib/collections'
+import { useContentLanguage } from '~/hooks/useContentLanguage'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 
 // Capability definitions - maps user-friendly categories to services
@@ -138,6 +139,9 @@ export default function EasySetupWizard(props: {
   // Wikipedia selection state
   const [selectedWikipedia, setSelectedWikipedia] = useState<string | null>(null)
 
+  // Language preference
+  const { language: contentLanguage, setLanguage: setContentLanguage } = useContentLanguage()
+
   const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
   const queryClient = useQueryClient()
@@ -248,7 +252,7 @@ export default function EasySetupWizard(props: {
 
     // Add tier resources
     const tierResources = getSelectedTierResources()
-    totalBytes += tierResources.reduce((sum, r) => sum + (r.size_mb ?? 0) * 1024 * 1024, 0)
+    totalBytes += tierResources.reduce((sum, r) => sum + getResourceSizeForLang(r, contentLanguage) * 1024 * 1024, 0)
 
     // Add map collections
     if (mapCollections) {
@@ -283,11 +287,14 @@ export default function EasySetupWizard(props: {
       })
     }
 
-    // Add Wikipedia selection
+    // Add Wikipedia selection (language-aware size)
     if (selectedWikipedia && wikipediaState) {
       const option = wikipediaState.options.find((o) => o.id === selectedWikipedia)
-      if (option && option.size_mb > 0) {
-        totalBytes += option.size_mb * 1024 * 1024
+      if (option) {
+        const sizeMb = option.size_mb_by_lang?.[contentLanguage] ?? option.size_mb
+        if (sizeMb > 0) {
+          totalBytes += sizeMb * 1024 * 1024
+        }
       }
     }
 
@@ -362,7 +369,7 @@ export default function EasySetupWizard(props: {
       // Download collections, category tiers, and AI models
       const categoryTierPromises: Promise<any>[] = []
       selectedTiers.forEach((tier, categorySlug) => {
-        categoryTierPromises.push(api.downloadCategoryTier(categorySlug, tier.slug))
+        categoryTierPromises.push(api.downloadCategoryTier(categorySlug, tier.slug, contentLanguage))
       })
 
       const downloadPromises = [
@@ -375,7 +382,7 @@ export default function EasySetupWizard(props: {
 
       // Select Wikipedia option if one was chosen
       if (selectedWikipedia && selectedWikipedia !== wikipediaState?.currentSelection?.optionId) {
-        await api.selectWikipedia(selectedWikipedia)
+        await api.selectWikipedia(selectedWikipedia, contentLanguage)
       }
 
       addNotification({
@@ -938,9 +945,12 @@ export default function EasySetupWizard(props: {
               ) : wikipediaState && wikipediaState.options.length > 0 ? (
                 <WikipediaSelector
                   options={wikipediaState.options}
+                  languages={wikipediaState.languages || []}
                   currentSelection={wikipediaState.currentSelection}
                   selectedOptionId={selectedWikipedia}
+                  selectedLanguage={contentLanguage}
                   onSelect={(optionId) => isOnline && setSelectedWikipedia(optionId)}
+                  onLanguageChange={(lang) => setContentLanguage(lang)}
                   disabled={!isOnline}
                 />
               ) : null}
@@ -976,6 +986,7 @@ export default function EasySetupWizard(props: {
                       key={category.slug}
                       category={category}
                       selectedTier={selectedTiers.get(category.slug) || null}
+                      language={contentLanguage}
                       onClick={handleCategoryClick}
                     />
                   ))}
@@ -991,6 +1002,7 @@ export default function EasySetupWizard(props: {
                       ? selectedTiers.get(activeCategory.slug)?.slug || activeCategory.installedTierSlug
                       : null
                   }
+                  language={contentLanguage}
                   onSelectTier={handleTierSelect}
                 />
               </>

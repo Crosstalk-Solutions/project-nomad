@@ -1,4 +1,5 @@
 import { formatBytes } from '~/lib/util'
+import { getResourceSizeForLang } from '~/lib/collections'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CategoryWithStatus, SpecTier } from '../../types/collections'
 import classNames from 'classnames'
@@ -7,13 +8,14 @@ import { IconChevronRight, IconCircleCheck } from '@tabler/icons-react'
 export interface CategoryCardProps {
   category: CategoryWithStatus
   selectedTier?: SpecTier | null
+  language?: string
   onClick?: (category: CategoryWithStatus) => void
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onClick }) => {
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, language = 'en', onClick }) => {
   // Calculate total size range across all tiers
   const getTierTotalSize = (tier: SpecTier, allTiers: SpecTier[]): number => {
-    let total = tier.resources.reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
+    let total = tier.resources.reduce((acc, r) => acc + getResourceSizeForLang(r, language) * 1024 * 1024, 0)
 
     // Add included tier sizes recursively
     if (tier.includesTier) {

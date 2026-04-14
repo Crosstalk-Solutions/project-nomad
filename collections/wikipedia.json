@@ -1,5 +1,24 @@
 {
-  "spec_version": "2026-03-23",
+  "spec_version": "2026-04-12",
+  "kiwix_api": "https://library.kiwix.org/catalog/v2/entries",
+  "languages": [
+    { "iso1": "en", "iso3": "eng", "name": "English",    "name_local": "English"     },
+    { "iso1": "es", "iso3": "spa", "name": "Spanish",    "name_local": "Español"     },
+    { "iso1": "ca", "iso3": "cat", "name": "Catalan",    "name_local": "Català"      },
+    { "iso1": "eu", "iso3": "eus", "name": "Basque",     "name_local": "Euskera"     },
+    { "iso1": "fr", "iso3": "fra", "name": "French",     "name_local": "Français"    },
+    { "iso1": "it", "iso3": "ita", "name": "Italian",    "name_local": "Italiano"    },
+    { "iso1": "de", "iso3": "deu", "name": "German",     "name_local": "Deutsch"     },
+    { "iso1": "pt", "iso3": "por", "name": "Portuguese", "name_local": "Português"   },
+    { "iso1": "ru", "iso3": "rus", "name": "Russian",    "name_local": "Русский"     },
+    { "iso1": "ar", "iso3": "ara", "name": "Arabic",     "name_local": "العربية"     },
+    { "iso1": "zh", "iso3": "zho", "name": "Chinese",    "name_local": "中文"         },
+    { "iso1": "ja", "iso3": "jpn", "name": "Japanese",   "name_local": "日本語"       },
+    { "iso1": "nl", "iso3": "nld", "name": "Dutch",      "name_local": "Nederlands"  },
+    { "iso1": "uk", "iso3": "ukr", "name": "Ukrainian",  "name_local": "Українська"  },
+    { "iso1": "pl", "iso3": "pol", "name": "Polish",     "name_local": "Polski"      },
+    { "iso1": "tr", "iso3": "tur", "name": "Turkish",    "name_local": "Türkçe"      }
+  ],
   "options": [
     {
       "id": "none",
@@ -12,42 +31,54 @@
     {
       "id": "top-mini",
       "name": "Quick Reference",
-      "description": "Top 100,000 articles with minimal images. Great for quick lookups.",
-      "size_mb": 313,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_mini_2025-12.zim",
-      "version": "2025-12"
-    },
-    {
-      "id": "top-nopic",
-      "name": "Popular Articles",
-      "description": "Top articles without images. Good balance of content and size.",
-      "size_mb": 2100,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2025-12.zim",
-      "version": "2025-12"
+      "description": "Top articles with minimal images. Great for quick lookups.",
+      "zim_name": "wikipedia_{lang}_top",
+      "zim_flavour": "mini",
+      "size_mb_by_lang": {
+        "en": 313,  "es": 290,  "fr": 290,  "de": 300,
+        "ru": 350,  "it": 270,  "pt": 250,  "ar": 270,
+        "zh": 300,  "ja": 280,  "nl": 260,  "uk": 280,
+        "pl": 270,  "tr": 240,  "ca": 220,  "eu": 180
+      }
     },
     {
       "id": "all-mini",
       "name": "Complete Wikipedia (Compact)",
-      "description": "All 6+ million articles in condensed format.",
-      "size_mb": 11400,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2025-12.zim",
-      "version": "2025-12"
+      "description": "All articles in condensed format. Summaries and infoboxes only.",
+      "zim_name": "wikipedia_{lang}_all",
+      "zim_flavour": "mini",
+      "size_mb_by_lang": {
+        "en": 11400, "es": 3500,  "fr": 3500,  "de": 3900,
+        "ru": 4800,  "it": 2400,  "pt": 1800,  "ar": 2900,
+        "zh": 3300,  "ja": 2800,  "nl": 2600,  "uk": 3100,
+        "pl": 2100,  "tr": 1000,  "ca": 1200,  "eu": 600
+      }
     },
     {
       "id": "all-nopic",
       "name": "Complete Wikipedia (No Images)",
       "description": "All articles without images. Comprehensive offline reference.",
-      "size_mb": 49000,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_nopic_2025-12.zim",
-      "version": "2025-12"
+      "zim_name": "wikipedia_{lang}_all",
+      "zim_flavour": "nopic",
+      "size_mb_by_lang": {
+        "en": 49000, "es": 10100, "fr": 12700, "de": 14600,
+        "ru": 14700, "it": 8800,  "pt": 6000,  "ar": 8000,
+        "zh": 11900, "ja": 13800, "nl": 5700,  "uk": 9400,
+        "pl": 6900,  "tr": 2800,  "ca": 3700,  "eu": 1400
+      }
     },
     {
       "id": "all-maxi",
       "name": "Complete Wikipedia (Full)",
       "description": "The complete experience with all images and media.",
-      "size_mb": 118000,
-      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2026-02.zim",
-      "version": "2026-02"
+      "zim_name": "wikipedia_{lang}_all",
+      "zim_flavour": "maxi",
+      "size_mb_by_lang": {
+        "en": 124000, "es": 41000, "fr": 53800, "de": 52400,
+        "ru": 41000,  "it": 29900, "pt": 19300, "ar": 18500,
+        "zh": 26000,  "ja": 27300, "nl": 23500, "uk": 26600,
+        "pl": 20700,  "tr": 9000,  "ca": 14600, "eu": 9300
+      }
     }
   ]
 }
