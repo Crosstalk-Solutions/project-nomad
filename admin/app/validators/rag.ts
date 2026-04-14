@@ -11,3 +11,9 @@ export const deleteFileSchema = vine.compile(
     source: vine.string(),
   })
 )
+
+export const fileSourceSchema = vine.compile(
+  vine.object({
+    source: vine.string().minLength(1),
+  })
+)

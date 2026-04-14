@@ -4,7 +4,7 @@ import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
-import { EmbedJobWithProgress } from '../../types/rag'
+import { EmbedJobWithProgress, StoredFile } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -460,7 +460,7 @@ class API {
 
   async getStoredRAGFiles() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ files: string[] }>('/rag/files')
+      const response = await this.client.get<{ files: StoredFile[] }>('/rag/files')
       return response.data.files
     })()
   }
@@ -470,6 +470,20 @@ class API {
       const response = await this.client.delete<{ message: string }>('/rag/files', { data: { source } })
       return response.data
     })()
+  }
+
+  async getRAGFileContent(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ content: string; extension: string; fileName: string }>(
+        '/rag/files/content',
+        { params: { source } }
+      )
+      return response.data
+    })()
+  }
+
+  getRAGFileDownloadUrl(source: string): string {
+    return `/api/rag/files/download?source=${encodeURIComponent(source)}`
   }
 
   async getSystemInfo() {
