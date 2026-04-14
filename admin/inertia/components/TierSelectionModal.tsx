@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../types/collections'
-import { resolveTierResources, getResourceSizeForLang, isResourceAvailableInLang } from '~/lib/collections'
+import { resolveTierResources, getResourceSizeForLang, isResourceAvailableInLang, getLanguageBreakdown } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
 import classNames from 'classnames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
@@ -125,6 +125,8 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                   <div className="space-y-4">
                     {category.tiers.map((tier) => {
                       const totalSize = getTierTotalSize(tier)
+                      const allResources = getAllResourcesForTier(tier)
+                      const breakdown = language !== 'en' ? getLanguageBreakdown(allResources, language) : null
                       const isSelected = localSelectedSlug === tier.slug
                       const includedTierName = tier.includesTier
                         ? category.tiers.find(t => t.slug === tier.includesTier)?.name
@@ -193,6 +195,16 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                               <div className="text-lg font-semibold text-text-primary">
                                 {formatBytes(totalSize, 1)}
                               </div>
+                              {breakdown && breakdown.inSelectedLang > 0 && (
+                                <div className="text-xs text-text-muted mt-1 space-y-0.5">
+                                  <div className="text-desert-green">
+                                    {formatBytes(breakdown.inSelectedLang, 1)} {language.toUpperCase()}
+                                  </div>
+                                  {breakdown.inEnglish > 0 && (
+                                    <div>{formatBytes(breakdown.inEnglish, 1)} EN</div>
+                                  )}
+                                </div>
+                              )}
                               <div className={classNames(
                                 'w-6 h-6 rounded-full border-2 flex items-center justify-center mt-2 ml-auto',
                                 isSelected

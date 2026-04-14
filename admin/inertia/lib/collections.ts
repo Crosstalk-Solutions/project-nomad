@@ -43,6 +43,35 @@ export function getEffectiveLanguage(resource: SpecResource, language: string): 
   return resource.available_languages.includes(language) ? language : 'en'
 }
 
+/** Breakdown of download sizes by language for a set of resources. */
+export interface LanguageBreakdown {
+  inSelectedLang: number  // bytes in the user's selected language
+  inEnglish: number       // bytes that will download in English (fallback or English-only)
+  total: number           // total bytes
+}
+
+/** Computes the size breakdown between selected language and English for a list of resources. */
+export function getLanguageBreakdown(resources: SpecResource[], language: string): LanguageBreakdown {
+  let inSelectedLang = 0
+  let inEnglish = 0
+
+  for (const r of resources) {
+    const sizeBytes = getResourceSizeForLang(r, language) * 1024 * 1024
+    if (language === 'en' || !r.available_languages) {
+      // English selected OR resource has no language variants → counts as English
+      inEnglish += sizeBytes
+    } else if (r.available_languages.includes(language)) {
+      // Available in the selected language
+      inSelectedLang += sizeBytes
+    } else {
+      // Not available → falls back to English
+      inEnglish += sizeBytes
+    }
+  }
+
+  return { inSelectedLang, inEnglish, total: inSelectedLang + inEnglish }
+}
+
 function resolveTierResourcesInner(
   tier: SpecTier,
   allTiers: SpecTier[],
