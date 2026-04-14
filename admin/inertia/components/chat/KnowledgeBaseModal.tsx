@@ -6,19 +6,33 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledTable from '~/components/StyledTable'
 import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
-import { IconX } from '@tabler/icons-react'
+import { IconDownload, IconEye, IconX } from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
+import { StoredFile } from '../../../../types/rag'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
   onClose: () => void
 }
 
-function sourceToDisplayName(source: string): string {
-  const parts = source.split(/[/\\]/)
-  return parts[parts.length - 1]
+const TEXT_VIEWABLE_EXTENSIONS = ['md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html']
+
+function getExtension(fileName: string): string {
+  return fileName.split('.').at(-1)?.toLowerCase() ?? ''
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
@@ -29,10 +43,18 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const { openModal, closeModal } = useModals()
   const queryClient = useQueryClient()
 
+  const [viewingSource, setViewingSource] = useState<string | null>(null)
+
   const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
     queryKey: ['storedFiles'],
     queryFn: () => api.getStoredRAGFiles(),
     select: (data) => data || [],
+  })
+
+  const { data: viewedFile, isLoading: isLoadingContent } = useQuery({
+    queryKey: ['ragFileContent', viewingSource],
+    queryFn: () => api.getRAGFileContent(viewingSource!),
+    enabled: !!viewingSource,
   })
 
   const uploadMutation = useMutation({
@@ -249,15 +271,58 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 Sync Storage
               </StyledButton>
             </div>
-            <StyledTable<{ source: string }>
+            {viewingSource && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-surface-primary rounded-lg shadow-xl max-w-4xl w-full max-h-[85vh] flex flex-col">
+                  <div className="flex items-center justify-between p-4 border-b border-border-subtle shrink-0">
+                    <h3 className="text-lg font-semibold text-text-primary truncate pr-4">
+                      {viewedFile?.fileName ?? viewingSource.split(/[/\\]/).at(-1)}
+                    </h3>
+                    <button
+                      onClick={() => setViewingSource(null)}
+                      className="p-2 hover:bg-surface-secondary rounded-lg transition-colors shrink-0"
+                    >
+                      <IconX className="h-5 w-5 text-text-muted" />
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-4">
+                    {isLoadingContent ? (
+                      <p className="text-text-muted text-sm">Loading…</p>
+                    ) : viewedFile ? (
+                      <pre className="text-sm text-text-primary whitespace-pre-wrap break-words font-mono bg-surface-secondary p-4 rounded-lg">
+                        {viewedFile.content}
+                      </pre>
+                    ) : (
+                      <p className="text-text-muted text-sm">Could not load file content.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <StyledTable<StoredFile>
               className="font-semibold"
               rowLines={true}
               columns={[
                 {
-                  accessor: 'source',
+                  accessor: 'fileName',
                   title: 'File Name',
                   render(record) {
-                    return <span className="text-text-primary">{sourceToDisplayName(record.source)}</span>
+                    return <span className="text-text-primary">{record.fileName}</span>
+                  },
+                },
+                {
+                  accessor: 'uploadedAt',
+                  title: 'Uploaded',
+                  render(record) {
+                    return <span className="text-text-secondary text-sm">{formatDate(record.uploadedAt)}</span>
+                  },
+                },
+                {
+                  accessor: 'size',
+                  title: 'Size',
+                  render(record) {
+                    return <span className="text-text-secondary text-sm">{formatBytes(record.size)}</span>
                   },
                 },
                 {
@@ -266,6 +331,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   render(record) {
                     const isConfirming = confirmDeleteSource === record.source
                     const isDeleting = deleteMutation.isPending && confirmDeleteSource === record.source
+                    const ext = getExtension(record.fileName)
+                    const canView = record.isUserUpload && TEXT_VIEWABLE_EXTENSIONS.includes(ext)
+                    const canDownload = record.isUserUpload
+
                     if (isConfirming) {
                       return (
                         <div className="flex items-center gap-2 justify-end">
@@ -290,7 +359,23 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       )
                     }
                     return (
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        {canView && (
+                          <StyledButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setViewingSource(record.source)}
+                          >
+                            <IconEye className="h-4 w-4" />
+                          </StyledButton>
+                        )}
+                        {canDownload && (
+                          <a href={api.getRAGFileDownloadUrl(record.source)} download={record.fileName}>
+                            <StyledButton variant="secondary" size="sm">
+                              <IconDownload className="h-4 w-4" />
+                            </StyledButton>
+                          </a>
+                        )}
                         <StyledButton
                           variant="danger"
                           size="sm"
@@ -304,7 +389,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
               ]}
-              data={storedFiles.map((source) => ({ source }))}
+              data={storedFiles}
               loading={isLoadingFiles}
             />
           </div>

@@ -134,6 +134,8 @@ router
     router.post('/upload', [RagController, 'upload'])
     router.get('/files', [RagController, 'getStoredFiles'])
     router.delete('/files', [RagController, 'deleteFile'])
+    router.get('/files/content', [RagController, 'getFileContent'])
+    router.get('/files/download', [RagController, 'downloadFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
     router.get('/failed-jobs', [RagController, 'getFailedJobs'])
     router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
