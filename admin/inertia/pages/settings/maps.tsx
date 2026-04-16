@@ -28,6 +28,7 @@ export default function MapsManager(props: {
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
   const [downloading, setDownloading] = useState(false)
+  const [deletingFileKey, setDeletingFileKey] = useState<string | null>(null)
 
   const { data: curatedCollections } = useQuery({
     queryKey: [CURATED_COLLECTIONS_KEY],
@@ -118,18 +119,40 @@ export default function MapsManager(props: {
     }
   }
 
+  async function deleteFile(file: FileEntry) {
+    if (file.type !== 'file') return
+
+    try {
+      setDeletingFileKey(file.key)
+      await api.deleteMapRegionFile(file.key)
+      addNotification({
+        type: 'success',
+        message: `${file.name} has been deleted.`,
+      })
+      closeAllModals()
+      router.reload({ only: ['maps'] })
+    } catch (error) {
+      console.error('Error deleting map file:', error)
+      addNotification({
+        type: 'error',
+        message: `Failed to delete ${file.name}. Please try again.`,
+      })
+    } finally {
+      setDeletingFileKey(null)
+    }
+  }
+
   async function confirmDeleteFile(file: FileEntry) {
     openModal(
       <StyledModal
         title="Confirm Delete?"
-        onConfirm={() => {
-          closeAllModals()
-        }}
+        onConfirm={() => deleteFile(file)}
         onCancel={closeAllModals}
         open={true}
         confirmText="Delete"
         cancelText="Cancel"
         confirmVariant="danger"
+        confirmLoading={file.type === 'file' && deletingFileKey === file.key}
       >
         <p className="text-text-secondary">
           Are you sure you want to delete {file.name}? This action cannot be undone.
