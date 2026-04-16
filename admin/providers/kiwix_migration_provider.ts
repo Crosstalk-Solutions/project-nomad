@@ -19,13 +19,14 @@ export default class KiwixMigrationProvider {
     // Defer past synchronous boot so DB connections and all providers are fully ready
     setImmediate(async () => {
       try {
-        const Service = (await import('#models/service')).default
+        const serviceModule = await import('#models/service')
+        const Service = serviceModule.default
         const { SERVICE_NAMES } = await import('../constants/service_names.js')
         const { DockerService } = await import('#services/docker_service')
+        const { KiwixLibraryService } = await import('#services/kiwix_library_service')
 
-        const kiwixService = await Service.query()
-          .where('service_name', SERVICE_NAMES.KIWIX)
-          .first()
+        const query = Service.query()
+        const kiwixService = await query.where('service_name', SERVICE_NAMES.KIWIX).first()
 
         if (!kiwixService?.installed) {
           logger.info('[KiwixMigrationProvider] Kiwix not installed — skipping migration check.')
@@ -34,13 +35,21 @@ export default class KiwixMigrationProvider {
 
         const dockerService = new DockerService()
         const isLegacy = await dockerService.isKiwixOnLegacyConfig()
+        const kiwixLibraryService = new KiwixLibraryService()
 
         if (!isLegacy) {
-          logger.info('[KiwixMigrationProvider] Kiwix is already in library mode — no migration needed.')
+          const rebuilt = await kiwixLibraryService.ensureValidLibraryXml()
+          logger.info(
+            rebuilt
+              ? '[KiwixMigrationProvider] Rebuilt missing or invalid Kiwix library XML.'
+              : '[KiwixMigrationProvider] Kiwix is already in library mode — no migration needed.'
+          )
           return
         }
 
-        logger.info('[KiwixMigrationProvider] Kiwix on legacy config — running automatic migration to library mode.')
+        logger.info(
+          '[KiwixMigrationProvider] Kiwix on legacy config — running automatic migration to library mode.'
+        )
         await dockerService.migrateKiwixToLibraryMode()
         logger.info('[KiwixMigrationProvider] Startup migration complete.')
       } catch (err: any) {

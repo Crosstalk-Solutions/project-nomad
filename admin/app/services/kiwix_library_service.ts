@@ -1,6 +1,6 @@
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
-import { readFile, writeFile, rename, readdir } from 'fs/promises'
-import { join } from 'path'
+import { readFile, writeFile, rename, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { Archive } from '@openzim/libzim'
 import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists } from '../utils/fs.js'
 import logger from '@adonisjs/core/services/logger'
@@ -175,12 +175,43 @@ export class KiwixLibraryService {
         faviconMimeType: b['@_faviconMimeType'],
         favicon: b['@_favicon'],
         date: b['@_date'],
-        articleCount:
-          b['@_articleCount'] !== undefined ? Number(b['@_articleCount']) : undefined,
+        articleCount: b['@_articleCount'] !== undefined ? Number(b['@_articleCount']) : undefined,
         mediaCount: b['@_mediaCount'] !== undefined ? Number(b['@_mediaCount']) : undefined,
         size: b['@_size'] !== undefined ? Number(b['@_size']) : undefined,
       }))
       .filter((b) => b.id && b.path)
+  }
+
+  private _validateLibraryXml(xmlContent: string): void {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      isArray: (name) => name === 'book',
+    })
+
+    const parsed = parser.parse(xmlContent)
+    if (!parsed?.library || typeof parsed.library !== 'object') {
+      throw new Error('Kiwix library XML is missing the library root element.')
+    }
+  }
+
+  async ensureValidLibraryXml(): Promise<boolean> {
+    try {
+      const content = await readFile(this.getLibraryFilePath(), 'utf-8')
+      this._validateLibraryXml(content)
+      return false
+    } catch (err: any) {
+      if (err.code && err.code !== 'ENOENT') {
+        throw err
+      }
+      if (!err.code && !(err instanceof Error)) {
+        throw err
+      }
+
+      logger.warn('[KiwixLibraryService] Library XML is missing or invalid; rebuilding from disk.')
+      await this.rebuildFromDisk()
+      return true
+    }
   }
 
   async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<void> {
