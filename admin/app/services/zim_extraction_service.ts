@@ -5,6 +5,7 @@ import logger from '@adonisjs/core/services/logger'
 import { ExtractZIMChunkingStrategy, ExtractZIMContentOptions, ZIMContentChunk, ZIMArchiveMetadata } from '../../types/zim.js'
 import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
+import { isValidZimFile } from '../utils/fs.js'
 
 export class ZIMExtractionService {
 
@@ -51,7 +52,13 @@ export class ZIMExtractionService {
                 logger.error(`[ZIMExtractionService]: ZIM file not accessible: ${filePath}`)
                 throw new Error(`ZIM file not found or not accessible: ${filePath}`)
             }
-            
+
+            // Validate ZIM magic number before opening with native library.
+            // A corrupted file causes a native C++ abort that cannot be caught by JS.
+            if (!(await isValidZimFile(filePath))) {
+                throw new Error(`ZIM file is invalid or corrupted: ${filePath}`)
+            }
+
             const archive = new Archive(filePath)
 
             // Extract archive-level metadata once
