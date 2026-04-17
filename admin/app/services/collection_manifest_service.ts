@@ -194,6 +194,8 @@ export class CollectionManifestService {
 
     console.log("RECONCILING FILESYSTEM MANIFESTS...")
 
+    const BATCH_SIZE = 10
+
     // Reconcile ZIM files
     try {
       const zimDir = join(process.cwd(), ZIM_STORAGE_PATH)
@@ -218,32 +220,45 @@ export class CollectionManifestService {
 
       const seenZimIds = new Set<string>()
 
-      for (const file of zimFiles) {
-        console.log(`Processing ZIM file: ${file.name}`)
+      // Filter to processable files upfront
+      const processableZimFiles = zimFiles.filter((f) => {
         // Skip Wikipedia files (managed by WikipediaSelection model)
-        if (file.name.startsWith('wikipedia_en_')) continue
+        if (f.name.startsWith('wikipedia_en_')) return false
+        return CollectionManifestService.parseZimFilename(f.name) !== null
+      })
 
-        const parsed = CollectionManifestService.parseZimFilename(file.name)
-        console.log(`Parsed ZIM filename:`, parsed)
-        if (!parsed) continue
+      // Process in parallel batches to reduce sequential I/O over NAS
+      for (let i = 0; i < processableZimFiles.length; i += BATCH_SIZE) {
+        const batch = processableZimFiles.slice(i, i + BATCH_SIZE)
+        const results = await Promise.allSettled(
+          batch.map(async (file) => {
+            const parsed = CollectionManifestService.parseZimFilename(file.name)!
 
-        seenZimIds.add(parsed.resource_id)
+            const specRes = specResourceMap.get(parsed.resource_id)
+            const filePath = join(zimDir, file.name)
+            const stats = await getFileStatsIfExists(filePath)
 
-        const specRes = specResourceMap.get(parsed.resource_id)
-        const filePath = join(zimDir, file.name)
-        const stats = await getFileStatsIfExists(filePath)
-
-        await InstalledResource.updateOrCreate(
-          { resource_id: parsed.resource_id, resource_type: 'zim' },
-          {
-            version: parsed.version,
-            url: specRes?.url || '',
-            file_path: filePath,
-            file_size_bytes: stats ? Number(stats.size) : null,
-            installed_at: DateTime.now(),
-          }
+            await InstalledResource.updateOrCreate(
+              { resource_id: parsed.resource_id, resource_type: 'zim' },
+              {
+                version: parsed.version,
+                url: specRes?.url || '',
+                file_path: filePath,
+                file_size_bytes: stats ? Number(stats.size) : null,
+                installed_at: DateTime.now(),
+              }
+            )
+            return parsed.resource_id
+          })
         )
-        zimCount++
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            seenZimIds.add(result.value)
+            zimCount++
+          } else {
+            logger.error('[CollectionManifestService] Failed to process ZIM file:', result.reason)
+          }
+        }
       }
 
       // Remove entries for ZIM files no longer on disk
@@ -277,27 +292,42 @@ export class CollectionManifestService {
 
       const seenMapIds = new Set<string>()
 
-      for (const file of mapFiles) {
-        const parsed = CollectionManifestService.parseMapFilename(file.name)
-        if (!parsed) continue
+      const processableMapFiles = mapFiles.filter(
+        (f) => CollectionManifestService.parseMapFilename(f.name) !== null
+      )
 
-        seenMapIds.add(parsed.resource_id)
+      // Process in parallel batches of 10 to reduce sequential I/O over NAS
+      for (let i = 0; i < processableMapFiles.length; i += BATCH_SIZE) {
+        const batch = processableMapFiles.slice(i, i + BATCH_SIZE)
+        const results = await Promise.allSettled(
+          batch.map(async (file) => {
+            const parsed = CollectionManifestService.parseMapFilename(file.name)!
 
-        const specRes = mapResourceMap.get(parsed.resource_id)
-        const filePath = join(mapDir, file.name)
-        const stats = await getFileStatsIfExists(filePath)
+            const specRes = mapResourceMap.get(parsed.resource_id)
+            const filePath = join(mapDir, file.name)
+            const stats = await getFileStatsIfExists(filePath)
 
-        await InstalledResource.updateOrCreate(
-          { resource_id: parsed.resource_id, resource_type: 'map' },
-          {
-            version: parsed.version,
-            url: specRes?.url || '',
-            file_path: filePath,
-            file_size_bytes: stats ? Number(stats.size) : null,
-            installed_at: DateTime.now(),
-          }
+            await InstalledResource.updateOrCreate(
+              { resource_id: parsed.resource_id, resource_type: 'map' },
+              {
+                version: parsed.version,
+                url: specRes?.url || '',
+                file_path: filePath,
+                file_size_bytes: stats ? Number(stats.size) : null,
+                installed_at: DateTime.now(),
+              }
+            )
+            return parsed.resource_id
+          })
         )
-        mapCount++
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            seenMapIds.add(result.value)
+            mapCount++
+          } else {
+            logger.error('[CollectionManifestService] Failed to process map file:', result.reason)
+          }
+        }
       }
 
       // Remove entries for map files no longer on disk
