@@ -1,4 +1,5 @@
 import { MapService } from '#services/map_service'
+import MapMarker from '#models/map_marker'
 import {
   assertNotPrivateUrl,
   downloadCollectionValidator,
@@ -8,6 +9,7 @@ import {
 } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import vine from '@vinejs/vine'
 
 @inject()
 export default class MapsController {
@@ -73,6 +75,18 @@ export default class MapsController {
     return await this.mapService.listRegions()
   }
 
+  async globalMapInfo({}: HttpContext) {
+    return await this.mapService.getGlobalMapInfo()
+  }
+
+  async downloadGlobalMap({}: HttpContext) {
+    const result = await this.mapService.downloadGlobalMap()
+    return {
+      message: 'Download started successfully',
+      ...result,
+    }
+  }
+
   async styles({ request, response }: HttpContext) {
     // Automatically ensure base assets are present before generating styles
     const baseAssetsExist = await this.mapService.ensureBaseAssets()
@@ -83,7 +97,13 @@ export default class MapsController {
       })
     }
 
-    const styles = await this.mapService.generateStylesJSON(request.host(), request.protocol())
+    const forwardedProto = request.headers()['x-forwarded-proto'];
+
+    const protocol: string = forwardedProto
+      ? (typeof forwardedProto === 'string' ? forwardedProto : request.protocol())
+      : request.protocol();
+
+    const styles = await this.mapService.generateStylesJSON(request.host(), protocol)
     return response.json(styles)
   }
 
@@ -104,5 +124,61 @@ export default class MapsController {
     return {
       message: 'Map file deleted successfully',
     }
+  }
+
+  // --- Map Markers ---
+
+  async listMarkers({}: HttpContext) {
+    return await MapMarker.query().orderBy('created_at', 'asc')
+  }
+
+  async createMarker({ request }: HttpContext) {
+    const payload = await request.validateUsing(
+      vine.compile(
+        vine.object({
+          name: vine.string().trim().minLength(1).maxLength(255),
+          longitude: vine.number(),
+          latitude: vine.number(),
+          color: vine.string().trim().maxLength(20).optional(),
+        })
+      )
+    )
+    const marker = await MapMarker.create({
+      name: payload.name,
+      longitude: payload.longitude,
+      latitude: payload.latitude,
+      color: payload.color ?? 'orange',
+    })
+    return marker
+  }
+
+  async updateMarker({ request, response }: HttpContext) {
+    const { id } = request.params()
+    const marker = await MapMarker.find(id)
+    if (!marker) {
+      return response.status(404).send({ message: 'Marker not found' })
+    }
+    const payload = await request.validateUsing(
+      vine.compile(
+        vine.object({
+          name: vine.string().trim().minLength(1).maxLength(255).optional(),
+          color: vine.string().trim().maxLength(20).optional(),
+        })
+      )
+    )
+    if (payload.name !== undefined) marker.name = payload.name
+    if (payload.color !== undefined) marker.color = payload.color
+    await marker.save()
+    return marker
+  }
+
+  async deleteMarker({ request, response }: HttpContext) {
+    const { id } = request.params()
+    const marker = await MapMarker.find(id)
+    if (!marker) {
+      return response.status(404).send({ message: 'Marker not found' })
+    }
+    await marker.delete()
+    return { message: 'Marker deleted' }
   }
 }

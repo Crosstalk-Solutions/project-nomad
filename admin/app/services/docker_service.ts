@@ -6,18 +6,23 @@ import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 // import { readdir } from 'fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
+import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 
 @inject()
 export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
   public static NOMAD_NETWORK = 'project-nomad_default'
+
+  private _servicesStatusCache: { data: { service_name: string; status: string }[]; expiresAt: number } | null = null
+  private _servicesStatusInflight: Promise<{ service_name: string; status: string }[]> | null = null
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)
@@ -56,6 +61,7 @@ export class DockerService {
       const dockerContainer = this.docker.getContainer(container.Id)
       if (action === 'stop') {
         await dockerContainer.stop()
+        this.invalidateServicesStatusCache()
         return {
           success: true,
           message: `Service ${serviceName} stopped successfully`,
@@ -63,7 +69,18 @@ export class DockerService {
       }
 
       if (action === 'restart') {
+        if (serviceName === SERVICE_NAMES.KIWIX) {
+          const isLegacy = await this.isKiwixOnLegacyConfig()
+          if (isLegacy) {
+            logger.info('[DockerService] Kiwix on legacy glob config — running migration instead of restart.')
+            await this.migrateKiwixToLibraryMode()
+            this.invalidateServicesStatusCache()
+            return { success: true, message: 'Kiwix migrated to library mode successfully.' }
+          }
+        }
+
         await dockerContainer.restart()
+        this.invalidateServicesStatusCache()
 
         return {
           success: true,
@@ -80,6 +97,7 @@ export class DockerService {
         }
 
         await dockerContainer.start()
+        this.invalidateServicesStatusCache()
 
         return {
           success: true,
@@ -91,7 +109,7 @@ export class DockerService {
         success: false,
         message: `Invalid action: ${action}. Use 'start', 'stop', or 'restart'.`,
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error({ err: error }, `[DockerService] Error controlling service ${serviceName}`)
       return {
         success: false,
@@ -102,13 +120,37 @@ export class DockerService {
 
   /**
    * Fetches the status of all Docker containers related to Nomad services. (those prefixed with 'nomad_')
+   * Results are cached for 5 seconds and concurrent callers share a single in-flight request,
+   * preventing Docker socket congestion during rapid page navigation.
    */
-  async getServicesStatus(): Promise<
-    {
-      service_name: string
-      status: string
-    }[]
-  > {
+  async getServicesStatus(): Promise<{ service_name: string; status: string }[]> {
+    const now = Date.now()
+    if (this._servicesStatusCache && now < this._servicesStatusCache.expiresAt) {
+      return this._servicesStatusCache.data
+    }
+    if (this._servicesStatusInflight) return this._servicesStatusInflight
+
+    this._servicesStatusInflight = this._fetchServicesStatus().then((data) => {
+      this._servicesStatusCache = { data, expiresAt: Date.now() + 5000 }
+      this._servicesStatusInflight = null
+      return data
+    }).catch((err) => {
+      this._servicesStatusInflight = null
+      throw err
+    })
+    return this._servicesStatusInflight
+  }
+
+  /**
+   * Invalidates the services status cache. Call this after any container state change
+   * (start, stop, restart, install, uninstall) so the next read reflects reality.
+   */
+  invalidateServicesStatusCache() {
+    this._servicesStatusCache = null
+    this._servicesStatusInflight = null
+  }
+
+  private async _fetchServicesStatus(): Promise<{ service_name: string; status: string }[]> {
     try {
       const containers = await this.docker.listContainers({ all: true })
       const containerMap = new Map<string, Docker.ContainerInfo>()
@@ -123,7 +165,7 @@ export class DockerService {
         service_name: name,
         status: container.State,
       }))
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error fetching services status: ${error.message}`)
       return []
     }
@@ -138,6 +180,11 @@ export class DockerService {
   async getServiceURL(serviceName: string): Promise<string | null> {
     if (!serviceName || serviceName.trim() === '') {
       return null
+    }
+
+    if (serviceName === SERVICE_NAMES.OLLAMA) {
+      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (remoteUrl) return remoteUrl
     }
 
     const service = await Service.query()
@@ -307,7 +354,7 @@ export class DockerService {
             `No existing container found, proceeding with installation...`
           )
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.warn({ err: error }, `[DockerService] Error during container cleanup for ${serviceName}`)
         this._broadcast(serviceName, 'cleanup-warning', 'Warning during container cleanup. Check server logs for details.')
       }
@@ -326,7 +373,7 @@ export class DockerService {
             const volume = this.docker.getVolume(vol.Name)
             await volume.remove({ force: true })
             this._broadcast(serviceName, 'volume-removed', `Removed volume: ${vol.Name}`)
-          } catch (error) {
+          } catch (error: any) {
             logger.warn(`Failed to remove volume ${vol.Name}: ${error.message}`)
           }
         }
@@ -334,7 +381,7 @@ export class DockerService {
         if (serviceVolumes.length === 0) {
           this._broadcast(serviceName, 'no-volumes', `No volumes found to clear`)
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.warn({ err: error }, `[DockerService] Error during volume cleanup for ${serviceName}`)
         this._broadcast(
           serviceName,
@@ -347,6 +394,7 @@ export class DockerService {
       service.installed = false
       service.installation_status = 'installing'
       await service.save()
+      this.invalidateServicesStatusCache()
 
       // Step 5: Recreate the container
       this._broadcast(serviceName, 'recreating', `Recreating container...`)
@@ -362,7 +410,7 @@ export class DockerService {
         success: true,
         message: `Service ${serviceName} force reinstall initiated successfully. You can receive updates via server-sent events.`,
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error({ err: error }, `[DockerService] Force reinstall failed for ${serviceName}`)
       await this._cleanupFailedInstallation(serviceName)
       return {
@@ -500,6 +548,15 @@ export class DockerService {
         }
       }
 
+      const ollamaEnv: string[] = []
+      if (service.service_name === SERVICE_NAMES.OLLAMA) {
+        ollamaEnv.push('OLLAMA_NO_CLOUD=1')
+        const flashAttentionEnabled = await KVStore.getValue('ai.ollamaFlashAttention')
+        if (flashAttentionEnabled !== false) {
+          ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
+        }
+      }
+
       this._broadcast(
         service.service_name,
         'creating',
@@ -508,11 +565,16 @@ export class DockerService {
       const container = await this.docker.createContainer({
         Image: finalImage,
         name: service.service_name,
+        Labels: {
+          ...(containerConfig?.Labels ?? {}),
+          'com.docker.compose.project': 'project-nomad-managed',
+          'io.project-nomad.managed': 'true',
+        },
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
-        ...(containerConfig?.Env && { Env: containerConfig.Env }),
+        Env: [...(containerConfig?.Env ?? []), ...ollamaEnv],
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         // Ensure container is attached to the Nomad docker network in production
         ...(process.env.NODE_ENV === 'production' && {
@@ -539,6 +601,7 @@ export class DockerService {
       service.installed = true
       service.installation_status = 'idle'
       await service.save()
+      this.invalidateServicesStatusCache()
 
       // Remove from active installs tracking
       this.activeInstallations.delete(service.service_name)
@@ -564,7 +627,7 @@ export class DockerService {
         'completed',
         `Service ${service.service_name} installation completed successfully.`
       )
-    } catch (error) {
+    } catch (error: any) {
       this._broadcast(
         service.service_name,
         'error',
@@ -580,7 +643,7 @@ export class DockerService {
     try {
       const containers = await this.docker.listContainers({ all: true })
       return containers.some((container) => container.Names.includes(`/${serviceName}`))
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error checking if service container exists: ${error.message}`)
       return false
     }
@@ -600,7 +663,7 @@ export class DockerService {
       await dockerContainer.remove({ force: true })
 
       return { success: true, message: `Service ${serviceName} container removed successfully` }
-    } catch (error) {
+    } catch (error: any) {
       logger.error({ err: error }, `[DockerService] Error removing service container ${serviceName}`)
       return {
         success: false,
@@ -648,7 +711,12 @@ export class DockerService {
         'preinstall',
         `Downloaded Wikipedia ZIM file to ${filepath}`
       )
-    } catch (error) {
+
+      // Generate the initial kiwix library XML before the container is created
+      const kiwixLibraryService = new KiwixLibraryService()
+      await kiwixLibraryService.rebuildFromDisk()
+      this._broadcast(SERVICE_NAMES.KIWIX, 'preinstall', 'Generated kiwix library XML.')
+    } catch (error: any) {
       this._broadcast(
         SERVICE_NAMES.KIWIX,
         'preinstall-error',
@@ -671,10 +739,118 @@ export class DockerService {
       await this._removeServiceContainer(serviceName)
 
       logger.info(`[DockerService] Cleaned up failed installation for ${serviceName}`)
-    } catch (error) {
+    } catch (error: any) {
       logger.error(
         `[DockerService] Failed to cleanup installation for ${serviceName}: ${error.message}`
       )
+    }
+  }
+
+  /**
+   * Checks whether the running kiwix container is using the legacy glob-pattern command
+   * (`*.zim --address=all`) rather than the library-file command. Used to detect containers
+   * that need to be migrated to library mode.
+   */
+  async isKiwixOnLegacyConfig(): Promise<boolean> {
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const info = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.KIWIX}`))
+      if (!info) return false
+
+      const inspected = await this.docker.getContainer(info.Id).inspect()
+      const cmd: string[] = inspected.Config?.Cmd ?? []
+      return cmd.some((arg) => arg.includes('*.zim'))
+    } catch (err: any) {
+      logger.warn(`[DockerService] Could not inspect kiwix container: ${err.message}`)
+      return false
+    }
+  }
+
+  /**
+   * Migrates the kiwix container from legacy glob mode (`*.zim`) to library mode
+   * (`--library /data/kiwix-library.xml --monitorLibrary`).
+   *
+   * This is a non-destructive recreation: ZIM files and volumes are preserved.
+   * The container is stopped, removed, and recreated with the correct library-mode command.
+   * This function is authoritative: it writes the correct command to the DB itself rather than
+   * trusting the DB to have been pre-updated by a separate migration.
+   */
+  async migrateKiwixToLibraryMode(): Promise<void> {
+    if (this.activeInstallations.has(SERVICE_NAMES.KIWIX)) {
+      logger.warn('[DockerService] Kiwix migration already in progress, skipping duplicate call.')
+      return
+    }
+
+    this.activeInstallations.add(SERVICE_NAMES.KIWIX)
+
+    try {
+      // Step 1: Build/update the XML from current disk state
+      this._broadcast(SERVICE_NAMES.KIWIX, 'migrating', 'Migrating kiwix to library mode...')
+      const kiwixLibraryService = new KiwixLibraryService()
+      await kiwixLibraryService.rebuildFromDisk()
+      this._broadcast(SERVICE_NAMES.KIWIX, 'migrating', 'Built kiwix library XML from existing ZIM files.')
+
+      // Step 2: Stop and remove old container (leave ZIM volumes intact)
+      const containers = await this.docker.listContainers({ all: true })
+      const containerInfo = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.KIWIX}`))
+      if (containerInfo) {
+        const oldContainer = this.docker.getContainer(containerInfo.Id)
+        if (containerInfo.State === 'running') {
+          await oldContainer.stop({ t: 10 }).catch((e: any) =>
+            logger.warn(`[DockerService] Kiwix stop warning during migration: ${e.message}`)
+          )
+        }
+        await oldContainer.remove({ force: true }).catch((e: any) =>
+          logger.warn(`[DockerService] Kiwix remove warning during migration: ${e.message}`)
+        )
+      }
+
+      // Step 3: Read the service record and authoritatively set the correct command.
+      // Do NOT rely on prior DB state — we write container_command here so the record
+      // stays consistent regardless of whether the DB migration ran.
+      const service = await Service.query().where('service_name', SERVICE_NAMES.KIWIX).first()
+      if (!service) {
+        throw new Error('Kiwix service record not found in DB during migration')
+      }
+
+      service.container_command = KIWIX_LIBRARY_CMD
+      service.installed = false
+      service.installation_status = 'installing'
+      await service.save()
+
+      const containerConfig = this._parseContainerConfig(service.container_config)
+
+      // Step 4: Recreate container directly (skipping _createContainer to avoid re-downloading
+      // the bootstrap ZIM — ZIM files already exist on disk)
+      this._broadcast(SERVICE_NAMES.KIWIX, 'migrating', 'Recreating kiwix container with library mode config...')
+      const newContainer = await this.docker.createContainer({
+        Image: service.container_image,
+        name: service.service_name,
+        HostConfig: containerConfig?.HostConfig ?? {},
+        ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
+        Cmd: KIWIX_LIBRARY_CMD.split(' '),
+        ...(process.env.NODE_ENV === 'production' && {
+          NetworkingConfig: {
+            EndpointsConfig: {
+              [DockerService.NOMAD_NETWORK]: {},
+            },
+          },
+        }),
+      })
+
+      await newContainer.start()
+
+      service.installed = true
+      service.installation_status = 'idle'
+      await service.save()
+      this.activeInstallations.delete(SERVICE_NAMES.KIWIX)
+
+      this._broadcast(SERVICE_NAMES.KIWIX, 'migrated', 'Kiwix successfully migrated to library mode.')
+      logger.info('[DockerService] Kiwix migration to library mode complete.')
+    } catch (error: any) {
+      logger.error(`[DockerService] Kiwix migration failed: ${error.message}`)
+      await this._cleanupFailedInstallation(SERVICE_NAMES.KIWIX)
+      throw error
     }
   }
 
@@ -694,7 +870,7 @@ export class DockerService {
           await this._persistGPUType('nvidia')
           return { type: 'nvidia' }
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.warn(`[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`)
       }
 
@@ -711,7 +887,7 @@ export class DockerService {
           logger.warn('[DockerService] NVIDIA GPU detected via lspci but NVIDIA Container Toolkit is not installed')
           return { type: 'none', toolkitMissing: true }
         }
-      } catch (error) {
+      } catch (error: any) {
         // lspci not available (likely inside Docker container), continue
       }
 
@@ -726,7 +902,7 @@ export class DockerService {
           await this._persistGPUType('amd')
           return { type: 'amd' }
         }
-      } catch (error) {
+      } catch (error: any) {
         // lspci not available, continue
       }
 
@@ -745,7 +921,7 @@ export class DockerService {
 
       logger.info('[DockerService] No GPU detected')
       return { type: 'none' }
-    } catch (error) {
+    } catch (error: any) {
       logger.warn(`[DockerService] Error detecting GPU type: ${error.message}`)
       return { type: 'none' }
     }
@@ -755,7 +931,7 @@ export class DockerService {
     try {
       await KVStore.setValue('gpu.type', type)
       logger.info(`[DockerService] Persisted GPU type '${type}' to KV store`)
-    } catch (error) {
+    } catch (error: any) {
       logger.warn(`[DockerService] Failed to persist GPU type: ${error.message}`)
     }
   }
@@ -950,7 +1126,7 @@ export class DockerService {
       let newContainer: any
       try {
         newContainer = await this.docker.createContainer(newContainerConfig)
-      } catch (createError) {
+      } catch (createError: any) {
         // Rollback: rename old container back
         this._broadcast(serviceName, 'update-rollback', `Failed to create new container: ${createError.message}. Rolling back...`)
         const rollbackContainer = this.docker.getContainer((await this.docker.listContainers({ all: true })).find((c) => c.Names.includes(`/${oldName}`))!.Id)
@@ -1023,7 +1199,7 @@ export class DockerService {
           message: `Update failed: new container did not stay running. Rolled back to previous version.`,
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       this.activeInstallations.delete(serviceName)
       this._broadcast(
         serviceName,
@@ -1058,7 +1234,7 @@ export class DockerService {
       }
 
       return JSON.parse(toParse)
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Failed to parse container configuration: ${error.message}`)
       throw new Error(`Invalid container configuration: ${error.message}`)
     }
@@ -1075,7 +1251,7 @@ export class DockerService {
 
       // Check if any image has a RepoTag that matches the requested image
       return images.some((image) => image.RepoTags && image.RepoTags.includes(imageName))
-    } catch (error) {
+    } catch (error: any) {
       logger.warn(`Error checking if image exists: ${error.message}`)
       // If run into an error, assume the image does not exist
       return false

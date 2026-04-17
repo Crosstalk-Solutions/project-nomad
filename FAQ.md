@@ -12,6 +12,12 @@ Note: As of 3/24/2026, only the core services defined in the `docker-compose.yml
 
 Yes, you can customize the storage location for NOMAD's content by modifying the `docker-compose.yml` file to adjust the appropriate bind mounts to point to your desired storage location on your host machine. Please refer to the [Advanced Installation](README.md#advanced-installation) section of the README for more details on how to do this.
 
+## Can I store NOMAD's data on an external drive or network storage?
+
+Short answer: yes, but we can't do it for you (and we recommend a local drive for best performance).
+
+Long answer: Custom storage paths, mount points, and external drives (like iSCSI or SMB/NFS volumes) **are possible**, but this will be up to your individual configuration on the host before NOMAD starts, and then passed in via the compose.yml as this is a *host-level concern*, not a NOMAD-level concern (see above for details). NOMAD itself can't configure this for you, nor could we support all possible configurations in the install script.
+
 ## Can I run NOMAD on MAC, WSL2, or a non-Debian-based Distro?
 
 See [Why does NOMAD require a Debian-based OS?](#why-does-nomad-require-a-debian-based-os)
@@ -58,6 +64,10 @@ All of NOMAD's containers are prefixed with `nomad_` in their names, so they can
 ## Why does NOMAD require access to the Docker socket?
 
 See [What technologies is NOMAD built with?](#what-technologies-is-nomad-built-with)
+
+## Can I use any AI models?
+NOMAD by default uses Ollama inside of a docker container to run LLM Models for the AI Assistant. So if you find a model on HuggingFace for example, you won't be able to use that model in NOMAD. The list of available models in the AI Assistant settings (/settings/models) may not show all of the models you are looking for. If you found a model from https://ollama.com/search that you'd like to try and its not in the settings page, you can use a curl command to download the model.  
+`curl -X POST -H "Content-Type: application/json" -d '{"model":"MODEL_NAME_HERE"}' http://localhost:8080/api/ollama/models` replacing MODEL_NAME_HERE with the model name from whats in the ollama website.
 
 ## Do I have to install the AI features in NOMAD?
 

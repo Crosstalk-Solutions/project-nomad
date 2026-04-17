@@ -22,6 +22,8 @@ export function assertNotPrivateUrl(urlString: string): void {
     /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
     /^\[::1\]$/,
     /^\[?fe80:/i, // IPv6 link-local
+    /^\[::ffff:/i, // IPv4-mapped IPv6 (e.g. [::ffff:7f00:1] = 127.0.0.1)
+    /^\[::\]$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
   ]
 
   if (blockedPatterns.some((re) => re.test(hostname))) {

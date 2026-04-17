@@ -6,6 +6,7 @@ import axios from 'axios'
 import { Transform } from 'stream'
 import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from './fs.js'
 import { createWriteStream } from 'fs'
+import { rename } from 'fs/promises'
 import path from 'path'
 
 /**
@@ -27,13 +28,16 @@ export async function doResumableDownload({
   const dirname = path.dirname(filepath)
   await ensureDirectoryExists(dirname)
 
-  // Check if partial file exists for resume
+  // Stage download to a .tmp file so consumers (e.g. Kiwix) never see a partial file
+  const tempPath = filepath + '.tmp'
+
+  // Check if partial .tmp file exists for resume
   let startByte = 0
   let appendMode = false
 
-  const existingStats = await getFileStatsIfExists(filepath)
+  const existingStats = await getFileStatsIfExists(tempPath)
   if (existingStats && !forceNew) {
-    startByte = existingStats.size
+    startByte = Number(existingStats.size)
     appendMode = true
   }
 
@@ -55,14 +59,24 @@ export async function doResumableDownload({
     }
   }
 
-  // If file is already complete and not forcing overwrite just return filepath
-  if (startByte === totalBytes && totalBytes > 0 && !forceNew) {
+  // If final file already exists at correct size, return early (idempotent)
+  const finalFileStats = await getFileStatsIfExists(filepath)
+  if (finalFileStats && Number(finalFileStats.size) === totalBytes && totalBytes > 0 && !forceNew) {
     return filepath
   }
 
-  // If server doesn't support range requests and we have a partial file, delete it
+  // If .tmp file is already at correct size (complete but never renamed), just rename it
+  if (startByte === totalBytes && totalBytes > 0 && !forceNew) {
+    await rename(tempPath, filepath)
+    if (onComplete) {
+      await onComplete(url, filepath)
+    }
+    return filepath
+  }
+
+  // If server doesn't support range requests and we have a partial .tmp file, delete it
   if (!supportsRangeRequests && startByte > 0) {
-    await deleteFileIfExists(filepath)
+    await deleteFileIfExists(tempPath)
     startByte = 0
     appendMode = false
   }
@@ -72,15 +86,27 @@ export async function doResumableDownload({
     headers.Range = `bytes=${startByte}-`
   }
 
-  const response = await axios.get(url, {
-    responseType: 'stream',
-    headers,
-    signal,
-    timeout,
-  })
+  const fetchStream = (hdrs: Record<string, string>) =>
+    axios.get(url, { responseType: 'stream', headers: hdrs, signal, timeout })
+
+  let response = await fetchStream(headers)
 
   if (response.status !== 200 && response.status !== 206) {
     throw new Error(`Failed to download: HTTP ${response.status}`)
+  }
+
+  // If we requested a range but the server returned 200 (ignored the Range header),
+  // appending would corrupt the .tmp file — delete it and restart from byte 0.
+  if (headers.Range && response.status === 200) {
+    response.data.destroy()
+    await deleteFileIfExists(tempPath)
+    startByte = 0
+    appendMode = false
+    delete headers.Range
+    response = await fetchStream(headers)
+    if (response.status !== 200 && response.status !== 206) {
+      throw new Error(`Failed to download: HTTP ${response.status}`)
+    }
   }
 
   return new Promise((resolve, reject) => {
@@ -131,11 +157,10 @@ export async function doResumableDownload({
       },
     })
 
-    const writeStream = createWriteStream(filepath, {
+    const writeStream = createWriteStream(tempPath, {
       flags: appendMode ? 'a' : 'w',
     })
 
-    // Handle errors and cleanup
     const cleanup = (error?: Error) => {
       clearStallTimer()
       progressStream.destroy()
@@ -149,7 +174,6 @@ export async function doResumableDownload({
     response.data.on('error', cleanup)
     progressStream.on('error', cleanup)
     writeStream.on('error', cleanup)
-    writeStream.on('error', cleanup)
 
     signal?.addEventListener('abort', () => {
       cleanup(new Error('Download aborted'))
@@ -157,6 +181,20 @@ export async function doResumableDownload({
 
     writeStream.on('finish', async () => {
       clearStallTimer()
+      try {
+        // Atomically move the completed .tmp file to the final path
+        await rename(tempPath, filepath)
+      } catch (renameError) {
+        // A parallel job may have completed the same file first — treat as success
+        // if the destination already exists at the expected size.
+        const existing = await getFileStatsIfExists(filepath)
+        if (existing && Number(existing.size) === totalBytes && totalBytes > 0) {
+          // fall through to resolve
+        } else {
+          reject(renameError)
+          return
+        }
+      }
       if (onProgress) {
         onProgress({
           downloadedBytes,
@@ -207,7 +245,7 @@ export async function doResumableDownloadWithRetry({
       })
 
       return result // return on success
-    } catch (error) {
+    } catch (error: any) {
       attempt++
       lastError = error as Error
 

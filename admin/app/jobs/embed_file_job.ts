@@ -6,6 +6,7 @@ import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
+import fs from 'node:fs/promises'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -28,6 +29,17 @@ export class EmbedFileJob {
 
   static getJobId(filePath: string): string {
     return createHash('sha256').update(filePath).digest('hex').slice(0, 16)
+  }
+
+  /** Calls job.updateProgress but silently ignores "Missing key" errors (code -1),
+   *  which occur when the job has been removed from Redis (e.g. cancelled externally)
+   *  between the time the await was issued and the Redis write completed. */
+  private async safeUpdateProgress(job: Job, progress: number): Promise<void> {
+    try {
+      await job.updateProgress(progress)
+    } catch (err: any) {
+      if (err?.code !== -1) throw err
+    }
   }
 
   async handle(job: Job) {
@@ -66,7 +78,7 @@ export class EmbedFileJob {
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
       // Update progress starting
-      await job.updateProgress(5)
+      await this.safeUpdateProgress(job, 5)
       await job.updateData({
         ...job.data,
         status: 'processing',
@@ -77,7 +89,7 @@ export class EmbedFileJob {
 
       // Progress callback: maps service-reported 0-100% into the 5-95% job range
       const onProgress = async (percent: number) => {
-        await job.updateProgress(Math.min(95, Math.round(5 + percent * 0.9)))
+        await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
       }
 
       // Process and embed the file
@@ -116,7 +128,7 @@ export class EmbedFileJob {
           ? Math.round((nextOffset / totalArticles) * 100)
           : 50
 
-        await job.updateProgress(progress)
+        await this.safeUpdateProgress(job, progress)
         await job.updateData({
           ...job.data,
           status: 'batch_completed',
@@ -137,7 +149,7 @@ export class EmbedFileJob {
 
       // Final batch or non-batched file - mark as complete
       const totalChunks = (job.data.chunks || 0) + (result.chunks || 0)
-      await job.updateProgress(100)
+      await this.safeUpdateProgress(job, 100)
       await job.updateData({
         ...job.data,
         status: 'completed',
@@ -230,6 +242,52 @@ export class EmbedFileJob {
       }
       throw error
     }
+  }
+
+  static async listFailedJobs(): Promise<EmbedJobWithProgress[]> {
+    const queueService = new QueueService()
+    const queue = queueService.getQueue(this.queue)
+    // Jobs that have failed at least once are in 'delayed' (retrying) or terminal 'failed' state.
+    // We identify them by job.data.status === 'failed' set in the catch block of handle().
+    const jobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
+
+    return jobs
+      .filter((job) => (job.data as any).status === 'failed')
+      .map((job) => ({
+        jobId: job.id!.toString(),
+        fileName: (job.data as EmbedFileJobParams).fileName,
+        filePath: (job.data as EmbedFileJobParams).filePath,
+        progress: 0,
+        status: 'failed',
+        error: (job.data as any).error,
+      }))
+  }
+
+  static async cleanupFailedJobs(): Promise<{ cleaned: number; filesDeleted: number }> {
+    const queueService = new QueueService()
+    const queue = queueService.getQueue(this.queue)
+    const allJobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
+    const failedJobs = allJobs.filter((job) => (job.data as any).status === 'failed')
+
+    let cleaned = 0
+    let filesDeleted = 0
+
+    for (const job of failedJobs) {
+      const filePath = (job.data as EmbedFileJobParams).filePath
+      if (filePath && filePath.includes(RagService.UPLOADS_STORAGE_PATH)) {
+        try {
+          await fs.unlink(filePath)
+          filesDeleted++
+        } catch {
+          // File may already be deleted — that's fine
+        }
+      }
+      await job.remove()
+      cleaned++
+    }
+
+    logger.info(`[EmbedFileJob] Cleaned up ${cleaned} failed jobs, deleted ${filesDeleted} files`)
+    return { cleaned, filesDeleted }
   }
 
   static async getStatus(filePath: string): Promise<{

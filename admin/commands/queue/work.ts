@@ -61,9 +61,16 @@ export default class QueueWork extends BaseCommand {
         {
           connection: queueConfig.connection,
           concurrency: this.getConcurrencyForQueue(queueName),
+          lockDuration: 300000,
           autorun: true,
         }
       )
+
+      // Required to prevent Node from treating BullMQ internal errors as unhandled
+      // EventEmitter errors that crash the process.
+      worker.on('error', (err) => {
+        this.logger.error(`[${queueName}] Worker error: ${err.message}`)
+      })
 
       worker.on('failed', async (job, err) => {
         this.logger.error(`[${queueName}] Job failed: ${job?.id}, Error: ${err.message}`)
@@ -95,6 +102,15 @@ export default class QueueWork extends BaseCommand {
     // Schedule nightly update checks (idempotent, will persist over restarts)
     await CheckUpdateJob.scheduleNightly()
     await CheckServiceUpdatesJob.scheduleNightly()
+
+    // Safety net: log unhandled rejections instead of crashing the worker process.
+    // Individual job errors are already caught by BullMQ; this catches anything that
+    // escapes (e.g. a fire-and-forget promise in a callback that rejects unexpectedly).
+    process.on('unhandledRejection', (reason) => {
+      this.logger.error(
+        `Unhandled promise rejection in worker process: ${reason instanceof Error ? reason.message : String(reason)}`
+      )
+    })
 
     // Graceful shutdown for all workers
     process.on('SIGTERM', async () => {

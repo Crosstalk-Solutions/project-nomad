@@ -7,8 +7,7 @@ import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import { EmbedJobWithProgress } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
-import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
-import { ChatResponse, ModelResponse } from 'ollama'
+import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
 
@@ -45,6 +44,25 @@ class API {
       const response = await this.client.get<CheckLatestVersionResult>('/system/latest-version', {
         params: { force },
       })
+      return response.data
+    })()
+  }
+
+  async getRemoteOllamaStatus(): Promise<{ configured: boolean; connected: boolean }> {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ configured: boolean; connected: boolean }>(
+        '/ollama/remote-status'
+      )
+      return response.data
+    })()
+  }
+
+  async configureRemoteOllama(remoteUrl: string | null): Promise<{ success: boolean; message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/ollama/configure-remote',
+        { remoteUrl }
+      )
       return response.data
     })()
   }
@@ -239,7 +257,7 @@ class API {
 
   async getInstalledModels() {
     return catchInternal(async () => {
-      const response = await this.client.get<ModelResponse[]>('/ollama/installed-models')
+      const response = await this.client.get<NomadInstalledModel[]>('/ollama/installed-models')
       return response.data
     })()
   }
@@ -258,7 +276,7 @@ class API {
 
   async sendChatMessage(chatRequest: OllamaChatRequest) {
     return catchInternal(async () => {
-      const response = await this.client.post<ChatResponse>('/ollama/chat', chatRequest)
+      const response = await this.client.post<NomadChatResponse>('/ollama/chat', chatRequest)
       return response.data
     })()
   }
@@ -419,6 +437,20 @@ class API {
     })()
   }
 
+  async getFailedEmbedJobs(): Promise<EmbedJobWithProgress[] | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<EmbedJobWithProgress[]>('/rag/failed-jobs')
+      return response.data
+    })()
+  }
+
+  async cleanupFailedEmbedJobs(): Promise<{ message: string; cleaned: number; filesDeleted: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string; cleaned: number; filesDeleted: number }>('/rag/failed-jobs')
+      return response.data
+    })()
+  }
+
   async getStoredRAGFiles() {
     return catchInternal(async () => {
       const response = await this.client.get<{ files: string[] }>('/rag/files')
@@ -486,6 +518,29 @@ class API {
     }
   }
 
+  async getGlobalMapInfo() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        url: string
+        date: string
+        size: number
+        key: string
+      }>('/maps/global-map-info')
+      return response.data
+    })()
+  }
+
+  async downloadGlobalMap() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        filename: string
+        jobId?: string
+      }>('/maps/download-global-map')
+      return response.data
+    })()
+  }
+
   async listCuratedMapCollections() {
     return catchInternal(async () => {
       const response = await this.client.get<CollectionWithStatus[]>(
@@ -513,6 +568,39 @@ class API {
     return catchInternal(async () => {
       const response = await this.client.get<{ files: FileEntry[] }>('/maps/regions')
       return response.data.files
+    })()
+  }
+
+  async listMapMarkers() {
+    return catchInternal(async () => {
+      const response = await this.client.get<
+        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }>
+      >('/maps/markers')
+      return response.data
+    })()
+  }
+
+  async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<
+        { id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }
+      >('/maps/markers', data)
+      return response.data
+    })()
+  }
+
+  async updateMapMarker(id: number, data: { name?: string; color?: string }) {
+    return catchInternal(async () => {
+      const response = await this.client.patch<
+        { id: number; name: string; longitude: number; latitude: number; color: string }
+      >(`/maps/markers/${id}`, data)
+      return response.data
+    })()
+  }
+
+  async deleteMapMarker(id: number) {
+    return catchInternal(async () => {
+      await this.client.delete(`/maps/markers/${id}`)
     })()
   }
 
@@ -560,6 +648,15 @@ class API {
   async removeDownloadJob(jobId: string): Promise<void> {
     return catchInternal(async () => {
       await this.client.delete(`/downloads/jobs/${jobId}`)
+    })()
+  }
+
+  async cancelDownloadJob(jobId: string): Promise<{ success: boolean; message: string } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        `/downloads/jobs/${jobId}/cancel`
+      )
+      return response.data
     })()
   }
 

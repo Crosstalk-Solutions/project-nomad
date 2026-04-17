@@ -44,3 +44,16 @@ export type OllamaChatResponse = {
   }
   done: boolean
 }
+
+export type NomadInstalledModel = {
+  name: string
+  size: number
+  digest?: string
+  details?: Record<string, any>
+}
+
+export type NomadChatResponse = {
+  message: { content: string; thinking?: string }
+  done: boolean
+  model: string
+}

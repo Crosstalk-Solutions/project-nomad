@@ -25,6 +25,7 @@ import InstalledResource from '#models/installed_resource'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
+import { KiwixLibraryService } from './kiwix_library_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
@@ -137,13 +138,13 @@ export class ZimService {
     }
   }
 
-  async downloadRemote(url: string): Promise<{ filename: string; jobId?: string }> {
+  async downloadRemote(url: string, metadata?: { title?: string; summary?: string; author?: string; size_bytes?: number }): Promise<{ filename: string; jobId?: string }> {
     const parsed = new URL(url)
     if (!parsed.pathname.endsWith('.zim')) {
       throw new Error(`Invalid ZIM file URL: ${url}. URL must end with .zim`)
     }
 
-    const existing = await RunDownloadJob.getByUrl(url)
+    const existing = await RunDownloadJob.getActiveByUrl(url)
     if (existing) {
       throw new Error('A download for this URL is already in progress')
     }
@@ -170,6 +171,8 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      title: metadata?.title,
+      totalBytes: metadata?.size_bytes,
       resourceMetadata,
     })
 
@@ -219,7 +222,7 @@ export class ZimService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const existingJob = await RunDownloadJob.getByUrl(resource.url)
+      const existingJob = await RunDownloadJob.getActiveByUrl(resource.url)
       if (existingJob) {
         logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)
         continue
@@ -238,6 +241,8 @@ export class ZimService {
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
+        title: (resource as any).title || undefined,
+        totalBytes: (resource as any).size_mb ? (resource as any).size_mb * 1024 * 1024 : undefined,
         resourceMetadata: {
           resource_id: resource.id,
           version: resource.version,
@@ -256,6 +261,17 @@ export class ZimService {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
+    
+    // Update the kiwix library XML after all downloaded ZIM files are in place.
+    // This covers all ZIM types including Wikipedia. Rebuilding once from disk
+    // avoids repeated XML parse/write cycles and reduces the chance of write races
+    // when multiple download jobs complete concurrently.
+    const kiwixLibraryService = new KiwixLibraryService()
+    try {
+      await kiwixLibraryService.rebuildFromDisk()
+    } catch (err) {
+      logger.error('[ZimService] Failed to rebuild kiwix library from disk:', err)
+    }
 
     if (restart) {
       // Check if there are any remaining ZIM download jobs before restarting
@@ -272,7 +288,9 @@ export class ZimService {
       // Filter out completed jobs (progress === 100) to avoid race condition
       // where this job itself is still in the active queue
       const activeIncompleteJobs = activeJobs.filter((job) => {
-        const progress = typeof job.progress === 'number' ? job.progress : 0
+        const progress = typeof job.progress === 'object' && job.progress !== null
+          ? (job.progress as any).percent
+          : typeof job.progress === 'number' ? job.progress : 0
         return progress < 100
       })
 
@@ -283,13 +301,20 @@ export class ZimService {
       if (hasRemainingZimJobs) {
         logger.info('[ZimService] Skipping container restart - more ZIM downloads pending')
       } else {
-        // Restart KIWIX container to pick up new ZIM file
-        logger.info('[ZimService] No more ZIM downloads pending - restarting KIWIX container')
-        await this.dockerService
-          .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
-          .catch((error) => {
-            logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
-          })
+        // If kiwix is already running in library mode, --monitorLibrary will pick up
+        // the XML change automatically — no restart needed.
+        const isLegacy = await this.dockerService.isKiwixOnLegacyConfig()
+        if (!isLegacy) {
+          logger.info('[ZimService] Kiwix is in library mode — XML updated, no container restart needed.')
+        } else {
+          // Legacy config: restart (affectContainer will trigger migration instead)
+          logger.info('[ZimService] No more ZIM downloads pending - restarting KIWIX container')
+          await this.dockerService
+            .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
+            .catch((error) => {
+              logger.error(`[ZimService] Failed to restart KIWIX container:`, error)
+            })
+        }
       }
     }
 
@@ -346,6 +371,12 @@ export class ZimService {
     }
 
     await deleteFileIfExists(fullPath)
+
+    // Remove from kiwix library XML so --monitorLibrary stops serving the deleted file
+    const kiwixLibraryService = new KiwixLibraryService()
+    await kiwixLibraryService.removeBook(fileName).catch((err) => {
+      logger.error(`[ZimService] Failed to remove ${fileName} from kiwix library:`, err)
+    })
 
     // Clean up InstalledResource entry
     const parsed = CollectionManifestService.parseZimFilename(fileName)
@@ -458,7 +489,7 @@ export class ZimService {
     }
 
     // Check if already downloading
-    const existingJob = await RunDownloadJob.getByUrl(selectedOption.url)
+    const existingJob = await RunDownloadJob.getActiveByUrl(selectedOption.url)
     if (existingJob) {
       return { success: false, message: 'Download already in progress' }
     }
@@ -497,6 +528,8 @@ export class ZimService {
       allowedMimeTypes: ZIM_MIME_TYPES,
       forceNew: true,
       filetype: 'zim',
+      title: selectedOption.name,
+      totalBytes: selectedOption.size_mb ? selectedOption.size_mb * 1024 * 1024 : undefined,
     })
 
     if (!result || !result.job) {

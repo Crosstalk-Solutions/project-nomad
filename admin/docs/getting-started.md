@@ -10,14 +10,14 @@ If this is your first time using N.O.M.A.D., the Easy Setup wizard will help you
 
 **[Launch Easy Setup →](/easy-setup)**
 
-![Easy Setup Wizard — Step 1: Choose your capabilities](/docs/easy-setup-step1.png)
+![Easy Setup Wizard — Step 1: Choose your capabilities](/docs/easy-setup-step1.webp)
 
 The wizard walks you through four simple steps:
 1. **Capabilities** — Choose what to enable: Information Library, AI Assistant, Education Platform, Maps, Data Tools, and Notes
 2. **Maps** — Select geographic regions for offline maps
 3. **Content** — Choose curated content collections with Essential, Standard, or Comprehensive tiers
 
-![Content tiers — Essential, Standard, and Comprehensive](/docs/easy-setup-tiers.png)
+![Content tiers — Essential, Standard, and Comprehensive](/docs/easy-setup-tiers.webp)
 4. **Review** — Confirm your selections and start downloading
 
 Depending on what you selected, downloads may take a while. You can monitor progress in the Settings area, continue using features that are already installed, or leave your server running overnight for large downloads.
@@ -64,7 +64,7 @@ The Education Platform provides complete educational courses that work offline.
 
 ### AI Assistant — Built-in Chat
 
-![AI Chat interface](/docs/ai-chat.png)
+![AI Chat interface](/docs/ai-chat.webp)
 
 N.O.M.A.D. includes a built-in AI chat interface powered by Ollama. It runs entirely on your server — no internet needed, no data sent anywhere.
 
@@ -90,7 +90,7 @@ N.O.M.A.D. includes a built-in AI chat interface powered by Ollama. It runs enti
 
 ### Knowledge Base — Document-Aware AI
 
-![Knowledge Base upload interface](/docs/knowledge-base.png)
+![Knowledge Base upload interface](/docs/knowledge-base.webp)
 
 The Knowledge Base lets you upload documents so the AI can reference them when answering your questions. It uses semantic search (RAG via Qdrant) to find relevant information from your uploaded files.
 
@@ -115,7 +115,7 @@ The Knowledge Base lets you upload documents so the AI can reference them when a
 
 ### Maps — Offline Navigation
 
-![Offline maps viewer](/docs/maps.png)
+![Offline maps viewer](/docs/maps.webp)
 
 View maps without internet. Download the regions you need before going offline.
 
@@ -148,7 +148,7 @@ As your needs change, you can add more content anytime:
 
 ### Wikipedia Selector
 
-![Content Explorer — browse and download Wikipedia packages and curated collections](/docs/content-explorer.png)
+![Content Explorer — browse and download Wikipedia packages and curated collections](/docs/content-explorer.webp)
 
 N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing and downloading Wikipedia packages.
 
@@ -161,7 +161,7 @@ N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing a
 
 ### System Benchmark
 
-![System Benchmark with NOMAD Score and Builder Tag](/docs/benchmark.png)
+![System Benchmark with NOMAD Score and Builder Tag](/docs/benchmark.webp)
 
 Test your hardware performance and see how your NOMAD build stacks up against the community.
 

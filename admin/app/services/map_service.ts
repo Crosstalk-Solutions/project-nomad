@@ -22,6 +22,16 @@ import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
 
+const PROTOMAPS_BUILDS_METADATA_URL = 'https://build-metadata.protomaps.dev/builds.json'
+const PROTOMAPS_BUILD_BASE_URL = 'https://build.protomaps.com'
+
+export interface ProtomapsBuildInfo {
+  url: string
+  date: string
+  size: number
+  key: string
+}
+
 const BASE_ASSETS_MIME_TYPES = [
   'application/gzip',
   'application/x-gzip',
@@ -117,7 +127,7 @@ export class MapService implements IMapService {
         continue
       }
 
-      const existing = await RunDownloadJob.getByUrl(resource.url)
+      const existing = await RunDownloadJob.getActiveByUrl(resource.url)
       if (existing) {
         logger.warn(`[MapService] Download already in progress for URL ${resource.url}, skipping.`)
         continue
@@ -139,6 +149,7 @@ export class MapService implements IMapService {
         allowedMimeTypes: PMTILES_MIME_TYPES,
         forceNew: true,
         filetype: 'map',
+        title: (resource as any).title || undefined,
         resourceMetadata: {
           resource_id: resource.id,
           version: resource.version,
@@ -187,7 +198,7 @@ export class MapService implements IMapService {
       throw new Error(`Invalid PMTiles file URL: ${url}. URL must end with .pmtiles`)
     }
 
-    const existing = await RunDownloadJob.getByUrl(url)
+    const existing = await RunDownloadJob.getActiveByUrl(url)
     if (existing) {
       throw new Error(`Download already in progress for URL ${url}`)
     }
@@ -408,6 +419,76 @@ export class MapService implements IMapService {
     return template
   }
 
+  async getGlobalMapInfo(): Promise<ProtomapsBuildInfo> {
+    const { default: axios } = await import('axios')
+    const response = await axios.get(PROTOMAPS_BUILDS_METADATA_URL, { timeout: 15000 })
+    const builds = response.data as Array<{ key: string; size: number }>
+
+    if (!builds || builds.length === 0) {
+      throw new Error('No protomaps builds found')
+    }
+
+    // Latest build first
+    const sorted = builds.sort((a, b) => b.key.localeCompare(a.key))
+    const latest = sorted[0]
+
+    const dateStr = latest.key.replace('.pmtiles', '')
+    const date = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
+
+    return {
+      url: `${PROTOMAPS_BUILD_BASE_URL}/${latest.key}`,
+      date,
+      size: latest.size,
+      key: latest.key,
+    }
+  }
+
+  async downloadGlobalMap(): Promise<{ filename: string; jobId?: string }> {
+    const info = await this.getGlobalMapInfo()
+
+    const existing = await RunDownloadJob.getByUrl(info.url)
+    if (existing) {
+      throw new Error(`Download already in progress for URL ${info.url}`)
+    }
+
+    const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
+    const filepath = resolve(join(basePath, info.key))
+
+    // Prevent path traversal — resolved path must stay within the storage directory
+    if (!filepath.startsWith(basePath + sep)) {
+      throw new Error('Invalid filename')
+    }
+
+    // First, ensure base assets are present - the global map depends on them
+    const baseAssetsExist = await this.ensureBaseAssets()
+    if (!baseAssetsExist) {
+      throw new Error(
+        'Base map assets are missing and could not be downloaded. Please check your connection and try again.'
+      )
+    }
+
+    // forceNew: false so retries resume partial downloads
+    const result = await RunDownloadJob.dispatch({
+      url: info.url,
+      filepath,
+      timeout: 30000,
+      allowedMimeTypes: PMTILES_MIME_TYPES,
+      forceNew: false,
+      filetype: 'map',
+    })
+
+    if (!result.job) {
+      throw new Error('Failed to dispatch download job')
+    }
+
+    logger.info(`[MapService] Dispatched global map download job ${result.job.id}`)
+
+    return {
+      filename: info.key,
+      jobId: result.job?.id,
+    }
+  }
+
   async delete(file: string): Promise<void> {
     let fileName = file
     if (!fileName.endsWith('.pmtiles')) {
@@ -440,8 +521,18 @@ export class MapService implements IMapService {
     }
   }
 
-  /*
-   * Gets the appropriate public URL for a map asset depending on environment
+  /**
+   * Gets the appropriate public URL for a map asset depending on environment. The host and protocol that the user
+   * is accessing the maps from must match the host and protocol used in the generated URLs, otherwise maps will fail to load.
+   * If you make changes to this function, you need to ensure it handles all the following cases correctly:
+   * - No host provided (should default to localhost or env URL)
+   * - Host provided as full URL (e.g. "http://example.com:8080")
+   * - Host provided as host:port (e.g. "example.com:8080")
+   * - Host provided as bare hostname (e.g. "example.com")
+   * @param specifiedHost - the host as provided by the user/request, can be null or in various formats (full URL, host:port, bare hostname)
+   * @param childPath - the path to append to the base URL (e.g. "basemaps-assets", "pmtiles")
+   * @param protocol - the protocol to use in the generated URL (e.g. "http", "https"), defaults to "http"
+   * @returns the public URL for the map asset
    */
   private getPublicFileBaseUrl(specifiedHost: string | null, childPath: string, protocol: string = 'http'): string {
     function getHost() {
@@ -456,8 +547,25 @@ export class MapService implements IMapService {
       }
     }
 
-    const host = specifiedHost || getHost()
-    const withProtocol = host.startsWith('http') ? host : `${protocol}://${host}`
+    function specifiedHostOrDefault() {
+      if (specifiedHost === null) {
+        return getHost()
+      }
+      // Try as a full URL first (e.g. "http://example.com:8080")
+      try {
+        const specifiedUrl = new URL(specifiedHost)
+        if (specifiedUrl.host) return specifiedUrl.host
+      } catch {}
+      // Try as a bare host or host:port (e.g. "nomad-box:8080", "192.168.1.1:8080", "example.com")
+      try {
+        const specifiedUrl = new URL(`http://${specifiedHost}`)
+        if (specifiedUrl.host) return specifiedUrl.host
+      } catch {}
+      return getHost()
+    }
+
+    const host = specifiedHostOrDefault();
+    const withProtocol = `${protocol}://${host}`
     const baseUrlPath =
       process.env.NODE_ENV === 'production' ? childPath : urlJoin(this.mapStoragePath, childPath)
 
