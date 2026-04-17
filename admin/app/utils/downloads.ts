@@ -86,15 +86,27 @@ export async function doResumableDownload({
     headers.Range = `bytes=${startByte}-`
   }
 
-  const response = await axios.get(url, {
-    responseType: 'stream',
-    headers,
-    signal,
-    timeout,
-  })
+  const fetchStream = (hdrs: Record<string, string>) =>
+    axios.get(url, { responseType: 'stream', headers: hdrs, signal, timeout })
+
+  let response = await fetchStream(headers)
 
   if (response.status !== 200 && response.status !== 206) {
     throw new Error(`Failed to download: HTTP ${response.status}`)
+  }
+
+  // If we requested a range but the server returned 200 (ignored the Range header),
+  // appending would corrupt the .tmp file — delete it and restart from byte 0.
+  if (headers.Range && response.status === 200) {
+    response.data.destroy()
+    await deleteFileIfExists(tempPath)
+    startByte = 0
+    appendMode = false
+    delete headers.Range
+    response = await fetchStream(headers)
+    if (response.status !== 200 && response.status !== 206) {
+      throw new Error(`Failed to download: HTTP ${response.status}`)
+    }
   }
 
   return new Promise((resolve, reject) => {
@@ -149,7 +161,6 @@ export async function doResumableDownload({
       flags: appendMode ? 'a' : 'w',
     })
 
-    // Handle errors and cleanup
     const cleanup = (error?: Error) => {
       clearStallTimer()
       progressStream.destroy()
@@ -163,7 +174,6 @@ export async function doResumableDownload({
     response.data.on('error', cleanup)
     progressStream.on('error', cleanup)
     writeStream.on('error', cleanup)
-    writeStream.on('error', cleanup)
 
     signal?.addEventListener('abort', () => {
       cleanup(new Error('Download aborted'))
@@ -175,8 +185,15 @@ export async function doResumableDownload({
         // Atomically move the completed .tmp file to the final path
         await rename(tempPath, filepath)
       } catch (renameError) {
-        reject(renameError)
-        return
+        // A parallel job may have completed the same file first — treat as success
+        // if the destination already exists at the expected size.
+        const existing = await getFileStatsIfExists(filepath)
+        if (existing && Number(existing.size) === totalBytes && totalBytes > 0) {
+          // fall through to resolve
+        } else {
+          reject(renameError)
+          return
+        }
       }
       if (onProgress) {
         onProgress({
@@ -228,7 +245,7 @@ export async function doResumableDownloadWithRetry({
       })
 
       return result // return on success
-    } catch (error) {
+    } catch (error: any) {
       attempt++
       lastError = error as Error
 
