@@ -110,10 +110,10 @@ export class DockerService {
         message: `Invalid action: ${action}. Use 'start', 'stop', or 'restart'.`,
       }
     } catch (error: any) {
-      logger.error(`Error starting service ${serviceName}: ${error.message}`)
+      logger.error({ err: error }, `[DockerService] Error controlling service ${serviceName}`)
       return {
         success: false,
-        message: `Failed to start service ${serviceName}: ${error.message}`,
+        message: `Failed to ${action} service ${serviceName}. Check server logs for details.`,
       }
     }
   }
@@ -355,8 +355,8 @@ export class DockerService {
           )
         }
       } catch (error: any) {
-        logger.warn(`Error during container cleanup: ${error.message}`)
-        this._broadcast(serviceName, 'cleanup-warning', `Warning during cleanup: ${error.message}`)
+        logger.warn({ err: error }, `[DockerService] Error during container cleanup for ${serviceName}`)
+        this._broadcast(serviceName, 'cleanup-warning', 'Warning during container cleanup. Check server logs for details.')
       }
 
       // Step 3: Clear volumes/data if needed
@@ -382,11 +382,11 @@ export class DockerService {
           this._broadcast(serviceName, 'no-volumes', `No volumes found to clear`)
         }
       } catch (error: any) {
-        logger.warn(`Error during volume cleanup: ${error.message}`)
+        logger.warn({ err: error }, `[DockerService] Error during volume cleanup for ${serviceName}`)
         this._broadcast(
           serviceName,
           'volume-cleanup-warning',
-          `Warning during volume cleanup: ${error.message}`
+          'Warning during volume cleanup. Check server logs for details.'
         )
       }
 
@@ -411,11 +411,11 @@ export class DockerService {
         message: `Service ${serviceName} force reinstall initiated successfully. You can receive updates via server-sent events.`,
       }
     } catch (error: any) {
-      logger.error(`Force reinstall failed for ${serviceName}: ${error.message}`)
+      logger.error({ err: error }, `[DockerService] Force reinstall failed for ${serviceName}`)
       await this._cleanupFailedInstallation(serviceName)
       return {
         success: false,
-        message: `Failed to force reinstall service ${serviceName}: ${error.message}`,
+        message: `Failed to force reinstall service ${serviceName}. Check server logs for details.`,
       }
     }
   }
@@ -664,10 +664,10 @@ export class DockerService {
 
       return { success: true, message: `Service ${serviceName} container removed successfully` }
     } catch (error: any) {
-      logger.error(`Error removing service container: ${error.message}`)
+      logger.error({ err: error }, `[DockerService] Error removing service container ${serviceName}`)
       return {
         success: false,
-        message: `Failed to remove service ${serviceName} container: ${error.message}`,
+        message: `Failed to remove service ${serviceName} container. Check server logs for details.`,
       }
     }
   }
@@ -1204,10 +1204,10 @@ export class DockerService {
       this._broadcast(
         serviceName,
         'update-rollback',
-        `Update failed: ${error.message}`
+        'Update failed. Check server logs for details.'
       )
-      logger.error(`[DockerService] Update failed for ${serviceName}: ${error.message}`)
-      return { success: false, message: `Update failed: ${error.message}` }
+      logger.error({ err: error }, `[DockerService] Update failed for ${serviceName}`)
+      return { success: false, message: 'Update failed. Check server logs for details.' }
     }
   }
 

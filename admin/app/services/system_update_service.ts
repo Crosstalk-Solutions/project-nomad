@@ -47,10 +47,10 @@ export class SystemUpdateService {
         message: 'System update initiated. The admin container will restart during the process.',
       }
     } catch (error) {
-      logger.error('[SystemUpdateService]: Failed to request system update:', error)
+      logger.error({ err: error }, '[SystemUpdateService] Failed to request system update')
       return {
         success: false,
-        message: `Failed to request update: ${error.message}`,
+        message: 'Failed to request system update. Check server logs for details.',
       }
     }
   }

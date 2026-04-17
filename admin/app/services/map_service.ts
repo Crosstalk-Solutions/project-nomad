@@ -17,6 +17,7 @@ import { join, resolve, sep } from 'path'
 import urlJoin from 'url-join'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import logger from '@adonisjs/core/services/logger'
+import { assertNotPrivateUrl } from '#validators/common'
 import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
@@ -119,6 +120,13 @@ export class MapService implements IMapService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
+      try {
+        assertNotPrivateUrl(resource.url)
+      } catch {
+        logger.warn(`[MapService] Blocked download from private/loopback URL: ${resource.url}`)
+        continue
+      }
+
       const existing = await RunDownloadJob.getActiveByUrl(resource.url)
       if (existing) {
         logger.warn(`[MapService] Download already in progress for URL ${resource.url}, skipping.`)
@@ -244,6 +252,7 @@ export class MapService implements IMapService {
     url: string
   ): Promise<{ filename: string; size: number } | { message: string }> {
     try {
+      assertNotPrivateUrl(url)
       const parsed = new URL(url)
       if (!parsed.pathname.endsWith('.pmtiles')) {
         throw new Error(`Invalid PMTiles file URL: ${url}. URL must end with .pmtiles`)
@@ -267,7 +276,8 @@ export class MapService implements IMapService {
 
       return { filename, size }
     } catch (error: any) {
-      return { message: `Preflight check failed: ${error.message}` }
+      logger.error({ err: error }, '[MapService] Preflight check failed for URL')
+      return { message: 'Preflight check failed. Please verify the URL is valid and accessible.' }
     }
   }
 

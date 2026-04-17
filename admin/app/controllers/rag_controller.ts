@@ -6,6 +6,7 @@ import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
 import { deleteFileSchema, getJobStatusSchema } from '#validators/rag'
+import logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class RagController {
@@ -92,7 +93,8 @@ export default class RagController {
       const syncResult = await this.ragService.scanAndSyncStorage()
       return response.status(200).json(syncResult)
     } catch (error) {
-      return response.status(500).json({ error: 'Error scanning and syncing storage', details: error.message })
+      logger.error({ err: error }, '[RagController] Error scanning and syncing storage')
+      return response.status(500).json({ error: 'Error scanning and syncing storage' })
     }
   }
 }
