@@ -65,7 +65,7 @@ export class CollectionUpdateService {
         return {
           updates: [],
           checked_at: new Date().toISOString(),
-          error: `Nomad API returned status ${error.response.status}`,
+          error: 'Failed to check for content updates. The update service may be temporarily unavailable.',
         }
       }
       const message =
@@ -74,7 +74,7 @@ export class CollectionUpdateService {
       return {
         updates: [],
         checked_at: new Date().toISOString(),
-        error: `Failed to contact Nomad API: ${message}`,
+        error: 'Failed to contact the update service. Please try again later.',
       }
     }
   }
