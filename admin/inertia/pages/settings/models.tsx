@@ -369,7 +369,7 @@ export default function ModelsPage(props: {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-text-secondary">
-                          {model.details.parameter_size || 'N/A'}
+                          {model.details?.parameter_size || 'N/A'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
