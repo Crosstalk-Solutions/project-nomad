@@ -212,13 +212,21 @@ export default class OllamaController {
       return response.status(404).send({ success: false, message: 'Ollama service record not found.' })
     }
 
-    // Clear path: null or empty URL removes remote config and marks service as not installed
+    // Clear path: null or empty URL removes remote config. If a local nomad_ollama container
+    // still exists (user had previously installed AI Assistant locally), restart it and keep
+    // the service marked installed. Otherwise fall back to uninstalled.
     if (!remoteUrl || remoteUrl.trim() === '') {
       await KVStore.clearValue('ai.remoteOllamaUrl')
-      ollamaService.installed = false
+      const hasLocalContainer = await this._startLocalOllamaContainerIfExists()
+      ollamaService.installed = hasLocalContainer
       ollamaService.installation_status = 'idle'
       await ollamaService.save()
-      return { success: true, message: 'Remote Ollama configuration cleared.' }
+      return {
+        success: true,
+        message: hasLocalContainer
+          ? 'Remote Ollama cleared. Local Ollama container restored.'
+          : 'Remote Ollama configuration cleared.',
+      }
     }
 
     // Validate URL format
@@ -253,6 +261,10 @@ export default class OllamaController {
     ollamaService.installation_status = 'idle'
     await ollamaService.save()
 
+    // Stop the local nomad_ollama container (if running) so it doesn't compete with the
+    // remote host for GPU / port 11434. Preserves the container and its models volume.
+    await this._stopLocalOllamaContainer()
+
     // Install Qdrant if not already installed (fire-and-forget)
     const qdrantService = await Service.query().where('service_name', SERVICE_NAMES.QDRANT).first()
     if (qdrantService && !qdrantService.installed) {
@@ -268,6 +280,50 @@ export default class OllamaController {
     })
 
     return { success: true, message: 'Remote Ollama configured.' }
+  }
+
+  private async _stopLocalOllamaContainer(): Promise<void> {
+    try {
+      const containers = await this.dockerService.docker.listContainers({ all: true })
+      const ollamaContainer = containers.find((c) =>
+        c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
+      )
+      if (!ollamaContainer || ollamaContainer.State !== 'running') {
+        return
+      }
+      await this.dockerService.docker.getContainer(ollamaContainer.Id).stop()
+      this.dockerService.invalidateServicesStatusCache()
+      logger.info('[OllamaController] Stopped local nomad_ollama (remote Ollama configured)')
+    } catch (error: any) {
+      logger.error(
+        { err: error },
+        '[OllamaController] Failed to stop local nomad_ollama; remote Ollama is still active'
+      )
+    }
+  }
+
+  private async _startLocalOllamaContainerIfExists(): Promise<boolean> {
+    try {
+      const containers = await this.dockerService.docker.listContainers({ all: true })
+      const ollamaContainer = containers.find((c) =>
+        c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
+      )
+      if (!ollamaContainer) {
+        return false
+      }
+      if (ollamaContainer.State !== 'running') {
+        await this.dockerService.docker.getContainer(ollamaContainer.Id).start()
+        this.dockerService.invalidateServicesStatusCache()
+        logger.info('[OllamaController] Started local nomad_ollama (remote Ollama cleared)')
+      }
+      return true
+    } catch (error: any) {
+      logger.error(
+        { err: error },
+        '[OllamaController] Failed to start local nomad_ollama on remote clear'
+      )
+      return false
+    }
   }
 
   async deleteModel({ request }: HttpContext) {
