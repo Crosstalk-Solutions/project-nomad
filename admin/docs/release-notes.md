@@ -13,6 +13,7 @@
 - **Downloads**: Added improved handling for corrupt ZIM file downloads and removed duplicate Ollama download logs. Thanks @aegisman for the contribution!
 - **Security**: Closed a potential SSRF vulnerability in the map file download functionality by implementing stricter URL validation and blocking private IP ranges. Thanks @LuisMIguelFurlanettoSousa for the fix!
 - **Security**: Sanitized error messages from the backend to prevent potential information disclosure. Thanks @LuisMIguelFurlanettoSousa for the fix!
+- **Privacy**: Qdrant telemetry is now disabled by default, preventing DNS queries to `telemetry.qdrant.io`. Closes #742.
 
 ### Improvements
 - **AI Assistant**: Now uses the currently loaded model for query rewriting and chat title generation for improved performance and consistency. Thanks @hestela for the contribution!
