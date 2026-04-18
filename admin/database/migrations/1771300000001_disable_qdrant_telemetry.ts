@@ -8,7 +8,8 @@ export default class extends BaseSchema {
       const row = await db.from(this.tableName).where('service_name', 'nomad_qdrant').first()
       if (!row) return
 
-      const config = JSON.parse(row.container_config)
+      const raw = row.container_config
+      const config = typeof raw === 'string' ? JSON.parse(raw) : raw
       const env: string[] = config.Env ?? []
 
       if (!env.includes('QDRANT__TELEMETRY_DISABLED=true')) {
@@ -26,7 +27,8 @@ export default class extends BaseSchema {
       const row = await db.from(this.tableName).where('service_name', 'nomad_qdrant').first()
       if (!row) return
 
-      const config = JSON.parse(row.container_config)
+      const raw = row.container_config
+      const config = typeof raw === 'string' ? JSON.parse(raw) : raw
       config.Env = (config.Env ?? []).filter(
         (e: string) => e !== 'QDRANT__TELEMETRY_DISABLED=true'
       )
