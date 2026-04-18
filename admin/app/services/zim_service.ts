@@ -57,84 +57,105 @@ export class ZimService {
     query?: string
   }): Promise<ListRemoteZimFilesResponse> {
     const LIBRARY_BASE_URL = 'https://browse.library.kiwix.org/catalog/v2/entries'
+    // Kiwix returns pages of content unaware of what the user has installed locally. When
+    // the installed set is large, a single 12-item Kiwix page can come back with everything
+    // already installed → 0 post-filter items → frontend deadlock (#731). Accumulate across
+    // upstream pages so we return a useful batch. Bounded by MAX_KIWIX_FETCHES so a heavily
+    // saturated install doesn't hang a single request; the frontend scroll loop + auto-fetch
+    // effect handle continuation.
+    const KIWIX_PAGE_SIZE = 60
+    const MAX_KIWIX_FETCHES = 5
 
-    const res = await axios.get(LIBRARY_BASE_URL, {
-      params: {
-        start: start,
-        count: count,
-        lang: 'eng',
-        ...(query ? { q: query } : {}),
-      },
-      responseType: 'text',
-    })
-
-    const data = res.data
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '',
       textNodeName: '#text',
     })
-    const result = parser.parse(data)
 
-    if (!isRawListRemoteZimFilesResponse(result)) {
-      throw new Error('Invalid response format from remote library')
-    }
-
-    const entries = result.feed.entry
-      ? Array.isArray(result.feed.entry)
-        ? result.feed.entry
-        : [result.feed.entry]
-      : []
-
-    const filtered = entries.filter((entry: any) => {
-      return isRawRemoteZimFileEntry(entry)
-    })
-
-    const mapped: (RemoteZimFileEntry | null)[] = filtered.map((entry: RawRemoteZimFileEntry) => {
-      const downloadLink = entry.link.find((link: any) => {
-        return (
-          typeof link === 'object' &&
-          'rel' in link &&
-          'length' in link &&
-          'href' in link &&
-          'type' in link &&
-          link.type === 'application/x-zim'
-        )
-      })
-
-      if (!downloadLink) {
-        return null
-      }
-
-      // downloadLink['href'] will end with .meta4, we need to remove that to get the actual download URL
-      const download_url = downloadLink['href'].substring(0, downloadLink['href'].length - 6)
-      const file_name = download_url.split('/').pop() || `${entry.title}.zim`
-      const sizeBytes = parseInt(downloadLink['length'], 10)
-
-      return {
-        id: entry.id,
-        title: entry.title,
-        updated: entry.updated,
-        summary: entry.summary,
-        size_bytes: sizeBytes || 0,
-        download_url: download_url,
-        author: entry.author.name,
-        file_name: file_name,
-      }
-    })
-
-    // Filter out any null entries (those without a valid download link)
-    // or files that already exist in the local storage
+    // Snapshot locally-installed files once — the filesystem won't change mid-request.
     const existing = await this.list()
     const existingKeys = new Set(existing.files.map((file) => file.name))
-    const withoutExisting = mapped.filter(
-      (entry): entry is RemoteZimFileEntry => entry !== null && !existingKeys.has(entry.file_name)
-    )
+
+    const accumulated: RemoteZimFileEntry[] = []
+    const seenIds = new Set<string>()
+    let currentStart = start
+    let totalResults = 0
+
+    for (let i = 0; i < MAX_KIWIX_FETCHES; i++) {
+      const res = await axios.get(LIBRARY_BASE_URL, {
+        params: {
+          start: currentStart,
+          count: KIWIX_PAGE_SIZE,
+          lang: 'eng',
+          ...(query ? { q: query } : {}),
+        },
+        responseType: 'text',
+      })
+
+      const parsed = parser.parse(res.data)
+      if (!isRawListRemoteZimFilesResponse(parsed)) {
+        throw new Error('Invalid response format from remote library')
+      }
+      totalResults = parsed.feed.totalResults
+
+      const rawEntries = parsed.feed.entry
+        ? Array.isArray(parsed.feed.entry)
+          ? parsed.feed.entry
+          : [parsed.feed.entry]
+        : []
+
+      // Empty upstream response — bail even if totalResults suggests more (transient Kiwix
+      // hiccup or totalResults drift between pages). Prevents a pointless spin.
+      if (rawEntries.length === 0) break
+
+      // Advance by actual returned count, not requested count. Short pages at the tail
+      // would otherwise cause us to skip entries on the next fetch.
+      currentStart += rawEntries.length
+
+      for (const raw of rawEntries) {
+        if (!isRawRemoteZimFileEntry(raw)) continue
+        const entry = raw as RawRemoteZimFileEntry
+
+        const downloadLink = entry.link.find(
+          (link: any) =>
+            typeof link === 'object' &&
+            'rel' in link &&
+            'length' in link &&
+            'href' in link &&
+            'type' in link &&
+            link.type === 'application/x-zim'
+        )
+        if (!downloadLink) continue
+
+        // downloadLink['href'] ends with .meta4; strip that to get the actual .zim URL.
+        const download_url = downloadLink['href'].substring(0, downloadLink['href'].length - 6)
+        const file_name = download_url.split('/').pop() || `${entry.title}.zim`
+        if (existingKeys.has(file_name)) continue
+        if (seenIds.has(entry.id)) continue
+        seenIds.add(entry.id)
+
+        const sizeBytes = parseInt(downloadLink['length'], 10)
+        accumulated.push({
+          id: entry.id,
+          title: entry.title,
+          updated: entry.updated,
+          summary: entry.summary,
+          size_bytes: sizeBytes || 0,
+          download_url,
+          author: entry.author.name,
+          file_name,
+        })
+      }
+
+      if (accumulated.length >= count) break
+      if (currentStart >= totalResults) break
+    }
 
     return {
-      items: withoutExisting,
-      has_more: result.feed.totalResults > start,
-      total_count: result.feed.totalResults,
+      items: accumulated,
+      has_more: currentStart < totalResults,
+      total_count: totalResults,
+      next_start: currentStart,
     }
   }
 
