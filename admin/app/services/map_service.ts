@@ -120,22 +120,23 @@ export class MapService implements IMapService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
+      const resourceUrl = resource.url!
       try {
-        assertNotPrivateUrl(resource.url)
+        assertNotPrivateUrl(resourceUrl)
       } catch {
-        logger.warn(`[MapService] Blocked download from private/loopback URL: ${resource.url}`)
+        logger.warn(`[MapService] Blocked download from private/loopback URL: ${resourceUrl}`)
         continue
       }
 
-      const existing = await RunDownloadJob.getActiveByUrl(resource.url)
+      const existing = await RunDownloadJob.getActiveByUrl(resourceUrl)
       if (existing) {
-        logger.warn(`[MapService] Download already in progress for URL ${resource.url}, skipping.`)
+        logger.warn(`[MapService] Download already in progress for URL ${resourceUrl}, skipping.`)
         continue
       }
 
-      const filename = resource.url.split('/').pop()
+      const filename = resourceUrl.split('/').pop()
       if (!filename) {
-        logger.warn(`[MapService] Could not determine filename from URL ${resource.url}, skipping.`)
+        logger.warn(`[MapService] Could not determine filename from URL ${resourceUrl}, skipping.`)
         continue
       }
 
@@ -143,7 +144,7 @@ export class MapService implements IMapService {
       const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
       await RunDownloadJob.dispatch({
-        url: resource.url,
+        url: resourceUrl,
         filepath,
         timeout: 30000,
         allowedMimeTypes: PMTILES_MIME_TYPES,
@@ -152,7 +153,7 @@ export class MapService implements IMapService {
         title: (resource as any).title || undefined,
         resourceMetadata: {
           resource_id: resource.id,
-          version: resource.version,
+          version: resource.version || '',
           collection_ref: slug,
         },
       })

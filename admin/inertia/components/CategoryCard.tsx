@@ -1,4 +1,5 @@
 import { formatBytes } from '~/lib/util'
+import { getResourceSizeForLang, getLanguageBreakdown, resolveTierResources } from '~/lib/collections'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CategoryWithStatus, SpecTier } from '../../types/collections'
 import classNames from 'classnames'
@@ -7,13 +8,14 @@ import { IconChevronRight, IconCircleCheck } from '@tabler/icons-react'
 export interface CategoryCardProps {
   category: CategoryWithStatus
   selectedTier?: SpecTier | null
+  language?: string
   onClick?: (category: CategoryWithStatus) => void
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onClick }) => {
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, language = 'en', onClick }) => {
   // Calculate total size range across all tiers
   const getTierTotalSize = (tier: SpecTier, allTiers: SpecTier[]): number => {
-    let total = tier.resources.reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
+    let total = tier.resources.reduce((acc, r) => acc + getResourceSizeForLang(r, language) * 1024 * 1024, 0)
 
     // Add included tier sizes recursively
     if (tier.includesTier) {
@@ -28,6 +30,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
 
   const minSize = getTierTotalSize(category.tiers[0], category.tiers)
   const maxSize = getTierTotalSize(category.tiers[category.tiers.length - 1], category.tiers)
+
+  // Language breakdown for the highest tier (to show in the card)
+  const maxTier = category.tiers[category.tiers.length - 1]
+  const maxTierAllResources = resolveTierResources(maxTier, category.tiers)
+  const breakdown = language !== 'en' ? getLanguageBreakdown(maxTierAllResources, language) : null
 
   // Determine which tier to highlight: selectedTier (wizard) > installedTierSlug (persisted)
   const highlightedTierSlug = selectedTier?.slug || category.installedTierSlug
@@ -87,6 +94,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
         </div>
         <p className="text-gray-300 text-xs mt-3">
           Size: {formatBytes(minSize, 1)} - {formatBytes(maxSize, 1)}
+          {breakdown && breakdown.inSelectedLang > 0 && (
+            <span className="ml-2 text-lime-300">
+              ({formatBytes(breakdown.inSelectedLang, 1)} {language.toUpperCase()})
+            </span>
+          )}
         </p>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { DateTime } from 'luxon'
 import { join } from 'path'
 import CollectionManifest from '#models/collection_manifest'
 import InstalledResource from '#models/installed_resource'
+import KVStore from '#models/kv_store'
 import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema } from '#validators/curated_collections'
 import {
   ensureDirectoryExists,
@@ -69,7 +70,7 @@ export class CollectionManifestService {
 
       return true
     } catch (error) {
-      logger.error(`[CollectionManifestService] Failed to fetch spec for ${type}:`, error?.message || error)
+      logger.warn(`[CollectionManifestService] Failed to fetch spec for ${type}, will use cache: ${error?.message || error}`)
       return false
     }
   }
@@ -95,12 +96,13 @@ export class CollectionManifestService {
     const spec = await this.getSpecWithFallback<ZimCategoriesSpec>('zim_categories')
     if (!spec) return []
 
+    const lang = await KVStore.getValue('content.language') || 'en'
     const installedResources = await InstalledResource.query().where('resource_type', 'zim')
     const installedMap = new Map(installedResources.map((r) => [r.resource_id, r]))
 
     return spec.categories.map((category) => ({
       ...category,
-      installedTierSlug: this.getInstalledTierForCategory(category.tiers, installedMap),
+      installedTierSlug: this.getInstalledTierForCategory(category.tiers, installedMap, lang),
     }))
   }
 
@@ -150,9 +152,23 @@ export class CollectionManifestService {
     return resources
   }
 
+  /**
+   * Resolves the resource ID for matching against InstalledResource.
+   * For multi-language resources (with zim_name template), substitutes the language.
+   * For English-only resources, returns the spec id directly.
+   */
+  static resolveResourceId(resource: SpecResource, language: string): string {
+    if (resource.zim_name) {
+      const effectiveLang = resource.available_languages?.includes(language) ? language : 'en'
+      return resource.zim_name.replace('{lang}', effectiveLang)
+    }
+    return resource.id
+  }
+
   getInstalledTierForCategory(
     tiers: SpecTier[],
-    installedMap: Map<string, InstalledResource>
+    installedMap: Map<string, InstalledResource>,
+    language: string = 'en'
   ): string | undefined {
     // Check from highest tier to lowest (tiers are ordered low to high in spec)
     const reversedTiers = [...tiers].reverse()
@@ -161,7 +177,10 @@ export class CollectionManifestService {
       const resolved = CollectionManifestService.resolveTierResources(tier, tiers)
       if (resolved.length === 0) continue
 
-      const allInstalled = resolved.every((r) => installedMap.has(r.id))
+      const allInstalled = resolved.every((r) => {
+        const resourceId = CollectionManifestService.resolveResourceId(r, language)
+        return installedMap.has(resourceId)
+      })
       if (allInstalled) {
         return tier.slug
       }
@@ -220,8 +239,8 @@ export class CollectionManifestService {
 
       for (const file of zimFiles) {
         console.log(`Processing ZIM file: ${file.name}`)
-        // Skip Wikipedia files (managed by WikipediaSelection model)
-        if (file.name.startsWith('wikipedia_en_')) continue
+        // Skip Wikipedia files (managed by WikipediaSelection model) — any language
+        if (/^wikipedia_[a-z]{2,3}_/.test(file.name)) continue
 
         const parsed = CollectionManifestService.parseZimFilename(file.name)
         console.log(`Parsed ZIM filename:`, parsed)

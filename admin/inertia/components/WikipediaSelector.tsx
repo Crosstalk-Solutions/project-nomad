@@ -1,52 +1,101 @@
+import { useState } from 'react'
 import { formatBytes } from '~/lib/util'
-import { WikipediaOption, WikipediaCurrentSelection } from '../../types/downloads'
+import { WikipediaOption, WikipediaCurrentSelection, WikipediaLanguage } from '../../types/downloads'
 import classNames from 'classnames'
-import { IconCheck, IconDownload, IconWorld, IconAlertTriangle } from '@tabler/icons-react'
+import { IconCheck, IconDownload, IconWorld, IconAlertTriangle, IconLanguage } from '@tabler/icons-react'
 import StyledButton from './StyledButton'
 import LoadingSpinner from './LoadingSpinner'
 
 export interface WikipediaSelectorProps {
   options: WikipediaOption[]
+  languages: WikipediaLanguage[]
   currentSelection: WikipediaCurrentSelection | null
-  selectedOptionId: string | null // for wizard (pending selection)
+  selectedOptionId: string | null
+  selectedLanguage: string             // iso1 code, e.g. "en"
   onSelect: (optionId: string) => void
+  onLanguageChange: (iso1: string) => void
   disabled?: boolean
-  showSubmitButton?: boolean // true for Content Explorer, false for wizard
+  showSubmitButton?: boolean
   onSubmit?: () => void
   isSubmitting?: boolean
 }
 
 const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
   options,
+  languages,
   currentSelection,
   selectedOptionId,
+  selectedLanguage,
   onSelect,
+  onLanguageChange,
   disabled = false,
   showSubmitButton = false,
   onSubmit,
   isSubmitting = false,
 }) => {
-  // Determine which option to highlight
   const highlightedOptionId = selectedOptionId ?? currentSelection?.optionId ?? null
-
-  // Check if current selection is downloading or failed
   const isDownloading = currentSelection?.status === 'downloading'
   const isFailed = currentSelection?.status === 'failed'
 
+  // Resolve size for current language
+  const getSizeForLang = (option: WikipediaOption): number => {
+    if (option.size_mb_by_lang && selectedLanguage in option.size_mb_by_lang) {
+      return option.size_mb_by_lang[selectedLanguage]
+    }
+    return option.size_mb
+  }
+
+  // Find current language label
+  const currentLang = languages.find((l) => l.iso1 === selectedLanguage)
+
   return (
     <div className="w-full">
-      {/* Header with Wikipedia branding */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
-          <IconWorld className="w-6 h-6 text-text-primary" />
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+            <IconWorld className="w-6 h-6 text-text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-text-primary">Wikipedia</h3>
+            <p className="text-sm text-text-muted">Select your preferred Wikipedia package</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-xl font-semibold text-text-primary">Wikipedia</h3>
-          <p className="text-sm text-text-muted">Select your preferred Wikipedia package</p>
+
+        {/* Language selector */}
+        <div className="flex items-center gap-2">
+          <IconLanguage className="w-4 h-4 text-text-muted" />
+          <select
+            value={selectedLanguage}
+            onChange={(e) => onLanguageChange(e.target.value)}
+            disabled={disabled || isDownloading}
+            className={classNames(
+              'text-sm rounded-md border border-border-subtle bg-surface-primary text-text-primary',
+              'px-3 py-1.5 pr-8 focus:outline-none focus:ring-2 focus:ring-lime-500',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            {languages.map((lang) => (
+              <option key={lang.iso1} value={lang.iso1}>
+                {lang.name_local} ({lang.iso1.toUpperCase()})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Downloading status message */}
+      {/* Language info banner */}
+      {currentLang && selectedLanguage !== 'en' && (
+        <div className="mb-4 p-2.5 bg-surface-secondary border border-border-subtle rounded-lg">
+          <p className="text-xs text-text-muted">
+            Showing Wikipedia in{' '}
+            <span className="font-medium text-text-primary">{currentLang.name_local}</span>
+            {' '}· Sizes may vary from English edition
+          </p>
+        </div>
+      )}
+
+      {/* Downloading status */}
       {isDownloading && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
           <LoadingSpinner fullscreen={false} iconOnly className="size-4" />
@@ -56,7 +105,7 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
         </div>
       )}
 
-      {/* Failed status message */}
+      {/* Failed status */}
       {isFailed && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -73,12 +122,17 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
         {options.map((option) => {
           const isSelected = highlightedOptionId === option.id
           const isInstalled =
-            currentSelection?.optionId === option.id && currentSelection?.status === 'installed'
+            currentSelection?.optionId === option.id &&
+            currentSelection?.status === 'installed' &&
+            currentSelection?.language === selectedLanguage
           const isCurrentDownloading =
             currentSelection?.optionId === option.id && currentSelection?.status === 'downloading'
           const isCurrentFailed =
             currentSelection?.optionId === option.id && currentSelection?.status === 'failed'
-          const isPending = selectedOptionId === option.id && selectedOptionId !== currentSelection?.optionId
+          const isPending =
+            selectedOptionId === option.id && selectedOptionId !== currentSelection?.optionId
+
+          const sizeBytes = getSizeForLang(option) * 1024 * 1024
 
           return (
             <div
@@ -128,7 +182,6 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                 <h4 className="text-lg font-semibold text-text-primary mb-1">{option.name}</h4>
                 <p className="text-sm text-text-secondary mb-3 flex-grow">{option.description}</p>
                 <div className="flex items-center gap-3">
-                  {/* Radio indicator */}
                   <div
                     className={classNames(
                       'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
@@ -144,10 +197,14 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
                   <span
                     className={classNames(
                       'text-sm font-medium px-2 py-1 rounded',
-                      option.size_mb === 0 ? 'bg-surface-secondary text-text-muted' : 'bg-surface-secondary text-text-secondary'
+                      getSizeForLang(option) === 0
+                        ? 'bg-surface-secondary text-text-muted'
+                        : 'bg-surface-secondary text-text-secondary'
                     )}
                   >
-                    {option.size_mb === 0 ? 'No download' : formatBytes(option.size_mb * 1024 * 1024, 1)}
+                    {getSizeForLang(option) === 0
+                      ? 'No download'
+                      : formatBytes(sizeBytes, 1)}
                   </span>
                 </div>
               </div>
@@ -156,20 +213,24 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
         })}
       </div>
 
-      {/* Submit button for Content Explorer mode */}
-      {showSubmitButton && selectedOptionId && (selectedOptionId !== currentSelection?.optionId || isFailed) && (
-        <div className="mt-4 flex justify-end">
-          <StyledButton
-            variant="primary"
-            onClick={onSubmit}
-            disabled={isSubmitting || disabled}
-            loading={isSubmitting}
-            icon="IconDownload"
-          >
-            {selectedOptionId === 'none' ? 'Remove Wikipedia' : 'Download Selected'}
-          </StyledButton>
-        </div>
-      )}
+      {/* Submit button */}
+      {showSubmitButton &&
+        selectedOptionId &&
+        (selectedOptionId !== currentSelection?.optionId ||
+          currentSelection?.language !== selectedLanguage ||
+          isFailed) && (
+          <div className="mt-4 flex justify-end">
+            <StyledButton
+              variant="primary"
+              onClick={onSubmit}
+              disabled={isSubmitting || disabled}
+              loading={isSubmitting}
+              icon="IconDownload"
+            >
+              {selectedOptionId === 'none' ? 'Remove Wikipedia' : 'Download Selected'}
+            </StyledButton>
+          </div>
+        )}
     </div>
   )
 }

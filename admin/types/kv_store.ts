@@ -12,6 +12,7 @@ export const KV_STORE_SCHEMA = {
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',
   'ai.ollamaFlashAttention':    'boolean',
+  'content.language':           'string',  // Global content language preference (ISO 639-1, e.g. "en", "es", "ca")
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string
