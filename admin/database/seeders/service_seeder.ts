@@ -57,6 +57,7 @@ export default class ServiceSeeder extends BaseSeeder {
           PortBindings: { '6333/tcp': [{ HostPort: '6333' }], '6334/tcp': [{ HostPort: '6334' }] },
         },
         ExposedPorts: { '6333/tcp': {}, '6334/tcp': {} },
+        Env: ['QDRANT__TELEMETRY_DISABLED=true'],
       }),
       ui_location: '6333',
       installed: false,
