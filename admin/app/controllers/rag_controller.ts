@@ -97,4 +97,9 @@ export default class RagController {
       return response.status(500).json({ error: 'Error scanning and syncing storage' })
     }
   }
+
+  public async health({ response }: HttpContext) {
+    const result = await this.ragService.checkQdrantHealth()
+    return response.status(200).json(result)
+  }
 }
