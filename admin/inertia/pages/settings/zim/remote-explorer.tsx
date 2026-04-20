@@ -83,8 +83,10 @@ export default function ZimRemoteExplorer() {
     useInfiniteQuery<ListRemoteZimFilesResponse>({
       queryKey: ['remote-zim-files', query],
       queryFn: async ({ pageParam = 0 }) => {
-        const pageParsed = parseInt((pageParam as number).toString(), 10)
-        const start = isNaN(pageParsed) ? 0 : pageParsed * 12
+        // pageParam is an opaque Kiwix offset returned by the backend as `next_start`.
+        // The backend accumulates across multiple upstream pages when needed (#731), so the
+        // frontend can't derive the next offset from a 12-item page assumption.
+        const start = typeof pageParam === 'number' ? pageParam : 0
         const res = await api.listRemoteZimFiles({ start, count: 12, query: query || undefined })
         if (!res) {
           throw new Error('Failed to fetch remote ZIM files.')
@@ -92,12 +94,7 @@ export default function ZimRemoteExplorer() {
         return res.data
       },
       initialPageParam: 0,
-      getNextPageParam: (_lastPage, pages) => {
-        if (!_lastPage.has_more) {
-          return undefined // No more pages to fetch
-        }
-        return pages.length
-      },
+      getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.next_start : undefined),
       refetchOnWindowFocus: false,
       placeholderData: keepPreviousData,
     })
@@ -119,18 +116,16 @@ export default function ZimRemoteExplorer() {
     (parentRef?: HTMLDivElement | null) => {
       if (parentRef) {
         const { scrollHeight, scrollTop, clientHeight } = parentRef
-        //once the user has scrolled within 200px of the bottom of the table, fetch more data if we can
-        if (
-          scrollHeight - scrollTop - clientHeight < 200 &&
-          !isFetching &&
-          hasMore &&
-          flatData.length > 0
-        ) {
+        // Fetch more when near the bottom. The `flatData.length > 0` guard that used to be
+        // here caused the #731 deadlock when a heavily-saturated install returned an empty
+        // page with has_more=true — removing it lets the existing on-mount/on-data effect
+        // below drive bounded auto-fetch until hasMore flips false.
+        if (scrollHeight - scrollTop - clientHeight < 200 && !isFetching && hasMore) {
           fetchNextPage()
         }
       }
     },
-    [fetchNextPage, isFetching, hasMore, flatData.length]
+    [fetchNextPage, isFetching, hasMore]
   )
 
   const virtualizer = useVirtualizer({
