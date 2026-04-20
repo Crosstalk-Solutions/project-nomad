@@ -10,6 +10,7 @@ import StyledModal from '~/components/StyledModal'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Alert from '~/components/Alert'
 import { useNotifications } from '~/context/NotificationContext'
+import ZimUploader from '~/components/ZimUploader'
 import { ZimFileWithMetadata } from '../../../../types/zim'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 import { formatBytes } from '~/lib/util'
@@ -25,6 +26,7 @@ export default function ZimPage() {
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.KIWIX)
   const [sortKey, setSortKey] = useState<SortKey>('size')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [showUploader, setShowUploader] = useState(false)
   const { data, isLoading } = useQuery<ZimFileWithMetadata[]>({
     queryKey: ['zim-files'],
     queryFn: getFiles,
@@ -135,18 +137,50 @@ export default function ZimPage() {
                 Manage your stored content files.
               </p>
             </div>
-            {isInstalled && (
+            <div className="flex items-center gap-2">
               <StyledButton
                 variant="secondary"
-                icon={'IconRefresh'}
-                loading={rescanMutation.isPending}
-                title="Rebuild the Kiwix library index from the files on disk. Use this after manually adding ZIM files outside of NOMAD."
-                onClick={() => rescanMutation.mutate()}
+                icon={showUploader ? 'IconX' : 'IconUpload'}
+                onClick={() => setShowUploader((v) => !v)}
               >
-                Rescan Library
+                {showUploader ? 'Hide Uploader' : 'Upload ZIM File'}
               </StyledButton>
-            )}
+              {isInstalled && (
+                <StyledButton
+                  variant="secondary"
+                  icon={'IconRefresh'}
+                  loading={rescanMutation.isPending}
+                  title="Rebuild the Kiwix library index from the files on disk. Use this after manually adding ZIM files outside of NOMAD."
+                  onClick={() => rescanMutation.mutate()}
+                >
+                  Rescan Library
+                </StyledButton>
+              )}
+            </div>
           </div>
+          {showUploader && (
+            <div className="mt-6">
+              <p className="text-text-muted text-sm mb-3">
+                Upload a ZIM file from your browser. Files up to 20 GB are supported. For best results upload from the same machine or over a stable LAN connection. Larger files should be copied directly to the storage volume.
+              </p>
+              <ZimUploader
+                existingFilenames={data?.map((f) => f.name) ?? []}
+                onUploadComplete={(added) => {
+                  queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+                  queryClient.invalidateQueries({ queryKey: ['wikipedia-state'] })
+                  queryClient.invalidateQueries({ queryKey: ['curated-categories'] })
+                  setShowUploader(false)
+                  addNotification({
+                    type: 'success',
+                    message:
+                      added > 0
+                        ? `Upload complete. ${added} new ${added === 1 ? 'book' : 'books'} added to the library.`
+                        : 'Upload complete. Library is up to date.',
+                  })
+                }}
+              />
+            </div>
+          )}
           {!isInstalled && (
             <Alert
               title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
