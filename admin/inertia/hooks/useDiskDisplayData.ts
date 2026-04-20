@@ -19,9 +19,15 @@ export function getAllDiskDisplayItems(
 ): DiskDisplayItem[] {
   const validDisks = disks?.filter((d) => d.totalSize > 0) || []
 
-  // If /app/storage is on a dedicated filesystem (e.g. NFS), it won't appear
-  // in the block-device list. Prepend it so NAS and OS disk are both shown.
-  const storageMount = fsSize?.find((fs) => fs.mount === '/app/storage' && fs.size > 0)
+  // If /app/storage is backed by a network filesystem (NFS/CIFS), it won't
+  // appear in the block-device list. Prepend it so NAS and OS disk are both
+  // shown. Local-disk-backed /app/storage is already reported in disk[] and
+  // fsSize[], so skip it here to avoid a phantom "NAS Storage" entry.
+  const NETWORK_FS_TYPES = new Set(['nfs', 'nfs4', 'cifs', 'smbfs', 'smb2', 'smb3'])
+  const storageMount = fsSize?.find(
+    (fs) =>
+      fs.mount === '/app/storage' && fs.size > 0 && NETWORK_FS_TYPES.has(fs.type?.toLowerCase())
+  )
   const storageMountItem: DiskDisplayItem[] = storageMount
     ? [
         {
