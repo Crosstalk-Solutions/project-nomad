@@ -6,17 +6,15 @@ Potential categories to add to the tiered collections system in `kiwix-categorie
 - [x] Medicine - Medical references, first aid, emergency care
 - [x] Survival & Preparedness - Food prep, prepper videos, repair guides
 - [x] Education & Reference - Wikipedia, textbooks, TED talks
+- [x] DIY & Repair - Home improvement, woodworking, vehicle maintenance, iFixit
+- [x] Agriculture & Food - Gardening, cooking, homesteading, food preservation
+- [x] Computing & Technology - freeCodeCamp, DevDocs, electronics, Raspberry Pi
+- [x] Trades & Vocational - iFixit, mechanics, engineering, workforce textbooks, Gutenberg Technology
+- [x] Communications - Amateur radio, network engineering, S2 Underground, Army field manuals
 
 ---
 
 ## High Priority
-
-### Technology & Programming
-Stack Overflow, developer documentation, coding tutorials
-- Stack Overflow (multiple tags available)
-- DevDocs documentation
-- freeCodeCamp
-- Programming language references
 
 ### Children & Family
 Age-appropriate educational content for kids
@@ -24,22 +22,6 @@ Age-appropriate educational content for kids
 - Wikibooks Children's Bookshelf
 - Khan Academy Kids (via Kolibri - separate system)
 - Storybooks, fairy tales
-
-### Trades & Vocational
-Practical skills for building, fixing, and maintaining
-- Electrical wiring guides
-- Plumbing basics
-- Automotive repair
-- Woodworking
-- Welding fundamentals
-
-### Agriculture & Gardening
-Food production and farming (expand beyond what's in Survival)
-- Practical Plants database
-- Permaculture guides
-- Seed saving
-- Animal husbandry
-- Composting and soil management
 
 ---
 
@@ -65,13 +47,6 @@ Laws, rights, and civic procedures
 - Constitutional documents
 - Civic procedures
 - Rights and responsibilities
-
-### Communications
-Emergency and amateur radio, networking
-- Ham radio guides
-- Emergency communication protocols
-- Basic networking/IT
-- Signal procedures
 
 ---
 
@@ -105,3 +80,5 @@ Content in other languages
 - Check Kiwix catalog for available ZIM files: https://download.kiwix.org/zim/
 - Consider storage constraints - Essential tiers should be <500MB ideally
 - Mark one tier as `recommended: true` (usually Essential)
+- When bumping existing ZIM versions, also bump `spec_version` (used as the cache-invalidation key in `admin/app/services/collection_manifest_service.ts`)
+- Icons must be in the `DynamicIcon` allowlist at `admin/inertia/lib/icons.ts` — add the Tabler icon there before referencing it in a category
