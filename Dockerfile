@@ -43,8 +43,10 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app
-# Copy root package.json for version info
-COPY package.json /app/version.json
+# Generate version.json from the VERSION build-arg so the image tag is the
+# single source of truth (previously copied root package.json, which drifted
+# from the tag when semantic-release did not commit the bump back).
+RUN echo "{\"version\":\"${VERSION}\"}" > /app/version.json
 
 # Copy docs and README for access within the container
 COPY admin/docs /app/docs
