@@ -1,5 +1,5 @@
 {
-  "spec_version": "2026-03-15",
+  "spec_version": "2026-04-21",
   "categories": [
     {
       "name": "Medicine",
@@ -72,11 +72,11 @@
           "resources": [
             {
               "id": "wikipedia_en_medicine_maxi",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "Wikipedia Medicine",
               "description": "Curated medical articles from Wikipedia with images",
-              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-01.zim",
-              "size_mb": 2000
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-04.zim",
+              "size_mb": 2113
             },
             {
               "id": "libretexts.org_en_med",
@@ -302,7 +302,7 @@
               "title": "LibreTexts Engineering",
               "description": "Engineering courses and technical references",
               "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_eng_2025-01.zim",
-              "size_mb": 678
+              "size_mb": 647
             },
             {
               "id": "libretexts.org_en_biz",
@@ -335,7 +335,7 @@
               "title": "Woodworking Q&A",
               "description": "Stack Exchange Q&A for carpentry, joinery, and woodcraft",
               "url": "https://download.kiwix.org/zim/stack_exchange/woodworking.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 99
+              "size_mb": 100
             },
             {
               "id": "mechanics.stackexchange.com_en_all",
@@ -343,7 +343,7 @@
               "title": "Motor Vehicle Maintenance Q&A",
               "description": "Stack Exchange Q&A for car and motorcycle repair",
               "url": "https://download.kiwix.org/zim/stack_exchange/mechanics.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 321
+              "size_mb": 323
             }
           ]
         },
@@ -375,7 +375,7 @@
               "title": "iFixit Repair Guides",
               "description": "Step-by-step repair guides for electronics, appliances, and vehicles",
               "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
-              "size_mb": 3380
+              "size_mb": 3405
             }
           ]
         }
@@ -452,11 +452,11 @@
           "resources": [
             {
               "id": "lrnselfreliance_en_all",
-              "version": "2025-12",
+              "version": "2026-03",
               "title": "Learning Self-Reliance: Homesteading",
               "description": "Beekeeping, animal husbandry, and sustainable living practices",
-              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
-              "size_mb": 3970
+              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2026-03.zim",
+              "size_mb": 3790
             },
             {
               "id": "gutenberg_en_lcc-s",
@@ -501,26 +501,26 @@
             },
             {
               "id": "devdocs_en_javascript",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "JavaScript Documentation",
               "description": "MDN JavaScript reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-04.zim",
               "size_mb": 3
             },
             {
               "id": "devdocs_en_html",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "HTML Documentation",
               "description": "MDN HTML elements and attributes reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-04.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_css",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "CSS Documentation",
               "description": "MDN CSS properties and selectors reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-04.zim",
               "size_mb": 5
             }
           ]
@@ -565,11 +565,11 @@
             },
             {
               "id": "devdocs_en_git",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "Git Documentation",
               "description": "Git version control reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-01.zim",
-              "size_mb": 1
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-04.zim",
+              "size_mb": 2
             }
           ]
         },
@@ -585,7 +585,7 @@
               "title": "Electronics Q&A",
               "description": "Stack Exchange Q&A for circuit design, components, and electrical engineering",
               "url": "https://download.kiwix.org/zim/stack_exchange/electronics.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 3800
+              "size_mb": 3989
             },
             {
               "id": "robotics.stackexchange.com_en_all",
@@ -597,19 +597,189 @@
             },
             {
               "id": "devdocs_en_docker",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "Docker Documentation",
               "description": "Docker container reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-04.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_bash",
-              "version": "2026-01",
+              "version": "2026-04",
               "title": "Linux Documentation",
               "description": "Linux command reference and system administration",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-04.zim",
               "size_mb": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Trades & Vocational",
+      "slug": "trades",
+      "icon": "IconTool",
+      "description": "Practical skills for building, fixing, and maintaining: repair guides, mechanics, woodworking, electronics, and technical manuals.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "trades-essential",
+          "description": "Hands-on repair and shop fundamentals. Start here.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "ifixit_en_all",
+              "version": "2025-12",
+              "title": "iFixit",
+              "description": "Community-contributed repair guides for phones, laptops, appliances, vehicles, and more.",
+              "url": "https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim",
+              "size_mb": 3405
+            },
+            {
+              "id": "mechanics.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Motor Vehicle Mechanics Q&A",
+              "description": "Stack Exchange Q&A for car, truck, and small-engine repair and maintenance.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/mechanics.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 323
+            },
+            {
+              "id": "woodworking.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Woodworking Q&A",
+              "description": "Carpentry, cabinetry, tool selection, and finishing techniques.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/woodworking.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 100
+            },
+            {
+              "id": "engineering.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Engineering Q&A",
+              "description": "Cross-discipline engineering questions: structural, mechanical, materials, and design.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/engineering.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 242
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "trades-standard",
+          "description": "Electronics, workforce-readiness texts, and networking. Includes everything in Essential.",
+          "includesTier": "trades-essential",
+          "resources": [
+            {
+              "id": "electronics.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Electronics Q&A",
+              "description": "Circuits, microcontrollers, soldering, and troubleshooting - the DIY electronics reference.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/electronics.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 3989
+            },
+            {
+              "id": "libretexts.org_en_eng",
+              "version": "2025-01",
+              "title": "LibreTexts Engineering",
+              "description": "Open-source engineering textbooks across mechanical, electrical, civil, and chemical disciplines.",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_eng_2025-01.zim",
+              "size_mb": 647
+            },
+            {
+              "id": "libretexts.org_en_workforce",
+              "version": "2026-01",
+              "title": "LibreTexts Workforce",
+              "description": "Vocational and applied-trades textbooks covering construction, HVAC, automotive, and welding fundamentals.",
+              "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_workforce_2026-01.zim",
+              "size_mb": 490
+            },
+            {
+              "id": "networkengineering.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Network Engineering Q&A",
+              "description": "Routing, switching, cabling, and small-network design.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/networkengineering.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 124
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "trades-comprehensive",
+          "description": "Classic technology literature and historical technical manuals. Includes everything in Standard.",
+          "includesTier": "trades-standard",
+          "resources": [
+            {
+              "id": "gutenberg_en_lcc-t",
+              "version": "2026-03",
+              "title": "Project Gutenberg: Technology",
+              "description": "Library of Congress Class T - engineering, manufacturing, photography, mining, and handicrafts.",
+              "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-t_2026-03.zim",
+              "size_mb": 12545
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Communications",
+      "slug": "communications",
+      "icon": "IconAntenna",
+      "description": "Amateur radio, signal operations, and networking references for emergency and off-grid communication.",
+      "language": "en",
+      "tiers": [
+        {
+          "name": "Essential",
+          "slug": "communications-essential",
+          "description": "Amateur radio Q&A for license study and day-to-day operations. Start here.",
+          "recommended": true,
+          "resources": [
+            {
+              "id": "ham.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Amateur Radio Q&A",
+              "description": "Stack Exchange Q&A covering HF/VHF/UHF operation, antennas, propagation, and licensing.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 72
+            }
+          ]
+        },
+        {
+          "name": "Standard",
+          "slug": "communications-standard",
+          "description": "Open-source intelligence video library and networking Q&A. Includes everything in Essential.",
+          "includesTier": "communications-essential",
+          "resources": [
+            {
+              "id": "s2underground_en_all",
+              "version": "2026-04",
+              "title": "S2 Underground",
+              "description": "Open-source intelligence and communications-security video library.",
+              "url": "https://download.kiwix.org/zim/videos/s2underground_en_all_2026-04.zim",
+              "size_mb": 4640
+            },
+            {
+              "id": "networkengineering.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Network Engineering Q&A",
+              "description": "Small-network design, routing, and cabling for on-site or off-grid networks.",
+              "url": "https://download.kiwix.org/zim/stack_exchange/networkengineering.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 124
+            }
+          ]
+        },
+        {
+          "name": "Comprehensive",
+          "slug": "communications-comprehensive",
+          "description": "U.S. Army signal operations and technical-manual archive. Includes everything in Standard.",
+          "includesTier": "communications-standard",
+          "resources": [
+            {
+              "id": "armypubs_en_all",
+              "version": "2024-12",
+              "title": "U.S. Army Publishing Directorate",
+              "description": "Field manuals including the FM 6 series (signal operations) and broader technical/doctrinal references.",
+              "url": "https://download.kiwix.org/zim/zimit/armypubs_en_all_2024-12.zim",
+              "size_mb": 7851
             }
           ]
         }

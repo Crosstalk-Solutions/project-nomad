@@ -44,6 +44,7 @@ import {
   IconPlant,
   IconCode,
   IconMap,
+  IconAntenna,
 } from '@tabler/icons-react'
 
 /**
@@ -55,6 +56,7 @@ import {
  */
 export const icons = {
   IconAlertTriangle,
+  IconAntenna,
   IconArrowLeft,
   IconArrowRight,
   IconArrowUp,
