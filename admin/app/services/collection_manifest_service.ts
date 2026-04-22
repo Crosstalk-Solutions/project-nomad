@@ -3,6 +3,8 @@ import vine from '@vinejs/vine'
 import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { join } from 'path'
+import { readFile } from 'fs/promises'
+import env from '#start/env'
 import CollectionManifest from '#models/collection_manifest'
 import InstalledResource from '#models/installed_resource'
 import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema } from '#validators/curated_collections'
@@ -22,10 +24,26 @@ import type {
   SpecTier,
 } from '../../types/collections.js'
 
-const SPEC_URLS: Record<ManifestType, string> = {
-  zim_categories: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
-  maps: 'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/collections/maps.json',
-  wikipedia: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
+// Base URL where the canonical collection specs live. Override via
+// NOMAD_SPEC_BASE_URL to test a fork or branch without waiting for upstream
+// merge (see env.ts). Trailing slash tolerated.
+const DEFAULT_SPEC_BASE_URL =
+  'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections'
+
+const SPEC_FILENAMES: Record<ManifestType, string> = {
+  zim_categories: 'kiwix-categories.json',
+  maps: 'maps.json',
+  wikipedia: 'wikipedia.json',
+}
+
+// Directory where collection specs are bundled with the image (see Dockerfile).
+// Used as an offline-safe fallback when the remote spec is unreachable AND the
+// DB cache is empty (e.g. first boot without internet).
+const LOCAL_SPEC_DIR = join(process.cwd(), 'collections')
+
+function getSpecUrl(type: ManifestType): string {
+  const base = (env.get('NOMAD_SPEC_BASE_URL') || DEFAULT_SPEC_BASE_URL).replace(/\/$/, '')
+  return `${base}/${SPEC_FILENAMES[type]}`
 }
 
 const VALIDATORS: Record<ManifestType, any> = {
@@ -41,7 +59,7 @@ export class CollectionManifestService {
 
   async fetchAndCacheSpec(type: ManifestType): Promise<boolean> {
     try {
-      const response = await axios.get(SPEC_URLS[type], { timeout: 15000 })
+      const response = await axios.get(getSpecUrl(type), { timeout: 15000 })
 
       const validated = await vine.validate({
         schema: VALIDATORS[type],
@@ -80,13 +98,44 @@ export class CollectionManifestService {
     return manifest.spec_data as T
   }
 
+  /**
+   * Read the spec JSON bundled inside the Docker image. Returns null if the
+   * file is missing or invalid — callers should treat this as the last-resort
+   * fallback after remote fetch and DB cache have both failed.
+   */
+  async getLocalSpec<T>(type: ManifestType): Promise<T | null> {
+    try {
+      const path = join(LOCAL_SPEC_DIR, SPEC_FILENAMES[type])
+      const raw = await readFile(path, 'utf-8')
+      const data = JSON.parse(raw)
+      const validated = await vine.validate({
+        schema: VALIDATORS[type],
+        data,
+      })
+      return validated as T
+    } catch (error: any) {
+      logger.warn(`[CollectionManifestService] Bundled local spec unavailable for ${type}: ${error?.message || error}`)
+      return null
+    }
+  }
+
   async getSpecWithFallback<T>(type: ManifestType): Promise<T | null> {
     try {
       await this.fetchAndCacheSpec(type)
     } catch {
-      // Fetch failed, will fall back to cache
+      // Fetch failed, will fall back to cache or bundled local
     }
-    return this.getCachedSpec<T>(type)
+
+    const cached = await this.getCachedSpec<T>(type)
+    if (cached) return cached
+
+    // Neither remote nor DB cache available (typical on first boot without
+    // internet). Fall back to the spec bundled with the image.
+    const local = await this.getLocalSpec<T>(type)
+    if (local) {
+      logger.info(`[CollectionManifestService] Using bundled local spec for ${type} (no remote, no cache)`)
+    }
+    return local
   }
 
   // ---- Status computation ----

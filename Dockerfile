@@ -50,6 +50,12 @@ COPY package.json /app/version.json
 COPY admin/docs /app/docs
 COPY README.md /app/README.md
 
+# Bundle collection spec files (Wikipedia, Kiwix categories, Maps) so NOMAD
+# remains usable offline when upstream GitHub is unreachable (first install
+# on an airgapped host, or as a fallback when the remote spec is older than
+# what ships with the image).
+COPY collections /app/collections
+
 # Copy entrypoint script and ensure it's executable
 COPY install/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

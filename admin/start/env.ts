@@ -30,6 +30,17 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Variables for configuring collection spec source
+  |----------------------------------------------------------
+  | Override to point at a fork/branch/mirror when testing
+  | changes to kiwix-categories.json / wikipedia.json / maps.json
+  | without waiting for them to be merged to upstream main.
+  | If unset, NOMAD uses the official upstream URL.
+  */
+  NOMAD_SPEC_BASE_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring session package
   |----------------------------------------------------------
   */
