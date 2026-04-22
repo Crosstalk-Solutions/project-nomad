@@ -53,8 +53,10 @@ export class CollectionUpdateService {
         `[CollectionUpdateService] Update check complete: ${response.data.length} update(s) available`
       )
 
+      const updates = await this.enrichWithSizes(response.data)
+
       return {
-        updates: response.data,
+        updates,
         checked_at: new Date().toISOString(),
       }
     } catch (error) {
@@ -105,6 +107,8 @@ export class CollectionUpdateService {
         update.resource_type === 'zim' ? ZIM_MIME_TYPES : PMTILES_MIME_TYPES,
       forceNew: true,
       filetype: update.resource_type,
+      title: update.resource_id,
+      totalBytes: update.size_bytes,
       resourceMetadata: {
         resource_id: update.resource_id,
         version: update.latest_version,
@@ -126,19 +130,40 @@ export class CollectionUpdateService {
   async applyAllUpdates(
     updates: ResourceUpdateInfo[]
   ): Promise<{ results: Array<{ resource_id: string; success: boolean; jobId?: string; error?: string }> }> {
-    const results: Array<{
-      resource_id: string
-      success: boolean
-      jobId?: string
-      error?: string
-    }> = []
-
-    for (const update of updates) {
-      const result = await this.applyUpdate(update)
-      results.push({ resource_id: update.resource_id, ...result })
-    }
+    const results = await Promise.all(
+      updates.map(async (update) => {
+        const result = await this.applyUpdate(update)
+        return { resource_id: update.resource_id, ...result }
+      })
+    )
 
     return { results }
+  }
+
+  /**
+   * Fetch Content-Length for each update URL in parallel. HEAD failures are non-fatal —
+   * the update row just renders without a size. Bounded to HEAD_TIMEOUT_MS so a slow
+   * mirror doesn't block the whole check.
+   */
+  private async enrichWithSizes(updates: ResourceUpdateInfo[]): Promise<ResourceUpdateInfo[]> {
+    const HEAD_TIMEOUT_MS = 5000
+
+    return await Promise.all(
+      updates.map(async (update) => {
+        if (update.size_bytes) return update // Trust upstream if it already gave us one
+        try {
+          const head = await axios.head(update.download_url, {
+            timeout: HEAD_TIMEOUT_MS,
+            maxRedirects: 5,
+            validateStatus: (s) => s >= 200 && s < 400,
+          })
+          const len = Number(head.headers['content-length'])
+          return Number.isFinite(len) && len > 0 ? { ...update, size_bytes: len } : update
+        } catch {
+          return update
+        }
+      })
+    )
   }
 
   private buildFilename(update: ResourceUpdateInfo): string {

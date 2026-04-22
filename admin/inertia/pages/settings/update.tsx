@@ -12,9 +12,10 @@ import type { ContentUpdateCheckResult, ResourceUpdateInfo } from '../../../type
 import api from '~/lib/api'
 import Input from '~/components/inputs/Input'
 import Switch from '~/components/inputs/Switch'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNotifications } from '~/context/NotificationContext'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import { formatBytes } from '~/lib/util'
 
 type Props = {
   updateAvailable: boolean
@@ -25,6 +26,7 @@ type Props = {
 
 function ContentUpdatesSection() {
   const { addNotification } = useNotifications()
+  const queryClient = useQueryClient()
   const [checkResult, setCheckResult] = useState<ContentUpdateCheckResult | null>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
@@ -60,6 +62,9 @@ function ContentUpdatesSection() {
             ? { ...prev, updates: prev.updates.filter((u) => u.resource_id !== update.resource_id) }
             : prev
         )
+        // Force Active Downloads to refetch now — small updates finish before the next
+        // idle poll fires, so without this the user wouldn't see them.
+        queryClient.invalidateQueries({ queryKey: ['download-jobs'] })
       } else {
         addNotification({ type: 'error', message: result?.error || 'Failed to start update' })
       }
@@ -95,6 +100,9 @@ function ContentUpdatesSection() {
             ? { ...prev, updates: prev.updates.filter((u) => !successIds.has(u.resource_id)) }
             : prev
         )
+        if (successIds.size > 0) {
+          queryClient.invalidateQueries({ queryKey: ['download-jobs'] })
+        }
       }
     } catch {
       addNotification({ type: 'error', message: 'Failed to apply updates' })
@@ -179,6 +187,15 @@ function ContentUpdatesSection() {
                         }`}
                     >
                       {record.resource_type === 'zim' ? 'ZIM' : 'Map'}
+                    </span>
+                  ),
+                },
+                {
+                  accessor: 'size_bytes',
+                  title: 'Size',
+                  render: (record) => (
+                    <span className="text-desert-stone-dark">
+                      {record.size_bytes ? formatBytes(record.size_bytes, 1) : '—'}
                     </span>
                   ),
                 },
