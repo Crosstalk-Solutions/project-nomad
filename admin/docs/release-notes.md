@@ -11,6 +11,7 @@
 - **Downloads**: Downloads are now staged to .tmp files and atomically renamed upon completion to prevent issues with incomplete/corrupt files. Thanks @artbird309 for the contribution!
 - **Downloads**: Removed a duplicate error listener and improved stability when handling Range requests for file downloads. Thanks @jakeaturner for the contribution!
 - **Downloads**: Added improved handling for corrupt ZIM file downloads and removed duplicate Ollama download logs. Thanks @aegisman for the contribution!
+- **Maps**: Fixed an issue where the markers API silently dropped the `notes` and `marker_type` fields when creating or updating a marker, and where marker position could not be changed via the update endpoint. Thanks @jrsphoto for the bug report and fix!
 - **Security**: Closed a potential SSRF vulnerability in the map file download functionality by implementing stricter URL validation and blocking private IP ranges. Thanks @LuisMIguelFurlanettoSousa for the fix!
 - **Security**: Sanitized error messages from the backend to prevent potential information disclosure. Thanks @LuisMIguelFurlanettoSousa for the fix!
 
