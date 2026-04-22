@@ -11,7 +11,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { Head } from '@inertiajs/react'
-import { ListRemoteZimFilesResponse, RemoteZimFileEntry } from '../../../../types/zim'
+import { ListRemoteZimFilesResponse, RemoteZimFileEntry, ZimFileWithMetadata } from '../../../../types/zim'
 import { formatBytes } from '~/lib/util'
 import StyledButton from '~/components/StyledButton'
 import { useModals } from '~/context/ModalContext'
@@ -79,6 +79,43 @@ export default function ZimRemoteExplorer() {
     enabled: true,
   })
 
+  // Installed ZIM files — used to prune stale entries from already-fetched remote pages
+  // after a download completes. listRemote() only filters at fetch time, so pages fetched
+  // mid-download keep the now-installed ZIM in the client's accumulated list until
+  // something invalidates it. Shares the ['zim-files'] cache with the Content Manager page.
+  const { data: installedZimFiles } = useQuery<ZimFileWithMetadata[]>({
+    queryKey: ['zim-files'],
+    queryFn: async () => {
+      const res = await api.listZimFiles()
+      return res?.data?.files || []
+    },
+    refetchOnWindowFocus: false,
+  })
+
+  const installedFileNames = useMemo(
+    () => new Set((installedZimFiles || []).map((f) => f.name)),
+    [installedZimFiles]
+  )
+
+  // When a ZIM download drops off the polled list it has completed (or been cancelled).
+  // Re-fetch installed files so the filter below picks up the new install on the next render.
+  const prevDownloadKeysRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const currentKeys = new Set((downloads || []).map((d) => d.jobId))
+    const prevKeys = prevDownloadKeysRef.current
+    let anyRemoved = false
+    for (const k of prevKeys) {
+      if (!currentKeys.has(k)) {
+        anyRemoved = true
+        break
+      }
+    }
+    prevDownloadKeysRef.current = currentKeys
+    if (anyRemoved) {
+      queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+    }
+  }, [downloads, queryClient])
+
   const { data, fetchNextPage, isFetching, isLoading } =
     useInfiniteQuery<ListRemoteZimFilesResponse>({
       queryKey: ['remote-zim-files', query],
@@ -101,15 +138,19 @@ export default function ZimRemoteExplorer() {
 
   const flatData = useMemo(() => {
     const mapped = data?.pages.flatMap((page) => page.items) || []
-    // remove items that are currently downloading
+    // Remove items that are currently downloading OR already installed. The installed
+    // check catches the ghost-entry case: a page fetched mid-download was returned by
+    // listRemote() before the file existed on disk; once the download completes, the
+    // in-progress filter stops matching but the item is still in the accumulated list.
     return mapped.filter((item) => {
+      const filename = item.download_url.split('/').pop()
+      if (filename && installedFileNames.has(filename)) return false
       const isDownloading = downloads?.some((download) => {
-        const filename = item.download_url.split('/').pop()
         return filename && download.filepath.endsWith(filename)
       })
       return !isDownloading
     })
-  }, [data, downloads])
+  }, [data, downloads, installedFileNames])
   const hasMore = useMemo(() => data?.pages[data.pages.length - 1]?.has_more || false, [data])
 
   const fetchOnBottomReached = useCallback(
