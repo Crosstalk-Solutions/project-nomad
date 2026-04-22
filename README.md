@@ -115,7 +115,7 @@ By design, Project N.O.M.A.D. is intended to be open and available without hurdl
 For now, we recommend using network-level controls to manage access if you're planning to expose your N.O.M.A.D. instance to other devices on a local network. N.O.M.A.D. is not designed to be exposed directly to the internet, and we strongly advise against doing so unless you really know what you're doing, have taken appropriate security measures, and understand the risks involved.
 
 ### How to configure authentication with Caddy (network level authentication)
-It is possible to use a caddy configuration in order to prevent users from accessing certain pages, apps or ports. Here we will show how to configure the settings menu to require a username and password to access. It is recommended not to expose your system to the internet unless you know what you are doing. Please follow these steps at your own risk.
+It is possible to use a caddy configuration in order to prevent users from accessing certain pages, apps or ports. Here we will show how to configure the settings menu to require a username and password to access. It is recommended not to expose your system to the internet unless you know what you are doing. Please follow these steps at your own risk. These instructions are intended as a helpful example and not a prescription for good network security policy.
 
 First install caddy:
 ```bash
@@ -139,10 +139,17 @@ Example Configuration File:
 
     reverse_proxy localhost:8080
 
-    @protected path /settings/*
+    @protected {
+        path /settings/*
+        path /api/settings/*
+        path /api/system/*
+        path /api/docker/*
+        path /api/jobs/*
+        path /api/services/*
+    }
+
     basicauth @protected {
         <user> <hash>
-
     }
 }
 
@@ -156,7 +163,10 @@ user: This is the username you want to login with
 
 hash: This is the hash of your password generated in the earlier step
 
-Note that this assumes project nomad is hosted on port 8080. Also, port 8080 (or whichever port you have nomad configured to) does not need to be port forwarded. The reverse proxy will automatically forward the connection.
+Notes:
++ This assumes the nomad command center is hosted on port 8080 (default)
++ Port 8080 (or whichever port is configured for the command center) does not need to be port forwarded. The reverse proxy will automatically forward the connection.
++ If you use a real domain (e.g. nomad.example.com), Caddy will automatically provision and renew TLS certificates via Let’s Encrypt.
 
 Once everything has been configured, restart the caddy service to apply changes:
 ```
