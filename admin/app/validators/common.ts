@@ -100,6 +100,7 @@ const resourceUpdateInfoBase = vine.object({
   installed_version: vine.string().trim(),
   latest_version: vine.string().trim().minLength(1),
   download_url: vine.string().url({ require_tld: false }).trim(),
+  size_bytes: vine.number().positive().optional(),
 })
 
 export const applyContentUpdateValidator = vine.compile(resourceUpdateInfoBase)
