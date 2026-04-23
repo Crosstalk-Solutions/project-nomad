@@ -10,16 +10,19 @@ import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { createHash } from 'crypto'
 // import { readdir } from 'fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
+import env from '#start/env'
 
 @inject()
 export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
-  public static NOMAD_NETWORK = 'project-nomad_default'
+  public static NOMAD_NETWORK = env.get('NOMAD_DOCKER_NETWORK', 'project-nomad_default')
+  public static MANAGED_PROJECT = env.get('NOMAD_MANAGED_PROJECT', 'project-nomad-managed')
 
   private _servicesStatusCache: { data: { service_name: string; status: string }[]; expiresAt: number } | null = null
   private _servicesStatusInflight: Promise<{ service_name: string; status: string }[]> | null = null
@@ -562,12 +565,37 @@ export class DockerService {
         'creating',
         `Creating Docker container for service ${service.service_name}...`
       )
+
+      // Build the full set of docker-compose identity labels so tools like
+      // `docker compose ps`, Unraid's Compose Manager and Portainer recognise
+      // the container as a first-class member of the managed stack. The
+      // project name and the two project path labels are deployment-specific
+      // and come from env vars (with safe defaults when unset).
+      const imageDigest = await this.docker.getImage(finalImage).inspect()
+        .then((i) => i.Id || '')
+        .catch(() => '')
+      const configHash = createHash('sha256').update(service.service_name).digest('hex')
+      const composeLabels: Record<string, string> = {
+        'com.docker.compose.project': DockerService.MANAGED_PROJECT,
+        'com.docker.compose.service': service.service_name,
+        'com.docker.compose.container-number': '1',
+        'com.docker.compose.oneoff': 'False',
+        'com.docker.compose.version': '2.0.0',
+        'com.docker.compose.depends_on': '',
+        'com.docker.compose.config-hash': configHash,
+      }
+      if (imageDigest) composeLabels['com.docker.compose.image'] = imageDigest
+      const managedWorkingDir = env.get('NOMAD_MANAGED_WORKING_DIR')
+      if (managedWorkingDir) composeLabels['com.docker.compose.project.working_dir'] = managedWorkingDir
+      const managedConfigFiles = env.get('NOMAD_MANAGED_CONFIG_FILES')
+      if (managedConfigFiles) composeLabels['com.docker.compose.project.config_files'] = managedConfigFiles
+
       const container = await this.docker.createContainer({
         Image: finalImage,
         name: service.service_name,
         Labels: {
           ...(containerConfig?.Labels ?? {}),
-          'com.docker.compose.project': 'project-nomad-managed',
+          ...composeLabels,
           'io.project-nomad.managed': 'true',
         },
         ...(containerConfig?.User && { User: containerConfig.User }),

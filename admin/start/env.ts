@@ -30,6 +30,34 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Variables for configuring Docker integration
+  |----------------------------------------------------------
+  | Override these when running multiple NOMAD instances on
+  | the same Docker host (e.g. dev and prod side-by-side) so
+  | that managed containers don't collide.
+  */
+  NOMAD_DOCKER_NETWORK: Env.schema.string.optional(),
+  NOMAD_MANAGED_PROJECT: Env.schema.string.optional(),
+  // Optional path labels so `docker compose ps` under the managed project
+  // lists the NOMAD-created containers. unRAID's Compose Manager expects
+  // these to match the stack folder it renders; generic deployments can
+  // leave them empty.
+  NOMAD_MANAGED_WORKING_DIR: Env.schema.string.optional(),
+  NOMAD_MANAGED_CONFIG_FILES: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring collection spec source
+  |----------------------------------------------------------
+  | Override to point at a fork/branch/mirror when testing
+  | changes to kiwix-categories.json / wikipedia.json / maps.json
+  | without waiting for them to be merged to upstream main.
+  | If unset, NOMAD uses the official upstream URL.
+  */
+  NOMAD_SPEC_BASE_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring session package
   |----------------------------------------------------------
   */
