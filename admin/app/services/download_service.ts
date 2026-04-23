@@ -1,12 +1,18 @@
 import { inject } from '@adonisjs/core'
 import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
+import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
+import type { RunExtractPmtilesJobParams } from '#jobs/run_extract_pmtiles_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { DownloadJobWithProgress, DownloadProgressData } from '../../types/downloads.js'
+import type { Job, Queue } from 'bullmq'
 import { normalize } from 'path'
 import { deleteFileIfExists } from '../utils/fs.js'
 import transmit from '@adonisjs/transmit/services/main'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
+
+type FileJobState = 'waiting' | 'active' | 'delayed' | 'failed'
+type TaggedJob = { job: Job; state: FileJobState }
 
 @inject()
 export class DownloadService {
@@ -26,27 +32,32 @@ export class DownloadService {
     return { percent: parseInt(String(progress), 10) || 0 }
   }
 
-  async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
-    // Get regular file download jobs (zim, map, etc.) — query each state separately so we can
-    // tag each job with its actual BullMQ state rather than guessing from progress data.
-    const queue = this.queueService.getQueue(RunDownloadJob.queue)
-    type FileJobState = 'waiting' | 'active' | 'delayed' | 'failed'
-
-    const [waitingJobs, activeJobs, delayedJobs, failedJobs] = await Promise.all([
+  /** Fetch all non-completed jobs from a queue, tagged with their current BullMQ state */
+  private async fetchJobsWithStates(queueName: string): Promise<TaggedJob[]> {
+    const queue = this.queueService.getQueue(queueName)
+    const [waiting, active, delayed, failed] = await Promise.all([
       queue.getJobs(['waiting']),
       queue.getJobs(['active']),
       queue.getJobs(['delayed']),
       queue.getJobs(['failed']),
     ])
-
-    const taggedFileJobs: Array<{ job: (typeof waitingJobs)[0]; state: FileJobState }> = [
-      ...waitingJobs.map((j) => ({ job: j, state: 'waiting' as const })),
-      ...activeJobs.map((j) => ({ job: j, state: 'active' as const })),
-      ...delayedJobs.map((j) => ({ job: j, state: 'delayed' as const })),
-      ...failedJobs.map((j) => ({ job: j, state: 'failed' as const })),
+    return [
+      ...waiting.map((j) => ({ job: j, state: 'waiting' as const })),
+      ...active.map((j) => ({ job: j, state: 'active' as const })),
+      ...delayed.map((j) => ({ job: j, state: 'delayed' as const })),
+      ...failed.map((j) => ({ job: j, state: 'failed' as const })),
     ]
+  }
 
-    const fileDownloads = taggedFileJobs.map(({ job, state }) => {
+  async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
+    const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
+    const [fileTagged, extractTagged, modelJobs] = await Promise.all([
+      this.fetchJobsWithStates(RunDownloadJob.queue),
+      this.fetchJobsWithStates(RunExtractPmtilesJob.queue),
+      modelQueue.getJobs(['waiting', 'active', 'delayed', 'failed']),
+    ])
+
+    const fileDownloads = fileTagged.map(({ job, state }) => {
       const parsed = this.parseProgress(job.progress)
       return {
         jobId: job.id!.toString(),
@@ -63,26 +74,36 @@ export class DownloadService {
       }
     })
 
-    // Get Ollama model download jobs
-    const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
-    const modelJobs = await modelQueue.getJobs(['waiting', 'active', 'delayed', 'failed'])
+    const extractDownloads = extractTagged.map(({ job, state }) => {
+      const parsed = this.parseProgress(job.progress)
+      return {
+        jobId: job.id!.toString(),
+        url: job.data.sourceUrl,
+        progress: parsed.percent,
+        filepath: normalize(job.data.outputFilepath),
+        filetype: job.data.filetype || 'map',
+        title: job.data.title || undefined,
+        downloadedBytes: parsed.downloadedBytes,
+        totalBytes: parsed.totalBytes || job.data.estimatedBytes || undefined,
+        lastProgressTime: parsed.lastProgressTime,
+        status: state,
+        failedReason: job.failedReason || undefined,
+      }
+    })
 
     const modelDownloads = modelJobs.map((job) => ({
       jobId: job.id!.toString(),
-      url: job.data.modelName || 'Unknown Model', // Use model name as url
+      url: job.data.modelName || 'Unknown Model',
       progress: parseInt(job.progress.toString(), 10),
-      filepath: job.data.modelName || 'Unknown Model', // Use model name as filepath
+      filepath: job.data.modelName || 'Unknown Model',
       filetype: 'model',
       status: (job.failedReason ? 'failed' : 'active') as 'active' | 'failed',
       failedReason: job.failedReason || undefined,
     }))
 
-    const allDownloads = [...fileDownloads, ...modelDownloads]
-
-    // Filter by filetype if specified
+    const allDownloads = [...fileDownloads, ...extractDownloads, ...modelDownloads]
     const filtered = allDownloads.filter((job) => !filetype || job.filetype === filetype)
 
-    // Sort: active downloads first (by progress desc), then failed at the bottom
     return filtered.sort((a, b) => {
       if (a.status === 'failed' && b.status !== 'failed') return 1
       if (a.status !== 'failed' && b.status === 'failed') return -1
@@ -91,7 +112,11 @@ export class DownloadService {
   }
 
   async removeFailedJob(jobId: string): Promise<void> {
-    for (const queueName of [RunDownloadJob.queue, DownloadModelJob.queue]) {
+    for (const queueName of [
+      RunDownloadJob.queue,
+      RunExtractPmtilesJob.queue,
+      DownloadModelJob.queue,
+    ]) {
       const queue = this.queueService.getQueue(queueName)
       const job = await queue.getJob(jobId)
       if (job) {
@@ -113,7 +138,6 @@ export class DownloadService {
   }
 
   async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
-    // Try the file download queue first (the original PR #554 path)
     const queue = this.queueService.getQueue(RunDownloadJob.queue)
     const job = await queue.getJob(jobId)
 
@@ -121,7 +145,13 @@ export class DownloadService {
       return await this._cancelFileDownloadJob(jobId, job, queue)
     }
 
-    // Fall through to the model download queue
+    const extractQueue = this.queueService.getQueue(RunExtractPmtilesJob.queue)
+    const extractJob = await extractQueue.getJob(jobId)
+
+    if (extractJob) {
+      return await this._cancelExtractJob(jobId, extractJob, extractQueue)
+    }
+
     const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
     const modelJob = await modelQueue.getJob(jobId)
 
@@ -129,11 +159,37 @@ export class DownloadService {
       return await this._cancelModelDownloadJob(jobId, modelJob, modelQueue)
     }
 
-    // Not found in either queue
     return { success: true, message: 'Job not found (may have already completed)' }
   }
 
-  /** Cancel a content download (zim, map, pmtiles, etc.) — original PR #554 logic */
+  private async _cancelExtractJob(
+    jobId: string,
+    job: Job<RunExtractPmtilesJobParams>,
+    queue: Queue<RunExtractPmtilesJobParams>
+  ): Promise<{ success: boolean; message: string }> {
+    const outputFilepath = job.data.outputFilepath
+
+    await RunExtractPmtilesJob.signalCancel(jobId)
+
+    // Same-process fallback when worker and API share a process
+    RunExtractPmtilesJob.childProcesses.get(jobId)?.kill('SIGTERM')
+    RunExtractPmtilesJob.childProcesses.delete(jobId)
+
+    await this._pollForTerminalState(job, jobId)
+    await this._removeJobWithLockFallback(job, queue, RunExtractPmtilesJob.queue, jobId)
+
+    if (outputFilepath) {
+      try {
+        await deleteFileIfExists(outputFilepath)
+      } catch {
+        // File may not exist yet (subprocess may not have opened it)
+      }
+    }
+
+    return { success: true, message: 'Extract cancelled and partial file deleted' }
+  }
+
+  /** Cancel a content download (zim, map, pmtiles, etc.) */
   private async _cancelFileDownloadJob(
     jobId: string,
     job: any,

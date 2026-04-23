@@ -27,6 +27,24 @@ FROM base
 ARG VERSION=dev
 ARG BUILD_DATE
 ARG VCS_REF
+ARG TARGETARCH
+
+# go-pmtiles (regional map extracts). Pinned so the CLI's stdout format stays
+# in sync with parseDryRunOutput().
+ARG PMTILES_VERSION=1.30.2
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) PMTILES_ARCH=x86_64 ;; \
+      arm64) PMTILES_ARCH=arm64 ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    TARBALL=/tmp/go-pmtiles.tar.gz; \
+    curl -fsSL -o "$TARBALL" \
+      "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/go-pmtiles_${PMTILES_VERSION}_Linux_${PMTILES_ARCH}.tar.gz"; \
+    tar -xzf "$TARBALL" -C /usr/local/bin pmtiles; \
+    rm -f "$TARBALL"; \
+    chmod +x /usr/local/bin/pmtiles; \
+    /usr/local/bin/pmtiles version
 
 # Labels
 LABEL org.opencontainers.image.title="Project N.O.M.A.D" \

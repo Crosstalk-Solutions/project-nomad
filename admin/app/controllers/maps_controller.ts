@@ -4,6 +4,8 @@ import {
   assertNotPrivateUrl,
   downloadCollectionValidator,
   filenameParamValidator,
+  mapExtractPreflightValidator,
+  mapExtractValidator,
   remoteDownloadValidator,
   remoteDownloadValidatorOptional,
 } from '#validators/common'
@@ -83,6 +85,28 @@ export default class MapsController {
     const result = await this.mapService.downloadGlobalMap()
     return {
       message: 'Download started successfully',
+      ...result,
+    }
+  }
+
+  async listCountries({}: HttpContext) {
+    return { countries: await this.mapService.listCountries() }
+  }
+
+  async listCountryGroups({}: HttpContext) {
+    return { groups: await this.mapService.listCountryGroups() }
+  }
+
+  async extractPreflight({ request }: HttpContext) {
+    const payload = await request.validateUsing(mapExtractPreflightValidator)
+    return await this.mapService.extractPreflight(payload)
+  }
+
+  async extractRegion({ request }: HttpContext) {
+    const payload = await request.validateUsing(mapExtractValidator)
+    const result = await this.mapService.extractRegion(payload)
+    return {
+      message: 'Extract started successfully',
       ...result,
     }
   }
