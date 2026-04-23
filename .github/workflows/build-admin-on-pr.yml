@@ -20,6 +20,10 @@ jobs:
         run: npm ci
         working-directory: ./admin
 
+      - name: Run tests
+        run: npm test
+        working-directory: ./admin
+
       - name: Run build
         run: npm run build
         working-directory: ./admin
