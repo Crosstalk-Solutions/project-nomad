@@ -461,14 +461,18 @@ export class MapService implements IMapService {
     const sources: BaseStylesFile['sources'][] = []
     const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
 
-    // World basemap goes first so its layers render underneath regional extracts
-    const worldSource: BaseStylesFile['sources'] = {}
-    worldSource[WORLD_BASEMAP_SOURCE_NAME] = {
-      type: 'vector',
-      attribution: PMTILES_ATTRIBUTION,
-      url: `pmtiles://${urlJoin(baseUrl, WORLD_BASEMAP_FILENAME)}`,
+    // World basemap goes first so its layers render underneath regional extracts.
+    // Only emitted when ensureWorldBasemap() succeeded — otherwise the style would
+    // reference a file that doesn't exist and produce 404s on every tile request.
+    if (this.worldBasemapReady) {
+      const worldSource: BaseStylesFile['sources'] = {}
+      worldSource[WORLD_BASEMAP_SOURCE_NAME] = {
+        type: 'vector',
+        attribution: PMTILES_ATTRIBUTION,
+        url: `pmtiles://${urlJoin(baseUrl, WORLD_BASEMAP_FILENAME)}`,
+      }
+      sources.push(worldSource)
     }
-    sources.push(worldSource)
 
     for (const region of regions) {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {

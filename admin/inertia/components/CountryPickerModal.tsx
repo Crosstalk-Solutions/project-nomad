@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { IconCheck, IconSearch, IconX } from '@tabler/icons-react'
 import StyledModal, { StyledModalProps } from './StyledModal'
@@ -43,6 +43,7 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
   const [loading, setLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const preflightRequestIdRef = useRef(0)
 
   const { data: countries = [], isLoading: countriesLoading } = useQuery({
     queryKey: ['maps-countries'],
@@ -84,7 +85,6 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
       else next.add(code)
       return next
     })
-    invalidatePreflight()
   }
 
   function toggleGroup(group: CountryGroup) {
@@ -98,40 +98,57 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
       }
       return next
     })
-    invalidatePreflight()
   }
 
   function clearAll() {
     setSelected(new Set())
-    invalidatePreflight()
   }
 
-  function invalidatePreflight() {
-    setPreflight(null)
-    setErrorMessage(null)
-  }
-
-  async function runPreflight() {
-    if (selected.size === 0) return
-    try {
-      setLoading(true)
+  // Auto-refresh the preflight whenever selection or maxzoom changes. Debounced
+  // so rapid multi-select clicks collapse into a single CDN round-trip, and
+  // stale-safe via requestId so an earlier slow response can't clobber a later one.
+  useEffect(() => {
+    if (selected.size === 0) {
       setPreflight(null)
       setErrorMessage(null)
-      const res = await api.extractMapPreflight({
-        countries: [...selected],
-        maxzoom,
-      })
-      if (!res) throw new Error('Preflight returned no data')
-      setPreflight(res)
-    } catch (err: any) {
-      console.error('Preflight failed:', err)
-      setErrorMessage(err?.message ?? 'Estimate failed')
-    } finally {
       setLoading(false)
+      preflightRequestIdRef.current++
+      return
     }
-  }
+
+    const requestId = ++preflightRequestIdRef.current
+    setLoading(true)
+    setErrorMessage(null)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.extractMapPreflight({
+          countries: [...selected],
+          maxzoom,
+        })
+        if (requestId !== preflightRequestIdRef.current) return
+        if (!res) throw new Error('Preflight returned no data')
+        setPreflight(res)
+      } catch (err: any) {
+        if (requestId !== preflightRequestIdRef.current) return
+        console.error('Preflight failed:', err)
+        setErrorMessage(err?.message ?? 'Estimate failed')
+      } finally {
+        if (requestId === preflightRequestIdRef.current) setLoading(false)
+      }
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [selected, maxzoom])
 
   async function startDownload() {
+    if (selected.size === 0) {
+      setErrorMessage('Pick at least one country before downloading.')
+      return
+    }
+    if (loading || !preflight) {
+      setErrorMessage('Still estimating size — hold on a moment.')
+      return
+    }
     try {
       setDownloading(true)
       setErrorMessage(null)
@@ -154,13 +171,13 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
       {...modalProps}
       title="Download map by country or region"
       open={true}
-      confirmText={preflight ? 'Start Download' : 'Estimate Size'}
-      confirmIcon={preflight ? 'IconDownload' : 'IconRuler'}
+      confirmText="Start Download"
+      confirmIcon="IconDownload"
       cancelText="Cancel"
       confirmVariant="primary"
       confirmLoading={loading || downloading}
       cancelLoading={loading || downloading}
-      onConfirm={preflight ? startDownload : runPreflight}
+      onConfirm={startDownload}
       large
     >
       <div className="flex flex-col text-left gap-4 min-h-[60vh]">
@@ -308,10 +325,7 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
             max={EXTRACT_MAX_ZOOM}
             step={1}
             value={maxzoom}
-            onChange={(e) => {
-              setMaxzoom(parseInt(e.target.value, 10))
-              invalidatePreflight()
-            }}
+            onChange={(e) => setMaxzoom(parseInt(e.target.value, 10))}
             className="w-full accent-desert-green"
             disabled={loading || downloading}
           />
@@ -364,12 +378,7 @@ function PreflightStatus({ errorMessage, loading, preflight, hasSelection }: Pre
   if (!hasSelection) {
     return <p className="text-text-muted">Pick at least one country to estimate size.</p>
   }
-  return (
-    <p className="text-text-muted">
-      Click <span className="font-semibold text-text-primary">Estimate Size</span> to see how big
-      this download will be.
-    </p>
-  )
+  return <p className="text-text-muted">Estimating size…</p>
 }
 
 export default CountryPickerModal

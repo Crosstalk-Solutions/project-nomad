@@ -55,6 +55,19 @@ export class RunExtractPmtilesJob {
     await client.set(this.cancelKey(jobId), '1', 'EX', 300)
   }
 
+  /** Awaits job.updateProgress and swallows BullMQ stale-job errors (code -1),
+   *  which occur when the job was removed from Redis (e.g. cancelled) between
+   *  the await being issued and the Redis write completing. Anything else
+   *  re-throws so it's caught by the surrounding try rather than becoming an
+   *  unhandled rejection. */
+  private async safeUpdateProgress(job: Job, progress: DownloadProgressData): Promise<void> {
+    try {
+      await job.updateProgress(progress)
+    } catch (err: any) {
+      if (err?.code !== -1) throw err
+    }
+  }
+
   async handle(job: Job) {
     const params = job.data as RunExtractPmtilesJobParams
     const { sourceUrl, outputFilepath, regionFilepath, maxzoom, estimatedBytes } = params
@@ -96,15 +109,12 @@ export class RunExtractPmtilesJob {
         const percent =
           totalBytes > 0 ? Math.min(99, Math.floor((downloadedBytes / totalBytes) * 100)) : 0
 
-        job.updateProgress({
+        await this.safeUpdateProgress(job, {
           percent,
           downloadedBytes,
           totalBytes,
           lastProgressTime: Date.now(),
-        } as DownloadProgressData).catch((err) => {
-          // Swallow BullMQ stale-job update errors (code -1); re-throw anything else
-          if (err?.code !== -1) throw err
-        })
+        } as DownloadProgressData)
       } catch {
         // File doesn't exist yet (subprocess still setting up)
       }
@@ -144,14 +154,12 @@ export class RunExtractPmtilesJob {
 
       // Final progress bump — tick caps at 99 so the UI doesn't flicker to 100 mid-extract
       const finalStat = await stat(outputFilepath)
-      job.updateProgress({
+      await this.safeUpdateProgress(job, {
         percent: 100,
         downloadedBytes: Number(finalStat.size),
         totalBytes: estimatedBytes ?? Number(finalStat.size),
         lastProgressTime: Date.now(),
-      } as DownloadProgressData).catch((err) => {
-        if (err?.code !== -1) throw err
-      })
+      } as DownloadProgressData)
 
       // Reuse the HTTP download path's post-download hook so the file is registered and
       // the previous version (if any) is deleted
