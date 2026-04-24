@@ -153,8 +153,8 @@ ZIM files provide offline Wikipedia, books, and other content via Kiwix.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/maps/markers` | List map markers |
-| PATCH | `/api/maps/markers/{id}` | Update a  map marker (body: {"name": "Test Marker", "longitude": 0.0, "latitude": 0.0, "color": "yellow", "marker_type": "pin"} ) fields that don't change can be omitted|
 | POST | `/api/maps/markers` | Add map marker (body: {"name": "Test Marker", "longitude": 0.0, "latitude": 0.0, "color": "yellow", "marker_type": "pin"} ) |
+| PATCH | `/api/maps/markers/{id}` | Update a  map marker (body: {"name": "Test Marker", "longitude": 0.0, "latitude": 0.0, "color": "yellow", "marker_type": "pin"} ) fields that don't change can be omitted|
 | DELETE | `/api/maps/markers/{id}` | Delete a map marker | 
 
 ---
