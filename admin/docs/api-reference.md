@@ -148,7 +148,7 @@ ZIM files provide offline Wikipedia, books, and other content via Kiwix.
 | POST | `/api/maps/download-collection` | Download an entire collection by slug (async) |
 | DELETE | `/api/maps/:filename` | Delete a local map file |
 
-### Markers
+### Map Markers
 
 | Method | Path | Description |
 |--------|------|-------------|
