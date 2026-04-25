@@ -9,8 +9,8 @@
 name: project-nomad
 services:
   admin:
-    image: ghcr.io/crosstalk-solutions/project-nomad:latest
-    pull_policy: always
+    image: project-nomad:local
+    pull_policy: never  #ghcr.io/crosstalk-solutions/project-nomad:latest
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:
@@ -27,18 +27,18 @@ services:
       - PORT=8080
       - LOG_LEVEL=info
       # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
-      - APP_KEY=replaceme
+      - APP_KEY=ce9579a56b32e05ee432be91e6d1d9b95cb3a00eb92789559569decdb76c4db2
       # # Leave HOST as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
       - HOST=0.0.0.0
       # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
-      - URL=replaceme
+      - URL=http://nomad-dev.brewerhomestead.com/
       - DB_HOST=mysql
       # If you change the MySQL port, make sure to update this accordingly
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
       # Needs to match the MYSQL_PASSWORD in the mysql service!
-      - DB_PASSWORD=replaceme
+      - DB_PASSWORD=2bc4dad18d5a0ecf5914428d91ebde27d42e8afafd72c73089a0dd1eba9ae1fc
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
@@ -72,11 +72,11 @@ services:
     container_name: nomad_mysql
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=replaceme
+      - MYSQL_ROOT_PASSWORD=d797ecbd5cee07758909a628cb0a2a75285dc3bac42d1513a8d2aed95c632577
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
       # Needs to match DB_PASSWORD in the admin service!
-      - MYSQL_PASSWORD=replaceme
+      - MYSQL_PASSWORD=2bc4dad18d5a0ecf5914428d91ebde27d42e8afafd72c73089a0dd1eba9ae1fc
     volumes:
       - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
