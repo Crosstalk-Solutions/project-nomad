@@ -87,11 +87,11 @@ export default function MapComponent() {
         }}
         mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
         mapLib={maplibregl}
-        initialViewState={{
-          longitude: -101,
-          latitude: 40,
-          zoom: 3.5,
-        }}
+		initialViewState={{
+		  longitude: 9.2,
+		  latitude: 51.1,
+		  zoom: 5.7,
+		}}
         onClick={handleMapClick}
       >
         <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
