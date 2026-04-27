@@ -30,7 +30,14 @@ We are committed to providing a welcoming environment for everyone. Disrespectfu
 
 ## Before You Start
 
-**Open an issue first.** Before writing any code, please [open an issue](../../issues/new) to discuss your proposed change. This helps avoid duplicate work and ensures your contribution aligns with the project's direction.
+**Open an issue first.** Before writing any code for a non-trivial change, you must [open an issue](../../issues/new) to discuss your proposed change. This helps avoid duplicate work and ensures your contribution aligns with the project's direction. **Pull requests submitted without a corresponding issue may be closed at the maintainers' discretion.**
+
+**Trivial fixes are exempt** and may be submitted directly as a PR. Examples:
+- Typo and grammar corrections
+- Documentation clarifications
+- Small one-line bug fixes with an obvious cause
+
+If you're not sure whether your change qualifies as trivial, open an issue first.
 
 When opening an issue:
 - Use a clear, descriptive title
@@ -149,7 +156,7 @@ This project uses [Semantic Versioning](https://semver.org/). Versions are manag
 2. Open a pull request against the `dev` branch of this repository
 3. In the PR description:
    - Summarize what your changes do and why
-   - Reference the related issue (e.g., `Closes #123`)
+   - Reference the related issue (e.g., `Closes #123`) — required for non-trivial changes
    - Note any relevant testing steps or environment details
 4. Be responsive to feedback — maintainers may request changes. Pull requests with no activity for an extended period may be closed.
 
