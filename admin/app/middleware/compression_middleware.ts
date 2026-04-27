@@ -2,7 +2,6 @@ import env from '#start/env'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
 import compression from 'compression'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 
 // Skip compression for Server-Sent Events. The compression library buffers
 // response writes to determine encoding, which collapses per-token streaming
@@ -11,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 const compress = env.get('DISABLE_COMPRESSION')
   ? null
   : compression({
-      filter: (req: IncomingMessage, res: ServerResponse) => {
+      filter: (req: any, res: any) => {
         const contentType = res.getHeader('Content-Type')
         if (typeof contentType === 'string' && contentType.includes('text/event-stream')) {
           return false
