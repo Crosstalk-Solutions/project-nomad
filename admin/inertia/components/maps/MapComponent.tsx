@@ -12,19 +12,23 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-type ScaleUnit = 'imperial' | 'metric'
 import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { PinColorId } from '~/hooks/useMapMarkers'
 import MarkerPin from './MarkerPin'
 import MarkerPanel from './MarkerPanel'
 
+type ScaleUnit = 'imperial' | 'metric'
+
 export default function MapComponent() {
   const mapRef = useRef<MapRef>(null)
   const { markers, addMarker, deleteMarker } = useMapMarkers()
+
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [markerName, setMarkerName] = useState('')
+  const [markerNotes, setMarkerNotes] = useState('')
   const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
+
   const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
     () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
   )
@@ -37,10 +41,10 @@ export default function MapComponent() {
     })
   }, [])
 
-  // Add the PMTiles protocol to maplibre-gl
   useEffect(() => {
-    let protocol = new Protocol()
+    const protocol = new Protocol()
     maplibregl.addProtocol('pmtiles', protocol.tile)
+
     return () => {
       maplibregl.removeProtocol('pmtiles')
     }
@@ -49,18 +53,27 @@ export default function MapComponent() {
   const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
     setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
     setMarkerName('')
+    setMarkerNotes('')
     setMarkerColor('orange')
     setSelectedMarkerId(null)
   }, [])
 
   const handleSaveMarker = useCallback(() => {
     if (placingMarker && markerName.trim()) {
-      addMarker(markerName.trim(), placingMarker.lng, placingMarker.lat, markerColor)
+      addMarker(
+        markerName.trim(),
+        placingMarker.lng,
+        placingMarker.lat,
+        markerColor,
+        markerNotes.trim() || undefined
+      )
+
       setPlacingMarker(null)
       setMarkerName('')
+      setMarkerNotes('')
       setMarkerColor('orange')
     }
-  }, [placingMarker, markerName, markerColor, addMarker])
+  }, [placingMarker, markerName, markerNotes, markerColor, addMarker])
 
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
@@ -97,6 +110,7 @@ export default function MapComponent() {
         <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
         <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
         <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
+
         <div style={{ position: 'absolute', bottom: '30px', left: '10px', zIndex: 2 }}>
           <div
             style={{
@@ -110,7 +124,10 @@ export default function MapComponent() {
             }}
           >
             <button
-              onClick={() => { if (scaleUnit !== 'metric') toggleScaleUnit() }}
+              type="button"
+              onClick={() => {
+                if (scaleUnit !== 'metric') toggleScaleUnit()
+              }}
               style={{
                 background: scaleUnit === 'metric' ? '#424420' : 'white',
                 color: scaleUnit === 'metric' ? 'white' : '#666',
@@ -121,8 +138,12 @@ export default function MapComponent() {
             >
               Metric
             </button>
+
             <button
-              onClick={() => { if (scaleUnit !== 'imperial') toggleScaleUnit() }}
+              type="button"
+              onClick={() => {
+                if (scaleUnit !== 'imperial') toggleScaleUnit()
+              }}
               style={{
                 background: scaleUnit === 'imperial' ? '#424420' : 'white',
                 color: scaleUnit === 'imperial' ? 'white' : '#666',
@@ -136,7 +157,6 @@ export default function MapComponent() {
           </div>
         </div>
 
-        {/* Existing markers */}
         {markers.map((marker) => (
           <Marker
             key={marker.id}
@@ -156,7 +176,6 @@ export default function MapComponent() {
           </Marker>
         ))}
 
-        {/* Popup for selected marker */}
         {selectedMarker && (
           <Popup
             longitude={selectedMarker.longitude}
@@ -167,10 +186,15 @@ export default function MapComponent() {
             closeOnClick={false}
           >
             <div className="text-sm font-medium">{selectedMarker.name}</div>
+
+            {selectedMarker.notes && (
+              <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">
+                {selectedMarker.notes}
+              </div>
+            )}
           </Popup>
         )}
 
-        {/* Popup for placing a new marker */}
         {placingMarker && (
           <Popup
             longitude={placingMarker.lng}
@@ -192,33 +216,45 @@ export default function MapComponent() {
                 }}
                 className="block w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
               />
+
+              <textarea
+                placeholder="Add notes (optional)"
+                value={markerNotes}
+                onChange={(e) => setMarkerNotes(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full resize-none rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
+              />
+
               <div className="mt-1.5 flex gap-1 items-center">
                 {PIN_COLORS.map((c) => (
                   <button
                     key={c.id}
+                    type="button"
                     onClick={() => setMarkerColor(c.id)}
                     title={c.label}
                     className="rounded-full p-0.5 transition-transform"
                     style={{
-                      outline: markerColor === c.id ? `2px solid ${c.hex}` : '2px solid transparent',
+                      outline:
+                        markerColor === c.id ? `2px solid ${c.hex}` : '2px solid transparent',
                       outlineOffset: '1px',
                     }}
                   >
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: c.hex }}
-                    />
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: c.hex }} />
                   </button>
                 ))}
               </div>
+
               <div className="mt-1.5 flex gap-1.5 justify-end">
                 <button
+                  type="button"
                   onClick={() => setPlacingMarker(null)}
                   className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
                 >
                   Cancel
                 </button>
+
                 <button
+                  type="button"
                   onClick={handleSaveMarker}
                   disabled={!markerName.trim()}
                   className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
@@ -231,7 +267,6 @@ export default function MapComponent() {
         )}
       </Map>
 
-      {/* Marker panel overlay */}
       <MarkerPanel
         markers={markers}
         onDelete={handleDeleteMarker}
