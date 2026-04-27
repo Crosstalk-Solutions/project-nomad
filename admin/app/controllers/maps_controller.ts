@@ -137,9 +137,11 @@ export default class MapsController {
       vine.compile(
         vine.object({
           name: vine.string().trim().minLength(1).maxLength(255),
-          longitude: vine.number(),
-          latitude: vine.number(),
+          longitude: vine.number().min(-180).max(180),
+          latitude: vine.number().min(-90).max(90),
           color: vine.string().trim().maxLength(20).optional(),
+          notes: vine.string().trim().nullable().optional(),
+          marker_type: vine.string().trim().maxLength(20).optional(),
         })
       )
     )
@@ -148,6 +150,8 @@ export default class MapsController {
       longitude: payload.longitude,
       latitude: payload.latitude,
       color: payload.color ?? 'orange',
+      notes: payload.notes ?? null,
+      marker_type: payload.marker_type ?? 'pin',
     })
     return marker
   }

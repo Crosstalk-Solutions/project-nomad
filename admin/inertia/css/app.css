@@ -126,13 +126,15 @@ body {
   color: #f7eedc;
 }
 
-[data-theme="dark"] .maplibregl-popup-content input {
+[data-theme="dark"] .maplibregl-popup-content input,
+[data-theme="dark"] .maplibregl-popup-content textarea {
   background: #353420;
   color: #f7eedc;
   border-color: #424420;
 }
 
-[data-theme="dark"] .maplibregl-popup-content input::placeholder {
+[data-theme="dark"] .maplibregl-popup-content input::placeholder,
+[data-theme="dark"] .maplibregl-popup-content textarea::placeholder {
   color: #8f8f82;
 }
 
