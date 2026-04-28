@@ -98,7 +98,7 @@
     "compression": "^1.8.1",
     "dockerode": "^4.0.7",
     "edge.js": "^6.2.1",
-    "fast-xml-parser": "^5.5.7",
+    "fast-xml-parser": "^5.7.0",
     "fuse.js": "^7.1.0",
     "jszip": "^3.10.1",
     "luxon": "^3.6.1",
