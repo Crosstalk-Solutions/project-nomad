@@ -52,12 +52,31 @@ export class RagService {
       this.qdrantInitPromise = (async () => {
         const qdrantUrl = await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT)
         if (!qdrantUrl) {
-          throw new Error('Qdrant service is not installed or running.')
+          throw new Error('Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.')
         }
         this.qdrant = new QdrantClient({ url: qdrantUrl })
-      })()
+      })().catch((err) => {
+        this.qdrantInitPromise = null
+        this.qdrant = null
+        throw err
+      })
     }
     return this.qdrantInitPromise
+  }
+
+  public async checkQdrantHealth(): Promise<{ online: boolean; message?: string }> {
+    try {
+      await this._ensureDependencies()
+      await this.qdrant!.getCollections()
+      return { online: true }
+    } catch {
+      this.qdrant = null
+      this.qdrantInitPromise = null
+      return {
+        online: false,
+        message: 'Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.',
+      }
+    }
   }
 
   private async _ensureDependencies() {
