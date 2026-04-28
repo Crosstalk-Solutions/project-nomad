@@ -451,6 +451,13 @@ class API {
     })()
   }
 
+  async checkRAGHealth() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ online: boolean; message?: string }>('/rag/health')
+      return response.data
+    })()
+  }
+
   async getStoredRAGFiles() {
     return catchInternal(async () => {
       const response = await this.client.get<{ files: string[] }>('/rag/files')
