@@ -30,10 +30,10 @@ GREEN='\033[1;32m' # Light Green.
 
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 NOMAD_DIR="/opt/project-nomad"
-MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
-STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
-UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
+MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/remlez/project-nomad-de/refs/heads/main/install/management_compose.yaml"
+START_SCRIPT_URL="https://raw.githubusercontent.com/remlez/project-nomad-de/refs/heads/main/install/start_nomad.sh"
+STOP_SCRIPT_URL="https://raw.githubusercontent.com/remlez/project-nomad-de/refs/heads/main/install/stop_nomad.sh"
+UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/remlez/project-nomad-de/refs/heads/main/install/update_nomad.sh"
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
