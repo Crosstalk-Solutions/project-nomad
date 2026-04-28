@@ -12,16 +12,41 @@ interface MarkerPanelProps {
   selectedMarkerId: number | null
 }
 
-const getColorSortValue = (color: string) => {
-  const preset = PIN_COLORS.find((pinColor) => pinColor.id === color)
-
-  if (preset) return preset.label
-
-  return color.replace('#', '').toLowerCase()
-}
-
 type SortField = 'name' | 'color'
 type SortDirection = 'asc' | 'desc'
+
+const normalizeColorHex = (color: string) => {
+  const preset = PIN_COLORS.find((pinColor) => pinColor.id === color)
+  return preset?.hex ?? color
+}
+
+const getHueSortValue = (color: string) => {
+  const hex = normalizeColorHex(color).replace('#', '')
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return 0
+
+  const r = parseInt(hex.slice(0, 2), 16) / 255
+  const g = parseInt(hex.slice(2, 4), 16) / 255
+  const b = parseInt(hex.slice(4, 6), 16) / 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const delta = max - min
+
+  if (delta === 0) return 0
+
+  let hue = 0
+
+  if (max === r) {
+    hue = ((g - b) / delta) % 6
+  } else if (max === g) {
+    hue = (b - r) / delta + 2
+  } else {
+    hue = (r - g) / delta + 4
+  }
+
+  return Math.round(hue * 60 + 360) % 360
+}
 
 export default function MarkerPanel({
                                       markers,
@@ -35,6 +60,15 @@ export default function MarkerPanel({
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
+  const sortDirectionLabel =
+    sortField === 'name'
+      ? sortDirection === 'asc'
+        ? 'A → Z'
+        : 'Z → A'
+      : sortDirection === 'asc'
+        ? 'Hue ↑'
+        : 'Hue ↓'
+
   const visibleMarkers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
@@ -44,12 +78,10 @@ export default function MarkerPanel({
         return marker.name.toLowerCase().includes(query)
       })
       .sort((a, b) => {
-        const aValue = sortField === 'name' ? a.name : getColorSortValue(a.color)
-        const bValue = sortField === 'name' ? b.name : getColorSortValue(b.color)
-
-        const result = aValue.localeCompare(bValue, undefined, {
-          sensitivity: 'base',
-        })
+        const result =
+          sortField === 'name'
+            ? a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+            : getHueSortValue(a.color) - getHueSortValue(b.color)
 
         return sortDirection === 'asc' ? result : -result
       })
@@ -116,7 +148,7 @@ export default function MarkerPanel({
             className="flex-1 rounded border border-border-default bg-surface-primary px-2 py-1 text-xs text-text-primary focus:border-desert-green focus:outline-none"
           >
             <option value="name">Sort by name</option>
-            <option value="color">Sort by color</option>
+            <option value="color">Sort by hue</option>
           </select>
 
           <button
@@ -124,7 +156,7 @@ export default function MarkerPanel({
             onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
             className="rounded border border-border-default px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-surface-secondary"
           >
-            {sortDirection === 'asc' ? 'A → Z' : 'Z → A'}
+            {sortDirectionLabel}
           </button>
         </div>
       </div>
@@ -154,7 +186,7 @@ export default function MarkerPanel({
                   size={16}
                   className="shrink-0"
                   style={{
-                    color: PIN_COLORS.find((color) => color.id === marker.color)?.hex ?? '#a84a12',
+                    color: normalizeColorHex(marker.color),
                   }}
                 />
 

@@ -28,7 +28,21 @@ export default function ViewMapMarkerPopup({
 
       {marker.notes && (
         <div className="mt-1 text-xs text-gray-500">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-700"
+                >
+                  {children}
+                </a>
+              ),
+            }}
+          >
             {marker.notes}
           </ReactMarkdown>
         </div>

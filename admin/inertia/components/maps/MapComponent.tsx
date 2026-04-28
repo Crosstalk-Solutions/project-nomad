@@ -16,7 +16,7 @@ import MarkerPin from './MarkerPin'
 import MarkerPanel from './MarkerPanel'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
-import ScaleUnitControl from './ScaleUnitControl'
+import ScaleUnitToggle from './ScaleUnitToggle'
 
 type ScaleUnit = 'imperial' | 'metric'
 
@@ -94,7 +94,7 @@ export default function MapComponent() {
         <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
         <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
         <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
-        <ScaleUnitControl scaleUnit={scaleUnit} onChange={handleScaleUnitChange} />
+        <ScaleUnitToggle scaleUnit={scaleUnit} onChange={handleScaleUnitChange} />
 
         {markers.map((marker) => (
           <Marker
@@ -125,14 +125,6 @@ export default function MapComponent() {
               setPlacingMarker(null)
             }}
             onCancel={() => setPlacingMarker(null)}
-          />
-        )}
-
-        {selectedMarker && editingMarkerId !== selectedMarker.id && (
-          <ViewMapMarkerPopup
-            marker={selectedMarker}
-            onClose={() => setSelectedMarkerId(null)}
-            onEdit={() => setEditingMarkerId(selectedMarker.id)}
           />
         )}
 

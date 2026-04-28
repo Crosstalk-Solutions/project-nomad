@@ -5,7 +5,7 @@ type ScaleUnitControlProps = {
   onChange: (unit: ScaleUnit) => void
 }
 
-export default function ScaleUnitControl({ scaleUnit, onChange }: ScaleUnitControlProps) {
+export default function ScaleUnitToggle({ scaleUnit, onChange }: ScaleUnitControlProps) {
   return (
     <div style={{ position: 'absolute', bottom: '30px', left: '10px', zIndex: 2 }}>
       <div
