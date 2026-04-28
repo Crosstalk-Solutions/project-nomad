@@ -86,6 +86,21 @@ check_is_debian_based() {
     echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
 }
 
+check_is_x86_64() {
+  local arch
+  arch="$(uname -m)"
+  if [[ "${arch}" != "x86_64" && "${arch}" != "amd64" ]]; then
+    echo -e "${YELLOW}#${RESET} WARNING: Detected architecture '${arch}'. NOMAD officially supports x86_64 only.\\n"
+    echo -e "${YELLOW}#${RESET} ARM64/aarch64 support is tracked in PR #419 and is not yet ready.\\n"
+    echo -e "${YELLOW}#${RESET} Continuing on an unsupported architecture will likely fail and may leave\\n"
+    echo -e "${YELLOW}#${RESET} partial Docker images and files behind that you'll need to clean up manually.\\n"
+    echo -e "${YELLOW}#${RESET} Continuing in 10 seconds... press Ctrl+C now to abort.\\n"
+    sleep 10
+    return
+  fi
+  echo -e "${GREEN}#${RESET} Architecture check passed (${arch}).\\n"
+}
+
 ensure_dependencies_installed() {
   local missing_deps=()
 
@@ -539,6 +554,7 @@ success_message() {
 
 # Pre-flight checks
 check_is_debian_based
+check_is_x86_64
 check_is_bash
 check_has_sudo
 ensure_dependencies_installed
