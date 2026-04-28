@@ -20,6 +20,7 @@ import KVStore from '#models/kv_store'
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+const MODEL_PULL_STALL_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 
 export type NomadInstalledModel = {
   name: string
@@ -181,6 +182,33 @@ export class OllamaService {
 
       await new Promise<void>((resolve, reject) => {
         let buffer = ''
+        let stallTimer: ReturnType<typeof setTimeout> | null = null
+
+        const clearStallTimer = () => {
+          if (stallTimer) {
+            clearTimeout(stallTimer)
+            stallTimer = null
+          }
+        }
+
+        const createStallError = () => {
+          const err: any = new Error('Model download stalled - no data received for 30 minutes')
+          err.code = 'ERR_MODEL_PULL_STALLED'
+          return err
+        }
+
+        const resetStallTimer = () => {
+          clearStallTimer()
+          stallTimer = setTimeout(() => {
+            pullResponse.data.destroy(createStallError())
+          }, MODEL_PULL_STALL_TIMEOUT_MS)
+        }
+
+        const cleanup = () => {
+          clearStallTimer()
+          if (signal) signal.removeEventListener('abort', onAbort)
+        }
+
         // If the abort fires after headers are received but mid-stream, axios's signal handling
         // destroys the stream which surfaces as an 'error' event — wire the signal listener so
         // the promise rejects promptly with a recognizable cancel reason.
@@ -197,7 +225,10 @@ export class OllamaService {
           signal.addEventListener('abort', onAbort, { once: true })
         }
 
+        resetStallTimer()
+
         pullResponse.data.on('data', (chunk: Buffer) => {
+          resetStallTimer()
           buffer += chunk.toString()
           const lines = buffer.split('\n')
           buffer = lines.pop() || ''
@@ -249,11 +280,11 @@ export class OllamaService {
           }
         })
         pullResponse.data.on('end', () => {
-          if (signal) signal.removeEventListener('abort', onAbort)
+          cleanup()
           resolve()
         })
         pullResponse.data.on('error', (err: any) => {
-          if (signal) signal.removeEventListener('abort', onAbort)
+          cleanup()
           reject(err)
         })
       })
@@ -273,6 +304,7 @@ export class OllamaService {
         return { success: false, message: 'Download cancelled', retryable: false }
       }
 
+      const isStalled = (error as any)?.code === 'ERR_MODEL_PULL_STALLED'
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(
         `[OllamaService] Failed to download model "${model}": ${errorMessage}`
@@ -280,9 +312,14 @@ export class OllamaService {
 
       // Check for version mismatch (Ollama 412 response)
       const isVersionMismatch = errorMessage.includes('newer version of Ollama')
-      const userMessage = isVersionMismatch
-        ? 'This model requires a newer version of Ollama. Please update AI Assistant from the Apps page.'
-        : `Failed to download model: ${errorMessage}`
+      let userMessage = `Failed to download model: ${errorMessage}`
+      if (isVersionMismatch) {
+        userMessage =
+          'This model requires a newer version of Ollama. Please update AI Assistant from the Apps page.'
+      } else if (isStalled) {
+        userMessage =
+          'Model download stalled because no data was received for 30 minutes. Please check the Ollama connection and try again.'
+      }
 
       // Broadcast failure to connected clients so UI can show the error
       this.broadcastDownloadError(model, userMessage)
