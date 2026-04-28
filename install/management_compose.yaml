@@ -9,8 +9,8 @@
 name: project-nomad
 services:
   admin:
-    image: project-nomad:local
-    pull_policy: never
+    image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    pull_policy: always
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:
@@ -18,7 +18,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /Users/kbb3/project-nomad/storage:/app/storage # If you change the default storage path (/opt/project-nomad/storage), make sure to update the disk-collector config as well!
+      - /opt/project-nomad/storage:/app/storage # If you change the default storage path (/opt/project-nomad/storage), make sure to update the disk-collector config as well!
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
@@ -27,18 +27,18 @@ services:
       - PORT=8080
       - LOG_LEVEL=info
       # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
-      - APP_KEY=17cd5668db08606ef9befd97311bf83f787485507418bc41f47f4ef81070b7f7
+      - APP_KEY=replaceme
       # # Leave HOST as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
       - HOST=0.0.0.0
       # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
-      - URL=http://localhost:8080
+      - URL=replaceme
       - DB_HOST=mysql
       # If you change the MySQL port, make sure to update this accordingly
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
       # Needs to match the MYSQL_PASSWORD in the mysql service!
-      - DB_PASSWORD=28230a296b16650b7f241fb7044694245e4c039fb1dc4a79f496ca79d6c0d450
+      - DB_PASSWORD=replaceme
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
@@ -72,13 +72,13 @@ services:
     container_name: nomad_mysql
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=ee680548bc3c992dac137343413828adf20d8844e8fc69158a4c28b0abe05ca6
+      - MYSQL_ROOT_PASSWORD=replaceme
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
       # Needs to match DB_PASSWORD in the admin service!
-      - MYSQL_PASSWORD=28230a296b16650b7f241fb7044694245e4c039fb1dc4a79f496ca79d6c0d450
+      - MYSQL_PASSWORD=replaceme
     volumes:
-      - /Users/kbb3/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
+      - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -89,7 +89,7 @@ services:
     container_name: nomad_redis
     restart: unless-stopped
     volumes:
-      - /Users/kbb3/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
+      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -103,18 +103,18 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /Users/kbb3/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
+      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
       - nomad-update-shared:/shared # Shared volume for communication with admin container
-  #disk-collector:
+  disk-collector:
     # Disk Collector is a lightweight privileged container that collects disk usage information from the host system and shares it with the admin container so it can be displayed in the UI. 
     # It requires read-only access to the host filesystem and is designed to be as secure and limited in scope as possible while still providing the necessary functionality.
-    #image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
-    #pull_policy: always
-    #container_name: nomad_disk_collector
-    #restart: unless-stopped
-    #volumes:
-    #  - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
-    #  - /Users/kbb3/project-nomad/storage:/storage
+    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
+    pull_policy: always
+    container_name: nomad_disk_collector
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
+      - /opt/project-nomad/storage:/storage
 
 volumes:
   nomad-update-shared:
