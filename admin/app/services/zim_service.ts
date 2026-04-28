@@ -40,7 +40,21 @@ export class ZimService {
     await ensureDirectoryExists(dirPath)
 
     const all = await listDirectoryContents(dirPath)
-    const files = all.filter((item) => item.name.endsWith('.zim'))
+    const zimEntries = all.filter((item) => item.name.endsWith('.zim'))
+
+    const files = await Promise.all(
+      zimEntries.map(async (entry) => {
+        const filePath = entry.type === 'file' ? entry.key : join(dirPath, entry.name)
+        const stats = await getFileStatsIfExists(filePath)
+        return {
+          ...entry,
+          title: null,
+          summary: null,
+          author: null,
+          size_bytes: stats ? Number(stats.size) : null,
+        }
+      })
+    )
 
     return {
       files,
