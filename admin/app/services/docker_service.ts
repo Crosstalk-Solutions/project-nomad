@@ -485,7 +485,12 @@ export class DockerService {
           'pulling',
           `Pulling Docker image ${service.container_image}...`
         )
-        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+        await new Promise<void>((resolve, reject) => {
+          this.docker.modem.followProgress(pullStream, (error) => {
+            if (error) reject(error)
+            else resolve()
+          })
+        })
       }
 
       if (service.service_name === SERVICE_NAMES.KIWIX) {
@@ -1024,7 +1029,12 @@ export class DockerService {
       // Step 1: Pull new image
       this._broadcast(serviceName, 'update-pulling', `Pulling image ${newImage}...`)
       const pullStream = await this.docker.pull(newImage)
-      await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      await new Promise<void>((resolve, reject) => {
+        this.docker.modem.followProgress(pullStream, (error) => {
+          if (error) reject(error)
+          else resolve()
+        })
+      })
 
       // Step 2: Find and stop existing container
       this._broadcast(serviceName, 'update-stopping', `Stopping current container...`)
