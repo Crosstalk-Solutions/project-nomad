@@ -165,8 +165,14 @@ export default function MapComponent() {
             offset={[0, -36] as [number, number]}
             onClose={() => setSelectedMarkerId(null)}
             closeOnClick={false}
+            maxWidth="240px"
           >
             <div className="text-sm font-medium">{selectedMarker.name}</div>
+            {selectedMarker.notes && selectedMarker.notes.trim() && (
+              <div className="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-words">
+                {selectedMarker.notes}
+              </div>
+            )}
           </Popup>
         )}
 
