@@ -35,10 +35,21 @@ export default class OllamaController {
 
   async chat({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(chatSchema)
+    let streamAbortController: AbortController | null = null
+    let streamClientDisconnected = false
+    let streamCompleted = false
+
+    const abortStreamingResponse = () => {
+      if (streamCompleted || !streamAbortController) return
+      streamClientDisconnected = true
+      streamAbortController.abort()
+    }
 
     // Flush SSE headers immediately so the client connection is open while
     // pre-processing (query rewriting, RAG lookup) runs in the background.
     if (reqData.stream) {
+      streamAbortController = new AbortController()
+      response.response.once('close', abortStreamingResponse)
       response.response.setHeader('Content-Type', 'text/event-stream')
       response.response.setHeader('Cache-Control', 'no-cache')
       response.response.setHeader('Connection', 'keep-alive')
@@ -129,6 +140,10 @@ export default class OllamaController {
       // Separate sessionId from the Ollama request payload — Ollama rejects unknown fields
       const { sessionId, ...ollamaRequest } = reqData
 
+      if (reqData.stream && streamClientDisconnected) {
+        return
+      }
+
       // Save user message to DB before streaming if sessionId provided
       let userContent: string | null = null
       if (sessionId) {
@@ -142,18 +157,28 @@ export default class OllamaController {
       if (reqData.stream) {
         logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
         // Headers already flushed above
-        const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think, numCtx })
+        const stream = await this.ollamaService.chatStream({
+          ...ollamaRequest,
+          think,
+          numCtx,
+          signal: streamAbortController?.signal,
+        })
         let fullContent = ''
         for await (const chunk of stream) {
+          if (streamClientDisconnected || response.response.destroyed || response.response.writableEnded) {
+            abortStreamingResponse()
+            return
+          }
           if (chunk.message?.content) {
             fullContent += chunk.message.content
           }
           response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
         }
+        streamCompleted = true
         response.response.end()
 
         // Save assistant message and optionally generate title
-        if (sessionId && fullContent) {
+        if (sessionId && fullContent && !streamClientDisconnected) {
           await this.chatService.addMessage(sessionId, 'assistant', fullContent)
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
@@ -181,11 +206,23 @@ export default class OllamaController {
       return result
     } catch (error) {
       if (reqData.stream) {
+        if (
+          streamClientDisconnected ||
+          streamAbortController?.signal.aborted ||
+          response.response.destroyed ||
+          response.response.writableEnded
+        ) {
+          return
+        }
         response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
         response.response.end()
         return
       }
       throw error
+    } finally {
+      if (reqData.stream) {
+        response.response.off('close', abortStreamingResponse)
+      }
     }
   }
 

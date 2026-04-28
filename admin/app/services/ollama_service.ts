@@ -45,6 +45,7 @@ type ChatInput = {
   think?: boolean | 'medium'
   stream?: boolean
   numCtx?: number
+  signal?: AbortSignal
 }
 
 @inject()
@@ -364,7 +365,9 @@ export class OllamaService {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
+    const stream = (await this.openai.chat.completions.create(params, {
+      signal: chatRequest.signal,
+    })) as unknown as Stream<ChatCompletionChunk>
 
     // Returns how many trailing chars of `text` could be the start of `tag`
     function partialTagSuffix(tag: string, text: string): number {
