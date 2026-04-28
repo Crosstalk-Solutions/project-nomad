@@ -480,10 +480,21 @@ export class OllamaService {
     }
 
     try {
-      // Prefer Ollama native endpoint (supports batch input natively)
+      // Prefer Ollama native endpoint (supports batch input natively).
+      // Pass num_ctx explicitly so we don't depend on the embedding model's
+      // modelfile defaults. Some installs ship nomic-embed-text:v1.5 with
+      // num_ctx=2048, which our chunker (sized for ~1500 tokens) can exceed
+      // on dense content, causing "input length exceeds context length" errors.
+      // truncate:true is a runtime safety net for any chunk that still overshoots.
+      // 8192 matches nomic-embed-text:v1.5's RoPE-extrapolated max.
       const response = await axios.post(
         `${this.baseUrl}/api/embed`,
-        { model, input },
+        {
+          model,
+          input,
+          truncate: true,
+          options: { num_ctx: 8192 },
+        },
         { timeout: 60000 }
       )
       // Some backends (e.g. LM Studio) return HTTP 200 for unknown endpoints with an incompatible
