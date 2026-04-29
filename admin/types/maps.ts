@@ -21,3 +21,17 @@ export type MapLayer = {
   'source-layer'?: string
   [key: string]: any
 }
+
+export type MapMarkerResponse = {
+  id: number
+  name: string
+  longitude: number
+  latitude: number
+  color: string
+  notes?: string | null
+  marker_type?: string
+  route_id?: string | null
+  route_order?: number | null
+  created_at: string
+  updated_at?: string
+}

@@ -18,6 +18,7 @@ export interface MapMarker {
   longitude: number
   latitude: number
   color: PinColorId
+  notes?: string | null
   createdAt: string
 }
 
@@ -25,7 +26,6 @@ export function useMapMarkers() {
   const [markers, setMarkers] = useState<MapMarker[]>([])
   const [loaded, setLoaded] = useState(false)
 
-  // Load markers from API on mount
   useEffect(() => {
     api.listMapMarkers().then((data) => {
       if (data) {
@@ -36,17 +36,32 @@ export function useMapMarkers() {
             longitude: m.longitude,
             latitude: m.latitude,
             color: m.color as PinColorId,
+            notes: m.notes ?? null,
             createdAt: m.created_at,
           }))
         )
       }
+
       setLoaded(true)
     })
   }, [])
 
   const addMarker = useCallback(
-    async (name: string, longitude: number, latitude: number, color: PinColorId = 'orange') => {
-      const result = await api.createMapMarker({ name, longitude, latitude, color })
+    async (
+      name: string,
+      longitude: number,
+      latitude: number,
+      color: PinColorId = 'orange',
+      notes?: string
+    ) => {
+      const result = await api.createMapMarker({
+        name,
+        longitude,
+        latitude,
+        color,
+        notes,
+      })
+
       if (result) {
         const marker: MapMarker = {
           id: result.id,
@@ -54,28 +69,47 @@ export function useMapMarkers() {
           longitude: result.longitude,
           latitude: result.latitude,
           color: result.color as PinColorId,
+          notes: result.notes ?? null,
           createdAt: result.created_at,
         }
+
         setMarkers((prev) => [...prev, marker])
         return marker
       }
+
       return null
     },
     []
   )
 
-  const updateMarker = useCallback(async (id: number, updates: { name?: string; color?: string }) => {
-    const result = await api.updateMapMarker(id, updates)
-    if (result) {
-      setMarkers((prev) =>
-        prev.map((m) =>
-          m.id === id
-            ? { ...m, name: result.name, color: result.color as PinColorId }
-            : m
+  const updateMarker = useCallback(
+    async (
+      id: number,
+      updates: {
+        name?: string
+        color?: string
+        notes?: string | null
+      }
+    ) => {
+      const result = await api.updateMapMarker(id, updates)
+
+      if (result) {
+        setMarkers((prev) =>
+          prev.map((m) =>
+            m.id === id
+              ? {
+                ...m,
+                name: result.name,
+                color: result.color as PinColorId,
+                notes: result.notes ?? null,
+              }
+              : m
+          )
         )
-      )
-    }
-  }, [])
+      }
+    },
+    []
+  )
 
   const deleteMarker = useCallback(async (id: number) => {
     await api.deleteMapMarker(id)
