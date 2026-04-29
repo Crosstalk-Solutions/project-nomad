@@ -46,6 +46,29 @@ export default function MapComponent() {
     }
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+
+    const lat = Number(params.get('lat'))
+    const lng = Number(params.get('lng'))
+    const zoom = Number(params.get('zoom') ?? 12)
+
+    if (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    ) {
+      mapRef.current?.flyTo({
+        center: [lng, lat],
+        zoom: Number.isFinite(zoom) ? zoom : 12,
+        duration: 1500,
+      })
+    }
+  }, [])
+
   const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
     setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
     setMarkerName('')
