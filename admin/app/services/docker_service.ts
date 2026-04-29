@@ -537,6 +537,21 @@ export class DockerService {
             )
 
             finalImage = 'ollama/ollama:rocm'
+
+            // The pull-if-missing earlier in this function used service.container_image
+            // (the DB-pinned tag, e.g. ollama/ollama:0.18.2). The AMD branch overrides
+            // to a different tag — so we need to pull :rocm separately if it's not local.
+            const rocmImageExists = await this._checkImageExists(finalImage)
+            if (!rocmImageExists) {
+              this._broadcast(
+                service.service_name,
+                'pulling',
+                `Pulling Docker image ${finalImage}...`
+              )
+              const rocmPullStream = await this.docker.pull(finalImage)
+              await new Promise((res) => this.docker.modem.followProgress(rocmPullStream, res))
+            }
+
             const amdDevices = await this._discoverAMDDevices()
             gpuHostConfig = {
               ...gpuHostConfig,
