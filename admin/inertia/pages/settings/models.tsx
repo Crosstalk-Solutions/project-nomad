@@ -283,7 +283,7 @@ export default function ModelsPage(props: {
               type="warning"
               variant="bordered"
               title="GPU Not Accessible"
-              message={`Your system has an NVIDIA GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
+              message={`Your system has ${systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
               className="!mt-6"
               dismissible={true}
               onDismiss={handleDismissGpuBanner}
