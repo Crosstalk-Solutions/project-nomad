@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react'
 import { Popup } from 'react-map-gl/maplibre'
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
@@ -20,6 +20,7 @@ type MapMarkerFormPopupProps = {
     color: PinColorId
   }) => void
   onCancel: () => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 export default function MapMarkerFormPopup({
@@ -28,10 +29,38 @@ export default function MapMarkerFormPopup({
                                              initialMarker,
                                              onSave,
                                              onCancel,
+                                             onDirtyChange,
                                            }: MapMarkerFormPopupProps) {
   const [name, setName] = useState(initialMarker?.name ?? '')
   const [notes, setNotes] = useState(initialMarker?.notes ?? '')
   const [color, setColor] = useState<PinColorId>(initialMarker?.color ?? 'orange')
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const resizeTextarea = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    textarea.style.height = 'auto'
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }, [])
+
+  useLayoutEffect(() => {
+    resizeTextarea()
+  }, [resizeTextarea])
+
+  useLayoutEffect(() => {
+    resizeTextarea()
+  }, [])
+
+  const isDirty =
+    name !== (initialMarker?.name ?? '') ||
+    notes !== (initialMarker?.notes ?? '') ||
+    color !== (initialMarker?.color ?? 'orange')
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
 
   const handleSave = () => {
     if (!name.trim()) return
@@ -68,16 +97,16 @@ export default function MapMarkerFormPopup({
         />
 
         <textarea
+          ref={textareaRef}
           placeholder="Add notes (optional)"
           value={notes}
           rows={2}
           maxLength={MAX_MARKER_NOTES_LENGTH}
           onChange={(e) => {
             setNotes(e.target.value)
-            e.currentTarget.style.height = 'auto'
-            e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`
+            requestAnimationFrame(resizeTextarea)
           }}
-          className={`mt-1 min-h-[64px] resize-none overflow-hidden ${inputClass}`}
+          className={`mt-1 min-h-[64px] max-h-[240px] resize-none overflow-y-auto themed-scrollbar ${inputClass}`}
         />
 
         <div className="mt-1 text-[11px] text-gray-400">

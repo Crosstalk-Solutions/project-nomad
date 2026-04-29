@@ -158,3 +158,50 @@ body {
   color: #f7eedc;
   background: #353420;
 }
+
+/* Base (hidden scrollbar + fade hint) */
+.themed-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 8px,
+    black calc(100% - 8px),
+    transparent
+  );
+}
+
+/* Chrome / Safari */
+.themed-scrollbar::-webkit-scrollbar {
+  width: 0px;
+}
+
+/* Show scrollbar on hover OR focus */
+.themed-scrollbar:hover,
+.themed-scrollbar:focus {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.themed-scrollbar:hover::-webkit-scrollbar,
+.themed-scrollbar:focus::-webkit-scrollbar {
+  width: 8px;
+}
+
+.themed-scrollbar:hover::-webkit-scrollbar-track,
+.themed-scrollbar:focus::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.themed-scrollbar:hover::-webkit-scrollbar-thumb,
+.themed-scrollbar:focus::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-default);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.themed-scrollbar:hover::-webkit-scrollbar-thumb:hover,
+.themed-scrollbar:focus::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-muted);
+}

@@ -20,10 +20,13 @@ const normalizeColorHex = (color: string) => {
   return preset?.hex ?? color
 }
 
-const getHueSortValue = (color: string) => {
+const getColorSortValue = (color: string) => {
   const hex = normalizeColorHex(color).replace('#', '')
 
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return 0
+  // Invalid/custom non-hex colors sort after valid colors
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return { bucket: 2, hue: 0, lightness: 0 }
+  }
 
   const r = parseInt(hex.slice(0, 2), 16) / 255
   const g = parseInt(hex.slice(2, 4), 16) / 255
@@ -32,8 +35,12 @@ const getHueSortValue = (color: string) => {
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   const delta = max - min
+  const lightness = (max + min) / 2
 
-  if (delta === 0) return 0
+  // Grayscale colors sort separately before hue colors, by lightness
+  if (delta === 0) {
+    return { bucket: 0, hue: 0, lightness }
+  }
 
   let hue = 0
 
@@ -45,7 +52,11 @@ const getHueSortValue = (color: string) => {
     hue = (r - g) / delta + 4
   }
 
-  return Math.round(hue * 60 + 360) % 360
+  return {
+    bucket: 1,
+    hue: Math.round(hue * 60 + 360) % 360,
+    lightness,
+  }
 }
 
 export default function MarkerPanel({
@@ -81,7 +92,16 @@ export default function MarkerPanel({
         const result =
           sortField === 'name'
             ? a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-            : getHueSortValue(a.color) - getHueSortValue(b.color)
+            : (() => {
+          const aColor = getColorSortValue(a.color)
+          const bColor = getColorSortValue(b.color)
+
+          return (
+            aColor.bucket - bColor.bucket ||
+            aColor.hue - bColor.hue ||
+            aColor.lightness - bColor.lightness
+          )
+        })()
 
         return sortDirection === 'asc' ? result : -result
       })

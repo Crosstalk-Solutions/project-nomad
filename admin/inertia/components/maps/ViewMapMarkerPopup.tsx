@@ -16,47 +16,49 @@ export default function ViewMapMarkerPopup({
                                              onEdit,
                                            }: ViewMapMarkerPopupProps) {
   return (
-    <Popup
-      longitude={marker.longitude}
-      latitude={marker.latitude}
-      anchor="bottom"
-      offset={[0, -36] as [number, number]}
-      onClose={onClose}
-      closeOnClick={false}
-    >
-      <div className="text-sm font-medium">{marker.name}</div>
-
-      {marker.notes && (
-        <div className="mt-1 text-xs text-gray-500">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children }) => (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-700"
-                >
-                  {children}
-                </a>
-              ),
-            }}
+      <div className="max-w-[260px]">
+          <Popup
+              longitude={marker.longitude}
+              latitude={marker.latitude}
+              anchor="bottom"
+              offset={[0, -36] as [number, number]}
+              onClose={onClose}
+              closeOnClick={false}
           >
-            {marker.notes}
-          </ReactMarkdown>
-        </div>
-      )}
+              <div className="text-sm font-medium">{marker.name}</div>
 
-      <div className="mt-2 flex justify-end">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="rounded bg-[#424420] px-2.5 py-1 text-xs text-white hover:bg-[#525530]"
-        >
-          Edit
-        </button>
+              {marker.notes && (
+                  <div className="mt-1 max-w-[240px] break-all whitespace-pre-wrap text-xs text-gray-500">
+                      <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                              a: ({href, children}) => (
+                                  <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="break-all text-blue-600 underline hover:text-blue-700"
+                                  >
+                                      {children}
+                                  </a>
+                              ),
+                          }}
+                      >
+                          {marker.notes}
+                      </ReactMarkdown>
+                  </div>
+              )}
+
+              <div className="mt-2 flex justify-end">
+                  <button
+                      type="button"
+                      onClick={onEdit}
+                      className="rounded bg-[#424420] px-2.5 py-1 text-xs text-white hover:bg-[#525530]"
+                  >
+                      Edit
+                  </button>
+              </div>
+          </Popup>
       </div>
-    </Popup>
-  )
-}
+          )
+          }

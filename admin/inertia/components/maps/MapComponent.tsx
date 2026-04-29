@@ -27,10 +27,17 @@ export default function MapComponent() {
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
   const [editingMarkerId, setEditingMarkerId] = useState<number | null>(null)
+  const [hasUnsavedMarkerChanges, setHasUnsavedMarkerChanges] = useState(false)
 
   const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
     () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
   )
+
+  const confirmDiscardMarkerChanges = useCallback(() => {
+    if (!hasUnsavedMarkerChanges) return true
+
+    return window.confirm('Discard unsaved marker changes?')
+  }, [hasUnsavedMarkerChanges])
 
   useEffect(() => {
     const protocol = new Protocol()
@@ -46,11 +53,17 @@ export default function MapComponent() {
     localStorage.setItem('nomad:map-scale-unit', unit)
   }, [])
 
-  const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
-    setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
-    setSelectedMarkerId(null)
-    setEditingMarkerId(null)
-  }, [])
+  const handleMapClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      if (!confirmDiscardMarkerChanges()) return
+
+      setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+      setSelectedMarkerId(null)
+      setEditingMarkerId(null)
+      setHasUnsavedMarkerChanges(false)
+    },
+    [confirmDiscardMarkerChanges]
+  )
 
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
@@ -104,9 +117,13 @@ export default function MapComponent() {
             anchor="bottom"
             onClick={(e) => {
               e.originalEvent.stopPropagation()
+
+              if (!confirmDiscardMarkerChanges()) return
+
               setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
               setPlacingMarker(null)
               setEditingMarkerId(null)
+              setHasUnsavedMarkerChanges(false)
             }}
           >
             <MarkerPin
@@ -124,7 +141,13 @@ export default function MapComponent() {
               await addMarker(name, placingMarker.lng, placingMarker.lat, color, notes || undefined)
               setPlacingMarker(null)
             }}
-            onCancel={() => setPlacingMarker(null)}
+            onCancel={() => {
+              if (!confirmDiscardMarkerChanges()) return
+
+              setPlacingMarker(null)
+              setEditingMarkerId(null)
+              setHasUnsavedMarkerChanges(false)
+            }}
           />
         )}
 
@@ -141,6 +164,7 @@ export default function MapComponent() {
             longitude={selectedMarker.longitude}
             latitude={selectedMarker.latitude}
             initialMarker={selectedMarker}
+            onDirtyChange={setHasUnsavedMarkerChanges}
             onSave={async ({ id, name, notes, color }) => {
               if (!id) return
 
@@ -151,6 +175,7 @@ export default function MapComponent() {
               })
 
               setEditingMarkerId(null)
+              setHasUnsavedMarkerChanges(false)
             }}
             onCancel={() => setEditingMarkerId(null)}
           />
