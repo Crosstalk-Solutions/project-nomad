@@ -23,6 +23,11 @@ import ScaleUnitToggle from './ScaleUnitToggle'
 
 type ScaleUnit = 'imperial' | 'metric'
 
+type MapComponentProps = {
+  isHoveringUI: boolean
+  showCoordinatesEnabled: boolean
+}
+
 type MapLocationParams = {
   lat: number
   lng: number
@@ -68,27 +73,21 @@ const getMapLocationParams = (): MapLocationParams | null => {
   }
 }
 
-export default function MapComponent() {
-type MapComponentProps = {
-  isHoveringUI: boolean
-  showCoordinatesEnabled: boolean
-}
-
 export default function MapComponent({
-  isHoveringUI,
-  showCoordinatesEnabled,
-}: MapComponentProps) {
+                                       isHoveringUI,
+                                       showCoordinatesEnabled,
+                                     }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
 
   const { markers, addMarker, deleteMarker } = useMapMarkers()
 
   const [isDraggingMap, setIsDraggingMap] = useState(false)
-
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [markerName, setMarkerName] = useState('')
   const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
+  const [showCoordinates, setShowCoordinates] = useState(false)
 
   const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
     () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
@@ -111,16 +110,6 @@ export default function MapComponent({
       duration: 1500,
     })
   }, [])
-
-  const toggleScaleUnit = useCallback(() => {
-    setScaleUnit((prev) => {
-      const next = prev === 'metric' ? 'imperial' : 'metric'
-      localStorage.setItem('nomad:map-scale-unit', next)
-      return next
-    })
-  }, [])
-
-  const [showCoordinates, setShowCoordinates] = useState(false)
 
   useEffect(() => {
     const protocol = new Protocol()
@@ -212,7 +201,9 @@ export default function MapComponent({
     [selectedMarkerId, deleteMarker]
   )
 
-  const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : null
+  const selectedMarker = selectedMarkerId
+    ? markers.find((marker) => marker.id === selectedMarkerId)
+    : null
 
   return (
     <MapProvider>
@@ -298,7 +289,7 @@ export default function MapComponent({
               }}
             >
               <MarkerPin
-                color={PIN_COLORS.find((c) => c.id === marker.color)?.hex}
+                color={PIN_COLORS.find((color) => color.id === marker.color)?.hex}
                 active={marker.id === selectedMarkerId}
               />
             </Marker>
@@ -309,7 +300,7 @@ export default function MapComponent({
               longitude={selectedMarker.longitude}
               latitude={selectedMarker.latitude}
               anchor="bottom"
-              offset={[0, -36]}
+              offset={[0, -36] as [number, number]}
               onClose={() => setSelectedMarkerId(null)}
               closeOnClick={false}
             >
@@ -340,20 +331,25 @@ export default function MapComponent({
                 />
 
                 <div className="mt-1.5 flex gap-1 items-center">
-                  {PIN_COLORS.map((c) => (
+                  {PIN_COLORS.map((color) => (
                     <button
-                      key={c.id}
+                      key={color.id}
                       type="button"
-                      onClick={() => setMarkerColor(c.id)}
-                      title={c.label}
+                      onClick={() => setMarkerColor(color.id)}
+                      title={color.label}
                       className="rounded-full p-0.5 transition-transform"
                       style={{
                         outline:
-                          markerColor === c.id ? `2px solid ${c.hex}` : '2px solid transparent',
+                          markerColor === color.id
+                            ? `2px solid ${color.hex}`
+                            : '2px solid transparent',
                         outlineOffset: '1px',
                       }}
                     >
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: c.hex }} />
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: color.hex }}
+                      />
                     </button>
                   ))}
                 </div>
