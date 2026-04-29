@@ -12,22 +12,81 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-type ScaleUnit = 'imperial' | 'metric'
 import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { PinColorId } from '~/hooks/useMapMarkers'
 import MarkerPin from './MarkerPin'
 import MarkerPanel from './MarkerPanel'
 
+type ScaleUnit = 'imperial' | 'metric'
+
+type MapLocationParams = {
+  lat: number
+  lng: number
+  zoom: number
+}
+
+const getMapLocationParams = (): MapLocationParams | null => {
+  const params = new URLSearchParams(window.location.search)
+
+  const lat = Number(params.get('lat'))
+  const lngParam = params.get('lng')
+  const longParam = params.get('long')
+  const lng = Number(lngParam ?? longParam)
+  const zoom = Number(params.get('zoom') ?? 12)
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return null
+  }
+
+  if (!lngParam && longParam) {
+    params.set('lng', longParam)
+    params.delete('long')
+
+    const query = params.toString()
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    )
+  }
+
+  return {
+    lat,
+    lng,
+    zoom: Number.isFinite(zoom) ? zoom : 12,
+  }
+}
+
 export default function MapComponent() {
   const mapRef = useRef<MapRef>(null)
   const { markers, addMarker, deleteMarker } = useMapMarkers()
+
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [markerName, setMarkerName] = useState('')
   const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
+
   const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
     () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
   )
+
+  const flyToLocationParams = useCallback(() => {
+    const location = getMapLocationParams()
+    if (!location) return
+
+    mapRef.current?.flyTo({
+      center: [location.lng, location.lat],
+      zoom: location.zoom,
+      duration: 1500,
+    })
+  }, [])
 
   const toggleScaleUnit = useCallback(() => {
     setScaleUnit((prev) => {
@@ -37,37 +96,18 @@ export default function MapComponent() {
     })
   }, [])
 
-  // Add the PMTiles protocol to maplibre-gl
   useEffect(() => {
-    let protocol = new Protocol()
+    const protocol = new Protocol()
     maplibregl.addProtocol('pmtiles', protocol.tile)
+
     return () => {
       maplibregl.removeProtocol('pmtiles')
     }
   }, [])
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-
-    const lat = Number(params.get('lat'))
-    const lng = Number(params.get('lng'))
-    const zoom = Number(params.get('zoom') ?? 12)
-
-    if (
-      Number.isFinite(lat) &&
-      Number.isFinite(lng) &&
-      lat >= -90 &&
-      lat <= 90 &&
-      lng >= -180 &&
-      lng <= 180
-    ) {
-      mapRef.current?.flyTo({
-        center: [lng, lat],
-        zoom: Number.isFinite(zoom) ? zoom : 12,
-        duration: 1500,
-      })
-    }
-  }, [])
+  const handleMapLoad = useCallback(() => {
+    flyToLocationParams()
+  }, [flyToLocationParams])
 
   const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
     setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
@@ -97,7 +137,7 @@ export default function MapComponent() {
     [selectedMarkerId, deleteMarker]
   )
 
-  const selectedMarker = selectedMarkerId ? markers.find((m) => m.id === selectedMarkerId) : null
+  const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : null
 
   return (
     <MapProvider>
@@ -115,11 +155,13 @@ export default function MapComponent() {
           latitude: 40,
           zoom: 3.5,
         }}
+        onLoad={handleMapLoad}
         onClick={handleMapClick}
       >
         <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
         <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
         <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
+
         <div style={{ position: 'absolute', bottom: '30px', left: '10px', zIndex: 2 }}>
           <div
             style={{
@@ -133,7 +175,10 @@ export default function MapComponent() {
             }}
           >
             <button
-              onClick={() => { if (scaleUnit !== 'metric') toggleScaleUnit() }}
+              type="button"
+              onClick={() => {
+                if (scaleUnit !== 'metric') toggleScaleUnit()
+              }}
               style={{
                 background: scaleUnit === 'metric' ? '#424420' : 'white',
                 color: scaleUnit === 'metric' ? 'white' : '#666',
@@ -144,8 +189,12 @@ export default function MapComponent() {
             >
               Metric
             </button>
+
             <button
-              onClick={() => { if (scaleUnit !== 'imperial') toggleScaleUnit() }}
+              type="button"
+              onClick={() => {
+                if (scaleUnit !== 'imperial') toggleScaleUnit()
+              }}
               style={{
                 background: scaleUnit === 'imperial' ? '#424420' : 'white',
                 color: scaleUnit === 'imperial' ? 'white' : '#666',
@@ -159,7 +208,6 @@ export default function MapComponent() {
           </div>
         </div>
 
-        {/* Existing markers */}
         {markers.map((marker) => (
           <Marker
             key={marker.id}
@@ -173,13 +221,12 @@ export default function MapComponent() {
             }}
           >
             <MarkerPin
-              color={PIN_COLORS.find((c) => c.id === marker.color)?.hex}
+              color={PIN_COLORS.find((color) => color.id === marker.color)?.hex}
               active={marker.id === selectedMarkerId}
             />
           </Marker>
         ))}
 
-        {/* Popup for selected marker */}
         {selectedMarker && (
           <Popup
             longitude={selectedMarker.longitude}
@@ -193,7 +240,6 @@ export default function MapComponent() {
           </Popup>
         )}
 
-        {/* Popup for placing a new marker */}
         {placingMarker && (
           <Popup
             longitude={placingMarker.lng}
@@ -215,33 +261,37 @@ export default function MapComponent() {
                 }}
                 className="block w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
               />
+
               <div className="mt-1.5 flex gap-1 items-center">
-                {PIN_COLORS.map((c) => (
+                {PIN_COLORS.map((color) => (
                   <button
-                    key={c.id}
-                    onClick={() => setMarkerColor(c.id)}
-                    title={c.label}
+                    key={color.id}
+                    type="button"
+                    onClick={() => setMarkerColor(color.id)}
+                    title={color.label}
                     className="rounded-full p-0.5 transition-transform"
                     style={{
-                      outline: markerColor === c.id ? `2px solid ${c.hex}` : '2px solid transparent',
+                      outline:
+                        markerColor === color.id ? `2px solid ${color.hex}` : '2px solid transparent',
                       outlineOffset: '1px',
                     }}
                   >
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: c.hex }}
-                    />
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.hex }} />
                   </button>
                 ))}
               </div>
+
               <div className="mt-1.5 flex gap-1.5 justify-end">
                 <button
+                  type="button"
                   onClick={() => setPlacingMarker(null)}
                   className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
                 >
                   Cancel
                 </button>
+
                 <button
+                  type="button"
                   onClick={handleSaveMarker}
                   disabled={!markerName.trim()}
                   className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
@@ -254,7 +304,6 @@ export default function MapComponent() {
         )}
       </Map>
 
-      {/* Marker panel overlay */}
       <MarkerPanel
         markers={markers}
         onDelete={handleDeleteMarker}
