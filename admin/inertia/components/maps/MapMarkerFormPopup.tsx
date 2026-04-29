@@ -50,6 +50,13 @@ export default function MapMarkerFormPopup({
     resizeTextarea()
   }, [resizeTextarea])
 
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+
+  useLayoutEffect(() => {
+    nameInputRef.current?.focus()
+    nameInputRef.current?.select()
+  }, [])
+
   const isDirty =
     name !== (initialMarker?.name ?? '') ||
     notes !== (initialMarker?.notes ?? '') ||
@@ -85,8 +92,14 @@ export default function MapMarkerFormPopup({
       onClose={onCancel}
       closeOnClick={false}
     >
-      <div className="p-1">
+      <div
+        className="p-1"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <input
+          ref={nameInputRef}
           autoFocus
           type="text"
           placeholder="Name this location"
@@ -130,7 +143,7 @@ export default function MapMarkerFormPopup({
                 outlineOffset: '1px',
               }}
             >
-              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: pinColor.hex }} />
+              <div className="w-4 h-4 rounded-full" style={{backgroundColor: pinColor.hex}}/>
             </button>
           ))}
         </div>

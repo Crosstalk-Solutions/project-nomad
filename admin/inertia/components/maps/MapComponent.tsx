@@ -23,9 +23,17 @@ import MapMarkerFormPopup from './MapMarkerFormPopup'
 
 type ScaleUnit = 'imperial' | 'metric'
 
+type MapCommand = {
+  id: number
+  lat: number
+  lng: number
+  action: 'fly' | 'marker'
+}
+
 type MapComponentProps = {
-  isHoveringUI: boolean
-  showCoordinatesEnabled: boolean
+  mapCommand?: MapCommand | null
+  isHoveringUI?: boolean
+  showCoordinatesEnabled?: boolean
 }
 
 type MapLocationParams = {
@@ -74,8 +82,9 @@ const getMapLocationParams = (): MapLocationParams | null => {
 }
 
 export default function MapComponent({
-                                       isHoveringUI,
-                                       showCoordinatesEnabled,
+                                       mapCommand,
+                                       isHoveringUI = false,
+                                       showCoordinatesEnabled = true,
                                      }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
@@ -137,6 +146,45 @@ export default function MapComponent({
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!mapCommand) return
+
+    if (mapCommand.action === 'fly') {
+      const currentZoom = mapRef.current?.getZoom() ?? 12
+
+      mapRef.current?.flyTo({
+        center: [mapCommand.lng, mapCommand.lat],
+        zoom: currentZoom,
+        duration: 1500,
+      })
+
+      return
+    }
+
+    if (mapCommand.action === 'marker') {
+      if (!confirmDiscardMarkerChanges()) return
+
+      const currentZoom = mapRef.current?.getZoom() ?? 12
+
+      mapRef.current?.flyTo({
+        center: [mapCommand.lng, mapCommand.lat],
+        zoom: currentZoom,
+        duration: 750,
+      })
+
+      window.setTimeout(() => {
+        setPlacingMarker({
+          lng: mapCommand.lng,
+          lat: mapCommand.lat,
+        })
+
+        setSelectedMarkerId(null)
+        setEditingMarkerId(null)
+        setHasUnsavedMarkerChanges(false)
+      }, 750)
+    }
+  }, [mapCommand, confirmDiscardMarkerChanges])
 
   const handleScaleUnitChange = useCallback((unit: ScaleUnit) => {
     setScaleUnit(unit)
