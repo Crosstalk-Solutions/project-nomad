@@ -1,3 +1,11 @@
+export type StoredFile = {
+  source: string
+  fileName: string
+  size: number | null
+  uploadedAt: string | null
+  isUserUpload: boolean
+}
+
 export type EmbedJobWithProgress = {
   jobId: string
   fileName: string

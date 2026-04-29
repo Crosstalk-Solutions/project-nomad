@@ -5,7 +5,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
-import { deleteFileSchema, getJobStatusSchema } from '#validators/rag'
+import { deleteFileSchema, fileSourceSchema, getJobStatusSchema } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
@@ -101,5 +101,24 @@ export default class RagController {
   public async health({ response }: HttpContext) {
     const result = await this.ragService.checkQdrantHealth()
     return response.status(200).json(result)
+  }
+
+  public async getFileContent({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const result = await this.ragService.readFileContent(source)
+    if (!result) {
+      return response.status(404).json({ error: 'File not found or not viewable' })
+    }
+    return response.status(200).json(result)
+  }
+
+  public async downloadFile({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const filePath = await this.ragService.resolveDownloadPath(source)
+    if (!filePath) {
+      return response.status(404).json({ error: 'File not found' })
+    }
+    const fileName = filePath.split(/[/\\]/).at(-1) ?? 'download'
+    return response.attachment(filePath, fileName)
   }
 }

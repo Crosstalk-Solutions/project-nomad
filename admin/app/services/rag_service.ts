@@ -18,7 +18,7 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
-import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
+import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult, StoredFile } from '../../types/rag.js'
 
 @inject()
 export class RagService {
@@ -1045,7 +1045,7 @@ export class RagService {
     }
   }
 
-  public async getStoredFiles(): Promise<string[]> {
+  public async getStoredFiles(): Promise<StoredFile[]> {
     try {
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
@@ -1076,11 +1076,64 @@ export class RagService {
         offset = scrollResult.next_page_offset || null
       } while (offset !== null)
 
-      return Array.from(sources)
+      const uploadsAbsPath = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
+      const files: StoredFile[] = await Promise.all(
+        Array.from(sources).map(async (source) => {
+          const fileName = source.split(/[/\\]/).at(-1) ?? source
+          const isUserUpload = resolve(source).startsWith(uploadsAbsPath + sep)
+          const stats = await getFileStatsIfExists(source)
+          return {
+            source,
+            fileName,
+            size: stats?.size ?? null,
+            uploadedAt: stats?.modifiedTime.toISOString() ?? null,
+            isUserUpload,
+          }
+        })
+      )
+
+      return files
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
     }
+  }
+
+  /**
+   * Read the text content of a user-uploaded file for in-browser viewing.
+   * Only serves files within the uploads directory (path-traversal safe).
+   * Returns null if the file is outside the uploads dir, doesn't exist, or is binary.
+   */
+  public async readFileContent(source: string): Promise<{ content: string; extension: string; fileName: string } | null> {
+    const appAbsPath = process.cwd()
+    const resolved = resolve(source)
+    if (!resolved.startsWith(appAbsPath + sep)) return null
+
+    const extension = resolved.split('.').at(-1)?.toLowerCase() ?? ''
+    const textExtensions = ['md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html']
+    if (!textExtensions.includes(extension)) return null
+
+    try {
+      const { readFile } = await import('fs/promises')
+      const content = await readFile(resolved, 'utf-8')
+      const fileName = resolved.split(/[/\\]/).at(-1) ?? resolved
+      return { content, extension, fileName }
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Resolve a file path for download. Serves both user uploads and app docs.
+   * Path-traversal safe: only files within the app directory are served.
+   */
+  public async resolveDownloadPath(source: string): Promise<string | null> {
+    const appAbsPath = process.cwd()
+    const resolved = resolve(source)
+    if (!resolved.startsWith(appAbsPath + sep)) return null
+
+    const stats = await getFileStatsIfExists(resolved)
+    return stats ? resolved : null
   }
 
   /**
