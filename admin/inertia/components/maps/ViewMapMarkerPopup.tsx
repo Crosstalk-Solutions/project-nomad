@@ -29,6 +29,8 @@ export default function ViewMapMarkerPopup({
 
               {marker.notes && (
                   <div className="mt-1 max-w-[240px] break-all whitespace-pre-wrap text-xs text-gray-500">
+                       {/* react-markdown is intentionally used without rehypeRaw.
+                            Do not enable raw HTML rendering unless notes are sanitized first. */}
                       <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{

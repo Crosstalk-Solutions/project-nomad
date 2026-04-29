@@ -137,9 +137,11 @@ export default function MapComponent() {
           <MapMarkerFormPopup
             longitude={placingMarker.lng}
             latitude={placingMarker.lat}
+            onDirtyChange={setHasUnsavedMarkerChanges}
             onSave={async ({ name, notes, color }) => {
               await addMarker(name, placingMarker.lng, placingMarker.lat, color, notes || undefined)
               setPlacingMarker(null)
+              setHasUnsavedMarkerChanges(false)
             }}
             onCancel={() => {
               if (!confirmDiscardMarkerChanges()) return

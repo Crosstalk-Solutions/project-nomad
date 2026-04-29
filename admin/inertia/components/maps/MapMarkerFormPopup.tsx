@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Popup } from 'react-map-gl/maplibre'
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
@@ -18,7 +18,7 @@ type MapMarkerFormPopupProps = {
     name: string
     notes: string
     color: PinColorId
-  }) => void
+  }) => Promise<void> | void
   onCancel: () => void
   onDirtyChange?: (dirty: boolean) => void
 }
@@ -34,6 +34,7 @@ export default function MapMarkerFormPopup({
   const [name, setName] = useState(initialMarker?.name ?? '')
   const [notes, setNotes] = useState(initialMarker?.notes ?? '')
   const [color, setColor] = useState<PinColorId>(initialMarker?.color ?? 'orange')
+  const [isSaving, setIsSaving] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -49,10 +50,6 @@ export default function MapMarkerFormPopup({
     resizeTextarea()
   }, [resizeTextarea])
 
-  useLayoutEffect(() => {
-    resizeTextarea()
-  }, [])
-
   const isDirty =
     name !== (initialMarker?.name ?? '') ||
     notes !== (initialMarker?.notes ?? '') ||
@@ -62,15 +59,21 @@ export default function MapMarkerFormPopup({
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
-  const handleSave = () => {
-    if (!name.trim()) return
+  const handleSave = async () => {
+    if (!name.trim() || isSaving) return
 
-    onSave({
-      id: initialMarker?.id,
-      name: name.trim(),
-      notes: notes.trim(),
-      color,
-    })
+    try {
+      setIsSaving(true)
+
+      await onSave({
+        id: initialMarker?.id,
+        name: name.trim(),
+        notes: notes.trim(),
+        color,
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -136,7 +139,8 @@ export default function MapMarkerFormPopup({
           <button
             type="button"
             onClick={onCancel}
-            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
+            disabled={isSaving}
+            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors disabled:opacity-40"
           >
             Cancel
           </button>
@@ -144,10 +148,10 @@ export default function MapMarkerFormPopup({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!name.trim()}
+            disabled={!name.trim() || isSaving}
             className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
           >
-            Save
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
