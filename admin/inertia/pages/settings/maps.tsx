@@ -17,6 +17,7 @@ import type { CollectionWithStatus } from '../../../types/collections'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
 import { formatBytes } from '~/lib/util'
+import { hasDownloadedGlobalMap } from '~/lib/global_map_banner'
 
 const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 const GLOBAL_MAP_INFO_KEY = 'global-map-info'
@@ -45,6 +46,7 @@ export default function MapsManager(props: {
     queryFn: () => api.getGlobalMapInfo(),
     refetchOnWindowFocus: false,
   })
+  const globalMapAlreadyDownloaded = hasDownloadedGlobalMap(globalMapInfo?.key, props.maps.regionFiles)
 
   const downloadGlobalMap = useMutation({
     mutationFn: () => api.downloadGlobalMap(),
@@ -251,7 +253,23 @@ export default function MapsManager(props: {
               }}
             />
           )}
-          {globalMapInfo && (
+          {globalMapInfo && globalMapAlreadyDownloaded && (
+            <Alert
+              title="Global Map Installed"
+              message={`Your global map build ${globalMapInfo.date} (${formatBytes(globalMapInfo.size, 1)}) is stored locally and ready for offline use.`}
+              type="success"
+              variant="bordered"
+              className="mt-8"
+              icon="IconCircleCheck"
+              buttonProps={{
+                variant: 'secondary',
+                children: 'Download latest build',
+                icon: 'IconRefresh',
+                onClick: () => confirmGlobalMapDownload(),
+              }}
+            />
+          )}
+          {globalMapInfo && !globalMapAlreadyDownloaded && (
             <Alert
               title="Global Map Coverage Available"
               message={`Download a complete worldwide map from Protomaps (${formatBytes(globalMapInfo.size, 1)}, build ${globalMapInfo.date}). This is a large file but covers the entire planet — no individual region downloads needed.`}
