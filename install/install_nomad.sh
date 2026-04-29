@@ -517,18 +517,23 @@ verify_gpu_setup() {
     echo -e "${YELLOW}○${RESET} Docker NVIDIA runtime not detected\\n"
   fi
   
-  # Check for AMD GPU
+  # Check for AMD GPU — restrict to display controller classes to avoid false positives
+  # from AMD CPU host bridges, PCI bridges, and chipset devices.
+  local has_amd_gpu='false'
   if command -v lspci &> /dev/null; then
-    if lspci 2>/dev/null | grep -iE "amd|radeon" &> /dev/null; then
-      echo -e "${YELLOW}○${RESET} AMD GPU detected (ROCm support not currently available)\\n"
+    if lspci 2>/dev/null | grep -iE "VGA|3D controller|Display" | grep -iE "amd|radeon" &> /dev/null; then
+      has_amd_gpu='true'
+      echo -e "${GREEN}✓${RESET} AMD GPU detected — ROCm acceleration will be configured automatically when AI Assistant is installed.\\n"
     fi
   fi
-  
+
   echo -e "${YELLOW}===========================================${RESET}\\n"
-  
+
   # Summary
   if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
+  elif [[ "${has_amd_gpu}" == 'true' ]]; then
+    echo -e "${GREEN}#${RESET} GPU acceleration will be enabled (AMD/ROCm) when AI Assistant is installed from the dashboard.\\n"
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
     if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q "nvidia"; then
