@@ -6,5 +6,5 @@ export function hasDownloadedGlobalMap(
     return false
   }
 
-  return storedMapFiles.some((file) => file.name === globalMapKey)
+  return storedMapFiles.some((file) => file.name === globalMapKey || /^\d{8}\.pmtiles$/.test(file.name))
 }
