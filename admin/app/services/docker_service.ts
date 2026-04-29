@@ -10,6 +10,7 @@ import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { readFile } from 'node:fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -883,7 +884,10 @@ export class DockerService {
   /**
    * Detect GPU type and toolkit availability.
    * Primary: Check Docker runtimes via docker.info() (works from inside containers).
-   * Fallback: lspci for host-based installs and AMD detection.
+   * Secondary: Read /app/storage/.nomad-gpu-type written by install_nomad.sh — needed
+   *   for AMD detection because lspci isn't available inside the admin container and
+   *   AMD has no Docker runtime registration to query.
+   * Fallback: lspci for host-based installs.
    */
   private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'none'; toolkitMissing?: boolean }> {
     try {
@@ -898,6 +902,24 @@ export class DockerService {
         }
       } catch (error: any) {
         logger.warn(`[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`)
+      }
+
+      // Secondary: install_nomad.sh writes the host-detected GPU type to a marker file in
+      // the storage volume so the admin container (which lacks lspci) can read it.
+      try {
+        const marker = (await readFile('/app/storage/.nomad-gpu-type', 'utf8')).trim()
+        if (marker === 'nvidia') {
+          // Hardware present but Docker doesn't have nvidia runtime → toolkit missing
+          logger.warn('[DockerService] NVIDIA GPU recorded in marker file but NVIDIA Container Toolkit is not installed')
+          return { type: 'none', toolkitMissing: true }
+        }
+        if (marker === 'amd') {
+          logger.info('[DockerService] AMD GPU detected via install-time marker file')
+          await this._persistGPUType('amd')
+          return { type: 'amd' }
+        }
+      } catch {
+        // No marker file — fall through to lspci attempt for host-based installs
       }
 
       // Fallback: lspci for host-based installs (not available inside Docker)

@@ -527,6 +527,18 @@ verify_gpu_setup() {
     fi
   fi
 
+  # Write detected GPU type to a marker file the admin container can read. The admin
+  # container lacks lspci and AMD GPUs don't register a Docker runtime, so this is the
+  # only reliable way for the admin to know an AMD GPU is present at install time.
+  local gpu_marker_path="${NOMAD_DIR}/storage/.nomad-gpu-type"
+  if command -v nvidia-smi &> /dev/null; then
+    echo 'nvidia' | sudo tee "${gpu_marker_path}" > /dev/null 2>&1 || true
+  elif [[ "${has_amd_gpu}" == 'true' ]]; then
+    echo 'amd' | sudo tee "${gpu_marker_path}" > /dev/null 2>&1 || true
+  else
+    sudo rm -f "${gpu_marker_path}" 2>/dev/null || true
+  fi
+
   echo -e "${YELLOW}===========================================${RESET}\\n"
 
   # Summary

@@ -12,6 +12,7 @@ import {
 } from '../../types/system.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import path, { join } from 'node:path'
 import { getAllFilesystems, getFile } from '../utils/fs.js'
 import axios from 'axios'
@@ -404,10 +405,17 @@ export class SystemService {
           const runtimes = dockerInfo.Runtimes || {}
           gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
 
-          // AMD doesn't register a Docker runtime — detection persists in KV (gpu.type)
-          // after first install-time discovery in DockerService._detectGPUType().
-          // Honor the user opt-out (default-on); a 'false' string OR boolean both count.
-          const savedGpuType = await KVStore.getValue('gpu.type')
+          // AMD doesn't register a Docker runtime. Detection sources, in priority order:
+          //   1. KV 'gpu.type' (set by DockerService._detectGPUType after first Ollama install)
+          //   2. Marker file at /app/storage/.nomad-gpu-type (written by install_nomad.sh)
+          // The marker file matters because the System page should reflect AMD presence
+          // even before AI Assistant has been installed for the first time.
+          let savedGpuType: string | null | undefined = await KVStore.getValue('gpu.type') as string | undefined
+          if (!savedGpuType) {
+            try {
+              savedGpuType = (await readFile('/app/storage/.nomad-gpu-type', 'utf8')).trim()
+            } catch {}
+          }
           const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
           const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
           gpuHealth.hasRocmRuntime = savedGpuType === 'amd' && amdAccelerationEnabled
