@@ -6,6 +6,7 @@ import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft, IconMapPin, IconPlaneTilt } from '@tabler/icons-react'
 import { FileEntry } from '../../types/files'
 import Alert from '~/components/Alert'
+import { IconCrosshair } from '@tabler/icons-react'
 
 type MapCommand = {
   id: number
@@ -19,6 +20,7 @@ export default function Maps(props: {
 }) {
   const [coordinateSearch, setCoordinateSearch] = useState('')
   const [mapCommand, setMapCommand] = useState<MapCommand | null>(null)
+  const [showCoordinatesEnabled, setShowCoordinatesEnabled] = useState(true)
 
   const parseCoordinates = () => {
     const [latRaw, lngRaw] = coordinateSearch.split(',').map((value) => value.trim())
@@ -84,7 +86,7 @@ export default function Maps(props: {
               className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
               title="Fly to coordinates"
             >
-              <IconPlaneTilt size={18} />
+              <IconPlaneTilt size={18}/>
             </button>
 
             <button
@@ -93,7 +95,20 @@ export default function Maps(props: {
               className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
               title="Add marker at coordinates"
             >
-              <IconMapPin size={18} />
+              <IconMapPin size={18}/>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCoordinatesEnabled((prev) => !prev)}
+              className={`rounded border border-border-default p-2 transition-colors ${
+                showCoordinatesEnabled
+                  ? 'bg-desert-green text-white'
+                  : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
+              }`}
+              title={showCoordinatesEnabled ? 'Hide coordinates' : 'Show coordinates'}
+            >
+              <IconCrosshair size={18}/>
             </button>
 
             <Link href="/settings/maps" className="mr-4">
@@ -122,7 +137,10 @@ export default function Maps(props: {
         )}
 
         <div className="absolute inset-0">
-          <MapComponent mapCommand={mapCommand} />
+          <MapComponent
+            mapCommand={mapCommand}
+            showCoordinatesEnabled={showCoordinatesEnabled}
+          />
         </div>
       </div>
     </MapsLayout>

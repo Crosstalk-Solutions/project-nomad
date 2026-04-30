@@ -21,6 +21,7 @@ type MapMarkerFormPopupProps = {
   }) => Promise<void> | void
   onCancel: () => void
   onDirtyChange?: (dirty: boolean) => void
+  onMouseEnter?: () => void
 }
 
 export default function MapMarkerFormPopup({
@@ -30,6 +31,7 @@ export default function MapMarkerFormPopup({
                                              onSave,
                                              onCancel,
                                              onDirtyChange,
+                                             onMouseEnter,
                                            }: MapMarkerFormPopupProps) {
   const [name, setName] = useState(initialMarker?.name ?? '')
   const [notes, setNotes] = useState(initialMarker?.notes ?? '')
@@ -91,12 +93,14 @@ export default function MapMarkerFormPopup({
       offset={[0, -36] as [number, number]}
       onClose={onCancel}
       closeOnClick={false}
+      closeButton={false}
     >
       <div
         className="p-1"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
+        onMouseEnter={onMouseEnter}
       >
         <input
           ref={nameInputRef}
@@ -153,7 +157,7 @@ export default function MapMarkerFormPopup({
             type="button"
             onClick={onCancel}
             disabled={isSaving}
-            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors disabled:opacity-40"
+            className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
           >
             Cancel
           </button>

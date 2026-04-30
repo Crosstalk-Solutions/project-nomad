@@ -88,9 +88,11 @@ export default function MapComponent({
                                      }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const handledMapCommandIdRef = useRef<number | null>(null)
 
   const { markers, addMarker, updateMarker, deleteMarker } = useMapMarkers()
 
+  const [targetIndicator, setTargetIndicator] = useState<{ lng: number; lat: number } | null>(null)
   const [isDraggingMap, setIsDraggingMap] = useState(false)
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
@@ -149,9 +151,17 @@ export default function MapComponent({
 
   useEffect(() => {
     if (!mapCommand) return
+    if (handledMapCommandIdRef.current === mapCommand.id) return
+
+    handledMapCommandIdRef.current = mapCommand.id
 
     if (mapCommand.action === 'fly') {
       const currentZoom = mapRef.current?.getZoom() ?? 12
+
+      setTargetIndicator({
+        lng: mapCommand.lng,
+        lat: mapCommand.lat,
+      })
 
       mapRef.current?.flyTo({
         center: [mapCommand.lng, mapCommand.lat],
@@ -164,6 +174,8 @@ export default function MapComponent({
 
     if (mapCommand.action === 'marker') {
       if (!confirmDiscardMarkerChanges()) return
+
+      setTargetIndicator(null)
 
       const currentZoom = mapRef.current?.getZoom() ?? 12
 
@@ -203,6 +215,7 @@ export default function MapComponent({
       setSelectedMarkerId(null)
       setEditingMarkerId(null)
       setHasUnsavedMarkerChanges(false)
+      setTargetIndicator(null)
     },
     [confirmDiscardMarkerChanges]
   )
@@ -239,6 +252,7 @@ export default function MapComponent({
   )
 
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
+    setTargetIndicator(null)
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
   }, [])
 
@@ -321,6 +335,20 @@ export default function MapComponent({
             />
           )}
 
+          {targetIndicator && (
+            <Marker longitude={targetIndicator.lng} latitude={targetIndicator.lat} anchor="center">
+              <div
+                className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-full border-2 border-desert-orange bg-surface-primary/70 shadow-lg"
+                aria-hidden="true"
+              >
+                <div className="relative h-5 w-5">
+                  <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-desert-orange" />
+                  <div className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-desert-orange" />
+                </div>
+              </div>
+            </Marker>
+          )}
+
           <ScaleUnitToggle
             scaleUnit={scaleUnit}
             onChange={handleScaleUnitChange}
@@ -342,6 +370,7 @@ export default function MapComponent({
                 setPlacingMarker(null)
                 setEditingMarkerId(null)
                 setHasUnsavedMarkerChanges(false)
+                setTargetIndicator(null)
               }}
             >
               <MarkerPin
@@ -360,6 +389,7 @@ export default function MapComponent({
                 await addMarker(name, placingMarker.lng, placingMarker.lat, color, notes || undefined)
                 setPlacingMarker(null)
                 setHasUnsavedMarkerChanges(false)
+                setTargetIndicator(null)
               }}
               onCancel={() => {
                 if (!confirmDiscardMarkerChanges()) return
@@ -367,6 +397,7 @@ export default function MapComponent({
                 setPlacingMarker(null)
                 setEditingMarkerId(null)
                 setHasUnsavedMarkerChanges(false)
+                setTargetIndicator(null)
               }}
             />
           )}
@@ -376,6 +407,7 @@ export default function MapComponent({
               marker={selectedMarker}
               onClose={() => setSelectedMarkerId(null)}
               onEdit={() => setEditingMarkerId(selectedMarker.id)}
+              onMouseEnter={hideCoordinates}
             />
           )}
 
@@ -385,6 +417,7 @@ export default function MapComponent({
               latitude={selectedMarker.latitude}
               initialMarker={selectedMarker}
               onDirtyChange={setHasUnsavedMarkerChanges}
+              onMouseEnter={hideCoordinates}
               onSave={async ({ id, name, notes, color }) => {
                 if (!id) return
 
