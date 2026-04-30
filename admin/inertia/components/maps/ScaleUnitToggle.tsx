@@ -19,8 +19,10 @@ export default function ScaleUnitToggle({
       <div className="inline-flex overflow-hidden rounded text-[11px] font-semibold leading-none shadow-[0_0_0_2px_rgba(0,0,0,0.1)]">
         <button
           type="button"
-          onClick={() => onChange('metric')}
-          className="border-0 px-2 py-1"
+          onClick={() => {
+            if (scaleUnit !== 'metric') onChange('metric')
+          }}
+          className="cursor-pointer border-0 px-2 py-1"
           style={{
             background: scaleUnit === 'metric' ? '#424420' : 'white',
             color: scaleUnit === 'metric' ? 'white' : '#666',
@@ -31,8 +33,10 @@ export default function ScaleUnitToggle({
 
         <button
           type="button"
-          onClick={() => onChange('imperial')}
-          className="border-0 px-2 py-1"
+          onClick={() => {
+            if (scaleUnit !== 'imperial') onChange('imperial')
+          }}
+          className="cursor-pointer border-0 px-2 py-1"
           style={{
             background: scaleUnit === 'imperial' ? '#424420' : 'white',
             color: scaleUnit === 'imperial' ? 'white' : '#666',
