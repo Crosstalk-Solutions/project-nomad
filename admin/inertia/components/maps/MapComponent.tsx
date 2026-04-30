@@ -42,13 +42,22 @@ type MapLocationParams = {
   zoom: number
 }
 
-const getMapLocationParams = (): MapLocationParams | null => {
+const SAVED_MAP_VIEW_KEY = 'nomad:map-view'
+
+export const getMapLocationParams = (): MapLocationParams | null => {
   const params = new URLSearchParams(window.location.search)
 
-  const lat = Number(params.get('lat'))
+  const latParam = params.get('lat')
   const lngParam = params.get('lng')
   const longParam = params.get('long')
-  const lng = Number(lngParam ?? longParam)
+  const effectiveLng = lngParam ?? longParam
+
+  // Both lat and lng must be present and non-empty. Number(null)/Number('')
+  // both coerce to 0, which would silently fly to (0,0) — null island.
+  if (!latParam || !effectiveLng) return null
+
+  const lat = Number(latParam)
+  const lng = Number(effectiveLng)
   const zoom = Number(params.get('zoom') ?? 12)
 
   if (
@@ -81,6 +90,35 @@ const getMapLocationParams = (): MapLocationParams | null => {
   }
 }
 
+const getSavedMapView = (): { longitude: number; latitude: number; zoom: number } | null => {
+  try {
+    const raw = localStorage.getItem(SAVED_MAP_VIEW_KEY)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw)
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      Number.isFinite(parsed.longitude) &&
+      Number.isFinite(parsed.latitude) &&
+      Number.isFinite(parsed.zoom) &&
+      parsed.latitude >= -90 &&
+      parsed.latitude <= 90 &&
+      parsed.longitude >= -180 &&
+      parsed.longitude <= 180
+    ) {
+      return {
+        longitude: parsed.longitude,
+        latitude: parsed.latitude,
+        zoom: parsed.zoom,
+      }
+    }
+  } catch {
+    // ignore — fall through to default
+  }
+  return null
+}
+
 export default function MapComponent({
                                        mapCommand,
                                        isHoveringUI = false,
@@ -111,6 +149,24 @@ export default function MapComponent({
     y: number
   } | null>(null)
 
+  // Resolve the initial map view once at mount: URL params → saved view → default.
+  // Lazy useState so we don't recompute on every render.
+  const [initialViewState] = useState(() => {
+    const urlParams = getMapLocationParams()
+    if (urlParams) {
+      return {
+        longitude: urlParams.lng,
+        latitude: urlParams.lat,
+        zoom: urlParams.zoom,
+      }
+    }
+
+    const saved = getSavedMapView()
+    if (saved) return saved
+
+    return { longitude: -101, latitude: 40, zoom: 3.5 }
+  })
+
   const confirmDiscardMarkerChanges = useCallback(() => {
     if (!hasUnsavedMarkerChanges) return true
     return window.confirm('Discard unsaved marker changes?')
@@ -119,17 +175,6 @@ export default function MapComponent({
   const hideCoordinates = useCallback(() => {
     setShowCoordinates(false)
     setCursorLngLat(null)
-  }, [])
-
-  const flyToLocationParams = useCallback(() => {
-    const location = getMapLocationParams()
-    if (!location) return
-
-    mapRef.current?.flyTo({
-      center: [location.lng, location.lat],
-      zoom: location.zoom,
-      duration: 1500,
-    })
   }, [])
 
   useEffect(() => {
@@ -202,10 +247,6 @@ export default function MapComponent({
     setScaleUnit(unit)
     localStorage.setItem('nomad:map-scale-unit', unit)
   }, [])
-
-  const handleMapLoad = useCallback(() => {
-    flyToLocationParams()
-  }, [flyToLocationParams])
 
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
@@ -297,12 +338,21 @@ export default function MapComponent({
           cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
           mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
           mapLib={maplibregl}
-          initialViewState={{
-            longitude: -101,
-            latitude: 40,
-            zoom: 3.5,
+          initialViewState={initialViewState}
+          onMoveEnd={(e) => {
+            try {
+              localStorage.setItem(
+                SAVED_MAP_VIEW_KEY,
+                JSON.stringify({
+                  longitude: e.viewState.longitude,
+                  latitude: e.viewState.latitude,
+                  zoom: e.viewState.zoom,
+                })
+              )
+            } catch {
+              // ignore — quota / privacy mode
+            }
           }}
-          onLoad={handleMapLoad}
           onMouseDown={() => {
             setIsDraggingMap(true)
             hideCoordinates()

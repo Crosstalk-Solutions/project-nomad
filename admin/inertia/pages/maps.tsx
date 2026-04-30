@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import MapsLayout from '~/layouts/MapsLayout'
 import { Head, Link, router } from '@inertiajs/react'
-import MapComponent from '~/components/maps/MapComponent'
+import MapComponent, { getMapLocationParams } from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft, IconMapPin, IconPlaneTilt } from '@tabler/icons-react'
 import { FileEntry } from '../../types/files'
@@ -18,7 +18,12 @@ type MapCommand = {
 export default function Maps(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
 }) {
-  const [coordinateSearch, setCoordinateSearch] = useState('')
+  // Pre-fill search box from URL params so users landing at /maps?lat=X&lng=Y
+  // can immediately click the marker button to drop a pin without re-typing.
+  const [coordinateSearch, setCoordinateSearch] = useState(() => {
+    const params = getMapLocationParams()
+    return params ? `${params.lat},${params.lng}` : ''
+  })
   const [mapCommand, setMapCommand] = useState<MapCommand | null>(null)
   const [showCoordinatesEnabled, setShowCoordinatesEnabled] = useState(true)
 
