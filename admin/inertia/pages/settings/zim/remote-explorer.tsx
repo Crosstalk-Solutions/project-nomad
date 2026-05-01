@@ -31,9 +31,11 @@ import type { CategoryWithStatus, SpecTier } from '../../../../types/collections
 import useDownloads from '~/hooks/useDownloads'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
+import { ZimFileWithMetadata } from '../../../../types/zim'
 
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
+const ZIM_FILES_KEY = 'zim-files'
 
 export default function ZimRemoteExplorer() {
   const queryClient = useQueryClient()
@@ -74,6 +76,15 @@ export default function ZimRemoteExplorer() {
     refetchOnWindowFocus: false,
   })
 
+  const { data: localFiles } = useQuery<ZimFileWithMetadata[]>({
+    queryKey: [ZIM_FILES_KEY],
+    queryFn: async () => {
+      const res = await api.listZimFiles()
+      return res.data.files
+    },
+    refetchOnWindowFocus: false,
+  })
+
   const { data: downloads, invalidate: invalidateDownloads } = useDownloads({
     filetype: 'zim',
     enabled: true,
@@ -101,15 +112,16 @@ export default function ZimRemoteExplorer() {
 
   const flatData = useMemo(() => {
     const mapped = data?.pages.flatMap((page) => page.items) || []
-    // remove items that are currently downloading
+    const localNames = new Set(localFiles?.map((f) => f.name) ?? [])
     return mapped.filter((item) => {
       const isDownloading = downloads?.some((download) => {
         const filename = item.download_url.split('/').pop()
         return filename && download.filepath.endsWith(filename)
       })
-      return !isDownloading
+      const isPresent = localNames.has(item.file_name)
+      return !isDownloading && !isPresent
     })
-  }, [data, downloads])
+  }, [data, downloads, localFiles])
   const hasMore = useMemo(() => data?.pages[data.pages.length - 1]?.has_more || false, [data])
 
   const fetchOnBottomReached = useCallback(

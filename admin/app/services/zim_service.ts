@@ -22,6 +22,7 @@ import vine from '@vinejs/vine'
 import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
+import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
@@ -386,6 +387,120 @@ export class ZimService {
     }
   }
 
+  async registerLocalUpload(filename: string): Promise<void> {
+    const kiwixLibraryService = new KiwixLibraryService()
+    try {
+      await kiwixLibraryService.rebuildFromDisk()
+    } catch (err) {
+      logger.error('[ZimService] Failed to rebuild kiwix library after local upload:', err)
+    }
+
+    const { QueueService } = await import('./queue_service.js')
+    const queueService = new QueueService()
+    const queue = queueService.getQueue('downloads')
+    const [activeJobs, waitingJobs] = await Promise.all([queue.getActive(), queue.getWaiting()])
+    const activeIncompleteJobs = activeJobs.filter((job) => {
+      const progress =
+        typeof job.progress === 'object' && job.progress !== null
+          ? (job.progress as any).percent
+          : typeof job.progress === 'number'
+            ? job.progress
+            : 0
+      return progress < 100
+    })
+    const hasRemainingZimJobs = [...activeIncompleteJobs, ...waitingJobs].some(
+      (job) => job.data.filetype === 'zim'
+    )
+
+    if (!hasRemainingZimJobs) {
+      const isLegacy = await this.dockerService.isKiwixOnLegacyConfig()
+      if (isLegacy) {
+        await this.dockerService
+          .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
+          .catch((error) => logger.error('[ZimService] Failed to restart KIWIX container:', error))
+      }
+    }
+
+    const parsed = CollectionManifestService.parseZimFilename(filename)
+    if (parsed) {
+      const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+      const stats = await getFileStatsIfExists(filepath)
+      try {
+        const { DateTime } = await import('luxon')
+        await InstalledResource.updateOrCreate(
+          { resource_id: parsed.resource_id, resource_type: 'zim' },
+          {
+            version: parsed.version,
+            url: `local-upload://${filename}`,
+            file_path: filepath,
+            file_size_bytes: stats ? Number(stats.size) : null,
+            installed_at: DateTime.now(),
+          }
+        )
+      } catch (error) {
+        logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
+      }
+    }
+
+    // If the uploaded file matches a known Wikipedia option, mark it as installed
+    try {
+      const manifest = await CollectionManifest.find('wikipedia')
+      if (manifest) {
+        const spec = manifest.spec_data as { options: Array<{ id: string; url: string | null }> }
+        const matchedOption = spec.options.find(
+          (opt) => opt.url && opt.url.split('/').pop() === filename
+        )
+        if (matchedOption && matchedOption.url) {
+          const existing = await WikipediaSelection.query().first()
+          if (existing) {
+            existing.option_id = matchedOption.id
+            existing.url = matchedOption.url
+            existing.filename = filename
+            existing.status = 'installed'
+            await existing.save()
+          } else {
+            await WikipediaSelection.create({
+              option_id: matchedOption.id,
+              url: matchedOption.url,
+              filename,
+              status: 'installed',
+            })
+          }
+          logger.info(`[ZimService] Marked Wikipedia option '${matchedOption.id}' as installed from local upload`)
+
+          // Remove any other wikipedia_en_*.zim files, same as the download flow
+          const allFiles = await this.list()
+          const staleWikipediaFiles = allFiles.files.filter(
+            (f) => f.name.startsWith('wikipedia_en_') && f.name !== filename
+          )
+          for (const stale of staleWikipediaFiles) {
+            try {
+              await this.delete(stale.name)
+              logger.info(`[ZimService] Deleted stale Wikipedia file after upload: ${stale.name}`)
+            } catch (err) {
+              logger.warn(`[ZimService] Could not delete stale Wikipedia file: ${stale.name}`, err)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`[ZimService] Failed to update WikipediaSelection for ${filename}:`, error)
+    }
+
+    const ollamaUrl = await this.dockerService.getServiceURL('nomad_ollama')
+    if (ollamaUrl) {
+      try {
+        const { EmbedFileJob } = await import('#jobs/embed_file_job')
+        await EmbedFileJob.dispatch({
+          fileName: filename,
+          filePath: join(process.cwd(), ZIM_STORAGE_PATH, filename),
+        })
+      } catch (error) {
+        logger.error(`[ZimService] EmbedFileJob dispatch failed after local upload:`, error)
+      }
+    }
+  }
+
   async delete(file: string): Promise<void> {
     let fileName = file
     if (!fileName.endsWith('.zim')) {
@@ -421,6 +536,21 @@ export class ZimService {
         .where('resource_type', 'zim')
         .delete()
       logger.info(`[ZimService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    }
+
+    // If this file was the active Wikipedia selection, clear the selection
+    try {
+      const selection = await WikipediaSelection.query().first()
+      if (selection && selection.filename === fileName) {
+        selection.option_id = 'none'
+        selection.status = 'none'
+        selection.filename = null
+        selection.url = null
+        await selection.save()
+        logger.info(`[ZimService] Cleared WikipediaSelection after deleting ${fileName}`)
+      }
+    } catch (error) {
+      logger.error(`[ZimService] Failed to clear WikipediaSelection after deleting ${fileName}:`, error)
     }
   }
 

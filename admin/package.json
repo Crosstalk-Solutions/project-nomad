@@ -88,6 +88,7 @@
     "@uppy/core": "^5.2.0",
     "@uppy/dashboard": "^5.1.0",
     "@uppy/react": "^5.1.1",
+    "@uppy/xhr-upload": "^5.2.0",
     "@vinejs/vine": "^3.0.1",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
