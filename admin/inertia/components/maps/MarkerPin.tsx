@@ -1,33 +1,43 @@
-import {IconCircleFilled} from '@tabler/icons-react'
-import type { ComponentType, CSSProperties } from 'react'
+import { IconCircleFilled } from '@tabler/icons-react'
+import type { IconProps } from '@tabler/icons-react'
+import type { ComponentType } from 'react'
 
-type MarkerIconProps = {
-  size?: number
-  color?: string
-  style?: CSSProperties
-  className?: string
-}
+import { PIN_COLORS } from '~/hooks/useMapMarkers'
+import type { PinColorId } from '~/hooks/useMapMarkers'
 
 interface MarkerPinProps {
-  color?: string
+  color?: PinColorId | string | null
+  customColor?: string | null
+  icon?: ComponentType<IconProps>
+  iconColor?: string | null
   active?: boolean
-  Icon?: ComponentType<MarkerIconProps>
-  iconColor?: string
+}
+
+const resolvePinColor = (color?: PinColorId | string | null, customColor?: string | null) => {
+  if (customColor) return customColor
+
+  if (!color) return '#a84a12'
+
+  const preset = PIN_COLORS.find((pinColor) => pinColor.id === color)
+  return preset?.hex ?? color
 }
 
 export default function MarkerPin({
-                                    color = '#a84a12',
-                                    active = false,
-                                    Icon = IconCircleFilled,
+                                    color = 'orange',
+                                    customColor,
+                                    icon: Icon = IconCircleFilled,
                                     iconColor = '#ffffff',
+                                    active = false,
                                   }: MarkerPinProps) {
+  const resolvedColor = resolvePinColor(color, customColor)
+
   const width = active ? 42 : 36
   const height = active ? 52 : 46
   const iconSize = active ? 18 : 16
 
   return (
     <div
-      className="cursor-pointer"
+      className="relative cursor-pointer"
       style={{
         width,
         height,
@@ -42,15 +52,13 @@ export default function MarkerPin({
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        {/* Pin body: circular head + precise pointed tip */}
         <path
           d="M18 45 C18 45 4 27.5 4 16.5 C4 7.4 10.3 1 18 1 C25.7 1 32 7.4 32 16.5 C32 27.5 18 45 18 45 Z"
-          fill={color}
+          fill={resolvedColor}
           stroke="rgba(0,0,0,0.25)"
           strokeWidth="1.5"
         />
 
-        {/* Inner icon circle */}
         <circle cx="18" cy="16.5" r="10.5" fill="rgba(255,255,255,0.18)" />
       </svg>
 
@@ -64,9 +72,8 @@ export default function MarkerPin({
           height: iconSize,
         }}
       >
-        <Icon size={iconSize} color={iconColor} />
+        <Icon size={iconSize} color={iconColor ?? '#ffffff'} />
       </div>
     </div>
   )
 }
-
