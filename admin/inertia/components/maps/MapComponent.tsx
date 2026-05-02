@@ -12,7 +12,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
+import { useMapMarkers } from '~/hooks/useMapMarkers'
 
 import MarkerPin from './MarkerPin'
 import MarkerPanel from './MarkerPanel'
@@ -198,6 +198,17 @@ export default function MapComponent({
     }
   }, [mapCommand, confirmDiscardMarkerChanges])
 
+  useEffect(() => {
+    if (!selectedMarkerId) return
+
+    const marker = markers.find((m) => m.id === selectedMarkerId)
+
+    if (!marker || marker.visible === false) {
+      setSelectedMarkerId(null)
+      setEditingMarkerId(null)
+    }
+  }, [markers, selectedMarkerId])
+
   const handleScaleUnitChange = useCallback((unit: ScaleUnit) => {
     setScaleUnit(unit)
     localStorage.setItem('nomad:map-scale-unit', unit)
@@ -355,38 +366,53 @@ export default function MapComponent({
             onMouseEnter={hideCoordinates}
           />
 
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              longitude={marker.longitude}
-              latitude={marker.latitude}
-              anchor="bottom"
-              onClick={(e) => {
-                e.originalEvent.stopPropagation()
+          {markers
+            .filter((marker) => marker.visible)
+            .map((marker) => (
+              <Marker
+                key={marker.id}
+                longitude={marker.longitude}
+                latitude={marker.latitude}
+                anchor="bottom"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation()
 
-                if (!confirmDiscardMarkerChanges()) return
+                  if (!confirmDiscardMarkerChanges()) return
 
-                setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
-                setPlacingMarker(null)
-                setEditingMarkerId(null)
-                setHasUnsavedMarkerChanges(false)
-                setTargetIndicator(null)
-              }}
-            >
-              <MarkerPin
-                color={PIN_COLORS.find((color) => color.id === marker.color)?.hex}
-                active={marker.id === selectedMarkerId}
-              />
-            </Marker>
-          ))}
+                  setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
+                  setPlacingMarker(null)
+                  setEditingMarkerId(null)
+                  setHasUnsavedMarkerChanges(false)
+                  setTargetIndicator(null)
+                }}
+              >
+                <MarkerPin
+                  color={marker.color}
+                  customColor={marker.customColor}
+                  icon={marker.icon}
+                  iconColor={marker.iconColor}
+                  visible={marker.visible}
+                  active={marker.id === selectedMarkerId}
+                />
+              </Marker>
+            ))}
 
           {placingMarker && (
             <MapMarkerFormPopup
               longitude={placingMarker.lng}
               latitude={placingMarker.lat}
               onDirtyChange={setHasUnsavedMarkerChanges}
-              onSave={async ({ name, notes, color }) => {
-                await addMarker(name, placingMarker.lng, placingMarker.lat, color, notes || undefined)
+              onSave={async ({ name, notes, color, customColor, icon   }) => {
+                await addMarker({
+                  name,
+                  longitude: placingMarker.lng,
+                  latitude: placingMarker.lat,
+                  color,
+                  customColor,
+                  icon,
+                  notes: notes || null,
+                })
+
                 setPlacingMarker(null)
                 setHasUnsavedMarkerChanges(false)
                 setTargetIndicator(null)
@@ -418,13 +444,15 @@ export default function MapComponent({
               initialMarker={selectedMarker}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ id, name, notes, color }) => {
+              onSave={async ({ id, name, notes, color, customColor, icon  }) => {
                 if (!id) return
 
                 await updateMarker(id, {
                   name,
                   notes: notes || null,
                   color,
+                  customColor,
+                  icon,
                 })
 
                 setEditingMarkerId(null)
@@ -448,6 +476,7 @@ export default function MapComponent({
           onFlyTo={handleFlyTo}
           onSelect={setSelectedMarkerId}
           selectedMarkerId={selectedMarkerId}
+          onToggleVisibility={(id, visible) => updateMarker(id, { visible })}
         />
       </div>
     </MapProvider>

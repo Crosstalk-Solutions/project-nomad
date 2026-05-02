@@ -1,4 +1,5 @@
 import { IconCircleFilled } from '@tabler/icons-react'
+import * as TablerIcons from '@tabler/icons-react'
 import type { IconProps } from '@tabler/icons-react'
 import type { ComponentType } from 'react'
 
@@ -8,28 +9,62 @@ import type { PinColorId } from '~/hooks/useMapMarkers'
 interface MarkerPinProps {
   color?: PinColorId | string | null
   customColor?: string | null
-  icon?: ComponentType<IconProps>
+  icon?: string | null
   iconColor?: string | null
+  visible?: boolean
   active?: boolean
 }
 
 const resolvePinColor = (color?: PinColorId | string | null, customColor?: string | null) => {
   if (customColor) return customColor
-
   if (!color) return '#a84a12'
 
   const preset = PIN_COLORS.find((pinColor) => pinColor.id === color)
   return preset?.hex ?? color
 }
 
+const getContrastingIconColor = (backgroundColor: string) => {
+  const hex = backgroundColor.replace('#', '')
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return '#ffffff'
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16) / 255
+  const g = parseInt(hex.slice(2, 4), 16) / 255
+  const b = parseInt(hex.slice(4, 6), 16) / 255
+
+  const luminance =
+    0.2126 * r +
+    0.7152 * g +
+    0.0722 * b
+
+  return luminance > 0.55 ? '#111827' : '#ffffff'
+}
+
+const resolveIcon = (icon?: string | null): ComponentType<IconProps> => {
+  if (!icon) return IconCircleFilled
+
+  const Icon = (TablerIcons as Record<string, unknown>)[icon]
+
+  if (!Icon) return IconCircleFilled
+
+  return Icon as ComponentType<IconProps>
+}
+
 export default function MarkerPin({
                                     color = 'orange',
                                     customColor,
-                                    icon: Icon = IconCircleFilled,
-                                    iconColor = '#ffffff',
+                                    icon,
+                                    iconColor,
+                                    visible = true,
                                     active = false,
                                   }: MarkerPinProps) {
+  if (!visible) return null
+
   const resolvedColor = resolvePinColor(color, customColor)
+  const resolvedIconColor = iconColor ?? getContrastingIconColor(resolvedColor)
+  const Icon = resolveIcon(icon)
 
   const width = active ? 42 : 36
   const height = active ? 52 : 46
@@ -72,7 +107,7 @@ export default function MarkerPin({
           height: iconSize,
         }}
       >
-        <Icon size={iconSize} color={iconColor ?? '#ffffff'} />
+        <Icon size={iconSize} color={resolvedIconColor} />
       </div>
     </div>
   )
