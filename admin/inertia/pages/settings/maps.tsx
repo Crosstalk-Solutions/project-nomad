@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import useDownloads from '~/hooks/useDownloads'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
+import CountryPickerModal from '~/components/CountryPickerModal'
 import type { CollectionWithStatus } from '../../../types/collections'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
@@ -221,6 +222,23 @@ export default function MapsManager(props: {
     )
   }
 
+  function openCountryPickerModal() {
+    openModal(
+      <CountryPickerModal
+        onCancel={closeAllModals}
+        onDownloadStart={() => {
+          invalidateDownloads()
+          addNotification({
+            type: 'success',
+            message: 'Download queued. Watch progress below.',
+          })
+          closeAllModals()
+        }}
+      />,
+      'country-picker-modal'
+    )
+  }
+
   async function openDownloadModal() {
     openModal(
       <DownloadURLModal
@@ -309,6 +327,21 @@ export default function MapsManager(props: {
               }}
             />
           )}
+          <Alert
+            title="Download by country or region"
+            message="Pick the countries you actually need — from a single country to a whole continent — and we'll pull just those tiles from the global Protomaps archive. Much smaller than the full 125 GB global map."
+            type="info-inverted"
+            variant="bordered"
+            className="mt-8"
+            icon="IconMap2"
+            buttonProps={{
+              variant: 'primary',
+              children: 'Choose Countries',
+              icon: 'IconMap2',
+              onClick: openCountryPickerModal,
+            }}
+          />
+
           <div className="mt-8 mb-6 flex items-center justify-between">
             <StyledSectionHeader title="Curated Map Regions" className="!mb-0" />
             <StyledButton

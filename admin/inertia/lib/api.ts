@@ -4,6 +4,7 @@ import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
+import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
 import { EmbedJobWithProgress } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
@@ -553,6 +554,46 @@ class API {
         filename: string
         jobId?: string
       }>('/maps/download-global-map')
+      return response.data
+    })()
+  }
+
+  async listCountries() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ countries: Country[] }>('/maps/countries')
+      return response.data.countries
+    })()
+  }
+
+  async listCountryGroups() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ groups: CountryGroup[] }>('/maps/country-groups')
+      return response.data.groups
+    })()
+  }
+
+  async extractMapPreflight(params: { countries: CountryCode[]; maxzoom?: number }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<MapExtractPreflight>(
+        '/maps/extract-preflight',
+        params
+      )
+      return response.data
+    })()
+  }
+
+  async extractMapRegion(params: {
+    countries: CountryCode[]
+    maxzoom?: number
+    label?: string
+    estimatedBytes?: number
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        filename: string
+        jobId?: string
+      }>('/maps/extract', params)
       return response.data
     })()
   }
