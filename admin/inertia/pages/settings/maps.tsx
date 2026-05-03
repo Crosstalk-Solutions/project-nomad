@@ -6,7 +6,7 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import { FileEntry } from '../../../types/files'
 import { useNotifications } from '~/context/NotificationContext'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import api from '~/lib/api'
 import DownloadURLModal from '~/components/DownloadURLModal'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -38,10 +38,21 @@ export default function MapsManager(props: {
     refetchOnWindowFocus: false,
   })
 
-  const { invalidate: invalidateDownloads } = useDownloads({
+  const { data: activeMapDownloads = [], invalidate: invalidateDownloads } = useDownloads({
     filetype: 'map',
     enabled: true,
   })
+
+  // Refresh the Stored Map Files list when a map download finishes. We pass props.maps.regionFiles
+  // straight through from the server-side render, so without an Inertia partial reload it stays stale
+  // until the user navigates away and back.
+  const prevMapDownloadCountRef = useRef(activeMapDownloads.length)
+  useEffect(() => {
+    if (activeMapDownloads.length < prevMapDownloadCountRef.current) {
+      router.reload({ only: ['maps'] })
+    }
+    prevMapDownloadCountRef.current = activeMapDownloads.length
+  }, [activeMapDownloads.length])
 
   const { data: globalMapInfo } = useQuery({
     queryKey: [GLOBAL_MAP_INFO_KEY],
@@ -226,6 +237,7 @@ export default function MapsManager(props: {
     openModal(
       <CountryPickerModal
         onCancel={closeAllModals}
+        installedFilenames={(props.maps.regionFiles ?? []).map((f) => f.name)}
         onDownloadStart={() => {
           invalidateDownloads()
           addNotification({
