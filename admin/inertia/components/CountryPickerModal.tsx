@@ -30,10 +30,20 @@ export type CountryPickerModalProps = Omit<
   | 'large'
 > & {
   onDownloadStart?: () => void
+  /** Filenames of pmtiles already on disk; used to badge already-installed countries. */
+  installedFilenames?: string[]
 }
+
+// Single-country extracts use the slug `{iso2 lowercase}_{dateSlug}_z{maxzoom}.pmtiles`,
+// matching MapService.buildRegionSlug (which lowercases the alpha-2 country code).
+// dateSlug comes from the upstream pmtiles key with `.pmtiles` stripped — currently
+// YYYYMMDD but we accept any digits/dashes. Group / custom filenames don't reverse-map
+// to country codes, so we skip them here.
+const SINGLE_COUNTRY_FILENAME_RE = /^([a-z]{2})_[\w-]+_z\d+\.pmtiles$/
 
 const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
   onDownloadStart,
+  installedFilenames = [],
   ...modalProps
 }) => {
   const [selected, setSelected] = useState<Set<CountryCode>>(new Set())
@@ -78,6 +88,15 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
     [countries, selected]
   )
 
+  const installedCountrySet = useMemo(() => {
+    const set = new Set<CountryCode>()
+    for (const filename of installedFilenames) {
+      const match = SINGLE_COUNTRY_FILENAME_RE.exec(filename)
+      if (match) set.add(match[1].toUpperCase() as CountryCode)
+    }
+    return set
+  }, [installedFilenames])
+
   function toggleCountry(code: CountryCode) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -105,8 +124,10 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
   }
 
   // Auto-refresh the preflight whenever selection or maxzoom changes. Debounced
-  // so rapid multi-select clicks collapse into a single CDN round-trip, and
-  // stale-safe via requestId so an earlier slow response can't clobber a later one.
+  // so rapid multi-select clicks and slider drags collapse into a single CDN
+  // round-trip. Loading state only flips after the debounce expires so the UI
+  // stays interactive during the wait. Stale-safe via requestId so an earlier
+  // slow response can't clobber a later one.
   useEffect(() => {
     if (selected.size === 0) {
       setPreflight(null)
@@ -116,10 +137,10 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
       return
     }
 
-    const requestId = ++preflightRequestIdRef.current
-    setLoading(true)
     setErrorMessage(null)
     const timer = setTimeout(async () => {
+      const requestId = ++preflightRequestIdRef.current
+      setLoading(true)
       try {
         const res = await api.extractMapPreflight({
           countries: [...selected],
@@ -135,7 +156,7 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
       } finally {
         if (requestId === preflightRequestIdRef.current) setLoading(false)
       }
-    }, 400)
+    }, 1500)
 
     return () => clearTimeout(timer)
   }, [selected, maxzoom])
@@ -253,6 +274,7 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
                 <ul>
                   {list.map((country) => {
                     const isSelected = selected.has(country.code)
+                    const isInstalled = installedCountrySet.has(country.code)
                     return (
                       <li key={country.code}>
                         <button
@@ -276,6 +298,14 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
                             {isSelected && <IconCheck className="w-3 h-3 text-white" />}
                           </span>
                           <span className="flex-1 text-text-primary">{country.name}</span>
+                          {isInstalled && (
+                            <span
+                              className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-desert-green/15 text-desert-green border border-desert-green/30"
+                              title="Already downloaded — re-select to update with a different zoom"
+                            >
+                              Installed
+                            </span>
+                          )}
                           <span className="text-xs font-mono text-text-muted">
                             {country.code}
                           </span>
@@ -327,7 +357,7 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
             value={maxzoom}
             onChange={(e) => setMaxzoom(parseInt(e.target.value, 10))}
             className="w-full accent-desert-green"
-            disabled={loading || downloading}
+            disabled={downloading}
           />
           <div className="flex justify-between text-xs text-text-muted mt-1 font-mono">
             <span>z{EXTRACT_MIN_ZOOM} (world)</span>
