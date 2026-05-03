@@ -46,12 +46,13 @@ jobs:
         id: finalize-notes
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          NEW_RELEASE_VERSION: ${{ steps.semver.outputs.new_release_version }}
         run: |
           git pull origin main
           chmod +x .github/scripts/finalize-release-notes.sh
           EXIT_CODE=0
           .github/scripts/finalize-release-notes.sh \
-            "${{ steps.semver.outputs.new_release_version }}" \
+            "$NEW_RELEASE_VERSION" \
             admin/docs/release-notes.md || EXIT_CODE=$?
           if [[ "$EXIT_CODE" -eq 0 ]]; then
             echo "has_notes=true" >> $GITHUB_OUTPUT
@@ -64,12 +65,14 @@ jobs:
           steps.semver.outputs.new_release_published == 'true' &&
           steps.finalize-notes.outputs.has_notes == 'true' &&
           !contains(steps.semver.outputs.new_release_version, '-')
+        env:
+          NEW_RELEASE_VERSION: ${{ steps.semver.outputs.new_release_version }}
         run: |
           git config user.name "cosmistack-bot"
           git config user.email "dev@cosmistack.com"
           git remote set-url origin https://x-access-token:${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
           git add admin/docs/release-notes.md
-          git commit -m "docs(release): finalize v${{ steps.semver.outputs.new_release_version }} release notes [skip ci]"
+          git commit -m "docs(release): finalize v${NEW_RELEASE_VERSION} release notes [skip ci]"
           git push origin main
 
       - name: Update GitHub release body
@@ -79,8 +82,9 @@ jobs:
           !contains(steps.semver.outputs.new_release_version, '-')
         env:
           GH_TOKEN: ${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}
+          NEW_RELEASE_VERSION: ${{ steps.semver.outputs.new_release_version }}
         run: |
-          gh release edit "v${{ steps.semver.outputs.new_release_version }}" \
+          gh release edit "v${NEW_RELEASE_VERSION}" \
             --notes-file admin/docs/release-notes.md.section
 
       # Future: Send release notes email
