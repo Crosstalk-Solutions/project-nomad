@@ -130,6 +130,15 @@ class API {
     })()
   }
 
+  async deleteMapRegionFile(filename: string): Promise<{ message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(
+        `/maps/${encodeURIComponent(filename)}`
+      )
+      return response.data
+    })()
+  }
+
   async downloadRemoteZimFile(
     url: string,
     metadata?: { title: string; summary?: string; author?: string; size_bytes?: number }
