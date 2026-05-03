@@ -10,6 +10,7 @@ import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
+import type {CreateMapMarkerPayload, MapMarkerResponse, UpdateMapMarkerPayload} from '../../types/maps'
 
 class API {
   private client: AxiosInstance
@@ -589,27 +590,21 @@ class API {
 
   async listMapMarkers() {
     return catchInternal(async () => {
-      const response = await this.client.get<
-        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }>
-      >('/maps/markers')
+      const response = await this.client.get<MapMarkerResponse[]>('/maps/markers')
       return response.data
     })()
   }
 
-  async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
+  async createMapMarker(data: CreateMapMarkerPayload) {
     return catchInternal(async () => {
-      const response = await this.client.post<
-        { id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }
-      >('/maps/markers', data)
+      const response = await this.client.post<MapMarkerResponse>('/maps/markers', data)
       return response.data
     })()
   }
 
-  async updateMapMarker(id: number, data: { name?: string; color?: string }) {
+  async updateMapMarker(id: number, data: UpdateMapMarkerPayload) {
     return catchInternal(async () => {
-      const response = await this.client.patch<
-        { id: number; name: string; longitude: number; latitude: number; color: string }
-      >(`/maps/markers/${id}`, data)
+      const response = await this.client.patch<MapMarkerResponse>(`/maps/markers/${id}`, data)
       return response.data
     })()
   }

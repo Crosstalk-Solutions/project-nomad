@@ -140,33 +140,49 @@ export default class MapsController {
           longitude: vine.number().min(-180).max(180),
           latitude: vine.number().min(-90).max(90),
           color: vine.string().trim().maxLength(20).optional(),
+          custom_color: vine.string().trim().maxLength(7).nullable().optional(),
+          icon: vine.string().trim().maxLength(50).nullable().optional(),
+          icon_color: vine.string().trim().maxLength(7).nullable().optional(),
+          visible: vine.boolean().optional(),
           notes: vine.string().trim().nullable().optional(),
           marker_type: vine.string().trim().maxLength(20).optional(),
         })
       )
     )
+
     const marker = await MapMarker.create({
       name: payload.name,
       longitude: payload.longitude,
       latitude: payload.latitude,
       color: payload.color ?? 'orange',
+      custom_color: payload.custom_color ?? null,
+      icon: payload.icon ?? null,
+      icon_color: payload.icon_color ?? null,
+      visible: payload.visible ?? true,
       notes: payload.notes ?? null,
       marker_type: payload.marker_type ?? 'pin',
     })
+
     return marker
   }
 
   async updateMarker({ request, response }: HttpContext) {
     const { id } = request.params()
     const marker = await MapMarker.find(id)
+
     if (!marker) {
       return response.status(404).send({ message: 'Marker not found' })
     }
+
     const payload = await request.validateUsing(
       vine.compile(
         vine.object({
           name: vine.string().trim().minLength(1).maxLength(255).optional(),
           color: vine.string().trim().maxLength(20).optional(),
+          custom_color: vine.string().trim().maxLength(7).nullable().optional(),
+          icon: vine.string().trim().maxLength(50).nullable().optional(),
+          icon_color: vine.string().trim().maxLength(7).nullable().optional(),
+          visible: vine.boolean().optional(),
           longitude: vine.number().min(-180).max(180).optional(),
           latitude: vine.number().min(-90).max(90).optional(),
           notes: vine.string().trim().nullable().optional(),
@@ -174,12 +190,18 @@ export default class MapsController {
         })
       )
     )
+
     if (payload.name !== undefined) marker.name = payload.name
     if (payload.color !== undefined) marker.color = payload.color
+    if (payload.custom_color !== undefined) marker.custom_color = payload.custom_color
+    if (payload.icon !== undefined) marker.icon = payload.icon
+    if (payload.icon_color !== undefined) marker.icon_color = payload.icon_color
+    if (payload.visible !== undefined) marker.visible = payload.visible
     if (payload.longitude !== undefined) marker.longitude = payload.longitude
     if (payload.latitude !== undefined) marker.latitude = payload.latitude
     if (payload.notes !== undefined) marker.notes = payload.notes
     if (payload.marker_type !== undefined) marker.marker_type = payload.marker_type
+
     await marker.save()
     return marker
   }
