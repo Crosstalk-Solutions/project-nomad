@@ -20,7 +20,9 @@ Long answer: Custom storage paths, mount points, and external drives (like iSCSI
 
 ## Can I run NOMAD on MAC, WSL2, or a non-Debian-based Distro?
 
-See [Why does NOMAD require a Debian-based OS?](#why-does-nomad-require-a-debian-based-os)
+**WSL2 on Windows** is community-supported via the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) — covers two install paths (native Docker and Docker Desktop) with all known gotchas documented and empirical performance numbers comparing WSL2 to bare-metal.
+
+**macOS and other non-Debian Linux distros** aren't officially supported. See [Why does NOMAD require a Debian-based OS?](#why-does-nomad-require-a-debian-based-os) for details.
 
 ## Why does NOMAD require a Debian-based OS?
 
@@ -28,7 +30,7 @@ Project N.O.M.A.D. is currently designed to run on Debian-based Linux distributi
 
 Support for other operating systems will come in the future, but because our development resources are limited as a free and open-source project, we needed to prioritize our efforts and focus on a narrower set of supported platforms for the initial release. We chose Debian-based Linux as our starting point because it's widely used, easy to spin up, and provides a stable environment for running Docker containers.
 
-Community members have provided guides for running N.O.M.A.D. on other platforms (e.g. WSL2, Mac, etc.) in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), so if you're interested in running N.O.M.A.D. on a non-Debian-based system, we recommend checking there for any available resources or guides. However, keep in mind that if you choose to run N.O.M.A.D. on a non-Debian-based system, you may encounter issues that we won't be able to provide support for, and you may need to have a higher level of technical expertise to troubleshoot and resolve any problems that arise.
+For Windows users, the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) provides a community-supported path. Community members have also published guides for other platforms (e.g. macOS) in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), so if you're interested in running N.O.M.A.D. on a non-Debian-based system, we recommend checking there for any available resources or guides. However, keep in mind that if you choose to run N.O.M.A.D. on a non-Debian-based system, you may encounter issues that we won't be able to provide support for, and you may need to have a higher level of technical expertise to troubleshoot and resolve any problems that arise.
 
 ## Can I run NOMAD on a Raspberry Pi or other ARM-based device?
 Project N.O.M.A.D. is currently designed to run on x86-64 architecture, and we have not yet tested or optimized it for ARM-based devices like the Raspberry Pi (and have not published any official images for ARM architecture).
