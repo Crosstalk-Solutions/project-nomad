@@ -108,6 +108,10 @@ export default defineConfig({
       reloadServer: false,
     },
     {
+      pattern: 'resources/geodata/**/*.geojson',
+      reloadServer: false,
+    },
+    {
       pattern: 'public/**',
       reloadServer: false,
     },

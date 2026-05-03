@@ -34,6 +34,31 @@ FROM base
 ARG VERSION=dev
 ARG BUILD_DATE
 ARG VCS_REF
+ARG TARGETARCH
+
+# go-pmtiles (regional map extracts). Pinned so the CLI's stdout format stays
+# in sync with parseDryRunOutput().
+ARG PMTILES_VERSION=1.30.2
+# Upstream releases don't ship a checksums file, so pin per-arch SHA256 here.
+# When bumping PMTILES_VERSION, regenerate these with:
+#   curl -fsSL <release-url> | sha256sum
+ARG PMTILES_SHA256_AMD64=2cd3aa18868297fc88425038f794efdc0995e0275f4ca16fa496dd79e245a40c
+ARG PMTILES_SHA256_ARM64=804cdf071834e1156af554c1a26cc42b56b9cde5a2db9c6e3653d16fb846d5fa
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) PMTILES_ARCH=x86_64; PMTILES_SHA256="${PMTILES_SHA256_AMD64}" ;; \
+      arm64) PMTILES_ARCH=arm64;  PMTILES_SHA256="${PMTILES_SHA256_ARM64}" ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    TARBALL="go-pmtiles_${PMTILES_VERSION}_Linux_${PMTILES_ARCH}.tar.gz"; \
+    cd /tmp; \
+    curl -fsSL -o "$TARBALL" \
+      "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/${TARBALL}"; \
+    echo "${PMTILES_SHA256}  ${TARBALL}" | sha256sum -c -; \
+    tar -xzf "$TARBALL" -C /usr/local/bin pmtiles; \
+    rm -f "$TARBALL"; \
+    chmod +x /usr/local/bin/pmtiles; \
+    /usr/local/bin/pmtiles version
 
 # Labels
 LABEL org.opencontainers.image.title="Project N.O.M.A.D" \

@@ -16,11 +16,35 @@ import {
 import { join, resolve, sep } from 'path'
 import urlJoin from 'url-join'
 import { RunDownloadJob } from '#jobs/run_download_job'
+import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
 import logger from '@adonisjs/core/services/logger'
 import { assertNotPrivateUrl } from '#validators/common'
 import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
+import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps.js'
+import {
+  EXTRACT_DEFAULT_MAX_ZOOM,
+  EXTRACT_MAX_ZOOM,
+  EXTRACT_MIN_ZOOM,
+  PMTILES_BINARY_PATH,
+  WORLD_BASEMAP_FILENAME,
+  WORLD_BASEMAP_MAX_ZOOM,
+  WORLD_BASEMAP_SOURCE_NAME,
+  buildPmtilesExtractArgs,
+} from '../../constants/map_regions.js'
+import { CountriesService } from './countries_service.js'
+import { execFile } from 'child_process'
+import { createHash, randomBytes } from 'crypto'
+import { tmpdir } from 'os'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
+const DRY_RUN_TIMEOUT_MS = 60_000
+const DRY_RUN_MAX_BUFFER = 256 * 1024
+// Real extract of z0-5 world tiles; generous to tolerate slow/metered links
+// since a failure leaves the map grey for uncovered regions.
+const WORLD_BASEMAP_EXTRACT_TIMEOUT_MS = 5 * 60_000
 
 const PROTOMAPS_BUILDS_METADATA_URL = 'https://build-metadata.protomaps.dev/builds.json'
 const PROTOMAPS_BUILD_BASE_URL = 'https://build.protomaps.com'
@@ -53,10 +77,15 @@ export class MapService implements IMapService {
   private readonly baseAssetsTarFile = 'base-assets.tar.gz'
   private readonly baseDirPath = join(process.cwd(), this.mapStoragePath)
   private baseAssetsExistCache: boolean | null = null
+  private worldBasemapReady = false
+  private worldBasemapInFlight: Promise<void> | null = null
 
   async listRegions() {
     const files = (await this.listAllMapStorageItems()).filter(
-      (item) => item.type === 'file' && item.name.endsWith('.pmtiles')
+      (item) =>
+        item.type === 'file' &&
+        item.name.endsWith('.pmtiles') &&
+        item.name !== WORLD_BASEMAP_FILENAME
     )
 
     return {
@@ -327,11 +356,76 @@ export class MapService implements IMapService {
 
   async ensureBaseAssets(): Promise<boolean> {
     const exists = await this.checkBaseAssetsExist()
-    if (exists) {
-      return true
+    if (!exists) {
+      const downloaded = await this.downloadBaseAssets()
+      if (!downloaded) return false
     }
 
-    return await this.downloadBaseAssets()
+    try {
+      await this.ensureWorldBasemap()
+    } catch (err) {
+      logger.warn(`[MapService] World basemap setup failed, continuing without it: ${err}`)
+    }
+
+    return true
+  }
+
+  /**
+   * Extract a low-zoom global basemap once so the map isn't grey outside a
+   * regional extract's polygon. Cheap (~15 MB, a handful of HTTP range
+   * requests) and layered underneath regional sources at render time.
+   *
+   * Memoizes success in-process, and de-duplicates concurrent callers via a
+   * shared in-flight promise so two simultaneous `/maps` requests on a cold
+   * start don't both launch `pmtiles extract` against the same output path.
+   */
+  private async ensureWorldBasemap(): Promise<void> {
+    if (this.worldBasemapReady) return
+    if (this.worldBasemapInFlight) return this.worldBasemapInFlight
+    this.worldBasemapInFlight = this._setupWorldBasemap().finally(() => {
+      this.worldBasemapInFlight = null
+    })
+    return this.worldBasemapInFlight
+  }
+
+  private async _setupWorldBasemap(): Promise<void> {
+    const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
+    const filepath = resolve(join(basePath, WORLD_BASEMAP_FILENAME))
+    if (!filepath.startsWith(basePath + sep)) {
+      throw new Error('Invalid world basemap path')
+    }
+
+    await ensureDirectoryExists(basePath)
+
+    const existing = await getFileStatsIfExists(filepath)
+    if (existing && Number(existing.size) > 0) {
+      this.worldBasemapReady = true
+      return
+    }
+
+    const info = await this.getGlobalMapInfo()
+    const args = buildPmtilesExtractArgs({
+      sourceUrl: info.url,
+      outputFilepath: filepath,
+      maxzoom: WORLD_BASEMAP_MAX_ZOOM,
+      downloadThreads: 4,
+    })
+
+    logger.info(
+      `[MapService] Extracting world basemap (z0-${WORLD_BASEMAP_MAX_ZOOM}) from ${info.url}`
+    )
+    try {
+      await execFileAsync(PMTILES_BINARY_PATH, args, {
+        timeout: WORLD_BASEMAP_EXTRACT_TIMEOUT_MS,
+        maxBuffer: DRY_RUN_MAX_BUFFER,
+      })
+      this.worldBasemapReady = true
+    } catch (err: any) {
+      await deleteFileIfExists(filepath)
+      throw new Error(
+        `pmtiles extract for world basemap failed: ${err.message}. stderr: ${err.stderr ?? ''}`
+      )
+    }
   }
 
   private async checkBaseAssetsExist(useCache: boolean = true): Promise<boolean> {
@@ -366,6 +460,19 @@ export class MapService implements IMapService {
   private generateSourcesArray(host: string | null, regions: FileEntry[], protocol: string = 'http'): BaseStylesFile['sources'][] {
     const sources: BaseStylesFile['sources'][] = []
     const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
+
+    // World basemap goes first so its layers render underneath regional extracts.
+    // Only emitted when ensureWorldBasemap() succeeded — otherwise the style would
+    // reference a file that doesn't exist and produce 404s on every tile request.
+    if (this.worldBasemapReady) {
+      const worldSource: BaseStylesFile['sources'] = {}
+      worldSource[WORLD_BASEMAP_SOURCE_NAME] = {
+        type: 'vector',
+        attribution: PMTILES_ATTRIBUTION,
+        url: `pmtiles://${urlJoin(baseUrl, WORLD_BASEMAP_FILENAME)}`,
+      }
+      sources.push(worldSource)
+    }
 
     for (const region of regions) {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
@@ -489,10 +596,204 @@ export class MapService implements IMapService {
     }
   }
 
+  async listCountries(): Promise<Country[]> {
+    return CountriesService.getInstance().list()
+  }
+
+  async listCountryGroups(): Promise<CountryGroup[]> {
+    return CountriesService.getInstance().listGroups()
+  }
+
+  async extractPreflight(params: {
+    countries: CountryCode[]
+    maxzoom?: number
+  }): Promise<MapExtractPreflight> {
+    this.validateMaxzoom(params.maxzoom)
+    const countries = await CountriesService.getInstance().resolveCodes(params.countries)
+    const regionFilepath = await CountriesService.getInstance().writeRegionFile(countries)
+    const info = await this.getGlobalMapInfo()
+    return this.runDryRun(info, regionFilepath, params.maxzoom)
+  }
+
+  private async runDryRun(
+    info: { url: string; date: string; key: string },
+    regionFilepath: string,
+    maxzoom?: number
+  ): Promise<MapExtractPreflight> {
+    const dryRunOutput = join(tmpdir(), `pmtiles-dry-run-${randomBytes(6).toString('hex')}.pmtiles`)
+    const args = buildPmtilesExtractArgs({
+      sourceUrl: info.url,
+      outputFilepath: dryRunOutput,
+      regionFilepath,
+      maxzoom,
+      dryRun: true,
+    })
+
+    let stdout = ''
+    let stderr = ''
+    try {
+      const result = await execFileAsync(PMTILES_BINARY_PATH, args, {
+        timeout: DRY_RUN_TIMEOUT_MS,
+        maxBuffer: DRY_RUN_MAX_BUFFER,
+      })
+      stdout = result.stdout
+      stderr = result.stderr
+    } catch (err: any) {
+      throw new Error(
+        `pmtiles extract --dry-run failed: ${err.message}. stderr: ${err.stderr ?? ''}`
+      )
+    }
+
+    const parsed = this.parseDryRunOutput(stdout + '\n' + stderr)
+
+    return {
+      tiles: parsed.tiles,
+      bytes: parsed.bytes,
+      source: { url: info.url, date: info.date, key: info.key },
+    }
+  }
+
+  async extractRegion(params: {
+    countries: CountryCode[]
+    maxzoom?: number
+    label?: string
+    estimatedBytes?: number
+  }): Promise<{ filename: string; jobId?: string }> {
+    this.validateMaxzoom(params.maxzoom)
+    const countriesService = CountriesService.getInstance()
+    const countries = await countriesService.resolveCodes(params.countries)
+    const regionFilepath = await countriesService.writeRegionFile(countries)
+    const maxzoom = params.maxzoom ?? EXTRACT_DEFAULT_MAX_ZOOM
+
+    const [baseAssetsExist, info, groups] = await Promise.all([
+      this.ensureBaseAssets(),
+      this.getGlobalMapInfo(),
+      countriesService.listGroups(),
+    ])
+    if (!baseAssetsExist) {
+      throw new Error(
+        'Base map assets are missing and could not be downloaded. Please check your connection and try again.'
+      )
+    }
+
+    const groupMatch = findExactGroupMatch(countries, groups)
+    const slug = this.buildRegionSlug(countries, groupMatch)
+    const dateSlug = info.key.replace('.pmtiles', '')
+    const filename = `${slug}_${dateSlug}_z${maxzoom}.pmtiles`
+    const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
+    const filepath = resolve(join(basePath, filename))
+
+    if (!filepath.startsWith(basePath + sep)) {
+      throw new Error('Invalid filename')
+    }
+
+    let estimatedBytes = params.estimatedBytes ?? 0
+    if (estimatedBytes === 0) {
+      try {
+        const preflight = await this.runDryRun(info, regionFilepath, maxzoom)
+        estimatedBytes = preflight.bytes
+      } catch (err) {
+        logger.warn(`[MapService] extractRegion preflight failed, proceeding without estimate: ${err}`)
+      }
+    }
+
+    const title = params.label ?? this.buildRegionTitle(countries, groupMatch)
+
+    const result = await RunExtractPmtilesJob.dispatch({
+      sourceUrl: info.url,
+      outputFilepath: filepath,
+      regionFilepath,
+      maxzoom,
+      estimatedBytes,
+      filetype: 'map',
+      title,
+      resourceMetadata: {
+        resource_id: slug,
+        version: dateSlug,
+        collection_ref: null,
+      },
+    })
+
+    if (!result.job) {
+      throw new Error('Failed to dispatch extract job')
+    }
+
+    logger.info(
+      `[MapService] Dispatched extract job ${result.job.id} for ${filename} ` +
+        `(countries=[${countries.join(',')}] maxzoom=${maxzoom} est=${estimatedBytes} bytes)`
+    )
+
+    return {
+      filename,
+      jobId: result.job.id,
+    }
+  }
+
+  private buildRegionSlug(countries: CountryCode[], groupMatch: CountryGroup | null): string {
+    if (groupMatch) return groupMatch.id
+    if (countries.length === 1) return countries[0].toLowerCase()
+    const hash = createHash('sha1').update(countries.join(',')).digest('hex').slice(0, 8)
+    return `custom-${hash}`
+  }
+
+  private buildRegionTitle(countries: CountryCode[], groupMatch: CountryGroup | null): string {
+    if (groupMatch) return groupMatch.name
+    if (countries.length === 1) return countries[0]
+    if (countries.length <= 3) return countries.join(', ')
+    return `${countries.slice(0, 2).join(', ')} +${countries.length - 2} more`
+  }
+
+  private validateMaxzoom(maxzoom: number | undefined): void {
+    if (typeof maxzoom !== 'number') return
+    if (
+      !Number.isInteger(maxzoom) ||
+      maxzoom < EXTRACT_MIN_ZOOM ||
+      maxzoom > EXTRACT_MAX_ZOOM
+    ) {
+      throw new Error(
+        `maxzoom must be an integer in [${EXTRACT_MIN_ZOOM}, ${EXTRACT_MAX_ZOOM}]`
+      )
+    }
+  }
+
+  // go-pmtiles output format isn't stable across versions — parse loosely and
+  // fall back to zeros. The extract can still proceed without an estimate.
+  private parseDryRunOutput(output: string): { tiles: number; bytes: number } {
+    let bytes = 0
+    let tiles = 0
+
+    const byteLine = output.match(/archive\s+size\s+of\s+([\d,.]+)\s*(B|KB|MB|GB|TB|bytes?)?/i)
+    if (byteLine) {
+      const raw = parseFloat(byteLine[1].replace(/,/g, ''))
+      const unit = (byteLine[2] ?? 'B').toUpperCase()
+      const multipliers: Record<string, number> = {
+        B: 1,
+        BYTE: 1,
+        BYTES: 1,
+        KB: 1_000,
+        MB: 1_000_000,
+        GB: 1_000_000_000,
+        TB: 1_000_000_000_000,
+      }
+      bytes = Math.round(raw * (multipliers[unit] ?? 1))
+    }
+
+    const tileLine = output.match(/(?:tiles\s+to\s+extract|tiles)[^\d]*([\d,]+)/i)
+    if (tileLine) {
+      tiles = parseInt(tileLine[1].replace(/,/g, ''), 10) || 0
+    }
+
+    return { tiles, bytes }
+  }
+
   async delete(file: string): Promise<void> {
     let fileName = file
     if (!fileName.endsWith('.pmtiles')) {
       fileName += '.pmtiles'
+    }
+
+    if (fileName === WORLD_BASEMAP_FILENAME) {
+      throw new Error('The world basemap cannot be deleted')
     }
 
     const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
@@ -572,4 +873,17 @@ export class MapService implements IMapService {
     const baseUrl = new URL(baseUrlPath, withProtocol).toString()
     return baseUrl
   }
+}
+
+function findExactGroupMatch(
+  countries: CountryCode[],
+  groups: CountryGroup[]
+): CountryGroup | null {
+  return (
+    groups.find(
+      (g) =>
+        g.countries.length === countries.length &&
+        g.countries.every((c, i) => c === countries[i])
+    ) ?? null
+  )
 }
