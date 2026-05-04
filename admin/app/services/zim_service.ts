@@ -4,6 +4,7 @@ import {
   RemoteZimFileEntry,
 } from '../../types/zim.js'
 import axios from 'axios'
+import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
 import logger from '@adonisjs/core/services/logger'
@@ -27,6 +28,8 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
+import CustomLibrarySource from '#models/custom_library_source'
+import { assertNotPrivateUrl } from '#validators/common'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -587,25 +590,47 @@ export class ZimService {
   }
 
   async onWikipediaDownloadComplete(url: string, success: boolean): Promise<void> {
+    const filename = url.split('/').pop() || ''
     const selection = await this.getWikipediaSelection()
 
-    if (!selection || selection.url !== url) {
-      logger.warn(`[ZimService] Wikipedia download complete callback for unknown URL: ${url}`)
-      return
+    // Determine which Wikipedia option this file belongs to by matching filename
+    let matchedOptionId: string | null = null
+    try {
+      const options = await this.getWikipediaOptions()
+      for (const opt of options) {
+        if (opt.url && opt.url.split('/').pop() === filename) {
+          matchedOptionId = opt.id
+          break
+        }
+      }
+    } catch {
+      // If we can't fetch options, try to continue with existing selection
     }
 
     if (success) {
-      // Update status to installed
-      selection.status = 'installed'
-      await selection.save()
+      // Update or create the selection record
+      // Match by filename (not URL) so mirror downloads are recognized
+      if (selection) {
+        selection.option_id = matchedOptionId || selection.option_id
+        selection.url = url
+        selection.filename = filename
+        selection.status = 'installed'
+        await selection.save()
+      } else {
+        await WikipediaSelection.create({
+          option_id: matchedOptionId || 'unknown',
+          url: url,
+          filename: filename,
+          status: 'installed',
+        })
+      }
 
-      logger.info(`[ZimService] Wikipedia download completed successfully: ${selection.filename}`)
+      logger.info(`[ZimService] Wikipedia download completed successfully: ${filename}`)
 
-      // Delete the old Wikipedia file if it exists and is different
-      // We need to find what was previously installed
+      // Delete old Wikipedia files (keep only the newly installed one)
       const existingFiles = await this.list()
       const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+        f.name.startsWith('wikipedia_en_') && f.name !== filename
       )
 
       for (const oldFile of wikipediaFiles) {
@@ -617,10 +642,137 @@ export class ZimService {
         }
       }
     } else {
-      // Download failed - keep the selection record but mark as failed
-      selection.status = 'failed'
-      await selection.save()
-      logger.error(`[ZimService] Wikipedia download failed for: ${selection.filename}`)
+      // Download failed - update selection if it matches this file
+      if (selection && (!selection.filename || selection.filename === filename)) {
+        selection.status = 'failed'
+        await selection.save()
+        logger.error(`[ZimService] Wikipedia download failed for: ${filename}`)
+      } else {
+        logger.error(`[ZimService] Wikipedia download failed for: ${filename} (no matching selection)`)
+      }
     }
+  }
+
+  // Custom library source management
+
+  async listCustomLibraries(): Promise<CustomLibrarySource[]> {
+    return CustomLibrarySource.all()
+  }
+
+  async addCustomLibrary(name: string, baseUrl: string): Promise<CustomLibrarySource> {
+    const count = await CustomLibrarySource.query().count('* as total')
+    const total = Number(count[0].$extras.total)
+    if (total >= 10) {
+      throw new Error('Maximum of 10 custom libraries allowed')
+    }
+
+    // Ensure URL ends with /
+    const normalizedUrl = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'
+
+    return CustomLibrarySource.create({
+      name,
+      base_url: normalizedUrl,
+    })
+  }
+
+  async removeCustomLibrary(id: number): Promise<void> {
+    const source = await CustomLibrarySource.find(id)
+    if (!source) {
+      throw new Error('Custom library not found')
+    }
+    if (source.is_default) {
+      throw new Error('Cannot remove a built-in mirror')
+    }
+    await source.delete()
+  }
+
+  async browseLibraryUrl(url: string): Promise<{
+    directories: { name: string; url: string }[]
+    files: { name: string; url: string; size_bytes: number | null }[]
+  }> {
+    assertNotPrivateUrl(url)
+
+    const normalizedUrl = url.endsWith('/') ? url : url + '/'
+
+    const res = await axios.get(normalizedUrl, {
+      responseType: 'text',
+      timeout: 15000,
+      headers: {
+        'Accept': 'text/html',
+      },
+    })
+
+    const html: string = res.data
+    const directories: { name: string; url: string }[] = []
+    const files: { name: string; url: string; size_bytes: number | null }[] = []
+
+    const $ = cheerio.load(html)
+
+    $('a').each((_, el) => {
+      const href = el.attribs?.href
+      if (!href || href === '../' || href === './' || href === '/' || href.startsWith('?') || href.startsWith('#')) {
+        return
+      }
+      if (href.startsWith('/') || href.startsWith('http://') || href.startsWith('https://')) {
+        return
+      }
+
+      if (href.endsWith('/')) {
+        const dirName = decodeURIComponent(href.replace(/\/$/, ''))
+        directories.push({
+          name: dirName,
+          url: new URL(href, normalizedUrl).toString(),
+        })
+        return
+      }
+
+      if (href.endsWith('.zim')) {
+        const fileName = decodeURIComponent(href)
+
+        // Apache/Nginx autoindex put the date + size in the text node directly
+        // following </a> within a <pre>. Walk forward across text siblings until
+        // we find a parseable size token.
+        let trailingText = ''
+        let sibling = el.next
+        while (sibling && sibling.type === 'text') {
+          trailingText += sibling.data
+          if (/\n/.test(sibling.data)) break
+          sibling = sibling.next
+        }
+
+        files.push({
+          name: fileName,
+          url: new URL(href, normalizedUrl).toString(),
+          size_bytes: this._parseListingSize(trailingText),
+        })
+      }
+    })
+
+    directories.sort((a, b) => a.name.localeCompare(b.name))
+    files.sort((a, b) => a.name.localeCompare(b.name))
+
+    return { directories, files }
+  }
+
+  /**
+   * Parse a directory-listing size token out of the text that follows an anchor.
+   * Apache renders e.g. `   2024-01-15 10:30  5.1G`; Nginx renders raw bytes.
+   * Returns bytes or null if no size token is found.
+   */
+  private _parseListingSize(text: string): number | null {
+    // Skip the date/time columns; grab the last numeric token (with optional suffix)
+    // before a newline. Matches `5.1G`, `5368709120`, `1.2T`, etc.
+    const sizeMatch = /([\d.]+\s*[KMGT]?B?|\d+)\s*$/i.exec(text.split('\n')[0].trim())
+    if (!sizeMatch) return null
+
+    const sizeStr = sizeMatch[1].replace(/\s|B$/gi, '')
+    const num = parseFloat(sizeStr)
+    if (isNaN(num)) return null
+
+    if (/^\d+$/.test(sizeStr)) return num
+
+    const suffix = sizeStr.slice(-1).toUpperCase()
+    const multipliers: Record<string, number> = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }
+    return multipliers[suffix] ? Math.round(num * multipliers[suffix]) : null
   }
 }
