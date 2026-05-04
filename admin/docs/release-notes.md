@@ -174,6 +174,34 @@
 ## Version 1.31.1 - April 21, 2026
 
 ### Features
+- **AI Assistant**: Added improved support for AMD GPU acceleration for Ollama via ROCm + HSA override. Thanks @chriscrosstalk for the contribution!
+- **Content Explorer**: Added support for custom ZIM library sources and pre-seeded ZIM library mirrors in addition to the default Kiwix library. Thanks @chriscrosstalk for the contribution!
+- **Content Manager**: Content update sizes and downloads are now properly displayed in Active Downloads with progress bars and friendly names. Thanks @chriscrosstalk for the contribution!
+- **Maps**: Map regions can now be extracted and downloaded locally from PMTiles to avoid the need for a full global map download for users who only want specific regions. Thanks @bgauger for the contribution!
+
+### Bug Fixes
+- **API**: Compression is now skipped for Server-Sent Events (SSE) responses to prevent issues with streaming endpoints. Thanks @chriscrosstalk for the fix!
+- **Maps**: Fixed logic issues with the global map banner display. Thanks @Gujiassh for the fix!
+- **Maps**: The selected map file is now properly deleted after confirming the action in the UI. Thanks @cuyua9 for the fix!
+- **System**: Fixed an issue where the a pending update could still be indicated in the UI even after the system was updated successfully. Thanks @jakeaturner for the fix!
+
+### Improvements
+- **Build**: The Command Center image now uses the VERSION build arg to write `app/version.json` with the current version for improved version tracking and debugging, even in RC environments. Thanks @chriscrosstalk for the contribution!
+- **Content Manager**: Added a sortable file size column to the ZIM files table in the Content Manager for easier management of storage space. Thanks @chriscrosstalk for the contribution!
+- **Dependencies**: All package.json dependencies have been pinned to specific versions to ensure stability and reduce the risk of unexpected breaking changes/supply-chain compromises from upstream packages. Thanks @jakeaturner for the contribution!
+- **Dependencies**: Updated various dependencies to close security vulnerabilities and improve stability
+- **Docs**: Update CONTIRBUTING.md to require an issue to be opened before submitting a PR for non-trivial changes to ensure proper discussion and review of proposed changes. Thanks @chriscrosstalk for the contribution!
+- **Docs**: Added the map markers endpoints to the API reference documentation. Thanks @kennethbrewer3 for the contribution!
+- **Docs**: Added a link to the new WSL2 install guide in the README and FAQ. Thanks @chriscrosstalk for the contribution!
+- **Install**: The install script now warns loudly if the user is attempting to install on a non-x86_64/amd64 platform to prevent unsupported installations and potential issues. Thanks @chriscrosstalk for the contribution!
+- **Maps**: The maps API endpoints now properly accept and validate notes, marker_type, and position data for map markers and persist them in the database for retrieval in the UI. Thanks @jrsphoto for the contribution!
+- **Maps**: The current coordinates of the mouse pointer can now be displayed in the map viewer for easier navigation and exploration. Thanks @kennethbrewer3 for the contribution!
+- **RAG**: NOMAD now properly passed `num_ctx` and truncation to the Ollama embedding endpoint to ensure that the context window of the model is best utilized for embeddings. Thanks @chriscrosstalk for the contribution!
+- **RAG**: Added a manual start button for Qdrant and a self-healing mechanism for Qdrant's restart-policy to ensure that the vector database is running properly for embedding and retrieval tasks. Thanks @hestela for the contribution!
+
+## Version 1.31.1 - April 21, 2026
+
+### Features
 
 ### Bug Fixes
 - **AI Assistant**: In-progress model downloads can now be cancelled properly and the progress UI now matches that of file downloads. Thanks @chriscrosstalk for the contribution!
