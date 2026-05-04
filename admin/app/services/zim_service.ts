@@ -4,6 +4,7 @@ import {
   RemoteZimFileEntry,
 } from '../../types/zim.js'
 import axios from 'axios'
+import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
 import logger from '@adonisjs/core/services/logger'
@@ -637,48 +638,48 @@ export class ZimService {
     const directories: { name: string; url: string }[] = []
     const files: { name: string; url: string; size_bytes: number | null }[] = []
 
-    // Parse <a href="..."> links from HTML directory listings
-    // Works with Apache, Nginx, and most HTTP directory indexes
-    const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi
-    let match: RegExpExecArray | null
+    const $ = cheerio.load(html)
 
-    while ((match = linkRegex.exec(html)) !== null) {
-      const href = match[1]
-
-      // Skip parent directory, self, sorting links, absolute paths, and absolute URLs
+    $('a').each((_, el) => {
+      const href = el.attribs?.href
       if (!href || href === '../' || href === './' || href === '/' || href.startsWith('?') || href.startsWith('#')) {
-        continue
+        return
       }
-
-      // Skip absolute paths (e.g., /mirror/kiwix.org/) and absolute URLs
       if (href.startsWith('/') || href.startsWith('http://') || href.startsWith('https://')) {
-        continue
+        return
       }
 
-      // Directory (ends with /)
       if (href.endsWith('/')) {
         const dirName = decodeURIComponent(href.replace(/\/$/, ''))
         directories.push({
           name: dirName,
           url: normalizedUrl + href,
         })
-        continue
+        return
       }
 
-      // ZIM file
       if (href.endsWith('.zim')) {
         const fileName = decodeURIComponent(href)
-        const sizeBytes = this._extractSizeFromListing(html, href)
+
+        // Apache/Nginx autoindex put the date + size in the text node directly
+        // following </a> within a <pre>. Walk forward across text siblings until
+        // we find a parseable size token.
+        let trailingText = ''
+        let sibling = el.next
+        while (sibling && sibling.type === 'text') {
+          trailingText += sibling.data
+          if (/\n/.test(sibling.data)) break
+          sibling = sibling.next
+        }
 
         files.push({
           name: fileName,
           url: normalizedUrl + href,
-          size_bytes: sizeBytes,
+          size_bytes: this._parseListingSize(trailingText),
         })
       }
-    }
+    })
 
-    // Sort directories alphabetically, files alphabetically
     directories.sort((a, b) => a.name.localeCompare(b.name))
     files.sort((a, b) => a.name.localeCompare(b.name))
 
@@ -686,29 +687,22 @@ export class ZimService {
   }
 
   /**
-   * Try to extract file size from HTML directory listing.
-   * Apache and Nginx directory listings typically show size near the filename.
-   * Returns bytes or null if not parseable.
+   * Parse a directory-listing size token out of the text that follows an anchor.
+   * Apache renders e.g. `   2024-01-15 10:30  5.1G`; Nginx renders raw bytes.
+   * Returns bytes or null if no size token is found.
    */
-  private _extractSizeFromListing(html: string, href: string): number | null {
-    // Apache style: <a href="file.zim">file.zim</a>   2024-01-15 10:30  5.1G
-    // Nginx style:  <a href="file.zim">file.zim</a>    15-Jan-2024 10:30   5368709120
-    const escapedHref = href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const sizePattern = new RegExp(
-      escapedHref + `"[^<]*</a>\\s+[\\d-]+\\s+[\\d:]+\\s+([\\d.]+[KMGT]?)\\b`,
-      'i'
-    )
-    const sizeMatch = sizePattern.exec(html)
+  private _parseListingSize(text: string): number | null {
+    // Skip the date/time columns; grab the last numeric token (with optional suffix)
+    // before a newline. Matches `5.1G`, `5368709120`, `1.2T`, etc.
+    const sizeMatch = /([\d.]+\s*[KMGT]?B?|\d+)\s*$/i.exec(text.split('\n')[0].trim())
     if (!sizeMatch) return null
 
-    const sizeStr = sizeMatch[1]
+    const sizeStr = sizeMatch[1].replace(/\s|B$/gi, '')
     const num = parseFloat(sizeStr)
     if (isNaN(num)) return null
 
-    // If it's a plain number (Nginx shows raw bytes)
     if (/^\d+$/.test(sizeStr)) return num
 
-    // Apache uses K, M, G, T suffixes
     const suffix = sizeStr.slice(-1).toUpperCase()
     const multipliers: Record<string, number> = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }
     return multipliers[suffix] ? Math.round(num * multipliers[suffix]) : null
