@@ -18,6 +18,7 @@ export interface MapMarker {
   longitude: number
   latitude: number
   color: PinColorId
+  notes: string | null
   createdAt: string
 }
 
@@ -36,6 +37,7 @@ export function useMapMarkers() {
             longitude: m.longitude,
             latitude: m.latitude,
             color: m.color as PinColorId,
+            notes: m.notes ?? null,
             createdAt: m.created_at,
           }))
         )
@@ -54,6 +56,7 @@ export function useMapMarkers() {
           longitude: result.longitude,
           latitude: result.latitude,
           color: result.color as PinColorId,
+          notes: result.notes ?? null,
           createdAt: result.created_at,
         }
         setMarkers((prev) => [...prev, marker])
