@@ -653,7 +653,7 @@ export class ZimService {
         const dirName = decodeURIComponent(href.replace(/\/$/, ''))
         directories.push({
           name: dirName,
-          url: normalizedUrl + href,
+          url: new URL(href, normalizedUrl).toString(),
         })
         return
       }
@@ -674,7 +674,7 @@ export class ZimService {
 
         files.push({
           name: fileName,
-          url: normalizedUrl + href,
+          url: new URL(href, normalizedUrl).toString(),
           size_bytes: this._parseListingSize(trailingText),
         })
       }
