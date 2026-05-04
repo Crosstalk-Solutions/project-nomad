@@ -138,7 +138,7 @@ export default function MapsManager(props: {
 
     try {
       setDeletingFileKey(file.key)
-      await api.deleteMapRegionFile(file.key)
+      await api.deleteMapRegionFile(file.name)
       addNotification({
         type: 'success',
         message: `${file.name} has been deleted.`,
