@@ -243,6 +243,11 @@ export default function MapComponent({
               closeOnClick={false}
             >
               <div className="text-sm font-medium">{selectedMarker.name}</div>
+              {selectedMarker.notes && selectedMarker.notes.trim() && (
+                <div className="mt-1 text-xs text-desert-stone-dark whitespace-pre-wrap break-words max-w-[240px]">
+                  {selectedMarker.notes}
+                </div>
+              )}
             </Popup>
           )}
 

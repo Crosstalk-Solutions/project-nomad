@@ -631,7 +631,7 @@ class API {
   async listMapMarkers() {
     return catchInternal(async () => {
       const response = await this.client.get<
-        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }>
+        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>
       >('/maps/markers')
       return response.data
     })()
@@ -640,7 +640,7 @@ class API {
   async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
     return catchInternal(async () => {
       const response = await this.client.post<
-        { id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }
+        { id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }
       >('/maps/markers', data)
       return response.data
     })()
