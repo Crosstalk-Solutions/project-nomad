@@ -520,10 +520,40 @@ verify_gpu_setup() {
   # Check for AMD GPU — restrict to display controller classes to avoid false positives
   # from AMD CPU host bridges, PCI bridges, and chipset devices.
   local has_amd_gpu='false'
+  local amd_gfx_version=''
   if command -v lspci &> /dev/null; then
     if lspci 2>/dev/null | grep -iE "VGA|3D controller|Display" | grep -iE "amd|radeon" &> /dev/null; then
       has_amd_gpu='true'
       echo -e "${GREEN}✓${RESET} AMD GPU detected — ROCm acceleration will be configured automatically when AI Assistant is installed.\\n"
+
+      # Map AMD codename → gfx version so the admin can pick the right HSA_OVERRIDE_GFX_VERSION.
+      # gfx1030/1100/1101/1102 are on AMD's official ROCm allowlist and need NO override —
+      # forcing one (e.g. 11.0.0) breaks GPU discovery on these. Other variants do need it.
+      local amd_devices
+      amd_devices=$(lspci -vmm 2>/dev/null | awk -F'\t' '/^Class:.*(VGA|3D|Display)/{c=1} c && /^Device:/{print $2; c=0}')
+      if echo "${amd_devices}" | grep -iq 'Navi 21'; then
+        amd_gfx_version='gfx1030'
+      elif echo "${amd_devices}" | grep -iq 'Navi 22'; then
+        amd_gfx_version='gfx1031'
+      elif echo "${amd_devices}" | grep -iq 'Navi 23'; then
+        amd_gfx_version='gfx1032'
+      elif echo "${amd_devices}" | grep -iq 'Navi 24'; then
+        amd_gfx_version='gfx1034'
+      elif echo "${amd_devices}" | grep -iq 'Rembrandt'; then
+        amd_gfx_version='gfx1035'
+      elif echo "${amd_devices}" | grep -iEq 'Phoenix1?|Phoenix2'; then
+        amd_gfx_version='gfx1103'
+      elif echo "${amd_devices}" | grep -iEq 'Strix Halo'; then
+        amd_gfx_version='gfx1151'
+      elif echo "${amd_devices}" | grep -iEq 'Strix( Point)?'; then
+        amd_gfx_version='gfx1150'
+      elif echo "${amd_devices}" | grep -iq 'Navi 31'; then
+        amd_gfx_version='gfx1100'
+      elif echo "${amd_devices}" | grep -iq 'Navi 32'; then
+        amd_gfx_version='gfx1101'
+      elif echo "${amd_devices}" | grep -iq 'Navi 33'; then
+        amd_gfx_version='gfx1102'
+      fi
     fi
   fi
 
@@ -537,6 +567,16 @@ verify_gpu_setup() {
     echo 'amd' | sudo tee "${gpu_marker_path}" > /dev/null 2>&1 || true
   else
     sudo rm -f "${gpu_marker_path}" 2>/dev/null || true
+  fi
+
+  # Companion marker used by the admin to pick the right HSA_OVERRIDE_GFX_VERSION for
+  # the detected card. Absence of this file means "unknown gfx" — the admin falls back
+  # to its built-in default. Always rewrite (or remove) on install to keep state fresh.
+  local amd_gfx_marker_path="${NOMAD_DIR}/storage/.nomad-amd-gfx"
+  if [[ -n "${amd_gfx_version}" ]]; then
+    echo "${amd_gfx_version}" | sudo tee "${amd_gfx_marker_path}" > /dev/null 2>&1 || true
+  else
+    sudo rm -f "${amd_gfx_marker_path}" 2>/dev/null || true
   fi
 
   echo -e "${YELLOW}===========================================${RESET}\\n"

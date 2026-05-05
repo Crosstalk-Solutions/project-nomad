@@ -592,10 +592,12 @@ export class DockerService {
           ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
         }
         if (amdGpuConfigured) {
-          // RDNA3 iGPUs (gfx1103: 780M, 880M, 890M, ...) aren't on AMD's official ROCm
-          // allowlist but work when forced to identify as gfx1100 via HSA_OVERRIDE_GFX_VERSION.
-          // Harmless on supported discrete cards (gfx1030 RX 6800, etc.) — they ignore the override.
-          ollamaEnv.push('HSA_OVERRIDE_GFX_VERSION=11.0.0')
+          // gfx-aware HSA override — only set for cards that actually need it. See
+          // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.
+          const hsaOverride = await this._resolveAmdHsaOverride()
+          if (hsaOverride) {
+            ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
+          }
         }
       }
 
@@ -1000,6 +1002,67 @@ export class DockerService {
   }
 
   /**
+   * Resolve the HSA_OVERRIDE_GFX_VERSION value for the host's AMD GPU.
+   *
+   * gfx1030 (RX 6800/6700/etc.), gfx1100/1101/1102 (RX 7900/7800/7600) are on AMD's
+   * official ROCm allowlist — forcing an override on these breaks GPU discovery.
+   * gfx1035 / gfx1036 (RDNA 2 iGPUs like 680M) need 10.3.0 to coerce to gfx1030.
+   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) need 11.0.0.
+   *
+   * Resolution order:
+   *   1. KV `ai.amdHsaOverride` — manual user override; accepts 'none' (disable) or a semver-style value.
+   *   2. Marker file `/app/storage/.nomad-amd-gfx` written by install_nomad.sh.
+   *   3. Default: '11.0.0' — preserves prior behavior so existing iGPU users don't regress on
+   *      upgrade. Discrete-card users on existing installs can opt out via the KV.
+   *
+   * Returns null when no override should be applied.
+   */
+  private async _resolveAmdHsaOverride(): Promise<string | null> {
+    const manualRaw = await KVStore.getValue('ai.amdHsaOverride')
+    if (manualRaw !== null && manualRaw !== undefined && String(manualRaw).trim() !== '') {
+      const manual = String(manualRaw).trim().toLowerCase()
+      if (manual === 'none' || manual === 'off' || manual === 'false') {
+        logger.info('[DockerService] HSA override disabled via ai.amdHsaOverride')
+        return null
+      }
+      if (/^\d+\.\d+\.\d+$/.test(manual)) {
+        logger.info(`[DockerService] HSA override forced to ${manual} via ai.amdHsaOverride`)
+        return manual
+      }
+      logger.warn(`[DockerService] Ignoring invalid ai.amdHsaOverride value: ${manualRaw}`)
+    }
+
+    try {
+      const gfx = (await readFile('/app/storage/.nomad-amd-gfx', 'utf8')).trim()
+      const mapped = this._mapGfxToHsaOverride(gfx)
+      logger.info(`[DockerService] AMD gfx marker '${gfx}' → HSA override ${mapped ?? 'none'}`)
+      return mapped
+    } catch {
+      // Marker absent — most likely an existing install upgraded without re-running
+      // install_nomad.sh. Fall through to the default.
+    }
+
+    logger.info('[DockerService] No AMD gfx marker; defaulting HSA override to 11.0.0 for backward compatibility')
+    return '11.0.0'
+  }
+
+  private _mapGfxToHsaOverride(gfx: string): string | null {
+    // Officially supported by ROCm — no override needed
+    if (gfx === 'gfx1030' || gfx === 'gfx1100' || gfx === 'gfx1101' || gfx === 'gfx1102') {
+      return null
+    }
+    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M)
+    if (/^gfx103[1-6]$/.test(gfx)) {
+      return '10.3.0'
+    }
+    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo = gfx1151)
+    if (gfx === 'gfx1103' || gfx === 'gfx1150' || gfx === 'gfx1151') {
+      return '11.0.0'
+    }
+    return '11.0.0'
+  }
+
+  /**
    * Build the Docker Devices array for AMD GPU passthrough.
    *
    * Returns /dev/kfd (Kernel Fusion Driver, required by ROCm) and /dev/dri (the DRM
@@ -1132,12 +1195,14 @@ export class DockerService {
       // and whether HSA_OVERRIDE needs injection. For AMD, replace any prior HSA_OVERRIDE in
       // the inspect-captured env so updates from older containers pick up the current value.
       const baseEnv = inspectData.Config?.Env || []
-      const finalEnv = updatedAmdGpuConfigured
-        ? [
-            ...baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION=')),
-            'HSA_OVERRIDE_GFX_VERSION=11.0.0',
-          ]
-        : baseEnv
+      let finalEnv = baseEnv
+      if (updatedAmdGpuConfigured) {
+        const hsaOverride = await this._resolveAmdHsaOverride()
+        finalEnv = baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
+        if (hsaOverride) {
+          finalEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
+        }
+      }
 
       const newContainerConfig: any = {
         Image: newImage,
