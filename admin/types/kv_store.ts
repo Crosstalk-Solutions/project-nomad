@@ -13,6 +13,7 @@ export const KV_STORE_SCHEMA = {
   'ai.remoteOllamaUrl':         'string',
   'ai.ollamaFlashAttention':    'boolean',
   'ai.amdGpuAcceleration':      'boolean',
+  'ai.amdHsaOverride':          'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string
