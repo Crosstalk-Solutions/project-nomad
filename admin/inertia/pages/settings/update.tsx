@@ -5,7 +5,7 @@ import StyledTable from '~/components/StyledTable'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconAlertCircle, IconArrowBigUpLines, IconCheck, IconCircleCheck, IconReload } from '@tabler/icons-react'
 import { SystemUpdateStatus } from '../../../types/system'
 import type { ContentUpdateCheckResult, ResourceUpdateInfo } from '../../../types/collections'
@@ -23,6 +23,23 @@ type Props = {
   currentVersion: string
   earlyAccess: boolean
 }
+
+const STAGE_LABELS: Record<SystemUpdateStatus['stage'], string> = {
+  idle: 'Preparing Update',
+  starting: 'Starting Update',
+  pulling: 'Pulling Images',
+  pulled: 'Images Pulled',
+  recreating: 'Recreating Containers',
+  complete: 'Update Complete',
+  error: 'Update Failed',
+}
+
+const ADVANCED_STAGES: ReadonlySet<SystemUpdateStatus['stage']> = new Set([
+  'pulling',
+  'pulled',
+  'recreating',
+  'complete',
+])
 
 function ContentUpdatesSection() {
   const { addNotification } = useNotifications()
@@ -251,6 +268,12 @@ export default function SystemUpdatePage(props: { system: Props }) {
   const [email, setEmail] = useState('')
   const [versionInfo, setVersionInfo] = useState<Omit<Props, 'earlyAccess'>>(props.system)
   const [showConnectionLostNotice, setShowConnectionLostNotice] = useState(false)
+  // Tracks whether this update session has progressed past 'idle'/'starting'.
+  // The sidecar sits on 'complete' for ~5s before resetting to 'idle' (see
+  // install/sidecar-updater/update-watcher.sh), and the SPA can miss that
+  // window across the admin container restart. If we resurface to 'idle'
+  // after seeing an advanced stage, treat it as the missed completion.
+  const seenAdvancedStageRef = useRef(false)
 
   const earlyAccessSetting = useSystemSetting({
     key: 'system.earlyAccess', initialData: {
@@ -270,11 +293,22 @@ export default function SystemUpdatePage(props: { system: Props }) {
         }
         setUpdateStatus(response)
 
+        if (ADVANCED_STAGES.has(response.stage)) {
+          seenAdvancedStageRef.current = true
+        }
+
         // If we can connect again, hide the connection lost notice
         setShowConnectionLostNotice(false)
 
-        // Check if update is complete or errored
-        if (response.stage === 'complete') {
+        // Check if update is complete or errored. We also treat a return to
+        // 'idle' as completion if we previously saw an advanced stage — this
+        // catches the race where the sidecar's brief 'complete' window passes
+        // while we're disconnected during the admin container restart.
+        const isComplete =
+          response.stage === 'complete' ||
+          (response.stage === 'idle' && seenAdvancedStageRef.current)
+
+        if (isComplete) {
           // Re-check version so the KV store clears the stale "update available" flag
           // before we reload, otherwise the banner shows "current → current"
           try {
@@ -304,6 +338,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
   const handleStartUpdate = async () => {
     try {
       setError(null)
+      seenAdvancedStageRef.current = false
       setIsUpdating(true)
       const response = await api.startSystemUpdate()
       if (!response || !response.success) {
@@ -368,7 +403,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
     if (updateStatus?.stage === 'error')
       return <IconAlertCircle className="h-12 w-12 text-desert-red" />
     if (isUpdating) return <IconReload className="h-12 w-12 text-desert-green animate-spin" />
-    if (props.system.updateAvailable)
+    if (versionInfo.updateAvailable)
       return <IconArrowBigUpLines className="h-16 w-16 text-desert-green" />
     return <IconCircleCheck className="h-16 w-16 text-desert-olive" />
   }
@@ -380,6 +415,9 @@ export default function SystemUpdatePage(props: { system: Props }) {
     onSuccess: () => {
       addNotification({ message: 'Setting updated successfully.', type: 'success' })
       earlyAccessSetting.refetch()
+      // Toggling Early Access changes which versions are eligible, so re-evaluate
+      // immediately rather than making the user click Check Again.
+      checkVersionMutation.mutate()
     },
     onError: (error) => {
       console.error('Error updating setting:', error)
@@ -461,11 +499,11 @@ export default function SystemUpdatePage(props: { system: Props }) {
               {!isUpdating && (
                 <>
                   <h2 className="text-2xl font-bold text-desert-green mb-2">
-                    {props.system.updateAvailable ? 'Update Available' : 'System Up to Date'}
+                    {versionInfo.updateAvailable ? 'Update Available' : 'System Up to Date'}
                   </h2>
                   <p className="text-desert-stone-dark mb-6">
-                    {props.system.updateAvailable
-                      ? `A new version (${props.system.latestVersion}) is available for your Project N.O.M.A.D. instance.`
+                    {versionInfo.updateAvailable
+                      ? `A new version (${versionInfo.latestVersion}) is available for your Project N.O.M.A.D. instance.`
                       : 'Your system is running the latest version!'}
                   </p>
                 </>
@@ -473,8 +511,8 @@ export default function SystemUpdatePage(props: { system: Props }) {
 
               {isUpdating && updateStatus && (
                 <>
-                  <h2 className="text-2xl font-bold text-desert-green mb-2 capitalize">
-                    {updateStatus.stage === 'idle' ? 'Preparing Update' : updateStatus.stage}
+                  <h2 className="text-2xl font-bold text-desert-green mb-2">
+                    {STAGE_LABELS[updateStatus.stage] ?? updateStatus.stage}
                   </h2>
                   <p className="text-desert-stone-dark mb-6">{updateStatus.message}</p>
                 </>
