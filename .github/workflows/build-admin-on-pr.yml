@@ -16,6 +16,12 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Install libzim system headers
+        # @openzim/libzim is a native Node module that compiles against the system
+        # libzim C++ library via node-gyp. The ubuntu-latest runner image stopped
+        # shipping libzim-dev preinstalled in early May 2026, breaking npm ci.
+        run: sudo apt-get update && sudo apt-get install -y libzim-dev
+
       - name: Install dependencies
         run: npm ci
         working-directory: ./admin
