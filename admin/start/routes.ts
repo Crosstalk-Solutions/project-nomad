@@ -80,6 +80,10 @@ router
     router.post('/download-collection', [MapsController, 'downloadCollection'])
     router.get('/global-map-info', [MapsController, 'globalMapInfo'])
     router.post('/download-global-map', [MapsController, 'downloadGlobalMap'])
+    router.get('/countries', [MapsController, 'listCountries'])
+    router.get('/country-groups', [MapsController, 'listCountryGroups'])
+    router.post('/extract-preflight', [MapsController, 'extractPreflight'])
+    router.post('/extract', [MapsController, 'extractRegion'])
     router.get('/markers', [MapsController, 'listMarkers'])
     router.post('/markers', [MapsController, 'createMarker'])
     router.patch('/markers/:id', [MapsController, 'updateMarker'])
@@ -179,6 +183,12 @@ router
 
     router.get('/wikipedia', [ZimController, 'getWikipediaState'])
     router.post('/wikipedia/select', [ZimController, 'selectWikipedia'])
+
+    router.get('/custom-libraries', [ZimController, 'listCustomLibraries'])
+    router.post('/custom-libraries', [ZimController, 'addCustomLibrary'])
+    router.delete('/custom-libraries/:id', [ZimController, 'removeCustomLibrary'])
+    router.get('/browse-library', [ZimController, 'browseLibrary'])
+
     router.delete('/:filename', [ZimController, 'delete'])
   })
   .prefix('/api/zim')

@@ -6,7 +6,7 @@ import {
   remoteDownloadWithMetadataValidator,
   selectWikipediaValidator,
 } from '#validators/common'
-import { listRemoteZimValidator } from '#validators/zim'
+import { addCustomLibraryValidator, browseLibraryValidator, idParamValidator, listRemoteZimValidator } from '#validators/zim'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -84,5 +84,52 @@ export default class ZimController {
   async selectWikipedia({ request }: HttpContext) {
     const payload = await request.validateUsing(selectWikipediaValidator)
     return this.zimService.selectWikipedia(payload.optionId)
+  }
+
+  // Custom library endpoints
+
+  async listCustomLibraries({}: HttpContext) {
+    return this.zimService.listCustomLibraries()
+  }
+
+  async addCustomLibrary({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(addCustomLibraryValidator)
+    assertNotPrivateUrl(payload.base_url)
+    try {
+      const source = await this.zimService.addCustomLibrary(payload.name, payload.base_url)
+      return { message: 'Custom library added', library: source }
+    } catch (error) {
+      if (error.message === 'Maximum of 10 custom libraries allowed') {
+        return response.status(400).send({ message: error.message })
+      }
+      throw error
+    }
+  }
+
+  async removeCustomLibrary({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(idParamValidator)
+    try {
+      await this.zimService.removeCustomLibrary(payload.params.id)
+      return { message: 'Custom library removed' }
+    } catch (error) {
+      if (error.message === 'Custom library not found') {
+        return response.status(404).send({ message: error.message })
+      }
+      throw error
+    }
+  }
+
+  async browseLibrary({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(browseLibraryValidator)
+    try {
+      return await this.zimService.browseLibraryUrl(payload.url)
+    } catch (error) {
+      if (error.message?.includes('loopback or link-local')) {
+        return response.status(400).send({ message: error.message })
+      }
+      return response.status(502).send({
+        message: 'Could not fetch directory listing from the provided URL',
+      })
+    }
   }
 }

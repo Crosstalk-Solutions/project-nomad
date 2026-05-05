@@ -1,3 +1,4 @@
+// eslint-disable-next-line @unicorn/filename-case
 import { useState, useCallback, useEffect } from 'react'
 import api from '~/lib/api'
 
@@ -26,6 +27,7 @@ export function useMapMarkers() {
   const [markers, setMarkers] = useState<MapMarker[]>([])
   const [loaded, setLoaded] = useState(false)
 
+  // Load markers from API on mount
   useEffect(() => {
     api.listMapMarkers().then((data) => {
       if (data) {
@@ -98,11 +100,11 @@ export function useMapMarkers() {
           prev.map((m) =>
             m.id === id
               ? {
-                ...m,
-                name: result.name,
-                color: result.color as PinColorId,
-                notes: result.notes ?? null,
-              }
+                  ...m,
+                  name: result.name,
+                  color: result.color as PinColorId,
+                  notes: result.notes ?? null,
+                }
               : m
           )
         )

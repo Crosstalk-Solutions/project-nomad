@@ -209,7 +209,7 @@ export default function SettingsPage(props: {
                     type="warning"
                     variant="bordered"
                     title="GPU Not Accessible to AI Assistant"
-                    message="Your system has an NVIDIA GPU, but the AI Assistant can't access it. AI is running on CPU only, which is significantly slower."
+                    message={`Your system has ${info?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but the AI Assistant can't access it. AI is running on CPU only, which is significantly slower.`}
                     dismissible={true}
                     onDismiss={handleDismissGpuBanner}
                     buttonProps={{

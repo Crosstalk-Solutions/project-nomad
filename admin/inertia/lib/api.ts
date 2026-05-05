@@ -4,6 +4,7 @@ import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
+import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
 import { EmbedJobWithProgress } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
@@ -127,6 +128,15 @@ class API {
       const response = await this.client.post<
         { filename: string; size: number } | { message: string }
       >('/maps/download-remote-preflight', { url })
+      return response.data
+    })()
+  }
+
+  async deleteMapRegionFile(filename: string): Promise<{ message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(
+        `/maps/${encodeURIComponent(filename)}`
+      )
       return response.data
     })()
   }
@@ -549,6 +559,46 @@ class API {
     })()
   }
 
+  async listCountries() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ countries: Country[] }>('/maps/countries')
+      return response.data.countries
+    })()
+  }
+
+  async listCountryGroups() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ groups: CountryGroup[] }>('/maps/country-groups')
+      return response.data.groups
+    })()
+  }
+
+  async extractMapPreflight(params: { countries: CountryCode[]; maxzoom?: number }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<MapExtractPreflight>(
+        '/maps/extract-preflight',
+        params
+      )
+      return response.data
+    })()
+  }
+
+  async extractMapRegion(params: {
+    countries: CountryCode[]
+    maxzoom?: number
+    label?: string
+    estimatedBytes?: number
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        filename: string
+        jobId?: string
+      }>('/maps/extract', params)
+      return response.data
+    })()
+  }
+
   async listCuratedMapCollections() {
     return catchInternal(async () => {
       const response = await this.client.get<CollectionWithStatus[]>(
@@ -632,6 +682,42 @@ class API {
           query,
         },
       })
+    })()
+  }
+
+  async listCustomLibraries() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ id: number; name: string; base_url: string; is_default: boolean }[]>(
+        '/zim/custom-libraries'
+      )
+      return response.data
+    })()
+  }
+
+  async addCustomLibrary(name: string, base_url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        library: { id: number; name: string; base_url: string }
+      }>('/zim/custom-libraries', { name, base_url })
+      return response.data
+    })()
+  }
+
+  async removeCustomLibrary(id: number) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(`/zim/custom-libraries/${id}`)
+      return response.data
+    })()
+  }
+
+  async browseLibrary(url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        directories: { name: string; url: string }[]
+        files: { name: string; url: string; size_bytes: number | null }[]
+      }>('/zim/browse-library', { params: { url } })
+      return response.data
     })()
   }
 

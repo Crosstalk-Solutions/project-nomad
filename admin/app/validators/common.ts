@@ -100,6 +100,7 @@ const resourceUpdateInfoBase = vine.object({
   installed_version: vine.string().trim(),
   latest_version: vine.string().trim().minLength(1),
   download_url: vine.string().url({ require_tld: false }).trim(),
+  size_bytes: vine.number().positive().optional(),
 })
 
 export const applyContentUpdateValidator = vine.compile(resourceUpdateInfoBase)
@@ -109,5 +110,33 @@ export const applyAllContentUpdatesValidator = vine.compile(
     updates: vine
       .array(resourceUpdateInfoBase)
       .minLength(1),
+  })
+)
+
+// --- Map extract (regional pmtiles download) ---
+
+// ISO 3166-1 alpha-2, 2 letters. Loose regex; CountriesService.resolveCodes
+// does the authoritative check against the polygon dataset.
+const countryCodeSchema = vine
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{2}$/)
+
+const countriesArraySchema = vine.array(countryCodeSchema).minLength(1).maxLength(300)
+
+export const mapExtractPreflightValidator = vine.compile(
+  vine.object({
+    countries: countriesArraySchema.clone(),
+    maxzoom: vine.number().min(0).max(15).optional(),
+  })
+)
+
+export const mapExtractValidator = vine.compile(
+  vine.object({
+    countries: countriesArraySchema.clone(),
+    maxzoom: vine.number().min(0).max(15).optional(),
+    label: vine.string().trim().minLength(1).maxLength(64).optional(),
+    estimatedBytes: vine.number().min(0).optional(),
   })
 )

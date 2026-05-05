@@ -3,20 +3,56 @@
 ## Unreleased
 
 ### Features
+- **AI Assistant**: Added improved support for AMD GPU acceleration for Ollama via ROCm + HSA override. Thanks @chriscrosstalk for the contribution!
+- **Content Explorer**: Added support for custom ZIM library sources and pre-seeded ZIM library mirrors in addition to the default Kiwix library. Thanks @chriscrosstalk for the contribution!
+- **Content Manager**: Content update sizes and downloads are now properly displayed in Active Downloads with progress bars and friendly names. Thanks @chriscrosstalk for the contribution!
+- **Maps**: Map regions can now be extracted and downloaded locally from PMTiles to avoid the need for a full global map download for users who only want specific regions. Thanks @bgauger for the contribution!
+
+### Bug Fixes
+- **API**: Compression is now skipped for Server-Sent Events (SSE) responses to prevent issues with streaming endpoints. Thanks @chriscrosstalk for the fix!
+- **Maps**: Fixed logic issues with the global map banner display. Thanks @Gujiassh for the fix!
+- **Maps**: The selected map file is now properly deleted after confirming the action in the UI. Thanks @cuyua9 for the fix!
+- **System**: Fixed an issue where the a pending update could still be indicated in the UI even after the system was updated successfully. Thanks @jakeaturner for the fix!
+
+### Improvements
+- **Build**: The Command Center image now uses the VERSION build arg to write `app/version.json` with the current version for improved version tracking and debugging, even in RC environments. Thanks @chriscrosstalk for the contribution!
+- **Content Manager**: Added a sortable file size column to the ZIM files table in the Content Manager for easier management of storage space. Thanks @chriscrosstalk for the contribution!
+- **Dependencies**: All package.json dependencies have been pinned to specific versions to ensure stability and reduce the risk of unexpected breaking changes/supply-chain compromises from upstream packages. Thanks @jakeaturner for the contribution!
+- **Dependencies**: Updated various dependencies to close security vulnerabilities and improve stability
+- **Docs**: Update CONTIRBUTING.md to require an issue to be opened before submitting a PR for non-trivial changes to ensure proper discussion and review of proposed changes. Thanks @chriscrosstalk for the contribution!
+- **Docs**: Added the map markers endpoints to the API reference documentation. Thanks @kennethbrewer3 for the contribution!
+- **Docs**: Added a link to the new WSL2 install guide in the README and FAQ. Thanks @chriscrosstalk for the contribution!
+- **Install**: The install script now warns loudly if the user is attempting to install on a non-x86_64/amd64 platform to prevent unsupported installations and potential issues. Thanks @chriscrosstalk for the contribution!
+- **Maps**: The maps API endpoints now properly accept and validate notes, marker_type, and position data for map markers and persist them in the database for retrieval in the UI. Thanks @jrsphoto for the contribution!
+- **Maps**: The current coordinates of the mouse pointer can now be displayed in the map viewer for easier navigation and exploration. Thanks @kennethbrewer3 for the contribution!
+- **RAG**: NOMAD now properly passed `num_ctx` and truncation to the Ollama embedding endpoint to ensure that the context window of the model is best utilized for embeddings. Thanks @chriscrosstalk for the contribution!
+- **RAG**: Added a manual start button for Qdrant and a self-healing mechanism for Qdrant's restart-policy to ensure that the vector database is running properly for embedding and retrieval tasks. Thanks @hestela for the contribution!
+
+## Version 1.31.1 - April 21, 2026
+
+### Features
 
 ### Bug Fixes
 - **AI Assistant**: In-progress model downloads can now be cancelled properly and the progress UI now matches that of file downloads. Thanks @chriscrosstalk for the contribution!
 - **AI Assistant**: Fixed an issue where the AI Assistant settings page could crash if a model object did not have a details property. Thanks @hestela for the fix!
+- **AI Assistant**: Fixed an issue with non-embeddable files being queued for embedding and flooding logs with errors. Thanks @sbruschke for the bug report and @chriscrosstalk for the fix!
+- **AI Assistant**: Fixed an issue with ZIM batch embedding using the wrong batch count and causing remaining batches to be skipped. Thanks @sbruschke for the bug report and @chriscrosstalk for the fix!
+- **AI Assistant**: Fixed an issue with ZIM content extraction only extracting the first-level children of the article body and thus missing a lot of content. Thanks @sbruschke for the bug report and @chriscrosstalk for the fix!
 - **Disk Collector**: Improved reporting for NFS mount stats and display in the UI. Thanks @bgauger and @bravosierra99 for the contribution!
 - **Downloads**: Downloads are now staged to .tmp files and atomically renamed upon completion to prevent issues with incomplete/corrupt files. Thanks @artbird309 for the contribution!
 - **Downloads**: Removed a duplicate error listener and improved stability when handling Range requests for file downloads. Thanks @jakeaturner for the contribution!
 - **Downloads**: Added improved handling for corrupt ZIM file downloads and removed duplicate Ollama download logs. Thanks @aegisman for the contribution!
 - **Security**: Closed a potential SSRF vulnerability in the map file download functionality by implementing stricter URL validation and blocking private IP ranges. Thanks @LuisMIguelFurlanettoSousa for the fix!
 - **Security**: Sanitized error messages from the backend to prevent potential information disclosure. Thanks @LuisMIguelFurlanettoSousa for the fix!
+- **UI**: Fixed an issue with broken pagination for the Content Explorer that could cause some users to see a "No records found" message indefinitely. Thanks @johno10661 for the bug report and @chriscrosstalk for the fix!
+- **UI**: Fixed an issue where all storage devices could report as "NAS Storage" regardless of actual type. Thanks @bgauger for the fix!
 
 ### Improvements
 - **AI Assistant**: Now uses the currently loaded model for query rewriting and chat title generation for improved performance and consistency. Thanks @hestela for the contribution!
+- **AI Assistant**: When a remote Ollama URL is configured, the Command Center will now attempt to stop NOMAD's local Ollama container to free up resources and avoid confusion. Thanks @chriscrosstalk for the contribution!
 - **Dependencies**: Updated various dependencies to close security vulnerabilities and improve stability
+- **Docs**: Added a "Community Add-Ons" page to the documentation to highlight some of the amazing community contributions that have been made since launch. Thanks @chriscrosstalk for the contribution!
+- **Privacy**: Added the appropriate environment variable to disable telemetry for the Qdrant container. Note that this will only take effect on new installations of if the Qdrant container is force re-installed on existing installations. Thanks @berkdamerc for the find and @chriscrosstalk for the contribution!
 
 ## Version 1.31.0 - April 3, 2026
 

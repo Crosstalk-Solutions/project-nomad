@@ -3,6 +3,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
 import { Worker } from 'bullmq'
 import queueConfig from '#config/queue'
 import { RunDownloadJob } from '#jobs/run_download_job'
+import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
 import { EmbedFileJob } from '#jobs/embed_file_job'
@@ -126,6 +127,7 @@ export default class QueueWork extends BaseCommand {
     const queues = new Map<string, string>()
 
     handlers.set(RunDownloadJob.key, new RunDownloadJob())
+    handlers.set(RunExtractPmtilesJob.key, new RunExtractPmtilesJob())
     handlers.set(DownloadModelJob.key, new DownloadModelJob())
     handlers.set(RunBenchmarkJob.key, new RunBenchmarkJob())
     handlers.set(EmbedFileJob.key, new EmbedFileJob())
@@ -133,6 +135,7 @@ export default class QueueWork extends BaseCommand {
     handlers.set(CheckServiceUpdatesJob.key, new CheckServiceUpdatesJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
+    queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
     queues.set(DownloadModelJob.key, DownloadModelJob.queue)
     queues.set(RunBenchmarkJob.key, RunBenchmarkJob.queue)
     queues.set(EmbedFileJob.key, EmbedFileJob.queue)
@@ -149,6 +152,9 @@ export default class QueueWork extends BaseCommand {
   private getConcurrencyForQueue(queueName: string): number {
     const concurrencyMap: Record<string, number> = {
       [RunDownloadJob.queue]: 3,
+      // pmtiles extract hits the Protomaps CDN with many parallel range reads per job;
+      // cap concurrency at 2 so a second extract doesn't starve the first.
+      [RunExtractPmtilesJob.queue]: 2,
       [DownloadModelJob.queue]: 2, // Lower concurrency for resource-intensive model downloads
       [RunBenchmarkJob.queue]: 1, // Run benchmarks one at a time for accurate results
       [EmbedFileJob.queue]: 2, // Lower concurrency for embedding jobs, can be resource intensive

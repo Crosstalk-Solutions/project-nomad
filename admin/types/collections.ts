@@ -86,6 +86,7 @@ export type ResourceUpdateInfo = {
   installed_version: string
   latest_version: string
   download_url: string
+  size_bytes?: number
 }
 
 export type ContentUpdateCheckResult = {
