@@ -12,7 +12,6 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Protocol } from 'pmtiles'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useToast } from '~/hooks/useToast'
 import { useMapMarkers } from '~/hooks/useMapMarkers'
 
 import MarkerPin from './MarkerPin'
@@ -21,7 +20,6 @@ import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitToggle'
-import ToastContainer from '~/components/ToastContainer'
 
 type ScaleUnit = 'imperial' | 'metric'
 
@@ -100,7 +98,6 @@ export default function MapComponent({
   const animationFrameRef = useRef<number | null>(null)
   const handledMapCommandIdRef = useRef<number | null>(null)
 
-  const { toasts, showToast } = useToast()
   const { markers, addMarker, updateMarker, deleteMarker } = useMapMarkers()
 
   const [targetIndicator, setTargetIndicator] = useState<{ lng: number; lat: number } | null>(null)
@@ -127,26 +124,6 @@ export default function MapComponent({
     setCursorLngLat(null)
   }, [])
 
-  const copyCoordinatesToClipboard = useCallback(
-    async (lat: number, lng: number) => {
-      const coordinates = `${lat.toFixed(6)},${lng.toFixed(6)}`
-
-      try {
-        await navigator.clipboard.writeText(coordinates)
-        showToast(`Copied: ${coordinates}`)
-      } catch {
-        window.prompt('Copy coordinates:', coordinates)
-        showToast('Clipboard blocked — copy manually')
-      }
-    },
-    [showToast]
-  )
-
-  const confirmDiscardMarkerChanges = useCallback(() => {
-    if (!hasUnsavedMarkerChanges) return true
-    return window.confirm('Discard unsaved marker changes?')
-  }, [hasUnsavedMarkerChanges])
-
   const flyToLocationParams = useCallback(() => {
     const location = getMapLocationParams()
     if (!location) return
@@ -157,6 +134,11 @@ export default function MapComponent({
       duration: 1500,
     })
   }, [])
+
+  const confirmDiscardMarkerChanges = useCallback(() => {
+    if (!hasUnsavedMarkerChanges) return true
+    return window.confirm('Discard unsaved marker changes?')
+  }, [hasUnsavedMarkerChanges])
 
   useEffect(() => {
     const protocol = new Protocol()
@@ -245,12 +227,7 @@ export default function MapComponent({
   }, [flyToLocationParams])
 
   const handleMapClick = useCallback(
-    async (e: MapLayerMouseEvent) => {
-      if (e.originalEvent.shiftKey) {
-        await copyCoordinatesToClipboard(e.lngLat.lat, e.lngLat.lng)
-        return
-      }
-
+    (e: MapLayerMouseEvent) => {
       if (!confirmDiscardMarkerChanges()) return
 
       setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
@@ -259,7 +236,7 @@ export default function MapComponent({
       setHasUnsavedMarkerChanges(false)
       setTargetIndicator(null)
     },
-    [confirmDiscardMarkerChanges, copyCoordinatesToClipboard]
+    [confirmDiscardMarkerChanges]
   )
 
   const handleMouseMove = useCallback(
@@ -398,20 +375,15 @@ export default function MapComponent({
           />
 
           {markers
-            .filter((marker) => marker.visible && isValidMarkerCoordinate(marker))
+            .filter((marker) => marker.visible)
             .map((marker) => (
               <Marker
                 key={marker.id}
                 longitude={marker.longitude}
                 latitude={marker.latitude}
                 anchor="bottom"
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.originalEvent.stopPropagation()
-
-                  if (e.originalEvent.shiftKey) {
-                    await copyCoordinatesToClipboard(marker.latitude, marker.longitude)
-                    return
-                  }
 
                   if (!confirmDiscardMarkerChanges()) return
 
@@ -439,7 +411,7 @@ export default function MapComponent({
               latitude={placingMarker.lat}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ name, notes, color, customColor, icon }) => {
+              onSave={async ({ name, notes, color, customColor, icon   }) => {
                 await addMarker({
                   name,
                   longitude: placingMarker.lng,
@@ -481,7 +453,7 @@ export default function MapComponent({
               initialMarker={selectedMarker}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ id, name, notes, color, customColor, icon }) => {
+              onSave={async ({ id, name, notes, color, customColor, icon  }) => {
                 if (!id) return
 
                 await updateMarker(id, {
@@ -516,8 +488,6 @@ export default function MapComponent({
           onToggleVisibility={(id, visible) => updateMarker(id, { visible })}
         />
       </div>
-
-      <ToastContainer toasts={toasts} />
     </MapProvider>
   )
 }

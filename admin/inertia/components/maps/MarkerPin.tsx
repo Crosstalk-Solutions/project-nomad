@@ -1,33 +1,78 @@
-import {IconCircleFilled} from '@tabler/icons-react'
-import type { ComponentType, CSSProperties } from 'react'
+import { IconCircleFilled } from '@tabler/icons-react'
+import * as TablerIcons from '@tabler/icons-react'
+import type { IconProps } from '@tabler/icons-react'
+import type { ComponentType } from 'react'
 
-type MarkerIconProps = {
-  size?: number
-  color?: string
-  style?: CSSProperties
-  className?: string
-}
+import { PIN_COLORS } from '~/hooks/useMapMarkers'
+import type { PinColorId } from '~/hooks/useMapMarkers'
 
 interface MarkerPinProps {
-  color?: string
+  color?: PinColorId | string | null
+  customColor?: string | null
+  icon?: string | null
+  iconColor?: string | null
+  visible?: boolean
   active?: boolean
-  Icon?: ComponentType<MarkerIconProps>
-  iconColor?: string
+}
+
+const resolvePinColor = (color?: PinColorId | string | null, customColor?: string | null) => {
+  if (customColor) return customColor
+  if (!color) return '#a84a12'
+
+  const preset = PIN_COLORS.find((pinColor) => pinColor.id === color)
+  return preset?.hex ?? color
+}
+
+const getContrastingIconColor = (backgroundColor: string) => {
+  const hex = backgroundColor.replace('#', '')
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return '#ffffff'
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16) / 255
+  const g = parseInt(hex.slice(2, 4), 16) / 255
+  const b = parseInt(hex.slice(4, 6), 16) / 255
+
+  const luminance =
+    0.2126 * r +
+    0.7152 * g +
+    0.0722 * b
+
+  return luminance > 0.55 ? '#111827' : '#ffffff'
+}
+
+const resolveIcon = (icon?: string | null): ComponentType<IconProps> => {
+  if (!icon) return IconCircleFilled
+
+  const Icon = (TablerIcons as Record<string, unknown>)[icon]
+
+  if (!Icon) return IconCircleFilled
+
+  return Icon as ComponentType<IconProps>
 }
 
 export default function MarkerPin({
-                                    color = '#a84a12',
+                                    color = 'orange',
+                                    customColor,
+                                    icon,
+                                    iconColor,
+                                    visible = true,
                                     active = false,
-                                    Icon = IconCircleFilled,
-                                    iconColor = '#ffffff',
                                   }: MarkerPinProps) {
+  if (!visible) return null
+
+  const resolvedColor = resolvePinColor(color, customColor)
+  const resolvedIconColor = iconColor ?? getContrastingIconColor(resolvedColor)
+  const Icon = resolveIcon(icon)
+
   const width = active ? 42 : 36
   const height = active ? 52 : 46
   const iconSize = active ? 18 : 16
 
   return (
     <div
-      className="cursor-pointer"
+      className="relative cursor-pointer"
       style={{
         width,
         height,
@@ -42,15 +87,13 @@ export default function MarkerPin({
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        {/* Pin body: circular head + precise pointed tip */}
         <path
           d="M18 45 C18 45 4 27.5 4 16.5 C4 7.4 10.3 1 18 1 C25.7 1 32 7.4 32 16.5 C32 27.5 18 45 18 45 Z"
-          fill={color}
+          fill={resolvedColor}
           stroke="rgba(0,0,0,0.25)"
           strokeWidth="1.5"
         />
 
-        {/* Inner icon circle */}
         <circle cx="18" cy="16.5" r="10.5" fill="rgba(255,255,255,0.18)" />
       </svg>
 
@@ -64,9 +107,8 @@ export default function MarkerPin({
           height: iconSize,
         }}
       >
-        <Icon size={iconSize} color={iconColor} />
+        <Icon size={iconSize} color={resolvedIconColor} />
       </div>
     </div>
   )
 }
-
