@@ -19,7 +19,6 @@ export default function Maps(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
 }) {
   const [isHoveringUI, setIsHoveringUI] = useState(false)
-  const [showMapCoordinates, setShowMapCoordinates] = useState(true)
 
   const [coordinateSearch, setCoordinateSearch] = useState('')
   const [mapCommand, setMapCommand] = useState<MapCommand | null>(null)
@@ -76,22 +75,6 @@ export default function Maps(props: {
             <IconArrowLeft className="mr-2" size={24} />
             <p className="text-lg text-text-secondary">Back to Home</p>
           </Link>
-
-          <div className="flex items-center gap-3 mr-4">
-            <button
-              type="button"
-              onClick={() => setShowMapCoordinates((prev) => !prev)}
-              className="rounded px-3 py-2 text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
-            >
-              {showMapCoordinates ? 'Hide Coordinates' : 'Show Coordinates'}
-            </button>
-
-            <Link href="/settings/maps">
-              <StyledButton variant="primary" icon="IconSettings">
-                Manage Map Regions
-              </StyledButton>
-            </Link>
-          </div>
 
           <div className="flex items-center gap-2">
             <input

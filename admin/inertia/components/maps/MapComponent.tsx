@@ -19,7 +19,7 @@ import MarkerPanel from './MarkerPanel'
 import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
-import ScaleUnitToggle from './ScaleUnitToggle'
+import ScaleUnitToggle from './ScaleUnitSelector'
 
 type ScaleUnit = 'imperial' | 'metric'
 
