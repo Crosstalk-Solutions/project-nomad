@@ -9,6 +9,8 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react'
+import * as FontAwesomeIcons from 'react-icons/fa'
+import type { IconType } from 'react-icons'
 import * as TablerIcons from '@tabler/icons-react'
 import type { IconProps } from '@tabler/icons-react'
 import type { ComponentType } from 'react'
@@ -104,13 +106,40 @@ const getHueGroupLabel = ({ bucket, hue, lightness }: ColorSortValue) => {
   if (hue < 270) return 'Blue'
   return 'Purple'
 }
+const getReadableIconName = (icon?: string | null) => {
+  if (!icon) return 'Default pin'
 
-const resolveMarkerIcon = (icon?: string | null): ComponentType<IconProps> => {
+  return icon
+    .replace(/^fa:/, '')
+    .replace(/^tabler:/, '')
+    .replace(/^Fa/, '')
+    .replace(/^Icon/, '')
+}
+const resolveMarkerIcon = (
+  icon?: string | null
+): ComponentType<IconProps> | IconType => {
   if (!icon) return IconMapPinFilled
 
-  const Icon = (TablerIcons as Record<string, unknown>)[icon]
+  // Font Awesome
+  if (icon.startsWith('fa:')) {
+    const iconName = icon.replace('fa:', '')
+    const Icon = (FontAwesomeIcons as Record<string, unknown>)[iconName]
+    return Icon ? (Icon as IconType) : IconMapPinFilled
+  }
 
-  return Icon ? (Icon as ComponentType<IconProps>) : IconMapPinFilled
+  // Tabler
+  if (icon.startsWith('tabler:')) {
+    const iconName = icon.replace('tabler:', '')
+    const Icon = (TablerIcons as Record<string, unknown>)[iconName]
+    return Icon ? (Icon as ComponentType<IconProps>) : IconMapPinFilled
+  }
+
+  // Backward compatibility
+  const Icon =
+    (TablerIcons as Record<string, unknown>)[icon] ??
+    (FontAwesomeIcons as Record<string, unknown>)[icon]
+
+  return Icon ? (Icon as ComponentType<IconProps> | IconType) : IconMapPinFilled
 }
 
 const getMarkerGroup = (marker: MapMarker, sortField: SortField) => {
@@ -130,7 +159,7 @@ const getMarkerGroup = (marker: MapMarker, sortField: SortField) => {
   }
 
   if (sortField === 'icon') {
-    const label = marker.icon || 'Default pin'
+    const label = getReadableIconName(marker.icon)
     return { key: label, label }
   }
 

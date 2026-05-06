@@ -21,7 +21,7 @@ import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitSelector'
 
-type ScaleUnit = 'imperial' | 'metric'
+type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
 type MapCommand = {
   id: number
@@ -108,9 +108,15 @@ export default function MapComponent({
   const [hasUnsavedMarkerChanges, setHasUnsavedMarkerChanges] = useState(false)
   const [showCoordinates, setShowCoordinates] = useState(false)
 
-  const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
-    () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
-  )
+  const getInitialScaleUnit = (): ScaleUnit => {
+    const stored = localStorage.getItem('nomad:map-scale-unit')
+
+    return stored === 'metric' || stored === 'imperial' || stored === 'nautical'
+      ? stored
+      : 'metric'
+  }
+
+  const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(getInitialScaleUnit)
 
   const [cursorLngLat, setCursorLngLat] = useState<{
     lng: number

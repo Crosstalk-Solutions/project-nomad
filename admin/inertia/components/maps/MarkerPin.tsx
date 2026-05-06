@@ -1,6 +1,8 @@
 import { IconCircleFilled } from '@tabler/icons-react'
 import * as TablerIcons from '@tabler/icons-react'
 import type { IconProps } from '@tabler/icons-react'
+import type { IconType } from 'react-icons'
+import * as FontAwesomeIcons from 'react-icons/fa'
 import type { ComponentType } from 'react'
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
@@ -42,14 +44,30 @@ const getContrastingIconColor = (backgroundColor: string) => {
   return luminance > 0.55 ? '#111827' : '#ffffff'
 }
 
-const resolveIcon = (icon?: string | null): ComponentType<IconProps> => {
+type MarkerIconComponent =
+  | ComponentType<IconProps>
+  | IconType
+
+const resolveIcon = (icon?: string | null): MarkerIconComponent => {
   if (!icon) return IconCircleFilled
 
-  const Icon = (TablerIcons as Record<string, unknown>)[icon]
+  if (icon.startsWith('fa:')) {
+    const iconName = icon.replace('fa:', '')
+    const Icon = (FontAwesomeIcons as Record<string, unknown>)[iconName]
+    return Icon ? (Icon as IconType) : IconCircleFilled
+  }
 
-  if (!Icon) return IconCircleFilled
+  if (icon.startsWith('tabler:')) {
+    const iconName = icon.replace('tabler:', '')
+    const Icon = (TablerIcons as Record<string, unknown>)[iconName]
+    return Icon ? (Icon as ComponentType<IconProps>) : IconCircleFilled
+  }
 
-  return Icon as ComponentType<IconProps>
+  const Icon =
+    (TablerIcons as Record<string, unknown>)[icon] ??
+    (FontAwesomeIcons as Record<string, unknown>)[icon]
+
+  return Icon ? (Icon as MarkerIconComponent) : IconCircleFilled
 }
 
 export default function MarkerPin({

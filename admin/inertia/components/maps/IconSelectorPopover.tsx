@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import * as TablerIcons from '@tabler/icons-react'
 import type { IconProps } from '@tabler/icons-react'
 import type { ComponentType } from 'react'
+import * as FontAwesomeIcons from 'react-icons/fa'
+import type { IconType } from 'react-icons'
 
 const PAGE_SIZE = 48
 
@@ -11,7 +13,21 @@ type IconSelectorPopoverProps = {
   onClose: () => void
 }
 
-const iconEntries = Object.entries(TablerIcons)
+const normalizeIconNameForSort = (name: string) => {
+  return name
+    .replace(/^Icon/, '') // Tabler: IconHome -> Home
+    .replace(/^Fa/, '')   // FontAwesome: FaHome -> Home
+    .toLowerCase()
+}
+
+type IconEntry = {
+  name: string
+  label: string
+  library: 'tabler' | 'fa'
+  Icon: ComponentType<IconProps> | IconType
+}
+
+const tablerIconEntries: IconEntry[] = Object.entries(TablerIcons)
   .filter(([name, value]) => {
     return (
       name.startsWith('Icon') &&
@@ -20,7 +36,32 @@ const iconEntries = Object.entries(TablerIcons)
       (typeof value === 'function' || typeof value === 'object')
     )
   })
-  .sort(([a], [b]) => a.localeCompare(b)) as Array<[string, ComponentType<IconProps>]>
+  .map(([name, Icon]) => ({
+    name: `tabler:${name}`,
+    label: name,
+    library: 'tabler' as const,
+    Icon: Icon as ComponentType<IconProps>,
+  }))
+
+const fontAwesomeIconEntries: IconEntry[] = Object.entries(FontAwesomeIcons)
+  .filter(([name, value]) => {
+    return (
+      name.startsWith('Fa') &&
+      value !== null &&
+      (typeof value === 'function' || typeof value === 'object')
+    )
+  })
+  .map(([name, Icon]) => ({
+    name: `fa:${name}`,
+    label: name,
+    library: 'fa' as const,
+    Icon: Icon as IconType,
+  }))
+
+const iconEntries: IconEntry[] = [
+  ...tablerIconEntries,
+  ...fontAwesomeIconEntries,
+].sort((a, b) => a.label.localeCompare(b.label))
 
 export default function IconSelectorPopover({
                                               selectedIcon,
@@ -33,11 +74,18 @@ export default function IconSelectorPopover({
   const filteredIcons = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
 
-    return iconEntries.filter(([name]) => name.toLowerCase().includes(normalizedQuery))
+    return iconEntries.filter((entry) => {
+      const normalizedLabel = normalizeIconNameForSort(entry.label)
+
+      return (
+        entry.label.toLowerCase().includes(normalizedQuery) ||
+        normalizedLabel.includes(normalizedQuery) ||
+        entry.library.toLowerCase().includes(normalizedQuery)
+      )
+    })
   }, [query])
 
   const pageCount = Math.max(1, Math.ceil(filteredIcons.length / PAGE_SIZE))
-
   const pagedIcons = filteredIcons.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
   return (
@@ -61,12 +109,12 @@ export default function IconSelectorPopover({
 
       <div className="max-h-56 overflow-y-auto themed-scrollbar">
         <div className="grid grid-cols-6 gap-1">
-          {pagedIcons.map(([name, Icon]) => (
+          {pagedIcons.map(({ name, label, library, Icon }) => (
             <button
               key={name}
               type="button"
-              title={name}
-              aria-label={name}
+              title={`${label} (${library})`}
+              aria-label={label}
               onClick={() => {
                 onSelect(name)
                 onClose()
