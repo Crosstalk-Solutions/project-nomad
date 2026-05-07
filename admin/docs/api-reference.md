@@ -146,6 +146,10 @@ ZIM files provide offline Wikipedia, books, and other content via Kiwix.
 | POST | `/api/maps/download-remote` | Download a remote map file (async) |
 | POST | `/api/maps/download-remote-preflight` | Check download size/info before starting |
 | POST | `/api/maps/download-collection` | Download an entire collection by slug (async) |
+| GET | `/api/maps/markers` | List map markers |
+| POST | `/api/maps/markers` | Add a map marker |
+| PATCH | `/api/maps/markers/:id` | Update a map marker |
+| DELETE | `/api/maps/markers/:id` | Delete a map marker |
 | DELETE | `/api/maps/:filename` | Delete a local map file |
 
 ---
