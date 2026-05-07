@@ -30,7 +30,7 @@ We are committed to providing a welcoming environment for everyone. Disrespectfu
 
 ## Before You Start
 
-**Open an issue first.** Before writing any code, please [open an issue](../../issues/new) to discuss your proposed change. This helps avoid duplicate work and ensures your contribution aligns with the project's direction.
+**Open an issue first.** Before writing any code, please [open an issue](https://github.com/Crosstalk-Solutions/project-nomad/issues/new) to discuss your proposed change. This helps avoid duplicate work and ensures your contribution aligns with the project's direction.
 
 When opening an issue:
 - Use a clear, descriptive title

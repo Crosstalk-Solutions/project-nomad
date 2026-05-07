@@ -1,11 +1,11 @@
 {
   "name": "project-nomad",
   "version": "1.31.1",
-  "description": "\"",
+  "description": "Offline-first knowledge and education server for Project N.O.M.A.D.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Crosstalk Solutions, LLC",
-  "license": "ISC"
+  "license": "Apache-2.0"
 }
