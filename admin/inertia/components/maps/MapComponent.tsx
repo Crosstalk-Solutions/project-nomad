@@ -166,7 +166,14 @@ export default function MapComponent() {
             onClose={() => setSelectedMarkerId(null)}
             closeOnClick={false}
           >
-            <div className="text-sm font-medium">{selectedMarker.name}</div>
+            <div className="space-y-1">
+              <div className="text-sm font-medium">{selectedMarker.name}</div>
+              {selectedMarker.notes && (
+                <div className="max-w-64 whitespace-pre-wrap text-xs text-gray-700">
+                  {selectedMarker.notes}
+                </div>
+              )}
+            </div>
           </Popup>
         )}
 
