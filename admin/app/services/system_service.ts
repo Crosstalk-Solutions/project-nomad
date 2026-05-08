@@ -399,9 +399,38 @@ export class SystemService {
           os.kernel = dockerInfo.KernelVersion
         }
 
-        // If si.graphics() returned no controllers (common inside Docker),
-        // fall back to runtime + Ollama log probe to figure out what's accessible.
-        if (!graphics.controllers || graphics.controllers.length === 0) {
+        // si.graphics() in the admin container uses lspci (pciutils ships in
+        // the image for AMD detection). lspci has no real VRAM info for NVIDIA
+        // cards, so systeminformation parses the first PCI memory Region (BAR0,
+        // 16-32 MiB on most NVIDIA cards) as `vram`. nvidia-smi enrichment also
+        // can't run since the binary isn't in the admin image. No real dGPU
+        // has under 256 MiB, so any NVIDIA controller below that needs the
+        // probes below to give us real data.
+        const NVIDIA_BOGUS_VRAM_THRESHOLD_MIB = 256
+        const isBogusNvidiaVram = (c: { vendor?: string; vram?: number | null }) =>
+          /nvidia/i.test(c.vendor || '') &&
+          typeof c.vram === 'number' &&
+          c.vram < NVIDIA_BOGUS_VRAM_THRESHOLD_MIB
+
+        // Clear the bogus value up front. If a probe replaces the entry below
+        // we get the real VRAM; if no probe succeeds (Ollama not installed,
+        // passthrough_failed) the UI falls back to "N/A" instead of showing
+        // "32 MB". The lspci model/vendor strings stay since they're still
+        // useful for identifying the card.
+        const hasLspciBogusNvidiaVram = (graphics.controllers || []).some(isBogusNvidiaVram)
+        if (hasLspciBogusNvidiaVram) {
+          for (const c of graphics.controllers) {
+            if (isBogusNvidiaVram(c)) c.vram = null
+          }
+        }
+
+        // Run the probes when controllers are empty (common inside Docker) or
+        // when lspci gave us bogus NVIDIA BAR0 values that need replacing.
+        if (
+          !graphics.controllers ||
+          graphics.controllers.length === 0 ||
+          hasLspciBogusNvidiaVram
+        ) {
           const runtimes = dockerInfo.Runtimes || {}
           gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
 
