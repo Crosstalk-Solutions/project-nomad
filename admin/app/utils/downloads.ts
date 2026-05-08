@@ -47,7 +47,14 @@ export async function doResumableDownload({
     timeout,
   })
 
-  const contentType = headResponse.headers['content-type'] || ''
+  // Some upstream hosts (notably download.kiwix.org for .zim files) don't set a
+  // Content-Type header at all. Per RFC 7231 §3.1.1.5, "if no Content-Type is
+  // provided" the recipient may treat it as application/octet-stream — which is
+  // already in every binary-content allowlist we use (ZIM, PMTILES, base assets).
+  // Without this default, the validator below throws `MIME type  is not allowed`
+  // and breaks all downloads from kiwix's primary host (#848).
+  const contentType =
+    headResponse.headers['content-type'] || 'application/octet-stream'
   const totalBytes = parseInt(headResponse.headers['content-length'] || '0')
   const supportsRangeRequests = headResponse.headers['accept-ranges'] === 'bytes'
 
