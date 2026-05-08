@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import api from '~/lib/api'
+import api from '../lib/api.js'
 
 export const PIN_COLORS = [
   { id: 'orange', label: 'Orange', hex: '#a84a12' },
@@ -18,7 +18,30 @@ export interface MapMarker {
   longitude: number
   latitude: number
   color: PinColorId
+  notes: string | null
   createdAt: string
+}
+
+export interface MapMarkerApiRecord {
+  id: number
+  name: string
+  longitude: number
+  latitude: number
+  color: string
+  notes?: string | null
+  created_at: string
+}
+
+export function normalizeMapMarker(record: MapMarkerApiRecord): MapMarker {
+  return {
+    id: record.id,
+    name: record.name,
+    longitude: record.longitude,
+    latitude: record.latitude,
+    color: record.color as PinColorId,
+    notes: record.notes ?? null,
+    createdAt: record.created_at,
+  }
 }
 
 export function useMapMarkers() {
@@ -27,18 +50,9 @@ export function useMapMarkers() {
 
   // Load markers from API on mount
   useEffect(() => {
-    api.listMapMarkers().then((data) => {
+    api.listMapMarkers().then((data: MapMarkerApiRecord[] | undefined) => {
       if (data) {
-        setMarkers(
-          data.map((m) => ({
-            id: m.id,
-            name: m.name,
-            longitude: m.longitude,
-            latitude: m.latitude,
-            color: m.color as PinColorId,
-            createdAt: m.created_at,
-          }))
-        )
+        setMarkers(data.map(normalizeMapMarker))
       }
       setLoaded(true)
     })
@@ -48,14 +62,7 @@ export function useMapMarkers() {
     async (name: string, longitude: number, latitude: number, color: PinColorId = 'orange') => {
       const result = await api.createMapMarker({ name, longitude, latitude, color })
       if (result) {
-        const marker: MapMarker = {
-          id: result.id,
-          name: result.name,
-          longitude: result.longitude,
-          latitude: result.latitude,
-          color: result.color as PinColorId,
-          createdAt: result.created_at,
-        }
+        const marker = normalizeMapMarker(result)
         setMarkers((prev) => [...prev, marker])
         return marker
       }
