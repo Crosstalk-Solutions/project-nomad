@@ -1,13 +1,18 @@
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 import { readFile, writeFile, rename, readdir } from 'fs/promises'
 import { join } from 'path'
-import { Archive } from '@openzim/libzim'
+import type { Archive as ZimArchive } from '@openzim/libzim'
 import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists, isValidZimFile } from '../utils/fs.js'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 
 const CONTAINER_DATA_PATH = '/data'
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>\n'
+
+async function loadArchiveClass(): Promise<typeof import('@openzim/libzim').Archive> {
+  const { Archive } = await import('@openzim/libzim')
+  return Archive
+}
 
 interface KiwixBook {
   id: string
@@ -60,7 +65,8 @@ export class KiwixLibraryService {
         logger.warn(`[KiwixLibraryService] Skipping invalid/corrupted ZIM file: ${zimFilePath}`)
         return null
       }
-      const archive = new Archive(zimFilePath)
+      const Archive = await loadArchiveClass()
+      const archive: ZimArchive = new Archive(zimFilePath)
 
       const getMeta = (key: string): string | undefined => {
         try {

@@ -1,4 +1,4 @@
-import { Archive, Entry } from '@openzim/libzim'
+import type { Archive as ZimArchive, Entry } from '@openzim/libzim'
 import * as cheerio from 'cheerio'
 import { HTML_SELECTORS_TO_REMOVE, NON_CONTENT_HEADING_PATTERNS } from '../../constants/zim_extraction.js'
 import logger from '@adonisjs/core/services/logger'
@@ -7,9 +7,14 @@ import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
 import { isValidZimFile } from '../utils/fs.js'
 
+async function loadArchiveClass(): Promise<typeof import('@openzim/libzim').Archive> {
+    const { Archive } = await import('@openzim/libzim')
+    return Archive
+}
+
 export class ZIMExtractionService {
 
-    private extractArchiveMetadata(archive: Archive): ZIMArchiveMetadata {
+    private extractArchiveMetadata(archive: ZimArchive): ZIMArchiveMetadata {
         try {
             return {
                 title: archive.getMetadata('Title') || archive.getMetadata('Name') || 'Unknown',
@@ -59,7 +64,8 @@ export class ZIMExtractionService {
                 throw new Error(`ZIM file is invalid or corrupted: ${filePath}`)
             }
 
-            const archive = new Archive(filePath)
+            const Archive = await loadArchiveClass()
+            const archive: ZimArchive = new Archive(filePath)
 
             // Extract archive-level metadata once
             const archiveMetadata = this.extractArchiveMetadata(archive)
