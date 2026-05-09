@@ -264,7 +264,7 @@ setup_nvidia_container_toolkit() {
   echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
   
   # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
+  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
     echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
     return 0
   fi
@@ -448,19 +448,19 @@ download_helper_scripts() {
   local update_script_path="${NOMAD_DIR}/update_nomad.sh"
 
   echo -e "${YELLOW}#${RESET} Downloading helper scripts...\\n"
-  if ! curl -fsSL "$START_SCRIPT_URL" -o "$start_script_path"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 "$START_SCRIPT_URL" -o "$start_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the start script. Please check the URL and try again."
     exit 1
   fi
   chmod +x "$start_script_path"
 
-  if ! curl -fsSL "$STOP_SCRIPT_URL" -o "$stop_script_path"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 "$STOP_SCRIPT_URL" -o "$stop_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the stop script. Please check the URL and try again."
     exit 1
   fi
   chmod +x "$stop_script_path"
 
-  if ! curl -fsSL "$UPDATE_SCRIPT_URL" -o "$update_script_path"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 "$UPDATE_SCRIPT_URL" -o "$update_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the update script. Please check the URL and try again."
     exit 1
   fi
