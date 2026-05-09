@@ -77,6 +77,7 @@ export class DockerService {
             this.invalidateServicesStatusCache()
             return { success: true, message: 'Kiwix migrated to library mode successfully.' }
           }
+          await new KiwixLibraryService().ensureReadableLibraryFile()
         }
 
         await dockerContainer.restart()
@@ -94,6 +95,10 @@ export class DockerService {
             success: true,
             message: `Service ${serviceName} is already running`,
           }
+        }
+
+        if (serviceName === SERVICE_NAMES.KIWIX) {
+          await new KiwixLibraryService().ensureReadableLibraryFile()
         }
 
         await dockerContainer.start()

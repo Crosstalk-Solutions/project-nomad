@@ -1,8 +1,13 @@
-import { XMLBuilder, XMLParser } from 'fast-xml-parser'
+import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser'
 import { readFile, writeFile, rename, readdir } from 'fs/promises'
 import { join } from 'path'
 import { Archive } from '@openzim/libzim'
-import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists, isValidZimFile } from '../utils/fs.js'
+import {
+  KIWIX_LIBRARY_XML_PATH,
+  ZIM_STORAGE_PATH,
+  ensureDirectoryExists,
+  isValidZimFile,
+} from '../utils/fs.js'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 
@@ -185,6 +190,38 @@ export class KiwixLibraryService {
         size: b['@_size'] !== undefined ? Number(b['@_size']) : undefined,
       }))
       .filter((b) => b.id && b.path)
+  }
+
+  async ensureReadableLibraryFile(): Promise<boolean> {
+    const filePath = this.getLibraryFilePath()
+
+    try {
+      const content = await readFile(filePath, 'utf-8')
+      if (!content.trim()) {
+        logger.warn('[KiwixLibraryService] Library XML is empty; rebuilding from disk.')
+        await this.rebuildFromDisk()
+        return true
+      }
+
+      const validationResult = XMLValidator.validate(content)
+      if (validationResult !== true) {
+        logger.warn('[KiwixLibraryService] Library XML is invalid; rebuilding from disk.')
+        await this.rebuildFromDisk()
+        return true
+      }
+
+      this._parseExistingBooks(content)
+      return false
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        logger.warn('[KiwixLibraryService] Library XML is missing; rebuilding from disk.')
+        await this.rebuildFromDisk()
+        return true
+      }
+      logger.warn('[KiwixLibraryService] Could not read library XML; rebuilding from disk.')
+      await this.rebuildFromDisk()
+      return true
+    }
   }
 
   async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<void> {
