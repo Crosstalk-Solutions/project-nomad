@@ -1103,13 +1103,17 @@ export class DockerService {
 
       this.activeInstallations.add(serviceName)
 
-      // Compute new image string. AMD-on-Ollama overrides this to the rolling :rocm tag
-      // (set during GPU detection below) since per-version ROCm tags aren't always published.
+      // newImage = the semver tag we record in the DB after the update (e.g. ollama/ollama:0.23.2).
+      // runtimeImage = the tag we actually pull and run. For AMD-on-Ollama these diverge: we run
+      // the rolling :rocm tag because per-version ROCm tags aren't always published, but the DB
+      // must keep the semver tag so the Apps page shows the actual version (not literally "rocm")
+      // and the registry update-check parses a valid tag (instead of looping on the same update).
       const currentImage = service.container_image
       const imageBase = currentImage.includes(':')
         ? currentImage.substring(0, currentImage.lastIndexOf(':'))
         : currentImage
-      let newImage = `${imageBase}:${targetVersion}`
+      const newImage = `${imageBase}:${targetVersion}`
+      let runtimeImage = newImage
 
       // GPU detection runs before the pull so AMD updates pull ollama/ollama:rocm rather
       // than the standard tag. Detection result is reused below when building the new
@@ -1137,7 +1141,7 @@ export class DockerService {
               'update-gpu-config',
               `AMD GPU detected. Using ROCm image with /dev/kfd and /dev/dri passthrough...`
             )
-            newImage = 'ollama/ollama:rocm'
+            runtimeImage = 'ollama/ollama:rocm'
             updatedAmdDevices = await this._discoverAMDDevices()
             updatedAmdGpuConfigured = true
           } else {
@@ -1158,9 +1162,9 @@ export class DockerService {
         }
       }
 
-      // Step 1: Pull new image
-      this._broadcast(serviceName, 'update-pulling', `Pulling image ${newImage}...`)
-      const pullStream = await this.docker.pull(newImage)
+      // Step 1: Pull new image (runtimeImage diverges from newImage for AMD, see above)
+      this._broadcast(serviceName, 'update-pulling', `Pulling image ${runtimeImage}...`)
+      const pullStream = await this.docker.pull(runtimeImage)
       await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
 
       // Step 2: Find and stop existing container
@@ -1205,7 +1209,7 @@ export class DockerService {
       }
 
       const newContainerConfig: any = {
-        Image: newImage,
+        Image: runtimeImage,
         name: serviceName,
         Env: finalEnv.length > 0 ? finalEnv : undefined,
         Cmd: inspectData.Config?.Cmd || undefined,
