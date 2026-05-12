@@ -20,6 +20,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   LOG_LEVEL: Env.schema.string(),
   INTERNET_STATUS_TEST_URL: Env.schema.string.optional(),
   DISABLE_COMPRESSION: Env.schema.boolean.optional(),
+  ENABLE_HSTS: Env.schema.boolean.optional(),
 
   /*
   |----------------------------------------------------------
