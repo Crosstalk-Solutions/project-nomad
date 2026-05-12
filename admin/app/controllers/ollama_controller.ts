@@ -383,10 +383,15 @@ export default class OllamaController {
       // Get recent conversation history (last 6 messages for 3 turns)
       const recentMessages = messages.slice(-6)
 
-      // Skip rewriting for short conversations. Rewriting adds latency with
-      // little RAG benefit until there is enough context to matter.
+      // Skip rewriting on the very first turn — with only one user message
+      // there is no prior context to fold in, so the rewrite would just echo
+      // the message back at the cost of an extra LLM round-trip. From the
+      // first follow-up onward we need the rewrite so the RAG query carries
+      // entities and topics from earlier turns ("the bars" → "Hershey's bars
+      // chocolate poisoning dog"); without it, embeddings match nothing and
+      // the assistant loses the thread.
       const userMessages = recentMessages.filter(msg => msg.role === 'user')
-      if (userMessages.length <= 2) {
+      if (userMessages.length < 2) {
         return lastUserMessage?.content || null
       }
 
