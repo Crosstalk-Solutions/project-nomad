@@ -314,7 +314,7 @@ export class ZimService {
     if (restart) {
       // Check if there are any remaining ZIM download jobs before restarting
       const { QueueService } = await import('./queue_service.js')
-      const queueService = new QueueService()
+      const queueService = QueueService.getInstance()
       const queue = queueService.getQueue('downloads')
 
       // Get all active and waiting jobs

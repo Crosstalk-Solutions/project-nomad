@@ -184,7 +184,7 @@ export class EmbedFileJob {
   }
 
   static async listActiveJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
 
@@ -198,14 +198,14 @@ export class EmbedFileJob {
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(filePath)
     return await queue.getJob(jobId)
   }
 
   static async dispatch(params: EmbedFileJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     // Continuation batches (batchOffset > 0) must NOT reuse the deterministic
@@ -267,7 +267,7 @@ export class EmbedFileJob {
   }
 
   static async listFailedJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     // Jobs that have failed at least once are in 'delayed' (retrying) or terminal 'failed' state.
     // We identify them by job.data.status === 'failed' set in the catch block of handle().
@@ -286,7 +286,7 @@ export class EmbedFileJob {
   }
 
   static async cleanupFailedJobs(): Promise<{ cleaned: number; filesDeleted: number }> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const allJobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
     const failedJobs = allJobs.filter((job) => (job.data as any).status === 'failed')
