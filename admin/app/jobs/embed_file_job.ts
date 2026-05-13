@@ -27,6 +27,12 @@ export class EmbedFileJob {
     return 'embed-file'
   }
 
+  // Delay between continuation batches when embedding runs CPU-only. Gives the OS
+  // scheduler a brief idle window so sshd / disk-collector / other services don't
+  // starve during long multi-batch ZIM ingestions. Skipped entirely when the
+  // embedding model is GPU-offloaded — see OllamaService.isEmbeddingGpuAccelerated().
+  static readonly CPU_BATCH_DELAY_MS = 1000
+
   static getJobId(filePath: string): string {
     return createHash('sha256').update(filePath).digest('hex').slice(0, 16)
   }
@@ -113,6 +119,19 @@ export class EmbedFileJob {
         logger.info(
           `[EmbedFileJob] Batch complete. Dispatching next batch at offset ${nextOffset}`
         )
+
+        // Pace continuation batches when embedding is CPU-bound. Sustained 100% CPU
+        // saturation across all cores during multi-batch ZIM ingestion can starve
+        // other services (sshd has been seen to lose responsiveness hard enough to
+        // require a power-cycle). When GPU-accelerated, embeddings stream through
+        // the GPU and CPUs stay free — no pacing needed.
+        const isGpuAccelerated = await ollamaService.isEmbeddingGpuAccelerated()
+        if (!isGpuAccelerated) {
+          logger.info(
+            `[EmbedFileJob] Embedding is CPU-only — pacing ${EmbedFileJob.CPU_BATCH_DELAY_MS}ms before dispatching next batch`
+          )
+          await new Promise((resolve) => setTimeout(resolve, EmbedFileJob.CPU_BATCH_DELAY_MS))
+        }
 
         // Dispatch next batch (not final yet)
         await EmbedFileJob.dispatch({
