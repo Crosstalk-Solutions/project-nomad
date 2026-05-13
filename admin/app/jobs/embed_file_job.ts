@@ -7,6 +7,7 @@ import { OllamaService } from '#services/ollama_service'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
+import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -93,9 +94,25 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Processing file: ${filePath}`)
 
-      // Progress callback: maps service-reported 0-100% into the 5-95% job range
+      // Progress callback. For multi-batch ZIM ingestions, scale the service-reported
+      // 0-100% (which is % through the current batch's chunks) into the overall-file
+      // frame so the UI gauge climbs monotonically across the many continuation jobs
+      // BullMQ creates per file. Without this, every new continuation jobId resets the
+      // gauge to ~5% and the user sees ingestion progress "jumping around" between
+      // each batch's local frame and the end-of-batch overall-file overwrite below.
+      //
+      // For single-batch files (uploaded PDFs, txts) totalArticles is undefined and
+      // we fall back to the original 5-95% per-job range, which is what the UI expects
+      // for a one-shot file with no continuations.
       const onProgress = async (percent: number) => {
-        await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
+        const useOverallFrame = totalArticles && totalArticles > 0
+        if (useOverallFrame) {
+          const articlesDone = (batchOffset || 0) + (percent / 100) * ZIM_BATCH_SIZE
+          const overallPercent = Math.min(99, Math.round((articlesDone / totalArticles) * 100))
+          await this.safeUpdateProgress(job, overallPercent)
+        } else {
+          await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
+        }
       }
 
       // Process and embed the file
