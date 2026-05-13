@@ -500,13 +500,13 @@ export class RagService {
       `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
     )
 
-    const zimChunks = await zimExtractionService.extractZIMContent(filepath, {
-      startOffset,
-      batchSize: ZIM_BATCH_SIZE,
-    })
+    const { chunks: zimChunks, totalArticles } = await zimExtractionService.extractZIMContent(
+      filepath,
+      { startOffset, batchSize: ZIM_BATCH_SIZE }
+    )
 
     logger.info(
-      `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata`
+      `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
     )
 
     // Process each chunk individually with its metadata
@@ -582,6 +582,7 @@ export class RagService {
       chunks: totalChunks,
       hasMoreBatches,
       articlesProcessed: articlesInBatch,
+      totalArticles,
     }
   }
 
