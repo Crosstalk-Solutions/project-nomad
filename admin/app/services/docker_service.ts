@@ -291,8 +291,12 @@ export class DockerService {
 
   /**
    * Force reinstall a service by stopping, removing, and recreating its container.
-   * This method will also clear any associated volumes/data.
-   * Handles edge cases gracefully (e.g., container not running, container not found).
+   *
+   * Volume handling: removes Docker-managed named volumes whose name equals
+   * `serviceName`, starts with `${serviceName}_`, or carries a `service=${serviceName}`
+   * label. Host bind mounts are NOT touched — any data living on a bind-mounted
+   * host path (ZIM stores, model caches, MySQL data dir, etc.) survives the reinstall.
+   * Anonymous volumes (random hash names) are also not matched.
    */
   async forceReinstall(serviceName: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -365,7 +369,10 @@ export class DockerService {
         const volumes = await this.docker.listVolumes()
         const serviceVolumes =
           volumes.Volumes?.filter(
-            (v) => v.Name.includes(serviceName) || v.Labels?.service === serviceName
+            (v) =>
+              v.Name === serviceName ||
+              v.Name.startsWith(`${serviceName}_`) ||
+              v.Labels?.service === serviceName
           ) || []
 
         for (const vol of serviceVolumes) {
