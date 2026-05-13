@@ -207,36 +207,58 @@ export class EmbedFileJob {
   static async dispatch(params: EmbedFileJobParams) {
     const queueService = new QueueService()
     const queue = queueService.getQueue(this.queue)
-    const jobId = this.getJobId(params.filePath)
+
+    // Continuation batches (batchOffset > 0) must NOT reuse the deterministic
+    // per-file jobId. Two BullMQ dedupe paths would otherwise silently swallow them:
+    //   1) The parent batch's handle() calls dispatch() before returning, so the
+    //      parent job is still `active` and locked — queue.add() with the same
+    //      jobId returns the locked parent rather than enqueueing the new batch.
+    //   2) After the parent completes, its entry stays in `completed` (held by
+    //      `removeOnComplete: { count: 50 }`), still tripping jobId dedupe.
+    // Letting BullMQ auto-generate a unique jobId for continuation batches stacks
+    // them as independent queue entries that each process via handle().
+    // Initial dispatches keep the deterministic jobId so re-triggering an install
+    // (UI re-click, sync rescan, etc.) is still idempotent.
+    const isContinuation = !!(params.batchOffset && params.batchOffset > 0)
+    const initialJobId = this.getJobId(params.filePath)
+
+    const jobOptions: Parameters<typeof queue.add>[2] = {
+      attempts: 30,
+      backoff: {
+        type: 'fixed',
+        delay: 60000, // Check every 60 seconds for service readiness
+      },
+      removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
+      removeOnFail: { count: 20 }, // Keep last 20 failed jobs for debugging
+    }
+    if (!isContinuation) {
+      jobOptions.jobId = initialJobId
+    }
 
     try {
-      const job = await queue.add(this.key, params, {
-        jobId,
-        attempts: 30,
-        backoff: {
-          type: 'fixed',
-          delay: 60000, // Check every 60 seconds for service readiness
-        },
-        removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
-        removeOnFail: { count: 20 } // Keep last 20 failed jobs for debugging
-      })
+      const job = await queue.add(this.key, params, jobOptions)
 
-      logger.info(`[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}`)
+      const continuationLabel = isContinuation
+        ? ` (continuation @ offset ${params.batchOffset})`
+        : ''
+      logger.info(
+        `[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}${continuationLabel}`
+      )
 
       return {
         job,
         created: true,
-        jobId,
+        jobId: job.id ?? initialJobId,
         message: `File queued for embedding: ${params.fileName}`,
       }
     } catch (error) {
-      if (error.message && error.message.includes('job already exists')) {
-        const existing = await queue.getJob(jobId)
+      if (!isContinuation && error.message && error.message.includes('job already exists')) {
+        const existing = await queue.getJob(initialJobId)
         logger.info(`[EmbedFileJob] Job already exists for file: ${params.fileName}`)
         return {
           job: existing,
           created: false,
-          jobId,
+          jobId: initialJobId,
           message: `Embedding job already exists for: ${params.fileName}`,
         }
       }
