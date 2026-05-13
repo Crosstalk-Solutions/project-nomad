@@ -513,6 +513,42 @@ export class OllamaService {
     }
   }
 
+  /**
+   * Returns true if Ollama is currently running an embedding model with non-zero VRAM
+   * (i.e., GPU-offloaded). Returns false if the model is running CPU-only OR if it's
+   * not currently loaded OR if /api/ps is unreachable.
+   *
+   * Used by EmbedFileJob to pace continuation batches when the embedding model is
+   * CPU-bound — sustained 100% CPU on a multi-batch ZIM ingestion can starve other
+   * services (sshd, etc.) hard enough to require a power-cycle. AMD ROCm installs
+   * hit this today because Ollama's ROCm build doesn't accelerate nomic-bert; on
+   * NVIDIA, nomic-embed-text runs at 100% GPU and pacing is unnecessary.
+   *
+   * Only the Ollama-native endpoint is supported — backends that expose
+   * `/v1/embeddings` (LM Studio, llama.cpp) don't surface placement info.
+   */
+  public async isEmbeddingGpuAccelerated(): Promise<boolean> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return false
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/ps`, { timeout: 5000 })
+      const models: Array<{ name?: string; size_vram?: number }> = response.data?.models ?? []
+      // Match any loaded model whose name signals it's an embedding model.
+      // nomic-embed-text, mxbai-embed-large, snowflake-arctic-embed, etc. all follow this convention.
+      return models.some(
+        (m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0
+      )
+    } catch (err: any) {
+      // /api/ps unreachable (Ollama down, non-native backend, etc.) — fail closed: assume CPU,
+      // which means we'll pace. Better to over-pace than risk box-killing CPU saturation.
+      logger.warn(
+        `[OllamaService] Could not check embedding placement via /api/ps: ${err?.message ?? err}`
+      )
+      return false
+    }
+  }
+
   public async getModels(includeEmbeddings = false): Promise<NomadInstalledModel[]> {
     await this._ensureDependencies()
     if (!this.baseUrl) {
