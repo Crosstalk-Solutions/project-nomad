@@ -49,7 +49,7 @@ export class RunExtractPmtilesJob {
   }
 
   static async signalCancel(jobId: string): Promise<void> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const client = await queue.client
     await client.set(this.cancelKey(jobId), '1', 'EX', 300)
@@ -77,7 +77,7 @@ export class RunExtractPmtilesJob {
         `maxzoom=${maxzoom ?? 'source-max'} out=${outputFilepath}`
     )
 
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const cancelRedis = await queueService.getQueue(RunExtractPmtilesJob.queue).client
 
     let userCancelled = false
@@ -249,13 +249,13 @@ export class RunExtractPmtilesJob {
   }
 
   static async getById(jobId: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     return await queue.getJob(jobId)
   }
 
   static async dispatch(params: RunExtractPmtilesJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.sourceUrl, params.regionFilepath, params.maxzoom)
 
