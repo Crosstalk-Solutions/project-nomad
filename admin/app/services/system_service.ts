@@ -95,10 +95,23 @@ export class SystemService {
       if (!ollamaContainer) return null
 
       const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
+
+      // Read logs only from the first 5 minutes after container start. The
+      // "inference compute" line is written once during Ollama's GPU discovery
+      // phase, within seconds of startup. Using tail:N here is fragile: under
+      // active embedding workloads we've seen >1000 lines/min, which pushes the
+      // line past any reasonable tail in minutes. Pinning to the startup window
+      // is bounded (~5 min of logs regardless of container uptime) and never
+      // ages out.
+      const inspect = await container.inspect()
+      const startedAtMs = new Date(inspect.State.StartedAt).getTime()
+      const startedAtSec = Math.floor(startedAtMs / 1000)
+      const startupWindowSec = startedAtSec + 300 // 5-minute window
       const buf = (await container.logs({
         stdout: true,
         stderr: true,
-        tail: 500,
+        since: startedAtSec,
+        until: startupWindowSec,
         follow: false,
       })) as unknown as Buffer
       const logs = buf.toString('utf8')
@@ -400,36 +413,40 @@ export class SystemService {
         }
 
         // si.graphics() in the admin container uses lspci (pciutils ships in
-        // the image for AMD detection). lspci has no real VRAM info for NVIDIA
-        // cards, so systeminformation parses the first PCI memory Region (BAR0,
-        // 16-32 MiB on most NVIDIA cards) as `vram`. nvidia-smi enrichment also
-        // can't run since the binary isn't in the admin image. No real dGPU
-        // has under 256 MiB, so any NVIDIA controller below that needs the
-        // probes below to give us real data.
-        const NVIDIA_BOGUS_VRAM_THRESHOLD_MIB = 256
-        const isBogusNvidiaVram = (c: { vendor?: string; vram?: number | null }) =>
-          /nvidia/i.test(c.vendor || '') &&
+        // the image for AMD detection). lspci has no real VRAM info for
+        // discrete GPUs, so systeminformation parses the first PCI memory
+        // Region (BAR0, typically 1-32 MiB) as `vram`. nvidia-smi / ROCm
+        // tooling enrichment also can't run since neither is in the admin
+        // image. No real dGPU has under 256 MiB, so any discrete-GPU controller
+        // below that threshold needs the probes below to give us real data.
+        // Applies to both NVIDIA and AMD; Intel iGPUs are exempt because their
+        // shared-system-memory VRAM reading via lspci can legitimately be small.
+        const DGPU_BOGUS_VRAM_THRESHOLD_MIB = 256
+        const isDiscreteGpuVendor = (vendor: string) =>
+          /nvidia|advanced micro devices|amd|ati/i.test(vendor)
+        const isBogusDgpuVram = (c: { vendor?: string; vram?: number | null }) =>
+          isDiscreteGpuVendor(c.vendor || '') &&
           typeof c.vram === 'number' &&
-          c.vram < NVIDIA_BOGUS_VRAM_THRESHOLD_MIB
+          c.vram < DGPU_BOGUS_VRAM_THRESHOLD_MIB
 
         // Clear the bogus value up front. If a probe replaces the entry below
         // we get the real VRAM; if no probe succeeds (Ollama not installed,
         // passthrough_failed) the UI falls back to "N/A" instead of showing
-        // "32 MB". The lspci model/vendor strings stay since they're still
-        // useful for identifying the card.
-        const hasLspciBogusNvidiaVram = (graphics.controllers || []).some(isBogusNvidiaVram)
-        if (hasLspciBogusNvidiaVram) {
+        // "1 MB" / "32 MB". The lspci model/vendor strings stay since they're
+        // still useful for identifying the card.
+        const hasLspciBogusDgpuVram = (graphics.controllers || []).some(isBogusDgpuVram)
+        if (hasLspciBogusDgpuVram) {
           for (const c of graphics.controllers) {
-            if (isBogusNvidiaVram(c)) c.vram = null
+            if (isBogusDgpuVram(c)) c.vram = null
           }
         }
 
         // Run the probes when controllers are empty (common inside Docker) or
-        // when lspci gave us bogus NVIDIA BAR0 values that need replacing.
+        // when lspci gave us bogus discrete-GPU BAR0 values that need replacing.
         if (
           !graphics.controllers ||
           graphics.controllers.length === 0 ||
-          hasLspciBogusNvidiaVram
+          hasLspciBogusDgpuVram
         ) {
           const runtimes = dockerInfo.Runtimes || {}
           gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
