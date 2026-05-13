@@ -103,17 +103,32 @@ export class SystemService {
       // line past any reasonable tail in minutes. Pinning to the startup window
       // is bounded (~5 min of logs regardless of container uptime) and never
       // ages out.
+      //
+      // Fall back to the previous tail:500 strategy if StartedAt is missing or
+      // unparseable — we can't construct a since/until window without it, but
+      // tail:500 is still useful when the container just started and the line
+      // is still recent.
       const inspect = await container.inspect()
-      const startedAtMs = new Date(inspect.State.StartedAt).getTime()
-      const startedAtSec = Math.floor(startedAtMs / 1000)
-      const startupWindowSec = startedAtSec + 300 // 5-minute window
-      const buf = (await container.logs({
+      const startedAtRaw = inspect?.State?.StartedAt
+      const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
+      const hasValidStartedAt = Number.isFinite(startedAtMs) && startedAtMs > 0
+
+      const logsOpts: { stdout: true; stderr: true; follow: false; since?: number; until?: number; tail?: number } = {
         stdout: true,
         stderr: true,
-        since: startedAtSec,
-        until: startupWindowSec,
         follow: false,
-      })) as unknown as Buffer
+      }
+      if (hasValidStartedAt) {
+        const startedAtSec = Math.floor(startedAtMs / 1000)
+        logsOpts.since = startedAtSec
+        logsOpts.until = startedAtSec + 300 // 5-minute window
+      } else {
+        logger.warn(
+          `[SystemService] nomad_ollama State.StartedAt missing or invalid (${startedAtRaw ?? 'undefined'}); falling back to tail:500 for inference-compute probe`
+        )
+        logsOpts.tail = 500
+      }
+      const buf = (await container.logs(logsOpts)) as unknown as Buffer
       const logs = buf.toString('utf8')
 
       const lines = logs.split('\n').filter((l) => l.includes('msg="inference compute"'))
