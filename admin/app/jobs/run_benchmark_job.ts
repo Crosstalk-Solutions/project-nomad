@@ -53,7 +53,7 @@ export class RunBenchmarkJob {
   }
 
   static async dispatch(params: RunBenchmarkJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     try {
@@ -89,7 +89,7 @@ export class RunBenchmarkJob {
   }
 
   static async getJob(benchmarkId: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     return await queue.getJob(benchmarkId)
   }

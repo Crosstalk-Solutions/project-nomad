@@ -34,7 +34,7 @@ export class DownloadModelJob {
 
   /** Signal cancellation via Redis so the worker process can pick it up on its next poll tick */
   static async signalCancel(jobId: string): Promise<void> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const client = await queue.client
     await client.set(this.cancelKey(jobId), '1', 'EX', 300) // 5 min TTL
@@ -66,7 +66,7 @@ export class DownloadModelJob {
     DownloadModelJob.abortControllers.set(job.id!, abortController)
 
     // Get Redis client for checking cancel signals from the API process
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const cancelRedis = await queueService.getQueue(DownloadModelJob.queue).client
 
     // Track whether cancellation was explicitly requested by the user. Only user-initiated
@@ -154,14 +154,14 @@ export class DownloadModelJob {
   }
 
   static async getByModelName(modelName: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(modelName)
     return await queue.getJob(jobId)
   }
 
   static async dispatch(params: DownloadModelJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.modelName)
 
