@@ -14,6 +14,8 @@ export const KV_STORE_SCHEMA = {
   'ai.ollamaFlashAttention':    'boolean',
   'ai.amdGpuAcceleration':      'boolean',
   'ai.amdHsaOverride':          'string',
+  'ai.autoFixGpuPassthrough':   'boolean',
+  'gpu.autoRemediatedAt':       'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string
