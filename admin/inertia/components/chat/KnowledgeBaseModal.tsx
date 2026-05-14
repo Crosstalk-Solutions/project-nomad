@@ -80,6 +80,16 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     },
   })
 
+  // Per-file conditional warnings (RFC #883 §6). Only sources with at least
+  // one triggered warning are returned, so an empty map means everything is
+  // healthy. Polled at the same idle cadence as health for low overhead.
+  const { data: fileWarnings = {} } = useQuery({
+    queryKey: ['kbFileWarnings'],
+    queryFn: () => api.getKbFileWarnings(),
+    select: (data) => data ?? {},
+    refetchInterval: 30_000,
+  })
+
   const uploadMutation = useMutation({
     mutationFn: (file: File) => api.uploadDocument(file),
   })
@@ -379,8 +389,32 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   accessor: 'source',
                   title: 'File Name',
                   render(record) {
+                    const warnings = fileWarnings[record.source] ?? []
                     return (
-                      <span className="text-text-primary">{record.displayName}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-text-primary">{record.displayName}</span>
+                        {warnings.map((w, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
+                          >
+                            <span aria-hidden="true">⚠</span>
+                            {w.kind === 'zero_chunks' && (
+                              <span>
+                                Embedded 0 chunks — this file has no text content.
+                                AI Assistant cannot reference it.
+                              </span>
+                            )}
+                            {w.kind === 'partial_stall' && (
+                              <span>
+                                Only {w.chunksEmbedded.toLocaleString()} of est.{' '}
+                                {w.chunksExpected.toLocaleString()} chunks embedded —
+                                ingestion may have stalled.
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     )
                   },
                 },
