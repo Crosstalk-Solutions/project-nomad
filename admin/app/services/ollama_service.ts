@@ -470,6 +470,18 @@ export class OllamaService {
   }
 
   /**
+   * Hard char cap per embed input, applied as a runtime safety net regardless of
+   * which backend path runs. The chunker in RagService caps at MAX_SAFE_TOKENS=1600
+   * (3200 chars at the conservative 2 chars/token estimate), but dense technical
+   * content has been observed to slip past on multi-batch ZIM ingestion (#881).
+   *
+   * 4000 chars ≈ 1000–2000 tokens depending on density, which keeps us comfortably
+   * under nomic-embed-text:v1.5's default 2048-token context even on the OpenAI-compat
+   * fallback path (which can't pass `truncate:true`/`num_ctx` to the model).
+   */
+  public static readonly EMBED_MAX_INPUT_CHARS = 4000
+
+  /**
    * Generate embeddings for the given input strings.
    * Tries the Ollama native /api/embed endpoint first, falls back to /v1/embeddings.
    */
@@ -478,6 +490,16 @@ export class OllamaService {
     if (!this.baseUrl || !this.openai) {
       throw new Error('AI service is not initialized.')
     }
+
+    // Runtime safety net (#881). The OpenAI-compat fallback has no equivalent of
+    // truncate:true, so a chunk that exceeds the model's loaded context_length
+    // (often 2048 for nomic-embed-text:v1.5) returns 400 and the chunk is silently
+    // dropped from Qdrant. Pre-capping at the input layer protects both paths.
+    const safeInput = input.map((s) =>
+      s.length > OllamaService.EMBED_MAX_INPUT_CHARS
+        ? s.slice(0, OllamaService.EMBED_MAX_INPUT_CHARS)
+        : s
+    )
 
     try {
       // Prefer Ollama native endpoint (supports batch input natively).
@@ -491,7 +513,7 @@ export class OllamaService {
         `${this.baseUrl}/api/embed`,
         {
           model,
-          input,
+          input: safeInput,
           truncate: true,
           options: { num_ctx: 8192 },
         },
@@ -503,12 +525,23 @@ export class OllamaService {
         throw new Error('Invalid /api/embed response — missing embeddings array')
       }
       return { embeddings: response.data.embeddings }
-    } catch {
-      // Fall back to OpenAI-compatible /v1/embeddings
+    } catch (err) {
+      // Capture the original error so we know *why* we fell back. Earlier bare
+      // catches here masked recurring "input length exceeds context length"
+      // failures for months (#369, #670, #881) — without this log we have no
+      // signal that /api/embed is the broken path vs the fallback.
+      logger.warn(
+        '[OllamaService] /api/embed failed, falling back to /v1/embeddings: %s',
+        err instanceof Error ? err.message : String(err)
+      )
+      // Fall back to OpenAI-compatible /v1/embeddings.
       // Explicitly request float format — some backends (e.g. LM Studio) don't reliably
       // implement the base64 encoding the OpenAI SDK requests by default.
-      logger.info('[OllamaService] /api/embed unavailable, falling back to /v1/embeddings')
-      const results = await this.openai.embeddings.create({ model, input, encoding_format: 'float' })
+      const results = await this.openai.embeddings.create({
+        model,
+        input: safeInput,
+        encoding_format: 'float',
+      })
       return { embeddings: results.data.map((e) => e.embedding as number[]) }
     }
   }
