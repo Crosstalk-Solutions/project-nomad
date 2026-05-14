@@ -1112,6 +1112,32 @@ export class RagService {
   }
 
   /**
+   * Compute whether the first-chat JIT prompt should fire and surface the file
+   * count the banner uses in its copy ("Index your N existing files?"). The
+   * banner appears when the user hasn't yet picked a global ingest policy
+   * (`rag.defaultIngestPolicy` unset) and the scanner has actually seen at
+   * least one embeddable file — i.e., the prompt is actionable, not theoretical
+   * on a freshly-installed empty NOMAD.
+   *
+   * Once the user picks a policy (Always or Manual) via the banner buttons or
+   * the KB modal toggle, `shouldPrompt` flips to false for good.
+   */
+  public async getPolicyPromptState(): Promise<{
+    shouldPrompt: boolean
+    hasContent: boolean
+    totalFiles: number
+  }> {
+    const policy = await KVStore.getValue('rag.defaultIngestPolicy')
+    const countRow = await KbIngestState.query().count('* as total').first()
+    const totalFiles = Number((countRow as any)?.$extras?.total ?? 0)
+    return {
+      shouldPrompt: policy === null && totalFiles > 0,
+      hasContent: totalFiles > 0,
+      totalFiles,
+    }
+  }
+
+  /**
    * Compute conditional warnings (RFC #883 §6) for every source the scanner
    * sees on disk. Returns `{ ok, warnings }` — `ok: false` distinguishes a
    * computation failure (Qdrant unreachable, DB outage, FS error) from the
