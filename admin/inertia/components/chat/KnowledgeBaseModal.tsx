@@ -6,6 +6,10 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledTable from '~/components/StyledTable'
 import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
+import {
+  groupAndSortKbFiles,
+  type KbFileGroup,
+} from '~/lib/kb_file_grouping'
 import { IconX } from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
@@ -15,11 +19,6 @@ import { SERVICE_NAMES } from '../../../constants/service_names'
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
   onClose: () => void
-}
-
-function sourceToDisplayName(source: string): string {
-  const parts = source.split(/[/\\]/)
-  return parts[parts.length - 1]
 }
 
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
@@ -299,7 +298,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 Sync Storage
               </StyledButton>
             </div>
-            <StyledTable<{ source: string }>
+            <StyledTable<KbFileGroup>
               className="font-semibold"
               rowLines={true}
               columns={[
@@ -307,13 +306,28 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   accessor: 'source',
                   title: 'File Name',
                   render(record) {
-                    return <span className="text-text-primary">{sourceToDisplayName(record.source)}</span>
+                    return (
+                      <span className="text-text-primary">{record.displayName}</span>
+                    )
                   },
                 },
                 {
                   accessor: 'source',
                   title: '',
                   render(record) {
+                    // Admin docs are auto-discovered and managed by NOMAD itself —
+                    // deleting one would just be re-embedded on the next sync, so
+                    // we surface them as informational only and hide Delete.
+                    if (record.bucket === 'admin_docs') {
+                      return (
+                        <div className="flex justify-end">
+                          <span className="text-sm text-text-muted italic">
+                            Managed by NOMAD
+                          </span>
+                        </div>
+                      )
+                    }
+
                     const isConfirming = confirmDeleteSource === record.source
                     const isDeleting = deleteMutation.isPending && confirmDeleteSource === record.source
                     if (isConfirming) {
@@ -354,7 +368,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
               ]}
-              data={storedFiles.map((source) => ({ source }))}
+              data={groupAndSortKbFiles(storedFiles)}
               loading={isLoadingFiles}
             />
           </div>
