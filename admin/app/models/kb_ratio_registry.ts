@@ -1,6 +1,12 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
-import { findChunksPerMb, estimateChunkCount } from '../utils/kb_ratio_lookup.js'
+import {
+  findChunksPerMb,
+  estimateChunkCount,
+  estimateBatch,
+  type BatchEstimate,
+  type BatchEstimateInput,
+} from '../utils/kb_ratio_lookup.js'
 
 /**
  * Self-calibrating registry of `{filename-prefix → chunks_per_mb}` ratios used
@@ -47,5 +53,15 @@ export default class KbRatioRegistry extends BaseModel {
   static async estimateChunks(filename: string, fileSizeBytes: number): Promise<number | null> {
     const rows = await this.all()
     return estimateChunkCount(filename, fileSizeBytes, rows)
+  }
+
+  /**
+   * Aggregate an embedding-disk-cost estimate across a batch of files. Used by
+   * the curated-tier-change UI to show "you're about to add ~X GB of
+   * embeddings on top of the ZIM downloads" before the user commits.
+   */
+  static async estimateBatch(files: BatchEstimateInput[]): Promise<BatchEstimate> {
+    const rows = await this.all()
+    return estimateBatch(files, rows)
   }
 }
