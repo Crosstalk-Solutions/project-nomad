@@ -853,6 +853,17 @@ class API {
     })()
   }
 
+  async getKbPolicyPromptState() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        shouldPrompt: boolean
+        hasContent: boolean
+        totalFiles: number
+      }>('/rag/policy-prompt-state')
+      return response.data
+    })()
+  }
+
   // Wikipedia selector methods
 
   async getWikipediaState(): Promise<WikipediaState | undefined> {
