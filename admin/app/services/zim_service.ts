@@ -7,6 +7,7 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
+import { findReplacedWikipediaFiles } from '../utils/zim_filename.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
 import { inject } from '@adonisjs/core'
@@ -627,18 +628,21 @@ export class ZimService {
 
       logger.info(`[ZimService] Wikipedia download completed successfully: ${filename}`)
 
-      // Delete old Wikipedia files (keep only the newly installed one)
+      // Delete prior versions of THIS specific Wikipedia variant only.
+      // Earlier logic deleted anything starting with `wikipedia_en_`, which silently
+      // wiped distinct corpora the user had installed independently (issue #884).
       const existingFiles = await this.list()
-      const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== filename
+      const wikipediaFiles = findReplacedWikipediaFiles(
+        filename,
+        existingFiles.files.map((f) => f.name)
       )
 
       for (const oldFile of wikipediaFiles) {
         try {
-          await this.delete(oldFile.name)
-          logger.info(`[ZimService] Deleted old Wikipedia file: ${oldFile.name}`)
+          await this.delete(oldFile)
+          logger.info(`[ZimService] Deleted old Wikipedia file: ${oldFile}`)
         } catch (error) {
-          logger.warn(`[ZimService] Could not delete old Wikipedia file: ${oldFile.name}`, error)
+          logger.warn(`[ZimService] Could not delete old Wikipedia file: ${oldFile}`, error)
         }
       }
     } else {
