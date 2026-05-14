@@ -1082,6 +1082,28 @@ export class RagService {
         offset = scrollResult.next_page_offset || null
       } while (offset !== null)
 
+      // Union the Qdrant-derived list with the disk-backed file paths the
+      // state machine has tracked. Without this, files known to the scanner
+      // but with zero embedded chunks (video-only ZIMs, failed-before-first-
+      // chunk ingestions, browse_only opt-outs) never get a row in Stored
+      // Files — which means warnings keyed off those files (#895 zero_chunks
+      // in particular) have no row to attach to. The state machine is the
+      // authoritative "what's on disk?" view; Qdrant is "what made it into
+      // the vector store?". Both are needed to render the KB UI honestly.
+      try {
+        const stateRows = await KbIngestState.query().select('file_path')
+        for (const row of stateRows) {
+          sources.add(row.file_path)
+        }
+      } catch (error) {
+        // Non-fatal: if the state machine query fails for any reason we'd
+        // rather return the Qdrant-derived list than 500 the whole panel.
+        logger.warn(
+          { err: error },
+          '[RagService.getStoredFiles] state-machine union skipped; returning Qdrant-only list'
+        )
+      }
+
       return Array.from(sources)
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
