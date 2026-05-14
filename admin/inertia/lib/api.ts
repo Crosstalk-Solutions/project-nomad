@@ -811,6 +811,17 @@ class API {
     })()
   }
 
+  async estimateEmbeddingBatch(files: { filename: string; sizeBytes: number }[]) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        totalChunks: number
+        totalBytes: number
+        hasUnknown: boolean
+      }>('/rag/estimate-batch', { files })
+      return response.data
+    })()
+  }
+
   // Wikipedia selector methods
 
   async getWikipediaState(): Promise<WikipediaState | undefined> {

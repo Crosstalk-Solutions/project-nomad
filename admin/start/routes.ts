@@ -147,6 +147,7 @@ router
     router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
     router.get('/job-status', [RagController, 'getJobStatus'])
     router.post('/sync', [RagController, 'scanAndSync'])
+    router.post('/estimate-batch', [RagController, 'estimateBatch'])
     router.get('/health', [RagController, 'health'])
   })
   .prefix('/api/rag')
