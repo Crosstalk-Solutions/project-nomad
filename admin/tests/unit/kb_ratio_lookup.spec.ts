@@ -1,7 +1,12 @@
 import * as assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { estimateChunkCount, findChunksPerMb } from '../../app/utils/kb_ratio_lookup.js'
+import {
+  BYTES_PER_CHUNK_ON_DISK,
+  estimateBatch,
+  estimateChunkCount,
+  findChunksPerMb,
+} from '../../app/utils/kb_ratio_lookup.js'
 
 const SEEDED_ROWS = [
   { pattern: 'devdocs_', chunks_per_mb: 1100 },
@@ -59,4 +64,48 @@ test('estimateChunkCount returns null when no match and no fallback', () => {
     estimateChunkCount('something_unknown_2026-02.zim', 50 * 1024 * 1024, rowsWithoutFallback),
     null
   )
+})
+
+test('estimateBatch sums chunks and bytes for matched files', () => {
+  const files = [
+    // 100 MB devdocs -> 110,000 chunks
+    { filename: 'devdocs_en_python_2026-02.zim', sizeBytes: 100 * 1024 * 1024 },
+    // 500 MB wikipedia_en_simple -> 135,000 chunks
+    { filename: 'wikipedia_en_simple_all_nopic_2026-02.zim', sizeBytes: 500 * 1024 * 1024 },
+  ]
+  const out = estimateBatch(files, SEEDED_ROWS)
+  assert.equal(out.totalChunks, 110_000 + 135_000)
+  assert.equal(out.totalBytes, (110_000 + 135_000) * BYTES_PER_CHUNK_ON_DISK)
+  assert.equal(out.hasUnknown, false)
+})
+
+test('estimateBatch sets hasUnknown when a file has no registry match', () => {
+  // Drop the empty-string fallback so the unknown file truly has no match
+  const rows = SEEDED_ROWS.filter((r) => r.pattern !== '')
+  const files = [
+    { filename: 'devdocs_en_python_2026-02.zim', sizeBytes: 100 * 1024 * 1024 },
+    { filename: 'something_unknown_2026-02.zim', sizeBytes: 50 * 1024 * 1024 },
+  ]
+  const out = estimateBatch(files, rows)
+  assert.equal(out.totalChunks, 110_000) // only the matched file
+  assert.equal(out.hasUnknown, true)
+})
+
+test('estimateBatch handles video-only ZIMs (0 chunks/MB) without flagging hasUnknown', () => {
+  // A 5 GB video ZIM matches the registry with 0 chunks/MB; that is a
+  // *known* value, not an unknown — totals should be 0 and hasUnknown false.
+  const files = [
+    { filename: 'lrnselfreliance_en_all_2025-12.zim', sizeBytes: 5 * 1024 * 1024 * 1024 },
+  ]
+  const out = estimateBatch(files, SEEDED_ROWS)
+  assert.equal(out.totalChunks, 0)
+  assert.equal(out.totalBytes, 0)
+  assert.equal(out.hasUnknown, false)
+})
+
+test('estimateBatch on empty input returns zeros', () => {
+  const out = estimateBatch([], SEEDED_ROWS)
+  assert.equal(out.totalChunks, 0)
+  assert.equal(out.totalBytes, 0)
+  assert.equal(out.hasUnknown, false)
 })
