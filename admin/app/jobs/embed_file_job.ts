@@ -224,13 +224,24 @@ export class EmbedFileJob {
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
 
-    return jobs.map((job) => ({
-      jobId: job.id!.toString(),
-      fileName: (job.data as EmbedFileJobParams).fileName,
-      filePath: (job.data as EmbedFileJobParams).filePath,
-      progress: typeof job.progress === 'number' ? job.progress : 0,
-      status: ((job.data as any).status as string) ?? 'waiting',
-    }))
+    return jobs.map((job) => {
+      const data = job.data as EmbedFileJobParams & {
+        status?: string
+        lastBatchAt?: number
+        startedAt?: number
+        chunks?: number
+      }
+      return {
+        jobId: job.id!.toString(),
+        fileName: data.fileName,
+        filePath: data.filePath,
+        progress: typeof job.progress === 'number' ? job.progress : 0,
+        status: data.status ?? 'waiting',
+        lastBatchAt: data.lastBatchAt,
+        startedAt: data.startedAt,
+        chunks: data.chunks,
+      }
+    })
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {
