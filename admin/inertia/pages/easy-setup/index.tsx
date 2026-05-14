@@ -122,6 +122,13 @@ export default function EasySetupWizard(props: {
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
+  // Auto-index policy for the AI Assistant Knowledge Base. Defaults to
+  // 'Always' so a new user who keeps the default behavior gets the "just
+  // works" experience — downloads become searchable automatically. Persisted
+  // to KVStore['rag.defaultIngestPolicy'] on wizard submit (same key #894's
+  // KB modal toggle reads/writes) so the JIT prompt at first chat sees a
+  // decided policy and doesn't ask again.
+  const [ingestPolicy, setIngestPolicy] = useState<'Always' | 'Manual'>('Always')
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAdditionalTools, setShowAdditionalTools] = useState(false)
   const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(
@@ -338,6 +345,23 @@ export default function EasySetupWizard(props: {
     setIsProcessing(true)
 
     try {
+      // Persist the auto-index policy choice before kicking off downloads so
+      // any content that finishes during this same wizard run sees the right
+      // policy. Skipped when the user did not select the AI capability — the
+      // KV stays null and the first-chat JIT prompt (#899) handles the
+      // decision later if/when the user enables AI.
+      const aiSelected =
+        selectedServices.includes(SERVICE_NAMES.OLLAMA) ||
+        installedServices.some((s) => s.service_name === SERVICE_NAMES.OLLAMA)
+      if (aiSelected) {
+        try {
+          await api.updateSetting('rag.defaultIngestPolicy', ingestPolicy)
+        } catch (err) {
+          // Non-fatal: the user can still set the policy from the KB modal.
+          console.warn('Could not persist ingest policy from wizard:', err)
+        }
+      }
+
       // If using remote Ollama, configure it first before other installs
       if (remoteOllamaEnabled && remoteOllamaUrl) {
         const remoteResult = await api.configureRemoteOllama(remoteOllamaUrl)
@@ -921,6 +945,47 @@ export default function EasySetupWizard(props: {
                 <p className="text-text-secondary">No recommended AI models available at this time.</p>
               </div>
             )}
+
+            {/* Auto-index policy — choose now so the JIT prompt at first chat
+                doesn't ask again (RFC #883 Phase 3 task 13). Persisted to
+                rag.defaultIngestPolicy on wizard submit. */}
+            <div className="mt-8 pt-6 border-t border-border-subtle">
+              <h4 className="text-lg font-semibold text-text-primary mb-1">
+                Auto-index new content for {aiAssistantName}?
+              </h4>
+              <p className="text-sm text-text-muted mb-4">
+                When you add new ZIMs, documents, or curated content, should {aiAssistantName} index them automatically so it can search them while answering your questions?
+              </p>
+              <div className="inline-flex rounded-md border border-border-default overflow-hidden" role="group">
+                <button
+                  type="button"
+                  onClick={() => setIngestPolicy('Always')}
+                  className={classNames(
+                    'px-5 py-2 text-sm font-medium transition-colors',
+                    ingestPolicy === 'Always'
+                      ? 'bg-desert-green text-white'
+                      : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
+                  )}
+                >
+                  Yes, always
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIngestPolicy('Manual')}
+                  className={classNames(
+                    'px-5 py-2 text-sm font-medium transition-colors border-l border-border-default',
+                    ingestPolicy === 'Manual'
+                      ? 'bg-desert-green text-white'
+                      : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
+                  )}
+                >
+                  Ask me first
+                </button>
+              </div>
+              <p className="text-xs text-text-muted mt-3">
+                You can change this any time from the Knowledge Base panel inside AI Chat.
+              </p>
+            </div>
           </div>
         )}
 
@@ -1154,6 +1219,25 @@ export default function EasySetupWizard(props: {
                     )
                   })}
                 </ul>
+              </div>
+            )}
+
+            {(selectedAiModels.length > 0 || remoteOllamaEnabled) && (
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-2">
+                  Auto-index Setting
+                </h3>
+                <p className="text-text-secondary text-sm">
+                  {ingestPolicy === 'Always' ? (
+                    <>
+                      New content will be <strong>indexed automatically</strong> as it arrives so {aiAssistantName} can search it.
+                    </>
+                  ) : (
+                    <>
+                      New content will <strong>wait for you to opt in</strong> from the Knowledge Base panel before {aiAssistantName} indexes it.
+                    </>
+                  )}
+                </p>
               </div>
             )}
 
