@@ -26,7 +26,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
+    settings: { chatSuggestionsEnabled: boolean; chatPersonasEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -94,6 +94,9 @@ export default function ModelsPage(props: {
   }
   const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
     props.models.settings.chatSuggestionsEnabled
+  )
+  const [chatPersonasEnabled, setChatPersonasEnabled] = useState(
+    props.models.settings.chatPersonasEnabled
   )
   const [ollamaFlashAttention, setOllamaFlashAttention] = useState(
     props.models.settings.ollamaFlashAttention
@@ -311,6 +314,15 @@ export default function ModelsPage(props: {
                 }}
                 label="Chat Suggestions"
                 description="Display AI-generated conversation starters in the chat interface"
+              />
+              <Switch
+                checked={chatPersonasEnabled}
+                onChange={(newVal) => {
+                  setChatPersonasEnabled(newVal)
+                  updateSettingMutation.mutate({ key: 'chat.personasEnabled', value: newVal })
+                }}
+                label="Chat Personas"
+                description="Apply NOMAD's off-grid-oriented persona system prompts (Medic, Electrician, Bushcraft, etc.) to chat. Turn off for a generic chat experience using the upstream default system prompt."
               />
               <Switch
                 checked={ollamaFlashAttention}

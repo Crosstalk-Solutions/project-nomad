@@ -21,6 +21,7 @@ interface ChatProps {
   onClose?: () => void
   suggestionsEnabled?: boolean
   streamingEnabled?: boolean
+  personasEnabled?: boolean
 }
 
 export default function Chat({
@@ -29,6 +30,7 @@ export default function Chat({
   onClose,
   suggestionsEnabled = false,
   streamingEnabled = true,
+  personasEnabled = true,
 }: ChatProps) {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()

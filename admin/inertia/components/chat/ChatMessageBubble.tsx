@@ -2,12 +2,18 @@ import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChatMessage } from '../../../types/chat'
+import { stripLatex } from '../../../shared/strip_latex'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
 }
 
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+  // Apply at render time so streamed chunks render cleanly without
+  // server-side stream buffering. Idempotent with the server-side scrub
+  // applied to saved/non-streaming responses.
+  const cleanContent = message.role === 'assistant' ? stripLatex(message.content) : message.content
+  const cleanThinking = message.thinking ? stripLatex(message.thinking) : message.thinking
   return (
     <div
       className={classNames(
@@ -22,7 +28,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
           </div>
           <div className="prose prose-xs max-w-none text-amber-900/80 max-h-32 overflow-y-auto">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.thinking}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanThinking}</ReactMarkdown>
           </div>
         </div>
       )}
@@ -34,7 +40,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               : 'Reasoning'}
           </summary>
           <div className="px-3 pb-3 prose prose-xs max-w-none text-text-secondary max-h-48 overflow-y-auto border-t border-border-subtle pt-2">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.thinking}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanThinking}</ReactMarkdown>
           </div>
         </details>
       )}
@@ -93,7 +99,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               ),
             }}
           >
-            {message.content}
+            {cleanContent}
           </ReactMarkdown>
         ) : (
           message.content

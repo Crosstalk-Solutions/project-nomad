@@ -157,7 +157,10 @@ function PersonaEditor({
   )
 }
 
-export default function PersonasPage() {
+export default function PersonasPage(props: {
+  settings?: { chatPersonasEnabled?: boolean }
+}) {
+  const personasEnabled = props.settings?.chatPersonasEnabled ?? true
   const [selectedKey, setSelectedKey] = useState<PersonaKey | null>(null)
 
   const { data: listData, isLoading: listLoading } = useQuery({
@@ -184,6 +187,12 @@ export default function PersonasPage() {
         </Link>
         <h1 className="flex-1 text-center text-lg font-semibold text-text-primary">Personas</h1>
       </div>
+
+      {!personasEnabled && (
+        <div className="px-6 py-3 border-b border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-200">
+          Chat personas are currently <strong>disabled in Settings</strong>. Edits below are saved, but the chat will not use them until you re-enable personas under <Link href="/settings/models" className="underline">Settings → AI Assistant</Link>.
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <aside className="w-72 border-r border-border-subtle bg-surface-secondary overflow-y-auto">

@@ -24,9 +24,11 @@ export default class ChatsController {
     }
     
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
+    const chatPersonasEnabled = (await KVStore.getValue('chat.personasEnabled')) ?? true
     return inertia.render('chat', {
       settings: {
         chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
+        chatPersonasEnabled,
       },
     })
   }
@@ -60,6 +62,7 @@ export default class ChatsController {
   }
 
   async listPersonas({ response }: HttpContext) {
+    const enabled = (await KVStore.getValue('chat.personasEnabled')) ?? true
     const merged = await this.personaService.listAllMerged()
     const personas = merged.map((p) => ({
       key: p.key,
@@ -67,6 +70,7 @@ export default class ChatsController {
       description: p.description,
     }))
     return response.status(200).json({
+      enabled,
       personas,
       default: DEFAULT_PERSONA,
     })

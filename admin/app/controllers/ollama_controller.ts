@@ -13,6 +13,7 @@ import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { DEFAULT_PERSONA, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { stripLatex } from '../../shared/strip_latex.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
@@ -65,20 +66,30 @@ export default class OllamaController {
     }
 
     try {
-      // If there are no system messages in the chat inject the selected persona.
+      // If there are no system messages in the chat inject system prompts.
+      // The persona system is opt-out: when `chat.personasEnabled` is true
+      // (default), inject the chat session's persona prompt (merged with any
+      // user overrides). When false, fall back to the original upstream
+      // SYSTEM_PROMPTS.default so chat behaves exactly like pre-persona NOMAD.
       const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
       if (!hasSystemMessage) {
-        let personaKey: string = DEFAULT_PERSONA
-        if (reqData.sessionId) {
-          const session = await ChatSession.find(reqData.sessionId)
-          if (session) personaKey = session.persona
+        const personasEnabled = (await KVStore.getValue('chat.personasEnabled')) ?? true
+
+        let systemPromptText: string
+        if (personasEnabled) {
+          let personaKey: string = DEFAULT_PERSONA
+          if (reqData.sessionId) {
+            const session = await ChatSession.find(reqData.sessionId)
+            if (session) personaKey = session.persona
+          }
+          systemPromptText = await this.personaService.getSystemPrompt(personaKey)
+          logger.debug(`[OllamaController] Injecting persona system prompt: ${personaKey}`)
+        } else {
+          systemPromptText = SYSTEM_PROMPTS.default
+          logger.debug('[OllamaController] Personas disabled, using SYSTEM_PROMPTS.default')
         }
-        const systemPrompt = {
-          role: 'system' as const,
-          content: await this.personaService.getSystemPrompt(personaKey),
-        }
-        logger.debug(`[OllamaController] Injecting system prompt for persona: ${personaKey}`)
-        reqData.messages.unshift(systemPrompt)
+
+        reqData.messages.unshift({ role: 'system' as const, content: systemPromptText })
       }
 
       // Inject the user-managed NOMAD.md as its own leading system message so the
@@ -224,12 +235,15 @@ export default class OllamaController {
         }
         response.response.end()
 
-        // Save assistant message and optionally generate title
+        // Save assistant message and optionally generate title. Strip LaTeX
+        // before persistence so reloaded sessions render cleanly; the live
+        // stream above is left alone since chunks may straddle delimiters.
         if (sessionId && fullContent) {
-          await this.chatService.addMessage(sessionId, 'assistant', fullContent)
+          const cleanContent = stripLatex(fullContent)
+          await this.chatService.addMessage(sessionId, 'assistant', cleanContent)
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
-            this.chatService.generateTitle(sessionId, userContent, fullContent, reqData.model).catch((err) => {
+            this.chatService.generateTitle(sessionId, userContent, cleanContent, reqData.model).catch((err) => {
               logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
             })
           }
@@ -239,6 +253,10 @@ export default class OllamaController {
 
       // Non-streaming (legacy) path
       const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
+
+      if (result?.message?.content) {
+        result.message.content = stripLatex(result.message.content)
+      }
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
