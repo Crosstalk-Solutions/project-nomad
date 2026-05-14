@@ -5,6 +5,12 @@ export type EmbedJobWithProgress = {
   progress: number
   status: string
   error?: string
+  /** ms epoch of last completed batch; multi-batch ZIMs update this each batch. */
+  lastBatchAt?: number
+  /** ms epoch of first batch start; used as a fallback when lastBatchAt unset. */
+  startedAt?: number
+  /** Total chunks embedded across this job's batches so far. */
+  chunks?: number
 }
 
 export type ProcessAndEmbedFileResponse = {
