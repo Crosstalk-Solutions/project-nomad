@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
 import ChatInterface from './ChatInterface'
+import KbPolicyPromptBanner from './KbPolicyPromptBanner'
 import StyledModal from '../StyledModal'
 import api from '~/lib/api'
 import { formatBytes } from '~/lib/util'
@@ -366,6 +367,7 @@ export default function Chat({
         isInModal={isInModal}
       />
       <div className="flex-1 flex flex-col min-h-0">
+        <KbPolicyPromptBanner />
         <div className="px-6 py-3 border-b border-border-subtle bg-surface-secondary flex items-center justify-between h-[75px] flex-shrink-0">
           <h2 className="text-lg font-semibold text-text-primary">
             {activeSession?.title || 'New Chat'}

@@ -151,6 +151,7 @@ router
     router.post('/re-embed-all', [RagController, 'reembedAll'])
     router.post('/reset-and-rebuild', [RagController, 'resetAndRebuild'])
     router.post('/estimate-batch', [RagController, 'estimateBatch'])
+    router.get('/policy-prompt-state', [RagController, 'policyPromptState'])
     router.get('/health', [RagController, 'health'])
   })
   .prefix('/api/rag')

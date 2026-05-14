@@ -95,6 +95,11 @@ export default class RagController {
     })
   }
 
+  public async policyPromptState({ response }: HttpContext) {
+    const result = await this.ragService.getPolicyPromptState()
+    return response.status(200).json(result)
+  }
+
   public async scanAndSync({ response }: HttpContext) {
     try {
       const syncResult = await this.ragService.scanAndSyncStorage()
