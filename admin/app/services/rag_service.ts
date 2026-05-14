@@ -16,6 +16,8 @@ import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
+import KbIngestState from '#models/kb_ingest_state'
+import { decideScanAction } from '../utils/kb_ingest_decision.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
@@ -1118,6 +1120,11 @@ export class RagService {
         logger.warn(`[RAG] File was removed from knowledge base but doesn't live in Nomad's uploads directory, so it can't be safely removed. Skipping deletion of physical file...`)
       }
 
+      // Drop the ingest state row last so the file disappears entirely. Without
+      // this, the next scanAndSyncStorage would see `indexed + no chunks` for a
+      // path that no longer exists in storage and try to re-embed nothing.
+      await KbIngestState.remove(source)
+
       return { success: true, message: 'File removed from knowledge base.' }
     } catch (error) {
       logger.error('[RAG] Error deleting file from knowledge base:', error)
@@ -1275,14 +1282,62 @@ export class RagService {
 
       logger.info(`[RAG] Found ${sourcesInQdrant.size} unique sources in Qdrant`)
 
-      // Find files that are in storage, not already in Qdrant, and have an embeddable type.
-      // Non-embeddable files (e.g. kiwix-library.xml in /storage/zim) would otherwise be
-      // dispatched to EmbedFileJob, fail with "Unsupported file type", and retry on every sync.
-      const filesToEmbed = filesInStorage.filter(
-        (filePath) => !sourcesInQdrant.has(filePath) && determineFileType(filePath) !== 'unknown'
+      // Load all known per-file ingest states. The state row is authoritative
+      // over the "any chunks in Qdrant" heuristic — it captures user choices
+      // (browse_only) and terminal outcomes (failed, stalled) that aren't visible
+      // from Qdrant alone. See RFC #883 for the full state machine.
+      const stateRows = await KbIngestState.all()
+      const stateByPath = new Map(stateRows.map((row) => [row.file_path, row]))
+
+      // Non-embeddable files (e.g. kiwix-library.xml in /storage/zim) would otherwise
+      // be dispatched to EmbedFileJob, fail with "Unsupported file type", and retry
+      // on every sync — filter them out before state decisions.
+      const embeddableFiles = filesInStorage.filter(
+        (filePath) => determineFileType(filePath) !== 'unknown'
       )
 
-      logger.info(`[RAG] Found ${filesToEmbed.length} files that need embedding`)
+      const filesToEmbed: string[] = []
+      let backfilled = 0
+      let createdRows = 0
+      let skipped = 0
+
+      for (const filePath of embeddableFiles) {
+        const stateRow = stateByPath.get(filePath) ?? null
+        const action = decideScanAction(stateRow, sourcesInQdrant.has(filePath))
+
+        switch (action.kind) {
+          case 'skip':
+            skipped++
+            break
+          case 'backfill_indexed':
+            // Pre-RFC install (or a fresh admin pointed at an existing Qdrant volume):
+            // chunks already exist with no state row, so trust Qdrant and record
+            // `indexed` without re-embedding. chunks_embedded is left 0 because
+            // we don't count points-per-source during the scroll above.
+            await KbIngestState.create({
+              file_path: filePath,
+              state: 'indexed',
+              chunks_embedded: 0,
+            })
+            backfilled++
+            break
+          case 'dispatch':
+            if (action.createStateRow) {
+              await KbIngestState.create({
+                file_path: filePath,
+                state: 'pending_decision',
+                chunks_embedded: 0,
+              })
+              createdRows++
+            }
+            filesToEmbed.push(filePath)
+            break
+        }
+      }
+
+      logger.info(
+        `[RAG] Scan results: ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${skipped} skipped`
+      )
 
       if (filesToEmbed.length === 0) {
         return {
