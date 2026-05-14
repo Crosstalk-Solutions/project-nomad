@@ -6,6 +6,7 @@ import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
 import { EmbedJobWithProgress } from '../../types/rag'
+import type { FileWarning } from '../../app/utils/kb_warning_decision.js'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -472,6 +473,15 @@ class API {
     return catchInternal(async () => {
       const response = await this.client.get<{ files: string[] }>('/rag/files')
       return response.data.files
+    })()
+  }
+
+  async getKbFileWarnings() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ warnings: Record<string, FileWarning[]> }>(
+        '/rag/file-warnings'
+      )
+      return response.data.warnings
     })()
   }
 

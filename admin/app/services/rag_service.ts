@@ -16,6 +16,8 @@ import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
+import KbRatioRegistry from '#models/kb_ratio_registry'
+import { decideWarnings, type FileWarning } from '../utils/kb_warning_decision.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
@@ -1081,6 +1083,90 @@ export class RagService {
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
+    }
+  }
+
+  /**
+   * Compute conditional warnings (RFC #883 §6) for every source the scanner
+   * sees on disk. Returns a map from source path → list of warnings, with
+   * sources that have no warnings omitted entirely (so the frontend can
+   * `warningsBySource[source] ?? []` for clean defaults).
+   *
+   * Per-source chunk counts come from a single Qdrant scroll over the
+   * collection's points; expected-chunk estimates come from the ratio
+   * registry. Files in the scanner's directories that have no qdrant points
+   * at all show up with `chunksInQdrant: 0` so Warning A can fire.
+   */
+  public async computeFileWarnings(): Promise<Record<string, FileWarning[]>> {
+    try {
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      // Per-source chunk count from a single scroll. We deliberately don't
+      // assume `kb_ingest_state.chunks_embedded` here so this PR stays
+      // independent of the state-machine PR (#888) — but a future cleanup can
+      // read from there for efficiency once both have landed.
+      const chunksBySource = new Map<string, number>()
+      let offset: string | number | null | Record<string, unknown> = null
+      const batchSize = 100
+      do {
+        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
+          limit: batchSize,
+          offset,
+          with_payload: ['source'],
+          with_vector: false,
+        })
+        for (const point of scrollResult.points) {
+          const source = point.payload?.source
+          if (source && typeof source === 'string') {
+            chunksBySource.set(source, (chunksBySource.get(source) ?? 0) + 1)
+          }
+        }
+        offset = scrollResult.next_page_offset || null
+      } while (offset !== null)
+
+      // Scan the filesystem the same way scanAndSyncStorage does so Warning A
+      // can fire on files with zero qdrant points (the headline "video-only
+      // ZIM" case).
+      const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
+      const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
+      const allSources = new Set<string>(chunksBySource.keys())
+      const sizeByPath = new Map<string, number>()
+
+      for (const dir of [KB_UPLOADS_PATH, ZIM_PATH]) {
+        try {
+          const entries = await listDirectoryContentsRecursive(dir)
+          for (const entry of entries) {
+            if (entry.type !== 'file') continue
+            allSources.add(entry.key)
+            const stat = await getFileStatsIfExists(entry.key)
+            if (stat) sizeByPath.set(entry.key, Number(stat.size))
+          }
+        } catch (error: any) {
+          if (error?.code !== 'ENOENT') throw error
+        }
+      }
+
+      const out: Record<string, FileWarning[]> = {}
+      for (const source of allSources) {
+        const fileSizeBytes = sizeByPath.get(source) ?? 0
+        const chunksInQdrant = chunksBySource.get(source) ?? 0
+        const fileName = source.split(/[/\\]/).pop() ?? source
+        const expectedChunks =
+          fileSizeBytes > 0
+            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes)
+            : null
+
+        const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks })
+        if (warnings.length > 0) out[source] = warnings
+      }
+
+      return out
+    } catch (error) {
+      logger.error('[RAG] Error computing file warnings:', error)
+      return {}
     }
   }
 
