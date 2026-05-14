@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import useEmbedJobs from '~/hooks/useEmbedJobs'
 import HorizontalBarChart from './HorizontalBarChart'
-import StyledButton from './StyledButton'
 import StyledSectionHeader from './StyledSectionHeader'
 import {
   JOB_HEALTH_DISPLAY,
@@ -14,10 +13,9 @@ interface ActiveEmbedJobsProps {
 }
 
 const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
-  const { data: jobs, invalidate, dataUpdatedAt } = useEmbedJobs()
+  const { data: jobs } = useEmbedJobs()
 
-  // Live "last refreshed Xs ago" tick. We re-render every 5s purely to keep
-  // the relative timestamp current, without touching React Query state.
+  // Re-render every 5s to keep per-job "last activity Xs ago" timestamps fresh.
   const [tick, setTick] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 5000)
@@ -28,21 +26,6 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
     <>
       {withHeader && (
         <StyledSectionHeader title="Processing Queue" className="mt-12 mb-4" />
-      )}
-
-      {/* Refresh row — only shown when at least one job exists so the empty
-          state stays clean. */}
-      {jobs && jobs.length > 0 && (
-        <div className="flex items-center justify-between mb-3 text-sm">
-          <span className="text-text-muted">
-            {dataUpdatedAt > 0
-              ? `Last updated ${formatTimeAgo(dataUpdatedAt, tick)}`
-              : 'Loading…'}
-          </span>
-          <StyledButton variant="ghost" size="sm" icon="IconRefresh" onClick={invalidate}>
-            Refresh
-          </StyledButton>
-        </div>
       )}
 
       <div className="space-y-4">
