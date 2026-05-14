@@ -141,6 +141,7 @@ router
   .group(() => {
     router.post('/upload', [RagController, 'upload'])
     router.get('/files', [RagController, 'getStoredFiles'])
+    router.get('/file-warnings', [RagController, 'getFileWarnings'])
     router.delete('/files', [RagController, 'deleteFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
     router.get('/failed-jobs', [RagController, 'getFailedJobs'])
