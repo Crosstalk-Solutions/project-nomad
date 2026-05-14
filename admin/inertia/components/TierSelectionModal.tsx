@@ -9,6 +9,10 @@ import api from '~/lib/api'
 import classNames from 'classnames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import StyledButton from './StyledButton'
+import KbGuardrailModal from './KbGuardrailModal'
+import { evaluateGuardrail, type GuardrailVerdict } from '~/lib/kb_guardrail'
+import { useSystemInfo } from '~/hooks/useSystemInfo'
+import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
 
 /**
  * Filename for the embed-estimate registry lookup. Strips the URL path so
@@ -81,6 +85,17 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
     queryKey: ['ingestPolicy'],
     queryFn: () => api.getSetting('rag.defaultIngestPolicy'),
   })
+
+  // System info for the disk-free side of the guardrail. Shared queryKey with
+  // the home / easy-setup pages so we don't refetch when the user already has
+  // a fresh copy in cache from a sibling component.
+  const { data: systemInfo } = useSystemInfo({ enabled: true })
+
+  // Open state for the guardrail modal — separate from the tier modal so the
+  // user sees the warning as an overlay without losing their tier selection
+  // underneath. Cancel returns to the tier modal as-is; Proceed closes both
+  // and runs the original onSelectTier path.
+  const [guardrailVerdict, setGuardrailVerdict] = useState<GuardrailVerdict | null>(null)
   const ingestPolicy: 'Always' | 'Manual' =
     ingestPolicySetting?.value === 'Manual' ? 'Manual' : 'Always'
 
@@ -99,14 +114,47 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
     }
   }
 
-  const handleSubmit = () => {
-    if (!localSelectedSlug) return
+  // Compute disk-free bytes from system info; 0 means "unknown", which the
+  // guardrail helper treats as "skip the relative-disk check".
+  const freeBytes = useMemo<number>(() => {
+    const primary = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
+    if (!primary) return 0
+    return Math.max(0, primary.totalSize - primary.totalUsed)
+  }, [systemInfo])
 
-    const selectedTier = category.tiers.find(t => t.slug === localSelectedSlug)
+  /**
+   * Runs the original onSelectTier-then-onClose flow. Pulled out of
+   * handleSubmit so the guardrail modal's confirm path can call it after
+   * the user has consented to the large operation.
+   */
+  const finalizeSubmit = () => {
+    if (!localSelectedSlug || !category) return
+    const selectedTier = category.tiers.find((t) => t.slug === localSelectedSlug)
     if (selectedTier) {
       onSelectTier(category, selectedTier)
     }
     onClose()
+  }
+
+  const handleSubmit = () => {
+    if (!localSelectedSlug || !category) return
+
+    // Guardrail only runs when we have an estimate AND the global policy
+    // would auto-index this batch. Under Manual the user has already opted
+    // out of automatic ingestion, so the bulk-disk warning would be a false
+    // alarm — the files would just queue as pending_decision.
+    if (ingestPolicy === 'Always' && embedEstimate) {
+      const verdict = evaluateGuardrail({
+        estimateBytes: embedEstimate.totalBytes,
+        freeBytes,
+      })
+      if (verdict.trips) {
+        setGuardrailVerdict(verdict)
+        return
+      }
+    }
+
+    finalizeSubmit()
   }
 
   return (
@@ -307,6 +355,17 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
           </div>
         </div>
       </Dialog>
+      {guardrailVerdict && (
+        <KbGuardrailModal
+          isOpen={true}
+          verdict={guardrailVerdict}
+          onConfirm={() => {
+            setGuardrailVerdict(null)
+            finalizeSubmit()
+          }}
+          onCancel={() => setGuardrailVerdict(null)}
+        />
+      )}
     </Transition>
   )
 }
