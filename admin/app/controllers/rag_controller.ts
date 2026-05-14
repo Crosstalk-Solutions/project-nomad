@@ -68,6 +68,11 @@ export default class RagController {
     return response.status(200).json({ files })
   }
 
+  public async getFileWarnings({ response }: HttpContext) {
+    const warnings = await this.ragService.computeFileWarnings()
+    return response.status(200).json({ warnings })
+  }
+
   public async deleteFile({ request, response }: HttpContext) {
     const { source } = await request.validateUsing(deleteFileSchema)
     const result = await this.ragService.deleteFileBySource(source)
