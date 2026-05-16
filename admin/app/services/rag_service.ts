@@ -1183,11 +1183,113 @@ export class RagService {
   }
 
   /**
+   * Walk kb_uploads and zim storage directories, returning the full path of
+   * every embeddable file. Non-embeddable types (e.g. kiwix-library.xml) are
+   * filtered out so they aren't dispatched only to fail with "Unsupported file
+   * type" and retry on every sync.
+   */
+  private async _discoverKbFiles(): Promise<string[]> {
+    const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
+    const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
+    const filesInStorage: string[] = []
+
+    for (const [label, dirPath] of [
+      [RagService.UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH] as const,
+      [ZIM_STORAGE_PATH, ZIM_PATH] as const,
+    ]) {
+      try {
+        const contents = await listDirectoryContentsRecursive(dirPath)
+        contents.forEach((entry) => {
+          if (entry.type === 'file') filesInStorage.push(entry.key)
+        })
+        logger.debug(`[RAG] Found ${contents.length} files in ${label}`)
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          logger.debug(`[RAG] ${label} directory does not exist, skipping`)
+        } else {
+          throw error
+        }
+      }
+    }
+
+    return filesInStorage.filter((f) => determineFileType(f) !== 'unknown')
+  }
+
+  /**
+   * Dispatch one EmbedFileJob per file path. Returns honest counts: `queuedCount`
+   * is jobs newly enqueued, `dedupedCount` is jobs that hit BullMQ's per-file
+   * jobId dedupe (an existing :completed/:waiting/etc. entry was returned
+   * instead of a new enqueue), and `failedPaths` lists files whose dispatch
+   * threw. Pass `force: true` for bulk callers that need to bypass dedupe
+   * entirely. Per-file errors are logged but don't abort the batch — callers
+   * must inspect `failedPaths` to surface partial failure to the operator.
+   */
+  private async _dispatchEmbedJobsFor(
+    filePaths: string[],
+    options?: { force?: boolean }
+  ): Promise<{ queuedCount: number; dedupedCount: number; failedPaths: string[] }> {
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    let queuedCount = 0
+    let dedupedCount = 0
+    const failedPaths: string[] = []
+    for (const filePath of filePaths) {
+      try {
+        const fileName = filePath.split(/[/\\]/).pop() || filePath
+        const stats = await getFileStatsIfExists(filePath)
+        const result = await EmbedFileJob.dispatch(
+          {
+            filePath,
+            fileName,
+            fileSize: stats?.size,
+          },
+          { force: options?.force }
+        )
+        if (result.created) {
+          queuedCount++
+        } else {
+          dedupedCount++
+        }
+      } catch (fileError) {
+        failedPaths.push(filePath)
+        logger.error(`[RAG] Error dispatching job for file ${filePath}:`, fileError)
+      }
+    }
+    return { queuedCount, dedupedCount, failedPaths }
+  }
+
+  /**
+   * Delete all Qdrant points whose `source` payload matches the given path.
+   * Unlike deleteFileBySource(), this does NOT touch the file on disk — used
+   * by reembedAll() where the file must remain so it can be re-ingested.
+   */
+  private async _deletePointsBySource(source: string): Promise<void> {
+    await this._ensureCollection(
+      RagService.CONTENT_COLLECTION_NAME,
+      RagService.EMBEDDING_DIMENSION
+    )
+    await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
+      filter: { must: [{ key: 'source', match: { value: source } }] },
+    })
+  }
+
+  /**
+   * Returns true if the file-embeddings queue has any in-flight work
+   * (waiting, active, delayed, or paused). Bulk re-embed actions use this
+   * to refuse mid-flight to avoid racing with deletes/dispatches already
+   * in progress.
+   */
+  private async _hasInflightEmbedJobs(): Promise<boolean> {
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    const { QueueService } = await import('#services/queue_service')
+    const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+    const counts = await queue.getJobCounts('waiting', 'active', 'delayed', 'paused')
+    return (counts.waiting || 0) + (counts.active || 0) + (counts.delayed || 0) + (counts.paused || 0) > 0
+  }
+
+  /**
    * Scans the knowledge base storage directories and syncs with Qdrant.
    * Identifies files that exist in storage but haven't been embedded yet,
    * and dispatches EmbedFileJob for each missing file.
-   *
-   * @returns Object containing success status, message, and counts of scanned/queued files
    */
   public async scanAndSyncStorage(): Promise<{
     success: boolean
@@ -1198,91 +1300,38 @@ export class RagService {
     try {
       logger.info('[RAG] Starting knowledge base sync scan')
 
-      const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
-      const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
-
-      const filesInStorage: string[] = []
-
-      // Force resync of Nomad docs
       await this.discoverNomadDocs(true).catch((error) => {
         logger.error('[RAG] Error during Nomad docs discovery in sync process:', error)
       })
 
-      // Scan kb_uploads directory
-      try {
-        const kbContents = await listDirectoryContentsRecursive(KB_UPLOADS_PATH)
-        kbContents.forEach((entry) => {
-          if (entry.type === 'file') {
-            filesInStorage.push(entry.key)
-          }
-        })
-        logger.debug(`[RAG] Found ${kbContents.length} files in ${RagService.UPLOADS_STORAGE_PATH}`)
-      } catch (error) {
-        if (error.code === 'ENOENT') {
-          logger.debug(`[RAG] ${RagService.UPLOADS_STORAGE_PATH} directory does not exist, skipping`)
-        } else {
-          throw error
-        }
-      }
+      const filesInStorage = await this._discoverKbFiles()
+      logger.info(`[RAG] Found ${filesInStorage.length} embeddable files in storage`)
 
-      // Scan zim directory
-      try {
-        const zimContents = await listDirectoryContentsRecursive(ZIM_PATH)
-        zimContents.forEach((entry) => {
-          if (entry.type === 'file') {
-            filesInStorage.push(entry.key)
-          }
-        })
-        logger.debug(`[RAG] Found ${zimContents.length} files in ${ZIM_STORAGE_PATH}`)
-      } catch (error) {
-        if (error.code === 'ENOENT') {
-          logger.debug(`[RAG] ${ZIM_STORAGE_PATH} directory does not exist, skipping`)
-        } else {
-          throw error
-        }
-      }
-
-      logger.info(`[RAG] Found ${filesInStorage.length} total files in storage directories`)
-
-      // Get all stored sources from Qdrant
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
         RagService.EMBEDDING_DIMENSION
       )
 
+      // Collect every unique `source` already in Qdrant so we can skip files
+      // that have already been embedded.
       const sourcesInQdrant = new Set<string>()
       let offset: string | number | null | Record<string, unknown> = null
-      const batchSize = 100
-
-      // Scroll through all points to get sources
       do {
         const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: batchSize,
-          offset: offset,
-          with_payload: ['source'], // Only fetch source field for efficiency
+          limit: 100,
+          offset,
+          with_payload: ['source'],
           with_vector: false,
         })
-
         scrollResult.points.forEach((point) => {
           const source = point.payload?.source
-          if (source && typeof source === 'string') {
-            sourcesInQdrant.add(source)
-          }
+          if (source && typeof source === 'string') sourcesInQdrant.add(source)
         })
-
         offset = scrollResult.next_page_offset || null
       } while (offset !== null)
 
-      logger.info(`[RAG] Found ${sourcesInQdrant.size} unique sources in Qdrant`)
-
-      // Find files that are in storage, not already in Qdrant, and have an embeddable type.
-      // Non-embeddable files (e.g. kiwix-library.xml in /storage/zim) would otherwise be
-      // dispatched to EmbedFileJob, fail with "Unsupported file type", and retry on every sync.
-      const filesToEmbed = filesInStorage.filter(
-        (filePath) => !sourcesInQdrant.has(filePath) && determineFileType(filePath) !== 'unknown'
-      )
-
-      logger.info(`[RAG] Found ${filesToEmbed.length} files that need embedding`)
+      const filesToEmbed = filesInStorage.filter((f) => !sourcesInQdrant.has(f))
+      logger.info(`[RAG] ${filesToEmbed.length} of ${filesInStorage.length} files need embedding`)
 
       if (filesToEmbed.length === 0) {
         return {
@@ -1293,41 +1342,193 @@ export class RagService {
         }
       }
 
-      // Import EmbedFileJob dynamically to avoid circular dependencies
-      const { EmbedFileJob } = await import('#jobs/embed_file_job')
-
-      // Dispatch jobs for files that need embedding
-      let queuedCount = 0
-      for (const filePath of filesToEmbed) {
-        try {
-          const fileName = filePath.split(/[/\\]/).pop() || filePath
-          const stats = await getFileStatsIfExists(filePath)
-
-          logger.info(`[RAG] Dispatching embed job for: ${fileName}`)
-          await EmbedFileJob.dispatch({
-            filePath: filePath,
-            fileName: fileName,
-            fileSize: stats?.size,
-          })
-          queuedCount++
-          logger.debug(`[RAG] Successfully dispatched job for ${fileName}`)
-        } catch (fileError) {
-          logger.error(`[RAG] Error dispatching job for file ${filePath}:`, fileError)
-        }
-      }
-
+      const { queuedCount, dedupedCount } = await this._dispatchEmbedJobsFor(filesToEmbed)
+      const dedupeNote = dedupedCount > 0 ? ` (${dedupedCount} already queued)` : ''
       return {
         success: true,
-        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding`,
+        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding${dedupeNote}`,
         filesScanned: filesInStorage.length,
         filesQueued: queuedCount,
       }
     } catch (error) {
       logger.error('[RAG] Error scanning and syncing knowledge base:', error)
-      return {
-        success: false,
-        message: 'Error scanning and syncing knowledge base',
+      return { success: false, message: 'Error scanning and syncing knowledge base' }
+    }
+  }
+
+  /**
+   * Re-embed every file on disk (per-file replace). For each discovered file:
+   * delete its existing Qdrant points by `source` match, then dispatch a fresh
+   * EmbedFileJob. Files are NOT removed from disk. Any orphan points (points
+   * whose source file no longer exists) are intentionally preserved — use
+   * resetAndRebuild() if a clean slate is required.
+   *
+   * Refuses to run if the embeddings queue already has in-flight work.
+   */
+  public async reembedAll(): Promise<{
+    success: boolean
+    message: string
+    filesScanned?: number
+    filesQueued?: number
+    failedPaths?: string[]
+  }> {
+    try {
+      if (await this._hasInflightEmbedJobs()) {
+        return {
+          success: false,
+          message: 'Embed jobs are already in progress. Wait for the queue to drain (or clean up failed jobs) before triggering a bulk re-embed.',
+        }
       }
+
+      logger.info('[RAG] Starting full re-embed (per-file replace)')
+
+      await this.discoverNomadDocs(true).catch((error) => {
+        logger.error('[RAG] Error re-running Nomad docs discovery during re-embed:', error)
+      })
+
+      const filesInStorage = await this._discoverKbFiles()
+
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      // Per-file: delete-then-dispatch. We tried dispatch-then-delete but that
+      // opens a race where a fast worker can write new points before our
+      // delete-by-source runs, wiping both. Instead we delete first, then
+      // dispatch — and if dispatch fails, we surface the failed paths in the
+      // response so the operator knows which files dropped out (rather than
+      // silently leaving them unindexed). A subsequent sync rescan picks them
+      // back up. Note: a delete-failure aborts the per-file pair (we don't
+      // dispatch a job whose old points are still present, since they'd live
+      // alongside the new vectors forever).
+      const { EmbedFileJob } = await import('#jobs/embed_file_job')
+      let queuedCount = 0
+      const failedPaths: string[] = []
+      for (const filePath of filesInStorage) {
+        try {
+          await this._deletePointsBySource(filePath)
+        } catch (err) {
+          logger.error(`[RAG] Failed to delete prior points for ${filePath}; skipping dispatch:`, err)
+          failedPaths.push(filePath)
+          continue
+        }
+        try {
+          const fileName = filePath.split(/[/\\]/).pop() || filePath
+          const stats = await getFileStatsIfExists(filePath)
+          const result = await EmbedFileJob.dispatch(
+            { filePath, fileName, fileSize: stats?.size },
+            { force: true }
+          )
+          if (result.created) queuedCount++
+        } catch (fileError) {
+          // Old points already deleted but the new job never made it onto the
+          // queue. Logged + surfaced so an operator can rerun a sync.
+          logger.error(`[RAG] Re-embed dispatch failed for ${filePath} after delete; file is now unindexed until next sync:`, fileError)
+          failedPaths.push(filePath)
+        }
+      }
+
+      logger.info(
+        `[RAG] Re-embed dispatched ${queuedCount}/${filesInStorage.length} files` +
+          (failedPaths.length > 0 ? ` (${failedPaths.length} failed)` : '')
+      )
+
+      const failureSuffix =
+        failedPaths.length > 0
+          ? ` ${failedPaths.length} file${failedPaths.length === 1 ? '' : 's'} failed to dispatch and are temporarily unindexed — run a sync rescan to recover.`
+          : ''
+
+      return {
+        success: failedPaths.length === 0,
+        message:
+          `Re-embedding ${queuedCount} file${queuedCount === 1 ? '' : 's'}. Existing points were replaced.` +
+          failureSuffix,
+        filesScanned: filesInStorage.length,
+        filesQueued: queuedCount,
+        ...(failedPaths.length > 0 ? { failedPaths } : {}),
+      }
+    } catch (error) {
+      logger.error('[RAG] Error during re-embed:', error)
+      return { success: false, message: 'Error during re-embed' }
+    }
+  }
+
+  /**
+   * Destructive rebuild. Drops the entire Qdrant collection (wiping every
+   * point including orphans), recreates it with the correct dimension, clears
+   * the Nomad-docs discovery flag, then dispatches an EmbedFileJob for every
+   * file currently on disk.
+   *
+   * Refuses to run if the embeddings queue already has in-flight work.
+   */
+  public async resetAndRebuild(): Promise<{
+    success: boolean
+    message: string
+    filesScanned?: number
+    filesQueued?: number
+    failedPaths?: string[]
+  }> {
+    try {
+      if (await this._hasInflightEmbedJobs()) {
+        return {
+          success: false,
+          message: 'Embed jobs are already in progress. Wait for the queue to drain (or clean up failed jobs) before triggering a reset.',
+        }
+      }
+
+      logger.info('[RAG] Starting destructive reset & rebuild')
+
+      await this._initializeQdrantClient()
+      try {
+        await this.qdrant!.deleteCollection(RagService.CONTENT_COLLECTION_NAME)
+        logger.info(`[RAG] Dropped collection ${RagService.CONTENT_COLLECTION_NAME}`)
+      } catch (err) {
+        // Collection may not exist yet on a fresh install — log and continue.
+        logger.warn(`[RAG] deleteCollection failed (may not exist): ${(err as Error).message}`)
+      }
+
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      // Force Nomad docs to be re-dispatched.
+      await KVStore.setValue('rag.docsEmbedded', false)
+      await this.discoverNomadDocs(true).catch((error) => {
+        logger.error('[RAG] Error re-running Nomad docs discovery after reset:', error)
+      })
+
+      const filesInStorage = await this._discoverKbFiles()
+      const { queuedCount, failedPaths } = await this._dispatchEmbedJobsFor(filesInStorage, {
+        force: true,
+      })
+
+      logger.info(
+        `[RAG] Reset complete — dispatched ${queuedCount}/${filesInStorage.length} files` +
+          (failedPaths.length > 0 ? ` (${failedPaths.length} failed)` : '')
+      )
+
+      // Collection was already dropped, so dispatch failures here mean the
+      // file is gone from Qdrant with no pending job to repopulate it. Surface
+      // the count + paths so the operator can rerun a sync rescan to recover.
+      const failureSuffix =
+        failedPaths.length > 0
+          ? ` ${failedPaths.length} file${failedPaths.length === 1 ? '' : 's'} failed to dispatch and are temporarily unindexed — run a sync rescan to recover.`
+          : ''
+
+      return {
+        success: failedPaths.length === 0,
+        message:
+          `Collection wiped. Queued ${queuedCount} file${queuedCount === 1 ? '' : 's'} for a full rebuild.` +
+          failureSuffix,
+        filesScanned: filesInStorage.length,
+        filesQueued: queuedCount,
+        ...(failedPaths.length > 0 ? { failedPaths } : {}),
+      }
+    } catch (error) {
+      logger.error('[RAG] Error during reset & rebuild:', error)
+      return { success: false, message: 'Error during reset & rebuild' }
     }
   }
 }

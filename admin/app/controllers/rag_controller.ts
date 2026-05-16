@@ -98,6 +98,26 @@ export default class RagController {
     }
   }
 
+  public async reembedAll({ response }: HttpContext) {
+    try {
+      const result = await this.ragService.reembedAll()
+      return response.status(200).json(result)
+    } catch (error) {
+      logger.error({ err: error }, '[RagController] Error during re-embed all')
+      return response.status(500).json({ error: 'Error during re-embed all' })
+    }
+  }
+
+  public async resetAndRebuild({ response }: HttpContext) {
+    try {
+      const result = await this.ragService.resetAndRebuild()
+      return response.status(200).json(result)
+    } catch (error) {
+      logger.error({ err: error }, '[RagController] Error during reset and rebuild')
+      return response.status(500).json({ error: 'Error during reset and rebuild' })
+    }
+  }
+
   public async health({ response }: HttpContext) {
     const result = await this.ragService.checkQdrantHealth()
     return response.status(200).json(result)
