@@ -270,7 +270,7 @@ export class EmbedFileJob {
     return await queue.getJob(jobId)
   }
 
-  static async dispatch(params: EmbedFileJobParams) {
+  static async dispatch(params: EmbedFileJobParams, options?: { force?: boolean }) {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
@@ -285,7 +285,11 @@ export class EmbedFileJob {
     // them as independent queue entries that each process via handle().
     // Initial dispatches keep the deterministic jobId so re-triggering an install
     // (UI re-click, sync rescan, etc.) is still idempotent.
+    // `force` skips the deterministic jobId for bulk callers (reembedAll /
+    // resetAndRebuild) where historical entries in :completed would otherwise
+    // silently swallow the new dispatch.
     const isContinuation = !!(params.batchOffset && params.batchOffset > 0)
+    const force = !!options?.force
     const initialJobId = this.getJobId(params.filePath)
 
     const jobOptions: Parameters<typeof queue.add>[2] = {
@@ -297,18 +301,20 @@ export class EmbedFileJob {
       removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
       removeOnFail: { count: 20 }, // Keep last 20 failed jobs for debugging
     }
-    if (!isContinuation) {
+    if (!isContinuation && !force) {
       jobOptions.jobId = initialJobId
     }
 
     try {
       const job = await queue.add(this.key, params, jobOptions)
 
-      const continuationLabel = isContinuation
+      const label = isContinuation
         ? ` (continuation @ offset ${params.batchOffset})`
-        : ''
+        : force
+          ? ' (forced re-dispatch)'
+          : ''
       logger.info(
-        `[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}${continuationLabel}`
+        `[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}${label}`
       )
 
       return {
@@ -318,7 +324,12 @@ export class EmbedFileJob {
         message: `File queued for embedding: ${params.fileName}`,
       }
     } catch (error) {
-      if (!isContinuation && error.message && error.message.includes('job already exists')) {
+      if (
+        !isContinuation &&
+        !force &&
+        error.message &&
+        error.message.includes('job already exists')
+      ) {
         const existing = await queue.getJob(initialJobId)
         logger.info(`[EmbedFileJob] Job already exists for file: ${params.fileName}`)
         return {
