@@ -500,6 +500,18 @@ export class OllamaService {
         ? s.slice(0, OllamaService.EMBED_MAX_INPUT_CHARS)
         : s
     )
+    const truncatedCount = input.reduce(
+      (n, s) => (s.length > OllamaService.EMBED_MAX_INPUT_CHARS ? n + 1 : n),
+      0
+    )
+    if (truncatedCount > 0) {
+      logger.debug(
+        '[OllamaService] embed: pre-capped %d/%d inputs at %d chars',
+        truncatedCount,
+        input.length,
+        OllamaService.EMBED_MAX_INPUT_CHARS
+      )
+    }
 
     try {
       // Prefer Ollama native endpoint (supports batch input natively).
