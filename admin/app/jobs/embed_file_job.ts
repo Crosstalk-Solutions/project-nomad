@@ -85,8 +85,16 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
-      // Update progress starting
-      await this.safeUpdateProgress(job, 5)
+      // Anchor initial progress to where we are in the overall file. For a
+      // continuation batch midway through a multi-batch ZIM (e.g. offset 100k of
+      // 600k), the hardcoded 5 used to make the gauge briefly flash 0→5→real,
+      // which read as a backward jump. Fall back to 5 for single-batch files
+      // where totalArticles isn't set.
+      const initialPercent =
+        totalArticles && totalArticles > 0
+          ? Math.min(99, Math.round(((batchOffset || 0) / totalArticles) * 100))
+          : 5
+      await this.safeUpdateProgress(job, initialPercent)
       await job.updateData({
         ...job.data,
         status: 'processing',
