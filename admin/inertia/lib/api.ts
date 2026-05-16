@@ -811,6 +811,30 @@ class API {
     })()
   }
 
+  async reembedAllRAG() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        filesScanned?: number
+        filesQueued?: number
+      }>('/rag/re-embed-all')
+      return response.data
+    })()
+  }
+
+  async resetAndRebuildRAG() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        filesScanned?: number
+        filesQueued?: number
+      }>('/rag/reset-and-rebuild')
+      return response.data
+    })()
+  }
+
   // Wikipedia selector methods
 
   async getWikipediaState(): Promise<WikipediaState | undefined> {
