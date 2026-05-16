@@ -4,6 +4,7 @@ import { EmbedJobWithProgress } from '../../types/rag.js'
 import { RagService } from '#services/rag_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
+import KbIngestState from '#models/kb_ingest_state'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
@@ -193,6 +194,18 @@ export class EmbedFileJob {
         chunks: totalChunks,
       })
 
+      // Persist the post-job state so scanAndSyncStorage knows this file is done.
+      // BullMQ's :completed retention (50 jobs) ages out, so the state row is
+      // the only durable record of "this file finished embedding".
+      try {
+        await KbIngestState.markIndexed(filePath, totalChunks)
+      } catch (stateErr) {
+        logger.warn(
+          `[EmbedFileJob] Failed to persist ingest state for ${fileName}: %s`,
+          stateErr instanceof Error ? stateErr.message : String(stateErr)
+        )
+      }
+
       const batchMsg = isZimBatch ? ` (final batch, total chunks: ${totalChunks})` : ''
       logger.info(
         `[EmbedFileJob] Successfully embedded ${result.chunks} chunks from file: ${fileName}${batchMsg}`
@@ -214,6 +227,23 @@ export class EmbedFileJob {
         failedAt: Date.now(),
         error: error instanceof Error ? error.message : 'Unknown error',
       })
+
+      // Only persist `failed` for unrecoverable errors. Retryable errors get
+      // automatic BullMQ retries (30 attempts); marking state failed on every
+      // transient blip would suppress the retry-driven recovery path.
+      if (error instanceof UnrecoverableError) {
+        try {
+          await KbIngestState.markFailed(
+            filePath,
+            error instanceof Error ? error.message : 'Unknown error'
+          )
+        } catch (stateErr) {
+          logger.warn(
+            `[EmbedFileJob] Failed to persist failed state for ${fileName}: %s`,
+            stateErr instanceof Error ? stateErr.message : String(stateErr)
+          )
+        }
+      }
 
       throw error
     }
