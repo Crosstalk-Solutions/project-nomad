@@ -14,6 +14,7 @@ import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
+import PersonaManager from '~/components/personas/PersonaManager'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
@@ -358,6 +359,13 @@ export default function ModelsPage(props: {
               />
             </div>
           </div>
+
+          {chatPersonasEnabled && (
+            <>
+              <StyledSectionHeader title="Personas" className="mt-12 mb-4" />
+              <PersonaManager />
+            </>
+          )}
 
           <StyledSectionHeader title="Installed Models" className="mt-12 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">

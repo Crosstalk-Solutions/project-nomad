@@ -2,7 +2,7 @@ import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChatMessage } from '../../../types/chat'
-import { stripLatex } from '../../../shared/strip_latex'
+import { cleanChatOutput } from '../../../shared/strip_latex'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
@@ -12,8 +12,8 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   // Apply at render time so streamed chunks render cleanly without
   // server-side stream buffering. Idempotent with the server-side scrub
   // applied to saved/non-streaming responses.
-  const cleanContent = message.role === 'assistant' ? stripLatex(message.content) : message.content
-  const cleanThinking = message.thinking ? stripLatex(message.thinking) : message.thinking
+  const cleanContent = message.role === 'assistant' ? cleanChatOutput(message.content) : message.content
+  const cleanThinking = message.thinking ? cleanChatOutput(message.thinking) : message.thinking
   return (
     <div
       className={classNames(

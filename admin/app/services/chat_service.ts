@@ -8,6 +8,38 @@ import { OllamaService } from './ollama_service.js'
 import { DEFAULT_PERSONA, SYSTEM_PROMPTS, isPersonaKey, type PersonaKey } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
+/**
+ * Post-process generated titles. The title-generation system prompt forbids
+ * disclaimers and hedges, but the model resists and frequently emits a
+ * multi-line title with a "Consult local codes..." preamble followed by the
+ * actual topic. We take the last non-empty line (the topic) and strip
+ * surrounding markdown emphasis, trailing punctuation, and known
+ * hedge-starter phrases.
+ */
+const HEDGE_TITLE_PREFIX = /^\s*(consult|always|remember|important|note|caution|warning|disclaimer|please|safety reminder|do not|never)\b[^:]*[:.]?\s*/i
+// qwen2.5 and similar models occasionally slip CJK/Cyrillic/etc into titles.
+// Reject the whole title and let the user-message fallback fire.
+const NON_LATIN_SCRIPT = /[一-鿿぀-ヿ가-힯Ѐ-ӿ֐-׿؀-ۿ]/
+
+function sanitizeGeneratedTitle(raw?: string | null): string {
+  if (!raw) return ''
+  const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (lines.length === 0) return ''
+  let title = lines[lines.length - 1]
+  // Strip a leading hedge clause if any leaked through despite single-line.
+  title = title.replace(HEDGE_TITLE_PREFIX, '')
+  // Strip surrounding markdown emphasis and quotes.
+  title = title.replace(/^["'`*_]+|["'`*_]+$/g, '').trim()
+  // Strip trailing sentence punctuation that the prompt forbade.
+  title = title.replace(/[.!?]+$/, '').trim()
+  // Reject titles that contain non-Latin scripts — better the user-message
+  // fallback than a Chinese / Cyrillic / etc. label in the sidebar.
+  if (NON_LATIN_SCRIPT.test(title)) return ''
+  // Cap to ~60 chars.
+  if (title.length > 60) title = title.slice(0, 57).trimEnd() + '…'
+  return title
+}
+
 @inject()
 export class ChatService {
   constructor(private ollamaService: OllamaService) {}
@@ -264,7 +296,7 @@ export class ChatService {
         ],
       })
 
-      title = response?.message?.content?.trim()
+      title = sanitizeGeneratedTitle(response?.message?.content)
       if (!title) {
         title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
       }

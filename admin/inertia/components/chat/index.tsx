@@ -584,6 +584,7 @@ export default function Chat({
                   {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
                 </span>
               )}
+              {personasEnabled && (
               <div className="flex items-center gap-2">
                 <label htmlFor="persona-select" className="text-sm text-text-secondary">Persona:</label>
                 <select id="persona-select" value={selectedPersona} onChange={(event) => handlePersonaChange(event.target.value as PersonaKey)} title={personas.find((persona) => persona.key === selectedPersona)?.description ?? ''} disabled={personas.length === 0} className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary">
@@ -591,6 +592,7 @@ export default function Chat({
                 </select>
                 <a href="/personas" className="text-xs text-text-muted hover:text-text-primary underline whitespace-nowrap">Manage…</a>
               </div>
+              )}
               <div className="flex items-center gap-2">
               <label htmlFor="collection-select" className="text-sm text-text-secondary">
                 Search in:

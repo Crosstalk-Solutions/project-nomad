@@ -57,6 +57,18 @@ export class PersonaService {
   }
 
   /**
+   * Returns the system prompt plus any few-shot examples for this persona.
+   * Used by ollama_controller to inject example user/assistant pairs on
+   * the first turn of a conversation.
+   */
+  async getSystemPromptAndExamples(
+    key: PersonaKey | string
+  ): Promise<{ systemPrompt: string; examples: ReadonlyArray<{ user: string; assistant: string }> }> {
+    const merged = await this.getMerged(key)
+    return { systemPrompt: merged.systemPrompt, examples: merged.examples ?? [] }
+  }
+
+  /**
    * Upsert override fields. `undefined` leaves a field unchanged; `null`
    * clears the override and lets the built-in default surface again.
    * Returns the merged persona without a second round-trip.
@@ -91,6 +103,9 @@ export class PersonaService {
       label: override.label ?? base.label,
       description: override.description ?? base.description,
       systemPrompt: override.system_prompt ?? base.systemPrompt,
+      // Examples are built-in only (no override schema for them yet) — pass
+      // the base persona's array through so few-shot still works after edits.
+      examples: base.examples,
     }
   }
 }
