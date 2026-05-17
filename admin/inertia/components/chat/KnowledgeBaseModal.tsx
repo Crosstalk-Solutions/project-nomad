@@ -420,6 +420,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={() => { setResetTyped(''); setBulkMode('reset') }}
                   disabled={isUploading || qdrantOffline || bulkBusy}
                   loading={resetMutation.isPending}
+                  title="Drop the entire embeddings collection and re-embed everything from scratch. Permanently removes vectors for files no longer on disk. Destructive: requires typing RESET to confirm."
                 >
                   Reset & Rebuild
                 </StyledButton>
@@ -430,6 +431,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={() => setBulkMode('reembed')}
                   disabled={isUploading || qdrantOffline || bulkBusy || storedFiles.length === 0}
                   loading={reembedMutation.isPending}
+                  title="Re-embed every file on disk, replacing existing vectors file-by-file. Vectors for files no longer on disk are preserved. Use this if the chunker or embedding model has changed."
                 >
                   Re-embed All
                 </StyledButton>
@@ -440,6 +442,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={handleConfirmSync}
                   disabled={syncMutation.isPending || isUploading || qdrantOffline || bulkBusy}
                   loading={syncMutation.isPending || isUploading}
+                  title="Scan storage for new files and queue any that haven't been embedded yet. Safe to run anytime; won't touch already-embedded content."
                 >
                   Sync Storage
                 </StyledButton>
@@ -454,7 +457,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 </span>
               </div>
             )}
-            <StyledTable<{ source: string }>
+            <StyledTable<KbFileGroup>
               className="font-semibold"
               rowLines={true}
               columns={[
@@ -466,7 +469,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                     return (
                       <div className="flex flex-col gap-1">
                         <span className="text-text-primary">
-                          {sourceToDisplayName(record.source)}
+                          {record.displayName}
                         </span>
                         {warnings.map((w, i) => (
                           <span
