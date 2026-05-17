@@ -5,7 +5,7 @@ import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
-import { EmbedJobWithProgress, FileWarning } from '../../types/rag'
+import { EmbedJobWithProgress, FileWarningsResult } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -477,10 +477,8 @@ class API {
 
   async getKbFileWarnings() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ warnings: Record<string, FileWarning[]> }>(
-        '/rag/file-warnings'
-      )
-      return response.data.warnings
+      const response = await this.client.get<FileWarningsResult>('/rag/file-warnings')
+      return response.data
     })()
   }
 

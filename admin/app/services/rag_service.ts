@@ -19,7 +19,8 @@ import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
-import { decideWarnings, type FileWarning } from '../utils/kb_warning_decision.js'
+import { decideWarnings } from '../utils/kb_warning_decision.js'
+import type { FileWarning, FileWarningsResult } from '../../types/rag.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
@@ -1090,16 +1091,18 @@ export class RagService {
 
   /**
    * Compute conditional warnings (RFC #883 §6) for every source the scanner
-   * sees on disk. Returns a map from source path → list of warnings, with
-   * sources that have no warnings omitted entirely (so the frontend can
-   * `warningsBySource[source] ?? []` for clean defaults).
+   * sees on disk. Returns `{ ok, warnings }` — `ok: false` distinguishes a
+   * computation failure (Qdrant unreachable, DB outage, FS error) from the
+   * healthy-but-empty case, which is critical because the whole point of this
+   * surface is to expose silent failures; reporting "everything healthy" when
+   * we couldn't actually check would reintroduce the bug we set out to fix.
    *
    * Per-source chunk counts come from a single Qdrant scroll over the
    * collection's points; expected-chunk estimates come from the ratio
    * registry. Files in the scanner's directories that have no qdrant points
    * at all show up with `chunksInQdrant: 0` so Warning A can fire.
    */
-  public async computeFileWarnings(): Promise<Record<string, FileWarning[]>> {
+  public async computeFileWarnings(): Promise<FileWarningsResult> {
     try {
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
@@ -1165,10 +1168,10 @@ export class RagService {
         if (warnings.length > 0) out[source] = warnings
       }
 
-      return out
+      return { ok: true, warnings: out }
     } catch (error) {
       logger.error('[RAG] Error computing file warnings:', error)
-      return {}
+      return { ok: false, warnings: {} }
     }
   }
 

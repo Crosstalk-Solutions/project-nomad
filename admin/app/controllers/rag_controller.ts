@@ -69,8 +69,8 @@ export default class RagController {
   }
 
   public async getFileWarnings({ response }: HttpContext) {
-    const warnings = await this.ragService.computeFileWarnings()
-    return response.status(200).json({ warnings })
+    const result = await this.ragService.computeFileWarnings()
+    return response.status(200).json(result)
   }
 
   public async deleteFile({ request, response }: HttpContext) {
