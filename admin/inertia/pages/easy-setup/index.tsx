@@ -106,7 +106,7 @@ const ADDITIONAL_TOOLS: Capability[] = [
   },
 ]
 
-type WizardStep = 1 | 2 | 3 | 4
+type WizardStep = 1 | 2 | 3 | 4 | 5
 
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
@@ -198,6 +198,19 @@ export default function EasySetupWizard(props: {
 
   // Services that are already installed
   const installedServices = props.system.services.filter((service) => service.installed)
+
+  // Canonical "is AI part of this user's setup?" predicate (RFC #883 / issue #905).
+  // Single source consumed by step-indicator render, navigation skip logic, the
+  // review summary, and handleFinish. The AI step renders if and only if this
+  // is true; if false, the wizard collapses to 4 steps and the AI step is
+  // skipped on both forward and back nav.
+  const isAiInSetup = useMemo(
+    () =>
+      selectedServices.includes(SERVICE_NAMES.OLLAMA) ||
+      installedServices.some((s) => s.service_name === SERVICE_NAMES.OLLAMA) ||
+      remoteOllamaEnabled,
+    [selectedServices, installedServices, remoteOllamaEnabled]
+  )
 
   const toggleMapCollection = (slug: string) => {
     setSelectedMapCollections((prev) =>
@@ -313,24 +326,29 @@ export default function EasySetupWizard(props: {
   // Get primary disk/filesystem info for storage projection
   const storageInfo = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
 
+  // Final step number (4 when AI is off, 5 when AI is on). Centralizing this
+  // here so canProceedToNextStep / handleNext / handleBack / the bottom-bar
+  // Next-vs-Finish switch all read the same value.
+  const finalStep: WizardStep = isAiInSetup ? 5 : 4
+
   const canProceedToNextStep = () => {
     if (!isOnline) return false // Must be online to proceed
-    if (currentStep === 1) return true // Can skip app installation
-    if (currentStep === 2) return true // Can skip map downloads
-    if (currentStep === 3) return true // Can skip ZIM downloads
-    return false
+    // Every step before the review is skippable; the review step shows Finish, not Next.
+    return currentStep < finalStep
   }
 
   const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep((prev) => (prev + 1) as WizardStep)
-    }
+    if (currentStep >= finalStep) return
+    // Skip the AI step (4) on forward nav when isAiInSetup is false.
+    const next = currentStep === 3 && !isAiInSetup ? 5 : currentStep + 1
+    setCurrentStep(next as WizardStep)
   }
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as WizardStep)
-    }
+    if (currentStep <= 1) return
+    // Skip the AI step (4) on back nav when isAiInSetup is false.
+    const prev = currentStep === 5 && !isAiInSetup ? 3 : currentStep - 1
+    setCurrentStep(prev as WizardStep)
   }
 
   const handleFinish = async () => {
@@ -347,13 +365,11 @@ export default function EasySetupWizard(props: {
     try {
       // Persist the auto-index policy choice before kicking off downloads so
       // any content that finishes during this same wizard run sees the right
-      // policy. Skipped when the user did not select the AI capability — the
-      // KV stays null and the first-chat JIT prompt (#899) handles the
-      // decision later if/when the user enables AI.
-      const aiSelected =
-        selectedServices.includes(SERVICE_NAMES.OLLAMA) ||
-        installedServices.some((s) => s.service_name === SERVICE_NAMES.OLLAMA)
-      if (aiSelected) {
+      // policy. Skipped when AI is not in the user's setup; the KV stays null
+      // and the first-chat JIT prompt (#899) handles the decision later if/when
+      // the user enables AI. Uses the canonical isAiInSetup predicate so step
+      // 3 / step 4 / step 5 / handleFinish never disagree (issue #905).
+      if (isAiInSetup) {
         try {
           await api.updateSetting('rag.defaultIngestPolicy', ingestPolicy)
         } catch (err) {
@@ -454,12 +470,25 @@ export default function EasySetupWizard(props: {
   }, [])
 
   const renderStepIndicator = () => {
-    const steps = [
-      { number: 1, label: 'Apps' },
-      { number: 2, label: 'Maps' },
-      { number: 3, label: 'Content' },
-      { number: 4, label: 'Review' },
-    ]
+    // `step` is the stable WizardStep value (1=Apps, 2=Maps, 3=Content,
+    // 4=AI, 5=Review). `displayNumber` is the sequential position shown in
+    // the dot (always 1..N) so users see "1 2 3 4" when AI is off and
+    // "1 2 3 4 5" when AI is on, with no gap.
+    const baseSteps: Array<{ step: WizardStep; label: string }> = isAiInSetup
+      ? [
+          { step: 1, label: 'Apps' },
+          { step: 2, label: 'Maps' },
+          { step: 3, label: 'Content' },
+          { step: 4, label: 'AI' },
+          { step: 5, label: 'Review' },
+        ]
+      : [
+          { step: 1, label: 'Apps' },
+          { step: 2, label: 'Maps' },
+          { step: 3, label: 'Content' },
+          { step: 5, label: 'Review' },
+        ]
+    const steps = baseSteps.map((s, idx) => ({ ...s, displayNumber: idx + 1 }))
 
     return (
       <nav aria-label="Progress" className="px-6 pt-6">
@@ -468,8 +497,8 @@ export default function EasySetupWizard(props: {
           className="divide-y divide-border-default rounded-md md:flex md:divide-y-0 md:justify-between border border-desert-green"
         >
           {steps.map((step, stepIdx) => (
-            <li key={step.number} className="relative md:flex-1 md:flex md:justify-center">
-              {currentStep > step.number ? (
+            <li key={step.step} className="relative md:flex-1 md:flex md:justify-center">
+              {currentStep > step.step ? (
                 <div className="group flex w-full items-center md:justify-center">
                   <span className="flex items-center px-6 py-2 text-sm font-medium">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green">
@@ -478,13 +507,13 @@ export default function EasySetupWizard(props: {
                     <span className="ml-4 text-lg font-medium text-text-primary">{step.label}</span>
                   </span>
                 </div>
-              ) : currentStep === step.number ? (
+              ) : currentStep === step.step ? (
                 <div
                   aria-current="step"
                   className="flex items-center px-6 py-2 text-sm font-medium md:justify-center"
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green border-2 border-desert-green">
-                    <span className="text-white">{step.number}</span>
+                    <span className="text-white">{step.displayNumber}</span>
                   </span>
                   <span className="ml-4 text-lg font-medium text-desert-green">{step.label}</span>
                 </div>
@@ -492,7 +521,7 @@ export default function EasySetupWizard(props: {
                 <div className="group flex items-center md:justify-center">
                   <span className="flex items-center px-6 py-2 text-sm font-medium">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border-default">
-                      <span className="text-text-muted">{step.number}</span>
+                      <span className="text-text-muted">{step.displayNumber}</span>
                     </span>
                     <span className="ml-4 text-lg font-medium text-text-muted">{step.label}</span>
                   </span>
@@ -510,7 +539,7 @@ export default function EasySetupWizard(props: {
                       fill="none"
                       viewBox="0 0 22 80"
                       preserveAspectRatio="none"
-                      className={`size-full ${currentStep > step.number ? 'text-desert-green' : 'text-text-muted'}`}
+                      className={`size-full ${currentStep > step.step ? 'text-desert-green' : 'text-text-muted'}`}
                     >
                       <path
                         d="M0 -2L20 40L0 82"
@@ -554,6 +583,29 @@ export default function EasySetupWizard(props: {
     if (isCapabilityInstalled(capability)) return
 
     const isSelected = isCapabilitySelected(capability)
+
+    // Toggling AI off needs to clear dependent state that lives in the AI
+    // step (model picks, ingest policy, remote Ollama config). If the user
+    // has any of that filled in, confirm before discarding so a stray click
+    // doesn't quietly wipe their setup.
+    if (capability.id === 'ai' && isSelected) {
+      const hasAiSelections =
+        selectedAiModels.length > 0 ||
+        ingestPolicy !== 'Always' ||
+        remoteOllamaEnabled
+      if (hasAiSelections) {
+        const confirmed = window.confirm(
+          "Turning off AI will discard your AI model picks, indexing policy, and remote Ollama configuration. Continue?"
+        )
+        if (!confirmed) return
+      }
+      setSelectedAiModels([])
+      setIngestPolicy('Always')
+      setRemoteOllamaEnabled(false)
+      setRemoteOllamaUrl('')
+      setRemoteOllamaUrlError(null)
+    }
+
     if (isSelected) {
       // Deselect all services in this capability
       setSelectedServices((prev) => prev.filter((s) => !capability.services.includes(s)))
@@ -835,10 +887,11 @@ export default function EasySetupWizard(props: {
   )
 
   const renderStep3 = () => {
-    // Check if AI or Information capabilities are selected OR already installed
-    const isAiSelected = selectedServices.includes(SERVICE_NAMES.OLLAMA) ||
-      installedServices.some((s) => s.service_name === SERVICE_NAMES.OLLAMA)
-    const isInformationSelected = selectedServices.includes(SERVICE_NAMES.KIWIX) ||
+    // Issue #905: AI moved to its own conditional Step 4. Step 3 is now
+    // content-only (Wikipedia + curated tiers), gated on the Information
+    // capability (Kiwix).
+    const isInformationSelected =
+      selectedServices.includes(SERVICE_NAMES.KIWIX) ||
       installedServices.some((s) => s.service_name === SERVICE_NAMES.KIWIX)
 
     return (
@@ -846,171 +899,29 @@ export default function EasySetupWizard(props: {
         <div className="text-center mb-6">
           <h2 className="text-3xl font-bold text-text-primary mb-2">Choose Content</h2>
           <p className="text-text-secondary">
-            {isAiSelected && isInformationSelected
-              ? 'Select AI models and content categories for offline use.'
-              : isAiSelected
-                ? 'Select AI models to download for offline use.'
-                : isInformationSelected
-                  ? 'Select content categories for offline knowledge.'
-                  : 'Configure content for your selected capabilities.'}
+            {isInformationSelected
+              ? 'Select content categories for offline knowledge.'
+              : 'Configure content for your selected capabilities.'}
           </p>
         </div>
 
-        {/* AI Model Selection - Only show if AI capability is selected */}
-        {isAiSelected && (
+        {/* Wikipedia Selection - Only show if Information capability is selected */}
+        {isInformationSelected && (
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-surface-primary border border-border-subtle flex items-center justify-center shadow-sm">
-                <IconCpu className="w-6 h-6 text-text-primary" />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-text-primary">AI Models</h3>
-                <p className="text-sm text-text-muted">Select models to download for offline AI</p>
-              </div>
-            </div>
-            {remoteOllamaEnabled && remoteOllamaUrl ? (
-              <Alert
-                title="Remote Ollama selected"
-                message="Models are managed on the remote machine. You can add models from Settings > AI Assistant after setup, note this is only supported when using Ollama, not LM Studio and other OpenAI API software."
-                type="info"
-                variant="bordered"
-              />
-            ) : isLoadingRecommendedModels ? (
+            {isLoadingWikipedia ? (
               <div className="flex justify-center py-12">
                 <LoadingSpinner />
               </div>
-            ) : recommendedModels && recommendedModels.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {recommendedModels.map((model) => (
-                  <div
-                    key={model.name}
-                    onClick={() => isOnline && toggleAiModel(model.name)}
-                    className={classNames(
-                      'p-4 rounded-lg border-2 transition-all cursor-pointer',
-                      selectedAiModels.includes(model.name)
-                        ? 'border-desert-green bg-desert-green shadow-md'
-                        : 'border-desert-stone-light bg-surface-primary hover:border-desert-green hover:shadow-sm',
-                      !isOnline && 'opacity-50 cursor-not-allowed'
-                    )}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4
-                          className={classNames(
-                            'text-lg font-semibold mb-1',
-                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-primary'
-                          )}
-                        >
-                          {model.name}
-                        </h4>
-                        <p
-                          className={classNames(
-                            'text-sm mb-2',
-                            selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-secondary'
-                          )}
-                        >
-                          {model.description}
-                        </p>
-                        {model.tags?.[0]?.size && (
-                          <div
-                            className={classNames(
-                              'text-xs',
-                              selectedAiModels.includes(model.name)
-                                ? 'text-green-100'
-                                : 'text-text-muted'
-                            )}
-                          >
-                            Size: {model.tags[0].size}
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        className={classNames(
-                          'ml-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
-                          selectedAiModels.includes(model.name)
-                            ? 'border-white bg-white'
-                            : 'border-desert-stone'
-                        )}
-                      >
-                        {selectedAiModels.includes(model.name) && (
-                          <IconCheck size={16} className="text-desert-green" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-surface-secondary rounded-lg">
-                <p className="text-text-secondary">No recommended AI models available at this time.</p>
-              </div>
-            )}
-
-            {/* Auto-index policy — choose now so the JIT prompt at first chat
-                doesn't ask again (RFC #883 Phase 3 task 13). Persisted to
-                rag.defaultIngestPolicy on wizard submit. */}
-            <div className="mt-8 pt-6 border-t border-border-subtle">
-              <h4 className="text-lg font-semibold text-text-primary mb-1">
-                Auto-index new content for {aiAssistantName}?
-              </h4>
-              <p className="text-sm text-text-muted mb-4">
-                When you add new ZIMs, documents, or curated content, should {aiAssistantName} index them automatically so it can search them while answering your questions?
-              </p>
-              <div className="inline-flex rounded-md border border-border-default overflow-hidden" role="group">
-                <button
-                  type="button"
-                  onClick={() => setIngestPolicy('Always')}
-                  className={classNames(
-                    'px-5 py-2 text-sm font-medium transition-colors',
-                    ingestPolicy === 'Always'
-                      ? 'bg-desert-green text-white'
-                      : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
-                  )}
-                >
-                  Yes, always
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIngestPolicy('Manual')}
-                  className={classNames(
-                    'px-5 py-2 text-sm font-medium transition-colors border-l border-border-default',
-                    ingestPolicy === 'Manual'
-                      ? 'bg-desert-green text-white'
-                      : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
-                  )}
-                >
-                  Ask me first
-                </button>
-              </div>
-              <p className="text-xs text-text-muted mt-3">
-                You can change this any time from the Knowledge Base panel inside AI Chat.
-              </p>
-            </div>
+            ) : wikipediaState && wikipediaState.options.length > 0 ? (
+              <WikipediaSelector
+                options={wikipediaState.options}
+                currentSelection={wikipediaState.currentSelection}
+                selectedOptionId={selectedWikipedia}
+                onSelect={(optionId) => isOnline && setSelectedWikipedia(optionId)}
+                disabled={!isOnline}
+              />
+            ) : null}
           </div>
-        )}
-
-        {/* Wikipedia Selection - Only show if Information capability is selected */}
-        {isInformationSelected && (
-          <>
-            {/* Divider between AI Models and Wikipedia */}
-            {isAiSelected && <hr className="my-8 border-border-subtle" />}
-
-            <div className="mb-8">
-              {isLoadingWikipedia ? (
-                <div className="flex justify-center py-12">
-                  <LoadingSpinner />
-                </div>
-              ) : wikipediaState && wikipediaState.options.length > 0 ? (
-                <WikipediaSelector
-                  options={wikipediaState.options}
-                  currentSelection={wikipediaState.currentSelection}
-                  selectedOptionId={selectedWikipedia}
-                  onSelect={(optionId) => isOnline && setSelectedWikipedia(optionId)}
-                  disabled={!isOnline}
-                />
-              ) : null}
-            </div>
-          </>
         )}
 
         {/* Curated Categories with Tiers - Only show if Information capability is selected */}
@@ -1064,8 +975,8 @@ export default function EasySetupWizard(props: {
           </>
         )}
 
-        {/* Show message if no capabilities requiring content are selected */}
-        {!isAiSelected && !isInformationSelected && (
+        {/* Show message if no content-bearing capabilities are selected */}
+        {!isInformationSelected && (
           <div className="text-center py-12">
             <p className="text-text-secondary text-lg">
               No content-based capabilities selected. You can skip this step or go back to select
@@ -1078,6 +989,149 @@ export default function EasySetupWizard(props: {
   }
 
   const renderStep4 = () => {
+    // AI step (issue #905). Only rendered when isAiInSetup is true; otherwise
+    // the wizard's step array drops it and forward/back nav jumps Content → Review.
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-text-primary mb-2">Configure {aiAssistantName}</h2>
+          <p className="text-text-secondary">
+            Choose models to download and set how {aiAssistantName} handles new content.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-surface-primary border border-border-subtle flex items-center justify-center shadow-sm">
+            <IconCpu className="w-6 h-6 text-text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-text-primary">AI Models</h3>
+            <p className="text-sm text-text-muted">Select models to download for offline AI</p>
+          </div>
+        </div>
+        {remoteOllamaEnabled && remoteOllamaUrl ? (
+          <Alert
+            title="Remote Ollama selected"
+            message="Models are managed on the remote machine. You can add models from Settings > AI Assistant after setup, note this is only supported when using Ollama, not LM Studio and other OpenAI API software."
+            type="info"
+            variant="bordered"
+          />
+        ) : isLoadingRecommendedModels ? (
+          <div className="flex justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        ) : recommendedModels && recommendedModels.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {recommendedModels.map((model) => (
+              <div
+                key={model.name}
+                onClick={() => isOnline && toggleAiModel(model.name)}
+                className={classNames(
+                  'p-4 rounded-lg border-2 transition-all cursor-pointer',
+                  selectedAiModels.includes(model.name)
+                    ? 'border-desert-green bg-desert-green shadow-md'
+                    : 'border-desert-stone-light bg-surface-primary hover:border-desert-green hover:shadow-sm',
+                  !isOnline && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4
+                      className={classNames(
+                        'text-lg font-semibold mb-1',
+                        selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-primary'
+                      )}
+                    >
+                      {model.name}
+                    </h4>
+                    <p
+                      className={classNames(
+                        'text-sm mb-2',
+                        selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-secondary'
+                      )}
+                    >
+                      {model.description}
+                    </p>
+                    {model.tags?.[0]?.size && (
+                      <div
+                        className={classNames(
+                          'text-xs',
+                          selectedAiModels.includes(model.name)
+                            ? 'text-green-100'
+                            : 'text-text-muted'
+                        )}
+                      >
+                        Size: {model.tags[0].size}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={classNames(
+                      'ml-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
+                      selectedAiModels.includes(model.name)
+                        ? 'border-white bg-white'
+                        : 'border-desert-stone'
+                    )}
+                  >
+                    {selectedAiModels.includes(model.name) && (
+                      <IconCheck size={16} className="text-desert-green" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-surface-secondary rounded-lg">
+            <p className="text-text-secondary">No recommended AI models available at this time.</p>
+          </div>
+        )}
+
+        {/* Auto-index policy — choose now so the JIT prompt at first chat
+            doesn't ask again (RFC #883 Phase 3 task 13). Persisted to
+            rag.defaultIngestPolicy on wizard submit. */}
+        <div className="mt-8 pt-6 border-t border-border-subtle">
+          <h4 className="text-lg font-semibold text-text-primary mb-1">
+            Auto-index new content for {aiAssistantName}?
+          </h4>
+          <p className="text-sm text-text-muted mb-4">
+            When you add new ZIMs, documents, or curated content, should {aiAssistantName} index them automatically so it can search them while answering your questions?
+          </p>
+          <div className="inline-flex rounded-md border border-border-default overflow-hidden" role="group">
+            <button
+              type="button"
+              onClick={() => setIngestPolicy('Always')}
+              className={classNames(
+                'px-5 py-2 text-sm font-medium transition-colors',
+                ingestPolicy === 'Always'
+                  ? 'bg-desert-green text-white'
+                  : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
+              )}
+            >
+              Yes, always
+            </button>
+            <button
+              type="button"
+              onClick={() => setIngestPolicy('Manual')}
+              className={classNames(
+                'px-5 py-2 text-sm font-medium transition-colors border-l border-border-default',
+                ingestPolicy === 'Manual'
+                  ? 'bg-desert-green text-white'
+                  : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
+              )}
+            >
+              Ask me first
+            </button>
+          </div>
+          <p className="text-xs text-text-muted mt-3">
+            You can change this any time from the Knowledge Base panel inside AI Chat.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const renderStep5 = () => {
     const hasSelections =
       selectedServices.length > 0 ||
       selectedMapCollections.length > 0 ||
@@ -1222,7 +1276,7 @@ export default function EasySetupWizard(props: {
               </div>
             )}
 
-            {(selectedAiModels.length > 0 || remoteOllamaEnabled) && (
+            {isAiInSetup && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-2">
                   Auto-index Setting
@@ -1281,7 +1335,8 @@ export default function EasySetupWizard(props: {
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
-            {currentStep === 4 && renderStep4()}
+            {currentStep === 4 && isAiInSetup && renderStep4()}
+            {currentStep === 5 && renderStep5()}
 
             <div className="flex justify-between mt-8 pt-4 border-t border-desert-stone-light">
               <div className="flex space-x-4 items-center">
@@ -1319,7 +1374,7 @@ export default function EasySetupWizard(props: {
                   Cancel & Go to Home
                 </StyledButton>
 
-                {currentStep < 4 ? (
+                {currentStep < finalStep ? (
                   <StyledButton
                     onClick={handleNext}
                     disabled={!canProceedToNextStep() || isProcessing}
