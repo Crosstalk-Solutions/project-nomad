@@ -51,6 +51,37 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     select: (data) => data || [],
   })
 
+  // Global auto-index policy. KVStore returns `null` for an unset key, which
+  // we treat as 'Always' for backward compatibility with installs that predate
+  // this UI. The user can opt into Manual mode from the toggle below.
+  const { data: ingestPolicySetting } = useQuery({
+    queryKey: ['ingestPolicy'],
+    queryFn: () => api.getSetting('rag.defaultIngestPolicy'),
+  })
+  const ingestPolicy: 'Always' | 'Manual' =
+    ingestPolicySetting?.value === 'Manual' ? 'Manual' : 'Always'
+
+  const updateIngestPolicyMutation = useMutation({
+    mutationFn: (policy: 'Always' | 'Manual') =>
+      api.updateSetting('rag.defaultIngestPolicy', policy),
+    onSuccess: (_data, policy) => {
+      queryClient.invalidateQueries({ queryKey: ['ingestPolicy'] })
+      addNotification({
+        type: 'success',
+        message:
+          policy === 'Always'
+            ? 'New content will be auto-indexed for AI.'
+            : 'New content will wait for you to opt in.',
+      })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to update indexing policy.',
+      })
+    },
+  })
+
   const uploadMutation = useMutation({
     mutationFn: (file: File) => api.uploadDocument(file),
   })
@@ -307,6 +338,48 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               </div>
             </div>
           </div>
+          <div className="my-8 p-4 rounded-lg border border-border-subtle bg-surface-secondary">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex-1 min-w-[14rem]">
+                <p className="text-sm font-medium text-text-primary">
+                  Auto-index new content for AI?
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  Indexed content typically uses 5–10× the original file size on disk.
+                  Changes apply to new content added after this setting changes.
+                </p>
+              </div>
+              <div
+                role="radiogroup"
+                aria-label="Ingest policy"
+                className="inline-flex rounded-md overflow-hidden border border-border-subtle"
+              >
+                {(['Always', 'Manual'] as const).map((option) => {
+                  const isActive = ingestPolicy === option
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      onClick={() =>
+                        !isActive && updateIngestPolicyMutation.mutate(option)
+                      }
+                      disabled={updateIngestPolicyMutation.isPending}
+                      className={`px-4 py-2 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-desert-green text-white'
+                          : 'bg-surface-primary text-text-secondary hover:bg-surface-tertiary'
+                      } ${updateIngestPolicyMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {option}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
           <div className="my-8">
             <div className="flex items-center justify-between mb-4">
               <StyledSectionHeader title="Processing Queue" className="!mb-0" />
