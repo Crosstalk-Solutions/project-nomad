@@ -37,6 +37,7 @@ export default function KbPolicyPromptBanner() {
   const { data: promptState } = useQuery({
     queryKey: ['kbPolicyPromptState'],
     queryFn: () => api.getKbPolicyPromptState(),
+    staleTime: Infinity,
   })
 
   const indexNowMutation = useMutation({
@@ -71,6 +72,12 @@ export default function KbPolicyPromptBanner() {
       })
       queryClient.invalidateQueries({ queryKey: ['kbPolicyPromptState'] })
       queryClient.invalidateQueries({ queryKey: ['ingestPolicy'] })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Could not save your choice. Try again.',
+      })
     },
   })
 
