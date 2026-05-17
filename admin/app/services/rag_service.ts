@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
-import { decideScanAction } from '../utils/kb_ingest_decision.js'
+import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
@@ -1353,14 +1353,21 @@ export class RagService {
         (filePath) => determineFileType(filePath) !== 'unknown'
       )
 
+      // Read the global ingest policy. Unset is treated as 'Always' so legacy
+      // installs keep their current behavior until the user explicitly opts
+      // into Manual mode from the KB panel.
+      const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+      const policy: IngestPolicy = policyRaw === 'Manual' ? 'Manual' : 'Always'
+
       const filesToEmbed: string[] = []
       let backfilled = 0
       let createdRows = 0
+      let createdPending = 0
       let skipped = 0
 
       for (const filePath of embeddableFiles) {
         const stateRow = stateByPath.get(filePath) ?? null
-        const action = decideScanAction(stateRow, sourcesInQdrant.has(filePath))
+        const action = decideScanAction(stateRow, sourcesInQdrant.has(filePath), policy)
 
         switch (action.kind) {
           case 'skip':
@@ -1378,6 +1385,16 @@ export class RagService {
             })
             backfilled++
             break
+          case 'create_pending':
+            // Manual mode: record that we've seen the file but don't dispatch.
+            // The KB panel surfaces a per-card "Index" affordance for these.
+            await KbIngestState.create({
+              file_path: filePath,
+              state: 'pending_decision',
+              chunks_embedded: 0,
+            })
+            createdPending++
+            break
           case 'dispatch':
             if (action.createStateRow) {
               await KbIngestState.create({
@@ -1393,7 +1410,7 @@ export class RagService {
       }
 
       logger.info(
-        `[RAG] Scan results: ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${skipped} skipped`
+        `[RAG] Scan results (policy=${policy}): ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${createdPending} waiting on user, ${skipped} skipped`
       )
 
       if (filesToEmbed.length === 0) {
