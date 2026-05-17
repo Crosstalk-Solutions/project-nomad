@@ -45,3 +45,15 @@ export type RerankedRAGResult = Omit<RAGResult, 'keywords'> & {
 export type FileWarning =
   | { kind: 'zero_chunks'; fileSizeBytes: number }
   | { kind: 'partial_stall'; chunksEmbedded: number; chunksExpected: number }
+
+/**
+ * Result of computing per-file warnings. `ok: false` means the computation
+ * itself failed (Qdrant unreachable, DB outage, FS read error) — distinct from
+ * `ok: true` with an empty map, which means every scanned file is healthy.
+ * The frontend should surface a neutral "warnings unavailable" indicator on
+ * `!ok` rather than implying everything is fine.
+ */
+export type FileWarningsResult = {
+  ok: boolean
+  warnings: Record<string, FileWarning[]>
+}

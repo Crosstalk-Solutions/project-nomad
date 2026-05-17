@@ -51,15 +51,17 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     select: (data) => data || [],
   })
 
-  // Per-file conditional warnings (RFC #883 §6). Only sources with at least
-  // one triggered warning are returned, so an empty map means everything is
-  // healthy. Polled at the same idle cadence as health for low overhead.
-  const { data: fileWarnings = {} } = useQuery({
+  // Per-file conditional warnings (RFC #883 §6). `ok: false` means the
+  // computation itself failed (Qdrant/DB/FS) — distinct from `ok: true` with
+  // an empty map, which means everything is healthy. We surface the failure
+  // explicitly so a silent backend failure doesn't masquerade as health.
+  const { data: warningsResult } = useQuery({
     queryKey: ['kbFileWarnings'],
     queryFn: () => api.getKbFileWarnings(),
-    select: (data) => data ?? {},
     refetchInterval: 30_000,
   })
+  const fileWarnings = warningsResult?.warnings ?? {}
+  const warningsUnavailable = warningsResult !== undefined && warningsResult.ok === false
 
   // Global auto-index policy. KVStore returns `null` for an unset key, which
   // we treat as 'Always' for backward compatibility with installs that predate
@@ -444,7 +446,15 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
               </div>
             </div>
-            <StyledTable<KbFileGroup>
+            {warningsUnavailable && (
+              <div className="mb-4 inline-flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
+                <span aria-hidden="true">⚠</span>
+                <span>
+                  File warnings unavailable — couldn't read storage state. Retrying…
+                </span>
+              </div>
+            )}
+            <StyledTable<{ source: string }>
               className="font-semibold"
               rowLines={true}
               columns={[
