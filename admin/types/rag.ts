@@ -41,3 +41,7 @@ export type RAGResult = {
 export type RerankedRAGResult = Omit<RAGResult, 'keywords'> & {
   finalScore: number
 }
+
+export type FileWarning =
+  | { kind: 'zero_chunks'; fileSizeBytes: number }
+  | { kind: 'partial_stall'; chunksEmbedded: number; chunksExpected: number }
