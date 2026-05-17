@@ -12,9 +12,9 @@
  *                     stall (which the binary "any chunks ⇒ embedded" check
  *                     used to mask). Surfaces a Retry affordance.
  */
-export type FileWarning =
-  | { kind: 'zero_chunks'; fileSizeBytes: number }
-  | { kind: 'partial_stall'; chunksEmbedded: number; chunksExpected: number }
+import type { FileWarning } from '../../types/rag.js'
+
+export type { FileWarning }
 
 /** Files smaller than this are too small to flag as suspicious zero-chunk
  *  cases — a 5 KB upload that produces 0 chunks is much more likely to be a
