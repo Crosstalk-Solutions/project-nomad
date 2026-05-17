@@ -42,7 +42,7 @@ export default class extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table.string('pattern', 255).notNullable().unique()
-      table.decimal('chunks_per_mb', 10, 2).notNullable()
+      table.integer('chunks_per_mb').unsigned().notNullable()
       // 0 = heuristic seed, >0 = number of observed ZIMs that have updated this entry.
       // Phase 4 self-calibration increments this on each successful ingestion.
       table.integer('sample_count').notNullable().defaultTo(0)
