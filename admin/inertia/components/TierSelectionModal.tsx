@@ -74,7 +74,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
     [selectedTierResources]
   )
 
-  const { data: embedEstimate } = useQuery({
+  const { data: embedEstimate, isLoading: isEstimating } = useQuery({
     queryKey: ['embedEstimateBatch', embedEstimateRequest],
     queryFn: () => api.estimateEmbeddingBatch(embedEstimateRequest),
     enabled: embedEstimateRequest.length > 0,
@@ -158,6 +158,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   }
 
   return (
+    <>
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child
@@ -345,7 +346,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                     variant='primary'
                     size='lg'
                     onClick={handleSubmit}
-                    disabled={!localSelectedSlug}
+                    disabled={!localSelectedSlug || (embedEstimateRequest.length > 0 && isEstimating)}
                   >
                     Submit
                   </StyledButton>
@@ -355,18 +356,19 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
           </div>
         </div>
       </Dialog>
-      {guardrailVerdict && (
-        <KbGuardrailModal
-          isOpen={true}
-          verdict={guardrailVerdict}
-          onConfirm={() => {
-            setGuardrailVerdict(null)
-            finalizeSubmit()
-          }}
-          onCancel={() => setGuardrailVerdict(null)}
-        />
-      )}
     </Transition>
+    {guardrailVerdict && (
+      <KbGuardrailModal
+        isOpen={true}
+        verdict={guardrailVerdict}
+        onConfirm={() => {
+          setGuardrailVerdict(null)
+          finalizeSubmit()
+        }}
+        onCancel={() => setGuardrailVerdict(null)}
+      />
+    )}
+    </>
   )
 }
 
