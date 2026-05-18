@@ -86,7 +86,13 @@ export default class RagController {
     const { source, force } = await request.validateUsing(embedFileSchema)
     const result = await this.ragService.embedSingleFile(source, force ?? false)
     if (!result.success) {
-      return response.status(409).json({ error: result.message })
+      const status = {
+        not_found: 404,
+        inflight: 409,
+        delete_failed: 500,
+        dispatch_failed: 500,
+      }[result.code]
+      return response.status(status).json({ error: result.message, code: result.code })
     }
     return response.status(202).json({ message: result.message })
   }
