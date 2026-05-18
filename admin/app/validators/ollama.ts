@@ -14,6 +14,12 @@ export const chatSchema = vine.compile(
   })
 )
 
+export const unloadChatModelsSchema = vine.compile(
+  vine.object({
+    targetModel: vine.string().trim().minLength(1).nullable().optional(),
+  })
+)
+
 export const getAvailableModelsSchema = vine.compile(
   vine.object({
     sort: vine.enum(['pulls', 'name'] as const).optional(),

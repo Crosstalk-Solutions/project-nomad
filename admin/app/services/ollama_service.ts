@@ -594,6 +594,80 @@ export class OllamaService {
     }
   }
 
+  /**
+   * Embedding model name exempt from the chat-model unload sweep. Hardcoded
+   * to avoid a circular import with `RagService.EMBEDDING_MODEL`; keep in
+   * sync with that constant if it ever changes.
+   */
+  private static readonly EMBEDDING_MODEL_EXEMPT = 'nomic-embed-text:v1.5'
+
+  /**
+   * Enforces the "at most one chat model resident in VRAM" invariant by firing
+   * `keep_alive: 0` against every currently-loaded model except (a) the
+   * embedding model (always exempt) and (b) `targetModel` (the one we want
+   * loaded next — leaving it alone preserves a hot model when the target is
+   * already loaded).
+   *
+   * Best-effort: queries `/api/ps` and POSTs unload hints in parallel. Network
+   * or Ollama errors are swallowed and logged — neither chat nor page-load
+   * should fail just because the unload housekeeping didn't go through.
+   *
+   * Returns the list of model names that were sent the unload hint, so the
+   * caller (and tests) can confirm what actually happened.
+   *
+   * Pass `targetModel: null` to unload every chat model (used for the future
+   * "free up VRAM" path; not exposed yet but the helper supports it).
+   *
+   * Note that `keep_alive: 0` is a post-completion hint, not a force-kill —
+   * Ollama defers eviction until the runner is idle, so in-flight inference
+   * on the same model is never interrupted. See the design doc for the race
+   * analysis behind this.
+   */
+  public async unloadAllChatModelsExcept(targetModel: string | null): Promise<string[]> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return []
+
+    let loadedModels: string[] = []
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/ps`, { timeout: 5000 })
+      loadedModels = (response.data?.models ?? [])
+        .map((m: { name?: string }) => m.name)
+        .filter((name: unknown): name is string => typeof name === 'string')
+    } catch (err: any) {
+      logger.warn(
+        `[OllamaService] unloadAllChatModelsExcept: /api/ps unreachable, skipping unload sweep: ${err?.message ?? err}`
+      )
+      return []
+    }
+
+    const toUnload = loadedModels.filter(
+      (name) => name !== OllamaService.EMBEDDING_MODEL_EXEMPT && name !== targetModel
+    )
+
+    await Promise.all(
+      toUnload.map(async (modelName) => {
+        try {
+          await axios.post(
+            `${this.baseUrl}/api/generate`,
+            { model: modelName, prompt: '', keep_alive: 0 },
+            { timeout: 10000 }
+          )
+        } catch (err: any) {
+          logger.warn(
+            `[OllamaService] Failed to send unload hint for ${modelName}: ${err?.message ?? err}`
+          )
+        }
+      })
+    )
+
+    if (toUnload.length > 0) {
+      logger.info(
+        `[OllamaService] Sent unload hint for ${toUnload.length} chat model(s): ${toUnload.join(', ')}`
+      )
+    }
+    return toUnload
+  }
+
   public async getModels(includeEmbeddings = false): Promise<NomadInstalledModel[]> {
     await this._ensureDependencies()
     if (!this.baseUrl) {
