@@ -5,7 +5,7 @@ import { FileEntry } from '../../types/files'
 import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
-import { EmbedJobWithProgress, FileWarningsResult } from '../../types/rag'
+import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -470,8 +470,15 @@ class API {
 
   async getStoredRAGFiles() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ files: string[] }>('/rag/files')
+      const response = await this.client.get<{ files: StoredFileInfo[] }>('/rag/files')
       return response.data.files
+    })()
+  }
+
+  async embedSingleRAGFile(source: string, force: boolean = false) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/embed', { source, force })
+      return response.data
     })()
   }
 

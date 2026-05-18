@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
+import type { DynamicIconName } from '~/lib/icons'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledTable from '~/components/StyledTable'
 import { useNotifications } from '~/context/NotificationContext'
@@ -10,6 +11,7 @@ import {
   groupAndSortKbFiles,
   type KbFileGroup,
 } from '~/lib/kb_file_grouping'
+import type { KbIngestStateValue } from '../../../types/kb_ingest_state'
 import { IconX } from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
@@ -21,11 +23,82 @@ interface KnowledgeBaseModalProps {
   onClose: () => void
 }
 
+/**
+ * Compact label for the per-row ingestion state. Files that exist in Qdrant
+ * with no `kb_ingest_state` row (`state === null`) are legacy/pre-RFC-883
+ * installs whose chunks are real, so we display them as "Indexed" rather than
+ * surfacing the absent-row detail. Admin-docs group has no pill (the "Managed
+ * by NOMAD" message in the action column carries the same signal).
+ */
+function renderStatePill(record: KbFileGroup): React.ReactNode {
+  if (record.bucket === 'admin_docs') return null
+  const effective: KbIngestStateValue = record.state ?? 'indexed'
+
+  const base = 'inline-flex items-center text-xs font-medium rounded px-2 py-0.5 border'
+  switch (effective) {
+    case 'indexed':
+      return (
+        <span className={`${base} text-green-700 bg-green-50 border-green-200 dark:text-green-300 dark:bg-green-950/40 dark:border-green-800`}>
+          Indexed
+        </span>
+      )
+    case 'pending_decision':
+    case 'browse_only':
+      return (
+        <span className={`${base} text-text-secondary bg-surface-secondary border-border-subtle`}>
+          Not Indexed
+        </span>
+      )
+    case 'failed':
+      return (
+        <span className={`${base} text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-800`}>
+          Failed
+        </span>
+      )
+    case 'stalled':
+      return (
+        <span className={`${base} text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800`}>
+          Stalled
+        </span>
+      )
+  }
+}
+
+type RowAction =
+  | { kind: 'index'; label: string; force: boolean; variant: 'primary'; icon: DynamicIconName }
+  | { kind: 'reembed'; label: string; force: true; variant: 'secondary'; icon: DynamicIconName }
+
+/**
+ * Pick the single adaptive per-row action button. Returns null when no action
+ * makes sense for the current state (e.g. healthy indexed file with no
+ * warnings — bulk Re-embed All covers that case). `hasWarnings` lets us
+ * surface a Re-embed affordance specifically when a file *looks* indexed but
+ * has zero chunks or a stalled-mid-ingestion warning attached.
+ */
+function pickRowAction(record: KbFileGroup, hasWarnings: boolean): RowAction | null {
+  if (record.bucket === 'admin_docs') return null
+  const effective: KbIngestStateValue = record.state ?? 'indexed'
+  switch (effective) {
+    case 'indexed':
+      return hasWarnings
+        ? { kind: 'reembed', label: 'Re-embed', force: true, variant: 'secondary', icon: 'IconRefreshAlert' }
+        : null
+    case 'pending_decision':
+      return { kind: 'index', label: 'Index', force: false, variant: 'primary', icon: 'IconDownload' }
+    case 'browse_only':
+      return { kind: 'index', label: 'Index', force: true, variant: 'primary', icon: 'IconDownload' }
+    case 'failed':
+    case 'stalled':
+      return { kind: 'index', label: 'Retry', force: true, variant: 'primary', icon: 'IconRefresh' }
+  }
+}
+
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
+  const [confirmReembed, setConfirmReembed] = useState<{ source: string; displayName: string } | null>(null)
   const [bulkMode, setBulkMode] = useState<null | 'reembed' | 'reset'>(null)
   const [resetTyped, setResetTyped] = useState('')
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
@@ -108,6 +181,25 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onError: (error: any) => {
       addNotification({ type: 'error', message: error?.message || 'Failed to delete file.' })
       setConfirmDeleteSource(null)
+    },
+  })
+
+  const embedMutation = useMutation({
+    mutationFn: ({ source, force }: { source: string; force: boolean }) =>
+      api.embedSingleRAGFile(source, force),
+    onSuccess: (data) => {
+      addNotification({
+        type: 'success',
+        message: data?.message || 'File queued for embedding.',
+      })
+      setConfirmReembed(null)
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['kbFileWarnings'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to queue file.' })
+      setConfirmReembed(null)
     },
   })
 
@@ -454,7 +546,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 </span>
               </div>
             )}
-            <StyledTable<{ source: string }>
+            <StyledTable<KbFileGroup>
               className="font-semibold"
               rowLines={true}
               columns={[
@@ -463,32 +555,38 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   title: 'File Name',
                   render(record) {
                     const warnings = fileWarnings[record.source] ?? []
+                    const pill = renderStatePill(record)
                     return (
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5">
                         <span className="text-text-primary">
-                          {sourceToDisplayName(record.source)}
+                          {record.displayName}
                         </span>
-                        {warnings.map((w, i) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
-                          >
-                            <span aria-hidden="true">⚠</span>
-                            {w.kind === 'zero_chunks' && (
-                              <span>
-                                Embedded 0 chunks — this file has no text content.
-                                AI Assistant cannot reference it.
+                        {(pill || warnings.length > 0) && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {pill}
+                            {warnings.map((w, i) => (
+                              <span
+                                key={i}
+                                className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
+                              >
+                                <span aria-hidden="true">⚠</span>
+                                {w.kind === 'zero_chunks' && (
+                                  <span>
+                                    Embedded 0 chunks — this file has no text content.
+                                    AI Assistant cannot reference it.
+                                  </span>
+                                )}
+                                {w.kind === 'partial_stall' && (
+                                  <span>
+                                    Only {w.chunksEmbedded.toLocaleString()} of est.{' '}
+                                    {w.chunksExpected.toLocaleString()} chunks embedded —
+                                    ingestion may have stalled.
+                                  </span>
+                                )}
                               </span>
-                            )}
-                            {w.kind === 'partial_stall' && (
-                              <span>
-                                Only {w.chunksEmbedded.toLocaleString()} of est.{' '}
-                                {w.chunksExpected.toLocaleString()} chunks embedded —
-                                ingestion may have stalled.
-                              </span>
-                            )}
-                          </span>
-                        ))}
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )
                   },
@@ -535,14 +633,38 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                         </div>
                       )
                     }
+
+                    const warnings = fileWarnings[record.source] ?? []
+                    const action = pickRowAction(record, warnings.length > 0)
+                    const actionPendingForThisRow =
+                      embedMutation.isPending && embedMutation.variables?.source === record.source
+
                     return (
-                      <div className="flex justify-end">
+                      <div className="flex justify-end items-center gap-2">
+                        {action && (
+                          <StyledButton
+                            variant={action.variant}
+                            size="sm"
+                            icon={action.icon}
+                            onClick={() => {
+                              if (action.kind === 'reembed') {
+                                setConfirmReembed({ source: record.source, displayName: record.displayName })
+                              } else {
+                                embedMutation.mutate({ source: record.source, force: action.force })
+                              }
+                            }}
+                            disabled={qdrantOffline || deleteMutation.isPending || embedMutation.isPending}
+                            loading={actionPendingForThisRow}
+                          >
+                            {action.label}
+                          </StyledButton>
+                        )}
                         <StyledButton
                           variant="danger"
                           size="sm"
                           icon="IconTrash"
                           onClick={() => setConfirmDeleteSource(record.source)}
-                          disabled={deleteMutation.isPending}
+                          disabled={deleteMutation.isPending || embedMutation.isPending}
                           loading={deleteMutation.isPending && confirmDeleteSource === record.source}
                         >Delete</StyledButton>
                       </div>
@@ -647,6 +769,37 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               {resetTyped.length > 0 && resetTyped !== 'RESET' && (
                 <p className='text-xs text-red-600 mt-1'>Type RESET exactly (uppercase, no spaces) to enable the confirm button.</p>
               )}
+            </div>
+          </div>
+        </StyledModal>
+      )}
+
+      {confirmReembed && (
+        <StyledModal
+          title='Re-embed this file?'
+          open={true}
+          confirmText={embedMutation.isPending ? 'Queuing…' : 'Re-embed'}
+          cancelText='Cancel'
+          confirmVariant='primary'
+          confirmLoading={embedMutation.isPending}
+          onConfirm={() =>
+            embedMutation.mutate({ source: confirmReembed.source, force: true })
+          }
+          onCancel={() => setConfirmReembed(null)}
+        >
+          <div className='text-text-primary text-sm space-y-3 text-left'>
+            <p>
+              This will delete the existing embeddings for{' '}
+              <strong>{confirmReembed.displayName}</strong> and queue
+              a fresh embedding job. The file on disk is not touched.
+            </p>
+            <div className='rounded border border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 p-3 text-amber-900 dark:text-amber-200'>
+              <p className='font-semibold mb-1'>Heads up</p>
+              <ul className='list-disc pl-5 space-y-1'>
+                <li>For large ZIM archives this can take a long time, especially on CPU-only systems.</li>
+                <li>Search results that referenced this file will be incomplete until the new embedding finishes.</li>
+                <li>If a job for this file is already running, the re-embed will be refused — wait for it to finish first.</li>
+              </ul>
             </div>
           </div>
         </StyledModal>

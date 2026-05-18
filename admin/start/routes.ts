@@ -143,6 +143,7 @@ router
     router.get('/files', [RagController, 'getStoredFiles'])
     router.get('/file-warnings', [RagController, 'getFileWarnings'])
     router.delete('/files', [RagController, 'deleteFile'])
+    router.post('/files/embed', [RagController, 'embedFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
     router.get('/failed-jobs', [RagController, 'getFailedJobs'])
     router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
