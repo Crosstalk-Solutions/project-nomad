@@ -118,6 +118,7 @@ router
     router.post('/models', [OllamaController, 'dispatchModelDownload'])
     router.delete('/models', [OllamaController, 'deleteModel'])
     router.get('/installed-models', [OllamaController, 'installedModels'])
+    router.post('/unload-chat-models', [OllamaController, 'unloadChatModels'])
     router.post('/configure-remote', [OllamaController, 'configureRemote'])
     router.get('/remote-status', [OllamaController, 'remoteStatus'])
   })

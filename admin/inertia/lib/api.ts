@@ -272,6 +272,24 @@ class API {
     })()
   }
 
+  /**
+   * Ask the backend to send Ollama `keep_alive: 0` to every currently-loaded
+   * chat model except `targetModel` (and the embedding model, which is always
+   * exempt server-side). Fire-and-forget — the chat UI doesn't await this
+   * before creating a new session, since unload is housekeeping.
+   *
+   * Pass `null` to unload every chat model.
+   */
+  async unloadChatModels(targetModel: string | null) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ unloaded: string[] }>(
+        '/ollama/unload-chat-models',
+        { targetModel }
+      )
+      return response.data
+    })()
+  }
+
   async getAvailableModels(params: { query?: string; recommendedOnly?: boolean; limit?: number; force?: boolean }) {
     return catchInternal(async () => {
       const response = await this.client.get<{

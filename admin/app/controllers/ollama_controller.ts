@@ -5,7 +5,7 @@ import { RagService } from '#services/rag_service'
 import Service from '#models/service'
 import KVStore from '#models/kv_store'
 import { modelNameSchema } from '#validators/download'
-import { chatSchema, getAvailableModelsSchema } from '#validators/ollama'
+import { chatSchema, getAvailableModelsSchema, unloadChatModelsSchema } from '#validators/ollama'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
@@ -31,6 +31,19 @@ export default class OllamaController {
       limit: reqData.limit || 15,
       force: reqData.force,
     })
+  }
+
+  /**
+   * Send Ollama `keep_alive: 0` hints to every currently-loaded chat model
+   * except the embedding model and (optionally) a target model to preserve.
+   * Used by the chat UI to enforce the "one chat model at a time" invariant
+   * on model-switch, session-switch, and page-load. Best-effort: a failure
+   * here should not block the calling flow.
+   */
+  async unloadChatModels({ request, response }: HttpContext) {
+    const { targetModel } = await request.validateUsing(unloadChatModelsSchema)
+    const unloaded = await this.ollamaService.unloadAllChatModelsExcept(targetModel ?? null)
+    return response.status(200).json({ unloaded })
   }
 
   async chat({ request, response }: HttpContext) {
