@@ -7,7 +7,7 @@ import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
 import { basename } from 'node:path'
-import { deleteFileSchema, estimateBatchSchema, getJobStatusSchema } from '#validators/rag'
+import { deleteFileSchema, embedFileSchema, estimateBatchSchema, getJobStatusSchema } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
@@ -80,6 +80,15 @@ export default class RagController {
       return response.status(500).json({ error: result.message })
     }
     return response.status(200).json({ message: result.message })
+  }
+
+  public async embedFile({ request, response }: HttpContext) {
+    const { source, force } = await request.validateUsing(embedFileSchema)
+    const result = await this.ragService.embedSingleFile(source, force ?? false)
+    if (!result.success) {
+      return response.status(409).json({ error: result.message })
+    }
+    return response.status(202).json({ message: result.message })
   }
 
   public async getFailedJobs({ response }: HttpContext) {
