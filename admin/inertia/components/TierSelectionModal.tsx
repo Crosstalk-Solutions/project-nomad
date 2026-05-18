@@ -96,6 +96,18 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
   // underneath. Cancel returns to the tier modal as-is; Proceed closes both
   // and runs the original onSelectTier path.
   const [guardrailVerdict, setGuardrailVerdict] = useState<GuardrailVerdict | null>(null)
+
+  // Compute disk-free bytes from system info; 0 means "unknown", which the
+  // guardrail helper treats as "skip the relative-disk check".
+  // Must be declared before the `!category` early return so the hook count
+  // stays constant across renders (category transitions null → non-null when
+  // the user opens the modal).
+  const freeBytes = useMemo<number>(() => {
+    const primary = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
+    if (!primary) return 0
+    return Math.max(0, primary.totalSize - primary.totalUsed)
+  }, [systemInfo])
+
   const ingestPolicy: 'Always' | 'Manual' =
     ingestPolicySetting?.value === 'Manual' ? 'Manual' : 'Always'
 
@@ -113,14 +125,6 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
       setLocalSelectedSlug(tier.slug)
     }
   }
-
-  // Compute disk-free bytes from system info; 0 means "unknown", which the
-  // guardrail helper treats as "skip the relative-disk check".
-  const freeBytes = useMemo<number>(() => {
-    const primary = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
-    if (!primary) return 0
-    return Math.max(0, primary.totalSize - primary.totalUsed)
-  }, [systemInfo])
 
   /**
    * Runs the original onSelectTier-then-onClose flow. Pulled out of
