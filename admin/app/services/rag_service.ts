@@ -26,6 +26,16 @@ import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
 
+export type EmbedSingleFileFailureCode =
+  | 'not_found'
+  | 'inflight'
+  | 'delete_failed'
+  | 'dispatch_failed'
+
+export type EmbedSingleFileResult =
+  | { success: true; message: string }
+  | { success: false; code: EmbedSingleFileFailureCode; message: string }
+
 @inject()
 export class RagService {
   private qdrant: QdrantClient | null = null
@@ -1430,13 +1440,14 @@ export class RagService {
   public async embedSingleFile(
     source: string,
     force: boolean = false
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<EmbedSingleFileResult> {
     const stateRow = await KbIngestState.query().where('file_path', source).first()
     if (!stateRow) {
       const knownFiles = await this._discoverKbFiles()
       if (!knownFiles.includes(source)) {
         return {
           success: false,
+          code: 'not_found',
           message: 'File is not a tracked knowledge-base source.',
         }
       }
@@ -1449,6 +1460,7 @@ export class RagService {
     if (inflight.some((j) => j.data?.filePath === source)) {
       return {
         success: false,
+        code: 'inflight',
         message: 'A job for this file is already in progress. Wait for it to finish before re-queuing.',
       }
     }
@@ -1460,6 +1472,7 @@ export class RagService {
         logger.error(`[RAG] Failed to delete prior points for ${source}; aborting re-embed:`, err)
         return {
           success: false,
+          code: 'delete_failed',
           message: 'Failed to clear prior embeddings before re-embed.',
         }
       }
@@ -1469,6 +1482,7 @@ export class RagService {
     if (result.failedPaths.length > 0) {
       return {
         success: false,
+        code: 'dispatch_failed',
         message: 'Failed to dispatch embed job for this file.',
       }
     }
