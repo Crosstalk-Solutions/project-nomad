@@ -1,9 +1,12 @@
+import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
+import type { StoredFileInfo } from '../../types/rag.js'
+
 /**
- * Knowledge-base files come back as a flat list of source paths from
- * `/api/rag/files`. The UI groups them so the user sees the categories that
- * matter to them — ZIMs, uploaded documents, and a single rolled-up entry for
- * Project NOMAD's bundled docs (rather than the 12+ individual markdown files
- * those break into).
+ * Knowledge-base files come back as a list of `{source, state, chunksEmbedded}`
+ * objects from `/api/rag/files`. The UI groups them so the user sees the
+ * categories that matter to them — ZIMs, uploaded documents, and a single
+ * rolled-up entry for Project NOMAD's bundled docs (rather than the 12+
+ * individual markdown files those break into).
  *
  * Bucket assignment is purely by path prefix; matching is done on `/` so the
  * server-emitted absolute paths work regardless of which Linux mount the admin
@@ -43,27 +46,33 @@ export interface KbFileGroup {
   count: number
   /** All member source paths — populated for collapsed groups, empty otherwise. */
   members: string[]
+  /** Per-file ingestion state. `null` for the collapsed admin_docs group and
+   * for any source that exists in Qdrant but has no state row yet. */
+  state: KbIngestStateValue | null
+  /** Chunks currently embedded for this source; 0 for state-row-less or
+   * zero-chunk files. Always 0 for the collapsed admin_docs group. */
+  chunksEmbedded: number
 }
 
 const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'admin_docs', 'other']
 
 /**
- * Group raw source paths into rows for the Stored Files table.
+ * Group stored-file rows into table rows for the Stored Files panel.
  *
  * - Admin docs (`/app/docs/*`, README) collapse into a single
  *   "Project NOMAD documentation · N files" row.
  * - ZIMs, uploads, and others stay as individual rows, sorted by bucket then
  *   alphabetically by filename so related items cluster naturally.
  */
-export function groupAndSortKbFiles(sources: string[]): KbFileGroup[] {
-  const buckets: Record<KbFileBucket, string[]> = {
+export function groupAndSortKbFiles(files: StoredFileInfo[]): KbFileGroup[] {
+  const buckets: Record<KbFileBucket, StoredFileInfo[]> = {
     zim: [],
     upload: [],
     admin_docs: [],
     other: [],
   }
-  for (const source of sources) {
-    buckets[classifyKbFile(source)].push(source)
+  for (const file of files) {
+    buckets[classifyKbFile(file.source)].push(file)
   }
 
   const groups: KbFileGroup[] = []
@@ -78,20 +87,24 @@ export function groupAndSortKbFiles(sources: string[]): KbFileGroup[] {
         source: '__admin_docs_group__',
         displayName: `Project NOMAD documentation · ${members.length} file${members.length === 1 ? '' : 's'}`,
         count: members.length,
-        members,
+        members: members.map((m) => m.source),
+        state: null,
+        chunksEmbedded: 0,
       })
       continue
     }
 
-    for (const source of members.sort((a, b) =>
-      sourceToDisplayName(a).localeCompare(sourceToDisplayName(b))
+    for (const file of members.sort((a, b) =>
+      sourceToDisplayName(a.source).localeCompare(sourceToDisplayName(b.source))
     )) {
       groups.push({
         bucket,
-        source,
-        displayName: sourceToDisplayName(source),
+        source: file.source,
+        displayName: sourceToDisplayName(file.source),
         count: 1,
         members: [],
+        state: file.state,
+        chunksEmbedded: file.chunksEmbedded,
       })
     }
   }

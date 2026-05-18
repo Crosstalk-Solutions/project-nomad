@@ -20,7 +20,8 @@ import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
-import type { FileWarning, FileWarningsResult } from '../../types/rag.js'
+import type { FileWarning, FileWarningsResult, StoredFileInfo } from '../../types/rag.js'
+import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
@@ -1051,7 +1052,7 @@ export class RagService {
     }
   }
 
-  public async getStoredFiles(): Promise<string[]> {
+  public async getStoredFiles(): Promise<StoredFileInfo[]> {
     try {
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
@@ -1090,10 +1091,15 @@ export class RagService {
       // in particular) have no row to attach to. The state machine is the
       // authoritative "what's on disk?" view; Qdrant is "what made it into
       // the vector store?". Both are needed to render the KB UI honestly.
+      const stateByPath = new Map<string, { state: KbIngestStateValue; chunks_embedded: number }>()
       try {
-        const stateRows = await KbIngestState.query().select('file_path')
+        const stateRows = await KbIngestState.query().select('file_path', 'state', 'chunks_embedded')
         for (const row of stateRows) {
           sources.add(row.file_path)
+          stateByPath.set(row.file_path, {
+            state: row.state,
+            chunks_embedded: row.chunks_embedded,
+          })
         }
       } catch (error) {
         // Non-fatal: if the state machine query fails for any reason we'd
@@ -1104,7 +1110,14 @@ export class RagService {
         )
       }
 
-      return Array.from(sources)
+      return Array.from(sources).map((source) => {
+        const row = stateByPath.get(source)
+        return {
+          source,
+          state: row?.state ?? null,
+          chunksEmbedded: row?.chunks_embedded ?? 0,
+        }
+      })
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
@@ -1399,6 +1412,70 @@ export class RagService {
       }
     }
     return { queuedCount, dedupedCount, failedPaths }
+  }
+
+  /**
+   * Dispatch an embed job for a single stored file. Wraps `_dispatchEmbedJobsFor`
+   * with the safety checks needed for a user-triggered per-row action:
+   *   1. The source must be known to the scanner OR have a state row — prevents
+   *      arbitrary path dispatch from the public API.
+   *   2. We refuse if any inflight job (waiting/active/delayed/paused) already
+   *      targets this filePath. Otherwise a double-click or a rapid retry could
+   *      enqueue duplicate jobs, producing duplicate chunks.
+   *   3. When `force` is true (Re-embed of an already-indexed file), we
+   *      pre-delete the prior Qdrant points so the new run doesn't stack on
+   *      top of the old ones. For force=false (Index of a never-embedded file),
+   *      there's nothing to clear.
+   */
+  public async embedSingleFile(
+    source: string,
+    force: boolean = false
+  ): Promise<{ success: boolean; message: string }> {
+    const stateRow = await KbIngestState.query().where('file_path', source).first()
+    if (!stateRow) {
+      const knownFiles = await this._discoverKbFiles()
+      if (!knownFiles.includes(source)) {
+        return {
+          success: false,
+          message: 'File is not a tracked knowledge-base source.',
+        }
+      }
+    }
+
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    const { QueueService } = await import('#services/queue_service')
+    const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+    const inflight = await queue.getJobs(['waiting', 'active', 'delayed', 'paused'])
+    if (inflight.some((j) => j.data?.filePath === source)) {
+      return {
+        success: false,
+        message: 'A job for this file is already in progress. Wait for it to finish before re-queuing.',
+      }
+    }
+
+    if (force) {
+      try {
+        await this._deletePointsBySource(source)
+      } catch (err) {
+        logger.error(`[RAG] Failed to delete prior points for ${source}; aborting re-embed:`, err)
+        return {
+          success: false,
+          message: 'Failed to clear prior embeddings before re-embed.',
+        }
+      }
+    }
+
+    const result = await this._dispatchEmbedJobsFor([source], { force })
+    if (result.failedPaths.length > 0) {
+      return {
+        success: false,
+        message: 'Failed to dispatch embed job for this file.',
+      }
+    }
+    return {
+      success: true,
+      message: force ? 'Re-embed queued for this file.' : 'Indexing queued for this file.',
+    }
   }
 
   /**

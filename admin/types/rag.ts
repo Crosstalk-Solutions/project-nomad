@@ -47,6 +47,18 @@ export type FileWarning =
   | { kind: 'partial_stall'; chunksEmbedded: number; chunksExpected: number }
 
 /**
+ * Row returned by `GET /api/rag/files`. `state` is null for sources that exist
+ * in Qdrant but have no `kb_ingest_state` row (pre-RFC-883 installs where the
+ * scanner hasn't yet backfilled). `chunksEmbedded` mirrors the state-machine
+ * field; 0 for state-row-less or zero-chunk files.
+ */
+export type StoredFileInfo = {
+  source: string
+  state: import('./kb_ingest_state.js').KbIngestStateValue | null
+  chunksEmbedded: number
+}
+
+/**
  * Result of computing per-file warnings. `ok: false` means the computation
  * itself failed (Qdrant unreachable, DB outage, FS read error) — distinct from
  * `ok: true` with an empty map, which means every scanned file is healthy.

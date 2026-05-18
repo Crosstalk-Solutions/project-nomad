@@ -6,6 +6,14 @@ import {
   groupAndSortKbFiles,
   sourceToDisplayName,
 } from '../../inertia/lib/kb_file_grouping.js'
+import type { StoredFileInfo } from '../../types/rag.js'
+
+/** Wrap source paths into the minimal StoredFileInfo shape that
+ * `groupAndSortKbFiles` now expects. State + chunk count are irrelevant to
+ * grouping/sorting behavior; the per-file state-pill rendering is exercised
+ * separately in the modal's component tests (added in the follow-up PR). */
+const asInfos = (sources: string[]): StoredFileInfo[] =>
+  sources.map((source) => ({ source, state: null, chunksEmbedded: 0 }))
 
 test('classifyKbFile distinguishes ZIM, upload, admin_docs, and other', () => {
   assert.equal(
@@ -34,12 +42,12 @@ test('sourceToDisplayName returns the basename', () => {
 })
 
 test('groupAndSortKbFiles collapses all admin docs into a single row', () => {
-  const groups = groupAndSortKbFiles([
+  const groups = groupAndSortKbFiles(asInfos([
     '/app/docs/release-notes.md',
     '/app/docs/getting-started.md',
     '/app/docs/maps.md',
     '/app/README.md',
-  ])
+  ]))
 
   assert.equal(groups.length, 1)
   assert.equal(groups[0].bucket, 'admin_docs')
@@ -54,12 +62,12 @@ test('groupAndSortKbFiles collapses all admin docs into a single row', () => {
 })
 
 test('groupAndSortKbFiles orders buckets ZIM → upload → admin_docs → other', () => {
-  const groups = groupAndSortKbFiles([
+  const groups = groupAndSortKbFiles(asInfos([
     '/app/docs/release-notes.md',
     '/unexpected/foo.txt',
     '/app/storage/kb_uploads/upload.pdf',
     '/app/storage/zim/devdocs.zim',
-  ])
+  ]))
 
   assert.deepEqual(
     groups.map((g) => g.bucket),
@@ -68,11 +76,11 @@ test('groupAndSortKbFiles orders buckets ZIM → upload → admin_docs → other
 })
 
 test('groupAndSortKbFiles alphabetizes within a bucket', () => {
-  const groups = groupAndSortKbFiles([
+  const groups = groupAndSortKbFiles(asInfos([
     '/app/storage/zim/wikipedia.zim',
     '/app/storage/zim/devdocs.zim',
     '/app/storage/zim/ifixit.zim',
-  ])
+  ]))
 
   assert.deepEqual(
     groups.map((g) => g.displayName),
@@ -81,7 +89,7 @@ test('groupAndSortKbFiles alphabetizes within a bucket', () => {
 })
 
 test('groupAndSortKbFiles uses singular noun when only one admin doc exists', () => {
-  const groups = groupAndSortKbFiles(['/app/docs/release-notes.md'])
+  const groups = groupAndSortKbFiles(asInfos(['/app/docs/release-notes.md']))
   assert.equal(groups[0].displayName, 'Project NOMAD documentation · 1 file')
 })
 
@@ -90,10 +98,10 @@ test('groupAndSortKbFiles handles empty input', () => {
 })
 
 test('groupAndSortKbFiles preserves a stable synthetic key for the admin docs group', () => {
-  const groups = groupAndSortKbFiles([
+  const groups = groupAndSortKbFiles(asInfos([
     '/app/docs/release-notes.md',
     '/app/docs/maps.md',
-  ])
+  ]))
   // The admin-docs row uses a synthetic source key (not a real path) so it
   // can be used as a React key without colliding with any real file row.
   assert.equal(groups[0].source, '__admin_docs_group__')

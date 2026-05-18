@@ -12,6 +12,13 @@ export const deleteFileSchema = vine.compile(
   })
 )
 
+export const embedFileSchema = vine.compile(
+  vine.object({
+    source: vine.string().minLength(1),
+    force: vine.boolean().optional(),
+  })
+)
+
 export const estimateBatchSchema = vine.compile(
   vine.object({
     files: vine
