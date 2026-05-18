@@ -14,7 +14,7 @@ import ipaddr from 'ipaddr.js'
  */
 export function assertNotPrivateUrl(urlString: string): void {
   const parsed = new URL(urlString)
-  const hostname = parsed.hostname.toLowerCase()
+  const hostname = parsed.hostname.toLowerCase().replace(/\.+$/, '')
 
   // `URL.hostname` strips the surrounding brackets from IPv6 literals
   // (e.g. `http://[::1]/` → hostname `::1`), so IPv6 patterns must match
