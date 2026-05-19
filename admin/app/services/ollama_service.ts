@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
 import type { Stream } from 'openai/streaming.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
-import { FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
+import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import logger from '@adonisjs/core/services/logger'
@@ -595,13 +595,6 @@ export class OllamaService {
   }
 
   /**
-   * Embedding model name exempt from the chat-model unload sweep. Hardcoded
-   * to avoid a circular import with `RagService.EMBEDDING_MODEL`; keep in
-   * sync with that constant if it ever changes.
-   */
-  private static readonly EMBEDDING_MODEL_EXEMPT = 'nomic-embed-text:v1.5'
-
-  /**
    * Enforces the "at most one chat model resident in VRAM" invariant by firing
    * `keep_alive: 0` against every currently-loaded model except (a) the
    * embedding model (always exempt) and (b) `targetModel` (the one we want
@@ -641,7 +634,7 @@ export class OllamaService {
     }
 
     const toUnload = loadedModels.filter(
-      (name) => name !== OllamaService.EMBEDDING_MODEL_EXEMPT && name !== targetModel
+      (name) => name !== EMBEDDING_MODEL_NAME && name !== targetModel
     )
 
     await Promise.all(
