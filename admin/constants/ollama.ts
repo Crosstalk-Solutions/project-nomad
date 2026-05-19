@@ -64,6 +64,8 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
 
 export const DEFAULT_QUERY_REWRITE_MODEL = 'qwen2.5:3b' // default to qwen2.5 for query rewriting with good balance of text task performance and resource usage
 
+export const EMBEDDING_MODEL_NAME = 'nomic-embed-text:v1.5'
+
 /**
  * Adaptive RAG context limits based on model size.
  * Smaller models get overwhelmed with too much context, so we cap it.
