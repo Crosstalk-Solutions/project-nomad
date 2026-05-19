@@ -24,6 +24,7 @@ import type { FileWarning, FileWarningsResult, StoredFileInfo } from '../../type
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
+import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
 
 export type EmbedSingleFileFailureCode =
@@ -44,7 +45,6 @@ export class RagService {
   private resolvedEmbeddingModel: string | null = null
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
-  public static EMBEDDING_MODEL = 'nomic-embed-text:v1.5'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
   public static MODEL_CONTEXT_LENGTH = 2048 // nomic-embed-text has 2K token context
   public static MAX_SAFE_TOKENS = 1600 // Leave buffer for prefix and tokenization variance
@@ -286,25 +286,25 @@ export class RagService {
       if (!this.embeddingModelVerified) {
         const allModels = await this.ollamaService.getModels(true)
         const embeddingModel =
-          allModels.find((model) => model.name === RagService.EMBEDDING_MODEL) ??
+          allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
           allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
 
         if (!embeddingModel) {
           try {
-            const downloadResult = await this.ollamaService.downloadModel(RagService.EMBEDDING_MODEL)
+            const downloadResult = await this.ollamaService.downloadModel(EMBEDDING_MODEL_NAME)
             if (!downloadResult.success) {
               throw new Error(downloadResult.message || 'Unknown error during model download')
             }
           } catch (modelError) {
             logger.error(
-              `[RAG] Embedding model ${RagService.EMBEDDING_MODEL} not found locally and failed to download:`,
+              `[RAG] Embedding model ${EMBEDDING_MODEL_NAME} not found locally and failed to download:`,
               modelError
             )
             this.embeddingModelVerified = false
             return null
           }
         }
-        this.resolvedEmbeddingModel = embeddingModel?.name ?? RagService.EMBEDDING_MODEL
+        this.resolvedEmbeddingModel = embeddingModel?.name ?? EMBEDDING_MODEL_NAME
         this.embeddingModelVerified = true
       }
 
@@ -361,7 +361,7 @@ export class RagService {
 
         logger.debug(`[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`)
 
-        const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? RagService.EMBEDDING_MODEL, batch)
+        const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME, batch)
 
         embeddings.push(...response.embeddings)
 
@@ -818,12 +818,12 @@ export class RagService {
       if (!this.embeddingModelVerified) {
         const allModels = await this.ollamaService.getModels(true)
         const embeddingModel =
-          allModels.find((model) => model.name === RagService.EMBEDDING_MODEL) ??
+          allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
           allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
 
         if (!embeddingModel) {
           logger.warn(
-            `[RAG] ${RagService.EMBEDDING_MODEL} not found. Cannot perform similarity search.`
+            `[RAG] ${EMBEDDING_MODEL_NAME} not found. Cannot perform similarity search.`
           )
           this.embeddingModelVerified = false
           return []
@@ -855,7 +855,7 @@ export class RagService {
         return []
       }
 
-      const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? RagService.EMBEDDING_MODEL, [prefixedQuery])
+      const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME, [prefixedQuery])
 
       // Perform semantic search with a higher limit to enable reranking
       const searchLimit = limit * 3 // Get more results for reranking
