@@ -15,15 +15,18 @@ export function assertNotPrivateUrl(urlString: string): void {
   const parsed = new URL(urlString)
   const hostname = parsed.hostname.toLowerCase()
 
+  // `URL.hostname` strips the surrounding brackets from IPv6 literals
+  // (e.g. `http://[::1]/` → hostname `::1`), so IPv6 patterns must match
+  // the unbracketed form.
   const blockedPatterns = [
     /^localhost$/,
     /^127\.\d+\.\d+\.\d+$/,
     /^0\.0\.0\.0$/,
     /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
-    /^\[::1\]$/,
-    /^\[?fe80:/i, // IPv6 link-local
-    /^\[::ffff:/i, // IPv4-mapped IPv6 (e.g. [::ffff:7f00:1] = 127.0.0.1)
-    /^\[::\]$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
+    /^::1$/, // IPv6 loopback
+    /^fe80:/i, // IPv6 link-local
+    /^::ffff:/i, // IPv4-mapped IPv6 (e.g. ::ffff:7f00:1 = 127.0.0.1)
+    /^::$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
   ]
 
   if (blockedPatterns.some((re) => re.test(hostname))) {
