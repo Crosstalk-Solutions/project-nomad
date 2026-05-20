@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import ipaddr from 'ipaddr.js'
 
 /**
  * Checks whether a URL points to a loopback or link-local address.
@@ -47,6 +48,16 @@ export function assertNotPrivateUrl(urlString: string): void {
  *     IAM creds on a misconfigured cloud VM
  *   - non-HTTP schemes (file:, gopher:, etc.)
  */
+// Canonical cloud instance-metadata addresses. AWS, GCP, Azure, DigitalOcean,
+// Oracle Cloud, and Alibaba all expose IMDS at 169.254.169.254 over IPv4;
+// AWS additionally exposes it at fd00:ec2::254 over IPv6.
+// Compared after `ipaddr.toNormalizedString()`, which expands IPv6 to its
+// fully-zero-padded form (e.g. `fd00:ec2::254` → `fd00:ec2:0:0:0:0:0:254`).
+const BLOCKED_METADATA_IPV4 = new Set(['169.254.169.254'])
+const BLOCKED_METADATA_IPV6 = new Set([
+  ipaddr.parse('fd00:ec2::254').toNormalizedString(),
+])
+
 export function assertNotCloudMetadataUrl(urlString: string): void {
   const parsed = new URL(urlString)
 
@@ -54,13 +65,30 @@ export function assertNotCloudMetadataUrl(urlString: string): void {
     throw new Error(`URL must use http or https scheme: ${parsed.protocol}`)
   }
 
+  // Node's WHATWG URL parser keeps the brackets on IPv6 literals
+  // (`http://[::1]/` → hostname `[::1]`), so strip them before parsing.
   const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
 
-  if (
-    hostname === '169.254.169.254' ||
-    hostname === 'fd00:ec2::254' // IPv6 EC2 IMDS
-  ) {
-    throw new Error(`URL must not point to the cloud instance metadata endpoint: ${hostname}`)
+  // If the hostname isn't an IP literal it's a DNS name; allow it. (DNS
+  // rebinding is out of scope here — would require resolving and re-checking
+  // at fetch time.)
+  if (!ipaddr.isValid(hostname)) return
+
+  let addr = ipaddr.parse(hostname)
+
+  // Unwrap IPv4-mapped IPv6 (e.g. ::ffff:169.254.169.254, ::ffff:a9fe:a9fe,
+  // and the fully-expanded 0:0:0:0:0:ffff:a9fe:a9fe) so the IPv4 check below
+  // sees the embedded address.
+  if (addr.kind() === 'ipv6' && (addr as ipaddr.IPv6).isIPv4MappedAddress()) {
+    addr = (addr as ipaddr.IPv6).toIPv4Address()
+  }
+
+  const canonical = addr.toNormalizedString()
+
+  const blocked =
+    addr.kind() === 'ipv4' ? BLOCKED_METADATA_IPV4 : BLOCKED_METADATA_IPV6
+  if (blocked.has(canonical)) {
+    throw new Error(`URL must not point to the cloud instance metadata endpoint: ${canonical}`)
   }
 }
 
