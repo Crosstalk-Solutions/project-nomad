@@ -98,7 +98,7 @@
     "compression": "1.8.1",
     "dockerode": "4.0.9",
     "edge.js": "6.4.0",
-    "fast-xml-parser": "5.5.9",
+    "fast-xml-parser": "5.7.0",
     "fuse.js": "7.1.0",
     "ipaddr.js": "2.4.0",
     "jszip": "3.10.1",
