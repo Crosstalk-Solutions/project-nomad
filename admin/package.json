@@ -89,7 +89,7 @@
     "@uppy/dashboard": "5.1.0",
     "@uppy/react": "5.1.1",
     "@vinejs/vine": "3.0.1",
-    "@vitejs/plugin-react": "4.7.0",
+    "@vitejs/plugin-react": "6.0.2",
     "autoprefixer": "10.4.24",
     "axios": "1.15.0",
     "better-sqlite3": "12.6.2",
