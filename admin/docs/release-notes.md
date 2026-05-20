@@ -3,16 +3,94 @@
 ## Unreleased
 
 ### Features
-- **AI Assistant**: Added improved support for AMD GPU acceleration for Ollama via ROCm + HSA override. Thanks @chriscrosstalk for the contribution!
-- **Content Explorer**: Added support for custom ZIM library sources and pre-seeded ZIM library mirrors in addition to the default Kiwix library. Thanks @chriscrosstalk for the contribution!
-- **Content Manager**: Content update sizes and downloads are now properly displayed in Active Downloads with progress bars and friendly names. Thanks @chriscrosstalk for the contribution!
-- **Maps**: Map regions can now be extracted and downloaded locally from PMTiles to avoid the need for a full global map download for users who only want specific regions. Thanks @bgauger for the contribution!
+- feat(content): custom ZIM library sources with pre-seeded mirrors - #593
+- feat(content-manager): add sortable file size column - #698
+- feat(ai-chat): allow cancelling in-progress model downloads - #701
+- feat(content-updates): show size, surface downloads in Active Downloads - #773
+- feat(maps): regional map downloads via go-pmtiles extract - #780
+- feat(maps): show map coordinates on mouse move - #786
+- feat(AI): re-enable AMD GPU acceleration for Ollama via ROCm + HSA override - #804
+- feat(GPU): auto-remediate nomad_ollama passthrough loss on admin boot - #878
+- feat(KB): per-file ingest state machine (Phase 1 of RFC #883) - #888
+- feat(KB): ratio registry for disk + time estimates (Phase 1B of RFC #883) - #891
+- feat(KB): group admin docs into single row in Stored Files (§9) - #892
+- feat(KB): status pill + last-activity on Processing Queue (§5/§10) - #893
+- feat(KB): Always/Manual ingest policy toggle (§1/§4) - #894
+- feat(KB): conditional warnings A + B on Stored Files (§6) - #895
+- feat(KB): surface embedding-disk estimate in curated tier-change modal (§1) - #897
+- feat(KB): first-chat JIT prompt for ingest policy (Phase 3 task 12) - #899
+- feat(KB): wizard AI policy step (Phase 3 task 13) - #900
+- feat(KB): guardrail modal at 50GB / 10%-free thresholds (§7) - #901
+- feat(easy-setup): split AI into its own conditional step - #908
+- feat(KB): per-file ingest action + state indicator on Stored Files (§5) - #909
+- feat(chat): confirm-on-switch + one-chat-model-at-a-time enforcement - #916
+
+## Docs
+
+- docs: add Community Add-Ons page with field manuals + W3Schools packs - #753
+- docs: add map marker API reference - #783
+- docs: require linked issue for non-trivial PRs - #799
+- docs(map): updated notes on the map pin api - #803
+- docs: link to new WSL2 install guide from README and FAQ - #811
+
+## Build / deps
+
+- build(deps): bump picomatch in /admin - #544
+- build(deps): bump lodash from 4.17.23 to 4.18.1 in /admin - #643
+- build(deps-dev): bump vite from 6.4.1 to 6.4.2 in /admin - #677
+- build(deps): bump axios from 1.13.5 to 1.15.0 in /admin - #708
+- build(deps): bump @adonisjs/http-server from 7.8.0 to 7.8.1 in /admin - #724
+- build(deps): bump follow-redirects from 1.15.11 to 1.16.0 in /admin - #729
+- build(deps): bump protocol-buffers-schema from 3.6.0 to 3.6.1 in /admin - #736
+- build(deps): bump protobufjs from 7.5.4 to 7.5.5 in /admin - #737
 
 ### Bug Fixes
-- **API**: Compression is now skipped for Server-Sent Events (SSE) responses to prevent issues with streaming endpoints. Thanks @chriscrosstalk for the fix!
-- **Maps**: Fixed logic issues with the global map banner display. Thanks @Gujiassh for the fix!
-- **Maps**: The selected map file is now properly deleted after confirming the action in the UI. Thanks @cuyua9 for the fix!
-- **System**: Fixed an issue where the a pending update could still be indicated in the UI even after the system was updated successfully. Thanks @jakeaturner for the fix!
+- fix(downloads): stage downloads to .tmp to prevent Kiwix loading partial files - #448
+- fix(security): close remaining security audit items 3 & 4 (CWE-918, CWE-209) - #552
+- fix(ai-chat): add null check to model name - #645
+- fix(ai-chat): qwen2.5 loading on every chat message - #649
+- fix(disk-collector): fix storage reporting for NFS mounts - #686
+- fix(rag): add start button in kb modal and ensure restart policy exists - #700
+- fix(admin): only hide global map banner after download - #702
+- fix(maps): wire delete confirmation to API - #732
+- fix: prevent ZIM corrupt file crash and deduplicate Ollama download logs - #741
+- fix(ai): stop local nomad_ollama when remote Ollama is configured - #744
+- fix(rag): repair ZIM embedding pipeline (sync filter, batch gate, DOM walk) - #745
+- fix(zim): accumulate across Kiwix pages to prevent empty Content Explorer - #746
+- fix(qdrant): disable anonymous telemetry by default - #747
+- fix(disk-display): gate NAS Storage label on network filesystem type - #749
+- fix(docker): write /app/version.json from VERSION build-arg - #754
+- fix(rag): pass num_ctx and truncate to Ollama embed call - #763
+- fix(api): accept notes, marker_type, and position on markers endpoints - #770
+- fix(install): warn loudly on non-x86_64 architectures before pulling images - #797
+- fix(stream): skip compression for Server-Sent Events - #798
+- fix(maps): Country Picker UX polish + auto-refresh stored files - #817
+- fix(System): self-heal stale updateAvailable flag after sidecar-driven update - #825
+- fix(settings/update): four UI/UX fixes for the System Update page - #827
+- fix(Maps): send filename instead of full path to delete endpoint - #829
+- fix(Maps): render notes in marker popup when populated - #830
+- fix(AI): vendor-aware AMD HSA override + benchmark discrete-GPU detection - #832
+- fix(System): correct NVIDIA VRAM in Graphics card - #850
+- fix(Downloads): treat missing Content-Type as octet-stream - #859
+- fix(AI): preserve semver tag in DB on AMD Ollama updates - #868
+- fix(AI): rewrite RAG query on first chat follow-up - #869
+- fix(RAG): unbreak multi-batch ZIM ingestion (jobId dedupe) - #872
+- fix(RAG): pace continuation batches when embedding is CPU-only - #873
+- fix(queue): singleton QueueService to stop ioredis connection leak - #877
+- fix(System): correct AMD VRAM in Graphics card + harden log probe - #879
+- fix(RAG): report ZIM ingestion progress in overall-file frame - #880
+- fix(KB): add re-embed and reset & rebuild options to fix broken embeddings - #886
+- fix(ZIM): preserve co-existing Wikipedia corpora on cleanup - #887
+- fix(RAG): anchor continuation-batch initial progress to overall-file frame - #889
+- fix(AI): pre-cap embed input + log fallback reason - #890
+- fix(KB): remove redundant Refresh button from Processing Queue - #896
+- fix(KB): union Stored Files list with state-machine file paths - #898
+- fix(KB): blank-screen on panel open + tooltips on bulk-action buttons - #907
+- fix(KB): TierSelectionModal hook order + register IconLibrary - #917
+- fix(content): show selected tier on cards while downloads are in flight - #918
+- fix(KB): respect Manual ingest policy on post-download dispatch - #919
+- fix(AI): improve remote Ollama url validation to prevent SSRF vuln - #920
+- fix(models): correct inverted belongsTo keys on ChatMessage.session - #921
 
 ### Improvements
 - **Build**: The Command Center image now uses the VERSION build arg to write `app/version.json` with the current version for improved version tracking and debugging, even in RC environments. Thanks @chriscrosstalk for the contribution!
