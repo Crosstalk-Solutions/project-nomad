@@ -18,7 +18,7 @@ export default class ChatMessage extends BaseModel {
   @column()
   declare content: string
 
-  @belongsTo(() => ChatSession, { foreignKey: 'id', localKey: 'session_id' })
+  @belongsTo(() => ChatSession, { foreignKey: 'session_id', localKey: 'id' })
   declare session: BelongsTo<typeof ChatSession>
 
   @column.dateTime({ autoCreate: true })
