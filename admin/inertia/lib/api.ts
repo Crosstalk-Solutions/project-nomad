@@ -720,7 +720,7 @@ class API {
     })()
   }
 
-  async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
+  async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string; notes?: string | null }) {
     return catchInternal(async () => {
       const response = await this.client.post<
         { id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }
