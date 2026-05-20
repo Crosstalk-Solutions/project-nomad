@@ -66,7 +66,7 @@
     "@adonisjs/core": "6.19.3",
     "@adonisjs/cors": "2.2.1",
     "@adonisjs/inertia": "3.1.1",
-    "@adonisjs/lucid": "21.8.2",
+    "@adonisjs/lucid": "22.4.2",
     "@adonisjs/session": "7.7.1",
     "@adonisjs/shield": "8.2.0",
     "@adonisjs/static": "1.1.1",
