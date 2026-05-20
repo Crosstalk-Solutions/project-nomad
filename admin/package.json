@@ -41,7 +41,7 @@
     "@adonisjs/assembler": "7.8.2",
     "@adonisjs/eslint-config": "2.1.2",
     "@adonisjs/prettier-config": "1.4.5",
-    "@adonisjs/tsconfig": "1.4.1",
+    "@adonisjs/tsconfig": "2.0.0",
     "@japa/assert": "4.2.0",
     "@japa/plugin-adonisjs": "4.0.0",
     "@japa/runner": "4.5.0",
