@@ -31,6 +31,36 @@ export function assertNotPrivateUrl(urlString: string): void {
   }
 }
 
+/**
+ * Narrower SSRF guard for "remote service" URLs the user points NOMAD at
+ * (e.g. an OpenAI-compatible endpoint like LM Studio, llama.cpp, vLLM, or a
+ * sibling Ollama container). Unlike `assertNotPrivateUrl`, this intentionally
+ * ALLOWS loopback, link-local-ish, and RFC1918 hosts because the legitimate
+ * target is frequently on the same host or LAN (host.docker.internal,
+ * the docker bridge gateway, or a LAN IP).
+ *
+ * It blocks only:
+ *   - the cloud instance-metadata IP (169.254.169.254), to avoid leaking
+ *     IAM creds on a misconfigured cloud VM
+ *   - non-HTTP schemes (file:, gopher:, etc.)
+ */
+export function assertNotCloudMetadataUrl(urlString: string): void {
+  const parsed = new URL(urlString)
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`URL must use http or https scheme: ${parsed.protocol}`)
+  }
+
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+
+  if (
+    hostname === '169.254.169.254' ||
+    hostname === 'fd00:ec2::254' // IPv6 EC2 IMDS
+  ) {
+    throw new Error(`URL must not point to the cloud instance metadata endpoint: ${hostname}`)
+  }
+}
+
 export const remoteDownloadValidator = vine.compile(
   vine.object({
     url: vine

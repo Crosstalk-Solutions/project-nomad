@@ -6,6 +6,7 @@ import Service from '#models/service'
 import KVStore from '#models/kv_store'
 import { modelNameSchema } from '#validators/download'
 import { chatSchema, getAvailableModelsSchema, unloadChatModelsSchema } from '#validators/ollama'
+import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
@@ -242,11 +243,12 @@ export default class OllamaController {
       }
     }
 
-    // Validate URL format
-    if (!remoteUrl.startsWith('http')) {
+    try {
+      assertNotCloudMetadataUrl(remoteUrl)
+    } catch (err) {
       return response.status(400).send({
         success: false,
-        message: 'Invalid URL. Must start with http:// or https://',
+        message: err instanceof Error ? err.message : 'Invalid URL.',
       })
     }
 
