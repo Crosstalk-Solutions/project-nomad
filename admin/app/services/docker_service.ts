@@ -36,6 +36,21 @@ export class DockerService {
     }
   }
 
+  async pullImage(imageName: string): Promise<void> {
+    const pullStream = await this.docker.pull(imageName)
+
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(pullStream, (error) => {
+        if (error) {
+          reject(error)
+          return
+        }
+
+        resolve()
+      })
+    })
+  }
+
   async affectContainer(
     serviceName: string,
     action: 'start' | 'stop' | 'restart'
@@ -486,13 +501,12 @@ export class DockerService {
         )
       } else {
         // Start pulling the Docker image and wait for it to complete
-        const pullStream = await this.docker.pull(service.container_image)
         this._broadcast(
           service.service_name,
           'pulling',
           `Pulling Docker image ${service.container_image}...`
         )
-        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+        await this.pullImage(service.container_image)
       }
 
       if (service.service_name === SERVICE_NAMES.KIWIX) {
@@ -1122,7 +1136,7 @@ export class DockerService {
       const newImage = `${imageBase}:${targetVersion}`
       let runtimeImage = newImage
 
-      // GPU detection runs before the pull so AMD updates pull ollama/ollama:rocm rather
+// GPU detection runs before the pull so AMD updates pull ollama/ollama:rocm rather
       // than the standard tag. Detection result is reused below when building the new
       // container config (devices, env). Non-Ollama services skip this entirely.
       let updatedDeviceRequests: any[] | undefined = undefined
@@ -1171,8 +1185,7 @@ export class DockerService {
 
       // Step 1: Pull new image (runtimeImage diverges from newImage for AMD, see above)
       this._broadcast(serviceName, 'update-pulling', `Pulling image ${runtimeImage}...`)
-      const pullStream = await this.docker.pull(runtimeImage)
-      await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      await this.pullImage(runtimeImage)
 
       // Step 2: Find and stop existing container
       this._broadcast(serviceName, 'update-stopping', `Stopping current container...`)
