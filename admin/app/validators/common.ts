@@ -14,24 +14,25 @@ import ipaddr from 'ipaddr.js'
  */
 export function assertNotPrivateUrl(urlString: string): void {
   const parsed = new URL(urlString)
-  const hostname = parsed.hostname.toLowerCase()
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
 
-  // `URL.hostname` strips the surrounding brackets from IPv6 literals
-  // (e.g. `http://[::1]/` → hostname `::1`), so IPv6 patterns must match
-  // the unbracketed form.
-  const blockedPatterns = [
-    /^localhost$/,
-    /^127\.\d+\.\d+\.\d+$/,
-    /^0\.0\.0\.0$/,
-    /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
-    /^::1$/, // IPv6 loopback
-    /^fe80:/i, // IPv6 link-local
-    /^::ffff:/i, // IPv4-mapped IPv6 (e.g. ::ffff:7f00:1 = 127.0.0.1)
-    /^::$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
-  ]
-
-  if (blockedPatterns.some((re) => re.test(hostname))) {
+  if (hostname === 'localhost') {
     throw new Error(`Download URL must not point to a loopback or link-local address: ${hostname}`)
+  }
+
+  // If this is a DNS name, allow it. DNS rebinding has to be handled at fetch
+  // time; this guard only classifies literal addresses supplied by users.
+  if (!ipaddr.isValid(hostname)) return
+
+  let addr = ipaddr.parse(hostname)
+  if (addr.kind() === 'ipv6' && (addr as ipaddr.IPv6).isIPv4MappedAddress()) {
+    addr = (addr as ipaddr.IPv6).toIPv4Address()
+  }
+
+  if (addr.range() === 'loopback' || addr.range() === 'linkLocal' || addr.range() === 'unspecified') {
+    throw new Error(
+      `Download URL must not point to a loopback or link-local address: ${addr.toNormalizedString()}`
+    )
   }
 }
 
