@@ -31,7 +31,7 @@ export class RunDownloadJob {
 
   /** Signal cancellation via Redis so the worker process can pick it up */
   static async signalCancel(jobId: string): Promise<void> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const client = await queue.client
     await client.set(this.cancelKey(jobId), '1', 'EX', 300) // 5 min TTL
@@ -46,7 +46,7 @@ export class RunDownloadJob {
     RunDownloadJob.abortControllers.set(job.id!, abortController)
 
     // Get Redis client for checking cancel signals from the API process
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const cancelRedis = await queueService.getQueue(RunDownloadJob.queue).client
 
     let lastKnownProgress: Pick<DownloadProgressData, 'downloadedBytes' | 'totalBytes'> = {
@@ -147,13 +147,40 @@ export class RunDownloadJob {
               // Only dispatch embedding job if AI Assistant (Ollama) is installed
               const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
               if (ollamaUrl) {
-                try {
-                  await EmbedFileJob.dispatch({
-                    fileName: url.split('/').pop() || '',
-                    filePath: filepath,
-                  })
-                } catch (error) {
-                  console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+                // Respect the global ingest policy. Under Manual, record the file
+                // as pending_decision so the KB panel surfaces the per-file Index
+                // affordance (PR #909) instead of silently auto-embedding behind
+                // the user's back. Unset is treated as Always to preserve legacy
+                // behavior — mirrors rag_service.ts:1587-1588.
+                const { default: KVStore } = await import('#models/kv_store')
+                const { default: KbIngestState } = await import('#models/kb_ingest_state')
+                const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+                const policy: 'Always' | 'Manual' = policyRaw === 'Manual' ? 'Manual' : 'Always'
+
+                if (policy === 'Manual') {
+                  try {
+                    // firstOrCreate so a re-download doesn't demote an existing
+                    // indexed/failed row — user keeps prior state and can re-index
+                    // explicitly from the KB panel if they want fresh content.
+                    await KbIngestState.firstOrCreate(
+                      { file_path: filepath },
+                      { file_path: filepath, state: 'pending_decision', chunks_embedded: 0 }
+                    )
+                  } catch (error) {
+                    console.error(
+                      `[RunDownloadJob] Error recording pending_decision state for ${filepath}:`,
+                      error
+                    )
+                  }
+                } else {
+                  try {
+                    await EmbedFileJob.dispatch({
+                      fileName: url.split('/').pop() || '',
+                      filePath: filepath,
+                    })
+                  } catch (error) {
+                    console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+                  }
                 }
               }
             } else if (filetype === 'map') {
@@ -199,7 +226,7 @@ export class RunDownloadJob {
   }
 
   static async getByUrl(url: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(url)
     return await queue.getJob(jobId)
@@ -229,7 +256,7 @@ export class RunDownloadJob {
   }
 
   static async dispatch(params: RunDownloadJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.url)
 

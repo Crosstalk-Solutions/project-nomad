@@ -4,9 +4,11 @@ import { EmbedJobWithProgress } from '../../types/rag.js'
 import { RagService } from '#services/rag_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
+import KbIngestState from '#models/kb_ingest_state'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
+import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -26,6 +28,12 @@ export class EmbedFileJob {
   static get key() {
     return 'embed-file'
   }
+
+  // Delay between continuation batches when embedding runs CPU-only. Gives the OS
+  // scheduler a brief idle window so sshd / disk-collector / other services don't
+  // starve during long multi-batch ZIM ingestions. Skipped entirely when the
+  // embedding model is GPU-offloaded — see OllamaService.isEmbeddingGpuAccelerated().
+  static readonly CPU_BATCH_DELAY_MS = 1000
 
   static getJobId(filePath: string): string {
     return createHash('sha256').update(filePath).digest('hex').slice(0, 16)
@@ -77,8 +85,16 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
-      // Update progress starting
-      await this.safeUpdateProgress(job, 5)
+      // Anchor initial progress to where we are in the overall file. For a
+      // continuation batch midway through a multi-batch ZIM (e.g. offset 100k of
+      // 600k), the hardcoded 5 used to make the gauge briefly flash 0→5→real,
+      // which read as a backward jump. Fall back to 5 for single-batch files
+      // where totalArticles isn't set.
+      const initialPercent =
+        totalArticles && totalArticles > 0
+          ? Math.min(99, Math.round(((batchOffset || 0) / totalArticles) * 100))
+          : 5
+      await this.safeUpdateProgress(job, initialPercent)
       await job.updateData({
         ...job.data,
         status: 'processing',
@@ -87,9 +103,25 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Processing file: ${filePath}`)
 
-      // Progress callback: maps service-reported 0-100% into the 5-95% job range
+      // Progress callback. For multi-batch ZIM ingestions, scale the service-reported
+      // 0-100% (which is % through the current batch's chunks) into the overall-file
+      // frame so the UI gauge climbs monotonically across the many continuation jobs
+      // BullMQ creates per file. Without this, every new continuation jobId resets the
+      // gauge to ~5% and the user sees ingestion progress "jumping around" between
+      // each batch's local frame and the end-of-batch overall-file overwrite below.
+      //
+      // For single-batch files (uploaded PDFs, txts) totalArticles is undefined and
+      // we fall back to the original 5-95% per-job range, which is what the UI expects
+      // for a one-shot file with no continuations.
       const onProgress = async (percent: number) => {
-        await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
+        const useOverallFrame = totalArticles && totalArticles > 0
+        if (useOverallFrame) {
+          const articlesDone = (batchOffset || 0) + (percent / 100) * ZIM_BATCH_SIZE
+          const overallPercent = Math.min(99, Math.round((articlesDone / totalArticles) * 100))
+          await this.safeUpdateProgress(job, overallPercent)
+        } else {
+          await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
+        }
       }
 
       // Process and embed the file
@@ -113,6 +145,19 @@ export class EmbedFileJob {
         logger.info(
           `[EmbedFileJob] Batch complete. Dispatching next batch at offset ${nextOffset}`
         )
+
+        // Pace continuation batches when embedding is CPU-bound. Sustained 100% CPU
+        // saturation across all cores during multi-batch ZIM ingestion can starve
+        // other services (sshd has been seen to lose responsiveness hard enough to
+        // require a power-cycle). When GPU-accelerated, embeddings stream through
+        // the GPU and CPUs stay free — no pacing needed.
+        const isGpuAccelerated = await ollamaService.isEmbeddingGpuAccelerated()
+        if (!isGpuAccelerated) {
+          logger.info(
+            `[EmbedFileJob] Embedding is CPU-only — pacing ${EmbedFileJob.CPU_BATCH_DELAY_MS}ms before dispatching next batch`
+          )
+          await new Promise((resolve) => setTimeout(resolve, EmbedFileJob.CPU_BATCH_DELAY_MS))
+        }
 
         // Dispatch next batch (not final yet)
         await EmbedFileJob.dispatch({
@@ -157,6 +202,18 @@ export class EmbedFileJob {
         chunks: totalChunks,
       })
 
+      // Persist the post-job state so scanAndSyncStorage knows this file is done.
+      // BullMQ's :completed retention (50 jobs) ages out, so the state row is
+      // the only durable record of "this file finished embedding".
+      try {
+        await KbIngestState.markIndexed(filePath, totalChunks)
+      } catch (stateErr) {
+        logger.warn(
+          `[EmbedFileJob] Failed to persist ingest state for ${fileName}: %s`,
+          stateErr instanceof Error ? stateErr.message : String(stateErr)
+        )
+      }
+
       const batchMsg = isZimBatch ? ` (final batch, total chunks: ${totalChunks})` : ''
       logger.info(
         `[EmbedFileJob] Successfully embedded ${result.chunks} chunks from file: ${fileName}${batchMsg}`
@@ -179,64 +236,125 @@ export class EmbedFileJob {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
 
+      // Only persist `failed` for unrecoverable errors. Retryable errors get
+      // automatic BullMQ retries (30 attempts); marking state failed on every
+      // transient blip would suppress the retry-driven recovery path.
+      if (error instanceof UnrecoverableError) {
+        try {
+          await KbIngestState.markFailed(
+            filePath,
+            error instanceof Error ? error.message : 'Unknown error'
+          )
+        } catch (stateErr) {
+          logger.warn(
+            `[EmbedFileJob] Failed to persist failed state for ${fileName}: %s`,
+            stateErr instanceof Error ? stateErr.message : String(stateErr)
+          )
+        }
+      }
+
       throw error
     }
   }
 
   static async listActiveJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
 
-    return jobs.map((job) => ({
-      jobId: job.id!.toString(),
-      fileName: (job.data as EmbedFileJobParams).fileName,
-      filePath: (job.data as EmbedFileJobParams).filePath,
-      progress: typeof job.progress === 'number' ? job.progress : 0,
-      status: ((job.data as any).status as string) ?? 'waiting',
-    }))
+    return jobs.map((job) => {
+      const data = job.data as EmbedFileJobParams & {
+        status?: string
+        lastBatchAt?: number
+        startedAt?: number
+        chunks?: number
+      }
+      return {
+        jobId: job.id!.toString(),
+        fileName: data.fileName,
+        filePath: data.filePath,
+        progress: typeof job.progress === 'number' ? job.progress : 0,
+        status: data.status ?? 'waiting',
+        lastBatchAt: data.lastBatchAt,
+        startedAt: data.startedAt,
+        chunks: data.chunks,
+      }
+    })
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(filePath)
     return await queue.getJob(jobId)
   }
 
-  static async dispatch(params: EmbedFileJobParams) {
-    const queueService = new QueueService()
+  static async dispatch(params: EmbedFileJobParams, options?: { force?: boolean }) {
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
-    const jobId = this.getJobId(params.filePath)
+
+    // Continuation batches (batchOffset > 0) must NOT reuse the deterministic
+    // per-file jobId. Two BullMQ dedupe paths would otherwise silently swallow them:
+    //   1) The parent batch's handle() calls dispatch() before returning, so the
+    //      parent job is still `active` and locked — queue.add() with the same
+    //      jobId returns the locked parent rather than enqueueing the new batch.
+    //   2) After the parent completes, its entry stays in `completed` (held by
+    //      `removeOnComplete: { count: 50 }`), still tripping jobId dedupe.
+    // Letting BullMQ auto-generate a unique jobId for continuation batches stacks
+    // them as independent queue entries that each process via handle().
+    // Initial dispatches keep the deterministic jobId so re-triggering an install
+    // (UI re-click, sync rescan, etc.) is still idempotent.
+    // `force` skips the deterministic jobId for bulk callers (reembedAll /
+    // resetAndRebuild) where historical entries in :completed would otherwise
+    // silently swallow the new dispatch.
+    const isContinuation = !!(params.batchOffset && params.batchOffset > 0)
+    const force = !!options?.force
+    const initialJobId = this.getJobId(params.filePath)
+
+    const jobOptions: Parameters<typeof queue.add>[2] = {
+      attempts: 30,
+      backoff: {
+        type: 'fixed',
+        delay: 60000, // Check every 60 seconds for service readiness
+      },
+      removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
+      removeOnFail: { count: 20 }, // Keep last 20 failed jobs for debugging
+    }
+    if (!isContinuation && !force) {
+      jobOptions.jobId = initialJobId
+    }
 
     try {
-      const job = await queue.add(this.key, params, {
-        jobId,
-        attempts: 30,
-        backoff: {
-          type: 'fixed',
-          delay: 60000, // Check every 60 seconds for service readiness
-        },
-        removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
-        removeOnFail: { count: 20 } // Keep last 20 failed jobs for debugging
-      })
+      const job = await queue.add(this.key, params, jobOptions)
 
-      logger.info(`[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}`)
+      const label = isContinuation
+        ? ` (continuation @ offset ${params.batchOffset})`
+        : force
+          ? ' (forced re-dispatch)'
+          : ''
+      logger.info(
+        `[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}${label}`
+      )
 
       return {
         job,
         created: true,
-        jobId,
+        jobId: job.id ?? initialJobId,
         message: `File queued for embedding: ${params.fileName}`,
       }
     } catch (error) {
-      if (error.message && error.message.includes('job already exists')) {
-        const existing = await queue.getJob(jobId)
+      if (
+        !isContinuation &&
+        !force &&
+        error.message &&
+        error.message.includes('job already exists')
+      ) {
+        const existing = await queue.getJob(initialJobId)
         logger.info(`[EmbedFileJob] Job already exists for file: ${params.fileName}`)
         return {
           job: existing,
           created: false,
-          jobId,
+          jobId: initialJobId,
           message: `Embedding job already exists for: ${params.fileName}`,
         }
       }
@@ -245,7 +363,7 @@ export class EmbedFileJob {
   }
 
   static async listFailedJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     // Jobs that have failed at least once are in 'delayed' (retrying) or terminal 'failed' state.
     // We identify them by job.data.status === 'failed' set in the catch block of handle().
@@ -264,7 +382,7 @@ export class EmbedFileJob {
   }
 
   static async cleanupFailedJobs(): Promise<{ cleaned: number; filesDeleted: number }> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const allJobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
     const failedJobs = allJobs.filter((job) => (job.data as any).status === 'failed')

@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import ipaddr from 'ipaddr.js'
 
 /**
  * Checks whether a URL points to a loopback or link-local address.
@@ -15,19 +16,79 @@ export function assertNotPrivateUrl(urlString: string): void {
   const parsed = new URL(urlString)
   const hostname = parsed.hostname.toLowerCase()
 
+  // `URL.hostname` strips the surrounding brackets from IPv6 literals
+  // (e.g. `http://[::1]/` → hostname `::1`), so IPv6 patterns must match
+  // the unbracketed form.
   const blockedPatterns = [
     /^localhost$/,
     /^127\.\d+\.\d+\.\d+$/,
     /^0\.0\.0\.0$/,
     /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
-    /^\[::1\]$/,
-    /^\[?fe80:/i, // IPv6 link-local
-    /^\[::ffff:/i, // IPv4-mapped IPv6 (e.g. [::ffff:7f00:1] = 127.0.0.1)
-    /^\[::\]$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
+    /^::1$/, // IPv6 loopback
+    /^fe80:/i, // IPv6 link-local
+    /^::ffff:/i, // IPv4-mapped IPv6 (e.g. ::ffff:7f00:1 = 127.0.0.1)
+    /^::$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
   ]
 
   if (blockedPatterns.some((re) => re.test(hostname))) {
     throw new Error(`Download URL must not point to a loopback or link-local address: ${hostname}`)
+  }
+}
+
+/**
+ * Narrower SSRF guard for "remote service" URLs the user points NOMAD at
+ * (e.g. an OpenAI-compatible endpoint like LM Studio, llama.cpp, vLLM, or a
+ * sibling Ollama container). Unlike `assertNotPrivateUrl`, this intentionally
+ * ALLOWS loopback, link-local-ish, and RFC1918 hosts because the legitimate
+ * target is frequently on the same host or LAN (host.docker.internal,
+ * the docker bridge gateway, or a LAN IP).
+ *
+ * It blocks only:
+ *   - the cloud instance-metadata IP (169.254.169.254), to avoid leaking
+ *     IAM creds on a misconfigured cloud VM
+ *   - non-HTTP schemes (file:, gopher:, etc.)
+ */
+// Canonical cloud instance-metadata addresses. AWS, GCP, Azure, DigitalOcean,
+// Oracle Cloud, and Alibaba all expose IMDS at 169.254.169.254 over IPv4;
+// AWS additionally exposes it at fd00:ec2::254 over IPv6.
+// Compared after `ipaddr.toNormalizedString()`, which expands IPv6 to its
+// fully-zero-padded form (e.g. `fd00:ec2::254` → `fd00:ec2:0:0:0:0:0:254`).
+const BLOCKED_METADATA_IPV4 = new Set(['169.254.169.254'])
+const BLOCKED_METADATA_IPV6 = new Set([
+  ipaddr.parse('fd00:ec2::254').toNormalizedString(),
+])
+
+export function assertNotCloudMetadataUrl(urlString: string): void {
+  const parsed = new URL(urlString)
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`URL must use http or https scheme: ${parsed.protocol}`)
+  }
+
+  // Node's WHATWG URL parser keeps the brackets on IPv6 literals
+  // (`http://[::1]/` → hostname `[::1]`), so strip them before parsing.
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+
+  // If the hostname isn't an IP literal it's a DNS name; allow it. (DNS
+  // rebinding is out of scope here — would require resolving and re-checking
+  // at fetch time.)
+  if (!ipaddr.isValid(hostname)) return
+
+  let addr = ipaddr.parse(hostname)
+
+  // Unwrap IPv4-mapped IPv6 (e.g. ::ffff:169.254.169.254, ::ffff:a9fe:a9fe,
+  // and the fully-expanded 0:0:0:0:0:ffff:a9fe:a9fe) so the IPv4 check below
+  // sees the embedded address.
+  if (addr.kind() === 'ipv6' && (addr as ipaddr.IPv6).isIPv4MappedAddress()) {
+    addr = (addr as ipaddr.IPv6).toIPv4Address()
+  }
+
+  const canonical = addr.toNormalizedString()
+
+  const blocked =
+    addr.kind() === 'ipv4' ? BLOCKED_METADATA_IPV4 : BLOCKED_METADATA_IPV6
+  if (blocked.has(canonical)) {
+    throw new Error(`URL must not point to the cloud instance metadata endpoint: ${canonical}`)
   }
 }
 

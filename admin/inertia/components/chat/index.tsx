@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
 import ChatInterface from './ChatInterface'
+import KbPolicyPromptBanner from './KbPolicyPromptBanner'
 import StyledModal from '../StyledModal'
 import api from '~/lib/api'
 import { formatBytes } from '~/lib/util'
@@ -32,6 +33,8 @@ export default function Chat({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [pendingModelSwitch, setPendingModelSwitch] = useState<string | null>(null)
+  const pageLoadNormalizedRef = useRef(false)
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
 
@@ -150,6 +153,62 @@ export default function Chat({
     }
   }, [selectedModel])
 
+  // Page-load normalization: enforce the "one chat model at a time" invariant
+  // when the chat page first mounts. Anything stacked from a prior session
+  // gets `keep_alive: 0` so it can be evicted; the embedding model is exempt
+  // server-side. We wait for `selectedModel` to be populated by the
+  // first-installed / lastModel effect so the request has a target to preserve.
+  useEffect(() => {
+    if (!enabled) return
+    if (!selectedModel) return
+    if (pageLoadNormalizedRef.current) return
+    pageLoadNormalizedRef.current = true
+    api.unloadChatModels(selectedModel).catch((err) => {
+      console.warn('Failed to normalize loaded models on chat-page mount:', err)
+    })
+  }, [enabled, selectedModel])
+
+  const handleUserSelectedModel = useCallback(
+    (newModel: string) => {
+      if (newModel === selectedModel) return
+      // No active chat session yet → no conversation to lose, no popup needed.
+      // Just update the dropdown silently; the next "New Chat" will use it.
+      if (!activeSessionId) {
+        setSelectedModel(newModel)
+        return
+      }
+      // Active session: defer the actual model swap until the user confirms.
+      // Setting `pendingModelSwitch` drives the dropdown's effective value
+      // *and* opens the confirm modal — clearing it on cancel reverts the
+      // visible selection without us having to touch `selectedModel`.
+      setPendingModelSwitch(newModel)
+    },
+    [selectedModel, activeSessionId]
+  )
+
+  const handleConfirmModelSwitch = useCallback(async () => {
+    const newModel = pendingModelSwitch
+    if (!newModel) return
+    // Best-effort unload of the previously-active chat model. Fire-and-forget:
+    // Ollama queues the eviction until the runner is idle, so an in-flight
+    // request on the old model finishes cleanly. We don't await this before
+    // clearing the session — UI responsiveness wins over housekeeping.
+    api.unloadChatModels(newModel).catch((err) => {
+      console.warn('Failed to unload previous chat model:', err)
+    })
+    setSelectedModel(newModel)
+    setPendingModelSwitch(null)
+    // Clear the active session and messages — the next user message will
+    // lazily create a new session via the existing handleSendMessage path,
+    // which already calls api.createChatSession with `selectedModel`.
+    setActiveSessionId(null)
+    setMessages([])
+  }, [pendingModelSwitch])
+
+  const handleCancelModelSwitch = useCallback(() => {
+    setPendingModelSwitch(null)
+  }, [])
+
   const handleNewChat = useCallback(() => {
     // Just clear the active session and messages - don't create a session yet
     setActiveSessionId(null)
@@ -201,8 +260,19 @@ export default function Chat({
       if (sessionData?.model) {
         setSelectedModel(sessionData.model)
       }
+
+      // Enforce the one-chat-model-at-a-time invariant: ask the backend to
+      // unload anything that isn't the target session's model. Fire-and-forget;
+      // this is housekeeping. Note we pass the *session's* model here rather
+      // than reading `selectedModel`, because setSelectedModel above is async
+      // and the effect-driven page-load normalize wouldn't catch a sidebar
+      // click after the first render.
+      const targetModel = sessionData?.model ?? selectedModel ?? null
+      api.unloadChatModels(targetModel).catch((err) => {
+        console.warn('Failed to unload non-target chat models on session switch:', err)
+      })
     },
-    [installedModels, queryClient]
+    [installedModels, queryClient, selectedModel]
   )
 
   const handleSendMessage = useCallback(
@@ -351,6 +421,23 @@ export default function Chat({
   )
 
   return (
+    <>
+    {pendingModelSwitch && (
+      <StyledModal
+        title={`Switch to ${pendingModelSwitch}?`}
+        onConfirm={handleConfirmModelSwitch}
+        onCancel={handleCancelModelSwitch}
+        open={true}
+        confirmText="Switch & New Chat"
+        cancelText="Cancel"
+        confirmVariant="primary"
+      >
+        <p className="text-text-primary">
+          Switching to <strong>{pendingModelSwitch}</strong> will start a new chat. Your current
+          conversation stays available in the sidebar.
+        </p>
+      </StyledModal>
+    )}
     <div
       className={classNames(
         'flex border border-border-subtle overflow-hidden shadow-sm w-full',
@@ -366,6 +453,7 @@ export default function Chat({
         isInModal={isInModal}
       />
       <div className="flex-1 flex flex-col min-h-0">
+        <KbPolicyPromptBanner />
         <div className="px-6 py-3 border-b border-border-subtle bg-surface-secondary flex items-center justify-between h-[75px] flex-shrink-0">
           <h2 className="text-lg font-semibold text-text-primary">
             {activeSession?.title || 'New Chat'}
@@ -394,8 +482,8 @@ export default function Chat({
               ) : (
                 <select
                   id="model-select"
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
+                  value={pendingModelSwitch ?? selectedModel}
+                  onChange={(e) => handleUserSelectedModel(e.target.value)}
                   className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
                 >
                   {installedModels.map((model) => (
@@ -431,5 +519,6 @@ export default function Chat({
         />
       </div>
     </div>
+    </>
   )
 }

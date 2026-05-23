@@ -95,12 +95,40 @@ export class SystemService {
       if (!ollamaContainer) return null
 
       const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
-      const buf = (await container.logs({
+
+      // Read logs only from the first 5 minutes after container start. The
+      // "inference compute" line is written once during Ollama's GPU discovery
+      // phase, within seconds of startup. Using tail:N here is fragile: under
+      // active embedding workloads we've seen >1000 lines/min, which pushes the
+      // line past any reasonable tail in minutes. Pinning to the startup window
+      // is bounded (~5 min of logs regardless of container uptime) and never
+      // ages out.
+      //
+      // Fall back to the previous tail:500 strategy if StartedAt is missing or
+      // unparseable — we can't construct a since/until window without it, but
+      // tail:500 is still useful when the container just started and the line
+      // is still recent.
+      const inspect = await container.inspect()
+      const startedAtRaw = inspect?.State?.StartedAt
+      const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
+      const hasValidStartedAt = Number.isFinite(startedAtMs) && startedAtMs > 0
+
+      const logsOpts: { stdout: true; stderr: true; follow: false; since?: number; until?: number; tail?: number } = {
         stdout: true,
         stderr: true,
-        tail: 500,
         follow: false,
-      })) as unknown as Buffer
+      }
+      if (hasValidStartedAt) {
+        const startedAtSec = Math.floor(startedAtMs / 1000)
+        logsOpts.since = startedAtSec
+        logsOpts.until = startedAtSec + 300 // 5-minute window
+      } else {
+        logger.warn(
+          `[SystemService] nomad_ollama State.StartedAt missing or invalid (${startedAtRaw ?? 'undefined'}); falling back to tail:500 for inference-compute probe`
+        )
+        logsOpts.tail = 500
+      }
+      const buf = (await container.logs(logsOpts)) as unknown as Buffer
       const logs = buf.toString('utf8')
 
       const lines = logs.split('\n').filter((l) => l.includes('msg="inference compute"'))
@@ -399,9 +427,42 @@ export class SystemService {
           os.kernel = dockerInfo.KernelVersion
         }
 
-        // If si.graphics() returned no controllers (common inside Docker),
-        // fall back to runtime + Ollama log probe to figure out what's accessible.
-        if (!graphics.controllers || graphics.controllers.length === 0) {
+        // si.graphics() in the admin container uses lspci (pciutils ships in
+        // the image for AMD detection). lspci has no real VRAM info for
+        // discrete GPUs, so systeminformation parses the first PCI memory
+        // Region (BAR0, typically 1-32 MiB) as `vram`. nvidia-smi / ROCm
+        // tooling enrichment also can't run since neither is in the admin
+        // image. No real dGPU has under 256 MiB, so any discrete-GPU controller
+        // below that threshold needs the probes below to give us real data.
+        // Applies to both NVIDIA and AMD; Intel iGPUs are exempt because their
+        // shared-system-memory VRAM reading via lspci can legitimately be small.
+        const DGPU_BOGUS_VRAM_THRESHOLD_MIB = 256
+        const isDiscreteGpuVendor = (vendor: string) =>
+          /nvidia|advanced micro devices|amd|ati/i.test(vendor)
+        const isBogusDgpuVram = (c: { vendor?: string; vram?: number | null }) =>
+          isDiscreteGpuVendor(c.vendor || '') &&
+          typeof c.vram === 'number' &&
+          c.vram < DGPU_BOGUS_VRAM_THRESHOLD_MIB
+
+        // Clear the bogus value up front. If a probe replaces the entry below
+        // we get the real VRAM; if no probe succeeds (Ollama not installed,
+        // passthrough_failed) the UI falls back to "N/A" instead of showing
+        // "1 MB" / "32 MB". The lspci model/vendor strings stay since they're
+        // still useful for identifying the card.
+        const hasLspciBogusDgpuVram = (graphics.controllers || []).some(isBogusDgpuVram)
+        if (hasLspciBogusDgpuVram) {
+          for (const c of graphics.controllers) {
+            if (isBogusDgpuVram(c)) c.vram = null
+          }
+        }
+
+        // Run the probes when controllers are empty (common inside Docker) or
+        // when lspci gave us bogus discrete-GPU BAR0 values that need replacing.
+        if (
+          !graphics.controllers ||
+          graphics.controllers.length === 0 ||
+          hasLspciBogusDgpuVram
+        ) {
           const runtimes = dockerInfo.Runtimes || {}
           gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
 

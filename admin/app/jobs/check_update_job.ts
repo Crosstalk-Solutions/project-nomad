@@ -42,7 +42,7 @@ export class CheckUpdateJob {
   }
 
   static async scheduleNightly() {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     await queue.upsertJobScheduler(
@@ -61,7 +61,7 @@ export class CheckUpdateJob {
   }
 
   static async dispatch() {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     const job = await queue.add(this.key, {}, {

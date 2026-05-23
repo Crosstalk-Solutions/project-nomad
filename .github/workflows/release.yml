@@ -26,6 +26,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Sync tags
+        run: git fetch --tags --force
       - name: semantic-release
         uses: cycjimmy/semantic-release-action@v6
         id: semver
