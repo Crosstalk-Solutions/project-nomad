@@ -10,9 +10,19 @@ import api from '~/lib/api'
 import {
   groupAndSortKbFiles,
   type KbFileGroup,
+  type KbFileSort,
+  type KbFileSortKey,
 } from '~/lib/kb_file_grouping'
 import type { KbIngestStateValue } from '../../../types/kb_ingest_state'
-import { IconX } from '@tabler/icons-react'
+import { formatBytes } from '~/lib/util'
+import {
+  IconArrowsSort,
+  IconDownload,
+  IconEye,
+  IconSortAscending,
+  IconSortDescending,
+  IconX,
+} from '@tabler/icons-react'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
@@ -21,6 +31,42 @@ import { SERVICE_NAMES } from '../../../constants/service_names'
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
   onClose: () => void
+}
+
+// File extensions the in-browser viewer can render. Must stay in sync with
+// `RagService.VIEWABLE_TEXT_EXTENSIONS` — anything outside this set falls back
+// to Download.
+const VIEWABLE_EXTENSIONS = new Set(['md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html'])
+
+function isViewableExtension(filename: string): boolean {
+  const ext = filename.split('.').at(-1)?.toLowerCase() ?? ''
+  return VIEWABLE_EXTENSIONS.has(ext)
+}
+
+function renderSortHeader(
+  label: string,
+  key: KbFileSortKey,
+  sort: KbFileSort,
+  setSort: (s: KbFileSort) => void
+): React.ReactNode {
+  const active = sort.key === key
+  const Icon = !active ? IconArrowsSort : sort.direction === 'asc' ? IconSortAscending : IconSortDescending
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 text-left hover:text-text-primary transition-colors"
+      onClick={() => {
+        if (!active) {
+          setSort({ key, direction: 'asc' })
+        } else {
+          setSort({ key, direction: sort.direction === 'asc' ? 'desc' : 'asc' })
+        }
+      }}
+    >
+      <span>{label}</span>
+      <Icon size={14} className={active ? 'text-text-primary' : 'text-text-muted'} aria-hidden="true" />
+    </button>
+  )
 }
 
 /**
@@ -101,6 +147,8 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const [confirmReembed, setConfirmReembed] = useState<{ source: string; displayName: string } | null>(null)
   const [bulkMode, setBulkMode] = useState<null | 'reembed' | 'reset'>(null)
   const [resetTyped, setResetTyped] = useState('')
+  const [sort, setSort] = useState<KbFileSort>({ key: 'name', direction: 'asc' })
+  const [viewerSource, setViewerSource] = useState<string | null>(null)
   const fileUploaderRef = useRef<React.ComponentRef<typeof FileUploader>>(null)
   const { openModal, closeModal } = useModals()
   const queryClient = useQueryClient()
@@ -555,7 +603,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               columns={[
                 {
                   accessor: 'source',
-                  title: 'File Name',
+                  title: renderSortHeader('File Name', 'name', sort, setSort),
                   render(record) {
                     const warnings = fileWarnings[record.source] ?? []
                     const pill = renderStatePill(record)
@@ -591,6 +639,35 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                           </div>
                         )}
                       </div>
+                    )
+                  },
+                },
+                {
+                  accessor: 'size',
+                  title: renderSortHeader('Size', 'size', sort, setSort),
+                  className: 'whitespace-nowrap',
+                  render(record) {
+                    // The collapsed admin_docs group has no single size — leave blank
+                    // rather than misleadingly summing across N files.
+                    if (record.bucket === 'admin_docs' || record.size === null) {
+                      return <span className="text-text-muted">—</span>
+                    }
+                    return <span className="text-text-secondary">{formatBytes(record.size)}</span>
+                  },
+                },
+                {
+                  accessor: 'uploadedAt',
+                  title: renderSortHeader('Uploaded', 'uploadedAt', sort, setSort),
+                  className: 'whitespace-nowrap',
+                  render(record) {
+                    if (record.bucket === 'admin_docs' || !record.uploadedAt) {
+                      return <span className="text-text-muted">—</span>
+                    }
+                    const d = new Date(record.uploadedAt)
+                    return (
+                      <span className="text-text-secondary" title={d.toISOString()}>
+                        {d.toLocaleDateString()}
+                      </span>
                     )
                   },
                 },
@@ -642,6 +719,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                     const actionPendingForThisRow =
                       embedMutation.isPending && embedMutation.variables?.source === record.source
 
+                    const canView = record.isUserUpload && isViewableExtension(record.displayName) && record.size !== null
+                    const canDownload = record.isUserUpload && record.size !== null
+
                     return (
                       <div className="flex justify-end items-center gap-2">
                         {action && (
@@ -662,6 +742,24 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                             {action.label}
                           </StyledButton>
                         )}
+                        {canView && (
+                          <StyledButton
+                            variant="ghost"
+                            size="sm"
+                            icon="IconEye"
+                            onClick={() => setViewerSource(record.source)}
+                          >View</StyledButton>
+                        )}
+                        {canDownload && (
+                          <StyledButton
+                            variant="ghost"
+                            size="sm"
+                            icon="IconDownload"
+                            onClick={() => {
+                              window.location.href = `/api/rag/files/download?source=${encodeURIComponent(record.source)}`
+                            }}
+                          >Download</StyledButton>
+                        )}
                         <StyledButton
                           variant="danger"
                           size="sm"
@@ -675,7 +773,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
               ]}
-              data={groupAndSortKbFiles(storedFiles)}
+              data={groupAndSortKbFiles(storedFiles, sort)}
               loading={isLoadingFiles}
             />
           </div>
@@ -807,6 +905,57 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           </div>
         </StyledModal>
       )}
+
+      {viewerSource && (
+        <FileViewerModal
+          source={viewerSource}
+          onClose={() => setViewerSource(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function FileViewerModal({ source, onClose }: { source: string; onClose: () => void }) {
+  const { data, isLoading, isFetched } = useQuery({
+    queryKey: ['rag', 'file-content', source],
+    queryFn: () => api.getFileContent(source),
+    staleTime: 60_000,
+  })
+
+  // Title falls back to the trailing path segment so the modal still has a
+  // useful header while the fetch is in-flight or if it failed.
+  const fallbackName = source.split(/[/\\]/).at(-1) ?? source
+  const title = data?.fileName ?? fallbackName
+  // `catchInternal` swallows errors and resolves to undefined, surfacing a
+  // toast — so the "couldn't load" branch is gated on a finished-but-empty
+  // fetch rather than on react-query's `isError`.
+  const showError = isFetched && !data
+
+  return (
+    <StyledModal
+      title={title}
+      open={true}
+      onClose={onClose}
+      onCancel={onClose}
+      cancelText="Close"
+      large
+    >
+      <div className="text-left text-sm">
+        {isLoading && (
+          <div className="text-text-secondary">Loading…</div>
+        )}
+        {showError && (
+          <div className="text-amber-700 dark:text-amber-300">
+            Couldn't load file. It may have been moved or its type isn't viewable.
+          </div>
+        )}
+        {data && (
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface-secondary p-3 font-mono text-xs text-text-primary">
+            {data.content}
+          </pre>
+        )}
+      </div>
+    </StyledModal>
   )
 }

@@ -1120,18 +1120,88 @@ export class RagService {
         )
       }
 
-      return Array.from(sources).map((source) => {
-        const row = stateByPath.get(source)
-        return {
-          source,
-          state: row?.state ?? null,
-          chunksEmbedded: row?.chunks_embedded ?? 0,
-        }
-      })
+      const uploadsAbsPath = resolve(join(process.cwd(), RagService.UPLOADS_STORAGE_PATH))
+      return await Promise.all(
+        Array.from(sources).map(async (source) => {
+          const row = stateByPath.get(source)
+          const fileName = source.split(/[/\\]/).at(-1) ?? source
+          const isUserUpload = resolve(source).startsWith(uploadsAbsPath + sep)
+          const stats = await getFileStatsIfExists(source)
+          return {
+            source,
+            state: row?.state ?? null,
+            chunksEmbedded: row?.chunks_embedded ?? 0,
+            fileName,
+            size: stats?.size ?? null,
+            uploadedAt: stats?.modifiedTime.toISOString() ?? null,
+            isUserUpload,
+          }
+        })
+      )
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
     }
+  }
+
+  /**
+   * Resolve a stored-file `source` to an absolute disk path, but only if the
+   * path lives under the uploads directory. Mirrors the docs_service traversal
+   * guard: resolve, then require the resolved path to be strictly inside the
+   * base + path separator (so siblings of `kb_uploads` can't slip through).
+   * Returns null for anything else — ZIMs, admin docs, README, or paths
+   * outside the app entirely. The viewer/download endpoints lean on this so
+   * they don't need to repeat the check.
+   */
+  private resolveUploadPath(source: string): string | null {
+    const uploadsAbsPath = resolve(join(process.cwd(), RagService.UPLOADS_STORAGE_PATH))
+    const resolved = resolve(source)
+    if (!resolved.startsWith(uploadsAbsPath + sep)) return null
+    return resolved
+  }
+
+  private static readonly VIEWABLE_TEXT_EXTENSIONS: ReadonlySet<string> = new Set([
+    'md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html',
+  ])
+
+  /**
+   * Read the text content of a user-uploaded file for in-browser viewing.
+   * Returns null when the source is outside uploads, missing, or not a
+   * recognized text extension. The extension allowlist is intentionally narrow
+   * — PDFs/EPUBs/ZIMs round-trip through Download, not the viewer.
+   */
+  public async readFileContent(
+    source: string
+  ): Promise<{ content: string; extension: string; fileName: string } | null> {
+    const resolved = this.resolveUploadPath(source)
+    if (!resolved) return null
+
+    const extension = resolved.split('.').at(-1)?.toLowerCase() ?? ''
+    if (!RagService.VIEWABLE_TEXT_EXTENSIONS.has(extension)) return null
+
+    const stats = await getFileStatsIfExists(resolved)
+    if (!stats) return null
+
+    try {
+      const { readFile } = await import('node:fs/promises')
+      const content = await readFile(resolved, 'utf-8')
+      const fileName = resolved.split(/[/\\]/).at(-1) ?? resolved
+      return { content, extension, fileName }
+    } catch (error) {
+      logger.warn({ err: error, source }, '[RagService.readFileContent] read failed')
+      return null
+    }
+  }
+
+  /**
+   * Resolve a download-target path for a stored upload. Returns null if the
+   * source isn't an upload or the file is missing on disk.
+   */
+  public async resolveDownloadPath(source: string): Promise<string | null> {
+    const resolved = this.resolveUploadPath(source)
+    if (!resolved) return null
+    const stats = await getFileStatsIfExists(resolved)
+    return stats ? resolved : null
   }
 
   /**
