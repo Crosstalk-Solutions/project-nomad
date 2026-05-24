@@ -8,6 +8,7 @@ export default defineConfig({
     driver: redis({
       host: env.get('REDIS_HOST'),
       port: env.get('REDIS_PORT'),
+      db: env.get('REDIS_DB') ?? 0,
       keyPrefix: 'transmit:',
     })
   }
