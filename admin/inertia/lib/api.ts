@@ -957,6 +957,151 @@ class API {
       return response.data
     })()
   }
+
+  async preflightCheck(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        portConflicts: Array<{ port: number; usedBy: string }>
+        resourceWarnings: string[]
+      }>('/system/services/preflight', { params: { service_name } })
+      return response.data
+    })()
+  }
+
+  async suggestCustomPort() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ port: number }>('/system/services/suggest-port')
+      return response.data
+    })()
+  }
+
+  async preflightCustomApp(payload: {
+    image?: string
+    ports?: number[]
+    volumes?: Array<{ host_path: string; container_path: string }>
+    exclude_service?: string
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        portConflicts: Array<{ port: number; usedBy: string }>
+        resourceWarnings: string[]
+        blocked: string[]
+      }>('/system/services/preflight-custom', payload)
+      return response.data
+    })()
+  }
+
+  async createCustomApp(payload: {
+    friendly_name: string
+    image: string
+    ports?: Array<{ container: number; host: number }>
+    volumes?: Array<{ host_path: string; container_path: string }>
+    env?: string[]
+    category?: string
+    icon?: string
+    memory_mb?: number
+    cpus?: number
+    force?: boolean
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        service_name: string
+      }>('/system/services/custom', payload)
+      return response.data
+    })()
+  }
+
+  async deleteCustomApp(service_name: string, remove_image = false) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        '/system/services/custom',
+        { data: { service_name, remove_image } }
+      )
+      return response.data
+    })()
+  }
+
+  async updateCustomAppImage(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/custom/update',
+        { service_name }
+      )
+      return response.data
+    })()
+  }
+
+  async getServiceLogs(service_name: string, tail = 200) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ success: boolean; logs: string }>(
+        `/system/services/${service_name}/logs`,
+        { params: { tail } }
+      )
+      return response.data
+    })()
+  }
+
+  async getServiceStats(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        success: boolean
+        running: boolean
+        stats: {
+          cpuPercent: number
+          memUsageBytes: number
+          memLimitBytes: number
+          memPercent: number
+        } | null
+      }>(`/system/services/${service_name}/stats`)
+      return response.data
+    })()
+  }
+
+  async getCustomApp(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        success: boolean
+        app: {
+          service_name: string
+          friendly_name: string | null
+          image: string
+          category: string
+          icon: string
+          ports: Array<{ container: number; host: number }>
+          volumes: Array<{ host_path: string; container_path: string }>
+          env: string[]
+          memory_mb?: number
+          cpus?: number
+        }
+      }>(`/system/services/custom/${service_name}`)
+      return response.data
+    })()
+  }
+
+  async updateCustomApp(payload: {
+    service_name: string
+    friendly_name: string
+    image: string
+    ports?: Array<{ container: number; host: number }>
+    volumes?: Array<{ host_path: string; container_path: string }>
+    env?: string[]
+    category?: string
+    icon?: string
+    memory_mb?: number
+    cpus?: number
+    force?: boolean
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{
+        success: boolean
+        message: string
+        service_name: string
+      }>('/system/services/custom', payload)
+      return response.data
+    })()
+  }
 }
 
 export default new API()

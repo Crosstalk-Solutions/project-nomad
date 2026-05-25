@@ -781,8 +781,15 @@ export class DockerService {
     try {
       const service = await Service.query().where('service_name', serviceName).first()
       if (service) {
-        service.installation_status = 'error'
-        await service.save()
+        if (service.is_custom) {
+          // Custom apps have no seeder definition to fall back to — leaving the row would
+          // surface a phantom, un-installable card. Remove the record entirely so a failed
+          // install cleanly disappears. (The 'error' broadcast has already fired upstream.)
+          await service.delete()
+        } else {
+          service.installation_status = 'error'
+          await service.save()
+        }
       }
       this.activeInstallations.delete(serviceName)
 
@@ -1360,6 +1367,299 @@ export class DockerService {
     } catch (error: any) {
       logger.error(`Failed to parse container configuration: ${error.message}`)
       throw new Error(`Invalid container configuration: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check whether any of the supplied host ports are already bound by a running or stopped
+   * Docker container. Uses the Docker API exclusively — probing ports via net.createServer()
+   * would only test the admin container's own network namespace (DooD pattern), not the host.
+   */
+  async checkPortConflicts(
+    ports: number[]
+  ): Promise<{ conflicts: { port: number; usedBy: string }[] }> {
+    if (!ports.length) return { conflicts: [] }
+
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const bound = new Map<number, string>()
+
+      for (const c of containers) {
+        const name = (c.Names[0] || '').replace('/', '')
+        for (const p of c.Ports) {
+          if (p.PublicPort) bound.set(p.PublicPort, name || c.Id.slice(0, 12))
+        }
+      }
+
+      const conflicts = ports
+        .filter((p) => bound.has(p))
+        .map((p) => ({ port: p, usedBy: bound.get(p)! }))
+
+      return { conflicts }
+    } catch (error: any) {
+      logger.warn(`[DockerService] checkPortConflicts failed: ${error.message}`)
+      return { conflicts: [] }
+    }
+  }
+
+  /**
+   * Remove a custom-app container and, when `removeImage` is set, its backing image too. Called
+   * before deleting the DB record. Image removal is best-effort: a shared/in-use image is left alone.
+   */
+  async removeCustomAppContainer(
+    serviceName: string,
+    removeImage = false
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const container = containers.find((c) => c.Names.includes(`/${serviceName}`))
+
+      if (!container) return { success: true, message: 'No container found — nothing to remove' }
+
+      const imageRef = container.Image
+      const c = this.docker.getContainer(container.Id)
+      if (container.State === 'running') await c.stop()
+      await c.remove({ force: true })
+
+      if (removeImage && imageRef) {
+        try {
+          await this.docker.getImage(imageRef).remove()
+        } catch (imgErr: any) {
+          // Non-fatal: the image may be shared with another container or already gone.
+          logger.warn(`[DockerService] Could not remove image ${imageRef} for ${serviceName}: ${imgErr.message}`)
+        }
+      }
+
+      this.invalidateServicesStatusCache()
+      return { success: true, message: `Container ${serviceName} removed` }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] removeCustomAppContainer failed for ${serviceName}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /** Find a container by its managed service name (`/serviceName`), or null. */
+  private async _findContainerByName(serviceName: string) {
+    const containers = await this.docker.listContainers({ all: true })
+    return containers.find((c) => c.Names.includes(`/${serviceName}`)) ?? null
+  }
+
+  /**
+   * Decode the multiplexed stream Docker returns for non-TTY container logs. Each frame is an
+   * 8-byte header ([streamType, 0,0,0, big-endian payloadSize]) followed by the payload.
+   */
+  private _demuxDockerLog(buf: Buffer): string {
+    let out = ''
+    let offset = 0
+    while (offset + 8 <= buf.length) {
+      const size = buf.readUInt32BE(offset + 4)
+      offset += 8
+      if (offset + size > buf.length) {
+        out += buf.toString('utf8', offset)
+        break
+      }
+      out += buf.toString('utf8', offset, offset + size)
+      offset += size
+    }
+    return out
+  }
+
+  /** Return the last `tail` lines of a service container's combined stdout/stderr. */
+  async getContainerLogs(
+    serviceName: string,
+    tail = 200
+  ): Promise<{ success: boolean; logs?: string; message?: string }> {
+    try {
+      const info = await this._findContainerByName(serviceName)
+      if (!info) return { success: false, message: `No container found for ${serviceName}` }
+
+      const container = this.docker.getContainer(info.Id)
+      const inspect = await container.inspect()
+      const tty = inspect.Config?.Tty ?? false
+
+      const buf = (await container.logs({
+        stdout: true,
+        stderr: true,
+        follow: false,
+        tail,
+        timestamps: false,
+      })) as unknown as Buffer
+
+      const logs = tty ? buf.toString('utf8') : this._demuxDockerLog(buf)
+      return { success: true, logs }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] getContainerLogs failed for ${serviceName}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /**
+   * Return a single resource-usage snapshot (CPU %, memory) for a running service container.
+   * Uses Docker's non-streaming stats, which include precpu_stats so CPU % is computable.
+   */
+  async getContainerStats(serviceName: string): Promise<{
+    success: boolean
+    running?: boolean
+    stats?: { cpuPercent: number; memUsageBytes: number; memLimitBytes: number; memPercent: number }
+    message?: string
+  }> {
+    try {
+      const info = await this._findContainerByName(serviceName)
+      if (!info) return { success: false, message: `No container found for ${serviceName}` }
+      if (info.State !== 'running') return { success: true, running: false }
+
+      const container = this.docker.getContainer(info.Id)
+      const s: any = await container.stats({ stream: false })
+
+      const cpuDelta =
+        (s.cpu_stats?.cpu_usage?.total_usage ?? 0) - (s.precpu_stats?.cpu_usage?.total_usage ?? 0)
+      const systemDelta =
+        (s.cpu_stats?.system_cpu_usage ?? 0) - (s.precpu_stats?.system_cpu_usage ?? 0)
+      const numCpus =
+        s.cpu_stats?.online_cpus ?? s.cpu_stats?.cpu_usage?.percpu_usage?.length ?? 1
+      const cpuPercent =
+        systemDelta > 0 && cpuDelta > 0 ? (cpuDelta / systemDelta) * numCpus * 100 : 0
+
+      // Subtract page cache from usage to better reflect the container's working set.
+      const cache = s.memory_stats?.stats?.cache ?? s.memory_stats?.stats?.inactive_file ?? 0
+      const memUsageBytes = Math.max(0, (s.memory_stats?.usage ?? 0) - cache)
+      const memLimitBytes = s.memory_stats?.limit ?? 0
+      const memPercent = memLimitBytes > 0 ? (memUsageBytes / memLimitBytes) * 100 : 0
+
+      return {
+        success: true,
+        running: true,
+        stats: {
+          cpuPercent: Math.round(cpuPercent * 10) / 10,
+          memUsageBytes,
+          memLimitBytes,
+          memPercent: Math.round(memPercent * 10) / 10,
+        },
+      }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] getContainerStats failed for ${serviceName}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /**
+   * Wait for a freshly started container to be "ready". If the image declares a HEALTHCHECK we poll
+   * its health until healthy/unhealthy (up to timeoutMs); otherwise we fall back to a 5s settle and
+   * a plain Running check. Returns whether it's ready plus a reason when not.
+   */
+  private async _awaitContainerReady(
+    container: any,
+    timeoutMs = 30000
+  ): Promise<{ ready: boolean; reason?: string }> {
+    let inspect = await container.inspect()
+    const hasHealthcheck = !!inspect.State?.Health
+
+    if (!hasHealthcheck) {
+      await new Promise((r) => setTimeout(r, 5000))
+      inspect = await container.inspect()
+      return inspect.State?.Running
+        ? { ready: true }
+        : { ready: false, reason: 'container did not stay running' }
+    }
+
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      inspect = await container.inspect()
+      if (!inspect.State?.Running) return { ready: false, reason: 'container exited' }
+      const status = inspect.State?.Health?.Status
+      if (status === 'healthy') return { ready: true }
+      if (status === 'unhealthy') return { ready: false, reason: 'failed its health check' }
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+    // Still in "starting" at timeout — accept it if it's at least running rather than roll back a slow boot.
+    return inspect.State?.Running ? { ready: true } : { ready: false, reason: 'health check timed out' }
+  }
+
+  /**
+   * Recreate a custom app's container from its (already-updated) Service record, preserving data.
+   * Uses the same rename-and-rollback safety net as the update flow: the live container is renamed
+   * aside, a new one is created from the new config/image, health-gated, and only then is the old one
+   * removed — otherwise we roll back to it. Bind-mounted data is untouched throughout. Pass
+   * `forcePull` to always re-pull the image first (used by the "update" action for moving tags).
+   */
+  async recreateCustomAppContainer(
+    serviceName: string,
+    opts: { forcePull?: boolean } = {}
+  ): Promise<{ success: boolean; message: string }> {
+    const service = await Service.query().where('service_name', serviceName).first()
+    if (!service) return { success: false, message: `Service ${serviceName} not found` }
+
+    const containerConfig = this._parseContainerConfig(service.container_config)
+    const oldInfo = await this._findContainerByName(serviceName)
+    const oldName = `${serviceName}_old`
+
+    try {
+      // Stop + rename the existing container aside as a rollback safety net.
+      if (oldInfo) {
+        const oldContainer = this.docker.getContainer(oldInfo.Id)
+        if (oldInfo.State === 'running') await oldContainer.stop({ t: 10 }).catch(() => {})
+        await oldContainer.rename({ name: oldName })
+      }
+
+      // Pull the image if it's missing locally, or always when forcePull (e.g. :latest updates).
+      if (opts.forcePull || !(await this._checkImageExists(service.container_image))) {
+        const pullStream = await this.docker.pull(service.container_image)
+        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      }
+
+      const newContainer = await this.docker.createContainer({
+        Image: service.container_image,
+        name: serviceName,
+        Labels: {
+          ...(containerConfig?.Labels ?? {}),
+          'com.docker.compose.project': 'project-nomad-managed',
+          'io.project-nomad.managed': 'true',
+        },
+        ...(containerConfig?.User && { User: containerConfig.User }),
+        HostConfig: containerConfig?.HostConfig ?? {},
+        ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
+        ...(containerConfig?.Env && { Env: containerConfig.Env }),
+        ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
+        ...(process.env.NODE_ENV === 'production' && {
+          NetworkingConfig: { EndpointsConfig: { [DockerService.NOMAD_NETWORK]: {} } },
+        }),
+      })
+      await newContainer.start()
+
+      // Health gate before discarding the old container.
+      const readiness = await this._awaitContainerReady(newContainer)
+      if (!readiness.ready) throw new Error(`recreated container ${readiness.reason}`)
+
+      if (oldInfo) {
+        const oldRef = await this._findContainerByName(oldName)
+        if (oldRef) await this.docker.getContainer(oldRef.Id).remove({ force: true })
+      }
+      service.installed = true
+      service.installation_status = 'idle'
+      await service.save()
+      this.invalidateServicesStatusCache()
+      return { success: true, message: `Service ${serviceName} reconfigured successfully` }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] recreateCustomAppContainer failed for ${serviceName}`)
+      // Roll back: discard the failed new container and restore the renamed original.
+      try {
+        const failedNew = await this._findContainerByName(serviceName)
+        if (failedNew) {
+          const c = this.docker.getContainer(failedNew.Id)
+          await c.stop({ t: 5 }).catch(() => {})
+          await c.remove({ force: true }).catch(() => {})
+        }
+        const renamed = await this._findContainerByName(oldName)
+        if (renamed) {
+          const c = this.docker.getContainer(renamed.Id)
+          await c.rename({ name: serviceName })
+          await c.start().catch(() => {})
+        }
+      } catch (rollbackError: any) {
+        logger.error({ err: rollbackError }, `[DockerService] rollback failed for ${serviceName}`)
+      }
+      this.invalidateServicesStatusCache()
+      return { success: false, message: `Reconfigure failed and was rolled back: ${error.message}` }
     }
   }
 
