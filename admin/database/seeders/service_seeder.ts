@@ -5,16 +5,19 @@ import env from '#start/env'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 
+type ServiceSeedRecord = Omit<
+  ModelAttributes<Service>,
+  'created_at' | 'updated_at' | 'id' | 'available_update_version' | 'update_checked_at' | 'metadata'
+> & { metadata?: string | null }
+
 export default class ServiceSeeder extends BaseSeeder {
   // Use environment variable with fallback to production default
   private static NOMAD_STORAGE_ABS_PATH = env.get(
     'NOMAD_STORAGE_PATH',
     '/opt/project-nomad/storage'
   )
-  private static DEFAULT_SERVICES: Omit<
-    ModelAttributes<Service>,
-    'created_at' | 'updated_at' | 'metadata' | 'id' | 'available_update_version' | 'update_checked_at'
-  >[] = [
+  private static DEFAULT_SERVICES: ServiceSeedRecord[] = [
+    // ── Core / original services ──────────────────────────────────────────────
     {
       service_name: SERVICE_NAMES.KIWIX,
       friendly_name: 'Information Library',
@@ -38,13 +41,15 @@ export default class ServiceSeeder extends BaseSeeder {
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
+      is_custom: false,
+      category: 'education',
       depends_on: null,
     },
     {
       service_name: SERVICE_NAMES.QDRANT,
       friendly_name: 'Qdrant Vector Database',
       powered_by: null,
-      display_order: 100, // Dependency service, not shown directly
+      display_order: 100,
       description: 'Vector database for storing and searching embeddings',
       icon: 'IconRobot',
       container_image: 'qdrant/qdrant:v1.16',
@@ -57,15 +62,15 @@ export default class ServiceSeeder extends BaseSeeder {
           PortBindings: { '6333/tcp': [{ HostPort: '6333' }], '6334/tcp': [{ HostPort: '6334' }] },
         },
         ExposedPorts: { '6333/tcp': {}, '6334/tcp': {} },
-        // Disable Qdrant's anonymous telemetry to telemetry.qdrant.io. NOMAD is offline-first
-        // and ships with zero telemetry by default — Qdrant's upstream default of enabled
-        // telemetry doesn't match that posture.
+        // Disable anonymous telemetry — NOMAD is offline-first
         Env: ['QDRANT__TELEMETRY_DISABLED=true'],
       }),
       ui_location: '6333',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: true,
+      is_custom: false,
+      category: null,
       depends_on: null,
     },
     {
@@ -90,6 +95,8 @@ export default class ServiceSeeder extends BaseSeeder {
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
+      is_custom: false,
+      category: 'ai',
       depends_on: SERVICE_NAMES.QDRANT,
     },
     {
@@ -113,6 +120,8 @@ export default class ServiceSeeder extends BaseSeeder {
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
+      is_custom: false,
+      category: 'utility',
       depends_on: null,
     },
     {
@@ -138,6 +147,8 @@ export default class ServiceSeeder extends BaseSeeder {
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
+      is_custom: false,
+      category: 'productivity',
       depends_on: null,
     },
     {
@@ -162,18 +173,316 @@ export default class ServiceSeeder extends BaseSeeder {
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
+      is_custom: false,
+      category: 'education',
       depends_on: null,
+    },
+
+    // ── Supply Depot — curated catalog (ports 8400–8499) ─────────────────────
+
+    {
+      service_name: SERVICE_NAMES.STIRLING_PDF,
+      friendly_name: 'Stirling PDF',
+      powered_by: 'Stirling-Tools',
+      display_order: 20,
+      description: 'Locally-hosted PDF manipulation tool — merge, split, compress, convert, and more',
+      icon: 'IconFileDescription',
+      container_image: 'ghcr.io/stirling-tools/s-pdf:latest',
+      source_repo: 'https://github.com/Stirling-Tools/Stirling-PDF',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8080/tcp': [{ HostPort: '8400' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/stirling-pdf/configs:/configs`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/stirling-pdf/logs:/logs`,
+          ],
+        },
+        ExposedPorts: { '8080/tcp': {} },
+        Env: ['DOCKER_ENABLE_SECURITY=false', 'LANGS=en_GB'],
+      }),
+      ui_location: '8400',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'productivity',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.FILEBROWSER,
+      friendly_name: 'File Browser',
+      powered_by: 'FileBrowser',
+      display_order: 21,
+      description: 'Web-based file manager — browse, upload, download, and organize files on your device',
+      icon: 'IconFolderOpen',
+      container_image: 'filebrowser/filebrowser:v2',
+      source_repo: 'https://github.com/filebrowser/filebrowser',
+      // Stores the database alongside the files it serves so a single volume covers everything.
+      // User: root — host directories auto-created by Docker are owned root:root 755; FileBrowser's
+      // image runs as UID 1000 by default which can't write to them (DooD: we can't chown on host).
+      container_command: '--root /srv --database /srv/.filebrowser.db',
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '80/tcp': [{ HostPort: '8410' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/filebrowser:/srv`],
+        },
+        ExposedPorts: { '80/tcp': {} },
+        User: 'root'
+      }),
+      ui_location: '8410',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'utility',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.CALIBREWEB,
+      friendly_name: 'Calibre Web',
+      powered_by: 'Calibre-Web',
+      display_order: 22,
+      description: 'Web-based e-book reader and library manager for your Calibre collection',
+      icon: 'IconBook',
+      container_image: 'lscr.io/linuxserver/calibre-web:latest',
+      source_repo: 'https://github.com/janeczku/calibre-web',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8083/tcp': [{ HostPort: '8420' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/calibreweb/config:/config`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/books:/books`,
+          ],
+        },
+        ExposedPorts: { '8083/tcp': {} },
+        Env: ['PUID=1000', 'PGID=1000'],
+      }),
+      ui_location: '8420',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'media',
+      depends_on: null,
+      metadata: JSON.stringify({ minMemoryMB: 512, minDiskMB: 5120 }),
+    },
+    {
+      service_name: SERVICE_NAMES.IT_TOOLS,
+      friendly_name: 'IT Tools',
+      powered_by: 'IT-Tools',
+      display_order: 23,
+      description: 'Collection of handy utilities for developers — UUID, hash, encoding, formatters, and more',
+      icon: 'IconTool',
+      container_image: 'ghcr.io/corentinth/it-tools:latest',
+      source_repo: 'https://github.com/CorentinTh/it-tools',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '80/tcp': [{ HostPort: '8430' }] },
+        },
+        ExposedPorts: { '80/tcp': {} },
+      }),
+      ui_location: '8430',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'utility',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.EXCALIDRAW,
+      friendly_name: 'Excalidraw',
+      powered_by: 'Excalidraw',
+      display_order: 24,
+      description: 'Virtual whiteboard for sketching hand-drawn-style diagrams — works fully offline',
+      icon: 'IconPencil',
+      container_image: 'excalidraw/excalidraw:latest',
+      source_repo: 'https://github.com/excalidraw/excalidraw',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '80/tcp': [{ HostPort: '8440' }] },
+        },
+        ExposedPorts: { '80/tcp': {} },
+      }),
+      ui_location: '8440',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'productivity',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.MESHTASTIC_WEB,
+      friendly_name: 'Meshtastic Web',
+      powered_by: 'Meshtastic',
+      display_order: 30,
+      description: 'Browser-based client for managing Meshtastic mesh radio devices',
+      icon: 'IconWifi',
+      container_image: 'ghcr.io/meshtastic/web:latest',
+      source_repo: 'https://github.com/meshtastic/web',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '80/tcp': [{ HostPort: '8450' }] },
+        },
+        ExposedPorts: { '80/tcp': {} },
+      }),
+      ui_location: '8450',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'networking',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.MESHTASTICD,
+      friendly_name: 'Meshtastic Daemon',
+      powered_by: 'Meshtastic',
+      display_order: 31,
+      description: 'Software-defined Meshtastic node with REST API — connect devices and build mesh networks',
+      icon: 'IconBroadcast',
+      container_image: 'meshtastic/meshtasticd:latest',
+      source_repo: 'https://github.com/meshtastic/meshtasticd',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '4403/tcp': [{ HostPort: '8460' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/meshtasticd:/root/.portduino`],
+        },
+        ExposedPorts: { '4403/tcp': {} },
+      }),
+      ui_location: '8460',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'networking',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.HOMEBOX,
+      friendly_name: 'Homebox',
+      powered_by: 'Homebox',
+      display_order: 25,
+      description: 'Home inventory and asset management — track everything you own',
+      icon: 'IconBox',
+      container_image: 'ghcr.io/hay-kot/homebox:latest',
+      source_repo: 'https://github.com/hay-kot/homebox',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '7745/tcp': [{ HostPort: '8470' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/homebox:/data`],
+        },
+        ExposedPorts: { '7745/tcp': {} },
+      }),
+      ui_location: '8470',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'productivity',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.VAULTWARDEN,
+      friendly_name: 'Vaultwarden',
+      powered_by: 'Vaultwarden',
+      display_order: 26,
+      description: 'Lightweight Bitwarden-compatible password manager server — secure your credentials offline',
+      icon: 'IconShieldLock',
+      container_image: 'vaultwarden/server:latest',
+      source_repo: 'https://github.com/dani-garcia/vaultwarden',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '80/tcp': [{ HostPort: '8480' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/vaultwarden:/data`],
+        },
+        ExposedPorts: { '80/tcp': {} },
+        Env: ['WEBSOCKET_ENABLED=true'],
+      }),
+      ui_location: '8480',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'security',
+      depends_on: null,
+      metadata: JSON.stringify({ minMemoryMB: 256, minDiskMB: 512 }),
+    },
+    {
+      service_name: SERVICE_NAMES.JELLYFIN,
+      friendly_name: 'Jellyfin',
+      powered_by: 'Jellyfin',
+      display_order: 27,
+      description: 'Open-source media server — stream your video, music, and photo libraries',
+      icon: 'IconMovie',
+      container_image: 'jellyfin/jellyfin:latest',
+      source_repo: 'https://github.com/jellyfin/jellyfin',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8096/tcp': [{ HostPort: '8490' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/jellyfin/config:/config`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/jellyfin/cache:/cache`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/media:/media`,
+          ],
+        },
+        ExposedPorts: { '8096/tcp': {} },
+      }),
+      ui_location: '8490',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'media',
+      depends_on: null,
+      metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 20480 }),
     },
   ]
 
   async run() {
-    const existingServices = await Service.query().select('service_name')
-    const existingServiceNames = new Set(existingServices.map((service) => service.service_name))
+    const existingServices = await Service.query().select(['service_name', 'is_custom'])
+    const existingServiceMap = new Map(existingServices.map((s) => [s.service_name, s]))
 
     const newServices = ServiceSeeder.DEFAULT_SERVICES.filter(
-      (service) => !existingServiceNames.has(service.service_name)
+      (service) => !existingServiceMap.has(service.service_name)
     )
 
-    await Service.createMany([...newServices])
+    if (newServices.length > 0) {
+      await Service.createMany([...newServices])
+    }
+
+    // Keep container_config, container_command, and metadata in sync for curated services.
+    // Custom services are user-defined and must never be overwritten.
+    for (const service of ServiceSeeder.DEFAULT_SERVICES) {
+      const existing = existingServiceMap.get(service.service_name)
+      if (existing && !existing.is_custom) {
+        await Service.query().where('service_name', service.service_name).update({
+          container_config: service.container_config,
+          container_command: service.container_command ?? null,
+          metadata: (service as any).metadata ?? null,
+          category: service.category,
+        })
+      }
+    }
   }
 }

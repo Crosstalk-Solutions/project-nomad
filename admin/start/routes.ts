@@ -16,6 +16,7 @@ import MapsController from '#controllers/maps_controller'
 import OllamaController from '#controllers/ollama_controller'
 import RagController from '#controllers/rag_controller'
 import SettingsController from '#controllers/settings_controller'
+import SupplyDepotController from '#controllers/supply_depot_controller'
 import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
 import ZimController from '#controllers/zim_controller'
@@ -29,6 +30,7 @@ router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
 router.get('/chat', [ChatsController, 'inertia'])
 router.get('/maps', [MapsController, 'index'])
+router.get('/supply-depot', [SupplyDepotController, 'index'])
 router.on('/knowledge-base').redirectToPath('/chat?knowledge_base=true') // redirect for legacy knowledge-base links
 
 router.get('/easy-setup', [EasySetupController, 'index'])
@@ -46,7 +48,7 @@ router
 router
   .group(() => {
     router.get('/system', [SettingsController, 'system'])
-    router.get('/apps', [SettingsController, 'apps'])
+    router.on('/apps').redirectToPath('/supply-depot') // superseded by Supply Depot
     router.get('/legal', [SettingsController, 'legal'])
     router.get('/maps', [SettingsController, 'maps'])
     router.get('/models', [SettingsController, 'models'])
@@ -168,6 +170,16 @@ router
     router.post('/services/install', [SystemController, 'installService'])
     router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
+    router.get('/services/preflight', [SystemController, 'preflightCheck'])
+    router.get('/services/suggest-port', [SystemController, 'suggestCustomPort'])
+    router.post('/services/preflight-custom', [SystemController, 'preflightCustomApp'])
+    router.post('/services/custom', [SystemController, 'createCustomApp'])
+    router.put('/services/custom', [SystemController, 'updateCustomApp'])
+    router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest'])
+    router.delete('/services/custom', [SystemController, 'deleteCustomApp'])
+    router.get('/services/custom/:name', [SystemController, 'getCustomApp'])
+    router.get('/services/:name/logs', [SystemController, 'getServiceLogs'])
+    router.get('/services/:name/stats', [SystemController, 'getServiceStats'])
     router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions'])
     router.post('/services/update', [SystemController, 'updateService'])
     router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes'])

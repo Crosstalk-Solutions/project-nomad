@@ -23,7 +23,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   const navigation = [
     ...(aiAssistantInstallStatus.isInstalled ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }] : []),
-    { name: 'Apps', href: '/settings/apps', icon: IconTerminal2, current: false },
+    { name: 'Supply Depot', href: '/supply-depot', icon: IconTerminal2, current: false },
     { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
     { name: 'Content Explorer', href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },
     { name: 'Content Manager', href: '/settings/zim', icon: IconFolder, current: false },

@@ -62,6 +62,16 @@ export default class Service extends BaseModel {
   @column()
   declare metadata: string | null
 
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_custom: boolean
+
+  @column()
+  declare category: string | null
+
   @column()
   declare source_repo: string | null
 
