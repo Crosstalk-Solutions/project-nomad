@@ -42,10 +42,10 @@ const SYSTEM_ITEMS = [
     poweredBy: null,
   },
   {
-    label: 'Install Apps',
-    to: '/settings/apps',
+    label: 'Supply Depot',
+    to: '/supply-depot',
     target: '',
-    description: 'Not seeing your favorite app? Install it here!',
+    description: 'Browse and install curated apps, or add your own Docker container',
     icon: <IconPlus size={48} />,
     installed: true,
     displayOrder: 51,
