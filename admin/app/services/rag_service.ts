@@ -46,6 +46,10 @@ export class RagService {
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
+  // Upper bound on distinct sources returned by Qdrant's facet API. Real
+  // NOMADs cap out at a few hundred ZIM files + uploaded PDFs; 10k leaves
+  // generous headroom without paying the cost of an unbounded request.
+  public static FACET_SOURCE_LIMIT = 10_000
   public static MODEL_CONTEXT_LENGTH = 2048 // nomic-embed-text has 2K token context
   public static MAX_SAFE_TOKENS = 1600 // Leave buffer for prefix and tokenization variance
   public static TARGET_TOKENS_PER_CHUNK = 1500 // Target 1500 tokens per chunk for embedding
@@ -1069,29 +1073,21 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
+      // Use Qdrant's facet API to enumerate distinct `source` values in one
+      // call. The previous scroll-loop walked every point in the collection
+      // (3M+ on a fully-ingested NOMAD) just to learn the ~40 unique sources,
+      // which made this endpoint take 50+ seconds. Facet returns the unique
+      // values directly. `exact: true` so the count we'll reuse for warnings
+      // matches what would be reported by an exhaustive walk.
       const sources = new Set<string>()
-      let offset: string | number | null | Record<string, unknown> = null
-      const batchSize = 100
-
-      // Scroll through all points in the collection (only fetch source field)
-      do {
-        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: batchSize,
-          offset: offset,
-          with_payload: ['source'],
-          with_vector: false,
-        })
-
-        // Extract unique source values from payloads
-        scrollResult.points.forEach((point) => {
-          const source = point.payload?.source
-          if (source && typeof source === 'string') {
-            sources.add(source)
-          }
-        })
-
-        offset = scrollResult.next_page_offset || null
-      } while (offset !== null)
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      for (const hit of facetResult.hits) {
+        if (typeof hit.value === 'string') sources.add(hit.value)
+      }
 
       // Union the Qdrant-derived list with the disk-backed file paths the
       // state machine has tracked. Without this, files known to the scanner
@@ -1180,28 +1176,21 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
-      // Per-source chunk count from a single scroll. We deliberately don't
-      // assume `kb_ingest_state.chunks_embedded` here so this PR stays
-      // independent of the state-machine PR (#888) — but a future cleanup can
-      // read from there for efficiency once both have landed.
+      // Per-source chunk count via Qdrant's facet API. Was a full scroll of
+      // every point in the collection, which on a fully-ingested NOMAD takes
+      // ~50s for a 3M-point KB just to count ~40 sources. Facet returns the
+      // distinct values + counts in a single call. `exact: true` because the
+      // counts feed Warning A's zero_chunks decision — approximate counts
+      // could mis-fire warnings near thresholds.
       const chunksBySource = new Map<string, number>()
-      let offset: string | number | null | Record<string, unknown> = null
-      const batchSize = 100
-      do {
-        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: batchSize,
-          offset,
-          with_payload: ['source'],
-          with_vector: false,
-        })
-        for (const point of scrollResult.points) {
-          const source = point.payload?.source
-          if (source && typeof source === 'string') {
-            chunksBySource.set(source, (chunksBySource.get(source) ?? 0) + 1)
-          }
-        }
-        offset = scrollResult.next_page_offset || null
-      } while (offset !== null)
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      for (const hit of facetResult.hits) {
+        if (typeof hit.value === 'string') chunksBySource.set(hit.value, hit.count)
+      }
 
       // Scan the filesystem the same way scanAndSyncStorage does so Warning A
       // can fire on files with zero qdrant points (the headline "video-only
@@ -1548,22 +1537,17 @@ export class RagService {
       )
 
       // Collect every unique `source` already in Qdrant so we can skip files
-      // that have already been embedded.
+      // that have already been embedded. Facet returns the distinct values in
+      // a single call rather than scrolling the whole collection.
       const sourcesInQdrant = new Set<string>()
-      let offset: string | number | null | Record<string, unknown> = null
-      do {
-        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: 100,
-          offset,
-          with_payload: ['source'],
-          with_vector: false,
-        })
-        scrollResult.points.forEach((point) => {
-          const source = point.payload?.source
-          if (source && typeof source === 'string') sourcesInQdrant.add(source)
-        })
-        offset = scrollResult.next_page_offset || null
-      } while (offset !== null)
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      for (const hit of facetResult.hits) {
+        if (typeof hit.value === 'string') sourcesInQdrant.add(hit.value)
+      }
 
       logger.info(`[RAG] Found ${sourcesInQdrant.size} unique sources in Qdrant`)
 
