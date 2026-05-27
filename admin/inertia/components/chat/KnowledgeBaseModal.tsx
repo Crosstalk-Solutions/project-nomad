@@ -474,7 +474,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                         isActive
                           ? 'bg-desert-green text-white'
                           : 'bg-surface-primary text-text-secondary hover:bg-surface-tertiary'
-                      } ${updateIngestPolicyMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${updateIngestPolicyMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       {option}
                     </button>
