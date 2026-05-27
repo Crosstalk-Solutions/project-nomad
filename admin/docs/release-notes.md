@@ -1,5 +1,88 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+
+### Bug Fixes
+- fix(logging): also write production logs to stdout for docker visibility (#870). Thanks @chriscrosstalk for the contribution!
+- fix(KB): cursor on Always/Manual ingest policy buttons (#927). Thanks @chriscrosstalk for the contribution!
+
+### Improvements
+- perf(KB): swap Qdrant full-scroll for facet on source enumeration (#928). Thanks @chriscrosstalk for the contribution!
+- chore(deps): bump various dependencies. Thanks @jakeaturner for the contribution!
+
+## Version 1.32.0 - May 20, 2026
+
+### Features
+- **AI:** improved AMD GPU acceleration for Ollama via ROCm + HSA override (#804)
+- **chat:** confirm-on-switch + one-chat-model-at-a-time enforcement (#ffa70a5)
+- **content-manager:** add sortable file size column (#698), closes #685
+- **content-updates:** show size, surface downloads in Active Downloads (#299b767)
+- **Content:** custom ZIM library sources with pre-seeded mirrors (#593) (#62e75fd), closes #576
+- **easy-setup:** split AI into its own conditional step (issue #905) (#0617d54), closes #907
+- **GPU:** auto-remediate nomad_ollama passthrough loss on admin boot (#755) (#2997637), closes #208 #804
+- **KB:** Always/Manual ingest policy toggle (RFC #883 §1/§4) (#894) (#8eb8809), closes #880 #886 #886 #886 #888 #888 #888 #888 #888
+- **KB:** conditional warnings A + B on Stored Files (RFC #883 §6) (#563f86a), closes #891 #891 #890 #881
+- **KB:** first-chat JIT prompt for ingest policy (RFC #883 Phase 3 task 12) (#fd153b4), closes #894 #894 #894
+- **KB:** group admin docs into single row in Stored Files (RFC #883 §9) (#c64ec97)
+- **KB:** guardrail modal at 50GB / 10%-free thresholds (RFC #883 §7) (#cf3a924), closes #897 #897 #894 #899
+- **KB:** per-file ingest action + state indicator on Stored Files (RFC #883 §5) (#d850cb9), closes #907 #907 #907 #908
+- **KB:** per-file ingest state machine (Phase 1 of RFC #883) (#888) (#743549c), closes #880 #886 #886 #886
+- **KB:** ratio registry for disk + time estimates (Phase 1B of RFC #883) (#159d57b)
+- **KB:** status pill + last-activity timestamp on Processing Queue (RFC #883 §5/§10) (#43ca584)
+- **KB:** surface embedding-disk estimate in curated tier-change modal (RFC #883 §1) (#e68c753), closes #891 #891
+- **KB:** wizard AI policy step (RFC #883 Phase 3 task 13) (#7a681d0), closes #899 #894 #894 #899
+- **Maps:** regional map downloads via go-pmtiles extract (#780) (#94059b0)
+- **maps:** show map coordinates on mouse move (#786) (#08838b1)
+
+### Bug Fixes
+- **AI:** add truncation DEBUG log (#e3b758f)
+- **AI:** improve remote Ollama url validation to prevent SSRF vulnerability (#989a401)
+- **AI:** pre-cap embed input + log fallback reason (#881) (#2dec5bf), closes #369 #670
+- **AI:** preserve semver tag in DB on AMD Ollama updates (#019a5a4)
+- **AI:** rewrite RAG query on first follow-up (off-by-one in skip-rewrite threshold) (#43645e4)
+- **AI:** vendor-aware AMD HSA override + benchmark discrete-GPU detection (#a2e2f7f), closes #804 #804 #810
+- **API:** accept notes, marker_type, and position on markers endpoints (#770) (#132ec9c), closes #768
+- **API:** skip compression for Server-Sent Events (#798) (#4b21ea6)
+- **content:** show selected tier on cards while downloads are in flight (#059cf2a), closes #36b6d8e
+- **DockerService:** improve volume logic and documentation in forceReinstall (#501860a)
+- **Downloads:** treat missing Content-Type as octet-stream (#848) (#3abf338)
+- **install:** warn loudly on non-x86_64 architectures before pulling images (#797) (#cb129d2), closes #419
+- **KB:** add re-embed and reset & rebuild opts to fix broken embeddings (#886) (#4c21196)
+- **KB:** align chunks_per_mb column type with TS contract (#4d6b140)
+- **KB:** blank-screen on panel open + tooltips on bulk-action buttons (#633a3c3), closes #892 #895 #post-#892
+- **KB:** guardrail bypass during estimate load + Transition sibling (PR #901 review) (#7e768f3)
+- **KB:** remove redundant Refresh button from Processing Queue (#4e8cadd), closes #893
+- **KB:** respect Manual ingest policy on post-download dispatch (#a5fe52f), closes #909
+- **KB:** silent maybe-later error + redundant prompt-state refetches (PR #899 review) (#9a684a5)
+- **KB:** surface file-warning compute failures instead of masking as healthy (PR #895 review) (#a0047c1)
+- **KB:** TierSelectionModal hook order + register IconLibrary (#6e5284e), closes #915
+- **KB:** union Stored Files list with state-machine file paths (#898) (#8ed0bdf), closes #886 #888 #888
+- **Maps:** render notes in marker popup when populated (#f41027c), closes #770
+- **Maps:** send filename instead of full path to delete endpoint (#6a68bac)
+- **models:** correct inverted belongsTo keys on ChatMessage.session (#921) (#82f67de)
+- **queue:** singleton QueueService to stop ioredis connection leak (#ba53702), closes #872
+- **RAG:** add start button in kb modal and ensure restart policy exists (#700) (#2d8a02f)
+- **RAG:** anchor continuation-batch initial progress to overall-file frame (#889) (#f304d80)
+- **RAG:** pace continuation batches when embedding is CPU-only (#a22c640)
+- **RAG:** pass num_ctx and truncate to Ollama embed call (#763) (#7bebedc), closes #756 #369 #670
+- **RAG:** report ZIM ingestion progress in overall-file frame (#d28eb9b)
+- **RAG:** unbreak multi-batch ZIM ingestion (jobId dedupe) (#74cef75)
+- **security:** canonicalize hostnames to block IPv4-mapped IPv6 IMDS bypass (#736c9bd)
+- **security:** match IPv6 SSRF patterns against unbracketed hostnames (#b3dac9b)
+- **System:** correct AMD VRAM in Graphics card + harden log probe (#d2f2172), closes #835 #850 #208
+- **System:** correct NVIDIA VRAM in Graphics card (#835) (#6c799dd), closes #804
+- **System:** self-heal stale updateAvailable flag after sidecar-driven update (#825) (#318276c)
+- **System:** validate StartedAt with fallback to tail:500 (PR review) (#662a6c4)
+- **UI:** Country Picker UX polish + auto-refresh stored files (#817) (#8c06b5b), closes #780
+- **UI:** four fixes for the System Update page (#827) (#3a2e92a)
+- **UI:** improve global map banner display logic (#702) (#5517e82)
+- **UI:** wire map file delete confirmation to API (#732) (#e561ce8)
+- **ZIM:** preserve co-existing Wikipedia corpora on cleanup (#884) (#5e2c599)
+
+### Improvements
+
 ## Version 1.31.1 - April 21, 2026
 
 ### Features
