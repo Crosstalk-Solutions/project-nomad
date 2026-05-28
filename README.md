@@ -79,6 +79,8 @@ At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones ins
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
 
+*NOTE*: ARM images are community-contributed. Installing on ARM is not officially supported.
+
 To run LLM's and other included AI tools:
 
 #### Optimal Specs
