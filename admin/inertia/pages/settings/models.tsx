@@ -21,12 +21,21 @@ import { formatBytes } from '~/lib/util'
 import useDebounce from '~/hooks/useDebounce'
 import ActiveModelDownloads from '~/components/ActiveModelDownloads'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
+import type { MacAiProvider } from '../../../types/mac_ai'
 
 export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean }
+    settings: {
+      chatSuggestionsEnabled: boolean
+      aiAssistantCustomName: string
+      remoteOllamaUrl: string
+      aiProvider: MacAiProvider
+      macNativeWorkerUrl: string
+      macNativeModelRoot: string
+      ollamaFlashAttention: boolean
+    }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -68,7 +77,9 @@ export default function ModelsPage(props: {
               message: `${aiAssistantName} is being reinstalled with GPU support. This page will reload shortly.`,
               type: 'success',
             })
-            try { localStorage.removeItem('nomad:gpu-banner-dismissed') } catch {}
+            try {
+              localStorage.removeItem('nomad:gpu-banner-dismissed')
+            } catch {}
             setTimeout(() => window.location.reload(), 5000)
           } catch (error) {
             addNotification({
@@ -84,9 +95,9 @@ export default function ModelsPage(props: {
         cancelText="Cancel"
       >
         <p className="text-text-primary">
-          This will recreate the {aiAssistantName} container with GPU support enabled.
-          Your downloaded models will be preserved. The service will be briefly
-          unavailable during reinstall.
+          This will recreate the {aiAssistantName} container with GPU support enabled. Your
+          downloaded models will be preserved. The service will be briefly unavailable during
+          reinstall.
         </p>
       </StyledModal>,
       'gpu-health-force-reinstall-modal'
@@ -102,8 +113,20 @@ export default function ModelsPage(props: {
     props.models.settings.aiAssistantCustomName
   )
   const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
+  const [aiProvider, setAiProvider] = useState<MacAiProvider>(props.models.settings.aiProvider)
+  const [macNativeWorkerUrl, setMacNativeWorkerUrl] = useState(
+    props.models.settings.macNativeWorkerUrl
+  )
+  const [macNativeModelRoot, setMacNativeModelRoot] = useState(
+    props.models.settings.macNativeModelRoot
+  )
   const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
+
+  const { data: macAiStatus, refetch: refetchMacAiStatus } = useQuery({
+    queryKey: ['mac-ai', 'status'],
+    queryFn: async () => api.getMacAiStatus(),
+  })
 
   async function handleSaveRemoteOllama() {
     setRemoteOllamaError(null)
@@ -115,7 +138,8 @@ export default function ModelsPage(props: {
         router.reload()
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.message || error?.message || 'Failed to configure remote Ollama.'
+      const msg =
+        error?.response?.data?.message || error?.message || 'Failed to configure remote Ollama.'
       setRemoteOllamaError(msg)
     } finally {
       setRemoteOllamaSaving(false)
@@ -139,6 +163,31 @@ export default function ModelsPage(props: {
     }
   }
 
+  async function handleSaveMacAiProvider(providerOverride?: MacAiProvider) {
+    const nextProvider = providerOverride ?? aiProvider
+    setRemoteOllamaError(null)
+    setRemoteOllamaSaving(true)
+    try {
+      const res = await api.configureMacAi({
+        provider: nextProvider,
+        workerUrl: macNativeWorkerUrl || null,
+        modelRoot: macNativeModelRoot || null,
+      })
+      if (res?.success) {
+        setAiProvider(nextProvider)
+        addNotification({ message: res.message, type: 'success' })
+        await refetchMacAiStatus()
+        router.reload()
+      }
+    } catch (error: any) {
+      setRemoteOllamaError(
+        error?.response?.data?.message || error?.message || 'Failed to configure AI provider.'
+      )
+    } finally {
+      setRemoteOllamaSaving(false)
+    }
+  }
+
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
   const [limit, setLimit] = useState(15)
@@ -150,7 +199,11 @@ export default function ModelsPage(props: {
   const forceRefreshRef = useRef(false)
   const [isForceRefreshing, setIsForceRefreshing] = useState(false)
 
-  const { data: availableModelData, isFetching, refetch } = useQuery({
+  const {
+    data: availableModelData,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ['ollama', 'availableModels', query, limit],
     queryFn: async () => {
       const force = forceRefreshRef.current
@@ -278,26 +331,28 @@ export default function ModelsPage(props: {
               className="!mt-6"
             />
           )}
-          {isInstalled && systemInfo?.gpuHealth?.status === 'passthrough_failed' && !gpuBannerDismissed && (
-            <Alert
-              type="warning"
-              variant="bordered"
-              title="GPU Not Accessible"
-              message={`Your system has ${systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
-              className="!mt-6"
-              dismissible={true}
-              onDismiss={handleDismissGpuBanner}
-              buttonProps={{
-                children: `Fix: Reinstall ${aiAssistantName}`,
-                icon: 'IconRefresh',
-                variant: 'action',
-                size: 'sm',
-                onClick: handleForceReinstallOllama,
-                loading: reinstalling,
-                disabled: reinstalling,
-              }}
-            />
-          )}
+          {isInstalled &&
+            systemInfo?.gpuHealth?.status === 'passthrough_failed' &&
+            !gpuBannerDismissed && (
+              <Alert
+                type="warning"
+                variant="bordered"
+                title="GPU Not Accessible"
+                message={`Your system has ${systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
+                className="!mt-6"
+                dismissible={true}
+                onDismiss={handleDismissGpuBanner}
+                buttonProps={{
+                  children: `Fix: Reinstall ${aiAssistantName}`,
+                  icon: 'IconRefresh',
+                  variant: 'action',
+                  size: 'sm',
+                  onClick: handleForceReinstallOllama,
+                  loading: reinstalling,
+                  disabled: reinstalling,
+                }}
+              />
+            )}
 
           <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
@@ -323,7 +378,7 @@ export default function ModelsPage(props: {
               <Input
                 name="aiAssistantCustomName"
                 label="Assistant Name"
-                helpText='Give your AI assistant a custom name that will be used in the chat interface and other areas of the application.'
+                helpText="Give your AI assistant a custom name that will be used in the chat interface and other areas of the application."
                 placeholder="AI Assistant"
                 value={aiAssistantCustomName}
                 onChange={(e) => setAiAssistantCustomName(e.target.value)}
@@ -397,9 +452,29 @@ export default function ModelsPage(props: {
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <p className="text-sm text-text-secondary mb-4">
-              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
-              For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others
+              are all supported. For remote Ollama instances, the host must be started with{' '}
+              <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
+            <div className="mb-5 grid grid-cols-1 md:grid-cols-4 gap-2">
+              {(
+                [
+                  ['ollama', 'Ollama'],
+                  ['remote', 'Remote API'],
+                  ['native_mlx', 'Native MLX'],
+                  ['native_coreml', 'Native Core ML'],
+                ] as Array<[MacAiProvider, string]>
+              ).map(([provider, label]) => (
+                <StyledButton
+                  key={provider}
+                  variant={aiProvider === provider ? 'primary' : 'outline'}
+                  onClick={() => handleSaveMacAiProvider(provider)}
+                  disabled={remoteOllamaSaving}
+                >
+                  {label}
+                </StyledButton>
+              ))}
+            </div>
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <Input
@@ -437,6 +512,87 @@ export default function ModelsPage(props: {
                 </StyledButton>
               )}
             </div>
+            <div className="mt-6 border-t border-border-subtle pt-5">
+              <h3 className="text-lg font-semibold text-text-primary">Native Mac Inference</h3>
+              <p className="text-sm text-text-secondary mt-1 mb-4">
+                On Apple Silicon, NOMAD can use a launchd-managed host worker for MLX and Core ML
+                models. The worker runs on macOS so it can access Metal/Core ML acceleration while
+                Command Center keeps using the same local OpenAI-compatible API shape.
+              </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Input
+                  name="macNativeWorkerUrl"
+                  label="Native Worker URL"
+                  placeholder="http://host.docker.internal:8765"
+                  value={macNativeWorkerUrl}
+                  onChange={(e) => setMacNativeWorkerUrl(e.target.value)}
+                />
+                <Input
+                  name="macNativeModelRoot"
+                  label="Model Folder"
+                  placeholder="~/Library/Application Support/Project N.O.M.A.D/mac-ai/models"
+                  value={macNativeModelRoot}
+                  onChange={(e) => setMacNativeModelRoot(e.target.value)}
+                />
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <StyledButton
+                  variant="primary"
+                  onClick={() => handleSaveMacAiProvider()}
+                  loading={remoteOllamaSaving}
+                  disabled={remoteOllamaSaving}
+                >
+                  Save Native Settings
+                </StyledButton>
+                <StyledButton
+                  variant="ghost"
+                  icon="IconRefresh"
+                  onClick={() => refetchMacAiStatus()}
+                >
+                  Check Worker
+                </StyledButton>
+                <span
+                  className={`text-sm font-semibold ${macAiStatus?.connected ? 'text-desert-green' : 'text-desert-red'}`}
+                >
+                  {macAiStatus?.connected ? 'Native worker online' : 'Native worker offline'}
+                </span>
+              </div>
+              {macAiStatus?.message && (
+                <p className="mt-2 text-sm text-text-muted">{macAiStatus.message}</p>
+              )}
+              {macAiStatus?.models && macAiStatus.models.length > 0 && (
+                <div className="mt-4 overflow-hidden rounded border border-border-subtle">
+                  <table className="min-w-full divide-y divide-border-subtle">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs uppercase text-text-muted">
+                          Model
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs uppercase text-text-muted">
+                          Backend
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs uppercase text-text-muted">
+                          Chat
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle">
+                      {macAiStatus.models.map((model) => (
+                        <tr key={model.id}>
+                          <td className="px-4 py-2 text-sm text-text-primary">{model.name}</td>
+                          <td className="px-4 py-2 text-sm text-text-secondary">
+                            {model.backend.toUpperCase()}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-text-secondary">
+                            {model.usableForChat ? 'Usable' : model.notes || 'Not a chat model'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
 
           <ActiveModelDownloads withHeader />
@@ -467,7 +623,7 @@ export default function ModelsPage(props: {
               onClick={handleForceRefresh}
               icon="IconRefresh"
               loading={isForceRefreshing}
-              className='mt-1'
+              className="mt-1"
             >
               Refresh Models
             </StyledButton>
@@ -536,7 +692,9 @@ export default function ModelsPage(props: {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-text-secondary">{tag.input || 'N/A'}</span>
+                                <span className="text-sm text-text-secondary">
+                                  {tag.input || 'N/A'}
+                                </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="text-sm text-text-secondary">
@@ -544,7 +702,9 @@ export default function ModelsPage(props: {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-text-secondary">{tag.size || 'N/A'}</span>
+                                <span className="text-sm text-text-secondary">
+                                  {tag.size || 'N/A'}
+                                </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StyledButton

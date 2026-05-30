@@ -12,6 +12,8 @@ import DocsController from '#controllers/docs_controller'
 import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
+import LocalLibraryController from '#controllers/local_library_controller'
+import MacAiController from '#controllers/mac_ai_controller'
 import MapsController from '#controllers/maps_controller'
 import OllamaController from '#controllers/ollama_controller'
 import RagController from '#controllers/rag_controller'
@@ -29,6 +31,7 @@ router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
 router.get('/chat', [ChatsController, 'inertia'])
 router.get('/maps', [MapsController, 'index'])
+router.get('/local-library', [LocalLibraryController, 'page'])
 router.on('/knowledge-base').redirectToPath('/chat?knowledge_base=true') // redirect for legacy knowledge-base links
 
 router.get('/easy-setup', [EasySetupController, 'index'])
@@ -113,6 +116,19 @@ router.get('/api/health', () => {
 
 router
   .group(() => {
+    router.get('/files', [LocalLibraryController, 'list'])
+    router.post('/files', [LocalLibraryController, 'upload'])
+    router.get('/files/:filename/view', [LocalLibraryController, 'view'])
+    router.get('/files/:filename/download', [LocalLibraryController, 'download'])
+    router.get('/files/:filename/preview', [LocalLibraryController, 'preview'])
+    router.patch('/files/:filename', [LocalLibraryController, 'rename'])
+    router.delete('/files/:filename', [LocalLibraryController, 'delete'])
+    router.post('/files/:filename/index', [LocalLibraryController, 'index'])
+  })
+  .prefix('/api/local-library')
+
+router
+  .group(() => {
     router.post('/chat', [OllamaController, 'chat'])
     router.get('/models', [OllamaController, 'availableModels'])
     router.post('/models', [OllamaController, 'dispatchModelDownload'])
@@ -123,6 +139,13 @@ router
     router.get('/remote-status', [OllamaController, 'remoteStatus'])
   })
   .prefix('/api/ollama')
+
+router
+  .group(() => {
+    router.get('/status', [MacAiController, 'status'])
+    router.post('/configure', [MacAiController, 'configure'])
+  })
+  .prefix('/api/mac-ai')
 
 router
   .group(() => {

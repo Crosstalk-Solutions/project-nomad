@@ -64,6 +64,9 @@ export default class SettingsController {
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    const aiProvider = await KVStore.getValue('ai.provider')
+    const macNativeWorkerUrl = await KVStore.getValue('ai.macNativeWorkerUrl')
+    const macNativeModelRoot = await KVStore.getValue('ai.macNativeModelRoot')
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     return inertia.render('settings/models', {
       models: {
@@ -73,6 +76,9 @@ export default class SettingsController {
           chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
           aiAssistantCustomName: aiAssistantCustomName ?? '',
           remoteOllamaUrl: remoteOllamaUrl ?? '',
+          aiProvider: aiProvider ?? (remoteOllamaUrl ? 'remote' : 'ollama'),
+          macNativeWorkerUrl: macNativeWorkerUrl ?? '',
+          macNativeModelRoot: macNativeModelRoot ?? '',
           ollamaFlashAttention: ollamaFlashAttention ?? true,
         },
       },
@@ -111,9 +117,9 @@ export default class SettingsController {
   }
 
   async getSetting({ request, response }: HttpContext) {
-    const { key } = await getSettingSchema.validate({ key: request.qs().key });
-    const value = await KVStore.getValue(key);
-    return response.status(200).send({ key, value });
+    const { key } = await getSettingSchema.validate({ key: request.qs().key })
+    const value = await KVStore.getValue(key)
+    return response.status(200).send({ key, value })
   }
 
   async updateSetting({ request, response }: HttpContext) {

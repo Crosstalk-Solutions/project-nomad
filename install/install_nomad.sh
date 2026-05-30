@@ -31,6 +31,7 @@ GREEN='\033[1;32m' # Light Green.
 WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
+MACOS_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/macos/install_macos_nomad.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
@@ -610,6 +611,16 @@ success_message() {
 ###################################################################################################################################################################################################
 
 # Pre-flight checks
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  echo -e "${GREEN}#${RESET} macOS detected. Switching to the macOS installer path.\\n"
+  tmp_macos_installer="$(mktemp)"
+  if ! curl -fsSL "$MACOS_INSTALL_SCRIPT_URL" -o "$tmp_macos_installer"; then
+    echo -e "${RED}#${RESET} Failed to download the macOS installer. Please check your network connection."
+    exit 1
+  fi
+  bash "$tmp_macos_installer"
+  exit $?
+fi
 check_is_debian_based
 check_is_x86_64
 check_is_bash

@@ -16,23 +16,24 @@ Yes, you can customize the storage location for NOMAD's content by modifying the
 
 Short answer: yes, but we can't do it for you (and we recommend a local drive for best performance).
 
-Long answer: Custom storage paths, mount points, and external drives (like iSCSI or SMB/NFS volumes) **are possible**, but this will be up to your individual configuration on the host before NOMAD starts, and then passed in via the compose.yml as this is a *host-level concern*, not a NOMAD-level concern (see above for details). NOMAD itself can't configure this for you, nor could we support all possible configurations in the install script.
+Long answer: Custom storage paths, mount points, and external drives (like iSCSI or SMB/NFS volumes) **are possible**, but this will be up to your individual configuration on the host before NOMAD starts, and then passed in via the compose.yml as this is a _host-level concern_, not a NOMAD-level concern (see above for details). NOMAD itself can't configure this for you, nor could we support all possible configurations in the install script.
 
 ## Can I run NOMAD on MAC, WSL2, or a non-Debian-based Distro?
 
 **WSL2 on Windows** is community-supported via the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) — covers two install paths (native Docker and Docker Desktop) with all known gotchas documented and empirical performance numbers comparing WSL2 to bare-metal.
 
-**macOS and other non-Debian Linux distros** aren't officially supported. See [Why does NOMAD require a Debian-based OS?](#why-does-nomad-require-a-debian-based-os) for details.
+**macOS Apple Silicon** is supported through the macOS installer path. It uses Docker Desktop or Colima for NOMAD's existing services and a native launchd-managed `nomad-mac-ai` worker for MLX/Core ML inference, because those runtimes need the macOS host Metal/Core ML stack. Other non-Debian Linux distros are not officially supported. See [Why does NOMAD require a Debian-based OS?](#why-does-nomad-require-a-debian-based-os) for details.
 
 ## Why does NOMAD require a Debian-based OS?
 
-Project N.O.M.A.D. is currently designed to run on Debian-based Linux distributions (with Ubuntu being the recommended distro) because our installation scripts and Docker configurations are optimized for this environment. While it's technically possible to run the Docker containers on other operating systems that support Docker, we have not tested or optimized the installation process for non-Debian-based systems, so we cannot guarantee a smooth experience on those platforms at this time.
+Project N.O.M.A.D. was originally designed to run on Debian-based Linux distributions (with Ubuntu being the recommended distro) because the installation scripts and Docker configurations were optimized for that environment. The macOS Apple Silicon installer is now a separate supported path for users who want a self-contained MacBook setup with native MLX/Core ML model execution.
 
 Support for other operating systems will come in the future, but because our development resources are limited as a free and open-source project, we needed to prioritize our efforts and focus on a narrower set of supported platforms for the initial release. We chose Debian-based Linux as our starting point because it's widely used, easy to spin up, and provides a stable environment for running Docker containers.
 
 For Windows users, the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) provides a community-supported path. Community members have also published guides for other platforms (e.g. macOS) in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), so if you're interested in running N.O.M.A.D. on a non-Debian-based system, we recommend checking there for any available resources or guides. However, keep in mind that if you choose to run N.O.M.A.D. on a non-Debian-based system, you may encounter issues that we won't be able to provide support for, and you may need to have a higher level of technical expertise to troubleshoot and resolve any problems that arise.
 
 ## Can I run NOMAD on a Raspberry Pi or other ARM-based device?
+
 Project N.O.M.A.D. is currently designed to run on x86-64 architecture, and we have not yet tested or optimized it for ARM-based devices like the Raspberry Pi (and have not published any official images for ARM architecture).
 
 Support for ARM-based devices is on our roadmap, but our initial focus was on x86-64 hardware due to its widespread use and compatibility with a wide range of applications.
@@ -50,6 +51,7 @@ As of March 2026, Project N.O.M.A.D.'s UI is only available in English, and the 
 ## What technologies is NOMAD built with?
 
 Project N.O.M.A.D. is built using a combination of technologies, including:
+
 - **Docker:** for containerization of the Command Center and its dependencies
 - **Node.js & TypeScript:** for the backend of the Command Center, particularly the [AdonisJS](https://adonisjs.com/) framework
 - **React:** for the frontend of the Command Center, utilizing [Vite](https://vitejs.dev/) and [Inertia.js](https://inertiajs.com/) under the hood
@@ -59,6 +61,7 @@ Project N.O.M.A.D. is built using a combination of technologies, including:
 NOMAD makes use of the Docker-outside-of-Docker ("DooD") pattern, which allows the Command Center to manage and orchestrate other Docker containers on the host machine without needing to run Docker itself inside a container. This approach provides better performance and compatibility with a wider range of host environments while still allowing for powerful container management capabilities through the Command Center's UI.
 
 ## Can I run NOMAD if I have existing Docker containers on my machine?
+
 Yes, you can safely run Project N.O.M.A.D. on a machine that already has existing Docker containers. NOMAD is designed to coexist with other Docker containers and will not interfere with them as long as there are no port conflicts or resource constraints.
 
 All of NOMAD's containers are prefixed with `nomad_` in their names, so they can be easily identified and managed separately from any other containers you may have running. Just make sure to review the ports that NOMAD's core services (Command Center, MySQL, Redis) use during installation and adjust them if necessary to avoid conflicts with your existing containers.
@@ -68,7 +71,8 @@ All of NOMAD's containers are prefixed with `nomad_` in their names, so they can
 See [What technologies is NOMAD built with?](#what-technologies-is-nomad-built-with)
 
 ## Can I use any AI models?
-NOMAD by default uses Ollama inside of a docker container to run LLM Models for the AI Assistant. So if you find a model on HuggingFace for example, you won't be able to use that model in NOMAD. The list of available models in the AI Assistant settings (/settings/models) may not show all of the models you are looking for. If you found a model from https://ollama.com/search that you'd like to try and its not in the settings page, you can use a curl command to download the model.  
+
+NOMAD by default uses Ollama inside of a docker container to run LLM Models for the AI Assistant. On Apple Silicon Macs, NOMAD can also use the native Mac AI worker for MLX-compatible models and Core ML packages. MLX LLMs are usable for chat when they can be loaded by `mlx-lm`; Core ML packages are shown separately because generic Core ML artifacts need a model-specific chat adapter before NOMAD can treat them as chat models. If you found a model from https://ollama.com/search that you'd like to try and its not in the settings page, you can use a curl command to download the model.  
 `curl -X POST -H "Content-Type: application/json" -d '{"model":"MODEL_NAME_HERE"}' http://localhost:8080/api/ollama/models` replacing MODEL_NAME_HERE with the model name from whats in the ollama website.
 
 ## Do I have to install the AI features in NOMAD?
@@ -76,6 +80,7 @@ NOMAD by default uses Ollama inside of a docker container to run LLM Models for 
 No, the AI features in NOMAD (Ollama, Qdrant, custom RAG pipeline, etc.) are all optional and not required to use the core functionality of NOMAD.
 
 ## Is NOMAD actually free? Are there any hidden costs?
+
 Yes, Project N.O.M.A.D. is completely free and open-source software licensed under the Apache License 2.0. There are no hidden costs or fees associated with using NOMAD itself, and we don't have any plans to introduce "premium" features or paid tiers.
 
 Aside from the cost of the hardware you choose to run it on, there are no costs associated with using NOMAD.
@@ -95,6 +100,7 @@ We also encourage community involvement in troubleshooting and resolving issues,
 We aim to release updates and new features on a regular basis, but the exact timing can vary based on the complexity of the features being developed, the resources available to our volunteer development team, and the feedback and needs of our community. We typically release smaller "patch" versions more frequently to address bugs and make minor improvements, while larger feature releases may take more time to develop and test before they're ready for release.
 
 ## I opened a PR to contribute a new feature or fix a bug. How long does it usually take for PRs to be reviewed and merged?
+
 We appreciate all contributions to the project and strive to review and merge pull requests (PRs) as quickly as possible. The time it takes for a PR to be reviewed and merged can vary based on several factors, including the complexity of the changes, the current workload of our maintainers, and the need for any additional testing or revisions.
 
 Because NOMAD is still a young project, some PRs (particularly those for new features) may take longer to review and merge as we prioritize building out the core functionality and ensuring stability before adding new features. However, we do our best to provide timely feedback on all PRs and keep contributors informed about the status of their contributions.

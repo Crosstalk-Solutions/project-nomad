@@ -174,7 +174,9 @@ export function matchesDevice(fsPath: string, deviceName: string): boolean {
   return false
 }
 
-export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 'epub' | 'zim' | 'unknown' {
+export function determineFileType(
+  filename: string
+): 'image' | 'pdf' | 'text' | 'epub' | 'mobi' | 'zim' | 'unknown' {
   const ext = path.extname(filename).toLowerCase()
   if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'].includes(ext)) {
     return 'image'
@@ -184,6 +186,8 @@ export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 
     return 'text'
   } else if (ext === '.epub') {
     return 'epub'
+  } else if (['.mobi', '.azw', '.azw3'].includes(ext)) {
+    return 'mobi'
   } else if (ext === '.zim') {
     return 'zim'
   } else {

@@ -1,6 +1,7 @@
 import {
   IconBolt,
   IconHelp,
+  IconLibrary,
   IconMapRoute,
   IconPlus,
   IconSettings,
@@ -25,6 +26,17 @@ const MAPS_ITEM = {
   icon: <IconMapRoute size={48} />,
   installed: true,
   displayOrder: 4,
+  poweredBy: null,
+}
+
+const LOCAL_LIBRARY_ITEM = {
+  label: 'Local Library',
+  to: '/local-library',
+  target: '',
+  description: 'View PDFs and personal offline documents',
+  icon: <IconLibrary size={48} />,
+  installed: true,
+  displayOrder: 5,
   poweredBy: null,
 }
 
@@ -90,14 +102,16 @@ export default function Home(props: {
   }
 }) {
   const items: DashboardItem[] = []
-  const updateInfo = useUpdateAvailable();
+  const updateInfo = useUpdateAvailable()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
 
   // Check if user has visited Easy Setup
   const { data: easySetupVisited } = useSystemSetting({
-    key: 'ui.hasVisitedEasySetup'
+    key: 'ui.hasVisitedEasySetup',
   })
-  const shouldHighlightEasySetup = easySetupVisited?.value ? String(easySetupVisited.value) !== 'true' : false
+  const shouldHighlightEasySetup = easySetupVisited?.value
+    ? String(easySetupVisited.value) !== 'true'
+    : false
 
   // Add installed services (non-dependency services only)
   props.system.services
@@ -105,7 +119,10 @@ export default function Home(props: {
     .forEach((service) => {
       items.push({
         // Inject custom AI Assistant name if this is the chat service
-        label: service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName ? aiAssistantName : (service.friendly_name || service.service_name),
+        label:
+          service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName
+            ? aiAssistantName
+            : service.friendly_name || service.service_name,
         to: service.ui_location ? getServiceLink(service.ui_location) : '#',
         target: '_blank',
         description:
@@ -124,6 +141,7 @@ export default function Home(props: {
 
   // Add Maps as a Core Capability
   items.push(MAPS_ITEM)
+  items.push(LOCAL_LIBRARY_ITEM)
 
   // Add system items
   items.push(...SYSTEM_ITEMS)
@@ -134,24 +152,22 @@ export default function Home(props: {
   return (
     <AppLayout>
       <Head title="Command Center" />
-      {
-        updateInfo?.updateAvailable && (
-          <div className='flex justify-center items-center p-4 w-full'>
-            <Alert
-              title="An update is available for Project N.O.M.A.D.!"
-              type="info-inverted"
-              variant="solid"
-              className="w-full"
-              buttonProps={{
-                variant: 'primary',
-                children: 'Go to Settings',
-                icon: 'IconSettings',
-                onClick: () => router.visit('/settings/update'),
-              }}
-            />
-          </div>
-        )
-      }
+      {updateInfo?.updateAvailable && (
+        <div className="flex justify-center items-center p-4 w-full">
+          <Alert
+            title="An update is available for Project N.O.M.A.D.!"
+            type="info-inverted"
+            variant="solid"
+            className="w-full"
+            buttonProps={{
+              variant: 'primary',
+              children: 'Go to Settings',
+              icon: 'IconSettings',
+              onClick: () => router.visit('/settings/update'),
+            }}
+          />
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {items.map((item) => {
           const isEasySetup = item.label === 'Easy Setup'

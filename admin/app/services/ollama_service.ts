@@ -1,6 +1,9 @@
 import { inject } from '@adonisjs/core'
 import OpenAI from 'openai'
-import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
+import type {
+  ChatCompletionChunk,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions.js'
 import type { Stream } from 'openai/streaming.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -16,6 +19,7 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 import KVStore from '#models/kv_store'
+import { DEFAULT_MAC_NATIVE_WORKER_URL } from './mac_ai_service.js'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -53,17 +57,27 @@ export class OllamaService {
   private baseUrl: string | null = null
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
-  private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
+  private activeDownloads: Map<
+    string,
+    Promise<{ success: boolean; message: string; retryable?: boolean }>
+  > = new Map()
 
   constructor() {}
 
   private async _initialize() {
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        // Check KVStore for a custom base URL (remote Ollama, LM Studio, llama.cpp, etc.)
+        // Check KVStore for a custom provider before falling back to local Ollama.
+        const provider = (await KVStore.getValue('ai.provider')) as string | null
         const customUrl = (await KVStore.getValue('ai.remoteOllamaUrl')) as string | null
-        if (customUrl && customUrl.trim()) {
+        const nativeUrl = (await KVStore.getValue('ai.macNativeWorkerUrl')) as string | null
+
+        if (provider === 'native_mlx' || provider === 'native_coreml') {
+          this.baseUrl = (nativeUrl?.trim() || DEFAULT_MAC_NATIVE_WORKER_URL).replace(/\/$/, '')
+          this.isOllamaNative = false
+        } else if ((provider === 'remote' || !provider) && customUrl && customUrl.trim()) {
           this.baseUrl = customUrl.trim().replace(/\/$/, '')
+          this.isOllamaNative = false
         } else {
           // Fall back to the local Ollama container managed by Docker
           const dockerService = new (await import('./docker_service.js')).DockerService()
@@ -111,7 +125,9 @@ export class OllamaService {
     // Deduplicate concurrent downloads of the same model
     const existing = this.activeDownloads.get(model)
     if (existing) {
-      logger.info(`[OllamaService] Download already in progress for "${model}", waiting on existing download.`)
+      logger.info(
+        `[OllamaService] Download already in progress for "${model}", waiting on existing download.`
+      )
       return existing
     }
 
@@ -222,9 +238,8 @@ export class OllamaService {
                   aggTotal += total
                 }
 
-                const percent = aggTotal > 0
-                  ? parseFloat(((aggCompleted / aggTotal) * 100).toFixed(2))
-                  : 0
+                const percent =
+                  aggTotal > 0 ? parseFloat(((aggCompleted / aggTotal) * 100).toFixed(2)) : 0
 
                 // Throttle broadcasts. Always call the progressCallback though — the worker
                 // uses it to update job state in Redis, which should reflect the latest view.
@@ -274,9 +289,7 @@ export class OllamaService {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error(
-        `[OllamaService] Failed to download model "${model}": ${errorMessage}`
-      )
+      logger.error(`[OllamaService] Failed to download model "${model}": ${errorMessage}`)
 
       // Check for version mismatch (Ollama 412 response)
       const isVersionMismatch = errorMessage.includes('newer version of Ollama')
@@ -364,7 +377,9 @@ export class OllamaService {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
+    const stream = (await this.openai.chat.completions.create(
+      params
+    )) as unknown as Stream<ChatCompletionChunk>
 
     // Returns how many trailing chars of `text` could be the start of `tag`
     function partialTagSuffix(tag: string, text: string): number {
@@ -424,7 +439,9 @@ export class OllamaService {
             content: parsedContent,
             thinking: nativeThinking + parsedThinking,
           },
-          done: chunk.choices[0]?.finish_reason !== null && chunk.choices[0]?.finish_reason !== undefined,
+          done:
+            chunk.choices[0]?.finish_reason !== null &&
+            chunk.choices[0]?.finish_reason !== undefined,
         }
       }
     }
@@ -442,7 +459,10 @@ export class OllamaService {
         { model: modelName },
         { timeout: 5000 }
       )
-      return Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+      return (
+        Array.isArray(response.data?.capabilities) &&
+        response.data.capabilities.includes('thinking')
+      )
     } catch {
       // Non-Ollama backends don't expose /api/show — assume no thinking support
       return false
@@ -465,7 +485,10 @@ export class OllamaService {
       logger.error(
         `[OllamaService] Failed to delete model "${modelName}": ${error instanceof Error ? error.message : error}`
       )
-      return { success: false, message: 'Failed to delete model. This may not be an Ollama backend.' }
+      return {
+        success: false,
+        message: 'Failed to delete model. This may not be an Ollama backend.',
+      }
     }
   }
 
@@ -581,9 +604,7 @@ export class OllamaService {
       const models: Array<{ name?: string; size_vram?: number }> = response.data?.models ?? []
       // Match any loaded model whose name signals it's an embedding model.
       // nomic-embed-text, mxbai-embed-large, snowflake-arctic-embed, etc. all follow this convention.
-      return models.some(
-        (m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0
-      )
+      return models.some((m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0)
     } catch (err: any) {
       // /api/ps unreachable (Ollama down, non-native backend, etc.) — fail closed: assume CPU,
       // which means we'll pace. Better to over-pace than risk box-killing CPU saturation.
