@@ -35,29 +35,48 @@ export class SystemService {
   }
 
   async getInternetStatus(): Promise<boolean> {
-    const DEFAULT_TEST_URL = 'https://1.1.1.1/cdn-cgi/trace'
+    // Primary endpoint stays Cloudflare's privacy-respecting utility endpoint.
+    // The fallbacks are hosts the application already contacts elsewhere
+    // (GitHub API for update checks, the Project N.O.M.A.D. API for release-note
+    // subscriptions), so no new third-party services are introduced. They exist
+    // to avoid false "offline" reports on networks that block 1.1.1.1.
+    const DEFAULT_TEST_URLS = [
+      'https://1.1.1.1/cdn-cgi/trace',
+      'https://api.github.com',
+      'https://api.projectnomad.us',
+    ]
     const MAX_ATTEMPTS = 3
 
-    let testUrl = DEFAULT_TEST_URL
-    let customTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
+    let testUrls = DEFAULT_TEST_URLS
+    const customTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
 
-    // check that customTestUrl is a valid URL, if provided
+    // If a custom test URL is provided and valid, use it exclusively. This
+    // preserves the existing override behavior for operators who intentionally
+    // point connectivity checks at a specific endpoint.
     if (customTestUrl && customTestUrl !== '') {
       try {
         new URL(customTestUrl)
-        testUrl = customTestUrl
+        testUrls = [customTestUrl]
       } catch (error) {
         logger.warn(
-          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrl}. Falling back to default URL.`
+          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrl}. Falling back to default URLs.`
         )
       }
     }
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const res = await axios.get(testUrl, { timeout: 5000 })
-        return res.status === 200
+        // Probe all endpoints in parallel and resolve as soon as the first one
+        // responds. Any HTTP response (including non-2xx) means we reached the
+        // internet, so accept all status codes rather than requiring a strict 200.
+        await Promise.any(
+          testUrls.map((testUrl) =>
+            axios.get(testUrl, { timeout: 5000, validateStatus: () => true })
+          )
+        )
+        return true
       } catch (error) {
+        // Promise.any only rejects (with an AggregateError) when every endpoint failed.
         logger.warn(
           `Internet status check attempt ${attempt}/${MAX_ATTEMPTS} failed: ${error instanceof Error ? error.message : error}`
         )
