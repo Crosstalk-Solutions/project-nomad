@@ -18,6 +18,11 @@ export interface EmbedFileJobParams {
   batchOffset?: number  // Current batch offset (for ZIM files)
   totalArticles?: number // Total articles in ZIM (for progress tracking)
   isFinalBatch?: boolean // Whether this is the last batch (prevents premature deletion)
+  // Running total of chunks embedded across prior batches in this dispatch chain.
+  // Carried forward so the final batch can persist an accurate `chunks_embedded`
+  // count via KbIngestState.markIndexed (see #933 — without this, only the last
+  // batch's chunk count was stored while Qdrant held the full set).
+  chunksSoFar?: number
 }
 
 export class EmbedFileJob {
@@ -159,13 +164,16 @@ export class EmbedFileJob {
           await new Promise((resolve) => setTimeout(resolve, EmbedFileJob.CPU_BATCH_DELAY_MS))
         }
 
-        // Dispatch next batch (not final yet)
+        // Dispatch next batch (not final yet). Carry forward the running
+        // chunk count so the final batch can persist an accurate total (#933).
+        const chunksSoFarNext = (job.data.chunksSoFar || 0) + (result.chunks || 0)
         await EmbedFileJob.dispatch({
           filePath,
           fileName,
           batchOffset: nextOffset,
           totalArticles: totalArticles || result.totalArticles,
           isFinalBatch: false, // Explicitly not final
+          chunksSoFar: chunksSoFarNext,
         })
 
         // Calculate progress based on articles processed
@@ -178,7 +186,7 @@ export class EmbedFileJob {
           ...job.data,
           status: 'batch_completed',
           lastBatchAt: Date.now(),
-          chunks: (job.data.chunks || 0) + (result.chunks || 0),
+          chunks: chunksSoFarNext,
         })
 
         return {
@@ -192,8 +200,11 @@ export class EmbedFileJob {
         }
       }
 
-      // Final batch or non-batched file - mark as complete
-      const totalChunks = (job.data.chunks || 0) + (result.chunks || 0)
+      // Final batch or non-batched file - mark as complete.
+      // chunksSoFar carries the accumulated count from prior dispatched batches
+      // (each continuation passes it forward — see EmbedFileJobParams). For a
+      // non-batched file it is undefined and we just count this single result.
+      const totalChunks = (job.data.chunksSoFar || 0) + (result.chunks || 0)
       await this.safeUpdateProgress(job, 100)
       await job.updateData({
         ...job.data,
