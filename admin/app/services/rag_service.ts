@@ -1011,6 +1011,29 @@ export class RagService {
           }
         }
 
+        // Boost when query keywords match the chunk's section/article heading. ZIM
+        // content carries this structural metadata (already fetched, no extra cost),
+        // and a query term appearing in a heading is a strong relevance signal that
+        // body-text matching alone misses. Same conservative, score-scaled, diminishing
+        // -returns shape as the boosts above, so it can't promote a weak match.
+        const headingText = [result.full_title, result.section_title, result.article_title]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (headingText) {
+          const headingHits = queryKeywords.filter((kw) =>
+            headingText.includes(kw.toLowerCase())
+          ).length
+          if (headingHits > 0) {
+            const headingRatio = headingHits / Math.max(queryKeywords.length, 1)
+            const headingBoost = Math.sqrt(headingRatio) * 0.1 * result.score
+            logger.debug(
+              `[RAG] Heading match: ${headingHits}/${queryKeywords.length} - Boost: ${headingBoost.toFixed(3)}`
+            )
+            finalScore += headingBoost
+          }
+        }
+
         finalScore = Math.min(1.0, finalScore + keywordBoost)
 
         return {
