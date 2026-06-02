@@ -187,7 +187,21 @@ export class KiwixLibraryService {
       .filter((b) => b.id && b.path)
   }
 
-  async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<void> {
+  /**
+   * Returns the number of books currently listed in the library XML, or 0 if the
+   * file doesn't exist yet. Used to report a before/after delta on a manual rescan.
+   */
+  async getBookCount(): Promise<number> {
+    try {
+      const content = await readFile(this.getLibraryFilePath(), 'utf-8')
+      return this._parseExistingBooks(content).length
+    } catch (err: any) {
+      if (err.code === 'ENOENT') return 0
+      throw err
+    }
+  }
+
+  async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<number> {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
     await ensureDirectoryExists(dirPath)
 
@@ -221,6 +235,7 @@ export class KiwixLibraryService {
     const xml = this._buildXml(books)
     await this._atomicWrite(xml)
     logger.info(`[KiwixLibraryService] Rebuilt library XML with ${books.length} book(s).`)
+    return books.length
   }
 
   async addBook(filename: string): Promise<void> {
