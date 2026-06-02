@@ -56,6 +56,14 @@ export default class ZimController {
     }
   }
 
+  async rescanLibrary({}: HttpContext) {
+    const result = await this.zimService.rescanLibrary()
+    return {
+      message: 'Kiwix library rescanned',
+      ...result,
+    }
+  }
+
   async delete({ request, response }: HttpContext) {
     const payload = await request.validateUsing(filenameParamValidator)
 

@@ -390,6 +390,36 @@ export class ZimService {
     }
   }
 
+  /**
+   * Rebuilds the kiwix library XML from whatever ZIM files are currently on disk.
+   *
+   * This is the manual counterpart to the automatic rebuilds that run after a
+   * download or delete. It exists for the sideload case: a user copies a .zim file
+   * onto the box (USB, SSH, network share) outside the download flow, and kiwix has
+   * no way to discover it without regenerating the library index.
+   *
+   * In library mode (--monitorLibrary) kiwix-serve hot-reloads the XML on its own, so
+   * no restart is needed. Only legacy glob-mode containers are restarted to pick up
+   * the change. Returns the book count before and after plus the number added.
+   */
+  async rescanLibrary(): Promise<{ before: number; after: number; added: number }> {
+    const kiwixLibraryService = new KiwixLibraryService()
+    const before = await kiwixLibraryService.getBookCount()
+    const after = await kiwixLibraryService.rebuildFromDisk()
+
+    const isLegacy = await this.dockerService.isKiwixOnLegacyConfig()
+    if (isLegacy) {
+      logger.info('[ZimService] Kiwix in legacy mode — restarting container after rescan.')
+      await this.dockerService
+        .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
+        .catch((error) => {
+          logger.error('[ZimService] Failed to restart KIWIX container after rescan:', error)
+        })
+    }
+
+    return { before, after, added: Math.max(0, after - before) }
+  }
+
   async delete(file: string): Promise<void> {
     let fileName = file
     if (!fileName.endsWith('.zim')) {
