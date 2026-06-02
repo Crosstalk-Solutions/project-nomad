@@ -196,6 +196,8 @@ router
     router.delete('/custom-libraries/:id', [ZimController, 'removeCustomLibrary'])
     router.get('/browse-library', [ZimController, 'browseLibrary'])
 
+    router.post('/rescan-library', [ZimController, 'rescanLibrary'])
+
     router.delete('/:filename', [ZimController, 'delete'])
   })
   .prefix('/api/zim')
