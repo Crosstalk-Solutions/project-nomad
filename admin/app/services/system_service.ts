@@ -832,6 +832,12 @@ export class SystemService {
     if (key === 'ai.assistantCustomName') {
       invalidateAssistantNameCache()
     }
+    // Re-enabling auto-update after a backoff-driven auto-disable clears the
+    // failure state so it gets a fresh start instead of immediately re-tripping.
+    if (key === 'autoUpdate.enabled' && (value === true || value === 'true')) {
+      await KVStore.setValue('autoUpdate.consecutiveFailures', '0')
+      await KVStore.clearValue('autoUpdate.autoDisabledReason')
+    }
   }
 
   /**

@@ -187,6 +187,7 @@ router
     router.post('/update', [SystemController, 'requestSystemUpdate'])
     router.get('/update/status', [SystemController, 'getSystemUpdateStatus'])
     router.get('/update/logs', [SystemController, 'getSystemUpdateLogs'])
+    router.get('/auto-update/status', [SystemController, 'getAutoUpdateStatus'])
     router.get('/settings', [SettingsController, 'getSetting'])
     router.patch('/settings', [SettingsController, 'updateSetting'])
   })
