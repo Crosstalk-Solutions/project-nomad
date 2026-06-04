@@ -2,6 +2,9 @@ import { DockerService } from '#services/docker_service';
 import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
 import { ContainerRegistryService } from '#services/container_registry_service'
+import { AutoUpdateService } from '#services/auto_update_service'
+import { DownloadService } from '#services/download_service'
+import { QueueService } from '#services/queue_service'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
 import {
   affectServiceValidator,
@@ -124,6 +127,27 @@ export default class SystemController {
     async getSystemUpdateLogs({ response }: HttpContext) {
         const logs = this.systemUpdateService.getUpdateLogs();
         response.send({ logs });
+    }
+
+    async getAutoUpdateStatus({ response }: HttpContext) {
+        // Construct inline reusing already-injected singletons + the QueueService
+        // singleton (its constructor is private to prevent Redis connection leaks,
+        // so we must not let the container new a fresh one).
+        const autoUpdateService = new AutoUpdateService(
+            this.dockerService,
+            new DownloadService(QueueService.getInstance()),
+            this.systemService,
+            this.systemUpdateService,
+            this.containerRegistryService
+        )
+
+        try {
+            const status = await autoUpdateService.getStatus()
+            response.send(status)
+        } catch (error) {
+            logger.error({ err: error }, '[SystemController] Failed to get auto-update status')
+            response.status(500).send({ error: 'Failed to retrieve auto-update status' })
+        }
     }
 
 
