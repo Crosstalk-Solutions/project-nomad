@@ -499,6 +499,9 @@ export default class SystemController {
         // Merge the form fields into the app's existing config rather than rebuilding from scratch,
         // so advanced settings a curated app ships with (GPU device requests, special env, etc.) are
         // preserved across an edit.
+        // Preserve an explicit scheme (e.g. ui_location "https:8480") across an edit — otherwise a
+        // TLS-serving app's Open link would silently revert to http after any reconfigure.
+        const prevScheme = (service.ui_location || '').match(/^(https?):\d+$/)?.[1]
         const { containerConfig, uiLocation } = this.mergeCustomContainerConfig(
             service.container_config,
             payload
@@ -506,7 +509,9 @@ export default class SystemController {
         service.friendly_name = payload.friendly_name
         service.container_image = payload.image
         service.container_config = JSON.stringify(containerConfig)
-        service.ui_location = uiLocation
+        service.ui_location = prevScheme && uiLocation && /^\d+$/.test(uiLocation)
+            ? `${prevScheme}:${uiLocation}`
+            : uiLocation
         service.category = payload.category ?? service.category ?? 'custom'
         if (payload.icon) service.icon = payload.icon
         // Flag as user-modified so the seeder stops overwriting this app's config on future runs.

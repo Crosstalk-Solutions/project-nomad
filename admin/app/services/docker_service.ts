@@ -198,6 +198,12 @@ export class DockerService {
 
     const hostname = process.env.NODE_ENV === 'production' ? serviceName : 'localhost'
 
+    // "https:8480" / "http:8480" — explicit scheme + port (e.g. an app serving its own TLS).
+    const schemePort = service.ui_location?.match(/^(https?):(\d+)$/)
+    if (schemePort) {
+      return `${schemePort[1]}://${hostname}:${schemePort[2]}`
+    }
+
     // First, check if ui_location is set and is a valid port number
     if (service.ui_location && parseInt(service.ui_location, 10)) {
       return `http://${hostname}:${service.ui_location}`
