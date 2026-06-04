@@ -69,6 +69,13 @@ export default class Service extends BaseModel {
   })
   declare is_custom: boolean
 
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_user_modified: boolean
+
   @column()
   declare category: string | null
 
