@@ -621,6 +621,11 @@ function AppCard({
   const isStopped = service.installed && !isRunning
   const catColor = service.category ? CATEGORY_COLORS[service.category] ?? CATEGORY_COLORS.custom : CATEGORY_COLORS.custom
   const isDropdownOpen = openDropdown === service.service_name
+  // Port pill: an ui_location may carry an explicit scheme ("https:8480") — show just the port,
+  // with a lock when it's served over HTTPS, rather than the raw "https:8480" string.
+  const uiIsPath = !!service.ui_location && service.ui_location.startsWith('/')
+  const uiIsHttps = /^https:/.test(service.ui_location || '')
+  const uiPort = service.ui_location && !uiIsPath ? service.ui_location.replace(/^https?:/, '') : null
 
   function toggleDropdown(e: React.MouseEvent) {
     e.stopPropagation()
@@ -709,9 +714,9 @@ function AppCard({
             modified
           </span>
         ) : null}
-        {service.ui_location && !service.ui_location.startsWith('/') && (
+        {uiPort && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-secondary text-text-muted font-mono">
-            :{service.ui_location}
+            {uiIsHttps ? '🔒 ' : ''}:{uiPort}
           </span>
         )}
       </div>
