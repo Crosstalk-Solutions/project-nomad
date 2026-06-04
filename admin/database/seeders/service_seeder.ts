@@ -340,9 +340,10 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '80/tcp': [{ HostPort: '8450' }] },
+          // meshtastic/web serves on 8080 inside the container, not 80.
+          PortBindings: { '8080/tcp': [{ HostPort: '8450' }] },
         },
-        ExposedPorts: { '80/tcp': {} },
+        ExposedPorts: { '8080/tcp': {} },
       }),
       ui_location: '8450',
       installed: false,
