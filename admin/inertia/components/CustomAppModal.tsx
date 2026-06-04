@@ -286,7 +286,7 @@ export default function CustomAppModal({
 
   return (
     <StyledModal
-      title={isEdit ? 'Edit Custom App' : 'Add Custom App'}
+      title={isEdit ? 'Edit App' : 'Add Custom App'}
       open={open}
       onCancel={handleClose}
       cancelText="Cancel"

@@ -7,7 +7,13 @@ import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 
 type ServiceSeedRecord = Omit<
   ModelAttributes<Service>,
-  'created_at' | 'updated_at' | 'id' | 'available_update_version' | 'update_checked_at' | 'metadata'
+  | 'created_at'
+  | 'updated_at'
+  | 'id'
+  | 'available_update_version'
+  | 'update_checked_at'
+  | 'metadata'
+  | 'is_user_modified'
 > & { metadata?: string | null }
 
 export default class ServiceSeeder extends BaseSeeder {
@@ -460,7 +466,11 @@ export default class ServiceSeeder extends BaseSeeder {
   ]
 
   async run() {
-    const existingServices = await Service.query().select(['service_name', 'is_custom'])
+    const existingServices = await Service.query().select([
+      'service_name',
+      'is_custom',
+      'is_user_modified',
+    ])
     const existingServiceMap = new Map(existingServices.map((s) => [s.service_name, s]))
 
     const newServices = ServiceSeeder.DEFAULT_SERVICES.filter(
@@ -472,10 +482,11 @@ export default class ServiceSeeder extends BaseSeeder {
     }
 
     // Keep container_config, container_command, and metadata in sync for curated services.
-    // Custom services are user-defined and must never be overwritten.
+    // Custom services are user-defined and must never be overwritten. User-modified curated
+    // services (a user edited their config) are likewise left alone so the edit survives reboots.
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
-      if (existing && !existing.is_custom) {
+      if (existing && !existing.is_custom && !existing.is_user_modified) {
         await Service.query().where('service_name', service.service_name).update({
           container_config: service.container_config,
           container_command: service.container_command ?? null,
