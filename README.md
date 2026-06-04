@@ -117,6 +117,41 @@ For now, we recommend using network-level controls to manage access if you're pl
 ## Contributing
 Contributions are welcome and appreciated! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to the project.
 
+### Testing Auto-Updates (Dry Run)
+
+The Command Center can automatically install **minor/patch** updates of itself during a configurable window, after a cool-off period, and only when pre-flight checks pass (sufficient disk for the new image, no downloads or app installs in progress). Major versions always require a manual update.
+
+Because exercising this logic with real version bumps is impractical, an Ace command runs the **entire decision pipeline without ever triggering an update**. Run it from the `admin/` directory:
+
+```bash
+# 1) Deterministic scenario suite — no network, DB, or Docker required.
+#    Proves every branch (major-only, cool-off, prerelease/draft, window wrap, …)
+#    and exits non-zero on failure, so it's safe to wire into CI.
+node ace auto-update:dry-run --scenarios
+
+# 2) Simulate "what would happen if I were running 1.32.0 right now?"
+#    against the LIVE GitHub releases feed and real pre-flight checks:
+node ace auto-update:dry-run --current=1.32.0 --force-enabled
+
+# 3) Fully offline simulation with a canned release list and a fixed clock:
+node ace auto-update:dry-run --current=1.32.0 --force-enabled \
+  --releases-file=./fixtures/releases.json --now=2026-06-04T21:00:00Z \
+  --window-start=20:00 --window-end=23:00 --cooloff=72 --skip-preflight
+```
+
+It prints the resolved decision — current version, whether the clock is inside the window, the eligible target (if any), and pre-flight blockers — ending in a clear verdict such as `WOULD UPDATE → v1.33.2` or `WOULD NOT UPDATE (outside-window): …`. **No real update is ever requested.**
+
+| Flag | Description |
+|------|-------------|
+| `--scenarios` | Run the built-in deterministic scenario suite and exit |
+| `--current=<version>` | Simulate this currently-running version (e.g. `1.32.0`) |
+| `--force-enabled` | Treat auto-update as enabled, ignoring the saved setting |
+| `--cooloff=<hours>` | Override the cool-off period |
+| `--window-start=<HH:MM>` / `--window-end=<HH:MM>` | Override the update window |
+| `--now=<ISO timestamp>` | Simulate the clock at a specific time |
+| `--releases-file=<path>` | Use a local JSON releases array instead of fetching GitHub (offline) |
+| `--skip-preflight` | Bypass the Docker/disk/queue pre-flight checks |
+
 ## Community & Resources
 
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project

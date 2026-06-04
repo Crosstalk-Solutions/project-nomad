@@ -86,3 +86,24 @@ export type CheckLatestVersionResult = {
   latestVersion: string,
   message?: string
 }
+
+export type AutoUpdateEligibleTarget = {
+  version: string
+  tag: string
+  publishedAt: string
+}
+
+export type AutoUpdateStatus = {
+  enabled: boolean
+  windowStart: string
+  windowEnd: string
+  cooloffHours: number
+  currentVersion: string
+  withinWindow: boolean
+  eligibleTarget: AutoUpdateEligibleTarget | null
+  lastAttemptAt: string | null
+  lastResult: string | null
+  lastError: string | null
+  consecutiveFailures: number
+  autoDisabledReason: string | null
+}
