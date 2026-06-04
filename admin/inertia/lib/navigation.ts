@@ -1,6 +1,13 @@
 
 
 export function getServiceLink(ui_location: string): string {
+    // "https:8480" / "http:8480" — an explicit scheme + port served on the current host. Checked
+    // before the URL parse below because new URL("https:8480") would mis-parse 8480 as the host.
+    const schemePort = ui_location.match(/^(https?):(\d+)$/);
+    if (schemePort) {
+        return `${schemePort[1]}://${window.location.hostname}:${schemePort[2]}`;
+    }
+
     // Check if the ui location is a valid URL
     try {
         const url = new URL(ui_location);
