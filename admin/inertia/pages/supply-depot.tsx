@@ -629,15 +629,16 @@ function AppCard({
 
   return (
     <div
-      className={`relative flex flex-col rounded-xl border p-4 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden ${
+      className={`relative flex flex-col rounded-xl border p-4 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${
         service.installed
           ? 'border-desert-stone-light'
           : 'border-desert-stone-lighter hover:border-desert-stone-light'
       }`}
     >
-      {/* Installed accent spine */}
+      {/* Installed accent spine (rounded to follow the card corners — the card no longer clips
+          overflow so the Manage dropdown can open above the card without being cut off) */}
       {service.installed ? (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-desert-green" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-desert-green rounded-l-xl" />
       ) : null}
 
       {/* Top row: icon + status badge */}
@@ -700,6 +701,14 @@ function AppCard({
             custom
           </span>
         ) : null}
+        {service.is_user_modified && !service.is_custom ? (
+          <span
+            className="text-xs px-2 py-0.5 rounded-full font-medium bg-desert-tan-lighter text-desert-tan-dark border border-desert-tan-light"
+            title="You've customized this app, so it won't be overwritten by catalog updates."
+          >
+            modified
+          </span>
+        ) : null}
         {service.ui_location && !service.ui_location.startsWith('/') && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-secondary text-text-muted font-mono">
             :{service.ui_location}
@@ -754,9 +763,7 @@ function AppCard({
                   <DropdownItem icon={<IconRefresh className="h-4 w-4" />} label="Restart" onClick={onRestart} />
                   <DropdownItem icon={<IconFileText className="h-4 w-4" />} label="Logs" onClick={onLogs} />
                   <DropdownItem icon={<IconChartBar className="h-4 w-4" />} label="Stats" onClick={onStats} />
-                  {service.is_custom ? (
-                    <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
-                  ) : null}
+                  <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
                   {service.is_custom ? (
                     <DropdownItem icon={<IconCloudDownload className="h-4 w-4" />} label="Update (pull latest)" onClick={onUpdate} />
                   ) : null}

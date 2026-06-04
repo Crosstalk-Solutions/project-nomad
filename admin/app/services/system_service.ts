@@ -310,6 +310,7 @@ export class SystemService {
         'container_image',
         'available_update_version',
         'is_custom',
+        'is_user_modified',
         'category'
       )
       .where('is_dependency_service', false)
@@ -341,6 +342,7 @@ export class SystemService {
         container_image: service.container_image,
         available_update_version: service.available_update_version,
         is_custom: service.is_custom,
+        is_user_modified: service.is_user_modified,
         category: service.category,
       })
     }

@@ -1593,6 +1593,14 @@ export class DockerService {
     const oldInfo = await this._findContainerByName(serviceName)
     const oldName = `${serviceName}_old`
 
+    // Clear any stale `_old` left behind by a previous recreate that died mid-flight. Without this,
+    // the rename below would fail (name in use) and the rollback path would then destroy the live
+    // container and resurrect the stale one in its place.
+    const staleOld = await this._findContainerByName(oldName)
+    if (staleOld) {
+      await this.docker.getContainer(staleOld.Id).remove({ force: true }).catch(() => {})
+    }
+
     try {
       // Stop + rename the existing container aside as a rollback safety net.
       if (oldInfo) {
