@@ -1547,7 +1547,35 @@ export class DockerService {
 
       // Step 3: Rename old container as safety net
       const oldName = `${serviceName}_old`
+
+      // Clear any stale rollback container left behind by a previously failed update.
+      // Otherwise the rename below collides with the existing `<name>_old` and throws,
+      // which wedges every subsequent retry on the same error.
+      const staleOld = (await this.docker.listContainers({ all: true })).find((c) =>
+        c.Names.includes(`/${oldName}`)
+      )
+      if (staleOld) {
+        try {
+          await this.docker.getContainer(staleOld.Id).remove({ force: true })
+        } catch {
+          // Best effort — if it can't be removed the rename below will surface the error.
+        }
+      }
+
       await oldContainer.rename({ name: oldName })
+
+      // Restore the previous container after a failed update: rename the renamed-aside
+      // old container back into place and start it, so a failure anywhere between here
+      // and the health check never leaves the service down.
+      const rollbackToOld = async () => {
+        const containers = await this.docker.listContainers({ all: true })
+        const oldRef = containers.find((c) => c.Names.includes(`/${oldName}`))
+        if (oldRef) {
+          const rollbackContainer = this.docker.getContainer(oldRef.Id)
+          await rollbackContainer.rename({ name: serviceName }).catch(() => {})
+          await rollbackContainer.start().catch(() => {})
+        }
+      }
 
       // Step 4: Create new container with inspected config + new image
       this._broadcast(serviceName, 'update-creating', `Creating updated container...`)
@@ -1604,16 +1632,35 @@ export class DockerService {
       } catch (createError: any) {
         // Rollback: rename old container back
         this._broadcast(serviceName, 'update-rollback', `Failed to create new container: ${createError.message}. Rolling back...`)
-        const rollbackContainer = this.docker.getContainer((await this.docker.listContainers({ all: true })).find((c) => c.Names.includes(`/${oldName}`))!.Id)
-        await rollbackContainer.rename({ name: serviceName })
-        await rollbackContainer.start()
+        await rollbackToOld()
         this.activeInstallations.delete(serviceName)
         return { success: false, message: `Failed to create updated container: ${createError.message}` }
       }
 
-      // Step 5: Start new container
+      // Step 5: Start new container. If the start itself throws (bad device/GPU config,
+      // a host port already bound, image incompatibility), roll back to the previous
+      // container instead of leaving the service stopped with no replacement running.
       this._broadcast(serviceName, 'update-starting', `Starting updated container...`)
-      await newContainer.start()
+      try {
+        await newContainer.start()
+      } catch (startError: any) {
+        this._broadcast(
+          serviceName,
+          'update-rollback',
+          `Updated container failed to start: ${startError.message}. Rolling back to previous version...`
+        )
+        try {
+          await newContainer.remove({ force: true })
+        } catch {
+          // Best effort — leave the half-created container for manual cleanup if needed.
+        }
+        await rollbackToOld()
+        this.activeInstallations.delete(serviceName)
+        return {
+          success: false,
+          message: `Update failed: new container did not start (${startError.message}). Rolled back to previous version.`,
+        }
+      }
 
       // Step 6: Health check — verify container stays running for 5 seconds
       await new Promise((resolve) => setTimeout(resolve, 5000))
@@ -1659,14 +1706,7 @@ export class DockerService {
           // Best effort cleanup
         }
 
-        // Restore old container
-        const oldContainers = await this.docker.listContainers({ all: true })
-        const oldRef = oldContainers.find((c) => c.Names.includes(`/${oldName}`))
-        if (oldRef) {
-          const rollbackContainer = this.docker.getContainer(oldRef.Id)
-          await rollbackContainer.rename({ name: serviceName })
-          await rollbackContainer.start()
-        }
+        await rollbackToOld()
 
         this.activeInstallations.delete(serviceName)
         return {
