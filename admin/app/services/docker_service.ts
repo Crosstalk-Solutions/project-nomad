@@ -463,6 +463,30 @@ export class DockerService {
    * @returns
    */
   /**
+   * Translate low-level dockerode errors into something a non-technical user can
+   * act on. Currently handles host port conflicts — the most common install
+   * failure, where a service can't bind its port because something on the host
+   * already holds it (classic case: a native Ollama install owns 11434). Returns
+   * the original message unchanged for anything we don't recognize. (#934)
+   */
+  private _humanizeDockerError(error: any, serviceName: string): string {
+    const raw: string = error?.message ?? String(error)
+    // dockerode surfaces port conflicts as e.g.
+    //   "...Bind for 0.0.0.0:11434 failed: port is already allocated"
+    //   "...listen tcp 0.0.0.0:8090: bind: address already in use"
+    const portMatch = raw.match(/(?:Bind for [^:]+:(\d+) failed: port is already allocated|:(\d+): bind: address already in use)/i)
+    if (portMatch) {
+      const port = portMatch[1] || portMatch[2]
+      const portText = port ? `port ${port}` : 'a required port'
+      if (port === '11434' || serviceName === SERVICE_NAMES.OLLAMA) {
+        return `Couldn't start because ${portText} is already in use on this machine. This usually means Ollama is already installed and running directly on the host (outside NOMAD). Stop and disable the host Ollama service (e.g. "sudo systemctl stop ollama" then "sudo systemctl disable ollama"), then try again.`
+      }
+      return `Couldn't start because ${portText} is already in use on this machine. Stop whatever is using ${portText} on the host, then try again.`
+    }
+    return raw
+  }
+
+  /**
    * Resolve the host filesystem path that backs the admin container's storage
    * directory (`/app/storage`). Child services are created via the Docker socket,
    * so their bind mounts need the path on the *host*, not inside the admin
@@ -828,14 +852,15 @@ export class DockerService {
         `Service ${service.service_name} installation completed successfully.`
       )
     } catch (error: any) {
+      const friendly = this._humanizeDockerError(error, service.service_name)
       this._broadcast(
         service.service_name,
         'error',
-        `Error installing service ${service.service_name}: ${error.message}`
+        `Error installing service ${service.service_name}: ${friendly}`
       )
       // Mark install as failed and cleanup
       await this._cleanupFailedInstallation(service.service_name)
-      throw new Error(`Failed to install service ${service.service_name}: ${error.message}`)
+      throw new Error(`Failed to install service ${service.service_name}: ${friendly}`)
     }
   }
 
