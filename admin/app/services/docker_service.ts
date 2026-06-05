@@ -5,12 +5,19 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
-import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import {
+  ZIM_STORAGE_PATH,
+  BOOKS_STORAGE_PATH,
+  CALIBRE_EMPTY_LIBRARY_ASSET_PATH,
+  VAULTWARDEN_STORAGE_PATH,
+  MEDIA_STORAGE_PATH,
+  JELLYFIN_MEDIA_SUBFOLDERS,
+} from '../utils/fs.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { readFile } from 'node:fs/promises'
+import { readFile, mkdir, copyFile, chown, chmod, access } from 'node:fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -510,6 +517,33 @@ export class DockerService {
         )
       }
 
+      if (service.service_name === SERVICE_NAMES.CALIBREWEB) {
+        await this._runPreinstallActions__CalibreWeb()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Calibre-Web completed successfully.`
+        )
+      }
+
+      if (service.service_name === SERVICE_NAMES.VAULTWARDEN) {
+        await this._runPreinstallActions__Vaultwarden()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Vaultwarden completed successfully.`
+        )
+      }
+
+      if (service.service_name === SERVICE_NAMES.JELLYFIN) {
+        await this._runPreinstallActions__Jellyfin()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Jellyfin completed successfully.`
+        )
+      }
+
       // GPU-aware configuration for Ollama
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
@@ -778,6 +812,176 @@ export class DockerService {
         SERVICE_NAMES.KIWIX,
         'preinstall-error',
         `Failed to download Wikipedia ZIM file: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Calibre-Web cannot create a library from scratch — without an existing Calibre database it
+   * dead-ends at the "Database Configuration" page. Seed an empty library (bundled in the admin
+   * image) into storage/books so the user just points Calibre-Web at /books and starts adding
+   * books. Only seeds when no metadata.db already exists, so an existing library is never clobbered.
+   * Ownership is handed to the container user (PUID/PGID 1000 in the seeder) so Calibre-Web can
+   * write to the library and create book folders on upload.
+   */
+  private async _runPreinstallActions__CalibreWeb(): Promise<void> {
+    // Keep in sync with the PUID/PGID set on the Calibre-Web service in the seeder.
+    const CALIBRE_WEB_UID = 1000
+    const CALIBRE_WEB_GID = 1000
+
+    const booksDir = join(process.cwd(), BOOKS_STORAGE_PATH)
+    const metadataPath = join(booksDir, 'metadata.db')
+    const assetPath = join(process.cwd(), CALIBRE_EMPTY_LIBRARY_ASSET_PATH)
+
+    this._broadcast(
+      SERVICE_NAMES.CALIBREWEB,
+      'preinstall',
+      `Running pre-install actions for Calibre-Web...`
+    )
+
+    try {
+      await mkdir(booksDir, { recursive: true })
+
+      // Don't clobber an existing library — only seed when there's no metadata.db yet.
+      const alreadyHasLibrary = await access(metadataPath)
+        .then(() => true)
+        .catch(() => false)
+
+      if (alreadyHasLibrary) {
+        this._broadcast(
+          SERVICE_NAMES.CALIBREWEB,
+          'preinstall',
+          `Existing Calibre library found in books folder — leaving it as-is.`
+        )
+      } else {
+        await copyFile(assetPath, metadataPath)
+        this._broadcast(
+          SERVICE_NAMES.CALIBREWEB,
+          'preinstall',
+          `Seeded an empty Calibre library into the books folder.`
+        )
+      }
+
+      // Hand the books folder + library to the Calibre-Web container user so it can read/write
+      // the library and create book folders on upload (Docker creates bind dirs as root otherwise).
+      await chown(booksDir, CALIBRE_WEB_UID, CALIBRE_WEB_GID)
+      await chown(metadataPath, CALIBRE_WEB_UID, CALIBRE_WEB_GID)
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.CALIBREWEB,
+        'preinstall-error',
+        `Failed to prepare the Calibre library: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Vaultwarden's web vault refuses to run without a secure context — over plain HTTP it shows
+   * "You need to enable HTTPS!" and you can't register or unlock. We give it a self-signed TLS
+   * cert in its /data volume so it serves HTTPS out of the box (paired with the ROCKET_TLS env and
+   * the `https:8480` ui_location set in the seeder). Users click through a one-time browser warning;
+   * after that the vault is fully functional offline. Self-signed is the only option on a LAN
+   * appliance with no public DNS to get a trusted cert for.
+   */
+  private async _runPreinstallActions__Vaultwarden(): Promise<void> {
+    const dataDir = join(process.cwd(), VAULTWARDEN_STORAGE_PATH)
+    const certPath = join(dataDir, 'cert.pem')
+    const keyPath = join(dataDir, 'key.pem')
+
+    this._broadcast(
+      SERVICE_NAMES.VAULTWARDEN,
+      'preinstall',
+      `Running pre-install actions for Vaultwarden...`
+    )
+
+    try {
+      await mkdir(dataDir, { recursive: true })
+
+      // Don't regenerate if a cert is already present — keeps the same cert across reinstalls so
+      // users don't get a fresh browser warning every time, and never clobbers a cert an admin
+      // may have swapped in themselves.
+      const alreadyHasCert = await Promise.all([
+        access(certPath)
+          .then(() => true)
+          .catch(() => false),
+        access(keyPath)
+          .then(() => true)
+          .catch(() => false),
+      ]).then(([c, k]) => c && k)
+
+      if (alreadyHasCert) {
+        this._broadcast(
+          SERVICE_NAMES.VAULTWARDEN,
+          'preinstall',
+          `Existing Vaultwarden TLS certificate found — leaving it as-is.`
+        )
+        return
+      }
+
+      // 10-year self-signed cert. CN/SAN are cosmetic for a self-signed cert (the browser warns
+      // regardless), but a SAN keeps it structurally valid for clients that require one.
+      const execAsync = promisify(exec)
+      await execAsync(
+        `openssl req -x509 -newkey rsa:2048 -nodes ` +
+          `-keyout "${keyPath}" -out "${certPath}" -days 3650 ` +
+          `-subj "/CN=Project NOMAD Vaultwarden" ` +
+          `-addext "subjectAltName=DNS:nomad,DNS:localhost"`
+      )
+
+      // Lock the private key down; the cert can stay world-readable. Vaultwarden runs as root and
+      // reads both from /data, so no chown is needed (admin writes them as root too).
+      await chmod(keyPath, 0o600)
+      await chmod(certPath, 0o644)
+
+      this._broadcast(
+        SERVICE_NAMES.VAULTWARDEN,
+        'preinstall',
+        `Generated a self-signed HTTPS certificate for Vaultwarden.`
+      )
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.VAULTWARDEN,
+        'preinstall-error',
+        `Failed to prepare the Vaultwarden certificate: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Jellyfin works best when each library points at its own subfolder. Pointing one library at the
+   * whole media root and another at a subfolder inside it makes Jellyfin report a "duplicate path"
+   * and silently drop the nested library's content. To steer users toward the one-folder-per-type
+   * layout (and match the documentation), we pre-create the suggested subfolders under the shared
+   * media root so they're ready to pick in the setup wizard. Idempotent: only missing folders are
+   * created (mkdir is a no-op on existing ones) and nothing the user added is ever touched.
+   */
+  private async _runPreinstallActions__Jellyfin(): Promise<void> {
+    const mediaDir = join(process.cwd(), MEDIA_STORAGE_PATH)
+
+    this._broadcast(
+      SERVICE_NAMES.JELLYFIN,
+      'preinstall',
+      `Running pre-install actions for Jellyfin...`
+    )
+
+    try {
+      await mkdir(mediaDir, { recursive: true })
+      for (const name of JELLYFIN_MEDIA_SUBFOLDERS) {
+        await mkdir(join(mediaDir, name), { recursive: true })
+      }
+      this._broadcast(
+        SERVICE_NAMES.JELLYFIN,
+        'preinstall',
+        `Prepared media folders: ${JELLYFIN_MEDIA_SUBFOLDERS.join(', ')}.`
+      )
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.JELLYFIN,
+        'preinstall-error',
+        `Failed to prepare the Jellyfin media folders: ${error.message}`
       )
       throw new Error(`Pre-install action failed: ${error.message}`)
     }

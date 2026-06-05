@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAlertTriangle,
+  IconBook,
   IconBox,
   IconBrandDocker,
   IconChartBar,
@@ -30,6 +31,7 @@ import useErrorNotification from '~/hooks/useErrorNotification'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
 import { ServiceSlim } from '../../types/services'
 import { getServiceLink } from '~/lib/navigation'
+import { getSupplyDepotDocLink } from '../../constants/supply_depot_docs'
 import api from '~/lib/api'
 import { toTitleCase } from '../../app/utils/misc'
 
@@ -626,6 +628,9 @@ function AppCard({
   const uiIsPath = !!service.ui_location && service.ui_location.startsWith('/')
   const uiIsHttps = /^https:/.test(service.ui_location || '')
   const uiPort = service.ui_location && !uiIsPath ? service.ui_location.replace(/^https?:/, '') : null
+  // Per-app documentation link (in-app docs page, anchored to this app's section). Null for apps
+  // without a doc section (custom apps, undocumented catalog apps) so the Docs item is hidden.
+  const docLink = getSupplyDepotDocLink(service.service_name)
 
   function toggleDropdown(e: React.MouseEvent) {
     e.stopPropagation()
@@ -759,6 +764,18 @@ function AppCard({
 
               {isDropdownOpen && (
                 <div className="absolute right-0 bottom-full mb-1 w-44 bg-surface-primary border border-surface-secondary rounded-lg shadow-xl z-20 overflow-hidden">
+                  {docLink && (
+                    <a
+                      href={docLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer text-text-primary hover:bg-surface-secondary"
+                    >
+                      <IconBook className="h-4 w-4" />
+                      Docs
+                    </a>
+                  )}
                   {isStopped && (
                     <DropdownItem icon={<IconPlayerPlay className="h-4 w-4" />} label="Start" onClick={onStart} />
                   )}

@@ -6,6 +6,17 @@ import { LSBlockDevice, NomadDiskInfoRaw } from '../../types/system.js'
 
 export const ZIM_STORAGE_PATH = '/storage/zim'
 export const KIWIX_LIBRARY_XML_PATH = '/storage/zim/kiwix-library.xml'
+export const BOOKS_STORAGE_PATH = '/storage/books'
+// Shared media root (Jellyfin reads it as /media; File Browser shows it as "media"). Per-type
+// subfolders are pre-created on Jellyfin install — see _runPreinstallActions__Jellyfin.
+export const MEDIA_STORAGE_PATH = '/storage/media'
+export const JELLYFIN_MEDIA_SUBFOLDERS = ['Movies', 'TV Shows', 'Music', 'Photos']
+// Empty Calibre library bundled into the admin image (see install/calibre-empty-library/).
+// Seeded into storage/books on Calibre-Web install so it doesn't dead-end at db config.
+export const CALIBRE_EMPTY_LIBRARY_ASSET_PATH = 'assets/calibre/metadata.db'
+// Vaultwarden's /data volume. A self-signed TLS cert is generated here on install so the
+// web vault has the secure context (HTTPS) it requires — see _runPreinstallActions__Vaultwarden.
+export const VAULTWARDEN_STORAGE_PATH = '/storage/vaultwarden'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })

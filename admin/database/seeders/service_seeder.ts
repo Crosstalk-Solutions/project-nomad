@@ -206,7 +206,11 @@ export default class ServiceSeeder extends BaseSeeder {
           ],
         },
         ExposedPorts: { '8080/tcp': {} },
-        Env: ['DOCKER_ENABLE_SECURITY=false', 'LANGS=en_GB'],
+        // Stirling v2 ignores the old v1 `DOCKER_ENABLE_SECURITY` flag and ships with
+        // `security.enableLogin: true` in settings.yml, so it boots behind a login wall.
+        // For a single-user offline appliance we open it straight to the tools. Users who
+        // want a login can flip this to `true` via Manage > Edit (env overrides settings.yml).
+        Env: ['SECURITY_ENABLELOGIN=false', 'LANGS=en_GB'],
       }),
       ui_location: '8400',
       installed: false,
@@ -225,17 +229,44 @@ export default class ServiceSeeder extends BaseSeeder {
       icon: 'IconFolderOpen',
       container_image: 'filebrowser/filebrowser:v2',
       source_repo: 'https://github.com/filebrowser/filebrowser',
-      // Stores the database alongside the files it serves so a single volume covers everything.
-      // User: root — host directories auto-created by Docker are owned root:root 755; FileBrowser's
-      // image runs as UID 1000 by default which can't write to them (DooD: we can't chown on host).
-      container_command: '--root /srv --database /srv/.filebrowser.db',
+      // Browsable root is storage/filebrowser/files (persistent, so files created at the top level
+      // survive updates), with the user-facing content folders mounted in beneath it. We deliberately
+      // do NOT mount the sensitive/app-internal folders (vaultwarden, ollama, qdrant, logs, other
+      // apps' config + *.db). They simply aren't present in the container, so they can't be browsed,
+      // downloaded, or deleted — this is the guardrail. FileBrowser's own rules feature would need a
+      // wrapper script / imported config shipped into the container, which the catalog model doesn't
+      // support, so mount selection is how we scope visibility. To expose another content folder,
+      // add a `${STORAGE}/<folder>:/srv/<folder>` bind here.
+      // The DB lives in storage/filebrowser/db (mounted at /db, a SIBLING of the root, not under it)
+      // so FileBrowser's own .filebrowser.db never shows up in the user's file listing. User: root so
+      // it can read/write folders owned by other UIDs.
+      container_command: '--root /srv --database /db/.filebrowser.db',
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { '80/tcp': [{ HostPort: '8410' }] },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/filebrowser:/srv`],
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/filebrowser/files:/srv`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/filebrowser/db:/db`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/books:/srv/books`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/maps:/srv/maps`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/media:/srv/media`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/kb_uploads:/srv/kb_uploads`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/zim:/srv/zim`,
+          ],
         },
         ExposedPorts: { '80/tcp': {} },
+        // Without an initial password FileBrowser generates a random one and prints it only to
+        // the container logs, which a non-technical user can't reach. Seed a known admin/nomad
+        // login on first run instead (only applies when the DB doesn't exist yet); the docs tell
+        // users to change it. FB_NOAUTH / --noauth don't work on this image (v2.63.x), so a login
+        // stays, which is the safer default anyway for a read/write/delete file manager.
+        // NOTE: FB_PASSWORD must be a bcrypt hash, not plaintext. The value below is the hash of
+        // "nomad" (generated via `filebrowser hash nomad`). Login is admin / nomad.
+        Env: [
+          'FB_USERNAME=admin',
+          'FB_PASSWORD=$2a$10$Dvu3XTiLxvPTzvdOKu6y6.AmadN6Zt0ddLwK.8MQ.RCIQWunWBQXa',
+        ],
         User: 'root'
       }),
       ui_location: '8410',
@@ -386,8 +417,11 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 25,
       description: 'Home inventory and asset management — track everything you own',
       icon: 'IconBox',
-      container_image: 'ghcr.io/hay-kot/homebox:latest',
-      source_repo: 'https://github.com/hay-kot/homebox',
+      // Maintained fork. The original hay-kot/homebox was archived June 2024;
+      // sysadminsmedia is the official continuation (drop-in: same 7745 port + /data volume,
+      // migrates an existing DB forward, telemetry off by default).
+      container_image: 'ghcr.io/sysadminsmedia/homebox:latest',
+      source_repo: 'https://github.com/sysadminsmedia/homebox',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
@@ -422,9 +456,16 @@ export default class ServiceSeeder extends BaseSeeder {
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/vaultwarden:/data`],
         },
         ExposedPorts: { '80/tcp': {} },
-        Env: ['WEBSOCKET_ENABLED=true'],
+        // ROCKET_TLS points at the self-signed cert generated on install by
+        // DockerService._runPreinstallActions__Vaultwarden. Vaultwarden's web vault needs a secure
+        // context (HTTPS) or it refuses to register/unlock, so it ships HTTPS-on-by-default.
+        Env: [
+          'WEBSOCKET_ENABLED=true',
+          'ROCKET_TLS={certs="/data/cert.pem",key="/data/key.pem"}',
+        ],
       }),
-      ui_location: '8480',
+      // https: prefix tells getServiceLink to build an https:// Open link on this port.
+      ui_location: 'https:8480',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
@@ -482,9 +523,11 @@ export default class ServiceSeeder extends BaseSeeder {
       await Service.createMany([...newServices])
     }
 
-    // Keep container_config, container_command, and metadata in sync for curated services.
-    // Custom services are user-defined and must never be overwritten. User-modified curated
-    // services (a user edited their config) are likewise left alone so the edit survives reboots.
+    // Keep curated services in sync with the catalog. Custom services are user-defined and must
+    // never be overwritten. User-modified curated services (a user edited their config) are
+    // likewise left alone so the edit survives reboots. ui_location is synced too so a catalog
+    // change to an app's link/scheme/port (e.g. Vaultwarden moving to https:8480, or a corrected
+    // internal port) reaches existing non-modified installs on update, not just fresh ones.
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
       if (existing && !existing.is_custom && !existing.is_user_modified) {
@@ -493,6 +536,7 @@ export default class ServiceSeeder extends BaseSeeder {
           container_command: service.container_command ?? null,
           metadata: (service as any).metadata ?? null,
           category: service.category,
+          ui_location: service.ui_location,
         })
       }
     }

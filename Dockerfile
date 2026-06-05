@@ -84,6 +84,10 @@ RUN echo "{\"version\":\"${VERSION}\"}" > /app/version.json
 COPY admin/docs /app/docs
 COPY README.md /app/README.md
 
+# Empty Calibre library, seeded into storage/books on Calibre-Web install
+# (see DockerService._runPreinstallActions__CalibreWeb)
+COPY install/calibre-empty-library/metadata.db /app/assets/calibre/metadata.db
+
 # Copy entrypoint script and ensure it's executable
 COPY install/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

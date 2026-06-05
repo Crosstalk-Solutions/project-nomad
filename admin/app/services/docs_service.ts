@@ -12,10 +12,11 @@ export class DocsService {
     'home': 1,
     'getting-started': 2,
     'use-cases': 3,
-    'community-add-ons': 4,
-    'faq': 5,
-    'about': 6,
-    'release-notes': 7,
+    'supply-depot-apps': 4,
+    'community-add-ons': 5,
+    'faq': 6,
+    'about': 7,
+    'release-notes': 8,
   }
 
   async getDocs() {
