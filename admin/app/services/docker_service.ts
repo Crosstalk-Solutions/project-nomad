@@ -5,6 +5,8 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
+import os from 'node:os'
+import env from '#start/env'
 import {
   ZIM_STORAGE_PATH,
   BOOKS_STORAGE_PATH,
@@ -27,6 +29,12 @@ export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
   public static NOMAD_NETWORK = 'project-nomad_default'
+  public static ADMIN_CONTAINER_NAME = 'nomad_admin'
+
+  // Resolved once: the host filesystem path backing the admin's /app/storage mount.
+  // Child-service binds are rewritten to live under this so relocating the admin
+  // storage volume relocates every child app too (#938). null = not yet resolved.
+  private _hostStorageRoot: string | null = null
 
   private _servicesStatusCache: { data: { service_name: string; status: string }[]; expiresAt: number } | null = null
   private _servicesStatusInflight: Promise<{ service_name: string; status: string }[]> | null = null
@@ -447,12 +455,87 @@ export class DockerService {
    * @param serviceName
    * @returns
    */
+  /**
+   * Resolve the host filesystem path that backs the admin container's storage
+   * directory (`/app/storage`). Child services are created via the Docker socket,
+   * so their bind mounts need the path on the *host*, not inside the admin
+   * container. Deriving it from the admin's own mount means whatever host path
+   * the admin storage volume is mapped to in compose, child apps follow it
+   * automatically (#938).
+   *
+   * Falls back to NOMAD_STORAGE_PATH / the production default if the admin
+   * container or its storage mount can't be inspected.
+   */
+  private async _resolveHostStorageRoot(): Promise<string> {
+    if (this._hostStorageRoot) return this._hostStorageRoot
+    const fallback = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
+    try {
+      const adminStorageDest = join(process.cwd(), '/storage') // e.g. /app/storage
+      const containers = await this.docker.listContainers({ all: true })
+      // Prefer the well-known admin container name; fall back to matching this
+      // process's own container by hostname (Docker defaults it to the short id).
+      let adminInfo = containers.find((c) =>
+        c.Names.includes(`/${DockerService.ADMIN_CONTAINER_NAME}`)
+      )
+      if (!adminInfo) {
+        const hn = os.hostname()
+        adminInfo = containers.find((c) => c.Id.startsWith(hn))
+      }
+      if (!adminInfo) return (this._hostStorageRoot = fallback)
+
+      const inspected = await this.docker.getContainer(adminInfo.Id).inspect()
+      const mount = (inspected.Mounts ?? []).find(
+        (m: any) => m.Type === 'bind' && m.Destination === adminStorageDest
+      )
+      if (mount?.Source) {
+        logger.info(`[DockerService] Resolved host storage root from admin mount: ${mount.Source}`)
+        return (this._hostStorageRoot = mount.Source)
+      }
+      return (this._hostStorageRoot = fallback)
+    } catch (err: any) {
+      logger.warn(
+        `[DockerService] Could not resolve host storage root, using fallback ${fallback}: ${err.message}`
+      )
+      return fallback
+    }
+  }
+
+  /**
+   * Rewrite the host side of a service's storage bind mounts so they point at the
+   * resolved host storage root. The seeded binds use the default/env prefix; if the
+   * admin storage actually lives elsewhere on the host, swap that prefix so the
+   * child container mounts the same physical location (#938). No-op when the
+   * resolved root matches the seeded prefix (the common case).
+   */
+  private async _applyHostStorageRoot(containerConfig: any): Promise<void> {
+    const binds: string[] | undefined = containerConfig?.HostConfig?.Binds
+    if (!binds?.length) return
+    const seededRoot = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
+    const root = await this._resolveHostStorageRoot()
+    if (root === seededRoot) return
+    containerConfig.HostConfig.Binds = binds.map((b) => {
+      // bind format: "<hostSrc>:<containerDest>[:opts]" — hostSrc is a Linux abs path.
+      const firstColon = b.indexOf(':')
+      if (firstColon < 0) return b
+      const hostSrc = b.slice(0, firstColon)
+      const rest = b.slice(firstColon) // includes leading ':'
+      if (hostSrc === seededRoot || hostSrc.startsWith(seededRoot + '/')) {
+        return `${root}${hostSrc.slice(seededRoot.length)}${rest}`
+      }
+      return b
+    })
+  }
+
   async _createContainer(
     service: Service & { dependencies?: Service[] },
     containerConfig: any
   ): Promise<void> {
     try {
       this._broadcast(service.service_name, 'initializing', '')
+
+      // Point storage binds at wherever the admin's storage volume actually lives
+      // on the host (covers dependency installs too — they recurse through here).
+      await this._applyHostStorageRoot(containerConfig)
 
       let dependencies = []
       if (service.depends_on) {
@@ -1087,6 +1170,7 @@ export class DockerService {
       await service.save()
 
       const containerConfig = this._parseContainerConfig(service.container_config)
+      await this._applyHostStorageRoot(containerConfig)
 
       // Step 4: Recreate container directly (skipping _createContainer to avoid re-downloading
       // the bootstrap ZIM — ZIM files already exist on disk)
