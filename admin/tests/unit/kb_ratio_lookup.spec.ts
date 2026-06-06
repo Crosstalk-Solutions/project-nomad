@@ -66,6 +66,34 @@ test('estimateChunkCount returns null when no match and no fallback', () => {
   )
 })
 
+test('ignoreCatchAll: returns null for filenames only the empty-pattern fallback would match (#913)', () => {
+  // military-medicine matches no specific prefix; without ignoreCatchAll it would
+  // hit the 100 chunks/MB fallback and wildly over-predict, falsely tripping
+  // the partial_stall warning on a PDF/link-out-heavy ZIM.
+  assert.equal(
+    findChunksPerMb('irp.fas.org_en_military-medicine_2026-05.zim', SEEDED_ROWS, {
+      ignoreCatchAll: true,
+    }),
+    null
+  )
+  assert.equal(
+    estimateChunkCount('irp.fas.org_en_military-medicine_2026-05.zim', 75 * 1024 * 1024, SEEDED_ROWS, {
+      ignoreCatchAll: true,
+    }),
+    null
+  )
+})
+
+test('ignoreCatchAll: still honors a specific (non-empty) pattern match', () => {
+  // A file that matches a real prefix should be unaffected by ignoreCatchAll.
+  assert.equal(
+    findChunksPerMb('wikipedia_en_simple_all_nopic_2026-02.zim', SEEDED_ROWS, {
+      ignoreCatchAll: true,
+    }),
+    270
+  )
+})
+
 test('estimateBatch sums chunks and bytes for matched files', () => {
   const files = [
     // 100 MB devdocs -> 110,000 chunks
