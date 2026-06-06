@@ -1253,9 +1253,14 @@ export class RagService {
         const fileSizeBytes = sizeByPath.get(source) ?? 0
         const chunksInQdrant = chunksBySource.get(source) ?? 0
         const fileName = source.split(/[/\\]/).pop() ?? source
+        // ignoreCatchAll: the partial_stall warning must only fire when the
+        // registry has a *specific* expectation for this file. The empty-pattern
+        // fallback (100 chunks/MB) over-predicts wildly for atypical ZIMs that
+        // are mostly PDFs/images/link-outs (e.g. military-medicine), producing
+        // false "ingestion stalled" warnings. Suppress Warning B in that case. (#913)
         const expectedChunks =
           fileSizeBytes > 0
-            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes)
+            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes, { ignoreCatchAll: true })
             : null
 
         const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks })
