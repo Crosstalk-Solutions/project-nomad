@@ -176,9 +176,18 @@ export class EmbedFileJob {
           chunksSoFar: chunksSoFarNext,
         })
 
-        // Calculate progress based on articles processed
+        // Calculate progress based on articles processed.
+        //
+        // nextOffset counts entries passing our isArticleEntry() filter, but the
+        // denominator (totalArticles = archive.articleCount) uses libzim's
+        // narrower article definition. On ZIMs that pack one logical article as
+        // several sub-pages (e.g. iFixit), nextOffset outruns articleCount and a
+        // raw ratio overflows past 100%, which the UI pins at 99% for the entire
+        // tail so the file looks stuck (#903). Grow the denominator once we pass
+        // the reported count so the gauge keeps creeping forward monotonically,
+        // and never report 100% before the genuinely-final batch (handled below).
         const progress = totalArticles
-          ? Math.round((nextOffset / totalArticles) * 100)
+          ? Math.min(99, Math.round((nextOffset / Math.max(totalArticles, nextOffset + ZIM_BATCH_SIZE)) * 100))
           : 50
 
         await this.safeUpdateProgress(job, progress)
