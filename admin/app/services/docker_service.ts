@@ -58,6 +58,27 @@ export class DockerService {
     }
   }
 
+  /**
+   * Pull a Docker image and resolve only when the pull genuinely completes.
+   *
+   * dockerode's `followProgress(stream, onFinished)` reports failures via the
+   * first argument of onFinished. Every call site used to pass the Promise's
+   * `resolve` directly as that callback, so a failed pull (dropped/metered
+   * connection, bad manifest, registry error, disk full mid-pull) resolved as
+   * if it had succeeded — and the code then tried to create/start a container
+   * from a missing or partial image, surfacing a confusing downstream error.
+   * Rejecting on that error here lets callers fail fast with the real cause (#790).
+   */
+  async pullImage(imageName: string): Promise<void> {
+    const pullStream = await this.docker.pull(imageName)
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(pullStream, (error: Error | null) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+  }
+
   async affectContainer(
     serviceName: string,
     action: 'start' | 'stop' | 'restart'
@@ -632,13 +653,12 @@ export class DockerService {
         )
       } else {
         // Start pulling the Docker image and wait for it to complete
-        const pullStream = await this.docker.pull(service.container_image)
         this._broadcast(
           service.service_name,
           'pulling',
           `Pulling Docker image ${service.container_image}...`
         )
-        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+        await this.pullImage(service.container_image)
       }
 
       if (service.service_name === SERVICE_NAMES.KIWIX) {
@@ -728,8 +748,7 @@ export class DockerService {
                 'pulling',
                 `Pulling Docker image ${finalImage}...`
               )
-              const rocmPullStream = await this.docker.pull(finalImage)
-              await new Promise((res) => this.docker.modem.followProgress(rocmPullStream, res))
+              await this.pullImage(finalImage)
             }
 
             const amdDevices = await this._discoverAMDDevices()
@@ -1523,8 +1542,7 @@ export class DockerService {
 
       // Step 1: Pull new image (runtimeImage diverges from newImage for AMD, see above)
       this._broadcast(serviceName, 'update-pulling', `Pulling image ${runtimeImage}...`)
-      const pullStream = await this.docker.pull(runtimeImage)
-      await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      await this.pullImage(runtimeImage)
 
       // Step 2: Find and stop existing container
       this._broadcast(serviceName, 'update-stopping', `Stopping current container...`)
@@ -1996,8 +2014,7 @@ export class DockerService {
 
       // Pull the image if it's missing locally, or always when forcePull (e.g. :latest updates).
       if (opts.forcePull || !(await this._checkImageExists(service.container_image))) {
-        const pullStream = await this.docker.pull(service.container_image)
-        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+        await this.pullImage(service.container_image)
       }
 
       const newContainer = await this.docker.createContainer({
