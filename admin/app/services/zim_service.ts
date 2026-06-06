@@ -8,6 +8,7 @@ import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
 import { findReplacedWikipediaFiles } from '../utils/zim_filename.js'
+import { decideSupersededDeletion } from '../utils/superseded_resource.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
 import { inject } from '@adonisjs/core'
@@ -358,6 +359,8 @@ export class ZimService {
     }
 
     // Create InstalledResource entries for downloaded files
+    const zimStorageDir = join(process.cwd(), ZIM_STORAGE_PATH)
+    let removedSupersededZim = false
     for (const url of urls) {
       // Skip Wikipedia files (managed separately)
       if (url.includes('wikipedia_en_')) continue
@@ -368,10 +371,17 @@ export class ZimService {
       const parsed = CollectionManifestService.parseZimFilename(filename)
       if (!parsed) continue
 
-      const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+      const filepath = join(zimStorageDir, filename)
       const stats = await getFileStatsIfExists(filepath)
 
       try {
+        // Capture the prior install for this resource_id BEFORE updateOrCreate
+        // overwrites it, so we know the old file path to clean up (#634).
+        const prior = await InstalledResource.query()
+          .where('resource_id', parsed.resource_id)
+          .where('resource_type', 'zim')
+          .first()
+
         const { DateTime } = await import('luxon')
         await InstalledResource.updateOrCreate(
           { resource_id: parsed.resource_id, resource_type: 'zim' },
@@ -384,8 +394,47 @@ export class ZimService {
           }
         )
         logger.info(`[ZimService] Created InstalledResource entry for: ${parsed.resource_id}`)
+
+        // Remove the superseded prior version's file if (and only if) every
+        // safety rail passes — see decideSupersededDeletion. The InstalledResource
+        // row already points at the new file, so we delete the old file directly
+        // (NOT via this.delete(), which would drop the row by resource_id).
+        const decision = decideSupersededDeletion({
+          existing: prior ? { file_path: prior.file_path, version: prior.version } : null,
+          newFilePath: filepath,
+          newVersion: parsed.version,
+          newFileExists: !!stats,
+          storageBaseDir: zimStorageDir,
+        })
+        if (decision.delete && decision.path) {
+          try {
+            await deleteFileIfExists(decision.path)
+            removedSupersededZim = true
+            logger.info(
+              `[ZimService] Removed superseded ${parsed.resource_id} file: ${decision.path}`
+            )
+          } catch (err) {
+            logger.warn(`[ZimService] Failed to remove superseded file ${decision.path}:`, err)
+          }
+        } else if (decision.reason !== 'first_install' && decision.reason !== 'same_file') {
+          logger.info(
+            `[ZimService] Kept prior ${parsed.resource_id} file (reason: ${decision.reason})`
+          )
+        }
       } catch (error) {
         logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
+      }
+    }
+
+    // If we removed any superseded ZIM, rebuild the Kiwix library so its XML no
+    // longer references the deleted file. The earlier rebuild in this flow ran
+    // while both versions were still on disk.
+    if (removedSupersededZim) {
+      try {
+        await new KiwixLibraryService().rebuildFromDisk()
+        logger.info('[ZimService] Rebuilt Kiwix library after removing superseded ZIM(s).')
+      } catch (err) {
+        logger.error('[ZimService] Failed to rebuild Kiwix library after cleanup:', err)
       }
     }
   }
