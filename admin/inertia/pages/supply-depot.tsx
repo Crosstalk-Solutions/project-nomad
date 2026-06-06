@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAlertTriangle,
+  IconArrowUp,
   IconBook,
   IconBox,
   IconBrandDocker,
@@ -27,13 +28,23 @@ import CustomAppModal, { CustomAppInitial } from '~/components/CustomAppModal'
 import ServiceLogsModal from '~/components/ServiceLogsModal'
 import ServiceStatsModal from '~/components/ServiceStatsModal'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
+import UpdateServiceModal from '~/components/UpdateServiceModal'
 import useErrorNotification from '~/hooks/useErrorNotification'
+import useInternetStatus from '~/hooks/useInternetStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
+import { useTransmit } from 'react-adonis-transmit'
+import { BROADCAST_CHANNELS } from '../../constants/broadcast'
 import { ServiceSlim } from '../../types/services'
 import { getServiceLink } from '~/lib/navigation'
 import { getSupplyDepotDocLink } from '../../constants/supply_depot_docs'
 import api from '~/lib/api'
 import { toTitleCase } from '../../app/utils/misc'
+
+function extractTag(containerImage: string): string {
+  if (!containerImage) return ''
+  const parts = containerImage.split(':')
+  return parts.length > 1 ? parts[parts.length - 1] : 'latest'
+}
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -68,16 +79,20 @@ type Modal =
   | { type: 'delete'; service: ServiceSlim }
   | { type: 'logs'; service: ServiceSlim }
   | { type: 'stats'; service: ServiceSlim }
+  | { type: 'update'; service: ServiceSlim }
   | null
 
 export default function SupplyDepotPage(props: { system: { services: ServiceSlim[] } }) {
   const { showError } = useErrorNotification()
+  const { isOnline } = useInternetStatus()
+  const { subscribe } = useTransmit()
   const installActivity = useServiceInstallationActivity()
 
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState<Modal>(null)
   const [loading, setLoading] = useState(false)
+  const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [customAppOpen, setCustomAppOpen] = useState(false)
   const [editApp, setEditApp] = useState<CustomAppInitial | null>(null)
@@ -100,6 +115,18 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       setTimeout(() => window.location.reload(), 3000)
     }
   }, [installActivity])
+
+  // Listen for service update-check completion (manual or nightly), then reload so
+  // refreshed available_update_version values surface on the cards.
+  useEffect(() => {
+    const unsubscribe = subscribe(BROADCAST_CHANNELS.SERVICE_UPDATES, () => {
+      setCheckingUpdates(false)
+      window.location.reload()
+    })
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -200,6 +227,32 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     else setTimeout(() => window.location.reload(), 1500)
   }
 
+  // Manual trigger for the catalog-wide update check. Results stream back over the
+  // SERVICE_UPDATES broadcast (handled by the effect above), which reloads the page.
+  async function handleCheckUpdates() {
+    if (!isOnline) {
+      showError('You must have an internet connection to check for updates.')
+      return
+    }
+    try {
+      setCheckingUpdates(true)
+      const response = await api.checkServiceUpdates()
+      if (!response?.success) throw new Error(response?.message || 'Failed to dispatch update check')
+    } catch (error: any) {
+      showError(`Failed to check for updates: ${error?.message || 'Unknown error'}`)
+      setCheckingUpdates(false)
+    }
+  }
+
+  // Versioned update for a curated (non-custom) catalog app. Progress + reload are handled
+  // by the installActivity effect (update-complete) above.
+  async function handleUpdateService(service: ServiceSlim, targetVersion: string) {
+    setLoading(true)
+    const result = await api.updateService(service.service_name, targetVersion)
+    setLoading(false)
+    if (!result?.success) showError(result?.message || 'Failed to update service.')
+  }
+
   function handleCustomAppCreated() {
     setCustomAppOpen(false)
     // Page will reload when installation completes via broadcast
@@ -288,6 +341,15 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                 />
               </div>
               <StyledButton
+                icon="IconRefreshAlert"
+                variant="outline"
+                onClick={handleCheckUpdates}
+                loading={checkingUpdates}
+                disabled={checkingUpdates || !isOnline}
+              >
+                Check for Updates
+              </StyledButton>
+              <StyledButton
                 icon="IconBrandDocker"
                 variant="outline"
                 onClick={() => setCustomAppOpen(true)}
@@ -347,6 +409,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onStats={() => setModal({ type: 'stats', service })}
                       onEdit={() => handleEdit(service)}
                       onUpdate={() => handleUpdate(service)}
+                      onUpdateVersion={() => setModal({ type: 'update', service })}
                     />
                   ))}
                 </div>
@@ -374,6 +437,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onStats={() => setModal({ type: 'stats', service })}
                       onEdit={() => handleEdit(service)}
                       onUpdate={() => handleUpdate(service)}
+                      onUpdateVersion={() => setModal({ type: 'update', service })}
                     />
                   ))}
                 </div>
@@ -563,6 +627,22 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         />
       )}
 
+      {/* Versioned update modal (curated apps with an available update) */}
+      {modal?.type === 'update' && (
+        <UpdateServiceModal
+          record={modal.service}
+          currentTag={extractTag(modal.service.container_image)}
+          latestVersion={modal.service.available_update_version!}
+          onCancel={() => setModal(null)}
+          onUpdate={(targetVersion) => {
+            const service = modal.service
+            setModal(null)
+            handleUpdateService(service, targetVersion)
+          }}
+          showError={showError}
+        />
+      )}
+
       {/* Custom app creation modal */}
       <CustomAppModal
         open={customAppOpen}
@@ -601,6 +681,7 @@ interface AppCardProps {
   onStats: () => void
   onEdit: () => void
   onUpdate: () => void
+  onUpdateVersion: () => void
 }
 
 function AppCard({
@@ -618,6 +699,7 @@ function AppCard({
   onStats,
   onEdit,
   onUpdate,
+  onUpdateVersion,
 }: AppCardProps) {
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
@@ -724,6 +806,17 @@ function AppCard({
             {uiIsHttps ? '🔒 ' : ''}:{uiPort}
           </span>
         )}
+        {service.available_update_version && !service.is_custom && (
+          <button
+            type="button"
+            onClick={onUpdateVersion}
+            title={`Update to ${service.available_update_version}`}
+            className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border border-desert-green-light bg-desert-green-lighter text-desert-green-dark cursor-pointer transition-colors hover:bg-desert-green-light"
+          >
+            <IconArrowUp className="h-3 w-3" />
+            Update available
+          </button>
+        )}
       </div>
 
       {/* Action buttons */}
@@ -786,6 +879,13 @@ function AppCard({
                   <DropdownItem icon={<IconFileText className="h-4 w-4" />} label="Logs" onClick={onLogs} />
                   <DropdownItem icon={<IconChartBar className="h-4 w-4" />} label="Stats" onClick={onStats} />
                   <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
+                  {service.available_update_version && !service.is_custom ? (
+                    <DropdownItem
+                      icon={<IconArrowUp className="h-4 w-4 text-desert-green" />}
+                      label={`Update to ${service.available_update_version}`}
+                      onClick={onUpdateVersion}
+                    />
+                  ) : null}
                   {service.is_custom ? (
                     <DropdownItem icon={<IconCloudDownload className="h-4 w-4" />} label="Update (pull latest)" onClick={onUpdate} />
                   ) : null}
