@@ -3,6 +3,7 @@ import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
 import { ContainerRegistryService } from '#services/container_registry_service'
 import { AutoUpdateService } from '#services/auto_update_service'
+import { AppAutoUpdateService } from '#services/app_auto_update_service'
 import { DownloadService } from '#services/download_service'
 import { QueueService } from '#services/queue_service'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
@@ -18,6 +19,7 @@ import {
   subscribeToReleaseNotesValidator,
   updateCustomAppValidator,
   updateServiceValidator,
+  setServiceAutoUpdateValidator,
 } from '#validators/system'
 import {
   DEFAULT_CPUS,
@@ -148,6 +150,44 @@ export default class SystemController {
             logger.error({ err: error }, '[SystemController] Failed to get auto-update status')
             response.status(500).send({ error: 'Failed to retrieve auto-update status' })
         }
+    }
+
+    async getAppAutoUpdateStatus({ response }: HttpContext) {
+        // Constructed inline reusing already-injected singletons + the QueueService
+        // singleton (its constructor is private to prevent Redis connection leaks),
+        // mirroring getAutoUpdateStatus. Apps need no SystemUpdateService (no sidecar).
+        const appAutoUpdateService = new AppAutoUpdateService(
+            this.dockerService,
+            new DownloadService(QueueService.getInstance()),
+            this.systemService,
+            this.containerRegistryService
+        )
+
+        try {
+            const status = await appAutoUpdateService.getStatus()
+            response.send(status)
+        } catch (error) {
+            logger.error({ err: error }, '[SystemController] Failed to get app auto-update status')
+            response.status(500).send({ error: 'Failed to retrieve app auto-update status' })
+        }
+    }
+
+    async setServiceAutoUpdate({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(setServiceAutoUpdateValidator)
+        const service = await Service.query().where('service_name', payload.service_name).first()
+        if (!service) {
+            return response.status(404).send({ error: `Service ${payload.service_name} not found` })
+        }
+
+        service.auto_update_enabled = payload.enabled
+        // Re-enabling clears any prior self-disable so the app gets a fresh start.
+        if (payload.enabled) {
+            service.auto_update_consecutive_failures = 0
+            service.auto_update_disabled_reason = null
+        }
+        await service.save()
+
+        return response.send({ success: true, message: 'App auto-update preference updated' })
     }
 
 

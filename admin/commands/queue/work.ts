@@ -10,6 +10,7 @@ import { EmbedFileJob } from '#jobs/embed_file_job'
 import { CheckUpdateJob } from '#jobs/check_update_job'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
 import { AutoUpdateJob } from '#jobs/auto_update_job'
+import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -105,6 +106,7 @@ export default class QueueWork extends BaseCommand {
     await CheckUpdateJob.scheduleNightly()
     await CheckServiceUpdatesJob.scheduleNightly()
     await AutoUpdateJob.schedule()
+    await AppAutoUpdateJob.schedule()
 
     // Safety net: log unhandled rejections instead of crashing the worker process.
     // Individual job errors are already caught by BullMQ; this catches anything that
@@ -136,6 +138,7 @@ export default class QueueWork extends BaseCommand {
     handlers.set(CheckUpdateJob.key, new CheckUpdateJob())
     handlers.set(CheckServiceUpdatesJob.key, new CheckServiceUpdatesJob())
     handlers.set(AutoUpdateJob.key, new AutoUpdateJob())
+    handlers.set(AppAutoUpdateJob.key, new AppAutoUpdateJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
@@ -145,6 +148,7 @@ export default class QueueWork extends BaseCommand {
     queues.set(CheckUpdateJob.key, CheckUpdateJob.queue)
     queues.set(CheckServiceUpdatesJob.key, CheckServiceUpdatesJob.queue)
     queues.set(AutoUpdateJob.key, AutoUpdateJob.queue)
+    queues.set(AppAutoUpdateJob.key, AppAutoUpdateJob.queue)
 
     return [handlers, queues]
   }

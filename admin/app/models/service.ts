@@ -88,6 +88,28 @@ export default class Service extends BaseModel {
   @column.dateTime()
   declare update_checked_at: DateTime | null
 
+  // Per-app opt-in for automatic updates. An app auto-updates only when both this
+  // and the global `appAutoUpdate.enabled` master switch are on.
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare auto_update_enabled: boolean
+
+  // When the current `available_update_version` was first detected — the anchor for
+  // the auto-update cool-off (registry tags carry no publish timestamp).
+  @column.dateTime()
+  declare available_update_first_seen_at: DateTime | null
+
+  // Per-app auto-update failure backoff; at the threshold the app self-disables via
+  // `auto_update_disabled_reason` without affecting other apps.
+  @column()
+  declare auto_update_consecutive_failures: number
+
+  @column()
+  declare auto_update_disabled_reason: string | null
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 
