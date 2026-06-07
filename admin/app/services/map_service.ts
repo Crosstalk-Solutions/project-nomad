@@ -300,7 +300,7 @@ export class MapService implements IMapService {
         throw new Error(`Failed to fetch file info: ${response.status} ${response.statusText}`)
       }
 
-      const contentLength = response.headers['content-length']
+      const contentLength = String(response.headers['content-length'] ?? '')
       const size = contentLength ? parseInt(contentLength, 10) : 0
 
       return { filename, size }
