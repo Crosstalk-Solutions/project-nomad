@@ -22,6 +22,7 @@ export default class KiwixMigrationProvider {
         const Service = (await import('#models/service')).default
         const { SERVICE_NAMES } = await import('../constants/service_names.js')
         const { DockerService } = await import('#services/docker_service')
+        const { KiwixLibraryService } = await import('#services/kiwix_library_service')
 
         const kiwixService = await Service.query()
           .where('service_name', SERVICE_NAMES.KIWIX)
@@ -36,7 +37,15 @@ export default class KiwixMigrationProvider {
         const isLegacy = await dockerService.isKiwixOnLegacyConfig()
 
         if (!isLegacy) {
-          logger.info('[KiwixMigrationProvider] Kiwix is already in library mode — no migration needed.')
+          // Already in library mode. Make sure the library XML actually exists and
+          // is parseable — if it was lost or corrupted outside the download flow,
+          // rebuild it from disk so Kiwix isn't left serving an empty library.
+          const rebuilt = await new KiwixLibraryService().ensureLibraryXmlHealthy()
+          logger.info(
+            rebuilt
+              ? '[KiwixMigrationProvider] Rebuilt missing/invalid Kiwix library XML on startup.'
+              : '[KiwixMigrationProvider] Kiwix is already in library mode — no migration needed.'
+          )
           return
         }
 
