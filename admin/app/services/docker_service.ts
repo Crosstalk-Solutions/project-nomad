@@ -30,6 +30,13 @@ export class DockerService {
   private activeInstallations: Set<string> = new Set()
   public static NOMAD_NETWORK = 'project-nomad_default'
   public static ADMIN_CONTAINER_NAME = 'nomad_admin'
+  // The admin's own storage mount destination inside its container (compose maps
+  // <hostPath>:/app/storage). Used to locate the backing host path (#938).
+  public static ADMIN_STORAGE_DEST = '/app/storage'
+  // Hardcoded production default host storage root. A seeded/frozen child bind can
+  // still carry this prefix even after NOMAD_STORAGE_PATH is set elsewhere, so it's
+  // matched alongside the env value when relocating binds (#938).
+  public static DEFAULT_HOST_STORAGE_ROOT = '/opt/project-nomad/storage'
 
   // Resolved once: the host filesystem path backing the admin's /app/storage mount.
   // Child-service binds are rewritten to live under this so relocating the admin
@@ -468,9 +475,9 @@ export class DockerService {
    */
   private async _resolveHostStorageRoot(): Promise<string> {
     if (this._hostStorageRoot) return this._hostStorageRoot
-    const fallback = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
+    const fallback = env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT)
     try {
-      const adminStorageDest = join(process.cwd(), '/storage') // e.g. /app/storage
+      const adminStorageDest = DockerService.ADMIN_STORAGE_DEST
       const containers = await this.docker.listContainers({ all: true })
       // Prefer the well-known admin container name; fall back to matching this
       // process's own container by hostname (Docker defaults it to the short id).
@@ -496,30 +503,49 @@ export class DockerService {
       logger.warn(
         `[DockerService] Could not resolve host storage root, using fallback ${fallback}: ${err.message}`
       )
+      // Deliberately NOT cached: a transient Docker error (e.g. socket not ready at
+      // early boot) shouldn't lock this process into the fallback for its lifetime —
+      // caching here could permanently re-hide #938 after Docker recovers. Retry next call.
       return fallback
     }
   }
 
   /**
    * Rewrite the host side of a service's storage bind mounts so they point at the
-   * resolved host storage root. The seeded binds use the default/env prefix; if the
-   * admin storage actually lives elsewhere on the host, swap that prefix so the
-   * child container mounts the same physical location (#938). No-op when the
-   * resolved root matches the seeded prefix (the common case).
+   * resolved host storage root. If the admin storage actually lives elsewhere on the
+   * host, swap a known storage-root prefix so the child container mounts the same
+   * physical location (#938).
+   *
+   * A bind's prefix may be the current NOMAD_STORAGE_PATH *or* the hardcoded default:
+   * curated services re-bake their config from the env every boot, but user-modified
+   * curated services and custom apps freeze their binds at edit time and can still
+   * carry the default prefix even after NOMAD_STORAGE_PATH is changed. Matching both
+   * (rather than only the current env, and short-circuiting when env == root) means
+   * the documented "set NOMAD_STORAGE_PATH and relocate the volume" path also fixes
+   * those frozen-prefix apps instead of leaving them mounting an empty directory.
+   * Idempotent: binds already under `root` match no other prefix and are left alone.
    */
   private async _applyHostStorageRoot(containerConfig: any): Promise<void> {
     const binds: string[] | undefined = containerConfig?.HostConfig?.Binds
     if (!binds?.length) return
-    const seededRoot = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
     const root = await this._resolveHostStorageRoot()
-    if (root === seededRoot) return
+    // Known host-side prefixes a seeded/frozen bind might carry. Exclude `root` itself
+    // so binds already pointing at the resolved location are never rewritten.
+    const seededRoots = [
+      env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT),
+      DockerService.DEFAULT_HOST_STORAGE_ROOT,
+    ].filter((r) => r !== root)
+    if (!seededRoots.length) return
     containerConfig.HostConfig.Binds = binds.map((b) => {
       // bind format: "<hostSrc>:<containerDest>[:opts]" — hostSrc is a Linux abs path.
       const firstColon = b.indexOf(':')
       if (firstColon < 0) return b
       const hostSrc = b.slice(0, firstColon)
       const rest = b.slice(firstColon) // includes leading ':'
-      if (hostSrc === seededRoot || hostSrc.startsWith(seededRoot + '/')) {
+      const seededRoot = seededRoots.find(
+        (r) => hostSrc === r || hostSrc.startsWith(r + '/')
+      )
+      if (seededRoot) {
         return `${root}${hostSrc.slice(seededRoot.length)}${rest}`
       }
       return b
