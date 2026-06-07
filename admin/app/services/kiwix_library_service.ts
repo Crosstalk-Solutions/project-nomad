@@ -201,6 +201,56 @@ export class KiwixLibraryService {
     }
   }
 
+  /**
+   * True if the library XML parses and has a <library> root. A truncated or
+   * corrupt file (e.g. an interrupted write) fails this even though it exists,
+   * so the caller can rebuild rather than leave Kiwix serving a broken library.
+   * An empty-but-well-formed library is considered valid (nothing to repair).
+   */
+  private _isValidLibraryXml(xmlContent: string): boolean {
+    try {
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: '@_',
+        isArray: (name) => name === 'book',
+      })
+      const parsed = parser.parse(xmlContent)
+      return parsed?.library !== undefined && parsed?.library !== null
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Boot-time safety net: if the library XML is missing or unparseable, rebuild
+   * it from the ZIM files on disk so Kiwix (running in library mode with
+   * --monitorLibrary) doesn't come up serving an empty/broken library with no
+   * path to recovery. This covers files lost or corrupted outside the normal
+   * download flow (storage relocation, interrupted write, manual deletion).
+   *
+   * Returns true if a rebuild was performed. Filesystem errors other than
+   * "not found" are surfaced rather than masked by a rebuild.
+   */
+  async ensureLibraryXmlHealthy(): Promise<boolean> {
+    let content: string
+    try {
+      content = await readFile(this.getLibraryFilePath(), 'utf-8')
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        logger.warn('[KiwixLibraryService] Library XML missing on startup; rebuilding from disk.')
+        await this.rebuildFromDisk()
+        return true
+      }
+      throw err
+    }
+
+    if (this._isValidLibraryXml(content)) return false
+
+    logger.warn('[KiwixLibraryService] Library XML present but invalid; rebuilding from disk.')
+    await this.rebuildFromDisk()
+    return true
+  }
+
   async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<number> {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
     await ensureDirectoryExists(dirPath)
