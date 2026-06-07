@@ -301,7 +301,7 @@ export class MapService implements IMapService {
       }
 
       const contentLength = response.headers['content-length']
-      const size = contentLength ? parseInt(contentLength, 10) : 0
+      const size = contentLength ? parseInt(contentLength.toString(), 10) : 0
 
       return { filename, size }
     } catch (error: any) {
