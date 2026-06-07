@@ -14,6 +14,10 @@ type ServiceSeedRecord = Omit<
   | 'update_checked_at'
   | 'metadata'
   | 'is_user_modified'
+  | 'auto_update_enabled'
+  | 'available_update_first_seen_at'
+  | 'auto_update_consecutive_failures'
+  | 'auto_update_disabled_reason'
 > & { metadata?: string | null }
 
 export default class ServiceSeeder extends BaseSeeder {

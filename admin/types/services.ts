@@ -14,6 +14,7 @@ export type ServiceSlim = Pick<
   | 'display_order'
   | 'container_image'
   | 'available_update_version'
+  | 'auto_update_enabled'
   | 'is_custom'
   | 'is_user_modified'
   | 'category'

@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAlertTriangle,
@@ -7,6 +7,7 @@ import {
   IconBox,
   IconBrandDocker,
   IconChartBar,
+  IconClockBolt,
   IconCloudDownload,
   IconFileText,
   IconPackage,
@@ -30,7 +31,9 @@ import ServiceStatsModal from '~/components/ServiceStatsModal'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import UpdateServiceModal from '~/components/UpdateServiceModal'
 import useErrorNotification from '~/hooks/useErrorNotification'
+import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
+import { useAppAutoUpdateStatus } from '~/hooks/useAppAutoUpdateStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
 import { useTransmit } from 'react-adonis-transmit'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast'
@@ -84,9 +87,14 @@ type Modal =
 
 export default function SupplyDepotPage(props: { system: { services: ServiceSlim[] } }) {
   const { showError } = useErrorNotification()
+  const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
   const { subscribe } = useTransmit()
   const installActivity = useServiceInstallationActivity()
+  // Global master switch for app auto-updates (Settings → Updates). Per-app
+  // toggles are inert until this is on, so the UI reflects that state.
+  const { data: appAutoUpdateStatus } = useAppAutoUpdateStatus()
+  const appAutoUpdateMasterEnabled = appAutoUpdateStatus?.enabled ?? false
 
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
@@ -97,6 +105,9 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const [customAppOpen, setCustomAppOpen] = useState(false)
   const [editApp, setEditApp] = useState<CustomAppInitial | null>(null)
   const [removeImage, setRemoveImage] = useState(false)
+  // Optimistic per-app auto-update toggle state, keyed by service_name. Lets the
+  // toggle reflect instantly without a full page reload (props come from Inertia).
+  const [autoUpdateOverrides, setAutoUpdateOverrides] = useState<Record<string, boolean>>({})
 
   // Preflight state — scoped to the current install modal
   const [preflight, setPreflight] = useState<{
@@ -251,6 +262,25 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     const result = await api.updateService(service.service_name, targetVersion)
     setLoading(false)
     if (!result?.success) showError(result?.message || 'Failed to update service.')
+  }
+
+  // Toggle per-app automatic updates (opt-in). Optimistically reflects the new
+  // state, reverting if the request fails. Gated by the global master switch in
+  // Settings → Updates; this only sets the per-app preference.
+  async function handleToggleAutoUpdate(service: ServiceSlim, enabled: boolean) {
+    setOpenDropdown(null)
+    setAutoUpdateOverrides((prev) => ({ ...prev, [service.service_name]: enabled }))
+    const result = await api.setServiceAutoUpdate(service.service_name, enabled)
+    if (!result?.success) {
+      setAutoUpdateOverrides((prev) => ({ ...prev, [service.service_name]: !enabled }))
+      showError(result?.message || 'Failed to update auto-update preference.')
+      return
+    }
+    const appName = service.friendly_name || service.service_name
+    addNotification({
+      message: `Auto-updates for ${appName} are ${enabled ? 'on' : 'off'}.`,
+      type: 'success',
+    })
   }
 
   function handleCustomAppCreated() {
@@ -410,6 +440,11 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onEdit={() => handleEdit(service)}
                       onUpdate={() => handleUpdate(service)}
                       onUpdateVersion={() => setModal({ type: 'update', service })}
+                      autoUpdateEnabled={
+                        autoUpdateOverrides[service.service_name] ?? service.auto_update_enabled
+                      }
+                      autoUpdateMasterEnabled={appAutoUpdateMasterEnabled}
+                      onToggleAutoUpdate={(enabled) => handleToggleAutoUpdate(service, enabled)}
                     />
                   ))}
                 </div>
@@ -682,6 +717,11 @@ interface AppCardProps {
   onEdit: () => void
   onUpdate: () => void
   onUpdateVersion: () => void
+  // Installed-only: per-app auto-update preference + toggle handler.
+  autoUpdateEnabled?: boolean
+  // Global master switch (Settings → Updates). When off, per-app toggles are inert.
+  autoUpdateMasterEnabled?: boolean
+  onToggleAutoUpdate?: (enabled: boolean) => void
 }
 
 function AppCard({
@@ -700,6 +740,9 @@ function AppCard({
   onEdit,
   onUpdate,
   onUpdateVersion,
+  autoUpdateEnabled,
+  autoUpdateMasterEnabled,
+  onToggleAutoUpdate,
 }: AppCardProps) {
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
@@ -879,6 +922,25 @@ function AppCard({
                   <DropdownItem icon={<IconFileText className="h-4 w-4" />} label="Logs" onClick={onLogs} />
                   <DropdownItem icon={<IconChartBar className="h-4 w-4" />} label="Stats" onClick={onStats} />
                   <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
+                  {!service.is_custom && onToggleAutoUpdate ? (
+                    autoUpdateMasterEnabled ? (
+                      <DropdownItem
+                        icon={
+                          <IconClockBolt
+                            className={`h-4 w-4 ${autoUpdateEnabled ? 'text-desert-green' : ''}`}
+                          />
+                        }
+                        label={`Auto-update: ${autoUpdateEnabled ? 'On' : 'Off'}`}
+                        onClick={() => onToggleAutoUpdate(!autoUpdateEnabled)}
+                      />
+                    ) : (
+                      <DropdownItem
+                        icon={<IconClockBolt className="h-4 w-4" />}
+                        label="App auto-updates off — open Settings"
+                        onClick={() => router.visit('/settings/update')}
+                      />
+                    )
+                  ) : null}
                   {service.available_update_version && !service.is_custom ? (
                     <DropdownItem
                       icon={<IconArrowUp className="h-4 w-4 text-desert-green" />}
