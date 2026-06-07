@@ -10,6 +10,12 @@ import { SystemService } from '#services/system_service'
 import { SystemUpdateService } from '#services/system_update_service'
 import { ContainerRegistryService } from '#services/container_registry_service'
 import { isNewerVersion, parseMajorVersion } from '../utils/version.js'
+import { isWithinWindow as isWithinWindowUtil } from '../utils/update_window.js'
+import {
+  checkImageDiskSpace,
+  type Blocker,
+  type PreflightResult,
+} from '../utils/image_disk_preflight.js'
 
 /** Docker image repository for the NOMAD admin/core image (tag applied per-release). */
 const NOMAD_IMAGE_REPO = 'ghcr.io/crosstalk-solutions/project-nomad'
@@ -20,10 +26,6 @@ const DEFAULT_WINDOW_START = '02:00'
 const DEFAULT_WINDOW_END = '05:00'
 const DEFAULT_COOLOFF_HOURS = 72
 
-/** Require free space >= imageSize * factor to cover decompressed layers + headroom. */
-const DISK_SAFETY_FACTOR = 2
-/** Conservative fallback when the registry image size can't be determined. */
-const MIN_FREE_BYTES = 5 * 1024 * 1024 * 1024 // 5 GiB
 /** Genuine failures before auto-update disables itself to avoid an update loop. */
 const MAX_CONSECUTIVE_FAILURES = 3
 
@@ -53,16 +55,9 @@ export interface EligibleTarget {
   publishedAt: string
 }
 
-type BlockerSeverity = 'skip' | 'failure'
-export interface Blocker {
-  reason: string
-  severity: BlockerSeverity
-}
-
-export interface PreflightResult {
-  ok: boolean
-  blockers: Blocker[]
-}
+// Pre-flight types/primitives are shared with AppAutoUpdateService; re-exported
+// here for back-compat with existing imports of this module.
+export type { Blocker, BlockerSeverity, PreflightResult } from '../utils/image_disk_preflight.js'
 
 /** Minimal shape of a GitHub release entry we depend on. */
 export interface GithubRelease {
@@ -178,23 +173,7 @@ export class AutoUpdateService {
    * that wrap past midnight (start > end, e.g. 22:00-02:00) are handled.
    */
   isWithinWindow(config: AutoUpdateConfig, now: DateTime = DateTime.now()): boolean {
-    const start = this.parseMinutes(config.windowStart)
-    const end = this.parseMinutes(config.windowEnd)
-    if (start === null || end === null) return false
-
-    const current = now.hour * 60 + now.minute
-    if (start === end) return false // zero-length window
-    if (start < end) {
-      return current >= start && current < end
-    }
-    // Wraps midnight
-    return current >= start || current < end
-  }
-
-  private parseMinutes(hhmm: string): number | null {
-    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm)
-    if (!match) return null
-    return Number(match[1]) * 60 + Number(match[2])
+    return isWithinWindowUtil(config.windowStart, config.windowEnd, now)
   }
 
   /**
@@ -350,48 +329,13 @@ export class AutoUpdateService {
 
   /** Returns a disk blocker if free space is insufficient, otherwise null. */
   private async checkDiskSpace(targetTag: string): Promise<Blocker | null> {
-    try {
-      const hostArch = await this.getHostArch()
-      const parsed = this.containerRegistryService.parseImageReference(
-        `${NOMAD_IMAGE_REPO}:${targetTag}`
-      )
-      const imageSize = await this.containerRegistryService.getImageDownloadSize(
-        parsed,
-        targetTag,
-        hostArch
-      )
-      const required = imageSize !== null ? imageSize * DISK_SAFETY_FACTOR : MIN_FREE_BYTES
-
-      const free = await this.getFreeBytes()
-      if (free === null) {
-        logger.warn('[AutoUpdateService] Could not determine free disk space; skipping disk check')
-        return null
-      }
-
-      if (free < required) {
-        return {
-          reason: `Insufficient disk space: ${this.gib(free)} free, ${this.gib(required)} required`,
-          severity: 'failure',
-        }
-      }
-      return null
-    } catch (error) {
-      logger.warn(`[AutoUpdateService] Disk space check failed: ${error.message}`)
-      return null
-    }
-  }
-
-  /** Free bytes on the root filesystem (best-effort, falls back to max available). */
-  private async getFreeBytes(): Promise<number | null> {
-    const info = await this.systemService.getSystemInfo()
-    if (!info?.fsSize?.length) return null
-    const root = info.fsSize.find((f) => f.mount === '/')
-    if (root) return root.available
-    return Math.max(...info.fsSize.map((f) => f.available))
-  }
-
-  private gib(bytes: number): string {
-    return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GiB`
+    const hostArch = await this.getHostArch()
+    return checkImageDiskSpace({
+      image: `${NOMAD_IMAGE_REPO}:${targetTag}`,
+      hostArch,
+      containerRegistryService: this.containerRegistryService,
+      systemService: this.systemService,
+    })
   }
 
   /** Map the Docker daemon's architecture string to OCI naming (amd64/arm64/...). */

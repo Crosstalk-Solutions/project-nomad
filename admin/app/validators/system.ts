@@ -38,6 +38,15 @@ export const preflightValidator = vine.compile(
   })
 )
 
+// Toggle per-app automatic updates (opt-in). The global master switch lives in
+// the KVStore (`appAutoUpdate.enabled`) and flows through the settings endpoint.
+export const setServiceAutoUpdateValidator = vine.compile(
+  vine.object({
+    service_name: vine.string().trim(),
+    enabled: vine.boolean(),
+  })
+)
+
 // Shared sub-schema for a volume bind mapping. A colon is Docker's bind delimiter
 // (host:container:options) — forbid it in either field so a path can't smuggle in an
 // extra segment that the guard reads as safe but Docker re-parses as a different mount.

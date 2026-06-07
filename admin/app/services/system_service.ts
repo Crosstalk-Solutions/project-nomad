@@ -309,6 +309,7 @@ export class SystemService {
         'display_order',
         'container_image',
         'available_update_version',
+        'auto_update_enabled',
         'is_custom',
         'is_user_modified',
         'category'
@@ -341,6 +342,7 @@ export class SystemService {
         display_order: service.display_order,
         container_image: service.container_image,
         available_update_version: service.available_update_version,
+        auto_update_enabled: service.auto_update_enabled,
         is_custom: service.is_custom,
         is_user_modified: service.is_user_modified,
         category: service.category,
@@ -837,6 +839,14 @@ export class SystemService {
     if (key === 'autoUpdate.enabled' && (value === true || value === 'true')) {
       await KVStore.setValue('autoUpdate.consecutiveFailures', '0')
       await KVStore.clearValue('autoUpdate.autoDisabledReason')
+    }
+    // Re-enabling the global app auto-update master switch clears every app's
+    // per-app failure backoff so previously self-disabled apps get a fresh start.
+    if (key === 'appAutoUpdate.enabled' && (value === true || value === 'true')) {
+      await Service.query().update({
+        auto_update_consecutive_failures: 0,
+        auto_update_disabled_reason: null,
+      })
     }
   }
 
