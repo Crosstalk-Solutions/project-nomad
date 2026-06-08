@@ -247,23 +247,38 @@ export class EmbedFileJob {
         message: `Successfully embedded ${result.chunks} chunks`,
       }
     } catch (error) {
-      logger.error(`[EmbedFileJob] Error embedding file ${fileName}:`, error)
+      // A chunk that still exceeds the model's context after OllamaService's truncate-and-retry is
+      // permanently oversized for this install (e.g. a model whose context is smaller than our safe
+      // cap). Re-embedding the whole file 30x re-processes everything and can never succeed — that is
+      // the "endless queue loop" / "api/embed for weeks" (#881/#944/#959). Mark it unrecoverable so
+      // BullMQ stops after one pass instead of storming.
+      let normalizedError = error
+      if (!(error instanceof UnrecoverableError) && OllamaService.isContextLengthError(error)) {
+        logger.warn(
+          `[EmbedFileJob] Context-length overflow persisted for ${fileName} after truncation; not retrying.`
+        )
+        normalizedError = new UnrecoverableError(
+          error instanceof Error ? error.message : 'Embedding input exceeds the model context length'
+        )
+      }
+
+      logger.error(`[EmbedFileJob] Error embedding file ${fileName}:`, normalizedError)
 
       await job.updateData({
         ...job.data,
         status: 'failed',
         failedAt: Date.now(),
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: normalizedError instanceof Error ? normalizedError.message : 'Unknown error',
       })
 
       // Only persist `failed` for unrecoverable errors. Retryable errors get
       // automatic BullMQ retries (30 attempts); marking state failed on every
       // transient blip would suppress the retry-driven recovery path.
-      if (error instanceof UnrecoverableError) {
+      if (normalizedError instanceof UnrecoverableError) {
         try {
           await KbIngestState.markFailed(
             filePath,
-            error instanceof Error ? error.message : 'Unknown error'
+            normalizedError instanceof Error ? normalizedError.message : 'Unknown error'
           )
         } catch (stateErr) {
           logger.warn(
@@ -273,7 +288,7 @@ export class EmbedFileJob {
         }
       }
 
-      throw error
+      throw normalizedError
     }
   }
 
