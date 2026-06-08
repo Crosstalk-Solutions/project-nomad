@@ -20,6 +20,8 @@ import {
   updateCustomAppValidator,
   updateServiceValidator,
   setServiceAutoUpdateValidator,
+  setServiceCustomUrlValidator,
+  normalizeCustomUrl,
 } from '#validators/system'
 import {
   DEFAULT_CPUS,
@@ -445,6 +447,36 @@ export default class SystemController {
         await service.delete()
 
         return response.send({ success: true, message: `Custom app ${payload.service_name} deleted` })
+    }
+
+    /** Set or clear an app's custom launch URL (works for curated and custom apps). Purely a
+     * metadata change — no container is touched. An empty/invalid value clears the override, after
+     * which the default host + port link is used again. */
+    async setServiceCustomUrl({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(setServiceCustomUrlValidator)
+
+        const service = await Service.query().where('service_name', payload.service_name).first()
+        if (!service) {
+            return response.status(404).send({ success: false, message: `Service ${payload.service_name} not found` })
+        }
+        // Hidden dependency services (e.g. Qdrant) aren't user-launchable, so they have no link to set.
+        if (service.is_dependency_service) {
+            return response.status(403).send({ success: false, message: 'This service cannot be configured.' })
+        }
+
+        // Reject a non-empty value that isn't a valid http(s) URL; an empty value clears the override.
+        const normalized = normalizeCustomUrl(payload.custom_url)
+        if (payload.custom_url && payload.custom_url.trim() && !normalized) {
+            return response.status(422).send({
+                success: false,
+                message: 'Custom URL must be a valid http(s) address (e.g. https://jellyfin.myhomelab.net).',
+            })
+        }
+
+        service.custom_url = normalized
+        await service.save()
+
+        return response.send({ success: true, custom_url: service.custom_url })
     }
 
     /** Re-pull a custom app's image and recreate its container in place (preserving volumes). */

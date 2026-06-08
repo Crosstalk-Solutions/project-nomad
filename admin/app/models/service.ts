@@ -59,6 +59,12 @@ export default class Service extends BaseModel {
   @column()
   declare ui_location: string | null
 
+  // User-set override for the launch ("Open") link (e.g. a reverse-proxy/local-DNS host like
+  // https://jellyfin.myhomelab.net). When null, the default host + port link derived from
+  // ui_location is used. Only affects user-facing links — never internal service-to-service URLs.
+  @column()
+  declare custom_url: string | null
+
   @column()
   declare metadata: string | null
 

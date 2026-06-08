@@ -253,7 +253,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         <StyledButton
           icon={'IconExternalLink'}
           onClick={() => {
-            window.open(getServiceLink(record.ui_location || 'unknown'), '_blank')
+            window.open(getServiceLink(record.ui_location || 'unknown', record.custom_url), '_blank')
           }}
         >
           Open
@@ -374,7 +374,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   title: 'Location',
                   render: (record) => (
                     <a
-                      href={getServiceLink(record.ui_location || 'unknown')}
+                      href={getServiceLink(record.ui_location || 'unknown', record.custom_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-desert-green hover:underline font-semibold"
