@@ -28,6 +28,38 @@ type MapComponentProps = {
   showCoordinatesEnabled: boolean
 }
 
+const SAVED_MAP_VIEW_KEY = 'nomad:map-view'
+const DEFAULT_MAP_VIEW = { longitude: -101, latitude: 40, zoom: 3.5 }
+
+type SavedMapView = { longitude: number; latitude: number; zoom: number }
+
+// Restore the last map position/zoom from localStorage so a refresh of /maps doesn't snap back
+// to the default US-wide view. Bounds-checked so a corrupt or out-of-range value falls through
+// to the default instead of throwing.
+const getSavedMapView = (): SavedMapView | null => {
+  try {
+    const raw = localStorage.getItem(SAVED_MAP_VIEW_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Number.isFinite(parsed.longitude) &&
+      Number.isFinite(parsed.latitude) &&
+      Number.isFinite(parsed.zoom) &&
+      parsed.latitude >= -90 &&
+      parsed.latitude <= 90 &&
+      parsed.longitude >= -180 &&
+      parsed.longitude <= 180
+    ) {
+      return { longitude: parsed.longitude, latitude: parsed.latitude, zoom: parsed.zoom }
+    }
+  } catch {
+    // ignore — fall through to default
+  }
+  return null
+}
+
 export default function MapComponent({
   isHoveringUI,
   showCoordinatesEnabled,
@@ -46,6 +78,10 @@ export default function MapComponent({
   const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
     () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
   )
+
+  // Resolve the initial view once at mount: saved view → default. Lazy so it isn't recomputed
+  // on every render.
+  const [initialViewState] = useState(() => getSavedMapView() ?? DEFAULT_MAP_VIEW)
 
   const [cursorLngLat, setCursorLngLat] = useState<{
     lng: number
@@ -171,10 +207,18 @@ export default function MapComponent({
           cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
           mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
           mapLib={maplibregl}
-          initialViewState={{
-            longitude: -101,
-            latitude: 40,
-            zoom: 3.5,
+          initialViewState={initialViewState}
+          onMoveEnd={(e) => {
+            // Persist the view so a refresh restores where the user was, not the default.
+            const { longitude, latitude, zoom } = e.viewState
+            try {
+              localStorage.setItem(
+                SAVED_MAP_VIEW_KEY,
+                JSON.stringify({ longitude, latitude, zoom })
+              )
+            } catch {
+              // ignore persistence failures (private mode, quota)
+            }
           }}
           onMouseDown={() => {
             setIsDraggingMap(true)
