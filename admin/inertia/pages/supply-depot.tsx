@@ -17,6 +17,7 @@ import {
   IconRefresh,
   IconSearch,
   IconTrash,
+  IconWorld,
 } from '@tabler/icons-react'
 import AppLayout from '~/layouts/AppLayout'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
@@ -26,6 +27,7 @@ import InstallActivityFeed from '~/components/InstallActivityFeed'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
 import CustomAppModal, { CustomAppInitial } from '~/components/CustomAppModal'
+import AppUrlModal from '~/components/AppUrlModal'
 import ServiceLogsModal from '~/components/ServiceLogsModal'
 import ServiceStatsModal from '~/components/ServiceStatsModal'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -104,6 +106,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [customAppOpen, setCustomAppOpen] = useState(false)
   const [editApp, setEditApp] = useState<CustomAppInitial | null>(null)
+  // App whose custom launch URL is being configured (null while the modal is closed).
+  const [urlApp, setUrlApp] = useState<ServiceSlim | null>(null)
   const [removeImage, setRemoveImage] = useState(false)
   // Optimistic per-app auto-update toggle state, keyed by service_name. Lets the
   // toggle reflect instantly without a full page reload (props come from Inertia).
@@ -305,6 +309,17 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     setTimeout(() => window.location.reload(), 1500)
   }
 
+  function handleSetUrl(service: ServiceSlim) {
+    setOpenDropdown(null)
+    setUrlApp(service)
+  }
+
+  function handleUrlSaved() {
+    setUrlApp(null)
+    // Reload so the new link flows through to the card, /home, and settings.
+    window.location.reload()
+  }
+
   // ── Install modal helpers ─────────────────────────────────────────────────
   const hasPreflightWarnings =
     (preflight?.portConflicts.length ?? 0) > 0 || (preflight?.resourceWarnings.length ?? 0) > 0
@@ -438,6 +453,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onLogs={() => setModal({ type: 'logs', service })}
                       onStats={() => setModal({ type: 'stats', service })}
                       onEdit={() => handleEdit(service)}
+                      onSetUrl={() => handleSetUrl(service)}
                       onUpdate={() => handleUpdate(service)}
                       onUpdateVersion={() => setModal({ type: 'update', service })}
                       autoUpdateEnabled={
@@ -471,6 +487,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onLogs={() => setModal({ type: 'logs', service })}
                       onStats={() => setModal({ type: 'stats', service })}
                       onEdit={() => handleEdit(service)}
+                      onSetUrl={() => handleSetUrl(service)}
                       onUpdate={() => handleUpdate(service)}
                       onUpdateVersion={() => setModal({ type: 'update', service })}
                     />
@@ -695,6 +712,15 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         onCreated={handleEdited}
         showError={showError}
       />
+
+      {/* Custom launch URL modal */}
+      <AppUrlModal
+        open={!!urlApp}
+        service={urlApp}
+        onClose={() => setUrlApp(null)}
+        onSaved={handleUrlSaved}
+        showError={showError}
+      />
     </AppLayout>
   )
 }
@@ -715,6 +741,7 @@ interface AppCardProps {
   onLogs: () => void
   onStats: () => void
   onEdit: () => void
+  onSetUrl: () => void
   onUpdate: () => void
   onUpdateVersion: () => void
   // Installed-only: per-app auto-update preference + toggle handler.
@@ -738,6 +765,7 @@ function AppCard({
   onLogs,
   onStats,
   onEdit,
+  onSetUrl,
   onUpdate,
   onUpdateVersion,
   autoUpdateEnabled,
@@ -878,10 +906,10 @@ function AppCard({
 
         {service.installed ? (
           <>
-            {/* Open button */}
-            {service.ui_location && (
+            {/* Open button — shown when the app has a default location or a user-set custom URL */}
+            {(service.ui_location || service.custom_url) && (
               <a
-                href={getServiceLink(service.ui_location)}
+                href={getServiceLink(service.ui_location, service.custom_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1"
@@ -922,6 +950,7 @@ function AppCard({
                   <DropdownItem icon={<IconFileText className="h-4 w-4" />} label="Logs" onClick={onLogs} />
                   <DropdownItem icon={<IconChartBar className="h-4 w-4" />} label="Stats" onClick={onStats} />
                   <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
+                  <DropdownItem icon={<IconWorld className="h-4 w-4" />} label="Set custom URL" onClick={onSetUrl} />
                   {!service.is_custom && onToggleAutoUpdate ? (
                     autoUpdateMasterEnabled ? (
                       <DropdownItem

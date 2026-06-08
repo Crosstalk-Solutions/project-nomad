@@ -7,6 +7,7 @@ export type ServiceSlim = Pick<
   | 'installed'
   | 'installation_status'
   | 'ui_location'
+  | 'custom_url'
   | 'friendly_name'
   | 'description'
   | 'icon'
