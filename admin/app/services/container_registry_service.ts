@@ -139,11 +139,17 @@ export class ContainerRegistryService {
         allTags.push(...data.tags)
       }
 
-      // Handle pagination via Link header
+      // Handle pagination via Link header. Per the OCI/Docker registry spec the next-page
+      // URL is relative (e.g. "/v2/<repo>/tags/list?last=<tag>&n=1000"), so it must be
+      // resolved against the registry origin before re-fetching — assigning the raw relative
+      // path to `url` makes fetch() throw "Failed to parse URL". This silently broke update
+      // checks for any repo with >1000 tags (e.g. ollama/ollama, filebrowser/filebrowser),
+      // which is the root cause of #945. new URL(relative, base) also passes absolute
+      // next-URLs through unchanged, so it's safe for registries that return those.
       const linkHeader = response.headers.get('link')
       if (linkHeader) {
         const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-        url = match ? match[1] : ''
+        url = match ? new URL(match[1], `https://${parsed.registry}`).toString() : ''
       } else {
         url = ''
       }
