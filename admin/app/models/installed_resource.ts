@@ -30,4 +30,25 @@ export default class InstalledResource extends BaseModel {
 
   @column.dateTime()
   declare installed_at: DateTime
+
+  // ── Content auto-update state (global opt-in; gated by `contentAutoUpdate.enabled`) ──
+
+  /** Newest catalog version (YYYY-MM) detected, or null when already current. */
+  @column()
+  declare available_update_version: string | null
+
+  /** Size (bytes) of the available update, captured from the catalog. */
+  @column()
+  declare available_update_size_bytes: number | null
+
+  /** Cool-off anchor: when the current available update was first detected. */
+  @column.dateTime()
+  declare available_update_first_seen_at: DateTime | null
+
+  /** Per-resource failure backoff so one flapping download self-disables. */
+  @column()
+  declare auto_update_consecutive_failures: number
+
+  @column()
+  declare auto_update_disabled_reason: string | null
 }

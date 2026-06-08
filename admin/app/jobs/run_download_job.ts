@@ -6,7 +6,36 @@ import { createHash } from 'crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
 import { MapService } from '#services/map_service'
+import { RagService } from '#services/rag_service'
+import { OllamaService } from '#services/ollama_service'
 import { EmbedFileJob } from './embed_file_job.js'
+import { basename, join, resolve, sep } from 'node:path'
+import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+
+/** Maps live under `<cwd>/storage/maps/pmtiles`; no shared constant exists. */
+const MAP_STORAGE_PATH = '/storage/maps'
+
+/**
+ * Guard for the outdated-file deletion in {@link RunDownloadJob} `onComplete`:
+ * returns true only when `oldFilePath` sits under the expected content storage
+ * root for its type AND its filename carries this resource's id prefix. This
+ * makes the delete explicit and bounded — we only ever remove the replaced
+ * resource's own previous file, never another file, even if the
+ * InstalledResource row is stale or malformed.
+ */
+function isSafeOldContentPath(
+  oldFilePath: string,
+  resourceId: string,
+  filetype: string
+): boolean {
+  const root =
+    filetype === 'zim'
+      ? join(process.cwd(), ZIM_STORAGE_PATH)
+      : join(process.cwd(), MAP_STORAGE_PATH)
+  const resolved = resolve(oldFilePath)
+  if (!resolved.startsWith(root + sep)) return false
+  return basename(resolved).startsWith(`${resourceId}_`)
+}
 
 export class RunDownloadJob {
   static get queue() {
@@ -98,6 +127,11 @@ export class RunDownloadJob {
           lastKnownProgress = { downloadedBytes: progress.downloadedBytes, totalBytes: progress.totalBytes }
         },
         async onComplete(url) {
+          // The previous file recorded for this resource (if any). Hoisted out of
+          // the metadata block below so the ZIM branch can decide whether this
+          // download is a content UPDATE (replacing a prior file) vs a fresh
+          // install, which changes how we reconcile the knowledge base.
+          let oldFilePath: string | null = null
           try {
             // Create InstalledResource entry if metadata was provided
             if (resourceMetadata) {
@@ -111,9 +145,9 @@ export class RunDownloadJob {
                 .where('resource_id', resourceMetadata.resource_id)
                 .where('resource_type', filetype as 'zim' | 'map')
                 .first()
-              const oldFilePath = oldEntry?.file_path ?? null
+              oldFilePath = oldEntry?.file_path ?? null
 
-              await InstalledResource.updateOrCreate(
+              const installed = await InstalledResource.updateOrCreate(
                 { resource_id: resourceMetadata.resource_id, resource_type: filetype as 'zim' | 'map' },
                 {
                   version: resourceMetadata.version,
@@ -125,15 +159,45 @@ export class RunDownloadJob {
                 }
               )
 
-              // Delete the old file if it differs from the new one
-              if (oldFilePath && oldFilePath !== filepath) {
+              // A completed auto-update is the authoritative success signal for the
+              // per-resource backoff — clear it here (NOT at dispatch time, which
+              // would reset the counter every window and defeat self-disable). The
+              // matching terminal-failure increment lives in the worker `failed`
+              // handler (commands/queue/work.ts). Manual downloads (auto !== true)
+              // never touch the counter.
+              if (resourceMetadata.auto === true) {
                 try {
-                  await deleteFileIfExists(oldFilePath)
-                  console.log(`[RunDownloadJob] Deleted old file: ${oldFilePath}`)
-                } catch (deleteError) {
+                  const { recordResourceUpdateSuccess } = await import(
+                    '../utils/content_auto_update_backoff.js'
+                  )
+                  await recordResourceUpdateSuccess(installed)
+                } catch (error) {
+                  console.error(
+                    `[RunDownloadJob] Error clearing auto-update backoff for ${resourceMetadata.resource_id}:`,
+                    error
+                  )
+                }
+              }
+
+              // Step 1: delete the OUTDATED file if it differs from the new one.
+              // Guarded by isSafeOldContentPath so we can ONLY ever delete the
+              // replaced resource's own previous file — never another resource's
+              // file, even if the InstalledResource row is stale/malformed.
+              if (oldFilePath && oldFilePath !== filepath) {
+                if (isSafeOldContentPath(oldFilePath, resourceMetadata.resource_id, filetype)) {
+                  try {
+                    await deleteFileIfExists(oldFilePath)
+                    console.log(`[RunDownloadJob] Deleted old file: ${oldFilePath}`)
+                  } catch (deleteError) {
+                    console.warn(
+                      `[RunDownloadJob] Failed to delete old file ${oldFilePath}:`,
+                      deleteError
+                    )
+                  }
+                } else {
                   console.warn(
-                    `[RunDownloadJob] Failed to delete old file ${oldFilePath}:`,
-                    deleteError
+                    `[RunDownloadJob] Refusing to delete unexpected old file path for ` +
+                      `${resourceMetadata.resource_id} (${filetype}): ${oldFilePath}`
                   )
                 }
               }
@@ -144,42 +208,76 @@ export class RunDownloadJob {
               const zimService = new ZimService(dockerService)
               await zimService.downloadRemoteSuccessCallback([url], true)
 
-              // Only dispatch embedding job if AI Assistant (Ollama) is installed
+              // Only touch the knowledge base if AI Assistant (Ollama) is installed
               const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
               if (ollamaUrl) {
-                // Respect the global ingest policy. Under Manual, record the file
-                // as pending_decision so the KB panel surfaces the per-file Index
-                // affordance (PR #909) instead of silently auto-embedding behind
-                // the user's back. Unset is treated as Always to preserve legacy
-                // behavior — mirrors rag_service.ts:1587-1588.
-                const { default: KVStore } = await import('#models/kv_store')
-                const { default: KbIngestState } = await import('#models/kb_ingest_state')
-                const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
-                const policy: 'Always' | 'Manual' = policyRaw === 'Manual' ? 'Manual' : 'Always'
+                // A content UPDATE replaces a prior file at a DIFFERENT path
+                // (version is in the filename). A fresh install has no prior row;
+                // a same-version re-download keeps the same path. The two cases
+                // reconcile the KB differently.
+                const isReplacement = !!oldFilePath && oldFilePath !== filepath
 
-                if (policy === 'Manual') {
+                if (isReplacement) {
+                  // CONTENT UPDATE: mirror the REPLACED file's prior indexed state
+                  // rather than the global Always/Manual policy. reconcileReplaced-
+                  // ContentFile removes the old file's points and re-queues the new
+                  // file IFF the old one was indexed and Qdrant is running; it is a
+                  // no-op otherwise (not installed / old not indexed / Qdrant down).
+                  // The user already chose whether this content is in the KB, so we
+                  // honor that choice in both directions. See the method for the
+                  // full 5-step contract.
                   try {
-                    // firstOrCreate so a re-download doesn't demote an existing
-                    // indexed/failed row — user keeps prior state and can re-index
-                    // explicitly from the KB panel if they want fresh content.
-                    await KbIngestState.firstOrCreate(
-                      { file_path: filepath },
-                      { file_path: filepath, state: 'pending_decision', chunks_embedded: 0 }
+                    const ragService = new RagService(dockerService, new OllamaService())
+                    const outcome = await ragService.reconcileReplacedContentFile({
+                      oldFilePath: oldFilePath!,
+                      newFilePath: filepath,
+                      fileName: url.split('/').pop() || '',
+                    })
+                    console.log(
+                      `[RunDownloadJob] KB reconciliation for replaced ${filepath}: ${outcome}`
                     )
                   } catch (error) {
                     console.error(
-                      `[RunDownloadJob] Error recording pending_decision state for ${filepath}:`,
+                      `[RunDownloadJob] Error reconciling knowledge base for replaced file ${filepath}:`,
                       error
                     )
                   }
                 } else {
-                  try {
-                    await EmbedFileJob.dispatch({
-                      fileName: url.split('/').pop() || '',
-                      filePath: filepath,
-                    })
-                  } catch (error) {
-                    console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+                  // FRESH INSTALL (or same-version re-download): respect the global
+                  // ingest policy. Under Manual, record the file as pending_decision
+                  // so the KB panel surfaces the per-file Index affordance (PR #909)
+                  // instead of silently auto-embedding behind the user's back. Unset
+                  // is treated as Always to preserve legacy behavior — mirrors
+                  // rag_service.ts:1587-1588.
+                  const { default: KVStore } = await import('#models/kv_store')
+                  const { default: KbIngestState } = await import('#models/kb_ingest_state')
+                  const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+                  const policy: 'Always' | 'Manual' = policyRaw === 'Manual' ? 'Manual' : 'Always'
+
+                  if (policy === 'Manual') {
+                    try {
+                      // firstOrCreate so a re-download doesn't demote an existing
+                      // indexed/failed row — user keeps prior state and can re-index
+                      // explicitly from the KB panel if they want fresh content.
+                      await KbIngestState.firstOrCreate(
+                        { file_path: filepath },
+                        { file_path: filepath, state: 'pending_decision', chunks_embedded: 0 }
+                      )
+                    } catch (error) {
+                      console.error(
+                        `[RunDownloadJob] Error recording pending_decision state for ${filepath}:`,
+                        error
+                      )
+                    }
+                  } else {
+                    try {
+                      await EmbedFileJob.dispatch({
+                        fileName: url.split('/').pop() || '',
+                        filePath: filepath,
+                      })
+                    } catch (error) {
+                      console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+                    }
                   }
                 }
               }

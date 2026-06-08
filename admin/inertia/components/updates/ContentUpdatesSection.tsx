@@ -99,7 +99,7 @@ export default function ContentUpdatesSection() {
 
   return (
     <div className="mt-8">
-      <StyledSectionHeader title="Content Updates" />
+      <StyledSectionHeader title="Manual Content Updates" />
 
       <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden p-6">
         <div className="flex items-center justify-between">
