@@ -18,6 +18,7 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
+import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult, StoredFileInfo } from '../../types/rag.js'
@@ -1302,6 +1303,98 @@ export class RagService {
       logger.error('[RAG] Error deleting file from knowledge base:', error)
       return { success: false, message: 'Error deleting file from knowledge base.' }
     }
+  }
+
+  /**
+   * Reconcile the knowledge base after a curated content file (a ZIM) is
+   * replaced on disk by a newer downloaded version. Called from
+   * `RunDownloadJob.onComplete` once the new file is written and the old file
+   * has been deleted from disk.
+   *
+   * The decision (see `decideContentReindex` for the exhaustive, tested
+   * contract) mirrors the REPLACED file's prior indexed state instead of the
+   * global `rag.defaultIngestPolicy`. On a content update the user has already
+   * chosen whether this content belongs in the AI knowledge base, so we honor
+   * that choice in both directions:
+   *
+   *   1. (caller already deleted the outdated file from disk)
+   *   2. Qdrant not installed          → no-op (no knowledge base exists)
+   *   3. Old file WAS indexed + Qdrant
+   *      running                       → delete ONLY the old file's points
+   *                                       (filter `source == oldFilePath`), drop
+   *                                       its ingest-state row, and queue the new
+   *                                       file for embedding — BYPASSING the
+   *                                       Always/Manual policy on purpose.
+   *   4. Old file NOT indexed          → no-op (respect the prior un-indexed /
+   *                                       browse-only choice; do NOT auto-embed
+   *                                       even under an Always policy)
+   *   5. Old indexed but Qdrant NOT
+   *      currently running             → no-op. We can't remove the stale points,
+   *                                       and a queued embed job could be cleared
+   *                                       before Qdrant returns. Acting half-way is
+   *                                       wasteful, so we defer entirely. Accepted
+   *                                       tradeoff: the old file's points linger in
+   *                                       Qdrant until a future re-index; they are
+   *                                       NOT auto-reaped here.
+   *
+   * Point deletion is exact: ZIM chunks are stored with `source` equal to the
+   * full file path (see embedAndStoreText callers), so filtering on the old path
+   * can only ever remove the replaced file's own points.
+   *
+   * Returns the decision outcome for logging/tests; never throws on a Qdrant
+   * hiccup mid-reindex (logged and surfaced as `qdrant_not_running` semantics by
+   * the caller's try/catch).
+   */
+  public async reconcileReplacedContentFile(params: {
+    oldFilePath: string
+    newFilePath: string
+    fileName: string
+  }): Promise<ReindexOutcome> {
+    const { oldFilePath, newFilePath, fileName } = params
+
+    const isReplacement = !!oldFilePath && oldFilePath !== newFilePath
+
+    // Step 2: is the knowledge base even installed? Short-circuits before any
+    // KB-state lookup, per the spec ordering.
+    const qdrantInstalled = isReplacement
+      ? !!(await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT))
+      : false
+
+    // Steps 3/4: was the OUTDATED file actually indexed? The state row is the
+    // authoritative signal (RFC #883) — chunk presence alone can't distinguish
+    // a fully-indexed file from a stalled ingestion.
+    let oldFileWasIndexed = false
+    if (isReplacement && qdrantInstalled) {
+      const oldState = await KbIngestState.query().where('file_path', oldFilePath).first()
+      oldFileWasIndexed = oldState?.state === 'indexed'
+    }
+
+    // Step 5: only check liveness once we know we'd otherwise act. The health
+    // check is a real network round-trip, so we avoid it on the common no-op
+    // paths above.
+    let qdrantRunning = false
+    if (isReplacement && qdrantInstalled && oldFileWasIndexed) {
+      qdrantRunning = (await this.checkQdrantHealth()).online
+    }
+
+    const outcome = decideContentReindex({
+      isReplacement,
+      qdrantInstalled,
+      oldFileWasIndexed,
+      qdrantRunning,
+    })
+
+    if (outcome === 'reindex') {
+      // Order matters: remove the stale points and state row BEFORE queueing the
+      // new embed so a fresh index can't be conflated with the old one. Each step
+      // targets only `oldFilePath` / `newFilePath` — never another resource.
+      await this._deletePointsBySource(oldFilePath)
+      await KbIngestState.remove(oldFilePath)
+      const { EmbedFileJob } = await import('#jobs/embed_file_job')
+      await EmbedFileJob.dispatch({ fileName, filePath: newFilePath })
+    }
+
+    return outcome
   }
 
   public async discoverNomadDocs(force?: boolean): Promise<{ success: boolean; message: string }> {

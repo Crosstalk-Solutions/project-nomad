@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
-import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
+import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, ContentAutoUpdateStatus, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
 import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
@@ -552,6 +552,15 @@ class API {
   async getAppAutoUpdateStatus() {
     return catchInternal(async () => {
       const response = await this.client.get<AppAutoUpdateStatus>('/system/apps/auto-update/status')
+      return response.data
+    })()
+  }
+
+  async getContentAutoUpdateStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<ContentAutoUpdateStatus>(
+        '/system/content/auto-update/status'
+      )
       return response.data
     })()
   }

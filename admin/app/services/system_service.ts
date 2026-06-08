@@ -1,4 +1,5 @@
 import Service from '#models/service'
+import InstalledResource from '#models/installed_resource'
 import { inject } from '@adonisjs/core'
 import { DockerService } from '#services/docker_service'
 import { ServiceSlim } from '../../types/services.js'
@@ -844,6 +845,17 @@ export class SystemService {
     // per-app failure backoff so previously self-disabled apps get a fresh start.
     if (key === 'appAutoUpdate.enabled' && (value === true || value === 'true')) {
       await Service.query().update({
+        auto_update_consecutive_failures: 0,
+        auto_update_disabled_reason: null,
+      })
+    }
+    // Re-enabling content auto-update clears the feature-level backoff and every
+    // resource's per-resource backoff so previously self-disabled content gets a
+    // fresh start.
+    if (key === 'contentAutoUpdate.enabled' && (value === true || value === 'true')) {
+      await KVStore.setValue('contentAutoUpdate.consecutiveFailures', '0')
+      await KVStore.clearValue('contentAutoUpdate.autoDisabledReason')
+      await InstalledResource.query().update({
         auto_update_consecutive_failures: 0,
         auto_update_disabled_reason: null,
       })

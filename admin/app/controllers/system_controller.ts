@@ -4,6 +4,7 @@ import { SystemUpdateService } from '#services/system_update_service'
 import { ContainerRegistryService } from '#services/container_registry_service'
 import { AutoUpdateService } from '#services/auto_update_service'
 import { AppAutoUpdateService } from '#services/app_auto_update_service'
+import { ContentAutoUpdateService } from '#services/content_auto_update_service'
 import { DownloadService } from '#services/download_service'
 import { QueueService } from '#services/queue_service'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
@@ -169,6 +170,23 @@ export default class SystemController {
         } catch (error) {
             logger.error({ err: error }, '[SystemController] Failed to get app auto-update status')
             response.status(500).send({ error: 'Failed to retrieve app auto-update status' })
+        }
+    }
+
+    async getContentAutoUpdateStatus({ response }: HttpContext) {
+        // Mirrors getAppAutoUpdateStatus. Content auto-update needs only the
+        // DownloadService (for the active-download pre-flight); the catalog and
+        // collection-update services default-construct inside the service.
+        const contentAutoUpdateService = new ContentAutoUpdateService(
+            new DownloadService(QueueService.getInstance())
+        )
+
+        try {
+            const status = await contentAutoUpdateService.getStatus()
+            response.send(status)
+        } catch (error) {
+            logger.error({ err: error }, '[SystemController] Failed to get content auto-update status')
+            response.status(500).send({ error: 'Failed to retrieve content auto-update status' })
         }
     }
 

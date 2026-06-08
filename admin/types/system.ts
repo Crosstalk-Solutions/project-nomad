@@ -132,3 +132,32 @@ export type AppAutoUpdateStatus = {
   lastResult: string | null
   apps: AppAutoUpdateAppStatus[]
 }
+
+export type ContentAutoUpdateResourceStatus = {
+  resource_id: string
+  resource_type: 'zim' | 'map'
+  current_version: string
+  available_update_version: string | null
+  size_bytes: number | null
+  eligible: boolean
+  reason: string
+  cooloff_remaining_hours: number | null
+  exceeds_cap: boolean
+  consecutive_failures: number
+  auto_disabled_reason: string | null
+}
+
+export type ContentAutoUpdateStatus = {
+  enabled: boolean
+  windowStart: string
+  windowEnd: string
+  cooloffHours: number
+  maxBytesPerWindow: number
+  withinWindow: boolean
+  windowBytesUsed: number
+  lastAttemptAt: string | null
+  lastResult: string | null
+  lastError: string | null
+  autoDisabledReason: string | null
+  resources: ContentAutoUpdateResourceStatus[]
+}

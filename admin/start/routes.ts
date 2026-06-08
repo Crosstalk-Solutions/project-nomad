@@ -184,6 +184,7 @@ router
     router.post('/services/update', [SystemController, 'updateService'])
     router.post('/services/auto-update', [SystemController, 'setServiceAutoUpdate'])
     router.get('/apps/auto-update/status', [SystemController, 'getAppAutoUpdateStatus'])
+    router.get('/content/auto-update/status', [SystemController, 'getContentAutoUpdateStatus'])
     router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes'])
     router.get('/latest-version', [SystemController, 'checkLatestVersion'])
     router.post('/update', [SystemController, 'requestSystemUpdate'])
