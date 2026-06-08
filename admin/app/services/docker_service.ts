@@ -1478,8 +1478,19 @@ export class DockerService {
       if (this.activeInstallations.has(serviceName)) {
         return { success: false, message: `Service ${serviceName} already has an operation in progress` }
       }
+      // DB-level guard mirrors the install path. Unlike the in-memory Set above, this survives a
+      // page reload and is visible to other clients, so a second Update click (or one from another
+      // tab) is rejected cleanly instead of racing two updateContainer runs into Docker 304/400
+      // errors (stop/rename on a container the first run already moved).
+      if (service.installation_status === 'installing') {
+        return { success: false, message: `Service ${serviceName} already has an update in progress` }
+      }
 
       this.activeInstallations.add(serviceName)
+      // Persist the in-progress flag so the Apps page can durably disable the Update button while
+      // the (often multi-GB, multi-minute) pull runs. Cleared in the finally below.
+      service.installation_status = 'installing'
+      await service.save()
 
       // newImage = the semver tag we record in the DB after the update (e.g. ollama/ollama:0.23.2).
       // runtimeImage = the tag we actually pull and run. For AMD-on-Ollama these diverge: we run
@@ -1741,6 +1752,21 @@ export class DockerService {
       )
       logger.error({ err: error }, `[DockerService] Update failed for ${serviceName}`)
       return { success: false, message: 'Update failed. Check server logs for details.' }
+    } finally {
+      // Always clear the in-progress flag we set above, on every exit path (success, rollback,
+      // not-found, or thrown error). The success path already persisted the new image/version on
+      // this same in-memory model, so saving again with idle preserves that — it only flips the
+      // status. The existing activeInstallations.delete() calls on each branch handle the
+      // in-memory lock; this just keeps the durable DB flag honest.
+      const svc = await Service.query().where('service_name', serviceName).first()
+      if (svc && svc.installation_status === 'installing') {
+        svc.installation_status = 'idle'
+        try {
+          await svc.save()
+        } catch (saveErr: any) {
+          logger.error({ err: saveErr }, `[DockerService] Failed to reset installation_status for ${serviceName}`)
+        }
+      }
     }
   }
 
