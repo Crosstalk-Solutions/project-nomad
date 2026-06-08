@@ -1049,6 +1049,16 @@ class API {
     })()
   }
 
+  async setServiceCustomUrl(service_name: string, custom_url: string | null) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{ success: boolean; custom_url: string | null }>(
+        '/system/services/custom-url',
+        { service_name, custom_url }
+      )
+      return response.data
+    })()
+  }
+
   async deleteCustomApp(service_name: string, remove_image = false) {
     return catchInternal(async () => {
       const response = await this.client.delete<{ success: boolean; message: string }>(

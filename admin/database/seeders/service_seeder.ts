@@ -14,6 +14,7 @@ type ServiceSeedRecord = Omit<
   | 'update_checked_at'
   | 'metadata'
   | 'is_user_modified'
+  | 'custom_url'
   | 'auto_update_enabled'
   | 'available_update_first_seen_at'
   | 'auto_update_consecutive_failures'

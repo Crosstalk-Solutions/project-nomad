@@ -178,6 +178,7 @@ router
     router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest'])
     router.delete('/services/custom', [SystemController, 'deleteCustomApp'])
     router.get('/services/custom/:name', [SystemController, 'getCustomApp'])
+    router.put('/services/custom-url', [SystemController, 'setServiceCustomUrl'])
     router.get('/services/:name/logs', [SystemController, 'getServiceLogs'])
     router.get('/services/:name/stats', [SystemController, 'getServiceStats'])
     router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions'])
