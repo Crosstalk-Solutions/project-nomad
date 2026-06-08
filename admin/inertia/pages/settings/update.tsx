@@ -14,6 +14,7 @@ import { useNotifications } from '~/context/NotificationContext'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import CoreAutoUpdateSection from '~/components/updates/CoreAutoUpdateSection'
 import AppAutoUpdateSection from '~/components/updates/AppAutoUpdateSection'
+import ContentAutoUpdateSection from '~/components/updates/ContentAutoUpdateSection'
 import ContentUpdatesSection from '~/components/updates/ContentUpdatesSection'
 
 type Props = {
@@ -453,6 +454,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
           </div>
           <CoreAutoUpdateSection />
           <AppAutoUpdateSection />
+          <ContentAutoUpdateSection />
           <ContentUpdatesSection />
           <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden py-6 mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
