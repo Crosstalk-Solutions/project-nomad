@@ -482,8 +482,42 @@ export class OllamaService {
   public static readonly EMBED_MAX_INPUT_CHARS = 4000
 
   /**
+   * Aggressive 2048-safe character cap, applied only on a context-length retry. nomic-embed-text:v1.5
+   * defaults to a 2048-token context, and on the OpenAI-compat fallback path (or an older Ollama that
+   * ignores num_ctx for embeddings) we cannot widen it at request time. 2000 chars stays under 2048
+   * tokens even for the densest content (~1 char/token code/markup), so an oversized chunk gets
+   * truncated-and-kept instead of silently dropped from Qdrant — and the embed job stops re-embedding
+   * the whole file 30x on the one bad chunk (#881).
+   */
+  public static readonly EMBED_CONTEXT_SAFE_CHARS = 2000
+
+  /**
+   * True if the error is the model rejecting input that exceeds its context window
+   * ("input length exceeds the context length"). Matches both the native /api/embed axios error
+   * shape and the OpenAI-compat BadRequestError. Drives the truncate-and-retry here and the
+   * non-retryable classification in EmbedFileJob (#881).
+   */
+  public static isContextLengthError(err: unknown): boolean {
+    const parts: string[] = []
+    if (err instanceof Error && err.message) parts.push(err.message)
+    const anyErr = err as any
+    const data = anyErr?.response?.data
+    if (data) parts.push(typeof data === 'string' ? data : JSON.stringify(data))
+    if (anyErr?.error) parts.push(typeof anyErr.error === 'string' ? anyErr.error : JSON.stringify(anyErr.error))
+    const haystack = parts.join(' ').toLowerCase()
+    return (
+      (haystack.includes('context length') && haystack.includes('exceed')) ||
+      haystack.includes('input length exceeds')
+    )
+  }
+
+  /**
    * Generate embeddings for the given input strings.
    * Tries the Ollama native /api/embed endpoint first, falls back to /v1/embeddings.
+   *
+   * If the first attempt fails because a chunk exceeds the model's context window, retries once
+   * with an aggressive 2048-safe truncation (EMBED_CONTEXT_SAFE_CHARS) so the chunk is embedded
+   * (start-of-chunk) rather than silently dropped from Qdrant (#881).
    */
   public async embed(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
     await this._ensureDependencies()
@@ -491,41 +525,49 @@ export class OllamaService {
       throw new Error('AI service is not initialized.')
     }
 
-    // Runtime safety net (#881). The OpenAI-compat fallback has no equivalent of
-    // truncate:true, so a chunk that exceeds the model's loaded context_length
-    // (often 2048 for nomic-embed-text:v1.5) returns 400 and the chunk is silently
-    // dropped from Qdrant. Pre-capping at the input layer protects both paths.
-    const safeInput = input.map((s) =>
-      s.length > OllamaService.EMBED_MAX_INPUT_CHARS
-        ? s.slice(0, OllamaService.EMBED_MAX_INPUT_CHARS)
-        : s
-    )
-    const truncatedCount = input.reduce(
-      (n, s) => (s.length > OllamaService.EMBED_MAX_INPUT_CHARS ? n + 1 : n),
-      0
-    )
-    if (truncatedCount > 0) {
-      logger.debug(
-        '[OllamaService] embed: pre-capped %d/%d inputs at %d chars',
-        truncatedCount,
-        input.length,
-        OllamaService.EMBED_MAX_INPUT_CHARS
-      )
-    }
+    const cap = (arr: string[], max: number) => arr.map((s) => (s.length > max ? s.slice(0, max) : s))
+
+    // Generous pre-cap (#881): fine for the native path (num_ctx=8192) but can still exceed a
+    // 2048-context fallback on dense content. The context-length retry below is the hard backstop.
+    const safeInput = cap(input, OllamaService.EMBED_MAX_INPUT_CHARS)
 
     try {
-      // Prefer Ollama native endpoint (supports batch input natively).
-      // Pass num_ctx explicitly so we don't depend on the embedding model's
-      // modelfile defaults. Some installs ship nomic-embed-text:v1.5 with
-      // num_ctx=2048, which our chunker (sized for ~1500 tokens) can exceed
-      // on dense content, causing "input length exceeds context length" errors.
-      // truncate:true is a runtime safety net for any chunk that still overshoots.
-      // 8192 matches nomic-embed-text:v1.5's RoPE-extrapolated max.
+      return await this._embedWithFallback(model, safeInput)
+    } catch (err) {
+      if (!OllamaService.isContextLengthError(err)) throw err
+      // One or more chunks exceeded the model's context even after the pre-cap — typically an
+      // older Ollama that ignores num_ctx for embeddings, or the OpenAI-compat fallback path.
+      // Retry once, truncated hard enough to fit a 2048-token context at any density, so the
+      // chunk is embedded (truncated) instead of dropped and the job doesn't storm.
+      const hardCapped = cap(input, OllamaService.EMBED_CONTEXT_SAFE_CHARS)
+      const reduced = hardCapped.reduce((n, s, i) => (s.length < safeInput[i].length ? n + 1 : n), 0)
+      logger.warn(
+        '[OllamaService] embed: context-length overflow; retrying %d/%d inputs hard-capped at %d chars',
+        reduced,
+        input.length,
+        OllamaService.EMBED_CONTEXT_SAFE_CHARS
+      )
+      return await this._embedWithFallback(model, hardCapped)
+    }
+  }
+
+  /**
+   * Single embed attempt: native /api/embed first, then the OpenAI-compat /v1/embeddings fallback.
+   * Both paths request num_ctx/truncate (Ollama's OpenAI-compat shim forwards them). A context-length
+   * error from the native path is re-thrown rather than falling back, because the fallback has a
+   * smaller effective context and would only fail the same way — the caller (embed) retries it
+   * truncated instead.
+   */
+  private async _embedWithFallback(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
+    try {
+      // Pass num_ctx explicitly so we don't depend on the embedding model's modelfile defaults.
+      // Some installs ship nomic-embed-text:v1.5 with num_ctx=2048; 8192 matches its RoPE-extrapolated
+      // max. truncate:true is a server-side net for any chunk that still overshoots.
       const response = await axios.post(
         `${this.baseUrl}/api/embed`,
         {
           model,
-          input: safeInput,
+          input,
           truncate: true,
           options: { num_ctx: 8192 },
         },
@@ -538,22 +580,26 @@ export class OllamaService {
       }
       return { embeddings: response.data.embeddings }
     } catch (err) {
-      // Capture the original error so we know *why* we fell back. Earlier bare
-      // catches here masked recurring "input length exceeds context length"
-      // failures for months (#369, #670, #881) — without this log we have no
-      // signal that /api/embed is the broken path vs the fallback.
+      // Let context-length errors bubble so embed() can retry with a smaller cap; the fallback
+      // endpoint (smaller effective context, no num_ctx honored on older Ollama) can't help here.
+      if (OllamaService.isContextLengthError(err)) throw err
+      // Log the original error so we know *why* we fell back. Earlier bare catches here masked
+      // recurring failures for months (#369, #670, #881).
       logger.warn(
         '[OllamaService] /api/embed failed, falling back to /v1/embeddings: %s',
         err instanceof Error ? err.message : String(err)
       )
-      // Fall back to OpenAI-compatible /v1/embeddings.
-      // Explicitly request float format — some backends (e.g. LM Studio) don't reliably
-      // implement the base64 encoding the OpenAI SDK requests by default.
-      const results = await this.openai.embeddings.create({
+      // Fall back to OpenAI-compatible /v1/embeddings. Explicitly request float format — some
+      // backends (e.g. LM Studio) don't reliably implement the base64 the OpenAI SDK defaults to.
+      // truncate/num_ctx are forwarded by Ollama's OpenAI-compat shim; the SDK types omit them,
+      // hence the cast. We only ever talk to a local Ollama here, not real OpenAI.
+      const results = await this.openai!.embeddings.create({
         model,
-        input: safeInput,
+        input,
         encoding_format: 'float',
-      })
+        truncate: true,
+        options: { num_ctx: 8192 },
+      } as any)
       return { embeddings: results.data.map((e) => e.embedding as number[]) }
     }
   }
