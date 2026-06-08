@@ -818,9 +818,20 @@ function AppCard({
             <p className="font-semibold text-text-primary text-sm leading-tight truncate">
               {service.friendly_name ?? service.service_name}
             </p>
-            {service.powered_by && (
-              <p className="text-xs text-text-muted truncate">{service.powered_by}</p>
-            )}
+            {(() => {
+              // Show the installed image tag next to the powered-by name (e.g. "Kiwix · 3.7.0").
+              // Only for installed apps — a not-yet-installed catalog entry has no meaningful
+              // running version. Falls back to just the version if powered_by is unset.
+              const version = service.installed ? extractTag(service.container_image) : ''
+              if (!service.powered_by && !version) return null
+              return (
+                <p className="text-xs text-text-muted truncate">
+                  {service.powered_by}
+                  {service.powered_by && version ? ' · ' : ''}
+                  {version ? <span className="font-mono">{version}</span> : null}
+                </p>
+              )
+            })()}
           </div>
         </div>
 
@@ -882,7 +893,7 @@ function AppCard({
             type="button"
             onClick={onUpdateVersion}
             title={`Update to ${service.available_update_version}`}
-            className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border border-desert-green-light bg-desert-green-lighter text-desert-green-dark cursor-pointer transition-colors hover:bg-desert-green-light"
+            className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-desert-orange text-white shadow-sm cursor-pointer transition-colors hover:bg-desert-orange-dark"
           >
             <IconArrowUp className="h-3 w-3" />
             Update available
