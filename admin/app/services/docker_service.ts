@@ -456,13 +456,6 @@ export class DockerService {
   }
 
   /**
-   * Handles the long-running process of creating a Docker container for a service.
-   * NOTE: This method should not be called directly. Instead, use `createContainerPreflight` to check prerequisites first
-   * This method will also transmit server-sent events to the client to notify of progress.
-   * @param serviceName
-   * @returns
-   */
-  /**
    * Translate low-level dockerode errors into something a non-technical user can
    * act on. Currently handles host port conflicts — the most common install
    * failure, where a service can't bind its port because something on the host
@@ -576,6 +569,13 @@ export class DockerService {
     })
   }
 
+  /**
+   * Handles the long-running process of creating a Docker container for a service.
+   * NOTE: This method should not be called directly. Instead, use `createContainerPreflight` to check prerequisites first
+   * This method will also transmit server-sent events to the client to notify of progress.
+   * @param serviceName
+   * @returns
+    */
   async _createContainer(
     service: Service & { dependencies?: Service[] },
     containerConfig: any
