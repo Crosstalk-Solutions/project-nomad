@@ -723,7 +723,7 @@ export class RagService {
   /**
    * Main pipeline to process and embed an uploaded file into the RAG knowledge base.
    * This includes text extraction, chunking, embedding, and storing in Qdrant.
-   * 
+   *
    * Orchestrates file type detection and delegates to specialized processors.
    * For ZIM files, supports batch processing via batchOffset parameter.
    */

@@ -300,7 +300,7 @@ export class ZimService {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
-    
+
     // Update the kiwix library XML after all downloaded ZIM files are in place.
     // This covers all ZIM types including Wikipedia. Rebuilding once from disk
     // avoids repeated XML parse/write cycles and reduces the chance of write races

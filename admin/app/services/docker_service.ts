@@ -855,7 +855,7 @@ export class DockerService {
         await KVStore.setValue('chat.suggestionsEnabled', false)
 
         logger.info('[DockerService] Ollama installation complete. Triggering Nomad docs discovery...')
-        
+
         // Need to use dynamic imports here to avoid circular dependency
         const ollamaService = new (await import('./ollama_service.js')).OllamaService()
         const ragService = new (await import('./rag_service.js')).RagService(this, ollamaService)
@@ -1627,7 +1627,7 @@ export class DockerService {
       const newContainerConfig: any = {
         Image: runtimeImage,
         name: serviceName,
-        Env: finalEnv.length > 0 ? finalEnv : undefined,
+        Env: inspectData.Config?.Env || undefined,
         Cmd: inspectData.Config?.Cmd || undefined,
         ExposedPorts: inspectData.Config?.ExposedPorts || undefined,
         WorkingDir: inspectData.Config?.WorkingDir || undefined,

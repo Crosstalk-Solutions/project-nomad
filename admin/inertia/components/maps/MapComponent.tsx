@@ -1,51 +1,122 @@
 import Map, {
   FullscreenControl,
+  Marker,
+  MapProvider,
   NavigationControl,
   ScaleControl,
-  Marker,
-  Popup,
-  MapProvider,
 } from 'react-map-gl/maplibre'
-import type { MapRef, MapLayerMouseEvent } from 'react-map-gl/maplibre'
+import type { MapLayerMouseEvent, MapRef } from 'react-map-gl/maplibre'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { Protocol } from 'pmtiles'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
-import type { PinColorId } from '~/hooks/useMapMarkers'
+import { useMapMarkers } from '~/hooks/useMapMarkers'
 
 import MarkerPin from './MarkerPin'
 import MarkerPanel from './MarkerPanel'
 import CoordinateOverlay from './CoordinateOverlay'
-import ScaleUnitToggle from './ScaleUnitToggle'
+import ViewMapMarkerPopup from './ViewMapMarkerPopup'
+import MapMarkerFormPopup from './MapMarkerFormPopup'
+import ScaleUnitToggle from './ScaleUnitSelector'
 
-type ScaleUnit = 'imperial' | 'metric'
+type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
-type MapComponentProps = {
-  isHoveringUI: boolean
-  showCoordinatesEnabled: boolean
+type MapCommand = {
+  id: number
+  lat: number
+  lng: number
+  action: 'fly' | 'marker'
 }
 
+type MapComponentProps = {
+  mapCommand?: MapCommand | null
+  isHoveringUI?: boolean
+  showCoordinatesEnabled?: boolean
+}
+
+type MapLocationParams = {
+  lat: number
+  lng: number
+  zoom: number
+}
+
+const getMapLocationParams = (): MapLocationParams | null => {
+  const params = new URLSearchParams(window.location.search)
+
+  const lat = Number(params.get('lat'))
+  const lngParam = params.get('lng')
+  const longParam = params.get('long')
+  const lng = Number(lngParam ?? longParam)
+  const zoom = Number(params.get('zoom') ?? 12)
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return null
+  }
+
+  if (!lngParam && longParam) {
+    params.set('lng', longParam)
+    params.delete('long')
+
+    const query = params.toString()
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    )
+  }
+
+  return {
+    lat,
+    lng,
+    zoom: Number.isFinite(zoom) ? zoom : 12,
+  }
+}
+
+const isValidMarkerCoordinate = (marker: { longitude: number; latitude: number }) =>
+  Number.isFinite(marker.longitude) &&
+  Number.isFinite(marker.latitude) &&
+  marker.longitude >= -180 &&
+  marker.longitude <= 180 &&
+  marker.latitude >= -90 &&
+  marker.latitude <= 90
+
 export default function MapComponent({
-  isHoveringUI,
-  showCoordinatesEnabled,
-}: MapComponentProps) {
+                                       mapCommand,
+                                       isHoveringUI = false,
+                                       showCoordinatesEnabled = true,
+                                     }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const handledMapCommandIdRef = useRef<number | null>(null)
 
-  const { markers, addMarker, deleteMarker } = useMapMarkers()
+  const { markers, addMarker, updateMarker, deleteMarker } = useMapMarkers()
 
+  const [targetIndicator, setTargetIndicator] = useState<{ lng: number; lat: number } | null>(null)
   const [isDraggingMap, setIsDraggingMap] = useState(false)
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
-  const [markerName, setMarkerName] = useState('')
-  const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
+  const [editingMarkerId, setEditingMarkerId] = useState<number | null>(null)
+  const [hasUnsavedMarkerChanges, setHasUnsavedMarkerChanges] = useState(false)
+  const [showCoordinates, setShowCoordinates] = useState(false)
 
-  const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(
-    () => (localStorage.getItem('nomad:map-scale-unit') as ScaleUnit) || 'metric'
-  )
+  const getInitialScaleUnit = (): ScaleUnit => {
+    const stored = localStorage.getItem('nomad:map-scale-unit')
+
+    return stored === 'metric' || stored === 'imperial' || stored === 'nautical'
+      ? stored
+      : 'metric'
+  }
+
+  const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(getInitialScaleUnit)
 
   const [cursorLngLat, setCursorLngLat] = useState<{
     lng: number
@@ -54,7 +125,26 @@ export default function MapComponent({
     y: number
   } | null>(null)
 
-  const [showCoordinates, setShowCoordinates] = useState(false)
+  const hideCoordinates = useCallback(() => {
+    setShowCoordinates(false)
+    setCursorLngLat(null)
+  }, [])
+
+  const flyToLocationParams = useCallback(() => {
+    const location = getMapLocationParams()
+    if (!location) return
+
+    mapRef.current?.flyTo({
+      center: [location.lng, location.lat],
+      zoom: location.zoom,
+      duration: 1500,
+    })
+  }, [])
+
+  const confirmDiscardMarkerChanges = useCallback(() => {
+    if (!hasUnsavedMarkerChanges) return true
+    return window.confirm('Discard unsaved marker changes?')
+  }, [hasUnsavedMarkerChanges])
 
   useEffect(() => {
     const protocol = new Protocol()
@@ -73,15 +163,87 @@ export default function MapComponent({
     }
   }, [])
 
-  const hideCoordinates = useCallback(() => {
-    setShowCoordinates(false)
-    setCursorLngLat(null)
-  }, [])
+  useEffect(() => {
+    if (!mapCommand) return
+    if (handledMapCommandIdRef.current === mapCommand.id) return
+
+    handledMapCommandIdRef.current = mapCommand.id
+
+    if (mapCommand.action === 'fly') {
+      const currentZoom = mapRef.current?.getZoom() ?? 12
+
+      setTargetIndicator({
+        lng: mapCommand.lng,
+        lat: mapCommand.lat,
+      })
+
+      mapRef.current?.flyTo({
+        center: [mapCommand.lng, mapCommand.lat],
+        zoom: currentZoom,
+        duration: 1500,
+      })
+
+      return
+    }
+
+    if (mapCommand.action === 'marker') {
+      if (!confirmDiscardMarkerChanges()) return
+
+      setTargetIndicator(null)
+
+      const currentZoom = mapRef.current?.getZoom() ?? 12
+
+      mapRef.current?.flyTo({
+        center: [mapCommand.lng, mapCommand.lat],
+        zoom: currentZoom,
+        duration: 750,
+      })
+
+      window.setTimeout(() => {
+        setPlacingMarker({
+          lng: mapCommand.lng,
+          lat: mapCommand.lat,
+        })
+
+        setSelectedMarkerId(null)
+        setEditingMarkerId(null)
+        setHasUnsavedMarkerChanges(false)
+      }, 750)
+    }
+  }, [mapCommand, confirmDiscardMarkerChanges])
+
+  useEffect(() => {
+    if (!selectedMarkerId) return
+
+    const marker = markers.find((existingMarker) => existingMarker.id === selectedMarkerId)
+
+    if (!marker || marker.visible === false) {
+      setSelectedMarkerId(null)
+      setEditingMarkerId(null)
+    }
+  }, [markers, selectedMarkerId])
 
   const handleScaleUnitChange = useCallback((unit: ScaleUnit) => {
     setScaleUnit(unit)
     localStorage.setItem('nomad:map-scale-unit', unit)
   }, [])
+
+  const handleMapLoad = useCallback(() => {
+    flyToLocationParams()
+  }, [flyToLocationParams])
+
+  const handleMapClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      if (!confirmDiscardMarkerChanges()) return
+
+      setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+      setSelectedMarkerId(null)
+      setEditingMarkerId(null)
+      setHasUnsavedMarkerChanges(false)
+      setTargetIndicator(null)
+    },
+    [confirmDiscardMarkerChanges]
+  )
 
   const handleMouseMove = useCallback(
     (e: MapLayerMouseEvent) => {
@@ -114,35 +276,24 @@ export default function MapComponent({
     [hideCoordinates, isHoveringUI, isDraggingMap, showCoordinatesEnabled]
   )
 
-  const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
-    setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
-    setMarkerName('')
-    setMarkerColor('orange')
-    setSelectedMarkerId(null)
-  }, [])
-
-  const handleSaveMarker = useCallback(() => {
-    if (placingMarker && markerName.trim()) {
-      addMarker(markerName.trim(), placingMarker.lng, placingMarker.lat, markerColor)
-      setPlacingMarker(null)
-      setMarkerName('')
-      setMarkerColor('orange')
-    }
-  }, [placingMarker, markerName, markerColor, addMarker])
-
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
+    setTargetIndicator(null)
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
   }, [])
 
   const handleDeleteMarker = useCallback(
     (id: number) => {
       if (selectedMarkerId === id) setSelectedMarkerId(null)
+      if (editingMarkerId === id) setEditingMarkerId(null)
+
       deleteMarker(id)
     },
-    [selectedMarkerId, deleteMarker]
+    [selectedMarkerId, editingMarkerId, deleteMarker]
   )
 
-  const selectedMarker = selectedMarkerId ? markers.find((m) => m.id === selectedMarkerId) : null
+  const selectedMarker = selectedMarkerId
+    ? markers.find((marker) => marker.id === selectedMarkerId && isValidMarkerCoordinate(marker))
+    : null
 
   return (
     <MapProvider>
@@ -176,6 +327,7 @@ export default function MapComponent({
             latitude: 40,
             zoom: 3.5,
           }}
+          onLoad={handleMapLoad}
           onMouseDown={() => {
             setIsDraggingMap(true)
             hideCoordinates()
@@ -208,110 +360,126 @@ export default function MapComponent({
             />
           )}
 
+          {targetIndicator && (
+            <Marker longitude={targetIndicator.lng} latitude={targetIndicator.lat} anchor="center">
+              <div
+                className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-full border-2 border-desert-orange bg-surface-primary/70 shadow-lg"
+                aria-hidden="true"
+              >
+                <div className="relative h-5 w-5">
+                  <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-desert-orange" />
+                  <div className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-desert-orange" />
+                </div>
+              </div>
+            </Marker>
+          )}
+
           <ScaleUnitToggle
             scaleUnit={scaleUnit}
             onChange={handleScaleUnitChange}
             onMouseEnter={hideCoordinates}
           />
 
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              longitude={marker.longitude}
-              latitude={marker.latitude}
-              anchor="bottom"
-              onClick={(e) => {
-                e.originalEvent.stopPropagation()
-                setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
-                setPlacingMarker(null)
-              }}
-            >
-              <MarkerPin
-                color={PIN_COLORS.find((c) => c.id === marker.color)?.hex}
-                active={marker.id === selectedMarkerId}
-              />
-            </Marker>
-          ))}
+          {markers
+            .filter((marker) => marker.visible)
+            .map((marker) => (
+              <Marker
+                key={marker.id}
+                longitude={marker.longitude}
+                latitude={marker.latitude}
+                anchor="bottom"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation()
 
-          {selectedMarker && (
-            <Popup
-              longitude={selectedMarker.longitude}
-              latitude={selectedMarker.latitude}
-              anchor="bottom"
-              offset={[0, -36]}
-              onClose={() => setSelectedMarkerId(null)}
-              closeOnClick={false}
-            >
-              <div className="text-sm font-medium">{selectedMarker.name}</div>
-              {selectedMarker.notes && selectedMarker.notes.trim() && (
-                <div className="mt-1 text-xs text-desert-stone-dark whitespace-pre-wrap break-words max-w-[240px]">
-                  {selectedMarker.notes}
-                </div>
-              )}
-            </Popup>
-          )}
+                  if (!confirmDiscardMarkerChanges()) return
+
+                  setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
+                  setPlacingMarker(null)
+                  setEditingMarkerId(null)
+                  setHasUnsavedMarkerChanges(false)
+                  setTargetIndicator(null)
+                }}
+              >
+                <MarkerPin
+                  color={marker.color}
+                  customColor={marker.customColor}
+                  icon={marker.icon}
+                  iconColor={marker.iconColor}
+                  visible={marker.visible}
+                  active={marker.id === selectedMarkerId}
+                />
+              </Marker>
+            ))}
 
           {placingMarker && (
-            <Popup
+            <MapMarkerFormPopup
               longitude={placingMarker.lng}
               latitude={placingMarker.lat}
-              anchor="bottom"
-              onClose={() => setPlacingMarker(null)}
-              closeOnClick={false}
-            >
-              <div onMouseEnter={hideCoordinates} className="p-1">
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="Name this location"
-                  value={markerName}
-                  onChange={(e) => setMarkerName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveMarker()
-                    if (e.key === 'Escape') setPlacingMarker(null)
-                  }}
-                  className="block w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
-                />
+              onDirtyChange={setHasUnsavedMarkerChanges}
+              onMouseEnter={hideCoordinates}
+              onSave={async ({ name, notes, color, customColor, icon   }) => {
+                await addMarker({
+                  name,
+                  longitude: placingMarker.lng,
+                  latitude: placingMarker.lat,
+                  color,
+                  customColor,
+                  icon,
+                  notes: notes || null,
+                })
 
-                <div className="mt-1.5 flex gap-1 items-center">
-                  {PIN_COLORS.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setMarkerColor(c.id)}
-                      title={c.label}
-                      className="rounded-full p-0.5 transition-transform"
-                      style={{
-                        outline:
-                          markerColor === c.id ? `2px solid ${c.hex}` : '2px solid transparent',
-                        outlineOffset: '1px',
-                      }}
-                    >
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: c.hex }} />
-                    </button>
-                  ))}
-                </div>
+                setPlacingMarker(null)
+                setHasUnsavedMarkerChanges(false)
+                setTargetIndicator(null)
+              }}
+              onCancel={() => {
+                if (!confirmDiscardMarkerChanges()) return
 
-                <div className="mt-1.5 flex gap-1.5 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setPlacingMarker(null)}
-                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
-                  >
-                    Cancel
-                  </button>
+                setPlacingMarker(null)
+                setEditingMarkerId(null)
+                setHasUnsavedMarkerChanges(false)
+                setTargetIndicator(null)
+              }}
+            />
+          )}
 
-                  <button
-                    type="button"
-                    onClick={handleSaveMarker}
-                    disabled={!markerName.trim()}
-                    className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </Popup>
+          {selectedMarker && editingMarkerId !== selectedMarker.id && (
+            <ViewMapMarkerPopup
+              marker={selectedMarker}
+              onClose={() => setSelectedMarkerId(null)}
+              onEdit={() => setEditingMarkerId(selectedMarker.id)}
+              onMouseEnter={hideCoordinates}
+            />
+          )}
+
+          {selectedMarker && editingMarkerId === selectedMarker.id && (
+            <MapMarkerFormPopup
+              longitude={selectedMarker.longitude}
+              latitude={selectedMarker.latitude}
+              initialMarker={selectedMarker}
+              onDirtyChange={setHasUnsavedMarkerChanges}
+              onMouseEnter={hideCoordinates}
+              onSave={async ({ id, name, notes, color, customColor, icon  }) => {
+                if (!id) return
+
+                await updateMarker(id, {
+                  name,
+                  notes: notes || null,
+                  color,
+                  customColor,
+                  icon,
+                })
+
+                setEditingMarkerId(null)
+                setHasUnsavedMarkerChanges(false)
+              }}
+              onCancel={() => {
+                if (!confirmDiscardMarkerChanges()) return
+
+                setEditingMarkerId(null)
+                setHasUnsavedMarkerChanges(false)
+              }}
+            />
           )}
         </Map>
       </div>
@@ -323,6 +491,7 @@ export default function MapComponent({
           onFlyTo={handleFlyTo}
           onSelect={setSelectedMarkerId}
           selectedMarkerId={selectedMarkerId}
+          onToggleVisibility={(id, visible) => updateMarker(id, { visible })}
         />
       </div>
     </MapProvider>
