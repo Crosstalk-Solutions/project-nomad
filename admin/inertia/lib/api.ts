@@ -1078,6 +1078,16 @@ class API {
     })()
   }
 
+  async uninstallService(service_name: string, remove_image = false) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/uninstall',
+        { service_name, remove_image }
+      )
+      return response.data
+    })()
+  }
+
   async updateCustomAppImage(service_name: string) {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(

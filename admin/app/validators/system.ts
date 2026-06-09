@@ -131,6 +131,14 @@ export const deleteCustomAppValidator = vine.compile(
   })
 )
 
+export const uninstallServiceValidator = vine.compile(
+  vine.object({
+    service_name: vine.string().trim(),
+    // When true, also remove the backing Docker image (best-effort).
+    remove_image: vine.boolean().optional(),
+  })
+)
+
 export const serviceLogsValidator = vine.compile(
   vine.object({
     tail: vine.number().min(1).max(2000).optional(),

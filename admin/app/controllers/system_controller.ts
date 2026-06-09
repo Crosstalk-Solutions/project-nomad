@@ -18,6 +18,7 @@ import {
   preflightValidator,
   serviceLogsValidator,
   subscribeToReleaseNotesValidator,
+  uninstallServiceValidator,
   updateCustomAppValidator,
   updateServiceValidator,
   setServiceAutoUpdateValidator,
@@ -465,6 +466,37 @@ export default class SystemController {
         await service.delete()
 
         return response.send({ success: true, message: `Custom app ${payload.service_name} deleted` })
+    }
+
+    /** Uninstall a curated catalog app: stop + remove its container (optionally its image) and
+     * return the card to the available catalog. App data under the storage path stays on disk,
+     * so a later reinstall picks it back up. Custom apps are removed via deleteCustomApp instead,
+     * which also drops their DB record. */
+    async uninstallService({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(uninstallServiceValidator)
+
+        const service = await Service.query().where('service_name', payload.service_name).first()
+        if (!service) {
+            return response.status(404).send({ error: `Service ${payload.service_name} not found` })
+        }
+        if (service.is_custom) {
+            return response.status(403).send({ error: 'Custom apps are removed via delete.' })
+        }
+        if (service.is_dependency_service) {
+            return response.status(403).send({ error: 'Dependency services cannot be uninstalled directly.' })
+        }
+        if (!service.installed) {
+            return response.status(409).send({ error: `Service ${payload.service_name} is not installed` })
+        }
+
+        const result = await this.dockerService.uninstallService(
+            payload.service_name,
+            payload.remove_image ?? false
+        )
+        if (!result.success) {
+            return response.status(500).send({ success: false, message: result.message })
+        }
+        return response.send({ success: true, message: result.message })
     }
 
     /** Set or clear an app's custom launch URL (works for curated and custom apps). Purely a

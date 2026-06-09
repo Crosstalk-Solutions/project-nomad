@@ -169,6 +169,7 @@ router
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])
     router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
+    router.post('/services/uninstall', [SystemController, 'uninstallService'])
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
     router.get('/services/preflight', [SystemController, 'preflightCheck'])
     router.get('/services/suggest-port', [SystemController, 'suggestCustomPort'])
