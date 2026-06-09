@@ -785,6 +785,19 @@ function AppCard({
   // without a doc section (custom apps, undocumented catalog apps) so the Docs item is hidden.
   const docLink = getSupplyDepotDocLink(service.service_name)
 
+  // Subtitle under the app name: the powered-by name plus the installed image tag
+  // (e.g. "Kiwix · 3.7.0"). Only installed apps have a meaningful running version; a
+  // not-yet-installed catalog entry shows just the powered-by name. Null when neither exists.
+  const version = service.installed ? extractTag(service.container_image) : ''
+  const subtitle =
+    !service.powered_by && !version ? null : (
+      <p className="text-xs text-text-muted truncate">
+        {service.powered_by}
+        {service.powered_by && version ? ' · ' : ''}
+        {version ? <span className="font-mono">{version}</span> : null}
+      </p>
+    )
+
   function toggleDropdown(e: React.MouseEvent) {
     e.stopPropagation()
     onOpenDropdown(isDropdownOpen ? null : service.service_name)
@@ -818,20 +831,7 @@ function AppCard({
             <p className="font-semibold text-text-primary text-sm leading-tight truncate">
               {service.friendly_name ?? service.service_name}
             </p>
-            {(() => {
-              // Show the installed image tag next to the powered-by name (e.g. "Kiwix · 3.7.0").
-              // Only for installed apps — a not-yet-installed catalog entry has no meaningful
-              // running version. Falls back to just the version if powered_by is unset.
-              const version = service.installed ? extractTag(service.container_image) : ''
-              if (!service.powered_by && !version) return null
-              return (
-                <p className="text-xs text-text-muted truncate">
-                  {service.powered_by}
-                  {service.powered_by && version ? ' · ' : ''}
-                  {version ? <span className="font-mono">{version}</span> : null}
-                </p>
-              )
-            })()}
+            {subtitle}
           </div>
         </div>
 
