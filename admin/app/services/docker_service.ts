@@ -12,6 +12,7 @@ import {
   BOOKS_STORAGE_PATH,
   CALIBRE_EMPTY_LIBRARY_ASSET_PATH,
   VAULTWARDEN_STORAGE_PATH,
+  MESHCORE_WEB_STORAGE_PATH,
   MEDIA_STORAGE_PATH,
   JELLYFIN_MEDIA_SUBFOLDERS,
 } from '../utils/fs.js'
@@ -19,7 +20,7 @@ import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { readFile, mkdir, copyFile, chown, chmod, access } from 'node:fs/promises'
+import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -697,6 +698,15 @@ export class DockerService {
         )
       }
 
+      if (service.service_name === SERVICE_NAMES.MESHCORE_WEB) {
+        await this._runPreinstallActions__MeshCoreWeb()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for MeshCore Web completed successfully.`
+        )
+      }
+
       // GPU-aware configuration for Ollama
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
@@ -1031,17 +1041,57 @@ export class DockerService {
   }
 
   /**
+   * Ensure a self-signed TLS cert (cert.pem + key.pem) exists in `certDir`, generating one if not.
+   * Used by apps that need a secure (HTTPS) context but run on a LAN appliance with no public DNS to
+   * get a trusted cert for. Idempotent: an existing pair is left untouched, so the cert is stable
+   * across reinstalls (no fresh browser warning each time) and a cert an admin swapped in by hand is
+   * never clobbered. The private key is locked to 0600; the cert stays world-readable.
+   */
+  private async _ensureSelfSignedCert(
+    certDir: string,
+    commonName: string
+  ): Promise<{ certPath: string; keyPath: string }> {
+    const certPath = join(certDir, 'cert.pem')
+    const keyPath = join(certDir, 'key.pem')
+
+    await mkdir(certDir, { recursive: true })
+
+    const alreadyHasCert = await Promise.all([
+      access(certPath)
+        .then(() => true)
+        .catch(() => false),
+      access(keyPath)
+        .then(() => true)
+        .catch(() => false),
+    ]).then(([c, k]) => c && k)
+
+    if (alreadyHasCert) return { certPath, keyPath }
+
+    // 10-year self-signed cert. CN/SAN are cosmetic for a self-signed cert (the browser warns
+    // regardless), but a SAN keeps it structurally valid for clients that require one.
+    const execAsync = promisify(exec)
+    await execAsync(
+      `openssl req -x509 -newkey rsa:2048 -nodes ` +
+        `-keyout "${keyPath}" -out "${certPath}" -days 3650 ` +
+        `-subj "/CN=${commonName}" ` +
+        `-addext "subjectAltName=DNS:nomad,DNS:localhost"`
+    )
+
+    await chmod(keyPath, 0o600)
+    await chmod(certPath, 0o644)
+
+    return { certPath, keyPath }
+  }
+
+  /**
    * Vaultwarden's web vault refuses to run without a secure context — over plain HTTP it shows
    * "You need to enable HTTPS!" and you can't register or unlock. We give it a self-signed TLS
    * cert in its /data volume so it serves HTTPS out of the box (paired with the ROCKET_TLS env and
    * the `https:8480` ui_location set in the seeder). Users click through a one-time browser warning;
-   * after that the vault is fully functional offline. Self-signed is the only option on a LAN
-   * appliance with no public DNS to get a trusted cert for.
+   * after that the vault is fully functional offline.
    */
   private async _runPreinstallActions__Vaultwarden(): Promise<void> {
     const dataDir = join(process.cwd(), VAULTWARDEN_STORAGE_PATH)
-    const certPath = join(dataDir, 'cert.pem')
-    const keyPath = join(dataDir, 'key.pem')
 
     this._broadcast(
       SERVICE_NAMES.VAULTWARDEN,
@@ -1050,54 +1100,74 @@ export class DockerService {
     )
 
     try {
-      await mkdir(dataDir, { recursive: true })
-
-      // Don't regenerate if a cert is already present — keeps the same cert across reinstalls so
-      // users don't get a fresh browser warning every time, and never clobbers a cert an admin
-      // may have swapped in themselves.
-      const alreadyHasCert = await Promise.all([
-        access(certPath)
-          .then(() => true)
-          .catch(() => false),
-        access(keyPath)
-          .then(() => true)
-          .catch(() => false),
-      ]).then(([c, k]) => c && k)
-
-      if (alreadyHasCert) {
-        this._broadcast(
-          SERVICE_NAMES.VAULTWARDEN,
-          'preinstall',
-          `Existing Vaultwarden TLS certificate found — leaving it as-is.`
-        )
-        return
-      }
-
-      // 10-year self-signed cert. CN/SAN are cosmetic for a self-signed cert (the browser warns
-      // regardless), but a SAN keeps it structurally valid for clients that require one.
-      const execAsync = promisify(exec)
-      await execAsync(
-        `openssl req -x509 -newkey rsa:2048 -nodes ` +
-          `-keyout "${keyPath}" -out "${certPath}" -days 3650 ` +
-          `-subj "/CN=Project NOMAD Vaultwarden" ` +
-          `-addext "subjectAltName=DNS:nomad,DNS:localhost"`
-      )
-
-      // Lock the private key down; the cert can stay world-readable. Vaultwarden runs as root and
-      // reads both from /data, so no chown is needed (admin writes them as root too).
-      await chmod(keyPath, 0o600)
-      await chmod(certPath, 0o644)
-
+      await this._ensureSelfSignedCert(dataDir, 'Project NOMAD Vaultwarden')
       this._broadcast(
         SERVICE_NAMES.VAULTWARDEN,
         'preinstall',
-        `Generated a self-signed HTTPS certificate for Vaultwarden.`
+        `Vaultwarden HTTPS certificate is ready.`
       )
     } catch (error: any) {
       this._broadcast(
         SERVICE_NAMES.VAULTWARDEN,
         'preinstall-error',
         `Failed to prepare the Vaultwarden certificate: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * The MeshCore web client (aXistem's prebuilt image) is stock nginx serving a static Flutter build
+   * over plain HTTP. The client reaches a radio over Web Bluetooth / Web Serial, which browsers only
+   * permit from a secure (HTTPS) context — so over plain HTTP the app loads but can't connect to a
+   * thing. We generate a self-signed cert and a small SSL nginx config here; the seeder bind-mounts
+   * both into the container (the config over the image's default.conf) so it serves the same static
+   * files over HTTPS instead. Same one-time-browser-warning approach as Vaultwarden.
+   */
+  private async _runPreinstallActions__MeshCoreWeb(): Promise<void> {
+    const appDir = join(process.cwd(), MESHCORE_WEB_STORAGE_PATH)
+    const certDir = join(appDir, 'certs')
+    const nginxConfPath = join(appDir, 'nginx-ssl.conf')
+
+    this._broadcast(
+      SERVICE_NAMES.MESHCORE_WEB,
+      'preinstall',
+      `Running pre-install actions for MeshCore Web...`
+    )
+
+    try {
+      await this._ensureSelfSignedCert(certDir, 'Project NOMAD MeshCore Web')
+
+      // SSL server block bind-mounted over the image's default.conf. Serves the Flutter build that
+      // already lives at /usr/share/nginx/html in the image, over HTTPS only, with the SPA fallback
+      // that single-page apps need. Cert paths match the /certs bind mount set in the seeder.
+      const nginxConf =
+        [
+          'server {',
+          '    listen 443 ssl;',
+          '    server_name _;',
+          '    ssl_certificate     /certs/cert.pem;',
+          '    ssl_certificate_key /certs/key.pem;',
+          '    root /usr/share/nginx/html;',
+          '    index index.html;',
+          '    location / {',
+          '        try_files $uri $uri/ /index.html;',
+          '    }',
+          '}',
+        ].join('\n') + '\n'
+      await writeFile(nginxConfPath, nginxConf)
+      await chmod(nginxConfPath, 0o644)
+
+      this._broadcast(
+        SERVICE_NAMES.MESHCORE_WEB,
+        'preinstall',
+        `MeshCore Web HTTPS certificate and config are ready.`
+      )
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.MESHCORE_WEB,
+        'preinstall-error',
+        `Failed to prepare MeshCore Web: ${error.message}`
       )
       throw new Error(`Pre-install action failed: ${error.message}`)
     }
