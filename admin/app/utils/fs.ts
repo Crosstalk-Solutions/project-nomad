@@ -17,6 +17,11 @@ export const CALIBRE_EMPTY_LIBRARY_ASSET_PATH = 'assets/calibre/metadata.db'
 // Vaultwarden's /data volume. A self-signed TLS cert is generated here on install so the
 // web vault has the secure context (HTTPS) it requires — see _runPreinstallActions__Vaultwarden.
 export const VAULTWARDEN_STORAGE_PATH = '/storage/vaultwarden'
+// MeshCore Web's working dir. On install a self-signed cert (certs/) and an SSL nginx config
+// (nginx-ssl.conf) are generated here, then bind-mounted into the container so the static client is
+// served over HTTPS — required for its Web Bluetooth/Serial connections. See
+// _runPreinstallActions__MeshCoreWeb.
+export const MESHCORE_WEB_STORAGE_PATH = '/storage/meshcore-web'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
