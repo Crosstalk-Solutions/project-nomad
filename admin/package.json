@@ -93,7 +93,7 @@
     "autoprefixer": "10.5.0",
     "axios": "1.17.0",
     "better-sqlite3": "12.6.2",
-    "bullmq": "5.67.2",
+    "bullmq": "5.77.6",
     "cheerio": "1.2.0",
     "compression": "1.8.1",
     "dockerode": "4.0.9",

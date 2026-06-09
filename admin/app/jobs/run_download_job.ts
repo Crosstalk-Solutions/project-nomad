@@ -63,7 +63,7 @@ export class RunDownloadJob {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const client = await queue.client
-    await client.set(this.cancelKey(jobId), '1', 'EX', 300) // 5 min TTL
+    await client.set(this.cancelKey(jobId), '1', { EX: 300 }) // 5 min TTL
   }
 
   async handle(job: Job) {
