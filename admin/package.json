@@ -100,6 +100,7 @@
     "edge.js": "6.4.0",
     "fast-xml-parser": "5.7.0",
     "fuse.js": "7.1.0",
+    "ioredis": "5.10.1",
     "ipaddr.js": "2.4.0",
     "jszip": "3.10.1",
     "luxon": "3.7.2",
