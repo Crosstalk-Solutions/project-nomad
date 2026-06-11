@@ -73,7 +73,7 @@ This helps you balance content coverage against storage usage.
 2. Type your question or request
 3. The AI responds in conversational style
 
-The AI must be installed first — enable it during Easy Setup or install it from the [Apps](/settings/apps) page.
+The AI must be installed first — enable it during Easy Setup or install it from the [Supply Depot](/supply-depot) page.
 
 ### How do I upload documents to the Knowledge Base?
 1. Go to **[Knowledge Base →](/knowledge-base)**
@@ -104,7 +104,7 @@ The Early Access Channel lets you opt in to receive release candidate builds wit
 2. Refresh the page (Ctrl+R or Cmd+R)
 3. Go back to the Command Center and try again
 4. Check Settings → System to see if the service is running
-5. Try restarting the service (Stop, then Start in Apps manager)
+5. Try restarting the service (Stop, then Start in the Supply Depot)
 
 ### Maps show a gray/blank area
 
@@ -119,7 +119,7 @@ The Maps feature requires downloaded map data. If you see a blank area:
 This usually means the Information Library service started before its Kiwix library index was fully initialized.
 
 Try this recovery flow:
-1. Go to **[Apps](/settings/apps)**
+1. Go to **[Supply Depot](/supply-depot)**
 2. Stop **Information Library (Kiwix)**
 3. Wait 10-15 seconds, then start it again
 4. If the error persists, run **Force Reinstall** for Information Library from the same page
@@ -140,7 +140,7 @@ N.O.M.A.D. automatically detects NVIDIA GPUs when the NVIDIA Container Toolkit i
 
 1. **Install an NVIDIA GPU** in your server (if not already present)
 2. **Install the NVIDIA Container Toolkit** on the host — follow the [official installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-3. **Reinstall the AI Assistant** — Go to [Apps](/settings/apps), find AI Assistant, and click **Force Reinstall**
+3. **Reinstall the AI Assistant** — Go to [Supply Depot](/supply-depot), find AI Assistant, and click **Force Reinstall**
 
 N.O.M.A.D. will detect the GPU during installation and configure the AI to use it automatically. You'll see "NVIDIA container runtime detected" in the installation progress.
 
@@ -151,7 +151,7 @@ N.O.M.A.D. will detect the GPU during installation and configure the AI to use i
 When you add or swap a GPU, N.O.M.A.D. needs to reconfigure the AI container to use it:
 
 1. Make sure the **NVIDIA Container Toolkit** is installed on the host
-2. Go to **[Apps](/settings/apps)**
+2. Go to **[Supply Depot](/supply-depot)**
 3. Find the **AI Assistant** and click **Force Reinstall**
 
 Force Reinstall recreates the AI container with GPU support enabled. Without this step, the AI continues to run on CPU only.
@@ -163,7 +163,7 @@ N.O.M.A.D. checks whether your GPU is actually accessible inside the AI containe
 ### AI Chat not available
 
 The AI Chat page requires the AI Assistant to be installed first:
-1. Go to **[Apps](/settings/apps)**
+1. Go to **[Supply Depot](/supply-depot)**
 2. Install the **AI Assistant**
 3. Wait for the installation to complete
 4. The AI Chat will then be accessible from the home screen or [Chat](/chat)
@@ -171,7 +171,7 @@ The AI Chat page requires the AI Assistant to be installed first:
 ### Knowledge Base upload stuck
 
 If a document upload appears stuck in the Knowledge Base:
-1. Check that the AI Assistant is running in **Settings → Apps**
+1. Check that the AI Assistant is running in **Settings → Supply Depot**
 2. Large documents take time to process — wait a few minutes
 3. Try uploading a smaller document to verify the system is working
 4. Check **Settings → System** for any error messages
@@ -190,7 +190,7 @@ If submission fails, check the error message for details.
 The service might still be starting up. Wait 1-2 minutes and try again.
 
 If the problem persists:
-1. Go to **Settings → Apps**
+1. Go to **Settings → Supply Depot**
 2. Find the problematic service
 3. Click **Restart**
 4. Wait 30 seconds, then try again
@@ -233,11 +233,16 @@ Yes, while you have internet access. Updates include:
 - Security improvements
 - Performance enhancements
 
+### Can N.O.M.A.D. update itself automatically?
+Yes. N.O.M.A.D. can keep its software, its installed apps, and its content current on its own. Automatic updates are **opt-in and off by default** — you turn on what you want from **Settings → Updates** (and, for apps, a per-app toggle in the Supply Depot). They only run inside a time window you choose, after safety checks, and never apply major version jumps automatically. See the **[Updates guide](/docs/updates)** for a full walkthrough.
+
 ### How do I update content (Wikipedia, etc.)?
 Content updates are separate from software updates:
 1. Go to **Settings → Content Manager** or **Content Explorer**
 2. Check for newer versions of your installed content
 3. Download updated versions as needed
+
+You can also turn on **automatic content updates** so installed Wikipedia/ZIM libraries and map regions refresh on their own overnight — see the [Updates guide](/docs/updates).
 
 Tip: New Wikipedia snapshots are released approximately monthly.
 
