@@ -14,9 +14,10 @@ export class DocsService {
     'use-cases': 3,
     'supply-depot-apps': 4,
     'community-add-ons': 5,
-    'faq': 6,
-    'about': 7,
-    'release-notes': 8,
+    'updates': 6,
+    'faq': 7,
+    'about': 8,
+    'release-notes': 9,
   }
 
   async getDocs() {

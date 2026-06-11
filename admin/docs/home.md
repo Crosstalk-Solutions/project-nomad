@@ -15,12 +15,12 @@ Think of it as having Wikipedia, Khan Academy, an AI assistant, and offline maps
 ### Browse Offline Knowledge
 Access millions of Wikipedia articles, medical references, how-to guides, and ebooks — all stored locally on your server. No internet required.
 
-*Launch the Information Library from the home screen or the [Apps](/settings/apps) page.*
+*Launch the Information Library from the home screen or the [Supply Depot](/supply-depot).*
 
 ### Learn Something New
 Khan Academy courses covering math, science, economics, and more. Complete with videos and exercises, all available offline.
 
-*Launch the Education Platform from the home screen or the [Apps](/settings/apps) page.*
+*Launch the Education Platform from the home screen or the [Supply Depot](/supply-depot).*
 
 ### Chat with AI
 Ask questions, get explanations, brainstorm ideas, or get help with writing. Your local AI assistant works completely offline — and you can upload documents to the Knowledge Base for document-aware responses.
@@ -60,7 +60,7 @@ Or explore the **[Getting Started Guide](/docs/getting-started)** for a walkthro
 |--------------|---------|
 | Chat with the AI | [AI Chat →](/chat) |
 | Upload documents for AI | [Knowledge Base →](/knowledge-base) |
-| Download more content | [Install Apps →](/settings/apps) |
+| Install more apps | [Supply Depot →](/supply-depot) |
 | Add Wikipedia/reference content | [Content Explorer →](/settings/zim/remote-explorer) |
 | Manage installed content | [Content Manager →](/settings/zim) |
 | Download map regions | [Maps Manager →](/settings/maps) |
@@ -79,5 +79,7 @@ N.O.M.A.D. works best when kept up to date while you have internet access. This 
 - AI model improvements
 
 When you go offline, you'll have everything you need — the last synced versions of all your content.
+
+You can update on demand, or turn on **automatic updates** so N.O.M.A.D. keeps its software, apps, and content current on its own while you have internet. See the **[Updates guide](/docs/updates)** for how it works.
 
 **[Check for Updates →](/settings/update)**

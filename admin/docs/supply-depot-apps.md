@@ -8,6 +8,38 @@ A quick note on logins: some of these apps have their own accounts, separate fro
 
 ---
 
+## Managing your apps
+
+Every app you install gets a **Manage** menu on its card. From there you can:
+
+- **Docs** — jump straight to the NOMAD getting-started notes for that app (the same per-app sections you'll find below).
+- **Edit** — change an app's settings: port mappings, volume binds, environment variables, and memory/CPU limits. This works for curated apps too, not just custom ones. Your edits are merged into the app's existing setup, so advanced settings (like GPU access on the AI Assistant) are preserved, and an edited app stops getting overwritten by catalog updates.
+- **Logs** and **Stats** — open a live view of an app's log output or its current memory and CPU use, handy when something isn't behaving.
+- **Update** and **Remove** — pull the latest version of an app, or remove it (optionally deleting its image too). If an update's new container fails to start, NOMAD automatically rolls back to the version that was working.
+
+**Seeing what version you're running:** Each app card shows the installed version right next to the app name (for example, `Kiwix · 3.7.0`). When a newer version is available, an orange **Update available** pill appears on the card so it's easy to spot at a glance.
+
+**Custom "Open" links:** By default the **Open** button points at the app on your NOMAD's own address. If you run a reverse proxy or local DNS and would rather open an app at a friendlier address (for example `https://jellyfin.myhomelab.net`), use **Manage › Edit** to set a custom launch URL. NOMAD keeps your original link safely on file, so you can always switch back, and the override sticks across upgrades.
+
+**Keeping apps updated automatically:** Installed apps can update themselves hands-off. This is opt-in at two levels — a master switch in **Settings → Updates** and a per-app toggle in the Supply Depot — and only minor and patch updates are ever applied automatically (major versions always stay manual). See the [Updates guide](/docs/updates) for the full story.
+
+---
+
+## Bringing your own app
+
+Beyond the curated catalog, the Supply Depot can run **your own Docker container** as a managed app alongside everything else. Click **Add a custom app** and tell NOMAD:
+
+- the **image** to pull (for example `ghcr.io/owner/app:1.2.3`),
+- any **port mappings**, **volume binds**, **environment variables**, and **memory/CPU limits** it needs.
+
+As you fill it in, NOMAD runs a live pre-flight check and warns you about things like port conflicts or risky settings. Some warnings (an untrusted registry, or a `:latest` tag that can't be version-tracked) are advisory and you can choose **Install anyway**; genuinely unsafe configurations are blocked outright.
+
+Once installed, a custom app behaves like any other: it gets the same **Manage** menu (Edit, Logs, Stats, Update, Remove), shows its version on the card, and can opt in to automatic updates. NOMAD hardens host-path binds and scopes logs and stats to its own managed containers, so a custom app can't reach outside what you give it.
+
+> A custom app is exactly that — yours. NOMAD runs it and gets out of the way; it doesn't provide setup docs or support for software outside the curated catalog. Check the project's own documentation for how to use it.
+
+---
+
 ## Stirling PDF {% #stirling-pdf %}
 
 A full toolbox for working with PDFs, all on your own hardware. Merge and split files, convert to and from PDF, compress, rotate, add or remove passwords, OCR scanned documents so they're searchable, sign, stamp, and redact. There are over 50 tools in here, and because it runs locally, none of your documents ever leave your NOMAD.
