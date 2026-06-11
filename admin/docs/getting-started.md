@@ -37,7 +37,7 @@ The Information Library stores compressed versions of websites and references th
 - Classic books from Project Gutenberg
 
 **How to use it:**
-1. Click **Information Library** from the Command Center home screen or [Apps](/settings/apps) page
+1. Click **Information Library** from the Command Center home screen or the [Supply Depot](/supply-depot)
 2. Choose a collection (like Wikipedia)
 3. Search or browse just like the regular website
 
@@ -54,7 +54,7 @@ The Education Platform provides complete educational courses that work offline.
 - Works for all ages
 
 **How to use it:**
-1. Click **Education Platform** from the Command Center home screen or [Apps](/settings/apps) page
+1. Click **Education Platform** from the Command Center home screen or the [Supply Depot](/supply-depot)
 2. Sign in or create a learner account
 3. Browse courses and start learning
 
@@ -82,9 +82,9 @@ N.O.M.A.D. includes a built-in AI chat interface powered by Ollama. It runs enti
 
 **Tip:** Be specific in your questions. Instead of "tell me about plants," try "what vegetables grow well in shade?"
 
-**Note:** The AI Assistant must be installed first. Enable it during Easy Setup or install it from the [Apps](/settings/apps) page.
+**Note:** The AI Assistant must be installed first. Enable it during Easy Setup or install it from the [Supply Depot](/supply-depot).
 
-**GPU Acceleration:** If your server has an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed, N.O.M.A.D. will automatically use it for AI — dramatically faster responses (10-20x improvement). If you add a GPU later, go to [Apps](/settings/apps) and **Force Reinstall** the AI Assistant to enable it.
+**GPU Acceleration:** If your server has an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed, N.O.M.A.D. will automatically use it for AI — dramatically faster responses (10-20x improvement). If you add a GPU later, go to the [Supply Depot](/supply-depot) and **Force Reinstall** the AI Assistant to enable it.
 
 ---
 
@@ -141,7 +141,7 @@ View maps without internet. Download the regions you need before going offline.
 
 As your needs change, you can add more content anytime:
 
-- **More apps:** Settings → Apps
+- **More apps:** Settings → Supply Depot
 - **More references:** Settings → Content Explorer or Content Manager
 - **More map regions:** Settings → Maps Manager
 - **More educational content:** Through Kolibri's built-in content browser
@@ -183,6 +183,8 @@ While you have internet, periodically check for updates:
 3. Wait for the update to complete (your server will restart)
 
 Content updates (Wikipedia, maps, etc.) can be managed separately from software updates.
+
+**Automatic updates:** N.O.M.A.D. can also keep itself current without you having to check. Software, installed apps, and content can each be set to update automatically on an opt-in basis, with safety checks and a time window you control. See the **[Updates guide](/docs/updates)** for the full picture.
 
 **Early Access Channel:** Want the latest features before they hit stable? Enable the Early Access Channel from the Check for Updates page to receive release candidate builds. You can switch back to stable anytime.
 
