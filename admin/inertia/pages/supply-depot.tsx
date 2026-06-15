@@ -82,6 +82,7 @@ type Modal =
   | { type: 'restart'; service: ServiceSlim }
   | { type: 'reinstall'; service: ServiceSlim }
   | { type: 'delete'; service: ServiceSlim }
+  | { type: 'uninstall'; service: ServiceSlim }
   | { type: 'logs'; service: ServiceSlim }
   | { type: 'stats'; service: ServiceSlim }
   | { type: 'update'; service: ServiceSlim }
@@ -230,6 +231,16 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     setRemoveImage(false)
     setLoading(false)
     if (!result?.success) showError(result?.message || 'Failed to delete app.')
+    else setTimeout(() => window.location.reload(), 1000)
+  }
+
+  async function handleUninstall(service: ServiceSlim) {
+    setModal(null)
+    setLoading(true)
+    const result = await api.uninstallService(service.service_name, removeImage)
+    setRemoveImage(false)
+    setLoading(false)
+    if (!result?.success) showError(result?.message || 'Failed to uninstall app.')
     else setTimeout(() => window.location.reload(), 1000)
   }
 
@@ -450,6 +461,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onRestart={() => setModal({ type: 'restart', service })}
                       onReinstall={() => setModal({ type: 'reinstall', service })}
                       onDelete={() => setModal({ type: 'delete', service })}
+                      onUninstall={() => setModal({ type: 'uninstall', service })}
                       onLogs={() => setModal({ type: 'logs', service })}
                       onStats={() => setModal({ type: 'stats', service })}
                       onEdit={() => handleEdit(service)}
@@ -484,6 +496,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onRestart={() => setModal({ type: 'restart', service })}
                       onReinstall={() => setModal({ type: 'reinstall', service })}
                       onDelete={() => setModal({ type: 'delete', service })}
+                      onUninstall={() => setModal({ type: 'uninstall', service })}
                       onLogs={() => setModal({ type: 'logs', service })}
                       onStats={() => setModal({ type: 'stats', service })}
                       onEdit={() => handleEdit(service)}
@@ -659,6 +672,38 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         </StyledModal>
       )}
 
+      {/* Uninstall curated app modal */}
+      {modal?.type === 'uninstall' && (
+        <StyledModal
+          title={`Uninstall ${modal.service.friendly_name ?? modal.service.service_name}`}
+          open
+          onCancel={() => {
+            setRemoveImage(false)
+            setModal(null)
+          }}
+          onConfirm={() => handleUninstall(modal.service)}
+          confirmText="Uninstall"
+          confirmIcon="IconTrash"
+          confirmVariant="danger"
+          confirmLoading={loading}
+          icon={<IconAlertTriangle className="text-desert-red" size={40} />}
+        >
+          <div className="space-y-3 text-sm text-text-muted">
+            <p className="font-semibold text-desert-red">This will remove the app from this device.</p>
+            <p>The container will be stopped and removed, and the app returns to the catalog below. App data under the storage folder stays on disk, so reinstalling brings it back as it was.</p>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={removeImage}
+                onChange={(e) => setRemoveImage(e.target.checked)}
+                className="accent-desert-red h-4 w-4 rounded"
+              />
+              <span className="text-text-muted text-xs">Also remove the Docker image to reclaim disk space</span>
+            </label>
+          </div>
+        </StyledModal>
+      )}
+
       {/* Logs modal */}
       {modal?.type === 'logs' && (
         <ServiceLogsModal
@@ -738,6 +783,7 @@ interface AppCardProps {
   onRestart: () => void
   onReinstall: () => void
   onDelete: () => void
+  onUninstall: () => void
   onLogs: () => void
   onStats: () => void
   onEdit: () => void
@@ -762,6 +808,7 @@ function AppCard({
   onRestart,
   onReinstall,
   onDelete,
+  onUninstall,
   onLogs,
   onStats,
   onEdit,
@@ -994,7 +1041,9 @@ function AppCard({
                   <DropdownItem icon={<IconRefresh className="h-4 w-4 text-desert-orange" />} label="Force Reinstall" onClick={onReinstall} danger />
                   {service.is_custom ? (
                     <DropdownItem icon={<IconTrash className="h-4 w-4 text-desert-red" />} label="Delete" onClick={onDelete} danger />
-                  ): null}
+                  ): (
+                    <DropdownItem icon={<IconTrash className="h-4 w-4 text-desert-red" />} label="Uninstall" onClick={onUninstall} danger />
+                  )}
                 </div>
               )}
             </div>
