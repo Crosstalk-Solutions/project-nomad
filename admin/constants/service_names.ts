@@ -5,6 +5,7 @@ export const SERVICE_NAMES = {
   CYBERCHEF: 'nomad_cyberchef',
   FLATNOTES: 'nomad_flatnotes',
   KOLIBRI: 'nomad_kolibri',
+  KOLIBRI_GEN2: 'nomad_kolibri_2',
   // Supply Depot — curated catalog (ports 8400–8499)
   STIRLING_PDF: 'nomad_stirling_pdf',
   FILEBROWSER: 'nomad_filebrowser',

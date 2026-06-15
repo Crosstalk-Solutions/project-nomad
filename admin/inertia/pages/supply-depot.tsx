@@ -930,6 +930,14 @@ function AppCard({
             modified
           </span>
         ) : null}
+        {service.is_deprecated ? (
+          <span
+            className="text-xs px-2 py-0.5 rounded-full font-medium bg-desert-orange-lighter text-desert-orange-dark border border-desert-orange-light"
+            title="This is a legacy version that's no longer maintained. Install the current Education Platform from the catalog, then uninstall this one."
+          >
+            legacy
+          </span>
+        ) : null}
         {uiPort && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-secondary text-text-muted font-mono">
             {uiIsHttps ? '🔒 ' : ''}:{uiPort}
