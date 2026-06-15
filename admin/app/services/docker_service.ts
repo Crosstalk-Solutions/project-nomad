@@ -1867,6 +1867,34 @@ export class DockerService {
     }
   }
 
+  /**
+   * Uninstall a curated catalog app: stop and remove its container (and, optionally, its image),
+   * then mark the record not-installed so the card returns to the available catalog. Host
+   * bind-mount data is deliberately left on disk — a later reinstall picks it back up. Contrast
+   * with forceReinstall, which clears volumes and immediately recreates the container.
+   */
+  async uninstallService(
+    serviceName: string,
+    removeImage = false
+  ): Promise<{ success: boolean; message: string }> {
+    const service = await Service.query().where('service_name', serviceName).first()
+    if (!service || !service.installed) {
+      return { success: false, message: `Service ${serviceName} not found or not installed` }
+    }
+
+    // Container/image removal is shared with custom-app deletion — the lookup is by container
+    // name, which is the service_name for curated and custom apps alike.
+    const removal = await this.removeCustomAppContainer(serviceName, removeImage)
+    if (!removal.success) return removal
+
+    service.installed = false
+    service.installation_status = 'idle'
+    await service.save()
+    this.invalidateServicesStatusCache()
+
+    return { success: true, message: `Service ${serviceName} uninstalled` }
+  }
+
   /** Find a container by its managed service name (`/serviceName`), or null. */
   private async _findContainerByName(serviceName: string) {
     const containers = await this.docker.listContainers({ all: true })
