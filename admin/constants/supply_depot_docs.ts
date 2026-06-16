@@ -17,6 +17,7 @@ export const SUPPLY_DEPOT_DOC_ANCHORS: Record<string, string> = {
   [SERVICE_NAMES.VAULTWARDEN]: 'vaultwarden',
   [SERVICE_NAMES.JELLYFIN]: 'jellyfin',
   [SERVICE_NAMES.MESHTASTIC_WEB]: 'meshtastic-web',
+  [SERVICE_NAMES.KOLIBRI]: 'kolibri',
   [SERVICE_NAMES.KOLIBRI_GEN2]: 'kolibri',
 }
 

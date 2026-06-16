@@ -251,13 +251,14 @@ A complete offline learning platform from Learning Equality. Kolibri pulls toget
 
 **First time you open it, you'll go through a quick setup wizard.** Pick your facility type and create the **admin account** (this is the super-user that manages the whole device, so give it a real password and keep track of it). Once you're in, you import learning content as **channels**.
 
-**Getting content in (you re-download it):** Kolibri's content is delivered as channels you import. Open **Device → Channels → Import**, and either pull channels from Kolibri Studio (online) or import from a local drive or another Kolibri device if you already have the content files. There's a lot available, so import just the channels you need; they can be large.
+**Importing content:** Kolibri's content is delivered as channels you import. Open **Device → Channels → Import**, and either pull channels from Kolibri Studio (online) or import from a local drive or another Kolibri device if you already have the content files. There's a lot available, so import just the channels you need; they can be large.
 
-**Upgrading from an older NOMAD's Kolibri:** Earlier NOMAD releases shipped a much older Kolibri (the `treehouses/kolibri:0.12.8` image). This Education Platform is a newer, upstream-official Kolibri and installs **fresh** — your old channels and learner data are **not** carried over automatically, because the two versions store data too differently to migrate safely. If you were running the old one:
+**Migrating content from Education Platform (Gen 1):** Earlier NOMAD releases shipped a much older Kolibri (the `treehouses/kolibri:0.12.8` image). The Education Platform "Gen 2" is a newer, upstream-official Kolibri and installs **fresh** — your old channels and learner data are **not** carried over automatically, because the two versions store data too differently to migrate safely. If you were running the old one and want to import your existing channels into the new one, here's the process:
 
-1. Install this Education Platform from the catalog (it runs alongside the old one on a different port, so nothing is disrupted while you set it up).
-2. Re-import the channels you want, as above.
-3. Once you're happy with the new install, uninstall the old Kolibri from its card (it carries a **legacy** badge). Your old data folder stays on disk until you remove it.
+1. Install "Education Platform (Gen 2)" from the catalog (it runs alongside the old one on a different port, so nothing is disrupted while you set it up).
+2. Launch the new one, walk through the setup wizard, then from the sidebar menu, navigate to **Device > Channels > Import**. Choose the "Local network or internet" option, and then "Add new device". In the dialog that appears, enter the IP address of your NOMAD with the old Education Platform port (8300 by default, so for example `http://192.168.1.36:8300`), give it a name (anything you'd like), and click "Add", and then "Continue". 
+3. You can now select individual channels from the old Education Platform, or choose "Select entire channels instead" to import everything at once. Click "Import" when ready, and the transfer will start.
+3. Once you're happy with the new install and have any content copied over, uninstall the old Education Platform from its card (it carries a **legacy** badge). It's also recommended to choose to remove the old image and data volume when uninstalling to avoid confusion and free up space, but if you want to keep it around for a while just in case, that's totally fine too.
 
 **Your data:** Your imported channels, classes, and learner progress live in the `storage/kolibri-gen2` folder on your NOMAD. Backing up that folder backs up your whole Kolibri.
 

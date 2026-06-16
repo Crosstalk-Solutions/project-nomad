@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAlertTriangle,
+  IconArrowRight,
   IconArrowUp,
   IconBook,
   IconBox,
@@ -44,6 +45,7 @@ import { getServiceLink } from '~/lib/navigation'
 import { getSupplyDepotDocLink } from '../../constants/supply_depot_docs'
 import api from '~/lib/api'
 import { toTitleCase } from '../../app/utils/misc'
+import { SERVICE_NAMES } from '../../constants/service_names'
 
 function extractTag(containerImage: string): string {
   if (!containerImage) return ''
@@ -168,7 +170,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       .then((res) => {
         if (res) setPreflight(res)
       })
-      .catch(() => {}) // non-fatal; proceed without warnings
+      .catch(() => { }) // non-fatal; proceed without warnings
       .finally(() => setPreflightLoading(false))
   }, [modal])
 
@@ -192,6 +194,16 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
 
   const installedServices = filteredServices.filter((s) => s.installed)
   const availableServices = filteredServices.filter((s) => !s.installed)
+
+  // Whether the new Kolibri (Gen 2) install exists — gates the "Migrate content to Gen 2" action on
+  // the legacy Kolibri card. Computed from the full (unfiltered) list so a search filter can't hide it.
+  const educationGen2Installed = props.system.services.some(
+    (s) => s.service_name === SERVICE_NAMES.KOLIBRI_GEN2 && s.installed
+  )
+
+  useEffect(() => {
+    console.log("Education Gen 2 installed:", educationGen2Installed)
+  }, [educationGen2Installed])
 
   // ── Actions ───────────────────────────────────────────────────────────────
   async function handleInstall(service: ServiceSlim) {
@@ -420,11 +432,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border ${
-                    activeCategory === cat.id
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border ${activeCategory === cat.id
                       ? 'bg-desert-green text-white border-desert-green'
                       : 'bg-surface-secondary text-text-muted border-desert-stone-lighter hover:text-text-primary hover:border-desert-stone-light'
-                  }`}
+                    }`}
                 >
                   {cat.label}
                 </button>
@@ -473,6 +484,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       }
                       autoUpdateMasterEnabled={appAutoUpdateMasterEnabled}
                       onToggleAutoUpdate={(enabled) => handleToggleAutoUpdate(service, enabled)}
+                      migrationInstructionsHref={(service.service_name.startsWith(SERVICE_NAMES.KOLIBRI) && educationGen2Installed) ? getSupplyDepotDocLink(SERVICE_NAMES.KOLIBRI) || undefined : undefined}
+                      migrationInstructionsText={(service.service_name === SERVICE_NAMES.KOLIBRI) ? 'How to migrate content to Gen 2' : "How to migrate content from Gen 1"}
                     />
                   ))}
                 </div>
@@ -795,6 +808,8 @@ interface AppCardProps {
   // Global master switch (Settings → Updates). When off, per-app toggles are inert.
   autoUpdateMasterEnabled?: boolean
   onToggleAutoUpdate?: (enabled: boolean) => void
+  migrationInstructionsHref?: string
+  migrationInstructionsText?: string
 }
 
 function AppCard({
@@ -818,6 +833,8 @@ function AppCard({
   autoUpdateEnabled,
   autoUpdateMasterEnabled,
   onToggleAutoUpdate,
+  migrationInstructionsHref,
+  migrationInstructionsText,
 }: AppCardProps) {
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
@@ -852,11 +869,10 @@ function AppCard({
 
   return (
     <div
-      className={`relative flex flex-col rounded-xl border p-4 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${
-        service.installed
+      className={`relative flex flex-col rounded-xl border p-4 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${service.installed
           ? 'border-desert-stone-light'
           : 'border-desert-stone-lighter hover:border-desert-stone-light'
-      }`}
+        }`}
     >
       {/* Installed accent spine (rounded to follow the card corners — the card no longer clips
           overflow so the Manage dropdown can open above the card without being cut off) */}
@@ -975,7 +991,7 @@ function AppCard({
             {/* Open button — shown when the app has a default location or a user-set custom URL */}
             {(service.ui_location || service.custom_url) && (
               <a
-                href={getServiceLink(service.ui_location, service.custom_url)}
+                href={getServiceLink(service.ui_location || "", service.custom_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1"
@@ -1017,6 +1033,20 @@ function AppCard({
                   <DropdownItem icon={<IconChartBar className="h-4 w-4" />} label="Stats" onClick={onStats} />
                   <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
                   <DropdownItem icon={<IconWorld className="h-4 w-4" />} label="Set custom URL" onClick={onSetUrl} />
+                  {
+                    migrationInstructionsHref ? (
+                      <a
+                      href={migrationInstructionsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer text-text-primary hover:bg-surface-secondary"
+                    >
+                      <IconBook className="h-4 w-4" />
+                      {migrationInstructionsText || 'Migration instructions'}
+                    </a>
+                    ) : (null)
+                  }
                   {!service.is_custom && onToggleAutoUpdate ? (
                     autoUpdateMasterEnabled ? (
                       <DropdownItem
@@ -1049,7 +1079,7 @@ function AppCard({
                   <DropdownItem icon={<IconRefresh className="h-4 w-4 text-desert-orange" />} label="Force Reinstall" onClick={onReinstall} danger />
                   {service.is_custom ? (
                     <DropdownItem icon={<IconTrash className="h-4 w-4 text-desert-red" />} label="Delete" onClick={onDelete} danger />
-                  ): (
+                  ) : (
                     <DropdownItem icon={<IconTrash className="h-4 w-4 text-desert-red" />} label="Uninstall" onClick={onUninstall} danger />
                   )}
                 </div>
@@ -1087,11 +1117,10 @@ function DropdownItem({
         e.stopPropagation()
         onClick()
       }}
-      className={`flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer ${
-        danger
+      className={`flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer ${danger
           ? 'text-desert-red hover:bg-desert-red/10'
           : 'text-text-primary hover:bg-surface-secondary'
-      }`}
+        }`}
     >
       {icon}
       {label}
