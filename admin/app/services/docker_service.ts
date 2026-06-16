@@ -17,9 +17,9 @@ import {
 } from '../utils/fs.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
-import { exec } from 'child_process'
+import { exec, execFile } from 'child_process'
 import { promisify } from 'util'
-import { readFile, mkdir, copyFile, chown, chmod, access } from 'node:fs/promises'
+import { readFile, mkdir, copyFile, chown, chmod, access, readdir } from 'node:fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -588,6 +588,43 @@ export class DockerService {
       }
       return b
     })
+  }
+
+  /**
+   * Resolve the base path THIS admin process uses to read/write storage files (guards, enumeration,
+   * pre-install fs work). This differs from {@link _resolveHostStorageRoot}, which returns the *host*
+   * path used for child-container bind mounts:
+   *  - Containerized admin (production): the host storage volume is bind-mounted into the admin at
+   *    ADMIN_STORAGE_DEST (`/app/storage`); the raw host path is NOT directly reachable from inside it.
+   *  - Admin running on the host (dev): there is no admin mount, and the resolved host storage root
+   *    is itself directly stat-able.
+   * Returns whichever path the running process can actually reach, so fs lookups don't silently miss
+   * data that lives under a different view (the cause of a false "Gen 2 not initialised" guard in dev).
+   */
+  private async _resolveAdminStorageBase(): Promise<string> {
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      let adminInfo = containers.find((c) =>
+        c.Names.includes(`/${DockerService.ADMIN_CONTAINER_NAME}`)
+      )
+      if (!adminInfo) {
+        const hn = os.hostname()
+        adminInfo = containers.find((c) => c.Id.startsWith(hn))
+      }
+      if (adminInfo) {
+        const inspected = await this.docker.getContainer(adminInfo.Id).inspect()
+        const hasStorageMount = (inspected.Mounts ?? []).some(
+          (m: any) => m.Type === 'bind' && m.Destination === DockerService.ADMIN_STORAGE_DEST
+        )
+        if (hasStorageMount) return DockerService.ADMIN_STORAGE_DEST
+      }
+    } catch (err: any) {
+      logger.warn(
+        `[DockerService] _resolveAdminStorageBase falling back to host storage root: ${err.message}`
+      )
+    }
+    // Dev / non-containerized admin: the host storage root is directly accessible on the host.
+    return this._resolveHostStorageRoot()
   }
 
   /**
@@ -1893,6 +1930,334 @@ export class DockerService {
     this.invalidateServicesStatusCache()
 
     return { success: true, message: `Service ${serviceName} uninstalled` }
+  }
+
+  /**
+   * Migrate downloaded *content* (channels + content files already on disk) from a legacy
+   * treehouses/kolibri:0.12.8 install into the new learningequality Gen 2 install — entirely
+   * locally, with no internet. Kolibri's own `importchannel`/`importcontent disk` register the
+   * existing channel DBs and content blobs against the fresh 0.19.4 install (cross-version import
+   * works). Only user accounts and learner progress are NOT carried — their main-DB schema jump
+   * can't be migrated safely — so they remain a manual rebuild step in Gen 2.
+   *
+   * The running Gen 2 container does not mount the legacy home (and you can't add a mount to a live
+   * container), so each import runs in a one-off Gen 2-image container that binds BOTH homes:
+   * the writable Gen 2 home at /kolibri (its KOLIBRI_HOME) and the legacy home read-only at /legacy.
+   * We deliberately do NOT pass `User`: the image entrypoint drops privileges to the `kolibri` user
+   * and normalises ownership of /kolibri itself, exactly as the real Gen 2 container does, so imported
+   * files end up owned identically with no chown of our own. Gen 2 is stopped during the import to
+   * avoid SQLite contention on the shared db.sqlite3 and is always restarted in `finally`.
+   *
+   * Idempotent: re-running re-imports channel DBs harmlessly and `importcontent` skips blobs already
+   * present, so a second run is a fast no-op. One bad channel doesn't abort the rest.
+   */
+  async migrateLegacyKolibriContent(): Promise<{ success: boolean; message: string }> {
+    const GEN2 = SERVICE_NAMES.KOLIBRI_GEN2
+
+    // One Gen 2 operation at a time — reuse the install lock so a migration can't race an install.
+    if (this.activeInstallations.has(GEN2)) {
+      return {
+        success: false,
+        message: 'A Gen 2 Kolibri operation is already in progress. Please wait for it to finish.',
+      }
+    }
+
+    const gen2 = await Service.query().where('service_name', GEN2).first()
+    if (!gen2 || !gen2.installed) {
+      return {
+        success: false,
+        message: 'Education Platform (Gen 2) must be installed before migrating legacy content.',
+      }
+    }
+
+    // Admin-accessible storage base: /app/storage when the admin is containerized, the host storage
+    // root when it runs on the host (dev). Must NOT use process.cwd()/storage, which only coincides
+    // with the real storage in production — in dev it points at a stale local dir and the guards below
+    // would wrongly report "Gen 2 not initialised". Child-container binds still use the host root.
+    const storageBase = await this._resolveAdminStorageBase()
+    const legacyHomeAdmin = join(storageBase, 'kolibri')
+    const gen2HomeAdmin = join(storageBase, 'kolibri-gen2')
+    const legacyDbDir = join(legacyHomeAdmin, 'content', 'databases')
+
+    // Gen 2's main DB only exists after it has booted once — the real guard that import targets a
+    // valid KOLIBRI_HOME (the `installed` flag alone doesn't prove first-boot initialisation).
+    const gen2Initialized = await access(join(gen2HomeAdmin, 'db.sqlite3'))
+      .then(() => true)
+      .catch(() => false)
+    if (!gen2Initialized) {
+      return {
+        success: false,
+        message:
+          'Gen 2 has not finished initialising yet. Open the Education Platform (Gen 2) once, then try migrating again.',
+      }
+    }
+
+    const legacyPresent = await access(legacyDbDir)
+      .then(() => true)
+      .catch(() => false)
+    if (!legacyPresent) {
+      return { success: false, message: 'No legacy Kolibri content found on disk to migrate.' }
+    }
+
+    // Each channel DB is stored as <channel_id>.sqlite3; the basename is the channel id.
+    let channelIds: string[] = []
+    try {
+      const files = await readdir(legacyDbDir)
+      channelIds = files
+        .filter((f) => f.endsWith('.sqlite3'))
+        .map((f) => f.replace(/\.sqlite3$/, ''))
+    } catch (err: any) {
+      return { success: false, message: `Could not read legacy channel databases: ${err.message}` }
+    }
+    if (!channelIds.length) {
+      return { success: false, message: 'No legacy channels found to migrate.' }
+    }
+
+    // Disk preflight: importcontent COPIES blobs into the Gen 2 tree (hardlinks are unsafe — the image
+    // entrypoint chowns KOLIBRI_HOME recursively, which would bleed through shared inodes onto the
+    // read-only legacy install), so we need room for, worst case, the whole legacy blob tree. Block
+    // up front rather than fill the disk and wedge Gen 2 on restart. Best-effort: a probe we can't run
+    // (non-Linux dev, missing du/df) returns null and lets the migration proceed.
+    const diskBlocker = await this._checkMigrationDiskSpace(legacyHomeAdmin, gen2HomeAdmin)
+    if (diskBlocker) {
+      return { success: false, message: diskBlocker }
+    }
+
+    // Acquire the lock and run the (potentially many-minute) import in the background, mirroring the
+    // install flow: the HTTP request returns immediately and progress streams over the broadcast feed.
+    this.activeInstallations.add(GEN2)
+    const hostRoot = await this._resolveHostStorageRoot()
+    const image = gen2.container_image
+    this._runKolibriContentMigration(channelIds, hostRoot, image).catch((err: any) => {
+      // Safety net: _runKolibriContentMigration handles its own errors and always releases the lock,
+      // so this only fires on a truly unexpected throw.
+      logger.error({ err }, '[DockerService] Kolibri content migration crashed')
+      this._broadcast(GEN2, 'migrate-error', `Migration failed: ${err.message}`)
+      this.activeInstallations.delete(GEN2)
+    })
+
+    return {
+      success: true,
+      message: `Migrating ${channelIds.length} channel(s) from legacy Kolibri in the background. Watch the activity feed for progress.`,
+    }
+  }
+
+  /**
+   * Background worker for {@link migrateLegacyKolibriContent}: stops Gen 2, imports each channel's DB
+   * and content from the legacy home via throwaway containers, then always restarts Gen 2 and releases
+   * the lock. Per-channel failures are collected and don't abort the rest. Never throws (errors are
+   * broadcast); the caller's `.catch` is only a safety net.
+   */
+  private async _runKolibriContentMigration(
+    channelIds: string[],
+    hostRoot: string,
+    image: string
+  ): Promise<void> {
+    const GEN2 = SERVICE_NAMES.KOLIBRI_GEN2
+    const migrated: string[] = []
+    const failed: { channel: string; reason: string }[] = []
+
+    this._broadcast(
+      GEN2,
+      'migrate-start',
+      `Migrating ${channelIds.length} channel(s) from legacy Kolibri. User accounts and learner progress are NOT migrated.`
+    )
+
+    // Pause Gen 2 so the import has sole access to the shared db.sqlite3. Best-effort: a 304 from
+    // stopping an already-stopped container is swallowed by affectContainer. Always restarted below.
+    await this.affectContainer(GEN2, 'stop')
+    this._broadcast(GEN2, 'migrate-progress', 'Paused Gen 2 during import...')
+
+    try {
+      for (const channelId of channelIds) {
+        try {
+          this._broadcast(GEN2, 'migrate-progress', `Importing channel database ${channelId}...`)
+          const ch = await this._runKolibriManageEphemeral(
+            ['kolibri', 'manage', 'importchannel', 'disk', channelId, '/legacy'],
+            hostRoot,
+            image
+          )
+          if (ch.code !== 0) {
+            // Throwaway containers are removed immediately, so their logs are gone after this — keep
+            // the full tail server-side and surface a short snippet so an operator has something to act on.
+            logger.error(
+              { channel: channelId, code: ch.code, logs: ch.logs },
+              '[DockerService] Kolibri importchannel failed'
+            )
+            const snippet = this._lastLogLines(ch.logs)
+            failed.push({ channel: channelId, reason: `importchannel exited ${ch.code}` })
+            this._broadcast(
+              GEN2,
+              'migrate-progress',
+              `Skipped ${channelId} — channel import failed (exit ${ch.code}).${snippet ? ` ${snippet}` : ''}`
+            )
+            continue
+          }
+
+          this._broadcast(
+            GEN2,
+            'migrate-progress',
+            `Importing content files for ${channelId} (this can take a while)...`
+          )
+          const co = await this._runKolibriManageEphemeral(
+            ['kolibri', 'manage', 'importcontent', 'disk', channelId, '/legacy'],
+            hostRoot,
+            image
+          )
+          if (co.code !== 0) {
+            logger.error(
+              { channel: channelId, code: co.code, logs: co.logs },
+              '[DockerService] Kolibri importcontent failed'
+            )
+            const snippet = this._lastLogLines(co.logs)
+            failed.push({ channel: channelId, reason: `importcontent exited ${co.code}` })
+            this._broadcast(
+              GEN2,
+              'migrate-progress',
+              `Channel ${channelId}: metadata imported but content copy failed (exit ${co.code}).${snippet ? ` ${snippet}` : ''}`
+            )
+            continue
+          }
+
+          migrated.push(channelId)
+          this._broadcast(GEN2, 'migrate-progress', `Imported channel ${channelId}.`)
+        } catch (err: any) {
+          failed.push({ channel: channelId, reason: err.message })
+          this._broadcast(GEN2, 'migrate-progress', `Error importing ${channelId}: ${err.message}`)
+        }
+      }
+
+      const caveat = 'User accounts and learner progress must be recreated manually in Gen 2.'
+      const summary = failed.length
+        ? `Migrated ${migrated.length} of ${channelIds.length} channel(s); ${failed.length} failed. ${caveat}`
+        : `Migrated ${migrated.length} channel(s). ${caveat}`
+      // Distinct status (NOT 'completed') so the supply-depot auto-reload effect doesn't fire mid-feed.
+      this._broadcast(GEN2, 'migrate-complete', summary)
+    } finally {
+      // Always bring Gen 2 back, even if the loop threw, and release the lock. affectContainer
+      // returns {success:false} rather than throwing, so check it explicitly — a failed restart
+      // leaves Gen 2 down, and the operator must be told (the prior 'migrate-complete' reads as "all good").
+      const restart = await this.affectContainer(GEN2, 'start')
+      if (!restart.success) {
+        logger.error(
+          `[DockerService] Gen 2 did not restart after content migration: ${restart.message}`
+        )
+        this._broadcast(
+          GEN2,
+          'migrate-error',
+          `Migration finished but Gen 2 did not restart automatically (${restart.message}). Start it from its card.`
+        )
+      }
+      this.invalidateServicesStatusCache()
+      this.activeInstallations.delete(GEN2)
+    }
+  }
+
+  /**
+   * Free-space pre-flight for the content copy. Upper-bounds what the copy needs at the full size of
+   * the legacy `content/storage` blob tree (`du -sb`) and compares against free space on the filesystem
+   * backing the Gen 2 target (`df --output=avail` — the Gen 2 path, not `/`, since storage may live on a
+   * relocated mount). Requires a small headroom margin on top. GNU coreutils ships in the prod image
+   * (node:22-slim); `du` exits non-zero when a subdir is unreadable but still prints the total, so we
+   * parse stdout off the error too. Returns a user-facing blocker string only when we can confidently
+   * say there isn't room; on any measurement failure it returns null so a flaky probe never blocks the
+   * feature (mirrors checkImageDiskSpace's "never block on lookup error" stance).
+   */
+  private async _checkMigrationDiskSpace(
+    legacyHomeAdmin: string,
+    gen2HomeAdmin: string
+  ): Promise<string | null> {
+    const HEADROOM = 1.1 // require ~10% slack over the raw copy size
+    const execFileAsync = promisify(execFile)
+    const legacyStorage = join(legacyHomeAdmin, 'content', 'storage')
+    const gib = (b: number) => `${(b / 1024 / 1024 / 1024).toFixed(1)} GiB`
+    // execFile (no shell) — paths come from env/mount resolution, so avoid shell quoting/injection.
+    const run = async (file: string, args: string[]): Promise<string | null> => {
+      try {
+        const { stdout } = await execFileAsync(file, args)
+        return stdout
+      } catch (err: any) {
+        // `du` returns non-zero on an unreadable entry but still emits the total on stdout — use it.
+        if (typeof err?.stdout === 'string' && err.stdout.trim()) return err.stdout
+        logger.warn(`[DockerService] Migration disk preflight: \`${file}\` failed: ${err.message}`)
+        return null
+      }
+    }
+
+    const duOut = await run('du', ['-sb', legacyStorage])
+    const dfOut = await run('df', ['-B1', '--output=avail', gen2HomeAdmin])
+    if (!duOut || !dfOut) return null
+
+    const needed = Number.parseInt(duOut.trim().split(/\s+/)[0], 10)
+    // `df --output=avail` prints a header line then the value; the free bytes are the last line.
+    const free = Number.parseInt(dfOut.trim().split('\n').pop()!.trim(), 10)
+    if (!Number.isFinite(needed) || !Number.isFinite(free)) return null
+
+    const required = Math.ceil(needed * HEADROOM)
+    if (free < required) {
+      return `Not enough disk space to migrate content: about ${gib(required)} is needed but only ${gib(free)} is free. Free up space and try again.`
+    }
+    return null
+  }
+
+  /** Last non-empty line of a captured container log tail, trimmed to a single broadcast-friendly
+   * snippet (kolibri surfaces the actual cause on its final stderr line). Empty string if none. */
+  private _lastLogLines(logs: string, max = 200): string {
+    const last = logs
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .pop()
+    if (!last) return ''
+    return last.length > max ? `${last.slice(0, max)}…` : last
+  }
+
+  /**
+   * Run a single `kolibri manage ...` command to completion in a throwaway Gen 2-image container with
+   * both Kolibri homes bound (Gen 2 writable at /kolibri, legacy read-only at /legacy), capturing the
+   * exit code and a log tail. No `name` (avoids collisions), no ports/network (pure local disk work),
+   * no `User` override (the image entrypoint drops to the `kolibri` user itself). AutoRemove is left
+   * off because it races container.wait() and can lose the exit code — we remove explicitly in finally.
+   */
+  private async _runKolibriManageEphemeral(
+    cmd: string[],
+    hostRoot: string,
+    image: string
+  ): Promise<{ code: number; logs: string }> {
+    const container = await this.docker.createContainer({
+      Image: image,
+      Cmd: cmd,
+      Env: ['KOLIBRI_HOME=/kolibri'],
+      Labels: {
+        'com.docker.compose.project': 'project-nomad-managed',
+        'io.project-nomad.managed': 'true',
+      },
+      HostConfig: {
+        AutoRemove: false,
+        Binds: [`${hostRoot}/kolibri-gen2:/kolibri`, `${hostRoot}/kolibri:/legacy:ro`],
+      },
+    })
+
+    try {
+      await container.start()
+      const { StatusCode } = await container.wait()
+      const buf = (await container.logs({
+        stdout: true,
+        stderr: true,
+        follow: false,
+        tail: 200,
+        timestamps: false,
+      })) as unknown as Buffer
+      return { code: StatusCode, logs: this._demuxDockerLog(buf) }
+    } finally {
+      try {
+        await container.remove({ force: true })
+      } catch (err: any) {
+        logger.warn(
+          `[DockerService] Failed to remove ephemeral Kolibri import container: ${err.message}`
+        )
+      }
+    }
   }
 
   /** Find a container by its managed service name (`/serviceName`), or null. */

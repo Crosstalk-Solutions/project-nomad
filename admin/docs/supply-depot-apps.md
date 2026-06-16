@@ -253,11 +253,12 @@ A complete offline learning platform from Learning Equality. Kolibri pulls toget
 
 **Getting content in (you re-download it):** Kolibri's content is delivered as channels you import. Open **Device → Channels → Import**, and either pull channels from Kolibri Studio (online) or import from a local drive or another Kolibri device if you already have the content files. There's a lot available, so import just the channels you need; they can be large.
 
-**Upgrading from an older NOMAD's Kolibri:** Earlier NOMAD releases shipped a much older Kolibri (the `treehouses/kolibri:0.12.8` image). This Education Platform is a newer, upstream-official Kolibri and installs **fresh** — your old channels and learner data are **not** carried over automatically, because the two versions store data too differently to migrate safely. If you were running the old one:
+**Upgrading from an older NOMAD's Kolibri:** Earlier NOMAD releases shipped a much older Kolibri (the `treehouses/kolibri:0.12.8` image). The "Gen 2" Education Platform is a newer, upstream-official Kolibri and installs **fresh**. Your **user accounts and learner progress** are **not** carried over, because the two versions store that data too differently to migrate safely — you'll recreate the admin account and any learners in the new install. Your **downloaded content** (the channels and gigabytes of videos/exercises already on disk), however, *can* be moved across locally without re-downloading. If you were running the old one:
 
-1. Install this Education Platform from the catalog (it runs alongside the old one on a different port, so nothing is disrupted while you set it up).
-2. Re-import the channels you want, as above.
-3. Once you're happy with the new install, uninstall the old Kolibri from its card (it carries a **legacy** badge). Your old data folder stays on disk until you remove it.
+1. Install this Education Platform from the catalog (it runs alongside the old one on a different port, so nothing is disrupted while you set it up) and open it once to finish setup.
+2. **Migrate your content:** on the old Kolibri card (it carries a **legacy** badge), open **Manage → Migrate content to Gen 2**. This copies your existing channels and content files straight into the new install with **no internet**, so you don't have to re-download them. Progress shows in the activity feed; the new platform restarts briefly when it finishes. (Anything that doesn't migrate, you can still re-import manually as above.)
+3. Recreate your accounts and re-enroll learners in the new install (this part can't be migrated).
+4. Once you're happy with the new install, uninstall the old Kolibri from its card. Your old data folder stays on disk unless you choose to remove it.
 
 **Your data:** Your imported channels, classes, and learner progress live in the `storage/kolibri-gen2` folder on your NOMAD. Backing up that folder backs up your whole Kolibri.
 

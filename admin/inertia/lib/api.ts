@@ -1098,6 +1098,24 @@ class API {
     })()
   }
 
+  /** Kick off the local legacy-Kolibri → Gen 2 content migration. Progress streams over the
+   * service-installation transmit channel under the Gen 2 service name. Surfaces the backend's
+   * 400 message (e.g. "Gen 2 has not finished initialising yet") instead of swallowing it. */
+  async migrateKolibriContent() {
+    try {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/migrate-kolibri-content'
+      )
+      return response.data
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        return { success: false, message: error.response.data.message }
+      }
+      console.error('Error migrating Kolibri content:', error)
+      return undefined
+    }
+  }
+
   async getServiceLogs(service_name: string, tail = 200) {
     return catchInternal(async () => {
       const response = await this.client.get<{ success: boolean; logs: string }>(

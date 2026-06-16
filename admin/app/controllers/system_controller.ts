@@ -499,6 +499,17 @@ export default class SystemController {
         return response.send({ success: true, message: result.message })
     }
 
+    /** Migrate downloaded content (channels + content files already on disk) from the legacy Kolibri
+     * install into the Gen 2 install, entirely locally. Accounts/progress are intentionally left as a
+     * manual step. No request payload — the source/target services are fixed. */
+    async migrateLegacyKolibriContent({ response }: HttpContext) {
+        const result = await this.dockerService.migrateLegacyKolibriContent()
+        if (!result.success) {
+            return response.status(400).send({ success: false, message: result.message })
+        }
+        return response.send({ success: true, message: result.message })
+    }
+
     /** Set or clear an app's custom launch URL (works for curated and custom apps). Purely a
      * metadata change — no container is touched. An empty/invalid value clears the override, after
      * which the default host + port link is used again. */

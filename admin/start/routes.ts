@@ -170,6 +170,7 @@ router
     router.post('/services/install', [SystemController, 'installService'])
     router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
     router.post('/services/uninstall', [SystemController, 'uninstallService'])
+    router.post('/services/migrate-kolibri-content', [SystemController, 'migrateLegacyKolibriContent'])
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
     router.get('/services/preflight', [SystemController, 'preflightCheck'])
     router.get('/services/suggest-port', [SystemController, 'suggestCustomPort'])

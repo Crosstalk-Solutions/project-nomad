@@ -40,6 +40,7 @@ import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivi
 import { useTransmit } from 'react-adonis-transmit'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast'
 import { ServiceSlim } from '../../types/services'
+import { SERVICE_NAMES } from '../../constants/service_names'
 import { getServiceLink } from '~/lib/navigation'
 import { getSupplyDepotDocLink } from '../../constants/supply_depot_docs'
 import api from '~/lib/api'
@@ -86,6 +87,7 @@ type Modal =
   | { type: 'logs'; service: ServiceSlim }
   | { type: 'stats'; service: ServiceSlim }
   | { type: 'update'; service: ServiceSlim }
+  | { type: 'migrate-kolibri'; service: ServiceSlim }
   | null
 
 export default function SupplyDepotPage(props: { system: { services: ServiceSlim[] } }) {
@@ -193,6 +195,12 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const installedServices = filteredServices.filter((s) => s.installed)
   const availableServices = filteredServices.filter((s) => !s.installed)
 
+  // Whether the new Kolibri (Gen 2) install exists — gates the "Migrate content to Gen 2" action on
+  // the legacy Kolibri card. Computed from the full (unfiltered) list so a search filter can't hide it.
+  const gen2Installed = props.system.services.some(
+    (s) => s.service_name === SERVICE_NAMES.KOLIBRI_GEN2 && s.installed
+  )
+
   // ── Actions ───────────────────────────────────────────────────────────────
   async function handleInstall(service: ServiceSlim) {
     const hasWarnings =
@@ -242,6 +250,23 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     setLoading(false)
     if (!result?.success) showError(result?.message || 'Failed to uninstall app.')
     else setTimeout(() => window.location.reload(), 1000)
+  }
+
+  // Kick off the local legacy → Gen 2 content migration. The request returns immediately; progress
+  // streams into the activity feed (same SERVICE_INSTALLATION channel, under the Gen 2 service name).
+  async function handleMigrateKolibri() {
+    setModal(null)
+    setLoading(true)
+    const result = await api.migrateKolibriContent()
+    setLoading(false)
+    if (!result?.success) {
+      showError(result?.message || 'Failed to start content migration.')
+      return
+    }
+    addNotification({
+      message: result.message || 'Content migration started. Watch the activity feed for progress.',
+      type: 'success',
+    })
   }
 
   async function handleUpdate(service: ServiceSlim) {
@@ -473,6 +498,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       }
                       autoUpdateMasterEnabled={appAutoUpdateMasterEnabled}
                       onToggleAutoUpdate={(enabled) => handleToggleAutoUpdate(service, enabled)}
+                      onMigrateKolibri={() => setModal({ type: 'migrate-kolibri', service })}
+                      gen2Installed={gen2Installed}
                     />
                   ))}
                 </div>
@@ -704,6 +731,42 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         </StyledModal>
       )}
 
+      {/* Migrate legacy Kolibri content → Gen 2 */}
+      {modal?.type === 'migrate-kolibri' && (
+        <StyledModal
+          title="Migrate content to Gen 2"
+          open
+          onCancel={() => setModal(null)}
+          onConfirm={() => handleMigrateKolibri()}
+          confirmText="Start migration"
+          confirmIcon="IconCloudDownload"
+          confirmVariant="primary"
+          confirmLoading={loading}
+        >
+          <div className="space-y-3 text-sm text-text-muted">
+            <p>
+              This copies your downloaded channels and content files from the legacy Education
+              Platform into the Education Platform (Gen 2) — entirely on this device, with no
+              internet required.
+            </p>
+            <Alert
+              type="warning"
+              title="Experimental"
+              message="This migration is experimental and may not cover every edge case (e.g. partially-downloaded channels). Your legacy install is left untouched, so you can always re-import a channel manually if something doesn't carry over."
+            />
+            <Alert
+              type="warning"
+              title="Accounts and progress are not migrated"
+              message="User accounts and learner progress can't be carried across versions and must be recreated manually in Gen 2."
+            />
+            <p className="text-xs">
+              Gen 2 will briefly restart during the import. Progress appears in the activity feed
+              below; you can keep using the rest of NOMAD while it runs.
+            </p>
+          </div>
+        </StyledModal>
+      )}
+
       {/* Logs modal */}
       {modal?.type === 'logs' && (
         <ServiceLogsModal
@@ -795,6 +858,9 @@ interface AppCardProps {
   // Global master switch (Settings → Updates). When off, per-app toggles are inert.
   autoUpdateMasterEnabled?: boolean
   onToggleAutoUpdate?: (enabled: boolean) => void
+  // Legacy-Kolibri-only: migrate downloaded content into Gen 2. Shown only when Gen 2 is installed.
+  onMigrateKolibri?: () => void
+  gen2Installed?: boolean
 }
 
 function AppCard({
@@ -818,6 +884,8 @@ function AppCard({
   autoUpdateEnabled,
   autoUpdateMasterEnabled,
   onToggleAutoUpdate,
+  onMigrateKolibri,
+  gen2Installed,
 }: AppCardProps) {
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
@@ -975,7 +1043,7 @@ function AppCard({
             {/* Open button — shown when the app has a default location or a user-set custom URL */}
             {(service.ui_location || service.custom_url) && (
               <a
-                href={getServiceLink(service.ui_location, service.custom_url)}
+                href={getServiceLink(service.ui_location || "", service.custom_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1"
@@ -1017,6 +1085,13 @@ function AppCard({
                   <DropdownItem icon={<IconChartBar className="h-4 w-4" />} label="Stats" onClick={onStats} />
                   <DropdownItem icon={<IconPencil className="h-4 w-4" />} label="Edit" onClick={onEdit} />
                   <DropdownItem icon={<IconWorld className="h-4 w-4" />} label="Set custom URL" onClick={onSetUrl} />
+                  {service.service_name === SERVICE_NAMES.KOLIBRI && gen2Installed && onMigrateKolibri ? (
+                    <DropdownItem
+                      icon={<IconCloudDownload className="h-4 w-4 text-desert-green" />}
+                      label="Migrate content to Gen 2"
+                      onClick={onMigrateKolibri}
+                    />
+                  ) : null}
                   {!service.is_custom && onToggleAutoUpdate ? (
                     autoUpdateMasterEnabled ? (
                       <DropdownItem
