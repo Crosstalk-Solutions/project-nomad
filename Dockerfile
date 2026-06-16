@@ -4,6 +4,7 @@ FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y \
       bash \
       curl \
+      openssl \
       graphicsmagick \
       libvips-dev \
       build-essential \
