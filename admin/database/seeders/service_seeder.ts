@@ -424,7 +424,7 @@ export default class ServiceSeeder extends BaseSeeder {
       icon: 'IconAntenna',
       // aXistem's prebuilt image of Liam Cottle's MeshCore web client (MeshCore is a sibling LoRa
       // mesh project to Meshtastic).
-      container_image: 'ghcr.io/axistem-dev/meshcore-web:latest',
+      container_image: 'ghcr.io/axistem-dev/meshcore-web:v1.45.0',
       source_repo: 'https://github.com/aXistem-dev/meshcore-web',
       container_command: null,
       container_config: JSON.stringify({
