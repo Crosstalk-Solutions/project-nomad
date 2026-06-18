@@ -333,9 +333,15 @@ export class SystemService {
         'auto_update_enabled',
         'is_custom',
         'is_user_modified',
+        'is_deprecated',
         'category'
       )
       .where('is_dependency_service', false)
+      // Deprecated/sunset apps stay visible only while still installed, so the user can manage and
+      // uninstall them — they never reappear in the install catalog once removed.
+      .where((q) => {
+        q.where('is_deprecated', false).orWhere('installed', true)
+      })
     if (installedOnly) {
       query.where('installed', true)
     }
@@ -367,6 +373,7 @@ export class SystemService {
         auto_update_enabled: service.auto_update_enabled,
         is_custom: service.is_custom,
         is_user_modified: service.is_user_modified,
+        is_deprecated: service.is_deprecated,
         category: service.category,
       })
     }
