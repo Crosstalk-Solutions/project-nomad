@@ -14,6 +14,7 @@ type ServiceSeedRecord = Omit<
   | 'update_checked_at'
   | 'metadata'
   | 'is_user_modified'
+  | 'is_deprecated'
   | 'custom_url'
   | 'auto_update_enabled'
   | 'available_update_first_seen_at'
@@ -163,24 +164,38 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
     },
     {
-      service_name: SERVICE_NAMES.KOLIBRI,
-      friendly_name: 'Education Platform',
+      // "Kolibri Gen 2" — the upstream-official learningequality image replacing the ~6-year-old
+      // community treehouses/kolibri:0.12.8. This is a distinct catalog entry (own service_name,
+      // volume, and ports), not an in-place upgrade: the new image uses a different repo, mounts at
+      // /kolibri instead of /root/.kolibri, and crosses 7 minor versions of Kolibri's own data
+      // schema. Existing 0.12.8 installs are sunset via the deprecate-legacy-kolibri migration and
+      // keep running on 8300 until uninstalled; content is re-imported into the fresh Gen 2 install.
+      service_name: SERVICE_NAMES.KOLIBRI_GEN2,
+      friendly_name: 'Education Platform (Gen 2)',
       powered_by: 'Kolibri',
       display_order: 2,
       description: 'Interactive learning platform with video courses and exercises',
       icon: 'IconSchool',
-      container_image: 'treehouses/kolibri:0.12.8',
+      container_image: 'learningequality/kolibri:0.19.4',
       source_repo: 'https://github.com/learningequality/kolibri',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '8080/tcp': [{ HostPort: '8300' }] },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/kolibri:/root/.kolibri`],
+          // 8080 = web UI. 8311 = zip-content server (interactive exercises / HTML5 apps), served
+          // from a separate "alternate origin" the browser connects to DIRECTLY. KOLIBRI_ZIP_CONTENT_PORT
+          // sets the port Kolibri both LISTENS on inside the container AND advertises in content URLs,
+          // so the internal port, the published host port, and that env value must all be identical
+          // (8311) — otherwise content URLs point at a host port that doesn't route to the listener
+          // and every content page fails with ERR_CONNECTION_REFUSED. The image's default 8081 is
+          // unused here. The image refuses to start without /kolibri mounted (KOLIBRI_HOME = /kolibri).
+          PortBindings: { '8080/tcp': [{ HostPort: '8310' }], '8311/tcp': [{ HostPort: '8311' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/kolibri-gen2:/kolibri`],
         },
-        ExposedPorts: { '8080/tcp': {} },
+        ExposedPorts: { '8080/tcp': {}, '8311/tcp': {} },
+        Env: ['KOLIBRI_ZIP_CONTENT_PORT=8311'],
       }),
-      ui_location: '8300',
+      ui_location: '8310',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
