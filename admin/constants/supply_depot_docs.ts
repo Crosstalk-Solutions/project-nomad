@@ -19,6 +19,7 @@ export const SUPPLY_DEPOT_DOC_ANCHORS: Record<string, string> = {
   [SERVICE_NAMES.MESHTASTIC_WEB]: 'meshtastic-web',
   [SERVICE_NAMES.KOLIBRI]: 'kolibri',
   [SERVICE_NAMES.KOLIBRI_GEN2]: 'kolibri',
+  [SERVICE_NAMES.MESHCORE_WEB]: 'meshcore-web',
 }
 
 // Returns the in-app docs link for a service, or null if it has no documentation section.

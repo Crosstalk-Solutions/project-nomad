@@ -33,6 +33,7 @@ MEMORY_CAP = "2g"      # generous cap; some apps (Stirling) OOM under 1g and fal
 KNOWN_NEEDS_SETUP = {
     "nomad_kiwix_server": "needs a ZIM library (managed separately by NOMAD)",
     "nomad_meshtasticd": "needs a config.yaml with a MAC address",
+    "nomad_meshcore_web": "serves HTTPS on 443 only with the bind-mounted SSL config (absent in a bare probe)",
 }
 
 

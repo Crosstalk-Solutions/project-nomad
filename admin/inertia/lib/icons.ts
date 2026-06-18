@@ -1,4 +1,5 @@
 import {
+  IconAntenna,
   IconArrowUp,
   IconBook,
   IconBooks,
@@ -72,6 +73,7 @@ import {
  * very limited subset of the full Tabler Icons library.
  */
 export const icons = {
+  IconAntenna,
   IconAlertTriangle,
   IconArrowLeft,
   IconArrowRight,
