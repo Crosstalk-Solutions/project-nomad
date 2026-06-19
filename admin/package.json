@@ -104,7 +104,7 @@
     "jszip": "3.10.1",
     "luxon": "3.7.2",
     "maplibre-gl": "4.7.1",
-    "mysql2": "3.16.2",
+    "mysql2": "3.22.5",
     "ollama": "0.6.3",
     "openai": "6.38.0",
     "pdf-parse": "2.4.5",
