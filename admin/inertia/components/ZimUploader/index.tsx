@@ -16,6 +16,16 @@ export default function ZimUploader({ onUploadComplete, existingFilenames }: Zim
     existingFilenamesRef.current = existingFilenames
   }, [existingFilenames])
 
+  // Keep the latest callback in a ref so the Uppy lifecycle effect below does
+  // not depend on it. The parent passes a new inline function on every render,
+  // and if that identity were in the effect deps, a re-render mid-upload (e.g.
+  // a window-focus refetch) would tear down and `uppy.destroy()` the instance,
+  // aborting the in-flight upload.
+  const onUploadCompleteRef = useRef(onUploadComplete)
+  useEffect(() => {
+    onUploadCompleteRef.current = onUploadComplete
+  }, [onUploadComplete])
+
   const [uppy] = useState(() =>
     new Uppy({
       restrictions: {
@@ -53,9 +63,17 @@ export default function ZimUploader({ onUploadComplete, existingFilenames }: Zim
         }
       }
     }
-    const handleComplete = (result: { successful: Array<{ response?: { body?: { added?: number } } }> }) => {
+    const handleComplete = (result: {
+      successful: Array<{ response?: { body?: { added?: number } } }>
+      failed: Array<unknown>
+    }) => {
+      // Uppy emits `complete` even when uploads fail or are aborted. Only treat
+      // the run as a success when nothing failed — otherwise leave the uploader
+      // open so the Dashboard can surface the error instead of closing it with a
+      // false "Upload complete" toast.
+      if (result.failed.length > 0) return
       const added = result.successful.reduce((sum, f) => sum + (f.response?.body?.added ?? 0), 0)
-      onUploadComplete(added)
+      onUploadCompleteRef.current(added)
     }
     uppy.on('file-added', handleFileAdded)
     uppy.on('complete', handleComplete)
@@ -64,7 +82,7 @@ export default function ZimUploader({ onUploadComplete, existingFilenames }: Zim
       uppy.off('complete', handleComplete)
       uppy.destroy()
     }
-  }, [uppy, onUploadComplete])
+  }, [uppy])
 
   return (
     <Dashboard
