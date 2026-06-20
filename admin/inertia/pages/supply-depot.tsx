@@ -201,10 +201,6 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     (s) => s.service_name === SERVICE_NAMES.KOLIBRI_GEN2 && s.installed
   )
 
-  useEffect(() => {
-    console.log("Education Gen 2 installed:", educationGen2Installed)
-  }, [educationGen2Installed])
-
   // ── Actions ───────────────────────────────────────────────────────────────
   async function handleInstall(service: ServiceSlim) {
     const hasWarnings =
@@ -212,48 +208,61 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
 
     if (hasWarnings && !forceInstall) return
 
+    // Keep the modal open with a spinning confirm button while the request is in
+    // flight; close it once the install job is dispatched. Progress then streams
+    // via the InstallActivityFeed broadcast, so we drop the loading flag here.
     setLoading(true)
-    setModal(null)
     const result = await api.installService(service.service_name)
+    setModal(null)
     setLoading(false)
     if (!result?.success) showError(result?.message || 'Failed to start installation.')
   }
 
   async function handleAffect(service: ServiceSlim, action: 'start' | 'stop' | 'restart') {
-    setModal(null)
     setLoading(true)
     const result = await api.affectService(service.service_name, action)
-    setLoading(false)
-    if (!result?.success) showError(result?.message || `Failed to ${action} service.`)
-    else setTimeout(() => window.location.reload(), 1500)
+    setModal(null)
+    if (!result?.success) {
+      setLoading(false)
+      showError(result?.message || `Failed to ${action} service.`)
+    } else {
+      // Keep loading=true so the overlay covers the page until it reloads.
+      setTimeout(() => window.location.reload(), 1500)
+    }
   }
 
   async function handleForceReinstall(service: ServiceSlim) {
-    setModal(null)
     setLoading(true)
     const result = await api.forceReinstallService(service.service_name)
+    setModal(null)
     setLoading(false)
     if (!result?.success) showError(result?.message || 'Failed to start reinstall.')
   }
 
   async function handleDelete(service: ServiceSlim) {
-    setModal(null)
     setLoading(true)
     const result = await api.deleteCustomApp(service.service_name, removeImage)
     setRemoveImage(false)
-    setLoading(false)
-    if (!result?.success) showError(result?.message || 'Failed to delete app.')
-    else setTimeout(() => window.location.reload(), 1000)
+    setModal(null)
+    if (!result?.success) {
+      setLoading(false)
+      showError(result?.message || 'Failed to delete app.')
+    } else {
+      setTimeout(() => window.location.reload(), 1000)
+    }
   }
 
   async function handleUninstall(service: ServiceSlim) {
-    setModal(null)
     setLoading(true)
     const result = await api.uninstallService(service.service_name, removeImage)
     setRemoveImage(false)
-    setLoading(false)
-    if (!result?.success) showError(result?.message || 'Failed to uninstall app.')
-    else setTimeout(() => window.location.reload(), 1000)
+    setModal(null)
+    if (!result?.success) {
+      setLoading(false)
+      showError(result?.message || 'Failed to uninstall app.')
+    } else {
+      setTimeout(() => window.location.reload(), 1000)
+    }
   }
 
   async function handleUpdate(service: ServiceSlim) {
@@ -351,7 +360,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     <AppLayout>
       <Head title="Supply Depot" />
 
-      {loading && <LoadingSpinner fullscreen text="Working..." />}
+      {loading && !modal && <LoadingSpinner fullscreen text="Working..." />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ── Hero / controls panel ─────────────────────────────────────────── */}
@@ -532,7 +541,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         <StyledModal
           title={`Install ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
-          onCancel={() => setModal(null)}
+          onCancel={() => {
+            if (loading) return
+            setModal(null)
+          }}
           onConfirm={() => handleInstall(modal.service)}
           confirmText="Install"
           confirmIcon="IconDownload"
@@ -590,7 +602,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         <StyledModal
           title={`Start ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
-          onCancel={() => setModal(null)}
+          onCancel={() => {
+            if (loading) return
+            setModal(null)
+          }}
           onConfirm={() => handleAffect(modal.service, 'start')}
           confirmText="Start"
           confirmIcon="IconPlayerPlay"
@@ -606,7 +621,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         <StyledModal
           title={`Stop ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
-          onCancel={() => setModal(null)}
+          onCancel={() => {
+            if (loading) return
+            setModal(null)
+          }}
           onConfirm={() => handleAffect(modal.service, 'stop')}
           confirmText="Stop"
           confirmIcon="IconPlayerStop"
@@ -622,7 +640,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         <StyledModal
           title={`Restart ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
-          onCancel={() => setModal(null)}
+          onCancel={() => {
+            if (loading) return
+            setModal(null)
+          }}
           onConfirm={() => handleAffect(modal.service, 'restart')}
           confirmText="Restart"
           confirmIcon="IconRefresh"
@@ -638,7 +659,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         <StyledModal
           title={`Force Reinstall ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
-          onCancel={() => setModal(null)}
+          onCancel={() => {
+            if (loading) return
+            setModal(null)
+          }}
           onConfirm={() => handleForceReinstall(modal.service)}
           confirmText="Wipe & Reinstall"
           confirmIcon="IconRefresh"
@@ -659,6 +683,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
           title={`Delete ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
           onCancel={() => {
+            if (loading) return
             setRemoveImage(false)
             setModal(null)
           }}
@@ -691,6 +716,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
           title={`Uninstall ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
           onCancel={() => {
+            if (loading) return
             setRemoveImage(false)
             setModal(null)
           }}
@@ -743,7 +769,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
           record={modal.service}
           currentTag={extractTag(modal.service.container_image)}
           latestVersion={modal.service.available_update_version!}
-          onCancel={() => setModal(null)}
+          onCancel={() => {
+            if (loading) return
+            setModal(null)
+          }}
           onUpdate={(targetVersion) => {
             const service = modal.service
             setModal(null)
