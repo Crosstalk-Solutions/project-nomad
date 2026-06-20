@@ -30,6 +30,7 @@ export default function ZimPage() {
   const { data, isLoading } = useQuery<ZimFileWithMetadata[]>({
     queryKey: ['zim-files'],
     queryFn: getFiles,
+    refetchOnWindowFocus: false,
   })
 
   async function getFiles() {
