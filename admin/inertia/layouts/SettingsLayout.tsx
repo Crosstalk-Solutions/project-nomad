@@ -1,5 +1,6 @@
 import {
   IconArrowBigUpLines,
+  IconBox,
   IconChartBar,
   IconDashboard,
   IconFolder,
@@ -7,7 +8,6 @@ import {
   IconHeart,
   IconMapRoute,
   IconSettings,
-  IconTerminal2,
   IconWand,
   IconZoom
 } from '@tabler/icons-react'
@@ -23,7 +23,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   const navigation = [
     ...(aiAssistantInstallStatus.isInstalled ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }] : []),
-    { name: 'Supply Depot', href: '/supply-depot', icon: IconTerminal2, current: false },
+    { name: 'Supply Depot', href: '/supply-depot', icon: IconBox, current: false },
     { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
     { name: 'Content Explorer', href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },
     { name: 'Content Manager', href: '/settings/zim', icon: IconFolder, current: false },
