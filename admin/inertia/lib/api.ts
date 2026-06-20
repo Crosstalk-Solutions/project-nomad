@@ -514,6 +514,17 @@ class API {
     })()
   }
 
+  async getFileContent(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        content: string
+        extension: string
+        fileName: string
+      }>('/rag/files/content', { params: { source } })
+      return response.data
+    })()
+  }
+
   async getSystemInfo() {
     return catchInternal(async () => {
       const response = await this.client.get<SystemInformationResponse>('/system/info')

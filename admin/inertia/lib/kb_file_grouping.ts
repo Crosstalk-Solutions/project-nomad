@@ -52,19 +52,62 @@ export interface KbFileGroup {
   /** Chunks currently embedded for this source; 0 for state-row-less or
    * zero-chunk files. Always 0 for the collapsed admin_docs group. */
   chunksEmbedded: number
+  /** File size in bytes from disk. Null for the collapsed admin_docs group,
+   * and for any file the scanner couldn't stat. */
+  size: number | null
+  /** Last-modified timestamp (ISO 8601). Null for collapsed groups and for
+   * files the scanner couldn't stat. */
+  uploadedAt: string | null
+  /** True when the row corresponds to a user upload — drives whether the
+   * view/download buttons render. False for the collapsed admin_docs group. */
+  isUserUpload: boolean
 }
 
 const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'admin_docs', 'other']
+
+export type KbFileSortKey = 'name' | 'size' | 'uploadedAt'
+export type KbFileSortDirection = 'asc' | 'desc'
+export interface KbFileSort {
+  key: KbFileSortKey
+  direction: KbFileSortDirection
+}
+
+const DEFAULT_SORT: KbFileSort = { key: 'name', direction: 'asc' }
+
+function compareForSort(a: StoredFileInfo, b: StoredFileInfo, sort: KbFileSort): number {
+  // Files the scanner couldn't stat sort to the end regardless of direction so
+  // they don't pollute the top of size/uploaded-at views.
+  const aMissing = sort.key !== 'name' && (sort.key === 'size' ? a.size === null : a.uploadedAt === null)
+  const bMissing = sort.key !== 'name' && (sort.key === 'size' ? b.size === null : b.uploadedAt === null)
+  if (aMissing && !bMissing) return 1
+  if (!aMissing && bMissing) return -1
+
+  let cmp = 0
+  if (sort.key === 'size') {
+    cmp = (a.size ?? 0) - (b.size ?? 0)
+  } else if (sort.key === 'uploadedAt') {
+    cmp = (a.uploadedAt ?? '').localeCompare(b.uploadedAt ?? '')
+  }
+  if (cmp === 0) {
+    // Tiebreak (and primary key for 'name') is filename — keeps stable order.
+    cmp = sourceToDisplayName(a.source).localeCompare(sourceToDisplayName(b.source))
+  }
+  return sort.direction === 'desc' ? -cmp : cmp
+}
 
 /**
  * Group stored-file rows into table rows for the Stored Files panel.
  *
  * - Admin docs (`/app/docs/*`, README) collapse into a single
  *   "Project NOMAD documentation · N files" row.
- * - ZIMs, uploads, and others stay as individual rows, sorted by bucket then
- *   alphabetically by filename so related items cluster naturally.
+ * - ZIMs, uploads, and others stay as individual rows, sorted within their
+ *   bucket by the active sort key. Bucket order itself is fixed — sorting
+ *   never flattens or reorders the groups themselves.
  */
-export function groupAndSortKbFiles(files: StoredFileInfo[]): KbFileGroup[] {
+export function groupAndSortKbFiles(
+  files: StoredFileInfo[],
+  sort: KbFileSort = DEFAULT_SORT
+): KbFileGroup[] {
   const buckets: Record<KbFileBucket, StoredFileInfo[]> = {
     zim: [],
     upload: [],
@@ -90,13 +133,14 @@ export function groupAndSortKbFiles(files: StoredFileInfo[]): KbFileGroup[] {
         members: members.map((m) => m.source),
         state: null,
         chunksEmbedded: 0,
+        size: null,
+        uploadedAt: null,
+        isUserUpload: false,
       })
       continue
     }
 
-    for (const file of members.sort((a, b) =>
-      sourceToDisplayName(a.source).localeCompare(sourceToDisplayName(b.source))
-    )) {
+    for (const file of members.sort((a, b) => compareForSort(a, b, sort))) {
       groups.push({
         bucket,
         source: file.source,
@@ -105,6 +149,9 @@ export function groupAndSortKbFiles(files: StoredFileInfo[]): KbFileGroup[] {
         members: [],
         state: file.state,
         chunksEmbedded: file.chunksEmbedded,
+        size: file.size,
+        uploadedAt: file.uploadedAt,
+        isUserUpload: file.isUserUpload,
       })
     }
   }
