@@ -1,6 +1,6 @@
 {
   "name": "project-nomad",
-  "version": "1.39.0",
+  "version": "1.33.0-rc.1",
   "description": "Project N.O.M.A.D. (Node for Offline Media, Archives, and Data) - an offline-first knowledge and education server.",
   "main": "index.js",
   "scripts": {
