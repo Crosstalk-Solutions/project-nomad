@@ -7,7 +7,7 @@ import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
 import { basename } from 'node:path'
-import { deleteFileSchema, embedFileSchema, estimateBatchSchema, getJobStatusSchema } from '#validators/rag'
+import { deleteFileSchema, embedFileSchema, estimateBatchSchema, fileSourceSchema, getJobStatusSchema } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
@@ -161,5 +161,24 @@ export default class RagController {
     }))
     const result = await KbRatioRegistry.estimateBatch(normalized)
     return response.status(200).json(result)
+  }
+
+  public async getFileContent({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const result = await this.ragService.readFileContent(source)
+    if (!result) {
+      return response.status(404).json({ error: 'File not found or not viewable' })
+    }
+    return response.status(200).json(result)
+  }
+
+  public async downloadFile({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const filePath = await this.ragService.resolveDownloadPath(source)
+    if (!filePath) {
+      return response.status(404).json({ error: 'File not found' })
+    }
+    const fileName = filePath.split(/[/\\]/).at(-1) ?? 'download'
+    return response.attachment(filePath, fileName)
   }
 }
