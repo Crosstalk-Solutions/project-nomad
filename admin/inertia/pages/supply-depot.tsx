@@ -363,6 +363,16 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       {loading && !modal && <LoadingSpinner fullscreen text="Working..." />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {!isOnline && (
+          <Alert
+            title="No internet connection. You may not be able to download files."
+            message=""
+            type="warning"
+            variant="solid"
+            className="!mb-4"
+          />
+        )}
+
         {/* ── Hero / controls panel ─────────────────────────────────────────── */}
         <div className="rounded-lg overflow-hidden bg-desert-white border border-desert-stone-light shadow-sm mb-8">
           {/* Green header band */}
@@ -383,7 +393,6 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
             <div className="absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8">
               <div className="w-full h-full bg-desert-green-dark opacity-30 transform rotate-45" />
             </div>
-
             <div className="relative flex items-center gap-3">
               <IconBox className="text-white opacity-90 flex-shrink-0" size={28} />
               <div>
@@ -442,8 +451,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border ${activeCategory === cat.id
-                      ? 'bg-desert-green text-white border-desert-green'
-                      : 'bg-surface-secondary text-text-muted border-desert-stone-lighter hover:text-text-primary hover:border-desert-stone-light'
+                    ? 'bg-desert-green text-white border-desert-green'
+                    : 'bg-surface-secondary text-text-muted border-desert-stone-lighter hover:text-text-primary hover:border-desert-stone-light'
                     }`}
                 >
                   {cat.label}
@@ -899,8 +908,8 @@ function AppCard({
   return (
     <div
       className={`relative flex flex-col rounded-xl border p-4 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${service.installed
-          ? 'border-desert-stone-light'
-          : 'border-desert-stone-lighter hover:border-desert-stone-light'
+        ? 'border-desert-stone-light'
+        : 'border-desert-stone-lighter hover:border-desert-stone-light'
         }`}
     >
       {/* Installed accent spine (rounded to follow the card corners — the card no longer clips
@@ -1065,15 +1074,15 @@ function AppCard({
                   {
                     migrationInstructionsHref ? (
                       <a
-                      href={migrationInstructionsHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer text-text-primary hover:bg-surface-secondary"
-                    >
-                      <IconBook className="h-4 w-4" />
-                      {migrationInstructionsText || 'Migration instructions'}
-                    </a>
+                        href={migrationInstructionsHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer text-text-primary hover:bg-surface-secondary"
+                      >
+                        <IconBook className="h-4 w-4" />
+                        {migrationInstructionsText || 'Migration instructions'}
+                      </a>
                     ) : (null)
                   }
                   {!service.is_custom && onToggleAutoUpdate ? (
@@ -1147,8 +1156,8 @@ function DropdownItem({
         onClick()
       }}
       className={`flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left cursor-pointer ${danger
-          ? 'text-desert-red hover:bg-desert-red/10'
-          : 'text-text-primary hover:bg-surface-secondary'
+        ? 'text-desert-red hover:bg-desert-red/10'
+        : 'text-text-primary hover:bg-surface-secondary'
         }`}
     >
       {icon}
