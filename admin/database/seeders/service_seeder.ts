@@ -569,6 +569,8 @@ export default class ServiceSeeder extends BaseSeeder {
       'service_name',
       'is_custom',
       'is_user_modified',
+      'installed',
+      'container_config',
     ])
     const existingServiceMap = new Map(existingServices.map((s) => [s.service_name, s]))
 
@@ -588,14 +590,51 @@ export default class ServiceSeeder extends BaseSeeder {
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
       if (existing && !existing.is_custom && !existing.is_user_modified) {
-        await Service.query().where('service_name', service.service_name).update({
-          container_config: service.container_config,
-          container_command: service.container_command ?? null,
-          metadata: (service as any).metadata ?? null,
-          category: service.category,
-          ui_location: service.ui_location,
-        })
+        // An installed app whose published host ports differ from the catalog was deployed on
+        // an alternate port (e.g. the default was already taken on that host) before the
+        // is_user_modified flag could record it. Adopting the catalog values would desync the
+        // record from the running container and break the app's link, so leave the row alone.
+        // Only host ports are compared: catalog corrections to internal container ports or the
+        // ui_location scheme still sync.
+        if (
+          existing.installed &&
+          hostPortsDiffer(existing.container_config, service.container_config)
+        ) {
+          continue
+        }
+        await Service.query()
+          .where('service_name', service.service_name)
+          .update({
+            container_config: service.container_config,
+            container_command: service.container_command ?? null,
+            metadata: (service as any).metadata ?? null,
+            category: service.category,
+            ui_location: service.ui_location,
+          })
       }
     }
   }
+}
+
+/** Whether two serialized container configs publish a different set of host ports. */
+function hostPortsDiffer(existingConfig: string | null, catalogConfig: string | null): boolean {
+  const hostPorts = (raw: string | null): string | null => {
+    if (!raw) return null
+    try {
+      const bindings = JSON.parse(raw)?.HostConfig?.PortBindings ?? {}
+      return Object.values(bindings)
+        .flat()
+        .map((b: any) => b?.HostPort)
+        .filter(Boolean)
+        .sort()
+        .join(',')
+    } catch {
+      return null
+    }
+  }
+  const existing = hostPorts(existingConfig)
+  const catalog = hostPorts(catalogConfig)
+  // If either side is absent or unparseable, divergence can't be established — let the sync run.
+  if (existing === null || catalog === null) return false
+  return existing !== catalog
 }
