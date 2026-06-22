@@ -6,6 +6,7 @@ import { SystemService } from '#services/system_service'
 import { getSettingSchema, updateSettingSchema, validateSettingValue } from '#validators/settings'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import env from '#start/env'
 
 @inject()
 export default class SettingsController {
@@ -106,6 +107,19 @@ export default class SettingsController {
         latestResult,
         status: status.status,
         currentBenchmarkId: status.benchmarkId,
+      },
+    })
+  }
+
+  async advanced({ inertia }: HttpContext) {
+    // When the env var is set it always takes precedence over the stored value,
+    // so surface that to the UI to disable the field and explain the override.
+    const envOverride = Boolean(env.get('INTERNET_STATUS_TEST_URL')?.trim())
+    const internetStatusTestUrl = await KVStore.getValue('system.internetStatusTestUrl')
+    return inertia.render('settings/advanced', {
+      advanced: {
+        internetStatusTestUrl: internetStatusTestUrl ?? '',
+        internetStatusTestUrlEnvOverride: envOverride,
       },
     })
   }

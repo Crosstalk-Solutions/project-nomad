@@ -7,6 +7,7 @@ export const KV_STORE_SCHEMA = {
   'system.updateAvailable':     'boolean',
   'system.latestVersion':       'string',
   'system.earlyAccess':         'boolean',
+  'system.internetStatusTestUrl': 'string',
   'autoUpdate.enabled':         'boolean',
   'autoUpdate.windowStart':     'string',
   'autoUpdate.windowEnd':       'string',

@@ -49,31 +49,37 @@ export class SystemService {
     const MAX_ATTEMPTS = 3
 
     let testUrls = DEFAULT_TEST_URLS
-    const customTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
 
-    // If a custom test URL is provided and valid, use it exclusively. This
-    // preserves the existing override behavior for operators who intentionally
-    // point connectivity checks at a specific endpoint.
+    // Resolve the test endpoint in priority order: the INTERNET_STATUS_TEST_URL
+    // env var always wins (legacy override for operators who intentionally point
+    // connectivity checks at a specific endpoint), then the UI-configurable value
+    // stored in KVStore, and finally the built-in defaults.
+    const envTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
+    const kvTestUrl = (await KVStore.getValue('system.internetStatusTestUrl'))?.trim()
+    const customTestUrl = envTestUrl || kvTestUrl
+
+    // If a custom test URL is provided and valid, use it exclusively.
     if (customTestUrl && customTestUrl !== '') {
       try {
         new URL(customTestUrl)
         testUrls = [customTestUrl]
       } catch (error) {
         logger.warn(
-          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrl}. Falling back to default URLs.`
+          `Invalid internet status test URL: ${customTestUrl}. Falling back to default URLs.`
         )
       }
     }
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        // Probe all endpoints in parallel and resolve as soon as the first one
+        // Probe all test endpoints in parallel and resolve as soon as the first one
         // responds. Any HTTP response (including non-2xx) means we reached the
         // internet, so accept all status codes rather than requiring a strict 200.
         await Promise.any(
-          testUrls.map((testUrl) =>
-            axios.get(testUrl, { timeout: 5000, validateStatus: () => true })
-          )
+          testUrls.map((testUrl) => {
+            logger.debug(`[SystemService] Checking internet connectivity via: ${testUrl}`)
+            return axios.get(testUrl, { timeout: 5000, validateStatus: () => true })
+          })
         )
         return true
       } catch (error) {
