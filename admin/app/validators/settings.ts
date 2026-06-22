@@ -36,6 +36,24 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'system.internetStatusTestUrl': {
+            // Empty clears the setting (reverts to env var / built-in defaults).
+            if (value === '' || value === undefined || value === null) {
+                return null
+            }
+            if (typeof value !== 'string') {
+                return 'Test URL must be a string.'
+            }
+            try {
+                const url = new URL(value)
+                if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                    return 'Test URL must use http or https.'
+                }
+            } catch {
+                return 'Test URL must be a valid URL (e.g. "https://example.com").'
+            }
+            return null
+        }
         case 'contentAutoUpdate.maxBytesPerWindow': {
             // Per-window download budget in bytes. 0 = unlimited.
             const num = Number(value)

@@ -108,7 +108,9 @@ For answers to common questions about Project N.O.M.A.D., please see our [FAQ](F
 ## About Internet Usage & Privacy
 Project N.O.M.A.D. is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, N.O.M.A.D. does not require an internet connection and has ZERO built-in telemetry.
 
-To test internet connectivity, N.O.M.A.D. first attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace`. If that endpoint is unreachable (for example, because your network blocks `1.1.1.1`), it falls back to other endpoints the application already contacts (the GitHub API and the Project N.O.M.A.D. API) and considers the connection online if any of them respond. You can override the endpoint used for this check with the `INTERNET_STATUS_TEST_URL` environment variable.
+To test internet connectivity, N.O.M.A.D. first attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace`. If that endpoint is unreachable (for example, because your network blocks `1.1.1.1`), it falls back to other endpoints the application already contacts (the GitHub API and the Project N.O.M.A.D. API) and considers the connection online if any of them respond.
+
+You can override the endpoint used for this check in two ways. The connectivity test URL can be configured from the UI under **Settings → Advanced** (stored locally on your instance), or you can set the `INTERNET_STATUS_TEST_URL` environment variable. When set, the environment variable always takes precedence over the UI-configured value. If neither is set, the built-in defaults above are used.
 
 ## About Security
 By design, Project N.O.M.A.D. is intended to be open and available without hurdles — it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access its resources), you can block/open ports to control which services are exposed.

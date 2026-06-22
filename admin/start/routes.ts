@@ -57,6 +57,7 @@ router
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
     router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
+    router.get('/advanced', [SettingsController, 'advanced'])
   })
   .prefix('/settings')
 
