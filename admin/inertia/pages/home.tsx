@@ -1,8 +1,10 @@
 import {
   IconBolt,
   IconBox,
+  IconFirstAidKit,
   IconHelp,
   IconMapRoute,
+  IconPill,
   IconSettings,
   IconWifiOff,
 } from '@tabler/icons-react'
@@ -25,6 +27,31 @@ const MAPS_ITEM = {
   icon: <IconMapRoute size={48} />,
   installed: true,
   displayOrder: 4,
+  poweredBy: null,
+}
+
+// Drug Reference + "When to use what" — offline medical reference tiles.
+// icon and displayOrder here are a reasonable default; both are open for the
+// maintainer to re-pick to fit the dashboard's ordering conventions.
+const DRUG_REFERENCE_ITEM = {
+  label: 'Drug Reference',
+  to: '/drug-reference',
+  target: '',
+  description: 'Offline FDA drug labels: search by drug name',
+  icon: <IconPill size={48} />,
+  installed: true,
+  displayOrder: 5,
+  poweredBy: null,
+}
+
+const CONDITIONS_ITEM = {
+  label: 'When to use what',
+  to: '/conditions',
+  target: '',
+  description: 'Match a situation (burn, fever, diarrhea) to the right OTC drugs',
+  icon: <IconFirstAidKit size={48} />,
+  installed: true,
+  displayOrder: 6,
   poweredBy: null,
 }
 
@@ -127,6 +154,10 @@ export default function Home(props: {
 
   // Add Maps as a Core Capability
   items.push(MAPS_ITEM)
+
+  // Add the offline medical-reference Core Capabilities
+  items.push(DRUG_REFERENCE_ITEM)
+  items.push(CONDITIONS_ITEM)
 
   // Add system items
   items.push(...SYSTEM_ITEMS)
