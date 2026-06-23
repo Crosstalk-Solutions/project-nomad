@@ -4,9 +4,9 @@ import { IconAlertTriangle } from '@tabler/icons-react'
  * "When to use what" — top-of-page safety banner.
  *
  * A prominent amber callout that renders at the TOP of both the condition index
- * and detail pages. This is a hard ship requirement (per the design spec), not a
- * footnote: results are FDA label-indication matches, NOT recommendations, NOT
- * an FDA endorsement, and NOT a drug-interaction checker.
+ * and detail pages: results are FDA label-indication matches, NOT
+ * recommendations, NOT an FDA endorsement, and NOT a drug-interaction checker.
+ * It leads the page (not a footnote) so the caveat is read before any result.
  */
 export default function SafetyBanner() {
   return (

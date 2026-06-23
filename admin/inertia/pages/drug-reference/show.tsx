@@ -156,7 +156,7 @@ export default function DrugReferenceShow({ label, situations = [] }: PageProps)
           <LabelSection
             title="Drug Interactions"
             body={label.drug_interactions}
-            footnote="Single-drug label information — not a cross-drug interaction checker (see issue #9)"
+            footnote="Single-drug label information — not a cross-drug interaction checker"
           />
         )}
 

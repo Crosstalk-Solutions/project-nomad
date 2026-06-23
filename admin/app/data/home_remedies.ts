@@ -6,7 +6,7 @@
  * is what the running app reads (the image ships only compiled admin/build/).
  * Keep the two in sync. Sources are US-government public-domain pages (CDC,
  * NIH/NLM MedlinePlus summaries, FDA consumer updates) — each entry carries its
- * exact sourceUrl. See GitHub issue #23.
+ * exact sourceUrl.
  */
 
 import type { NaturalRemediesFile } from '../../types/conditions.js'

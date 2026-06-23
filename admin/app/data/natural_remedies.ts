@@ -13,7 +13,7 @@
  *   into the image (`ADD admin/ ./`) and ships only the compiled `build/` output,
  *   so a repo-root JSON file never reaches the container filesystem. Bundling the
  *   remedies as a compiled module guarantees they are always present at runtime
- *   with no path-resolution fragility. The spec explicitly allows "JSON/TS constant".
+ *   with no path-resolution fragility.
  *
  * Keep this file and `collections/natural_remedies.json` in sync — same `version`,
  * same remedy slugs, same remedy count. `parseNaturalRemediesFile` (admin/util/conditions.ts)

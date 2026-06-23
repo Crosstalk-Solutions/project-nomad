@@ -1,9 +1,9 @@
 /**
  * "When to use what" — curated condition spine (Phase 1, runtime source of truth).
  *
- * A bounded, hand-curated list of common first-aid / emergency situations — the
- * "small booklet" the upstream #664 requester described. Each entry's
- * `searchTerms` drive the FULLTEXT search over `drug_labels.indications`.
+ * A bounded, hand-curated list of common first-aid / emergency situations — a
+ * "small booklet" of when-to-use-what. Each entry's `searchTerms` drive the
+ * FULLTEXT search over `drug_labels.indications`.
  *
  * WHY a TS constant (not a JSON file read at runtime):
  *   The repo-root `collections/conditions.json` mirror exists for parity with
@@ -12,7 +12,7 @@
  *   image (`ADD admin/ ./`) and ships only the compiled `build/` output, so a
  *   repo-root JSON file never reaches the container filesystem. Bundling the
  *   spine as a compiled module guarantees it is always present at runtime with
- *   no path-resolution fragility. The spec explicitly allows "JSON/TS constant".
+ *   no path-resolution fragility.
  *
  * Keep this file and `collections/conditions.json` in sync (same `version`,
  * same entries) — the JSON is the public/browseable copy, this is the canonical

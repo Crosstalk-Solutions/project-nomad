@@ -112,7 +112,7 @@ function drugKey(d: DrugSearchResult): string {
  * Once data is loaded: chips + dual-section results, with the FDA-data update control
  * and source citation at the foot.
  */
-export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions, remedies }: PageProps) {
+export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions, remedies = [] }: PageProps) {
   const [query, setQuery] = useState('')
   const [productType, setProductType] = useState<string | null>(null)
   const [route, setRoute] = useState<string | null>(null)

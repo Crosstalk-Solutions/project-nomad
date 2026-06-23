@@ -311,7 +311,7 @@ check('every remedy condition slug exists in the conditions spine', () => {
   )
 })
 
-check('shipped NATURAL_REMEDIES_FILE has 18 remedies (spec count)', () => {
+check('shipped NATURAL_REMEDIES_FILE has the 18 curated remedies', () => {
   const n = NATURAL_REMEDIES_FILE.remedies.length
   assert.equal(n, 18, `expected 18 remedies, got ${n}`)
 })

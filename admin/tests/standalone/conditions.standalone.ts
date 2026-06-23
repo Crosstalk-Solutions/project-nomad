@@ -8,7 +8,7 @@
  *   node --experimental-strip-types tests/standalone/conditions.standalone.ts
  *
  * Also smoke-checks the shipped curated spine (admin/app/data/conditions.ts)
- * parses cleanly and stays in the 30–50 range the spec calls for.
+ * parses cleanly and stays a bounded curated list of ~30–50 conditions.
  */
 import assert from 'node:assert/strict'
 import {
@@ -276,7 +276,7 @@ check('shipped CONDITIONS_FILE parses cleanly with no dropped entries', () => {
   assert.equal(parsed.conditions.length, CONDITIONS_FILE.conditions.length)
 })
 
-check('shipped spine holds 30–50 curated conditions (spec range)', () => {
+check('shipped spine holds a bounded curated list of ~30–50 conditions', () => {
   const n = CONDITIONS_FILE.conditions.length
   assert.ok(n >= 30 && n <= 50, `expected 30–50 conditions, got ${n}`)
 })

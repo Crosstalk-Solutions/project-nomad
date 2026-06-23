@@ -9,12 +9,13 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
  * the ingest refreshes existing rows in place; no manual purge needed.
  *
  * Section text columns use mediumtext (up to 16 MB) so no openFDA section is
- * truncated. The `searchable_name` varchar(768) stays within InnoDB's index
- * key-length budget under utf8mb4 (191 chars × 4 bytes = 764 < 767 limit for
- * a single column; 768 bytes here fits because MySQL counts bytes for the
- * key-length limit when the column is declared as varchar, not character count
- * for the prefix approach). If a tighter budget is needed in a utf8mb4_bin
- * collation, use varchar(191) — but the utf8mb4 default collation is fine.
+ * truncated. The `searchable_name` varchar(768) is indexed (idx_drug_labels_searchable_name).
+ * Under utf8mb4 that column is 768 × 4 = 3072 bytes, which is exactly the InnoDB
+ * index-prefix limit for the DYNAMIC / COMPRESSED row formats (DYNAMIC is the
+ * MySQL 8.0 default). It would overflow the 767-byte limit of the older
+ * REDUNDANT / COMPACT row formats, so this depends on the 8.0 default row format.
+ * If a deployment forces an older row format, drop the column to varchar(191)
+ * (191 × 4 = 764 ≤ 767) to stay within the 767-byte budget.
  *
  * The FULLTEXT index is created in a guarded try/catch so a non-InnoDB engine
  * or an older MySQL version that doesn't support FULLTEXT doesn't break the
@@ -49,7 +50,8 @@ export default class extends BaseSchema {
       table.string('product_type', 32).nullable()
 
       // Normalized brand+generic blob — computed once at ingest, never on read.
-      // 768 chars stays within InnoDB's utf8mb4 index key-length budget.
+      // 768 chars × 4 bytes (utf8mb4) = 3072 = the InnoDB DYNAMIC/COMPRESSED
+      // index-prefix limit (see header note).
       table.string('searchable_name', 768).nullable()
 
       // Section text — mediumtext so even the longest FDA label bodies are stored
@@ -95,13 +97,20 @@ export default class extends BaseSchema {
     // name+indications index (search-by-what-it-treats) is deferred: FULLTEXT
     // can't take a prefix length, and indexing the full mediumtext body adds heavy
     // index weight v1 doesn't use.
-    try {
-      await this.db.rawQuery(
-        `ALTER TABLE drug_labels ADD FULLTEXT INDEX ft_drug_labels_name (searchable_name)`
-      )
-    } catch {
-      // Non-InnoDB or FULLTEXT unsupported — search falls back to LIKE.
-    }
+    //
+    // Deferred so it runs AFTER createTable executes — Lucid's schema builder
+    // is deferred, so a bare ALTER here would hit a not-yet-created table. The
+    // this.defer(db => …) pattern (see 1775100000001_create_custom_library_sources_table.ts)
+    // queues it to run on the live connection once the table exists.
+    this.defer(async (db) => {
+      try {
+        await db.rawQuery(
+          `ALTER TABLE drug_labels ADD FULLTEXT INDEX ft_drug_labels_name (searchable_name)`
+        )
+      } catch {
+        // Non-InnoDB or FULLTEXT unsupported — search falls back to LIKE.
+      }
+    })
   }
 
   async down() {

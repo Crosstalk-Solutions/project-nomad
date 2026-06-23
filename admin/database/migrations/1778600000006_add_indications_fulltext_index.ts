@@ -10,7 +10,7 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
  * Design notes:
  * - FULLTEXT indexes cannot take a column prefix length, so the full
  *   mediumtext body of `indications` is indexed. On ~259k rows this adds
- *   meaningful index weight (tracked in issue #11).
+ *   meaningful index weight.
  * - The guard mirrors the existing ft_drug_labels_name guard in migration
  *   1778600000004: a non-InnoDB engine or a MySQL version without FULLTEXT
  *   support must not block the migration runner. The indication-search path
