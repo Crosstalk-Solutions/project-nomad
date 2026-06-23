@@ -213,7 +213,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 20,
       description: 'Locally-hosted PDF manipulation tool — merge, split, compress, convert, and more',
       icon: 'IconFileDescription',
-      container_image: 'ghcr.io/stirling-tools/s-pdf:latest',
+      container_image: 'ghcr.io/stirling-tools/s-pdf:2.13.1',
       source_repo: 'https://github.com/Stirling-Tools/Stirling-PDF',
       container_command: null,
       container_config: JSON.stringify({
@@ -304,7 +304,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 22,
       description: 'Web-based e-book reader and library manager for your Calibre collection',
       icon: 'IconBook',
-      container_image: 'lscr.io/linuxserver/calibre-web:latest',
+      container_image: 'linuxserver/calibre-web:0.6.26-ls386',
       source_repo: 'https://github.com/janeczku/calibre-web',
       container_command: null,
       container_config: JSON.stringify({
@@ -335,7 +335,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 23,
       description: 'Collection of handy utilities for developers — UUID, hash, encoding, formatters, and more',
       icon: 'IconTool',
-      container_image: 'ghcr.io/corentinth/it-tools:latest',
+      container_image: 'ghcr.io/corentinth/it-tools:2024.10.22-7ca5933',
       source_repo: 'https://github.com/CorentinTh/it-tools',
       container_command: null,
       container_config: JSON.stringify({
@@ -360,7 +360,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 24,
       description: 'Virtual whiteboard for sketching hand-drawn-style diagrams — works fully offline',
       icon: 'IconPencil',
-      container_image: 'excalidraw/excalidraw:latest',
+      container_image: 'excalidraw/excalidraw:sha-4bfc5bb',
       source_repo: 'https://github.com/excalidraw/excalidraw',
       container_command: null,
       container_config: JSON.stringify({
@@ -385,7 +385,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 30,
       description: 'Browser-based client for managing Meshtastic mesh radio devices',
       icon: 'IconWifi',
-      container_image: 'ghcr.io/meshtastic/web:latest',
+      container_image: 'ghcr.io/meshtastic/web:2.7.1',
       source_repo: 'https://github.com/meshtastic/web',
       container_command: null,
       container_config: JSON.stringify({
@@ -397,32 +397,6 @@ export default class ServiceSeeder extends BaseSeeder {
         ExposedPorts: { '8080/tcp': {} },
       }),
       ui_location: '8450',
-      installed: false,
-      installation_status: 'idle',
-      is_dependency_service: false,
-      is_custom: false,
-      category: 'networking',
-      depends_on: null,
-    },
-    {
-      service_name: SERVICE_NAMES.MESHTASTICD,
-      friendly_name: 'Meshtastic Daemon',
-      powered_by: 'Meshtastic',
-      display_order: 31,
-      description: 'Software-defined Meshtastic node with REST API — connect devices and build mesh networks',
-      icon: 'IconBroadcast',
-      container_image: 'meshtastic/meshtasticd:latest',
-      source_repo: 'https://github.com/meshtastic/meshtasticd',
-      container_command: null,
-      container_config: JSON.stringify({
-        HostConfig: {
-          RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '4403/tcp': [{ HostPort: '8460' }] },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/meshtasticd:/root/.portduino`],
-        },
-        ExposedPorts: { '4403/tcp': {} },
-      }),
-      ui_location: '8460',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
@@ -477,7 +451,7 @@ export default class ServiceSeeder extends BaseSeeder {
       // Maintained fork. The original hay-kot/homebox was archived June 2024;
       // sysadminsmedia is the official continuation (drop-in: same 7745 port + /data volume,
       // migrates an existing DB forward, telemetry off by default).
-      container_image: 'ghcr.io/sysadminsmedia/homebox:latest',
+      container_image: 'ghcr.io/sysadminsmedia/homebox:0.26.2',
       source_repo: 'https://github.com/sysadminsmedia/homebox',
       container_command: null,
       container_config: JSON.stringify({
@@ -503,7 +477,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 26,
       description: 'Lightweight Bitwarden-compatible password manager server — secure your credentials offline',
       icon: 'IconShieldLock',
-      container_image: 'vaultwarden/server:latest',
+      container_image: 'vaultwarden/server:1.36.0',
       source_repo: 'https://github.com/dani-garcia/vaultwarden',
       container_command: null,
       container_config: JSON.stringify({
@@ -538,7 +512,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 27,
       description: 'Open-source media server — stream your video, music, and photo libraries',
       icon: 'IconMovie',
-      container_image: 'jellyfin/jellyfin:latest',
+      container_image: 'jellyfin/jellyfin:10.11.11',
       source_repo: 'https://github.com/jellyfin/jellyfin',
       container_command: null,
       container_config: JSON.stringify({
