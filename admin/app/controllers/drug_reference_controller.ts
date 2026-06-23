@@ -49,6 +49,7 @@ export default class DrugReferenceController {
         ingestStatus: null,
         rowCount: 0,
         conditions: [],
+        remedies: [],
       })
     }
   }

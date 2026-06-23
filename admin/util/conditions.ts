@@ -165,8 +165,8 @@ export function situationsForIndications(
  * searchTerms.
  *
  * - Multi-word terms are wrapped in double quotes so they match as a phrase
- *   ("sore throat") rather than as two loose tokens — this tightens precision,
- *   the trade-off the spec calls out for relevance-vs-precision.
+ *   ("sore throat") rather than as two loose tokens — this trades a little
+ *   recall for precision on multi-word conditions.
  * - Single-word terms are passed through bare.
  * - Internal double-quotes inside a term are stripped (they would break the
  *   phrase quoting).

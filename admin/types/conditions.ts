@@ -4,7 +4,7 @@
  * A condition (situation) is a curated first-aid / emergency scenario the user
  * browses or searches. Each carries `searchTerms` (synonyms) that drive the
  * FULLTEXT search over `drug_labels.indications` — the same machinery the
- * Drug Reference indication search (#11) uses.
+ * indication FULLTEXT search uses.
  *
  * Phase 1 maps conditions → OTC drugs.
  * Phase 2 adds natural remedies from NCCIH, resolved against the same condition
@@ -78,8 +78,9 @@ export interface NaturalRemedy {
   /**
    * Which curated corpus the entry came from. 'herb' = NCCIH herbal fact
    * sheets; 'self-care' = non-herbal home-care measures from CDC/NIH/FDA pages
-   * (issue #23). Assigned at merge time in condition_service — the JSON files
-   * don't carry it. Optional so older data parses; absent means 'herb'.
+   * (the non-herbal home-care entries). Assigned at merge time in
+   * condition_service — the JSON files don't carry it. Optional so older data
+   * parses; absent means 'herb'.
    */
   kind?: 'herb' | 'self-care'
 }

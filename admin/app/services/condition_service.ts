@@ -41,9 +41,9 @@ import type { DrugSearchResult } from '../../types/drug_reference.js'
 
 /**
  * Module-level merged remedies corpus (fail-soft): the NCCIH herbs plus the
- * non-herbal home-care measures (CDC/NIH/FDA, issue #23), each entry tagged
- * with its kind so the UI can badge them apart. Slugs are disjoint between the
- * two files (validated at curation time).
+ * non-herbal home-care measures (CDC/NIH/FDA), each entry tagged with its kind
+ * so the UI can badge them apart. Slugs are disjoint between the two files
+ * (validated at curation time).
  */
 const HERB_FILE = parseNaturalRemediesFile(NATURAL_REMEDIES_FILE)
 const HOME_FILE = parseNaturalRemediesFile(HOME_REMEDIES_FILE)
