@@ -262,6 +262,20 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     },
   })
 
+  const cancelAllMutation = useMutation({
+    mutationFn: () => api.cancelAllEmbedJobs(),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'All embedding jobs cancelled.' })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['failedEmbedJobs'] })
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['kbFileWarnings'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to cancel jobs.' })
+    },
+  })
+
   const startQdrantMutation = useMutation({
     mutationFn: () => api.affectService(SERVICE_NAMES.QDRANT, 'start'),
     onSuccess: () => {
@@ -356,6 +370,31 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     for (const name of failedNames) {
       addNotification({ type: 'error', message: `Failed to upload: ${name}` })
     }
+  }
+
+  const handleConfirmCancelAll = () => {
+    openModal(
+      <StyledModal
+        title='Cancel All Embedding Jobs?'
+        onConfirm={() => {
+          cancelAllMutation.mutate()
+          closeModal('confirm-cancel-all-modal')
+        }}
+        onCancel={() => closeModal('confirm-cancel-all-modal')}
+        open={true}
+        confirmText='Cancel All Jobs'
+        cancelText='Keep Jobs'
+        confirmVariant='danger'
+      >
+        <p className='text-text-primary'>
+          This stops <strong>every</strong> embedding job — including ones still in progress or
+          stuck — and clears the processing queue. The uploaded source files for those jobs are
+          deleted, so you'll need to re-upload anything you still want indexed. Stored files that
+          already finished embedding are not affected. Are you sure you want to proceed?
+        </p>
+      </StyledModal>,
+      'confirm-cancel-all-modal'
+    )
   }
 
   const handleConfirmSync = () => {
@@ -533,18 +572,33 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           </div>
 
           <div className="my-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
               <StyledSectionHeader title="Processing Queue" className="!mb-0" />
-              <StyledButton
-                variant="danger"
-                size="md"
-                icon="IconTrash"
-                onClick={() => cleanupFailedMutation.mutate()}
-                loading={cleanupFailedMutation.isPending}
-                disabled={cleanupFailedMutation.isPending || qdrantOffline}
-              >
-                Clean Up Failed
-              </StyledButton>
+              <div className="flex items-center gap-2 flex-wrap">
+                <StyledButton
+                  variant="danger"
+                  size="md"
+                  icon="IconTrash"
+                  onClick={() => cleanupFailedMutation.mutate()}
+                  loading={cleanupFailedMutation.isPending}
+                  disabled={cleanupFailedMutation.isPending || qdrantOffline}
+                >
+                  Clean Up Failed
+                </StyledButton>
+                {/* Not gated on qdrantOffline: clearing stuck jobs must work during
+                    a Qdrant/Ollama outage, which is exactly when they wedge. */}
+                <StyledButton
+                  variant="danger"
+                  size="md"
+                  icon="IconPlayerStop"
+                  onClick={handleConfirmCancelAll}
+                  loading={cancelAllMutation.isPending}
+                  disabled={cancelAllMutation.isPending}
+                  title="Stop and clear every embedding job regardless of state, including stuck or in-progress ones. Deletes the uploaded source files for those jobs."
+                >
+                  Cancel All Jobs
+                </StyledButton>
+              </div>
             </div>
             <ActiveEmbedJobs withHeader={false} />
           </div>
