@@ -68,7 +68,7 @@ export default function AdvancedPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title="Advanced Settings | Project N.O.M.A.D." />
+      <Head title="Advanced Settings | Project NOMAD" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">Advanced</h1>
@@ -80,7 +80,7 @@ export default function AdvancedPage(props: {
           <StyledSectionHeader title="Connectivity" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <p className="text-sm text-text-secondary mb-4">
-              N.O.M.A.D. periodically checks whether it can reach the internet. By default it probes
+              NOMAD periodically checks whether it can reach the internet. By default it probes
               Cloudflare's utility endpoint with a few fallbacks. Set a custom endpoint below if your
               network blocks the defaults. Leave blank to use the built-in defaults.
             </p>

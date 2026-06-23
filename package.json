@@ -1,7 +1,7 @@
 {
   "name": "project-nomad",
   "version": "1.33.0",
-  "description": "Project N.O.M.A.D. (Node for Offline Media, Archives, and Data) - an offline-first knowledge and education server.",
+  "description": "Project NOMAD - an offline-first knowledge and education server.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

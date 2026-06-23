@@ -1,8 +1,8 @@
 # Community Add-Ons
 
-Project N.O.M.A.D. ships with a curated set of built-in tools and content, but the community has started building add-ons that extend the platform with specialized offline content packs. These are third-party projects, not maintained by the N.O.M.A.D. team. Install them at your own discretion, and please direct any bugs or feature requests to the add-on's own repository.
+Project NOMAD ships with a curated set of built-in tools and content, but the community has started building add-ons that extend the platform with specialized offline content packs. These are third-party projects, not maintained by the NOMAD team. Install them at your own discretion, and please direct any bugs or feature requests to the add-on's own repository.
 
-Have you built a NOMAD add-on? Open an issue on the [Project N.O.M.A.D. GitHub repository](https://github.com/Crosstalk-Solutions/project-nomad/issues/new) or send us a note through the [contact form on projectnomad.us](https://www.projectnomad.us/contact), and we'll review it for inclusion on this page.
+Have you built a NOMAD add-on? Open an issue on the [Project NOMAD GitHub repository](https://github.com/Crosstalk-Solutions/project-nomad/issues/new) or send us a note through the [contact form on projectnomad.us](https://www.projectnomad.us/contact), and we'll review it for inclusion on this page.
 
 ---
 
@@ -45,4 +45,4 @@ Expect the initial build to take anywhere from a few minutes to an hour or more 
 
 ## A Note on Support
 
-These add-ons are community-built and community-maintained. If something goes wrong with an install script or the content inside a ZIM, please open an issue on the add-on's own repository rather than Project N.O.M.A.D.'s. We're happy to help if the issue is with NOMAD itself, for example if Kiwix isn't picking up a new ZIM after an install, but we can't maintain or support third-party content.
+These add-ons are community-built and community-maintained. If something goes wrong with an install script or the content inside a ZIM, please open an issue on the add-on's own repository rather than Project NOMAD's. We're happy to help if the issue is with NOMAD itself, for example if Kiwix isn't picking up a new ZIM after an install, but we can't maintain or support third-party content.

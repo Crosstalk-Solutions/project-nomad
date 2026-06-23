@@ -1,6 +1,6 @@
-# Project N.O.M.A.D. management services Docker Compose configuration
+# Project NOMAD management services Docker Compose configuration
 #
-# This compose file defines the admin server, database, and other supporting services required to run Project N.O.M.A.D.
+# This compose file defines the admin server, database, and other supporting services required to run Project NOMAD
 # You can use this with `docker-compose up -d` to start all the necessary services with a single command after installation.
 #
 # Note: we recommend leaving all of the environment variables as-is except for any "replaceme" values,

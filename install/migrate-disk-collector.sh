@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. — Disk Collector Migration Script
+# Project NOMAD — Disk Collector Migration Script
 #
-# Script                | Project N.O.M.A.D. Disk Collector Migration Script
+# Script                | Project NOMAD Disk Collector Migration Script
 # Version               | 1.0.0
 # Author                | Crosstalk Solutions, LLC
 # Website               | https://crosstalksolutions.com
@@ -63,13 +63,13 @@ check_has_sudo() {
 }
 
 check_confirmation() {
-  echo -e "${YELLOW}#${RESET} This script migrates your Project N.O.M.A.D. installation from the"
+  echo -e "${YELLOW}#${RESET} This script migrates your Project NOMAD installation from the"
   echo -e "${YELLOW}#${RESET} host-based disk info collector to the new disk-collector sidecar."
   echo -e "${YELLOW}#${RESET} It will modify compose.yml and restart the full compose stack"
   echo -e "${YELLOW}#${RESET} to drop the old /tmp bind mount and start the disk-collector sidecar."
   echo -e "${YELLOW}#${RESET} Please ensure you have a backup of your data before proceeding.\n"
 
-  echo -e "${RED}#${RESET} STOP: If you have customized your compose.yml or Nomad's storage setup (not common), please make these changes manually instead of using this script!\n"
+  echo -e "${RED}#${RESET} STOP: If you have customized your compose.yml or NOMAD's storage setup (not common), please make these changes manually instead of using this script!\n"
   read -rp "Do you want to continue? (y/N) " response
   if [[ ! "$response" =~ ^[Yy]$ ]]; then
     echo -e "${RED}#${RESET} Aborting. No changes have been made."
@@ -93,7 +93,7 @@ check_docker_running() {
 check_compose_file() {
   if [[ ! -f "$COMPOSE_FILE" ]]; then
     echo -e "${RED}#${RESET} compose.yml not found at ${COMPOSE_FILE}."
-    echo -e "${RED}#${RESET} Project N.O.M.A.D. does not appear to be installed or compose.yml is missing."
+    echo -e "${RED}#${RESET} Project NOMAD does not appear to be installed or compose.yml is missing."
     exit 1
   fi
   echo -e "${GREEN}#${RESET} Found compose.yml at ${COMPOSE_FILE}.\n"
@@ -213,7 +213,7 @@ verify_disk_collector_running() {
 
 # Main
 echo -e "${GREEN}#########################################################################${RESET}"
-echo -e "${GREEN}#${RESET}      Project N.O.M.A.D. — Disk Collector Migration Script             ${GREEN}#${RESET}"
+echo -e "${GREEN}#${RESET}      Project NOMAD — Disk Collector Migration Script             ${GREEN}#${RESET}"
 echo -e "${GREEN}#########################################################################${RESET}\n"
 
 check_is_bash
