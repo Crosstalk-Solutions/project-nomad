@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.33.0 - June 23, 2026
 
 ### Features
 - **Supply Depot — Custom Apps**: The Supply Depot is NOMAD's new home for installable apps, and it now lets you run your *own* custom Docker containers — not just the curated catalog. Specify an image, port mappings, volume binds, environment variables, and memory/CPU limits, and NOMAD spins it up as a managed sibling container. A live, debounced pre-flight check warns about port conflicts and resource limits as you type and hard-blocks unsafe configurations, with an "install anyway" override for warning-only cases (e.g. an untrusted registry or a `:latest` tag). Installed custom apps can be edited, updated (re-pull latest + recreate with a safe rollback if the new container fails), and removed (optionally deleting the image), and every installed app — curated or custom — gets per-container **Logs** and **Stats** modals. Host-path binds are hardened against escapes and logs/stats are scoped to NOMAD-managed containers only. Thanks @jakeaturner for the contribution!
