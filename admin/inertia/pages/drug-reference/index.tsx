@@ -66,7 +66,7 @@ function matchRemedies(remedies: NaturalRemedy[], query: string): NaturalRemedy[
 const DEBOUNCE_MS = 350
 const LIMIT = 50
 
-/** Shared elevated-card surface, matching the Supply Readiness elegance pass. */
+/** Shared elevated-card surface for the result and detail panels. */
 const CARD_SURFACE =
   'rounded-2xl border border-desert-stone-lighter/60 bg-desert-white ' +
   'shadow-[0_1px_2px_rgba(66,68,32,0.04),0_8px_24px_-12px_rgba(66,68,32,0.12)]'
