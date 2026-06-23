@@ -1,6 +1,6 @@
 # API Reference
 
-N.O.M.A.D. exposes a REST API for all operations. All endpoints are under `/api/` and return JSON.
+NOMAD exposes a REST API for all operations. All endpoints are under `/api/` and return JSON.
 
 ---
 
@@ -32,7 +32,7 @@ N.O.M.A.D. exposes a REST API for all operations. All endpoints are under `/api/
 | GET | `/api/system/info` | CPU, memory, disk, and platform info |
 | GET | `/api/system/internet-status` | Check internet connectivity |
 | GET | `/api/system/debug-info` | Detailed debug information |
-| GET | `/api/system/latest-version` | Check for the latest N.O.M.A.D. version |
+| GET | `/api/system/latest-version` | Check for the latest NOMAD version |
 | POST | `/api/system/update` | Trigger a system update |
 | GET | `/api/system/update/status` | Get update progress |
 | GET | `/api/system/update/logs` | Get update operation logs |

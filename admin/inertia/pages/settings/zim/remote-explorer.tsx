@@ -439,7 +439,7 @@ export default function ZimRemoteExplorer() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Explorer | Project N.O.M.A.D." />
+      <Head title="Content Explorer | Project NOMAD" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex justify-between items-center">

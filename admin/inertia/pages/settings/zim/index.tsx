@@ -128,7 +128,7 @@ export default function ZimPage() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Manager | Project N.O.M.A.D." />
+      <Head title="Content Manager | Project NOMAD" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between gap-4">

@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. Update Script
+# Project NOMAD Update Script
 
 ###################################################################################################################################################################################################
 
-# Script                | Project N.O.M.A.D. Update Script
+# Script                | Project NOMAD Update Script
 # Version               | 1.0.1
 # Author                | Crosstalk Solutions, LLC
 # Website               | https://crosstalksolutions.com
@@ -61,7 +61,7 @@ check_is_debian_based() {
 }
 
 get_update_confirmation(){
-  read -p "This script will update Project N.O.M.A.D. and its dependencies on your machine. No data loss is expected, but you should always back up your data before proceeding. Are you sure you want to continue? (y/n): " choice
+  read -p "This script will update Project NOMAD and its dependencies on your machine. No data loss is expected, but you should always back up your data before proceeding. Are you sure you want to continue? (y/n): " choice
   case "$choice" in
     y|Y )
       echo -e "${GREEN}#${RESET} User chose to continue with the update."
@@ -80,7 +80,7 @@ get_update_confirmation(){
 
 ensure_docker_installed_and_running() {
   if ! command -v docker &> /dev/null; then
-    echo -e "${RED}#${RESET} Docker is not installed. This is unexpected, as Project N.O.M.A.D. requires Docker to run. Did you mean to use the install script instead of the update script?"
+    echo -e "${RED}#${RESET} Docker is not installed. This is unexpected, as Project NOMAD requires Docker to run. Did you mean to use the install script instead of the update script?"
     exit 1
   fi
 
@@ -134,11 +134,11 @@ get_local_ip() {
 }
 
 success_message() {
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
+  echo -e "${GREEN}#${RESET} Project NOMAD installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
+  echo -e "${GREEN}#${RESET} Project NOMAD's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
-  echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
+  echo -e "${GREEN}#${RESET} Thank you for supporting Project NOMAD!\\n"
 }
 
 ###################################################################################################################################################################################################
