@@ -14,6 +14,7 @@
 - **Content Manager — Rescan Library**: A new "Rescan Library" button rebuilds the Kiwix index from the ZIM files currently on disk, so files **sideloaded** outside NOMAD's download flow (USB stick, SSH, network share) can be served without dropping to a terminal. It reports how many new books were found and, in library mode, hot-reloads without a container restart. Thanks @chriscrosstalk for the contribution!
 - **Configuration — Redis database selection**: Added a `REDIS_DB` environment variable so operators can pick a Redis logical database (0–15) for the job queue and live-update transport. This prevents key collisions when a single Redis instance is shared across multiple stacks (common in homelabs). Defaults to db 0, preserving existing behavior. Thanks @johno10661 for the contribution!
 - **Advanced Settings — Internet Test URL**: Added a new Advanced Settings page with an option to override the default internet test "beacon" URL (more advanced settings to come). Previously, overriding this URL required an ENV variable change and container restart. The legacy ENV variable is still respected if you've set it. Thanks @jakeaturner for the contribution!
+- **RAG**: Embedding jobs can now be cancelled, allowing users to clear stuck jobs that haven't explicitly failed. Thanks @jakeaturner for the contribution!
 
 ### Bug Fixes
 - **Storage**: When the admin storage volume is relocated to another disk, child apps (Kiwix, Ollama, Qdrant, Flatnotes, Kolibri) now automatically follow to the new location instead of mounting the old, empty path. The host storage root is now derived from the admin's actual mount, with an explicit `NOMAD_STORAGE_PATH` override and clearer compose comments. Thanks @chriscrosstalk for the fix!
@@ -42,6 +43,8 @@
 - **Dependencies**: Bumped React and React DOM. Thanks @jakeaturner for the contribution!
 - **Dependencies**: Bumped autoprefixer. Thanks @jakeaturner for the contribution!
 - **Dependencies**: Bumped BullMQ to 5.77.6 and updated affected job calls to the new arguments shape. Thanks @jakeaturner for the contribution!
+- **Supply Depot**: Pinned all curated image versions to ensure consistent baseline deployments. Thanks @jakeaturner for the contribution!
+- **Supply Depot**: Bumped the default versions of CyberChef to 10.24.0 and Ollama to 0.24.0. Thanks @jakeaturner for the contribution!
 
 ## Version 1.32.1 - May 27, 2026
 
