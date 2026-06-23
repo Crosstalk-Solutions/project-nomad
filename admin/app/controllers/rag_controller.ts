@@ -110,6 +110,14 @@ export default class RagController {
     })
   }
 
+  public async cancelAllJobs({ response }: HttpContext) {
+    const result = await EmbedFileJob.cancelAllJobs()
+    return response.status(200).json({
+      message: `Cancelled ${result.cancelled} job${result.cancelled !== 1 ? 's' : ''}${result.filesDeleted > 0 ? `, deleted ${result.filesDeleted} file${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
+      ...result,
+    })
+  }
+
   public async policyPromptState({ response }: HttpContext) {
     const result = await this.ragService.getPolicyPromptState()
     return response.status(200).json(result)

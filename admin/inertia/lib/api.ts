@@ -479,6 +479,13 @@ class API {
     })()
   }
 
+  async cancelAllEmbedJobs(): Promise<{ message: string; cancelled: number; filesDeleted: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string; cancelled: number; filesDeleted: number }>('/rag/jobs')
+      return response.data
+    })()
+  }
+
   async checkRAGHealth() {
     return catchInternal(async () => {
       const response = await this.client.get<{ online: boolean; message?: string }>('/rag/health')
