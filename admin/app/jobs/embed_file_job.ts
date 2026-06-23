@@ -164,6 +164,22 @@ export class EmbedFileJob {
           await new Promise((resolve) => setTimeout(resolve, EmbedFileJob.CPU_BATCH_DELAY_MS))
         }
 
+        // Bail before re-populating the queue if this job was cancelled mid-batch.
+        // cancelAllJobs() obliterates the queue (including this active job), but a
+        // worker already inside handle() would otherwise dispatch its continuation
+        // afterwards and silently revive a cancelled ZIM ingestion. If our own job
+        // key is gone, the cancel happened — skip the dispatch. Mirrors the
+        // "tolerate external removal" handling in safeUpdateProgress above.
+        const stillQueued = await QueueService.getInstance()
+          .getQueue(EmbedFileJob.queue)
+          .getJob(job.id!)
+        if (!stillQueued) {
+          logger.info(
+            `[EmbedFileJob] Job ${fileName} was cancelled; skipping continuation dispatch`
+          )
+          return { success: false, cancelled: true, fileName, filePath }
+        }
+
         // Dispatch next batch (not final yet). Carry forward the running
         // chunk count so the final batch can persist an accurate total (#933).
         const chunksSoFarNext = (job.data.chunksSoFar || 0) + (result.chunks || 0)
@@ -441,6 +457,46 @@ export class EmbedFileJob {
 
     logger.info(`[EmbedFileJob] Cleaned up ${cleaned} failed jobs, deleted ${filesDeleted} files`)
     return { cleaned, filesDeleted }
+  }
+
+  /** Unconditionally clear every embedding job regardless of state.
+   *
+   *  cleanupFailedJobs only removes jobs explicitly tagged status === 'failed',
+   *  which leaves stuck jobs (waiting / active / delayed / paused that never
+   *  reached 'failed') unreachable from the UI — the operator's only recourse was
+   *  flushing Redis by hand. This wipes the whole queue, including a locked active
+   *  job, via obliterate({ force: true }) (plain obliterate/job.remove throw on a
+   *  locked job). It touches only Redis, so it is safe while Qdrant/Ollama are
+   *  offline — which is exactly when jobs pile up and wedge. */
+  static async cancelAllJobs(): Promise<{ cancelled: number; filesDeleted: number }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(this.queue)
+    const jobs = await queue.getJobs(['waiting', 'active', 'delayed', 'paused', 'failed'])
+
+    let filesDeleted = 0
+    for (const job of jobs) {
+      const filePath = (job.data as EmbedFileJobParams).filePath
+      // Same guard as cleanupFailedJobs: only delete user uploads, never ZIM
+      // library files or Nomad docs that live outside the uploads path.
+      if (filePath && filePath.includes(RagService.UPLOADS_STORAGE_PATH)) {
+        try {
+          await fs.unlink(filePath)
+          filesDeleted++
+        } catch {
+          // File may already be deleted — that's fine
+        }
+      }
+    }
+
+    const cancelled = jobs.length
+
+    // force: true removes the locked/active job too. An in-flight worker may keep
+    // running its current batch in memory; the self-exists guard in handle()
+    // prevents it from dispatching a continuation back into the cleared queue.
+    await queue.obliterate({ force: true })
+
+    logger.info(`[EmbedFileJob] Cancelled ${cancelled} jobs, deleted ${filesDeleted} files`)
+    return { cancelled, filesDeleted }
   }
 
   static async getStatus(filePath: string): Promise<{

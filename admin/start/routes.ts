@@ -153,6 +153,7 @@ router
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
     router.get('/failed-jobs', [RagController, 'getFailedJobs'])
     router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
+    router.delete('/jobs', [RagController, 'cancelAllJobs'])
     router.get('/job-status', [RagController, 'getJobStatus'])
     router.post('/sync', [RagController, 'scanAndSync'])
     router.post('/re-embed-all', [RagController, 'reembedAll'])
