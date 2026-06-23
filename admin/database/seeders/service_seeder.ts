@@ -92,7 +92,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 3,
       description: 'Local AI chat that runs entirely on your hardware - no internet required',
       icon: 'IconWand',
-      container_image: 'ollama/ollama:0.18.1',
+      container_image: 'ollama/ollama:0.24.0',
       source_repo: 'https://github.com/ollama/ollama',
       container_command: 'serve',
       container_config: JSON.stringify({
@@ -118,7 +118,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 11,
       description: 'Swiss Army knife for data encoding, encryption, and analysis',
       icon: 'IconChefHat',
-      container_image: 'ghcr.io/gchq/cyberchef:10.22.1',
+      container_image: 'ghcr.io/gchq/cyberchef:10.24.0',
       source_repo: 'https://github.com/gchq/CyberChef',
       container_command: null,
       container_config: JSON.stringify({
