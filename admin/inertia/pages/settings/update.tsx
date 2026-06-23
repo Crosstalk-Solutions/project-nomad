@@ -239,7 +239,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Update</h1>
             <p className="text-desert-stone-dark">
-              Keep your Project N.O.M.A.D. instance up to date with the latest features and
+              Keep your Project NOMAD instance up to date with the latest features and
               improvements.
             </p>
           </div>
@@ -287,7 +287,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                   </h2>
                   <p className="text-desert-stone-dark mb-6">
                     {versionInfo.updateAvailable
-                      ? `A new version (${versionInfo.latestVersion}) is available for your Project N.O.M.A.D. instance.`
+                      ? `A new version (${versionInfo.latestVersion}) is available for your Project NOMAD instance.`
                       : 'Your system is running the latest version!'}
                   </p>
                 </>
@@ -460,7 +460,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
             <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
               <div>
                 <h2 className="max-w-xl text-lg font-bold text-desert-green sm:text-xl lg:col-span-7">
-                  Want to stay updated with the latest from Project N.O.M.A.D.? Subscribe to receive
+                  Want to stay updated with the latest from Project NOMAD? Subscribe to receive
                   release notes directly to your inbox. Unsubscribe anytime.
                 </h2>
               </div>
@@ -487,7 +487,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                   </StyledButton>
                 </div>
                 <p className="mt-2 text-sm text-desert-stone-dark">
-                  We care about your privacy. Project N.O.M.A.D. will never share your email with
+                  We care about your privacy. Project NOMAD will never share your email with
                   third parties or send you spam.
                 </p>
               </div>

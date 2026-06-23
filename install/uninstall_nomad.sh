@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. Uninstall Script
+# Project NOMAD Uninstall Script
 
 ###################################################################################################################################################################################################
 
-# Script                | Project N.O.M.A.D. Uninstall Script
+# Script                | Project NOMAD Uninstall Script
 # Version               | 1.0.0
 # Author                | Crosstalk Solutions, LLC
 # Website               | https://crosstalksolutions.com
@@ -45,13 +45,13 @@ check_current_directory(){
 
 ensure_management_compose_file_exists(){
   if [ ! -f "${MANAGEMENT_COMPOSE_FILE}" ]; then
-    echo "Unable to find the management Docker Compose file at ${MANAGEMENT_COMPOSE_FILE}. There may be a problem with your Project N.O.M.A.D. installation."
+    echo "Unable to find the management Docker Compose file at ${MANAGEMENT_COMPOSE_FILE}. There may be a problem with your Project NOMAD installation."
     exit 1
   fi
 }
 
 get_uninstall_confirmation(){
-  read -p "This script will remove ALL Project N.O.M.A.D. files and containers. THIS CANNOT BE UNDONE. Are you sure you want to continue? (y/n): " choice
+  read -p "This script will remove ALL Project NOMAD files and containers. THIS CANNOT BE UNDONE. Are you sure you want to continue? (y/n): " choice
   case "$choice" in
     y|Y )
       echo -e "User chose to continue with the uninstallation."
@@ -86,12 +86,12 @@ check_docker_compose() {
 }
 
 storage_cleanup() {
-  read -p "Do you want to delete the Project N.O.M.A.D. storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored Nomad data and can't be undone! (y/N): " delete_dir_choice
+  read -p "Do you want to delete the Project NOMAD storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored NOMAD data and can't be undone! (y/N): " delete_dir_choice
   case "$delete_dir_choice" in
       y|Y )
-          echo "Removing Project N.O.M.A.D. files..."
+          echo "Removing Project NOMAD files..."
           if rm -rf "${NOMAD_DIR}"; then
-              echo "Project N.O.M.A.D. files removed."
+              echo "Project NOMAD files removed."
           else
               echo "Warning: Failed to fully remove ${NOMAD_DIR}. You may need to remove it manually."
           fi
@@ -103,14 +103,14 @@ storage_cleanup() {
 }
 
 uninstall_nomad() {
-    echo "Stopping and removing Project N.O.M.A.D. management containers..."
+    echo "Stopping and removing Project NOMAD management containers..."
     docker compose -p project-nomad -f "${MANAGEMENT_COMPOSE_FILE}" down
     echo "Allowing some time for management containers to stop..."
     sleep 5
 
 
     # Stop and remove all containers where name starts with "nomad_"
-    echo "Stopping and removing all Project N.O.M.A.D. app containers..."
+    echo "Stopping and removing all Project NOMAD app containers..."
     docker ps -a --filter "name=^nomad_" --format "{{.Names}}" | xargs -r docker rm -f
     echo "Allowing some time for app containers to stop..."
     sleep 5
@@ -128,7 +128,7 @@ uninstall_nomad() {
     # Prompt user for storage cleanup and handle it if so
     storage_cleanup
 
-    echo "Project N.O.M.A.D. has been uninstalled. We hope to see you again soon!"
+    echo "Project NOMAD has been uninstalled. We hope to see you again soon!"
 }
 
 ###################################################################################################################################################################################################

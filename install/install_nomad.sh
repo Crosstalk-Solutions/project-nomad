@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. Installation Script
+# Project NOMAD Installation Script
 
 ###################################################################################################################################################################################################
 
-# Script                | Project N.O.M.A.D. Installation Script
+# Script                | Project NOMAD Installation Script
 # Version               | 1.0.0
 # Author                | Crosstalk Solutions, LLC
 # Website               | https://crosstalksolutions.com
@@ -28,7 +28,7 @@ GREEN='\033[1;32m' # Light Green.
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
-WHIPTAIL_TITLE="Project N.O.M.A.D Installation"
+WHIPTAIL_TITLE="Project NOMAD Installation"
 NOMAD_DIR="/opt/project-nomad"
 MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
 START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
@@ -353,8 +353,8 @@ setup_nvidia_container_toolkit() {
 }
 
 get_install_confirmation(){
-  echo -e "${YELLOW}#${RESET} This script will install Project N.O.M.A.D. and its dependencies on your machine."
-  echo -e "${YELLOW}#${RESET} If you already have Project N.O.M.A.D. installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
+  echo -e "${YELLOW}#${RESET} This script will install Project NOMAD and its dependencies on your machine."
+  echo -e "${YELLOW}#${RESET} If you already have Project NOMAD installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
   read -p "Are you sure you want to continue? (y/N): " choice
   case "$choice" in
     y|Y )
@@ -372,9 +372,9 @@ accept_terms() {
   echo "License Agreement & Terms of Use"
   echo "__________________________"
   printf "\n\n"
-  echo "Project N.O.M.A.D. is licensed under the Apache License 2.0. The full license can be found at https://www.apache.org/licenses/LICENSE-2.0 or in the LICENSE file of this repository."
+  echo "Project NOMAD is licensed under the Apache License 2.0. The full license can be found at https://www.apache.org/licenses/LICENSE-2.0 or in the LICENSE file of this repository."
   printf "\n"
-  echo "By accepting this agreement, you acknowledge that you have read and understood the terms and conditions of the Apache License 2.0 and agree to be bound by them while using Project N.O.M.A.D."
+  echo "By accepting this agreement, you acknowledge that you have read and understood the terms and conditions of the Apache License 2.0 and agree to be bound by them while using Project NOMAD"
   echo -e "\n\n"
   read -p "I have read and accept License Agreement & Terms of Use (y/N)? " choice
   case "$choice" in
@@ -391,7 +391,7 @@ accept_terms() {
 create_nomad_directory(){
   # Ensure the main installation directory exists
   if [[ ! -d "$NOMAD_DIR" ]]; then
-    echo -e "${YELLOW}#${RESET} Creating directory for Project N.O.M.A.D at $NOMAD_DIR...\\n"
+    echo -e "${YELLOW}#${RESET} Creating directory for Project NOMAD at $NOMAD_DIR...\\n"
     sudo mkdir -p "$NOMAD_DIR"
     sudo chown "$(whoami):$(whoami)" "$NOMAD_DIR"
 
@@ -596,11 +596,11 @@ verify_gpu_setup() {
 }
 
 success_message() {
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D installation completed successfully!\\n"
+  echo -e "${GREEN}#${RESET} Project NOMAD installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
+  echo -e "${GREEN}#${RESET} Project NOMAD's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
-  echo -e "${GREEN}#${RESET} Thank you for supporting Project N.O.M.A.D!\\n"
+  echo -e "${GREEN}#${RESET} Thank you for supporting Project NOMAD!\\n"
 }
 
 ###################################################################################################################################################################################################

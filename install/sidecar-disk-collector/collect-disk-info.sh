@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. - Disk Info Collector Sidecar
+# Project NOMAD - Disk Info Collector Sidecar
 #
 # Reads host block device and filesystem info via the /:/host:ro,rslave bind-mount.
 # No special capabilities required. Writes JSON to /storage/nomad-disk-info.json, which is read by the admin container.
