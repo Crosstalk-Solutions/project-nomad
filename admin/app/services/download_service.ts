@@ -103,30 +103,38 @@ export class DownloadService {
       failedReason: job.failedReason || undefined,
     }))
 
-    // FDA drug dataset — DOWNLOAD phase only. The job fans the manifest's N
-    // partitions into continuations under auto-generated jobIds, but the user
-    // sees ONE download, so collapse to a single card by keeping ONLY the
-    // deterministic jobId job (the part currently downloading lives under it; the
-    // continuations are an internal implementation detail). The heavy ingest is
-    // deliberately EXCLUDED here — it stays on the IngestStatus surface.
-    const drugDownloads = drugTagged
-      .filter(({ job }) => job.id?.toString() === DownloadDrugDataJob.jobId)
-      .map(({ job, state }) => {
-        const parsed = this.parseProgress(job.progress)
-        return {
-          jobId: job.id!.toString(),
-          url: 'https://api.fda.gov/download.json',
-          progress: parsed.percent,
-          filepath: job.data.currentPartName || 'FDA Drug Reference',
-          filetype: 'drug-data',
-          title: 'FDA Drug Reference',
-          downloadedBytes: parsed.downloadedBytes,
-          totalBytes: parsed.totalBytes,
-          lastProgressTime: parsed.lastProgressTime,
-          status: state,
-          failedReason: job.failedReason || undefined,
-        }
-      })
+    // FDA drug dataset — DOWNLOAD phase only, collapsed to ONE card. The job fans
+    // the manifest's N partitions into continuations under AUTO-GENERATED jobIds
+    // (only part 0 runs under the deterministic jobId), and the queue is
+    // concurrency 1, so at most one part is ever in flight. Filtering to the
+    // deterministic jobId would track only part 0 and then drop the card while
+    // parts 2..N keep downloading. Instead represent the whole download with the
+    // single in-flight job's aggregate progress (the progress emit already spans
+    // all parts), and always report the deterministic jobId so the cancel/remove
+    // button routes to _cancelDrugDownloadJob whichever part is active. The heavy
+    // ingest is EXCLUDED here — it stays on the IngestStatus surface.
+    const drugInFlight =
+      drugTagged.find(({ state }) => state === 'active') ??
+      drugTagged.find(({ state }) => state === 'waiting' || state === 'delayed') ??
+      drugTagged.find(({ state }) => state === 'failed')
+    const drugDownloads = drugInFlight
+      ? [drugInFlight].map(({ job, state }) => {
+          const parsed = this.parseProgress(job.progress)
+          return {
+            jobId: DownloadDrugDataJob.jobId,
+            url: 'https://api.fda.gov/download.json',
+            progress: parsed.percent,
+            filepath: job.data.currentPartName || 'FDA Drug Reference',
+            filetype: 'drug-data',
+            title: 'FDA Drug Reference',
+            downloadedBytes: parsed.downloadedBytes,
+            totalBytes: parsed.totalBytes,
+            lastProgressTime: parsed.lastProgressTime,
+            status: state,
+            failedReason: job.failedReason || undefined,
+          }
+        })
+      : []
 
     const allDownloads = [...fileDownloads, ...extractDownloads, ...modelDownloads, ...drugDownloads]
     const filtered = allDownloads.filter((job) => !filetype || job.filetype === filetype)
