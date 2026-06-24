@@ -20,35 +20,35 @@ export default function InteractionColumn({ entry, onRemove }: Props) {
   const displayName = entry.brand_name ?? entry.generic_name ?? 'Unknown Drug'
 
   return (
-    <div className="flex flex-col min-w-0 border border-gray-200 rounded-lg overflow-hidden">
-      {/* Column header */}
-      <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
-        <div className="flex items-start justify-between gap-2">
+    <div className="flex h-full flex-col min-w-0 border border-desert-tan-lighter rounded-lg overflow-hidden">
+      {/* Column header — fixed min-height so columns line up even when names wrap */}
+      <div className="flex min-h-[3.5rem] bg-desert-sand border-b border-desert-tan-lighter px-4 py-3">
+        <div className="flex w-full items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span className="font-semibold text-sm text-gray-900 break-words">
+              <span className="font-medium text-sm text-desert-green-dark break-words">
                 {displayName}
               </span>
               {isRx && (
-                <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200 flex-shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-desert-orange text-desert-white flex-shrink-0">
                   Rx
                 </span>
               )}
               {isOtc && (
-                <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-desert-tan text-desert-white flex-shrink-0">
                   OTC
                 </span>
               )}
             </div>
             {entry.brand_name && entry.generic_name && (
-              <p className="text-xs text-gray-500 italic truncate">{entry.generic_name}</p>
+              <p className="text-xs text-desert-stone italic truncate">{entry.generic_name}</p>
             )}
           </div>
           <button
             type="button"
             onClick={() => onRemove(entry.id)}
             aria-label={`Remove ${displayName} from comparison`}
-            className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none ml-1 mt-0.5"
+            className="flex-shrink-0 text-desert-stone-light hover:text-desert-stone-dark transition-colors text-lg leading-none ml-1 mt-0.5"
           >
             ×
           </button>
@@ -56,11 +56,11 @@ export default function InteractionColumn({ entry, onRemove }: Props) {
       </div>
 
       {/* Label text, parsed into readable blocks (FDA wording kept verbatim). */}
-      <div className="px-4 py-3 flex-1 space-y-3">
+      <div className="px-4 py-3 flex-1 space-y-3 text-desert-stone-dark">
         {entry.drug_interactions ? (
           <LabelBlocks text={entry.drug_interactions} />
         ) : (
-          <p className="text-sm text-gray-400 italic">
+          <p className="text-sm text-desert-stone-light italic">
             No labeled interaction text on this label.
           </p>
         )}
