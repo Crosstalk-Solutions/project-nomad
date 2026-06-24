@@ -30,13 +30,19 @@ jobs:
 
             # Use Range: bytes=0-0 to avoid downloading the full file.
             # --max-filesize 1 aborts early if the server ignores the Range header
-            # and returns 200 with the full body. The HTTP status is still captured.
+            # and returns 200 with the full body. download.kiwix.org redirects to
+            # mirrors, some of which ignore Range and stream the body, making curl
+            # exit 63 (CURLE_FILESIZE_EXCEEDED). That just means the file EXISTS, so
+            # it must not fail the step: `|| true` keeps the step's `set -e` from
+            # aborting on that exit code, while curl still writes the real
+            # %{http_code} (200/206) for the check below. A genuine 404 still
+            # returns 404 with exit 0 and is still caught.
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               --range 0-0 \
               --max-filesize 1 \
               --max-time 30 \
               --location \
-              "$url")
+              "$url" || true)
 
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
               echo "OK ($HTTP_CODE)"
