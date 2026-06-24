@@ -59,7 +59,7 @@
     "prettier": "3.8.1",
     "ts-node-maintained": "10.9.6",
     "typescript": "5.8.3",
-    "vite": "6.4.2"
+    "vite": "6.4.3"
   },
   "dependencies": {
     "@adonisjs/auth": "9.6.0",
