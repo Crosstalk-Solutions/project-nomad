@@ -72,6 +72,7 @@ export default function MapComponent({
   const [isDraggingMap, setIsDraggingMap] = useState(false)
   const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
   const [markerName, setMarkerName] = useState('')
+  const [markerNotes, setMarkerNotes] = useState('')
   const [markerColor, setMarkerColor] = useState<PinColorId>('orange')
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
 
@@ -153,18 +154,27 @@ export default function MapComponent({
   const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
     setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
     setMarkerName('')
+    setMarkerNotes('')
     setMarkerColor('orange')
     setSelectedMarkerId(null)
   }, [])
 
   const handleSaveMarker = useCallback(() => {
     if (placingMarker && markerName.trim()) {
-      addMarker(markerName.trim(), placingMarker.lng, placingMarker.lat, markerColor)
+      const trimmedNotes = markerNotes.trim()
+      addMarker(
+        markerName.trim(),
+        placingMarker.lng,
+        placingMarker.lat,
+        markerColor,
+        trimmedNotes ? trimmedNotes : null
+      )
       setPlacingMarker(null)
       setMarkerName('')
+      setMarkerNotes('')
       setMarkerColor('orange')
     }
-  }, [placingMarker, markerName, markerColor, addMarker])
+  }, [placingMarker, markerName, markerNotes, markerColor, addMarker])
 
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
@@ -315,6 +325,17 @@ export default function MapComponent({
                     if (e.key === 'Escape') setPlacingMarker(null)
                   }}
                   className="block w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
+                />
+
+                <textarea
+                  placeholder="Notes (optional)"
+                  value={markerNotes}
+                  onChange={(e) => setMarkerNotes(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setPlacingMarker(null)
+                  }}
+                  rows={2}
+                  className="mt-1.5 block w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
                 />
 
                 <div className="mt-1.5 flex gap-1 items-center">
