@@ -115,6 +115,10 @@ export default function Home(props: {
   system: {
     services: ServiceSlim[]
   }
+  // Server-computed: true when the offline FDA drug dataset is installed or
+  // installing (curated Medicine tier). Gates the two medical-reference tiles
+  // below so they only appear once the data exists.
+  drugReferenceInstalled: boolean
 }) {
   const items: DashboardItem[] = []
   const updateInfo = useUpdateAvailable();
@@ -155,9 +159,13 @@ export default function Home(props: {
   // Add Maps as a Core Capability
   items.push(MAPS_ITEM)
 
-  // Add the offline medical-reference Core Capabilities
-  items.push(DRUG_REFERENCE_ITEM)
-  items.push(CONDITIONS_ITEM)
+  // Add the offline medical-reference tiles only once the FDA drug dataset is
+  // installed (or installing) via the curated Medicine tier. Both tiles read the
+  // same drug_labels table, so they gate together off one server-computed flag.
+  if (props.drugReferenceInstalled) {
+    items.push(DRUG_REFERENCE_ITEM)
+    items.push(CONDITIONS_ITEM)
+  }
 
   // Add system items
   items.push(...SYSTEM_ITEMS)

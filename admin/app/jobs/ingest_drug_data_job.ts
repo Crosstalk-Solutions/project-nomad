@@ -10,6 +10,7 @@ import type {
   IngestDrugDataJobParams,
   DrugLabelManifest,
   DrugLabelPartition,
+  DrugDatasetResourceMeta,
 } from '../../types/drug_reference.js'
 
 const BATCH_SIZE = 500
@@ -157,8 +158,12 @@ export class IngestDrugDataJob {
    * Dispatch the initial ingest (pass 0). Idempotent on the deterministic jobId.
    * A finished/failed prior job under that id is cleared first so a re-ingest can
    * always restart (upserts are idempotent on set_id).
+   *
+   * @param resourceMeta - install-state identity, present only when the install
+   *   came through a curated tier. Carried through the chain so the final pass
+   *   writes the `installed_resources` row on `ready`. Absent on a manual ingest.
    */
-  static async dispatch() {
+  static async dispatch(resourceMeta?: DrugDatasetResourceMeta) {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
@@ -178,7 +183,7 @@ export class IngestDrugDataJob {
     try {
       const job = await queue.add(
         this.key,
-        {} satisfies IngestDrugDataJobParams,
+        { resourceMeta } satisfies IngestDrugDataJobParams,
         {
           jobId: this.jobId,
           attempts: 3,
@@ -212,6 +217,7 @@ export class IngestDrugDataJob {
     const runningIngested = params.recordsIngested ?? 0
     const runningSkipped = params.recordsSkipped ?? 0
     const startedAt = params.startedAt ?? Date.now()
+    const resourceMeta = params.resourceMeta
 
     // Progress baseline (pass 0 only): the table's row count BEFORE this run.
     // Without it, a re-ingest into a populated table shows ~100% from second
@@ -308,6 +314,7 @@ export class IngestDrugDataJob {
         recordsSkipped: totalSkipped,
         startedAt,
         startRowCount,
+        resourceMeta,
       }
 
       await queue.add(IngestDrugDataJob.key, continuationParams, {
@@ -328,7 +335,7 @@ export class IngestDrugDataJob {
       })
     } else {
       // Final part — write KV status, mark ready, THEN reclaim disk.
-      await this.writeFinalStatus(exportDate)
+      await this.writeFinalStatus(exportDate, resourceMeta)
 
       await job.updateData({
         ...job.data,
@@ -731,10 +738,74 @@ export class IngestDrugDataJob {
     })
   }
 
-  private async writeFinalStatus(exportDate: string): Promise<void> {
+  private async writeFinalStatus(
+    exportDate: string,
+    resourceMeta?: DrugDatasetResourceMeta
+  ): Promise<void> {
     // Lazy import to keep module top level free of Lucid
     const KVStore = (await import('#models/kv_store')).default
     await KVStore.setValue('drugReference.lastUpdatedExportDate', exportDate)
+
+    // Install-state write-back: when this ingest was kicked off by a curated-tier
+    // install, record an `installed_resources` row so the tier-status math (which
+    // is row-driven for ZIM/map) recognizes the dataset uniformly — the home-tile
+    // gate and the tier "installed" badge both read these rows. resource_type
+    // 'dataset' was widened onto the model in the foundational slice. The row's
+    // `version` is the openFDA export_date (the real freshness key), not the
+    // manifest placeholder. Manual downloads pass no resourceMeta → no row, which
+    // is correct: install-state belongs to the curated-tier path only.
+    if (!resourceMeta) return
+    try {
+      const { default: InstalledResource } = await import('#models/installed_resource')
+      const { DateTime } = await import('luxon')
+      const totalBytes = await this.totalDownloadedBytes()
+      await InstalledResource.updateOrCreate(
+        { resource_id: resourceMeta.resourceId, resource_type: 'dataset' },
+        {
+          version: exportDate,
+          collection_ref: resourceMeta.collectionRef,
+          url: 'https://api.fda.gov/download.json',
+          // No single on-disk file — the parts are deleted after ingest; the
+          // installed artifact is the DB table. Record the staging dir for
+          // provenance; uninstall keys off resource_id, never this path.
+          file_path: STORAGE_BASE,
+          file_size_bytes: totalBytes,
+          installed_at: DateTime.now(),
+        }
+      )
+      logger.info(
+        `[IngestDrugDataJob] Wrote installed_resources row for ${resourceMeta.resourceId} (export_date=${exportDate})`
+      )
+    } catch (err) {
+      // A failed row write must NOT abort a completed ingest — the data is
+      // already searchable. Log loud; the tier badge will simply read
+      // not-installed until the next install reconcile.
+      logger.error(
+        `[IngestDrugDataJob] Failed to write installed_resources row for ${resourceMeta.resourceId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      )
+    }
+  }
+
+  /**
+   * Sum the recorded part sizes from the download-state KV marker, for the
+   * `installed_resources.file_size_bytes` column. Best-effort: the parts are
+   * deleted right after a full ingest, so the marker (written before deletion) is
+   * the only durable size source. Returns null when the marker is absent/empty so
+   * the column stays NULL rather than reporting a wrong 0.
+   */
+  private async totalDownloadedBytes(): Promise<number | null> {
+    try {
+      const KVStore = (await import('#models/kv_store')).default
+      const { parseDownloadState } = await import('../../util/drug_labels.js')
+      const marker = parseDownloadState(await KVStore.getValue('drugReference.downloadState'))
+      if (!marker || marker.parts.length === 0) return null
+      const sum = marker.parts.reduce((acc, p) => acc + (p.bytes || 0), 0)
+      return sum > 0 ? sum : null
+    } catch {
+      return null
+    }
   }
 
   /**

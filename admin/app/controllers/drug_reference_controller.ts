@@ -225,6 +225,31 @@ export default class DrugReferenceController {
   }
 
   /**
+   * POST /api/drug-reference/uninstall
+   * Uninstall the offline FDA drug dataset: stop in-flight jobs, delete on-disk
+   * parts, TRUNCATE drug_labels, clear KV markers, and remove the install-state
+   * row (which auto-hides the home tiles). The curated-tier "remove" action.
+   * Reports partial failures rather than masking them.
+   */
+  async uninstall({ response }: HttpContext) {
+    try {
+      const result = await this.service.uninstall()
+      if (!result.success) {
+        return response.internalServerError({
+          success: false,
+          rowsDropped: result.rowsDropped,
+          error: result.message,
+        })
+      }
+      return { success: true, rowsDropped: result.rowsDropped, message: result.message }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`[DrugReferenceController] uninstall failed: ${msg}`)
+      return response.internalServerError({ error: 'Could not uninstall drug reference' })
+    }
+  }
+
+  /**
    * GET /api/drug-reference/ingest-log
    * Tail the persisted app log for ingest/download lines. In production the logger
    * writes JSON to /app/storage/logs/admin.log (both the admin and worker
