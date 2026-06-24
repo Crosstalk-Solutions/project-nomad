@@ -5,6 +5,12 @@ export type SpecResource = {
   description: string
   url: string
   size_mb: number
+  /**
+   * Resource-type discriminator. Absent == 'zim' so every existing manifest
+   * entry keeps the current ZIM download path. 'dataset' routes the tier
+   * installer to the DB-ingested drug pipeline instead.
+   */
+  type?: 'zim' | 'dataset'
 }
 
 export type SpecTier = {
