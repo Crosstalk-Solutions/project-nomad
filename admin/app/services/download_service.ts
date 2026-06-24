@@ -4,6 +4,7 @@ import { RunDownloadJob } from '#jobs/run_download_job'
 import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
 import type { RunExtractPmtilesJobParams } from '#jobs/run_extract_pmtiles_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
+import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
 import { DownloadJobWithProgress, DownloadProgressData } from '../../types/downloads.js'
 import type { Job, Queue } from 'bullmq'
 import { normalize } from 'path'
@@ -51,10 +52,11 @@ export class DownloadService {
 
   async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
     const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
-    const [fileTagged, extractTagged, modelJobs] = await Promise.all([
+    const [fileTagged, extractTagged, modelJobs, drugTagged] = await Promise.all([
       this.fetchJobsWithStates(RunDownloadJob.queue),
       this.fetchJobsWithStates(RunExtractPmtilesJob.queue),
       modelQueue.getJobs(['waiting', 'active', 'delayed', 'failed']),
+      this.fetchJobsWithStates(DownloadDrugDataJob.queue),
     ])
 
     const fileDownloads = fileTagged.map(({ job, state }) => {
@@ -101,7 +103,40 @@ export class DownloadService {
       failedReason: job.failedReason || undefined,
     }))
 
-    const allDownloads = [...fileDownloads, ...extractDownloads, ...modelDownloads]
+    // FDA drug dataset — DOWNLOAD phase only, collapsed to ONE card. The job fans
+    // the manifest's N partitions into continuations under AUTO-GENERATED jobIds
+    // (only part 0 runs under the deterministic jobId), and the queue is
+    // concurrency 1, so at most one part is ever in flight. Filtering to the
+    // deterministic jobId would track only part 0 and then drop the card while
+    // parts 2..N keep downloading. Instead represent the whole download with the
+    // single in-flight job's aggregate progress (the progress emit already spans
+    // all parts), and always report the deterministic jobId so the cancel/remove
+    // button routes to _cancelDrugDownloadJob whichever part is active. The heavy
+    // ingest is EXCLUDED here — it stays on the IngestStatus surface.
+    const drugInFlight =
+      drugTagged.find(({ state }) => state === 'active') ??
+      drugTagged.find(({ state }) => state === 'waiting' || state === 'delayed') ??
+      drugTagged.find(({ state }) => state === 'failed')
+    const drugDownloads = drugInFlight
+      ? [drugInFlight].map(({ job, state }) => {
+          const parsed = this.parseProgress(job.progress)
+          return {
+            jobId: DownloadDrugDataJob.jobId,
+            url: 'https://api.fda.gov/download.json',
+            progress: parsed.percent,
+            filepath: job.data.currentPartName || 'FDA Drug Reference',
+            filetype: 'drug-data',
+            title: 'FDA Drug Reference',
+            downloadedBytes: parsed.downloadedBytes,
+            totalBytes: parsed.totalBytes,
+            lastProgressTime: parsed.lastProgressTime,
+            status: state,
+            failedReason: job.failedReason || undefined,
+          }
+        })
+      : []
+
+    const allDownloads = [...fileDownloads, ...extractDownloads, ...modelDownloads, ...drugDownloads]
     const filtered = allDownloads.filter((job) => !filetype || job.filetype === filetype)
 
     return filtered.sort((a, b) => {
@@ -116,6 +151,7 @@ export class DownloadService {
       RunDownloadJob.queue,
       RunExtractPmtilesJob.queue,
       DownloadModelJob.queue,
+      DownloadDrugDataJob.queue,
     ]) {
       const queue = this.queueService.getQueue(queueName)
       const job = await queue.getJob(jobId)
@@ -159,7 +195,40 @@ export class DownloadService {
       return await this._cancelModelDownloadJob(jobId, modelJob, modelQueue)
     }
 
+    // FDA drug dataset: cancel is matched on the deterministic jobId only (the
+    // single card the aggregator shows). The continuation parts run under
+    // auto-generated ids, so cancelling must stop the whole CHAIN, not just the
+    // current part — otherwise the next continuation fires after we remove one.
+    if (jobId === DownloadDrugDataJob.jobId) {
+      return await this._cancelDrugDownloadJob()
+    }
+
     return { success: true, message: 'Job not found (may have already completed)' }
+  }
+
+  /**
+   * Cancel the FDA drug-data download.
+   *
+   * The drug job has no Redis cancel-signal / AbortController (unlike
+   * RunDownloadJob), and it self-continues into the next part under a fresh jobId.
+   * So a v1 cancel that only removed the current job would leave the next
+   * continuation to fire. Instead we obliterate the single-purpose drug-download
+   * queue (force = removes the active/locked job too), which drops the current
+   * part AND every queued continuation in one shot. Scoped to the drug-download
+   * queue only — the ingest queue and everything else are untouched. The on-disk
+   * parts are intentionally LEFT in place: they're resumable, and a re-trigger
+   * picks up from the .tmp rather than re-downloading. (Tracked as the v1 choice
+   * for cancel depth — full cross-process signal cancel is a follow-up.)
+   */
+  private async _cancelDrugDownloadJob(): Promise<{ success: boolean; message: string }> {
+    const queue = this.queueService.getQueue(DownloadDrugDataJob.queue)
+    try {
+      await queue.obliterate({ force: true })
+      return { success: true, message: 'Drug data download cancelled' }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { success: false, message: `Could not cancel drug data download: ${msg}` }
+    }
   }
 
   private async _cancelExtractJob(

@@ -8,7 +8,9 @@
 */
 import BenchmarkController from '#controllers/benchmark_controller'
 import ChatsController from '#controllers/chats_controller'
+import ConditionsController from '#controllers/conditions_controller'
 import DocsController from '#controllers/docs_controller'
+import DrugReferenceController from '#controllers/drug_reference_controller'
 import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
@@ -241,3 +243,39 @@ router
     router.post('/settings', [BenchmarkController, 'updateSettings'])
   })
   .prefix('/api/benchmark')
+
+// Drug Reference v1 — offline FDA drug-label search.
+// Page GETs ungated (read-only views). The /api/drug-reference group mirrors
+// the /api/maps posture — no localNetworkOnly gate because the only disk write
+// is the background ingest job (server-side, triggered but not executed inline).
+// /drug-reference/interactions must precede /drug-reference/:id so the literal
+// path wins over the param route.
+router.get('/drug-reference', [DrugReferenceController, 'index'])
+router.get('/drug-reference/interactions', [DrugReferenceController, 'interactions'])
+router.get('/drug-reference/:id', [DrugReferenceController, 'show'])
+router
+  .group(() => {
+    router.get('/search', [DrugReferenceController, 'search'])
+    router.get('/status', [DrugReferenceController, 'status'])
+    router.get('/interactions', [DrugReferenceController, 'interactionsApi'])
+    router.post('/download', [DrugReferenceController, 'download'])
+    router.post('/ingest', [DrugReferenceController, 'ingest'])
+    router.post('/reset-ingest', [DrugReferenceController, 'resetIngest'])
+    router.post('/uninstall', [DrugReferenceController, 'uninstall'])
+    router.get('/ingest-log', [DrugReferenceController, 'ingestLog'])
+  })
+  .prefix('/api/drug-reference')
+
+// "When to use what" — condition-first medical reference (Phase 1).
+// Browse a curated grid of first-aid situations (or free-text search a
+// situation) and see the matching OTC drugs, each linking to its Drug Reference
+// detail. Read-only page GETs, ungated like the /drug-reference page GETs; the
+// /api/conditions group only reads drug_labels (no disk write), so it mirrors
+// the ungated /api/drug-reference posture.
+router.get('/conditions', [ConditionsController, 'index'])
+router.get('/conditions/:slug', [ConditionsController, 'show'])
+router
+  .group(() => {
+    router.get('/drugs', [ConditionsController, 'drugsApi'])
+  })
+  .prefix('/api/conditions')

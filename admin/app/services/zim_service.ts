@@ -27,6 +27,8 @@ import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
 import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
+import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
+import { DrugReferenceService } from './drug_reference_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
@@ -253,8 +255,13 @@ export class ZimService {
 
     const allResources = CollectionManifestService.resolveTierResources(tier, category.tiers)
 
-    // Filter out already installed
-    const installed = await InstalledResource.query().where('resource_type', 'zim')
+    // Filter out already installed. Includes 'dataset' rows (the FDA drug labels)
+    // alongside 'zim' so an installed dataset is filtered out here — without it,
+    // a re-select of an installed Medicine tier would re-dispatch the ~1.7 GB drug
+    // download every time (the dataset branch's own getIngestStatus guard is a
+    // second line of defence, but this keeps the filter symmetric with the row-
+    // driven tier-status math).
+    const installed = await InstalledResource.query().whereIn('resource_type', ['zim', 'dataset'])
     const installedIds = new Set(installed.map((r) => r.resource_id))
     const toDownload = allResources.filter((r) => !installedIds.has(r.id))
 
@@ -263,6 +270,33 @@ export class ZimService {
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
+      // A `dataset` resource (e.g. the FDA drug labels) is DB-ingested, not a
+      // ZIM file — route it to the drug download+ingest pipeline instead of
+      // RunDownloadJob. The install-state row written on ingest 'ready' (below,
+      // via resourceMeta) is what the installed-filter above and the tier-status
+      // math key off; until that row exists the getIngestStatus guard prevents
+      // re-dispatching the ~1.7 GB download on every tier select.
+      if (resource.type === 'dataset') {
+        const drugReferenceService = new DrugReferenceService()
+        const status = await drugReferenceService.getIngestStatus()
+        if (status.phase === 'ready' || status.rowCount > 0) {
+          logger.info('[ZimService] Drug dataset already ingested, skipping dispatch.')
+          continue
+        }
+        // DownloadDrugDataJob.dispatch() is idempotent on its deterministic
+        // jobId — a concurrent in-flight download returns "already running"
+        // without re-adding, so this is safe to call repeatedly. The resourceMeta
+        // is threaded through download → ingest so the final ingest pass writes
+        // the `installed_resources` 'dataset' row, making the tier read installed.
+        await DownloadDrugDataJob.dispatch(true, {
+          resourceId: resource.id,
+          version: resource.version,
+          collectionRef: categorySlug,
+        })
+        logger.info('[ZimService] Dispatched drug data download for dataset resource.')
+        continue
+      }
+
       const existingJob = await RunDownloadJob.getActiveByUrl(resource.url)
       if (existingJob) {
         logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)

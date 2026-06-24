@@ -24,7 +24,10 @@ export class CollectionUpdateService {
    * state (version + cool-off anchor) so the auto-updater can act on it later.
    */
   async checkForUpdates(): Promise<ContentUpdateCheckResult> {
-    const installed = await InstalledResource.all()
+    // ZIM/map catalog update path only — exclude `dataset` resources (e.g. the
+    // FDA drug labels), which are not filename-versioned and get their own
+    // freshness path. No-op today (no dataset rows are written in this slice).
+    const installed = await InstalledResource.query().whereNot('resource_type', 'dataset')
     if (installed.length === 0) {
       return {
         updates: [],
@@ -35,7 +38,11 @@ export class CollectionUpdateService {
     try {
       const catalog = new KiwixCatalogService()
       const latestByKey = await catalog.getLatestForResources(
-        installed.map((r) => ({ resource_id: r.resource_id, resource_type: r.resource_type }))
+        // `dataset` rows are filtered out above, so the type narrows to ZIM/map.
+        installed.map((r) => ({
+          resource_id: r.resource_id,
+          resource_type: r.resource_type as 'zim' | 'map',
+        }))
       )
 
       const now = DateTime.now()
@@ -47,7 +54,7 @@ export class CollectionUpdateService {
         if (latest && latest.version > resource.version) {
           updates.push({
             resource_id: resource.resource_id,
-            resource_type: resource.resource_type,
+            resource_type: resource.resource_type as 'zim' | 'map',
             installed_version: resource.version,
             latest_version: latest.version,
             download_url: latest.download_url,

@@ -12,6 +12,9 @@ import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
 import { AutoUpdateJob } from '#jobs/auto_update_job'
 import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
 import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
+import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
+import { IngestDrugDataJob } from '#jobs/ingest_drug_data_job'
+import { DrugAutoUpdateJob } from '#jobs/drug_auto_update_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -51,6 +54,7 @@ export default class QueueWork extends BaseCommand {
 
     // Create a worker for each queue
     for (const queueName of queuesToProcess) {
+      const stall = this.getStallOptionsForQueue(queueName)
       const worker = new Worker(
         queueName,
         async (job) => {
@@ -65,7 +69,15 @@ export default class QueueWork extends BaseCommand {
         {
           connection: queueConfig.connection,
           concurrency: this.getConcurrencyForQueue(queueName),
-          lockDuration: 300000,
+          // lockDuration/maxStalledCount are per-queue. Non-drug queues keep
+          // the existing default (300000, BullMQ's default maxStalledCount).
+          // The drug download/ingest queues are NEW per-queue overrides
+          // (1_800_000 / 3) — see getStallOptionsForQueue — not a change to
+          // the default applied to every other queue.
+          lockDuration: stall.lockDuration,
+          ...(stall.maxStalledCount !== undefined
+            ? { maxStalledCount: stall.maxStalledCount }
+            : {}),
           autorun: true,
         }
       )
@@ -139,6 +151,7 @@ export default class QueueWork extends BaseCommand {
     await AutoUpdateJob.schedule()
     await AppAutoUpdateJob.schedule()
     await ContentAutoUpdateJob.schedule()
+    await DrugAutoUpdateJob.schedule()
 
     // Safety net: log unhandled rejections instead of crashing the worker process.
     // Individual job errors are already caught by BullMQ; this catches anything that
@@ -172,6 +185,9 @@ export default class QueueWork extends BaseCommand {
     handlers.set(AutoUpdateJob.key, new AutoUpdateJob())
     handlers.set(AppAutoUpdateJob.key, new AppAutoUpdateJob())
     handlers.set(ContentAutoUpdateJob.key, new ContentAutoUpdateJob())
+    handlers.set(DrugAutoUpdateJob.key, new DrugAutoUpdateJob())
+    handlers.set(DownloadDrugDataJob.key, new DownloadDrugDataJob())
+    handlers.set(IngestDrugDataJob.key, new IngestDrugDataJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
@@ -183,8 +199,34 @@ export default class QueueWork extends BaseCommand {
     queues.set(AutoUpdateJob.key, AutoUpdateJob.queue)
     queues.set(AppAutoUpdateJob.key, AppAutoUpdateJob.queue)
     queues.set(ContentAutoUpdateJob.key, ContentAutoUpdateJob.queue)
+    queues.set(DrugAutoUpdateJob.key, DrugAutoUpdateJob.queue)
+    queues.set(DownloadDrugDataJob.key, DownloadDrugDataJob.queue)
+    queues.set(IngestDrugDataJob.key, IngestDrugDataJob.queue)
 
     return [handlers, queues]
+  }
+
+  /**
+   * Per-queue BullMQ stall-recovery options.
+   *
+   * Every queue except the two drug queues keeps the branch default
+   * (lockDuration 300000, and BullMQ's default maxStalledCount of 1 — left
+   * unset). The drug download/ingest queues are the ONLY per-queue override:
+   * each part is a long single stream (a ~150 MB resumable HTTP pull, then an
+   * unzip + JSON-stream ingest at concurrency 1), so a longer lock plus a
+   * higher stalled tolerance keeps a transient lock-renewal miss from killing
+   * the continuation chain ("job stalled more than allowable limit").
+   */
+  private getStallOptionsForQueue(
+    queueName: string
+  ): { lockDuration: number; maxStalledCount?: number } {
+    if (
+      queueName === DownloadDrugDataJob.queue ||
+      queueName === IngestDrugDataJob.queue
+    ) {
+      return { lockDuration: 1_800_000, maxStalledCount: 3 }
+    }
+    return { lockDuration: 300000 }
   }
 
   /**
@@ -201,6 +243,12 @@ export default class QueueWork extends BaseCommand {
       [RunBenchmarkJob.queue]: 1, // Run benchmarks one at a time for accurate results
       [EmbedFileJob.queue]: 2, // Lower concurrency for embedding jobs, can be resource intensive
       [CheckUpdateJob.queue]: 1, // No need to run more than one update check at a time
+      // Drug download: one part at a time — a ~150 MB resumable HTTP pull per
+      // part, no benefit to parallelism and easier on the storage volume.
+      [DownloadDrugDataJob.queue]: 1,
+      // Drug ingest: one heavy stream at a time — unzipping + parsing ~150 MB
+      // of JSON into batched DB inserts; serial keeps memory bounded.
+      [IngestDrugDataJob.queue]: 1,
       default: 3,
     }
 

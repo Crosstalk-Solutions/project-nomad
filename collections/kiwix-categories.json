@@ -61,6 +61,15 @@
               "description": "NIH's consumer health encyclopedia - diseases, conditions, drugs, supplements",
               "url": "https://download.kiwix.org/zim/zimit/medlineplus.gov_en_all_2025-01.zim",
               "size_mb": 1800
+            },
+            {
+              "id": "openfda-drug-labels",
+              "type": "dataset",
+              "version": "2025-01",
+              "title": "FDA Drug Reference",
+              "description": "Offline FDA drug labels - search by drug name",
+              "url": "https://api.fda.gov/download.json",
+              "size_mb": 1700
             }
           ]
         },

@@ -98,14 +98,27 @@ export class CollectionManifestService {
     const spec = await this.getSpecWithFallback<ZimCategoriesSpec>('zim_categories')
     if (!spec) return []
 
-    const installedResources = await InstalledResource.query().where('resource_type', 'zim')
+    // Include 'dataset' rows alongside 'zim' so a curated tier carrying the FDA
+    // drug dataset reads "installed" once the ingest writes its row (the tier-
+    // status math below treats every resolved resource id uniformly — a dataset
+    // resource is just another id to account for).
+    const installedResources = await InstalledResource.query().whereIn('resource_type', [
+      'zim',
+      'dataset',
+    ])
     const installedMap = new Map(installedResources.map((r) => [r.resource_id, r]))
 
-    // In-flight ZIM download resource IDs from the BullMQ queue. Used to
-    // surface the user's tier intent immediately on submit, before any single
-    // file has finished downloading. Failed jobs are excluded so a stuck
-    // queue entry doesn't keep claiming the user's pick forever.
+    // In-flight ZIM + dataset download resource IDs from the BullMQ queues. Used
+    // to surface the user's tier intent immediately on submit, before any single
+    // file has finished downloading. Failed jobs are excluded so a stuck queue
+    // entry doesn't keep claiming the user's pick forever.
     const inFlightIds = await this.getInFlightZimResourceIds()
+
+    // Whether the in-flight drug dataset is in its INGEST (indexing) phase — the
+    // download finished and the heavy ingest is running. Lets the wizard card
+    // flip "(downloading)" → "(indexing)" at the handoff (Req 7) instead of
+    // showing a stale "downloading" through the long index.
+    const drugIndexing = await this.isDrugDatasetIndexing()
 
     return spec.categories.map((category) => {
       const installedTierSlug = this.getInstalledTierForCategory(category.tiers, installedMap)
@@ -115,8 +128,45 @@ export class CollectionManifestService {
         inFlightIds,
         installedTierSlug
       )
-      return { ...category, installedTierSlug, downloadingTierSlug }
+      // Only mark "indexing" when this category's downloading tier actually
+      // carries a dataset resource that is the one indexing.
+      const downloadingTierIndexing =
+        drugIndexing && downloadingTierSlug
+          ? CollectionManifestService.resolveTierResources(
+              category.tiers.find((t) => t.slug === downloadingTierSlug)!,
+              category.tiers
+            ).some((r) => r.type === 'dataset')
+          : false
+      return { ...category, installedTierSlug, downloadingTierSlug, downloadingTierIndexing }
     })
+  }
+
+  /**
+   * True when the FDA drug dataset's INGEST is in flight while its DOWNLOAD is
+   * not — i.e. the handoff into the indexing phase. Drives the wizard card's
+   * "(indexing)" label. Defensive: any queue read failure returns false (the card
+   * just keeps showing "(downloading)") rather than breaking the categories list.
+   */
+  private async isDrugDatasetIndexing(): Promise<boolean> {
+    try {
+      const { DownloadDrugDataJob } = await import('#jobs/download_drug_data_job')
+      const { IngestDrugDataJob } = await import('#jobs/ingest_drug_data_job')
+      const queueService = QueueService.getInstance()
+
+      const ingestQueue = queueService.getQueue(IngestDrugDataJob.queue)
+      const ingestJobs = await ingestQueue.getJobs(['active', 'waiting', 'delayed'])
+      if (ingestJobs.length === 0) return false
+
+      const downloadQueue = queueService.getQueue(DownloadDrugDataJob.queue)
+      const downloadJobs = await downloadQueue.getJobs(['active', 'waiting', 'delayed'])
+      return downloadJobs.length === 0
+    } catch (error: any) {
+      logger.warn(
+        '[CollectionManifestService] Could not determine drug indexing state:',
+        error?.message || error
+      )
+      return false
+    }
   }
 
   private async getInFlightZimResourceIds(): Promise<Set<string>> {
@@ -134,7 +184,45 @@ export class CollectionManifestService {
       // unreachable — just report no in-flight downloads.
       logger.warn('[CollectionManifestService] Could not read download queue:', error?.message || error)
     }
+
+    // Also surface an in-flight curated-tier drug-dataset install. The drug
+    // download/ingest run on their own queues (not RunDownloadJob), carrying the
+    // dataset's resource id in resourceMeta — read it so the wizard shows the
+    // Medicine tier as "downloading" the moment the user opts in, mirroring the
+    // ZIM behaviour. Scanned independently so a missing drug queue can't blank
+    // the ZIM in-flight set above.
+    await this.addInFlightDrugDatasetId(ids)
+
     return ids
+  }
+
+  /**
+   * Add the FDA drug dataset's manifest resource id to `ids` when its download or
+   * ingest is in flight. The dataset only counts as "downloading" while no
+   * install-state row exists yet — once ingest writes the row it is "installed"
+   * (handled by the installedMap), so a still-running ingest correctly reads as
+   * the in-flight tier intent here. resourceMeta is only present on a curated-tier
+   * install, so a manual (non-tier) drug download never claims a tier slug.
+   */
+  private async addInFlightDrugDatasetId(ids: Set<string>): Promise<void> {
+    try {
+      const { DownloadDrugDataJob } = await import('#jobs/download_drug_data_job')
+      const { IngestDrugDataJob } = await import('#jobs/ingest_drug_data_job')
+      const queueService = QueueService.getInstance()
+      for (const queueName of [DownloadDrugDataJob.queue, IngestDrugDataJob.queue]) {
+        const queue = queueService.getQueue(queueName)
+        const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
+        for (const job of jobs) {
+          const resourceId = job.data?.resourceMeta?.resourceId
+          if (typeof resourceId === 'string') ids.add(resourceId)
+        }
+      }
+    } catch (error: any) {
+      logger.warn(
+        '[CollectionManifestService] Could not read drug dataset queue:',
+        error?.message || error
+      )
+    }
   }
 
   /**

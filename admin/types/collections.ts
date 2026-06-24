@@ -5,6 +5,12 @@ export type SpecResource = {
   description: string
   url: string
   size_mb: number
+  /**
+   * Resource-type discriminator. Absent == 'zim' so every existing manifest
+   * entry keeps the current ZIM download path. 'dataset' routes the tier
+   * installer to the DB-ingested drug pipeline instead.
+   */
+  type?: 'zim' | 'dataset'
 }
 
 export type SpecTier = {
@@ -69,6 +75,11 @@ export type CategoryWithStatus = SpecCategory & {
   // picked something larger and downloads are still running. Lets the UI show
   // the user's actual intent during the (often long) download window.
   downloadingTierSlug?: string
+  // True when the in-flight resource for `downloadingTierSlug` is a DB-ingested
+  // dataset (the FDA drug labels) whose download has finished and the heavy
+  // ingest is running — so the card can flip "(downloading)" → "(indexing)" at
+  // the handoff instead of looking stuck. Only meaningful with downloadingTierSlug.
+  downloadingTierIndexing?: boolean
 }
 
 export type CollectionWithStatus = SpecCollection & {
