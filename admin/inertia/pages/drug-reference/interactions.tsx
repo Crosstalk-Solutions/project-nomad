@@ -268,14 +268,13 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
                 <p className="text-sm">Loading…</p>
               </div>
             ) : (
-              <div
-                className="grid gap-4"
-                style={{
-                  gridTemplateColumns: `repeat(${Math.max(1, entries.length)}, minmax(0, 1fr))`,
-                }}
-              >
+              // Stacked single-column on phones; fixed-min-width columns that
+              // scroll sideways (never crush) from sm: up, even at MAX_COMPARE.
+              <div className="flex flex-col gap-3 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-2">
                 {entries.map((entry) => (
-                  <InteractionColumn key={entry.id} entry={entry} onRemove={removeId} />
+                  <div key={entry.id} className="w-full sm:flex-none sm:w-60">
+                    <InteractionColumn entry={entry} onRemove={removeId} />
+                  </div>
                 ))}
               </div>
             )}
