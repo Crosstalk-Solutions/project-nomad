@@ -1,9 +1,18 @@
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
+import { rm } from 'node:fs/promises'
 import type { Job } from 'bullmq'
 import { QueueService } from './queue_service.js'
-import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
+import { DownloadDrugDataJob, STORAGE_BASE } from '#jobs/download_drug_data_job'
 import { IngestDrugDataJob } from '#jobs/ingest_drug_data_job'
+
+/**
+ * Manifest resource id for the FDA drug dataset — the `installed_resources`
+ * row's `resource_id`, matching the `medicine-standard` tier manifest entry.
+ * Single source of truth so the install write-back, the tier-status math, and
+ * uninstall all agree on the same id.
+ */
+export const DRUG_DATASET_RESOURCE_ID = 'openfda-drug-labels'
 import {
   normalizeDrugName,
   parseDownloadState,
@@ -11,6 +20,7 @@ import {
   resolveExpectedTotal,
   resolveIngestRecordsShown,
   summarizeJobError,
+  isExportDateNewer,
 } from '../../util/drug_labels.js'
 import KVStore from '#models/kv_store'
 import { parseCompareIds, MAX_COMPARE } from '../../util/compare_ids.js'
@@ -398,6 +408,32 @@ export class DrugReferenceService {
   }
 
   /**
+   * Freshness check for the daily auto-update path: compare the live openFDA
+   * manifest `export_date` against the last-ingested one (KV
+   * `drugReference.lastUpdatedExportDate`). Reuses the job's single manifest
+   * fetch (Maxim 4 — one openFDA call site) and the pure `isExportDateNewer`
+   * compare (defensive about the unconfirmed date format; see its TODO).
+   *
+   * Returns `{ updateAvailable, latestExportDate, currentExportDate }`. Never
+   * triggers a download itself — the caller (DrugAutoUpdateJob) decides whether
+   * to, after its own gating (only when installed, no active job).
+   */
+  async checkForUpdate(): Promise<{
+    updateAvailable: boolean
+    latestExportDate: string | null
+    currentExportDate: string | null
+  }> {
+    const current = await KVStore.getValue('drugReference.lastUpdatedExportDate')
+    const manifest = await DownloadDrugDataJob.fetchManifest()
+    const latest = manifest.export_date ?? null
+    return {
+      updateAvailable: isExportDateNewer(latest ?? '', current),
+      latestExportDate: latest,
+      currentExportDate: current,
+    }
+  }
+
+  /**
    * Dispatch the ingest phase from the already-downloaded on-disk parts (the
    * manual "Ingest into search" path). Guards on the KV download-state marker so
    * it fails fast with a typed result when nothing has been downloaded, rather
@@ -455,6 +491,108 @@ export class DrugReferenceService {
 
     const result = await IngestDrugDataJob.dispatch()
     return { ...result, nothingDownloaded: false }
+  }
+
+  /**
+   * Uninstall the offline FDA drug dataset — the curated-tier "remove" path.
+   *
+   * Mirrors how ZimService.delete() reverses a ZIM install: stop anything that
+   * could re-create the data, delete the on-disk artifacts, drop the data, and
+   * remove the install-state row so the tier reads not-installed and the home
+   * tiles auto-hide (the same cascade as a ZIM delete).
+   *
+   * Order matters:
+   *   1. Obliterate BOTH drug queues (force = removes active/locked jobs too) so a
+   *      running download/ingest can't write rows back in after we clear them.
+   *      Scoped to the two single-purpose drug queues — nothing else is touched.
+   *   2. Delete the on-disk parts dir (STORAGE_BASE is a FIXED constant, never a
+   *      client value — no path-traversal surface). Usually empty after a full
+   *      ingest; non-empty only when uninstalling a downloaded-not-yet-ingested
+   *      state.
+   *   3. TRUNCATE drug_labels (not DROP) — preserves the schema + FULLTEXT
+   *      indexes so a later reinstall re-ingests without a migration.
+   *   4. Clear the KV markers (download-state + last-updated export_date).
+   *   5. Delete the `installed_resources` 'dataset' row.
+   *
+   * Every step is best-effort and logged: a partial failure still removes as much
+   * as it can and reports what it did, rather than leaving a half-uninstalled
+   * state with no signal.
+   */
+  async uninstall(): Promise<{
+    success: boolean
+    rowsDropped: number
+    message: string
+  }> {
+    const rowsBefore = await this.rowCount()
+    const errors: string[] = []
+
+    // 1. Stop in-flight jobs on both drug queues (force removes locked/active).
+    for (const queueName of [DownloadDrugDataJob.queue, IngestDrugDataJob.queue]) {
+      try {
+        await QueueService.getInstance().getQueue(queueName).obliterate({ force: true })
+        logger.info(`[DrugReferenceService] obliterated ${queueName} for uninstall`)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        logger.warn(`[DrugReferenceService] obliterate ${queueName} failed: ${msg}`)
+        errors.push(`queue ${queueName}: ${msg}`)
+      }
+    }
+
+    // 2. Delete the on-disk parts directory. STORAGE_BASE is a fixed module const
+    // (never a client filename), so this is not a path-traversal surface.
+    try {
+      await rm(STORAGE_BASE, { recursive: true, force: true })
+      logger.info(`[DrugReferenceService] removed on-disk parts dir ${STORAGE_BASE}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.warn(`[DrugReferenceService] could not remove ${STORAGE_BASE}: ${msg}`)
+      errors.push(`storage: ${msg}`)
+    }
+
+    // 3. Drop the searchable data. TRUNCATE keeps schema + the FULLTEXT indexes
+    // so reinstall re-ingests cleanly with no migration.
+    try {
+      await db.rawQuery('TRUNCATE TABLE drug_labels')
+      logger.info('[DrugReferenceService] truncated drug_labels')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`[DrugReferenceService] TRUNCATE drug_labels failed: ${msg}`)
+      errors.push(`truncate: ${msg}`)
+    }
+
+    // 4. Clear KV markers.
+    try {
+      await KVStore.clearValue('drugReference.downloadState')
+      await KVStore.clearValue('drugReference.lastUpdatedExportDate')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.warn(`[DrugReferenceService] clearing KV markers failed: ${msg}`)
+      errors.push(`kv: ${msg}`)
+    }
+
+    // 5. Remove the install-state row so the tier reads not-installed.
+    try {
+      const { default: InstalledResource } = await import('#models/installed_resource')
+      await InstalledResource.query()
+        .where('resource_type', 'dataset')
+        .where('resource_id', DRUG_DATASET_RESOURCE_ID)
+        .delete()
+      logger.info('[DrugReferenceService] deleted installed_resources dataset row')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.warn(`[DrugReferenceService] deleting install row failed: ${msg}`)
+      errors.push(`install-row: ${msg}`)
+    }
+
+    const rowsDropped = rowsBefore - (await this.rowCount())
+    const success = errors.length === 0
+    return {
+      success,
+      rowsDropped,
+      message: success
+        ? `Uninstalled FDA drug reference (${rowsDropped} labels removed).`
+        : `Uninstall completed with ${errors.length} issue(s): ${errors.join('; ')}`,
+    }
   }
 
   /**

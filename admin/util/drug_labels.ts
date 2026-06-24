@@ -324,6 +324,52 @@ export function partZipPath(storageBase: string, partition: DrugLabelPartition):
 }
 
 /**
+ * Sum the manifest partitions' `size_mb` into a single byte total for the Active
+ * Downloads card's `totalBytes`. Each partition's `size_mb` is a string of MB in
+ * the openFDA manifest; a non-numeric / missing value contributes 0 so a single
+ * bad partition can't NaN the whole total. Pure (no I/O) so the producer and the
+ * standalone test share one definition.
+ */
+export function manifestBytesTotal(manifest: DrugLabelManifest): number {
+  return manifest.partitions.reduce((acc, p) => {
+    const mb = Number(p.size_mb)
+    return acc + (Number.isFinite(mb) && mb > 0 ? mb * 1024 * 1024 : 0)
+  }, 0)
+}
+
+/**
+ * Is the manifest's `export_date` newer than the last-ingested one? Drives the
+ * drug auto-update freshness check.
+ *
+ * TODO(maintainer Q3): CONFIRM the openFDA `export_date` string format before
+ * trusting this. We only have it typed as `string` in the code; the format
+ * (e.g. `YYYY-MM-DD` vs `YYYYMMDD` vs `MM/DD/YYYY`) determines whether a plain
+ * lexicographic `>` sorts chronologically. This implementation is defensive: it
+ * FIRST tries Date.parse on both sides and compares timestamps (correct for any
+ * parseable date string, including ISO and US formats); only if EITHER side
+ * fails to parse does it fall back to a trimmed lexicographic compare (correct
+ * for zero-padded ISO `YYYY-MM-DD` / `YYYYMMDD`). The fallback can misfire on a
+ * non-ISO, non-parseable format — hence the maintainer confirmation. Either way
+ * it never throws and treats an unset/empty `last` as "newer" (a first install
+ * with no baseline should update). Pure: no I/O, fully unit-testable.
+ */
+export function isExportDateNewer(latest: string, last: string | null | undefined): boolean {
+  const l = (latest ?? '').trim()
+  const prev = (last ?? '').trim()
+  if (l === '') return false // no candidate → nothing to update to
+  if (prev === '') return true // no baseline → treat any valid candidate as newer
+  if (l === prev) return false // identical → already current
+
+  const lt = Date.parse(l)
+  const pt = Date.parse(prev)
+  if (Number.isFinite(lt) && Number.isFinite(pt)) {
+    return lt > pt
+  }
+  // Fallback: lexicographic. Correct only for zero-padded ISO-ordered strings.
+  return l > prev
+}
+
+/**
  * Defensively parse the `drugReference.downloadState` KV marker.
  *
  * Follows the kv_store defensive-parse convention: a never-set (null) value,

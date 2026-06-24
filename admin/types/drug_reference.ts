@@ -65,6 +65,27 @@ export interface DownloadStateMarker {
   completedAtMs: number
 }
 
+// ─── Install-state metadata (tier-installer → InstalledResource row) ──────────
+
+/**
+ * Identity an install writes to the `installed_resources` table when the drug
+ * dataset reaches `ready`, so the curated-tier "installed" math (which is row-
+ * driven for ZIM/map) recognizes the dataset uniformly. Threaded from the tier
+ * installer (the manifest `dataset` resource) through the download job into the
+ * ingest job, which writes the row. Absent on a manual download (the standalone
+ * "Download FDA data" path), in which case no row is written — the install-state
+ * row only exists when the install came through a curated tier.
+ *
+ * `version` is filled with the dataset's openFDA `export_date` at write time
+ * (the real freshness key), NOT the manifest's placeholder `version` string.
+ */
+export interface DrugDatasetResourceMeta {
+  resourceId: string
+  /** Manifest `version` placeholder; the row's real version is the export_date. */
+  version: string
+  collectionRef: string | null
+}
+
 // ─── Job params ───────────────────────────────────────────────────────────────
 
 /**
@@ -84,6 +105,12 @@ export interface DownloadDrugDataJobParams {
   bytesDownloaded?: number
   currentPartName?: string | null
   phase?: 'manifest' | 'downloading' | 'downloaded' | 'failed'
+  /**
+   * Install-state identity, present only when the install came through a curated
+   * tier. Carried through the continuation chain and handed to the ingest job so
+   * it can write the `installed_resources` row on `ready`.
+   */
+  resourceMeta?: DrugDatasetResourceMeta
 }
 
 /**
@@ -108,6 +135,12 @@ export interface IngestDrugDataJobParams {
   startRowCount?: number
   currentPartName?: string | null
   phase?: 'ingesting' | 'ready' | 'failed'
+  /**
+   * Install-state identity, forwarded from the download job when the install
+   * came through a curated tier. The ingest job writes the `installed_resources`
+   * row on `ready` using this. Absent on a manual ingest.
+   */
+  resourceMeta?: DrugDatasetResourceMeta
 }
 
 // ─── Search result DTO (collapsed by brand+generic) ──────────────────────────

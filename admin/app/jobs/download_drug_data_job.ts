@@ -3,11 +3,12 @@ import { access, mkdir, constants } from 'node:fs/promises'
 import logger from '@adonisjs/core/services/logger'
 import { QueueService } from '#services/queue_service'
 import { doResumableDownload } from '../utils/downloads.js'
-import { parseDrugLabelManifest, partZipPath } from '../../util/drug_labels.js'
+import { parseDrugLabelManifest, partZipPath, manifestBytesTotal } from '../../util/drug_labels.js'
 import type {
   DownloadDrugDataJobParams,
   DrugLabelManifest,
   DownloadStateMarker,
+  DrugDatasetResourceMeta,
 } from '../../types/drug_reference.js'
 
 /** Where all part zips are staged on the bind-mounted storage volume. */
@@ -49,8 +50,11 @@ export class DownloadDrugDataJob {
    * file level by doResumableDownload).
    *
    * @param autoChain - dispatch the ingest phase after the last part. Default true.
+   * @param resourceMeta - install-state identity when the install came through a
+   *   curated tier. Carried through the chain so the ingest job writes the
+   *   `installed_resources` row on `ready`. Omit for a manual download (no row).
    */
-  static async dispatch(autoChain = true) {
+  static async dispatch(autoChain = true, resourceMeta?: DrugDatasetResourceMeta) {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
@@ -70,7 +74,7 @@ export class DownloadDrugDataJob {
     try {
       const job = await queue.add(
         this.key,
-        { autoChain } satisfies DownloadDrugDataJobParams,
+        { autoChain, resourceMeta } satisfies DownloadDrugDataJobParams,
         {
           jobId: this.jobId,
           attempts: 3,
@@ -103,6 +107,7 @@ export class DownloadDrugDataJob {
     const partIndex = params.partIndex ?? 0
     const autoChain = params.autoChain ?? true
     const startedAt = params.startedAt ?? Date.now()
+    const resourceMeta = params.resourceMeta
 
     logger.info(`[DownloadDrugDataJob] Starting pass partIndex=${partIndex}`)
 
@@ -165,6 +170,17 @@ export class DownloadDrugDataJob {
 
     await mkdir(STORAGE_BASE, { recursive: true })
 
+    // Aggregate-across-parts byte accounting for the Active Downloads card. The
+    // drug job fans the manifest's N partitions into BullMQ continuations, but
+    // the user sees ONE download — so progress is reported as bytes across the
+    // whole set, not the current part. `priorPartsBytes` is the actual bytes of
+    // the parts already on disk (from the running recordedParts list);
+    // `manifestTotalBytes` is the sum of every partition's manifest size_mb.
+    const priorRecorded =
+      (params as { recordedParts?: DownloadStateMarker['parts'] }).recordedParts ?? []
+    const priorPartsBytes = priorRecorded.reduce((acc, p) => acc + (p.bytes || 0), 0)
+    const manifestTotalBytes = manifestBytesTotal(manifest)
+
     logger.info(`[DownloadDrugDataJob] ${partition.file} → ${zipPath}`)
     let partBytes = 0
     await doResumableDownload({
@@ -176,8 +192,21 @@ export class DownloadDrugDataJob {
         partBytes = progress.downloadedBytes
         const downloadFraction = progress.downloadedBytes / (progress.totalBytes || 1)
         const pct = Math.floor(((partIndex + downloadFraction) / totalParts) * 100)
-        // Fire-and-forget; swallow transient reject so it can't crash the worker.
-        void job.updateProgress(pct).catch(() => {})
+        const downloadedBytes = priorPartsBytes + progress.downloadedBytes
+        // Emit the canonical {percent, downloadedBytes, totalBytes} object the
+        // Active Downloads aggregator + the byte/speed readout expect (the old
+        // bare-int progress couldn't carry bytes). parseProgress in
+        // DownloadService still tolerates a bare int for back-compat, but only
+        // the object surfaces a live byte/speed readout. Fire-and-forget; swallow
+        // transient reject so it can't crash the worker.
+        void job
+          .updateProgress({
+            percent: pct,
+            downloadedBytes,
+            totalBytes: manifestTotalBytes,
+            lastProgressTime: Date.now(),
+          })
+          .catch(() => {})
         void job.updateData({ ...job.data, bytesDownloaded: progress.downloadedBytes }).catch(() => {})
       },
     })
@@ -204,6 +233,7 @@ export class DownloadDrugDataJob {
         autoChain,
         startedAt,
         recordedParts,
+        resourceMeta,
       }
 
       await queue.add(DownloadDrugDataJob.key, continuationParams, {
@@ -234,7 +264,9 @@ export class DownloadDrugDataJob {
 
       if (autoChain) {
         const { IngestDrugDataJob } = await import('#jobs/ingest_drug_data_job')
-        await IngestDrugDataJob.dispatch()
+        // Forward the install-state identity so the ingest job writes the
+        // `installed_resources` row on `ready`. undefined for a manual download.
+        await IngestDrugDataJob.dispatch(resourceMeta)
         logger.info('[DownloadDrugDataJob] Auto-chained ingest phase')
       }
     }
@@ -262,6 +294,17 @@ export class DownloadDrugDataJob {
   }
 
   private async fetchManifest(): Promise<DrugLabelManifest> {
+    return DownloadDrugDataJob.fetchManifest()
+  }
+
+  /**
+   * Fetch + parse the openFDA download manifest. The SINGLE source of truth for
+   * the openFDA manifest call (Maxim 4): the download job uses it on pass 0, and
+   * the freshness check (DrugReferenceService.checkForUpdate → DrugAutoUpdateJob)
+   * reuses it so there is exactly one place that knows the URL and the
+   * offline-error translation.
+   */
+  static async fetchManifest(): Promise<DrugLabelManifest> {
     let json: unknown
     try {
       const resp = await fetch(MANIFEST_URL)
