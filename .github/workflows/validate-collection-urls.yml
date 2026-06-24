@@ -28,15 +28,21 @@ jobs:
             CHECKED=$((CHECKED + 1))
             printf "Checking: %s ... " "$url"
 
-            # Use Range: bytes=0-0 to avoid downloading the full file.
-            # --max-filesize 1 aborts early if the server ignores the Range header
-            # and returns 200 with the full body. The HTTP status is still captured.
+            # Range: bytes=0-0 GET, following redirects, with the response body
+            # discarded. download.kiwix.org 301-redirects BOTH valid and dead files
+            # to a mirror, so we must follow to the mirror to learn the real status
+            # (206/200 = exists, 404 = gone). The previous --max-filesize 1 aborted
+            # on the 301 redirect page's own body BEFORE following it, reporting 301
+            # for every URL; it is removed. Range-honoring mirrors return 206 after
+            # one byte; --max-time bounds the rare mirror that ignores Range.
+            # `|| true` keeps the step's `set -e` from aborting on a curl-level
+            # error (e.g. transient network failure); those surface as a non-200
+            # code below.
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               --range 0-0 \
-              --max-filesize 1 \
               --max-time 30 \
               --location \
-              "$url")
+              "$url" || true)
 
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
               echo "OK ($HTTP_CODE)"
