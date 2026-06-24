@@ -269,9 +269,15 @@ export class ContentAutoUpdateService {
       await this.maybeResetWindowBudget(config, now)
 
       // Local catalog check + persist available-update state for every resource.
-      const installed = await InstalledResource.all()
+      // ZIM/map catalog path only — `dataset` resources are excluded (they get
+      // their own freshness path; no-op today as none are written in this slice).
+      const installed = await InstalledResource.query().whereNot('resource_type', 'dataset')
       const latestByKey = await this.catalog.getLatestForResources(
-        installed.map((r) => ({ resource_id: r.resource_id, resource_type: r.resource_type }))
+        // `dataset` rows are filtered out above, so the type narrows to ZIM/map.
+        installed.map((r) => ({
+          resource_id: r.resource_id,
+          resource_type: r.resource_type as 'zim' | 'map',
+        }))
       )
       for (const resource of installed) {
         const latest = latestByKey.get(`${resource.resource_type}:${resource.resource_id}`) ?? null
@@ -321,7 +327,8 @@ export class ContentAutoUpdateService {
         const result = await this.collectionUpdateService.applyUpdate(
           {
             resource_id: candidate.resource.resource_id,
-            resource_type: candidate.resource.resource_type,
+            // `dataset` rows are filtered out of `installed` above, so ZIM/map.
+            resource_type: candidate.resource.resource_type as 'zim' | 'map',
             installed_version: candidate.resource.version,
             latest_version: candidate.version,
             download_url: candidate.download_url,
@@ -407,7 +414,9 @@ export class ContentAutoUpdateService {
     const now = overrides.now ?? DateTime.now()
     const withinWindow = isWithinWindow(config.windowStart, config.windowEnd, now)
 
-    const pending = await InstalledResource.query().whereNotNull('available_update_version')
+    const pending = await InstalledResource.query()
+      .whereNotNull('available_update_version')
+      .whereNot('resource_type', 'dataset')
     const eligible = pending.filter(
       (r) => this.resourceEligibility(r, config.cooloffHours, now).eligible
     )
@@ -506,7 +515,9 @@ export class ContentAutoUpdateService {
     const config = await this.getConfig()
     const now = DateTime.now()
 
-    const pending = await InstalledResource.query().whereNotNull('available_update_version')
+    const pending = await InstalledResource.query()
+      .whereNotNull('available_update_version')
+      .whereNot('resource_type', 'dataset')
     const resources: ContentAutoUpdateResourceStatus[] = pending.map((resource) => {
       const verdict = this.resourceEligibility(resource, config.cooloffHours, now)
       const size = resource.available_update_size_bytes ?? null
@@ -514,7 +525,8 @@ export class ContentAutoUpdateService {
         config.maxBytesPerWindow > 0 && size !== null && size > config.maxBytesPerWindow
       return {
         resource_id: resource.resource_id,
-        resource_type: resource.resource_type,
+        // `dataset` rows are filtered out of `pending` above, so ZIM/map.
+        resource_type: resource.resource_type as 'zim' | 'map',
         current_version: resource.version,
         available_update_version: resource.available_update_version,
         size_bytes: size,
