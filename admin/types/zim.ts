@@ -63,6 +63,13 @@ export type RemoteZimFileEntry = {
   download_url: string
   author: string
   file_name: string
+  language?: string
+  category?: string
+  tags?: string
+  article_count?: number
+  media_count?: number
+  publisher?: string
+  issued?: string
 }
 
 export type ExtractZIMContentOptions = {
