@@ -2,7 +2,7 @@ import { inject } from '@adonisjs/core'
 import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
-import { DownloadJobWithProgress, DownloadProgressData } from '../../types/downloads.js'
+import { DownloadJobWithProgress, DownloadProgressData, RunDownloadJobParams } from '../../types/downloads.js'
 import { normalize } from 'path'
 import { deleteFileIfExists } from '../utils/fs.js'
 
@@ -108,6 +108,40 @@ export class DownloadService {
         return
       }
     }
+  }
+
+  async retryFailedJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    // Search both the file download queue and the model download queue
+    for (const queueName of [RunDownloadJob.queue, DownloadModelJob.queue]) {
+      const queue = this.queueService.getQueue(queueName)
+      const job = await queue.getJob(jobId)
+
+      if (job) {
+        // For Ollama model downloads, re-dispatch with the model name
+        if (queueName === DownloadModelJob.queue) {
+          const modelName = job.data.modelName
+          if (!modelName) {
+            return { success: false, message: 'Cannot retry: model name not found in job data' }
+          }
+          await DownloadModelJob.dispatch({ modelName })
+          await job.remove().catch(() => {})
+          return { success: true, message: `Retrying download for model ${modelName}` }
+        }
+
+        // For file downloads (zim, map, etc.), re-dispatch with original params
+        const params = job.data as RunDownloadJobParams
+        if (!params.url || !params.filepath) {
+          return { success: false, message: 'Cannot retry: missing URL or filepath in job data' }
+        }
+
+        // Remove the old failed job, then dispatch a fresh one
+        await job.remove().catch(() => {})
+        await RunDownloadJob.dispatch(params)
+        return { success: true, message: `Retrying download for ${params.url}` }
+      }
+    }
+
+    return { success: false, message: 'Failed job not found. It may have already been dismissed.' }
   }
 
   async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {

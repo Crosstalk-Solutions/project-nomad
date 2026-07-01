@@ -100,6 +100,7 @@ router
     router.get('/jobs/:filetype', [DownloadsController, 'filetype'])
     router.delete('/jobs/:jobId', [DownloadsController, 'removeJob'])
     router.post('/jobs/:jobId/cancel', [DownloadsController, 'cancelJob'])
+    router.post('/jobs/:jobId/retry', [DownloadsController, 'retryJob'])
   })
   .prefix('/api/downloads')
 
