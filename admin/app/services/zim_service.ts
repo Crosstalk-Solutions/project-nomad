@@ -164,6 +164,13 @@ export class ZimService {
           download_url,
           author: entry.author.name,
           file_name,
+          language: entry.language,
+          category: entry.category,
+          tags: entry.tags,
+          article_count: entry.articleCount,
+          media_count: entry.mediaCount,
+          publisher: entry.publisher?.name,
+          issued: entry['dc:issued'],
         })
       }
 
