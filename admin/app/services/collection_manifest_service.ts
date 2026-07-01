@@ -5,6 +5,9 @@ import { DateTime } from 'luxon'
 import { join } from 'path'
 import CollectionManifest from '#models/collection_manifest'
 import InstalledResource from '#models/installed_resource'
+import WikipediaSelection from '#models/wikipedia_selection'
+import { QueueService } from './queue_service.js'
+import { RunDownloadJob } from '#jobs/run_download_job'
 import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema } from '#validators/curated_collections'
 import {
   ensureDirectoryExists,
@@ -98,10 +101,74 @@ export class CollectionManifestService {
     const installedResources = await InstalledResource.query().where('resource_type', 'zim')
     const installedMap = new Map(installedResources.map((r) => [r.resource_id, r]))
 
-    return spec.categories.map((category) => ({
-      ...category,
-      installedTierSlug: this.getInstalledTierForCategory(category.tiers, installedMap),
-    }))
+    // In-flight ZIM download resource IDs from the BullMQ queue. Used to
+    // surface the user's tier intent immediately on submit, before any single
+    // file has finished downloading. Failed jobs are excluded so a stuck
+    // queue entry doesn't keep claiming the user's pick forever.
+    const inFlightIds = await this.getInFlightZimResourceIds()
+
+    return spec.categories.map((category) => {
+      const installedTierSlug = this.getInstalledTierForCategory(category.tiers, installedMap)
+      const downloadingTierSlug = this.getDownloadingTierForCategory(
+        category.tiers,
+        installedMap,
+        inFlightIds,
+        installedTierSlug
+      )
+      return { ...category, installedTierSlug, downloadingTierSlug }
+    })
+  }
+
+  private async getInFlightZimResourceIds(): Promise<Set<string>> {
+    const ids = new Set<string>()
+    try {
+      const queue = QueueService.getInstance().getQueue(RunDownloadJob.queue)
+      const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
+      for (const job of jobs) {
+        if (job.data?.filetype !== 'zim') continue
+        const resourceId = job.data?.resourceMetadata?.resource_id
+        if (typeof resourceId === 'string') ids.add(resourceId)
+      }
+    } catch (error) {
+      // Don't fail the whole categories endpoint if the queue is briefly
+      // unreachable — just report no in-flight downloads.
+      logger.warn('[CollectionManifestService] Could not read download queue:', error?.message || error)
+    }
+    return ids
+  }
+
+  /**
+   * Highest tier whose every resource is installed OR has an in-flight
+   * download. Returns undefined when there are no in-flight downloads for this
+   * category, or when the result would just duplicate installedTierSlug (i.e.
+   * everything that's downloading is already installed — nothing new to show).
+   */
+  getDownloadingTierForCategory(
+    tiers: SpecTier[],
+    installedMap: Map<string, InstalledResource>,
+    inFlightIds: Set<string>,
+    installedTierSlug: string | undefined
+  ): string | undefined {
+    if (inFlightIds.size === 0) return undefined
+
+    // Cheap pre-check: any of this category's resources actually in flight?
+    const anyInFlight = tiers.some((tier) =>
+      CollectionManifestService.resolveTierResources(tier, tiers).some((r) => inFlightIds.has(r.id))
+    )
+    if (!anyInFlight) return undefined
+
+    const reversedTiers = [...tiers].reverse()
+    for (const tier of reversedTiers) {
+      const resolved = CollectionManifestService.resolveTierResources(tier, tiers)
+      if (resolved.length === 0) continue
+      const allAccountedFor = resolved.every(
+        (r) => installedMap.has(r.id) || inFlightIds.has(r.id)
+      )
+      if (allAccountedFor) {
+        return tier.slug === installedTierSlug ? undefined : tier.slug
+      }
+    }
+    return undefined
   }
 
   async getMapCollectionsWithStatus(): Promise<CollectionWithStatus[]> {
@@ -218,10 +285,17 @@ export class CollectionManifestService {
 
       const seenZimIds = new Set<string>()
 
+      // Only skip the single Wikipedia file tracked by WikipediaSelection — not every file
+      // starting with `wikipedia_en_`. Curated category tiers (e.g. Medicine → Comprehensive)
+      // ship Wikipedia-themed ZIMs like `wikipedia_en_medicine_maxi` that must reconcile
+      // normally; otherwise their InstalledResource row gets wiped on every restart and the
+      // tier detection silently downgrades.
+      const wikipediaSelection = await WikipediaSelection.query().first()
+      const managedWikipediaFilename = wikipediaSelection?.filename ?? null
+
       for (const file of zimFiles) {
         console.log(`Processing ZIM file: ${file.name}`)
-        // Skip Wikipedia files (managed by WikipediaSelection model)
-        if (file.name.startsWith('wikipedia_en_')) continue
+        if (managedWikipediaFilename && file.name === managedWikipediaFilename) continue
 
         const parsed = CollectionManifestService.parseZimFilename(file.name)
         console.log(`Parsed ZIM filename:`, parsed)

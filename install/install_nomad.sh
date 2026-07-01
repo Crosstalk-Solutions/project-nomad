@@ -86,6 +86,21 @@ check_is_debian_based() {
     echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
 }
 
+check_is_x86_64() {
+  local arch
+  arch="$(uname -m)"
+  if [[ "${arch}" != "x86_64" && "${arch}" != "amd64" ]]; then
+    echo -e "${YELLOW}#${RESET} WARNING: Detected architecture '${arch}'. NOMAD officially supports x86_64 only.\\n"
+    echo -e "${YELLOW}#${RESET} ARM64/aarch64 support is tracked in PR #419 and is not yet ready.\\n"
+    echo -e "${YELLOW}#${RESET} Continuing on an unsupported architecture will likely fail and may leave\\n"
+    echo -e "${YELLOW}#${RESET} partial Docker images and files behind that you'll need to clean up manually.\\n"
+    echo -e "${YELLOW}#${RESET} Continuing in 10 seconds... press Ctrl+C now to abort.\\n"
+    sleep 10
+    return
+  fi
+  echo -e "${GREEN}#${RESET} Architecture check passed (${arch}).\\n"
+}
+
 ensure_dependencies_installed() {
   local missing_deps=()
 
@@ -249,7 +264,7 @@ setup_nvidia_container_toolkit() {
   echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
   
   # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
+  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
     echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
     return 0
   fi
@@ -433,19 +448,19 @@ download_helper_scripts() {
   local update_script_path="${NOMAD_DIR}/update_nomad.sh"
 
   echo -e "${YELLOW}#${RESET} Downloading helper scripts...\\n"
-  if ! curl -fsSL "$START_SCRIPT_URL" -o "$start_script_path"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 "$START_SCRIPT_URL" -o "$start_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the start script. Please check the URL and try again."
     exit 1
   fi
   chmod +x "$start_script_path"
 
-  if ! curl -fsSL "$STOP_SCRIPT_URL" -o "$stop_script_path"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 "$STOP_SCRIPT_URL" -o "$stop_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the stop script. Please check the URL and try again."
     exit 1
   fi
   chmod +x "$stop_script_path"
 
-  if ! curl -fsSL "$UPDATE_SCRIPT_URL" -o "$update_script_path"; then
+  if ! curl -fsSL --retry 5 --retry-delay 3 "$UPDATE_SCRIPT_URL" -o "$update_script_path"; then
     echo -e "${RED}#${RESET} Failed to download the update script. Please check the URL and try again."
     exit 1
   fi
@@ -502,18 +517,75 @@ verify_gpu_setup() {
     echo -e "${YELLOW}○${RESET} Docker NVIDIA runtime not detected\\n"
   fi
   
-  # Check for AMD GPU
+  # Check for AMD GPU — restrict to display controller classes to avoid false positives
+  # from AMD CPU host bridges, PCI bridges, and chipset devices.
+  local has_amd_gpu='false'
+  local amd_gfx_version=''
   if command -v lspci &> /dev/null; then
-    if lspci 2>/dev/null | grep -iE "amd|radeon" &> /dev/null; then
-      echo -e "${YELLOW}○${RESET} AMD GPU detected (ROCm support not currently available)\\n"
+    if lspci 2>/dev/null | grep -iE "VGA|3D controller|Display" | grep -iE "amd|radeon" &> /dev/null; then
+      has_amd_gpu='true'
+      echo -e "${GREEN}✓${RESET} AMD GPU detected — ROCm acceleration will be configured automatically when AI Assistant is installed.\\n"
+
+      # Map AMD codename → gfx version so the admin can pick the right HSA_OVERRIDE_GFX_VERSION.
+      # gfx1030/1100/1101/1102 are on AMD's official ROCm allowlist and need NO override —
+      # forcing one (e.g. 11.0.0) breaks GPU discovery on these. Other variants do need it.
+      local amd_devices
+      amd_devices=$(lspci -vmm 2>/dev/null | awk -F'\t' '/^Class:.*(VGA|3D|Display)/{c=1} c && /^Device:/{print $2; c=0}')
+      if echo "${amd_devices}" | grep -iq 'Navi 21'; then
+        amd_gfx_version='gfx1030'
+      elif echo "${amd_devices}" | grep -iq 'Navi 22'; then
+        amd_gfx_version='gfx1031'
+      elif echo "${amd_devices}" | grep -iq 'Navi 23'; then
+        amd_gfx_version='gfx1032'
+      elif echo "${amd_devices}" | grep -iq 'Navi 24'; then
+        amd_gfx_version='gfx1034'
+      elif echo "${amd_devices}" | grep -iq 'Rembrandt'; then
+        amd_gfx_version='gfx1035'
+      elif echo "${amd_devices}" | grep -iEq 'Phoenix1?|Phoenix2'; then
+        amd_gfx_version='gfx1103'
+      elif echo "${amd_devices}" | grep -iEq 'Strix Halo'; then
+        amd_gfx_version='gfx1151'
+      elif echo "${amd_devices}" | grep -iEq 'Strix( Point)?'; then
+        amd_gfx_version='gfx1150'
+      elif echo "${amd_devices}" | grep -iq 'Navi 31'; then
+        amd_gfx_version='gfx1100'
+      elif echo "${amd_devices}" | grep -iq 'Navi 32'; then
+        amd_gfx_version='gfx1101'
+      elif echo "${amd_devices}" | grep -iq 'Navi 33'; then
+        amd_gfx_version='gfx1102'
+      fi
     fi
   fi
-  
+
+  # Write detected GPU type to a marker file the admin container can read. The admin
+  # container lacks lspci and AMD GPUs don't register a Docker runtime, so this is the
+  # only reliable way for the admin to know an AMD GPU is present at install time.
+  local gpu_marker_path="${NOMAD_DIR}/storage/.nomad-gpu-type"
+  if command -v nvidia-smi &> /dev/null; then
+    echo 'nvidia' | sudo tee "${gpu_marker_path}" > /dev/null 2>&1 || true
+  elif [[ "${has_amd_gpu}" == 'true' ]]; then
+    echo 'amd' | sudo tee "${gpu_marker_path}" > /dev/null 2>&1 || true
+  else
+    sudo rm -f "${gpu_marker_path}" 2>/dev/null || true
+  fi
+
+  # Companion marker used by the admin to pick the right HSA_OVERRIDE_GFX_VERSION for
+  # the detected card. Absence of this file means "unknown gfx" — the admin falls back
+  # to its built-in default. Always rewrite (or remove) on install to keep state fresh.
+  local amd_gfx_marker_path="${NOMAD_DIR}/storage/.nomad-amd-gfx"
+  if [[ -n "${amd_gfx_version}" ]]; then
+    echo "${amd_gfx_version}" | sudo tee "${amd_gfx_marker_path}" > /dev/null 2>&1 || true
+  else
+    sudo rm -f "${amd_gfx_marker_path}" 2>/dev/null || true
+  fi
+
   echo -e "${YELLOW}===========================================${RESET}\\n"
-  
+
   # Summary
   if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
+  elif [[ "${has_amd_gpu}" == 'true' ]]; then
+    echo -e "${GREEN}#${RESET} GPU acceleration will be enabled (AMD/ROCm) when AI Assistant is installed from the dashboard.\\n"
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
     if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q "nvidia"; then
@@ -539,6 +611,7 @@ success_message() {
 
 # Pre-flight checks
 check_is_debian_based
+check_is_x86_64
 check_is_bash
 check_has_sudo
 ensure_dependencies_installed

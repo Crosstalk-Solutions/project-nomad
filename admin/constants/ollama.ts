@@ -64,6 +64,8 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
 
 export const DEFAULT_QUERY_REWRITE_MODEL = 'qwen2.5:3b' // default to qwen2.5 for query rewriting with good balance of text task performance and resource usage
 
+export const EMBEDDING_MODEL_NAME = 'nomic-embed-text:v1.5'
+
 /**
  * Adaptive RAG context limits based on model size.
  * Smaller models get overwhelmed with too much context, so we cap it.
@@ -84,18 +86,27 @@ export const SYSTEM_PROMPTS = {
  - Use tables when presenting structured data.
 `,
   rag_context: (context: string) => `
-You have access to relevant information from the knowledge base. This context has been retrieved based on semantic similarity to the user's question.
+Information has been retrieved from the NOMAD knowledge base that MAY be relevant to the
+user's question. It was selected by automated similarity search, which is imperfect — some
+or all of it may be unrelated to what the user actually asked.
 
 [Knowledge Base Context]
 ${context}
 
-IMPORTANT INSTRUCTIONS:
-1. If the user's question is directly related to the context above, use this information to provide accurate, detailed answers.
-2. Always cite or reference the context when using it (e.g., "According to the information available..." or "Based on the knowledge base...").
-3. If the context is only partially relevant, combine it with your general knowledge but be clear about what comes from the knowledge base.
-4. If the context is not relevant to the user's question, you can respond using your general knowledge without forcing the context into your answer. Do not mention the context if it's not relevant.
-5. Never fabricate information that isn't in the context or your training data.
-6. If you're unsure or you don't have enough information to answer the user's question, acknowledge the limitations.
+HOW TO ANSWER:
+1. First, silently judge whether the context genuinely addresses the user's question. Use
+   it ONLY when it really contains relevant information. Do not force a connection that
+   isn't there: poetic, narrative, tangential, or topically-unrelated passages are NOT
+   relevant just because they share a word with the question — ignore them.
+2. When the context is relevant, base your answer on it and answer directly and specifically.
+3. When the context does not actually address the question, ignore it completely and answer
+   from your own general knowledge. Do this silently — do not mention the knowledge base,
+   the context, or the fact that it lacked an answer, and do not apologize.
+4. Never narrate your retrieval or reasoning process. Do not write "according to Context 1",
+   "the context is unrelated, but", "I couldn't find specific context", or similar. Just
+   give the answer as if you simply knew it.
+5. Do not fabricate specifics (numbers, names, procedures) that are neither supported by
+   genuinely relevant context nor part of your reliable knowledge.
 
 Format your response using markdown for readability.
 `,

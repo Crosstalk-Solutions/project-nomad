@@ -2,7 +2,7 @@ import { formatBytes } from '~/lib/util'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CategoryWithStatus, SpecTier } from '../../types/collections'
 import classNames from 'classnames'
-import { IconChevronRight, IconCircleCheck } from '@tabler/icons-react'
+import { IconChevronRight, IconCircleCheck, IconLoader2 } from '@tabler/icons-react'
 
 export interface CategoryCardProps {
   category: CategoryWithStatus
@@ -29,14 +29,34 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
   const minSize = getTierTotalSize(category.tiers[0], category.tiers)
   const maxSize = getTierTotalSize(category.tiers[category.tiers.length - 1], category.tiers)
 
-  // Determine which tier to highlight: selectedTier (wizard) > installedTierSlug (persisted)
-  const highlightedTierSlug = selectedTier?.slug || category.installedTierSlug
+  // Priority order for the prominent corner badge + lime border:
+  //   1. selectedTier — in-session wizard pick (highest priority, reflects
+  //      what the user is editing right now)
+  //   2. downloadingTierSlug — backend-derived from in-flight downloads, so
+  //      the card shows the user's intent immediately after Submit, before
+  //      any single file has finished downloading
+  //   3. installedTierSlug — fully on disk
+  const downloadingTier = !selectedTier && category.downloadingTierSlug
+    ? category.tiers.find((t) => t.slug === category.downloadingTierSlug)
+    : null
+  const installedTier = !selectedTier && !downloadingTier && category.installedTierSlug
+    ? category.tiers.find((t) => t.slug === category.installedTierSlug)
+    : null
+  const badgeTier = selectedTier || downloadingTier || installedTier
+  const badgeStatus: 'selected' | 'downloading' | 'installed' | null = selectedTier
+    ? 'selected'
+    : downloadingTier
+      ? 'downloading'
+      : installedTier
+        ? 'installed'
+        : null
+  const highlightedTierSlug = badgeTier?.slug
 
   return (
     <div
       className={classNames(
         'flex flex-col bg-desert-green rounded-lg p-6 text-white border shadow-sm hover:shadow-lg transition-shadow cursor-pointer h-80',
-        selectedTier ? 'border-lime-400 border-2' : 'border-desert-green'
+        badgeTier ? 'border-lime-400 border-2' : 'border-desert-green'
       )}
       onClick={() => onClick?.(category)}
     >
@@ -46,10 +66,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
             <DynamicIcon icon={category.icon as DynamicIconName} className="w-6 h-6 mr-2" />
             <h3 className="text-lg font-semibold">{category.name}</h3>
           </div>
-          {selectedTier ? (
+          {badgeTier ? (
             <div className="flex items-center">
-              <IconCircleCheck className="w-5 h-5 text-lime-400" />
-              <span className="text-lime-400 text-sm ml-1">{selectedTier.name}</span>
+              {badgeStatus === 'downloading' ? (
+                <IconLoader2 className="w-5 h-5 text-lime-400 animate-spin" />
+              ) : (
+                <IconCircleCheck className="w-5 h-5 text-lime-400" />
+              )}
+              <span className="text-lime-400 text-sm ml-1">
+                {badgeTier.name}
+                {badgeStatus === 'downloading' && ' (downloading)'}
+              </span>
             </div>
           ) : (
             <IconChevronRight className="w-5 h-5 text-white opacity-70" />

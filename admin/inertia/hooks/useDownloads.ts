@@ -19,8 +19,9 @@ const useDownloads = (props: useDownloadsProps) => {
     queryFn: () => api.listDownloadJobs(props.filetype),
     refetchInterval: (query) => {
       const data = query.state.data
-      // Only poll when there are active downloads; otherwise use a slower interval
-      return data && data.length > 0 ? 2000 : 30000
+      // Idle poll is kept tight so newly-dispatched jobs surface quickly — small ZIM
+      // updates can complete in ~2s, so a 30s idle interval almost always missed them.
+      return data && data.length > 0 ? 2000 : 3000
     },
     enabled: props.enabled ?? true,
   })

@@ -1,12 +1,28 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useMemo } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react'
+import { useQuery } from '@tanstack/react-query'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
+import api from '~/lib/api'
 import classNames from 'classnames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import StyledButton from './StyledButton'
+import KbGuardrailModal from './KbGuardrailModal'
+import { evaluateGuardrail, type GuardrailVerdict } from '~/lib/kb_guardrail'
+import { useSystemInfo } from '~/hooks/useSystemInfo'
+import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
+
+/**
+ * Filename for the embed-estimate registry lookup. Strips the URL path so
+ * patterns like `wikipedia_en_simple_` continue to match upstream filenames
+ * regardless of mirror domain.
+ */
+function resourceFilename(resource: SpecResource): string {
+  const last = resource.url.split('/').pop()
+  return last && last.length > 0 ? last : resource.id
+}
 
 interface TierSelectionModalProps {
   isOpen: boolean
@@ -33,12 +49,69 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
     }
   }, [isOpen, category, selectedTierSlug])
 
-  if (!category) return null
-
-  // Get all resources for a tier (including inherited resources)
+  // Get all resources for a tier (including inherited resources). Defined as a
+  // hook-safe closure (always callable, returns [] when no category) so the
+  // memo below can depend on `category` without breaking hook order.
   const getAllResourcesForTier = (tier: SpecTier): SpecResource[] => {
+    if (!category) return []
     return resolveTierResources(tier, category.tiers)
   }
+
+  // Pre-compute the selected tier's resources outside the JSX so hooks below
+  // don't re-run on every render. Empty array when no selection.
+  const selectedTierResources = useMemo<SpecResource[]>(() => {
+    if (!category || !localSelectedSlug) return []
+    const tier = category.tiers.find((t) => t.slug === localSelectedSlug)
+    return tier ? resolveTierResources(tier, category.tiers) : []
+  }, [category, localSelectedSlug])
+
+  const embedEstimateRequest = useMemo(
+    () =>
+      selectedTierResources.map((r) => ({
+        filename: resourceFilename(r),
+        sizeBytes: Math.round(r.size_mb * 1024 * 1024),
+      })),
+    [selectedTierResources]
+  )
+
+  const { data: embedEstimate, isLoading: isEstimating } = useQuery({
+    queryKey: ['embedEstimateBatch', embedEstimateRequest],
+    queryFn: () => api.estimateEmbeddingBatch(embedEstimateRequest),
+    enabled: embedEstimateRequest.length > 0,
+    staleTime: 5 * 60_000,
+  })
+
+  const { data: ingestPolicySetting } = useQuery({
+    queryKey: ['ingestPolicy'],
+    queryFn: () => api.getSetting('rag.defaultIngestPolicy'),
+  })
+
+  // System info for the disk-free side of the guardrail. Shared queryKey with
+  // the home / easy-setup pages so we don't refetch when the user already has
+  // a fresh copy in cache from a sibling component.
+  const { data: systemInfo } = useSystemInfo({ enabled: true })
+
+  // Open state for the guardrail modal — separate from the tier modal so the
+  // user sees the warning as an overlay without losing their tier selection
+  // underneath. Cancel returns to the tier modal as-is; Proceed closes both
+  // and runs the original onSelectTier path.
+  const [guardrailVerdict, setGuardrailVerdict] = useState<GuardrailVerdict | null>(null)
+
+  // Compute disk-free bytes from system info; 0 means "unknown", which the
+  // guardrail helper treats as "skip the relative-disk check".
+  // Must be declared before the `!category` early return so the hook count
+  // stays constant across renders (category transitions null → non-null when
+  // the user opens the modal).
+  const freeBytes = useMemo<number>(() => {
+    const primary = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
+    if (!primary) return 0
+    return Math.max(0, primary.totalSize - primary.totalUsed)
+  }, [systemInfo])
+
+  const ingestPolicy: 'Always' | 'Manual' =
+    ingestPolicySetting?.value === 'Manual' ? 'Manual' : 'Always'
+
+  if (!category) return null
 
   const getTierTotalSize = (tier: SpecTier): number => {
     return getAllResourcesForTier(tier).reduce((acc, r) => acc + r.size_mb * 1024 * 1024, 0)
@@ -53,17 +126,43 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
     }
   }
 
-  const handleSubmit = () => {
-    if (!localSelectedSlug) return
-
-    const selectedTier = category.tiers.find(t => t.slug === localSelectedSlug)
+  /**
+   * Runs the original onSelectTier-then-onClose flow. Pulled out of
+   * handleSubmit so the guardrail modal's confirm path can call it after
+   * the user has consented to the large operation.
+   */
+  const finalizeSubmit = () => {
+    if (!localSelectedSlug || !category) return
+    const selectedTier = category.tiers.find((t) => t.slug === localSelectedSlug)
     if (selectedTier) {
       onSelectTier(category, selectedTier)
     }
     onClose()
   }
 
+  const handleSubmit = () => {
+    if (!localSelectedSlug || !category) return
+
+    // Guardrail only runs when we have an estimate AND the global policy
+    // would auto-index this batch. Under Manual the user has already opted
+    // out of automatic ingestion, so the bulk-disk warning would be a false
+    // alarm — the files would just queue as pending_decision.
+    if (ingestPolicy === 'Always' && embedEstimate) {
+      const verdict = evaluateGuardrail({
+        estimateBytes: embedEstimate.totalBytes,
+        freeBytes,
+      })
+      if (verdict.trips) {
+        setGuardrailVerdict(verdict)
+        return
+      }
+    }
+
+    finalizeSubmit()
+  }
+
   return (
+    <>
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child
@@ -203,8 +302,41 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                     })}
                   </div>
 
+                  {/* Embedding-cost preview — visible whenever a tier is
+                      selected. The estimate uses #891's ratio registry to
+                      project how much extra disk space the AI Assistant will
+                      need for these files on top of the raw downloads. */}
+                  {localSelectedSlug && embedEstimate && embedEstimate.totalBytes > 0 && (
+                    <div className="mt-4 bg-surface-secondary border border-border-subtle rounded p-3 text-sm">
+                      <div className="flex items-start gap-2">
+                        <DynamicIcon icon="IconBrain" className="w-5 h-5 text-desert-green flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-text-primary">
+                            <span className="font-medium">+~{formatBytes(embedEstimate.totalBytes, 1)}</span>
+                            {' '}of additional storage if these are indexed for the AI Assistant
+                            {embedEstimate.hasUnknown && (
+                              <span className="text-text-muted"> (estimate excludes some files we have no prior data for)</span>
+                            )}
+                            .
+                          </p>
+                          <p className="text-text-muted text-xs mt-1">
+                            {ingestPolicy === 'Always' ? (
+                              <>
+                                Your <strong>Auto-index</strong> setting is <strong>Always</strong>, so these files will be indexed automatically once downloaded. You can change this in the Knowledge Base settings.
+                              </>
+                            ) : (
+                              <>
+                                Your <strong>Auto-index</strong> setting is <strong>Manual</strong>, so these files will sit unindexed until you opt in from the Knowledge Base settings.
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Info note */}
-                  <div className="mt-6 flex items-start gap-2 text-sm text-text-muted bg-blue-50 p-3 rounded">
+                  <div className="mt-4 flex items-start gap-2 text-sm text-text-muted bg-blue-50 p-3 rounded">
                     <IconInfoCircle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
                     <p>
                       You can change your selection at any time. Click Submit to confirm your choice.
@@ -218,7 +350,7 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
                     variant='primary'
                     size='lg'
                     onClick={handleSubmit}
-                    disabled={!localSelectedSlug}
+                    disabled={!localSelectedSlug || (embedEstimateRequest.length > 0 && isEstimating)}
                   >
                     Submit
                   </StyledButton>
@@ -229,6 +361,18 @@ const TierSelectionModal: React.FC<TierSelectionModalProps> = ({
         </div>
       </Dialog>
     </Transition>
+    {guardrailVerdict && (
+      <KbGuardrailModal
+        isOpen={true}
+        verdict={guardrailVerdict}
+        onConfirm={() => {
+          setGuardrailVerdict(null)
+          finalizeSubmit()
+        }}
+        onCancel={() => setGuardrailVerdict(null)}
+      />
+    )}
+    </>
   )
 }
 

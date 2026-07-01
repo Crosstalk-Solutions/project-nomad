@@ -4,8 +4,11 @@ import {
   RemoteZimFileEntry,
 } from '../../types/zim.js'
 import axios from 'axios'
+import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
+import { findReplacedWikipediaFiles } from '../utils/zim_filename.js'
+import { decideSupersededDeletion } from '../utils/superseded_resource.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
 import { inject } from '@adonisjs/core'
@@ -22,11 +25,14 @@ import vine from '@vinejs/vine'
 import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
+import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
+import CustomLibrarySource from '#models/custom_library_source'
+import { assertNotPrivateUrl } from '#validators/common'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -40,7 +46,21 @@ export class ZimService {
     await ensureDirectoryExists(dirPath)
 
     const all = await listDirectoryContents(dirPath)
-    const files = all.filter((item) => item.name.endsWith('.zim'))
+    const zimEntries = all.filter((item) => item.name.endsWith('.zim'))
+
+    const files = await Promise.all(
+      zimEntries.map(async (entry) => {
+        const filePath = entry.type === 'file' ? entry.key : join(dirPath, entry.name)
+        const stats = await getFileStatsIfExists(filePath)
+        return {
+          ...entry,
+          title: null,
+          summary: null,
+          author: null,
+          size_bytes: stats ? Number(stats.size) : null,
+        }
+      })
+    )
 
     return {
       files,
@@ -57,84 +77,105 @@ export class ZimService {
     query?: string
   }): Promise<ListRemoteZimFilesResponse> {
     const LIBRARY_BASE_URL = 'https://browse.library.kiwix.org/catalog/v2/entries'
+    // Kiwix returns pages of content unaware of what the user has installed locally. When
+    // the installed set is large, a single 12-item Kiwix page can come back with everything
+    // already installed → 0 post-filter items → frontend deadlock (#731). Accumulate across
+    // upstream pages so we return a useful batch. Bounded by MAX_KIWIX_FETCHES so a heavily
+    // saturated install doesn't hang a single request; the frontend scroll loop + auto-fetch
+    // effect handle continuation.
+    const KIWIX_PAGE_SIZE = 60
+    const MAX_KIWIX_FETCHES = 5
 
-    const res = await axios.get(LIBRARY_BASE_URL, {
-      params: {
-        start: start,
-        count: count,
-        lang: 'eng',
-        ...(query ? { q: query } : {}),
-      },
-      responseType: 'text',
-    })
-
-    const data = res.data
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '',
       textNodeName: '#text',
     })
-    const result = parser.parse(data)
 
-    if (!isRawListRemoteZimFilesResponse(result)) {
-      throw new Error('Invalid response format from remote library')
-    }
-
-    const entries = result.feed.entry
-      ? Array.isArray(result.feed.entry)
-        ? result.feed.entry
-        : [result.feed.entry]
-      : []
-
-    const filtered = entries.filter((entry: any) => {
-      return isRawRemoteZimFileEntry(entry)
-    })
-
-    const mapped: (RemoteZimFileEntry | null)[] = filtered.map((entry: RawRemoteZimFileEntry) => {
-      const downloadLink = entry.link.find((link: any) => {
-        return (
-          typeof link === 'object' &&
-          'rel' in link &&
-          'length' in link &&
-          'href' in link &&
-          'type' in link &&
-          link.type === 'application/x-zim'
-        )
-      })
-
-      if (!downloadLink) {
-        return null
-      }
-
-      // downloadLink['href'] will end with .meta4, we need to remove that to get the actual download URL
-      const download_url = downloadLink['href'].substring(0, downloadLink['href'].length - 6)
-      const file_name = download_url.split('/').pop() || `${entry.title}.zim`
-      const sizeBytes = parseInt(downloadLink['length'], 10)
-
-      return {
-        id: entry.id,
-        title: entry.title,
-        updated: entry.updated,
-        summary: entry.summary,
-        size_bytes: sizeBytes || 0,
-        download_url: download_url,
-        author: entry.author.name,
-        file_name: file_name,
-      }
-    })
-
-    // Filter out any null entries (those without a valid download link)
-    // or files that already exist in the local storage
+    // Snapshot locally-installed files once — the filesystem won't change mid-request.
     const existing = await this.list()
     const existingKeys = new Set(existing.files.map((file) => file.name))
-    const withoutExisting = mapped.filter(
-      (entry): entry is RemoteZimFileEntry => entry !== null && !existingKeys.has(entry.file_name)
-    )
+
+    const accumulated: RemoteZimFileEntry[] = []
+    const seenIds = new Set<string>()
+    let currentStart = start
+    let totalResults = 0
+
+    for (let i = 0; i < MAX_KIWIX_FETCHES; i++) {
+      const res = await axios.get(LIBRARY_BASE_URL, {
+        params: {
+          start: currentStart,
+          count: KIWIX_PAGE_SIZE,
+          lang: 'eng',
+          ...(query ? { q: query } : {}),
+        },
+        responseType: 'text',
+      })
+
+      const parsed = parser.parse(res.data)
+      if (!isRawListRemoteZimFilesResponse(parsed)) {
+        throw new Error('Invalid response format from remote library')
+      }
+      totalResults = parsed.feed.totalResults
+
+      const rawEntries = parsed.feed.entry
+        ? Array.isArray(parsed.feed.entry)
+          ? parsed.feed.entry
+          : [parsed.feed.entry]
+        : []
+
+      // Empty upstream response — bail even if totalResults suggests more (transient Kiwix
+      // hiccup or totalResults drift between pages). Prevents a pointless spin.
+      if (rawEntries.length === 0) break
+
+      // Advance by actual returned count, not requested count. Short pages at the tail
+      // would otherwise cause us to skip entries on the next fetch.
+      currentStart += rawEntries.length
+
+      for (const raw of rawEntries) {
+        if (!isRawRemoteZimFileEntry(raw)) continue
+        const entry = raw as RawRemoteZimFileEntry
+
+        const downloadLink = entry.link.find(
+          (link: any) =>
+            typeof link === 'object' &&
+            'rel' in link &&
+            'length' in link &&
+            'href' in link &&
+            'type' in link &&
+            link.type === 'application/x-zim'
+        )
+        if (!downloadLink) continue
+
+        // downloadLink['href'] ends with .meta4; strip that to get the actual .zim URL.
+        const download_url = downloadLink['href'].substring(0, downloadLink['href'].length - 6)
+        const file_name = download_url.split('/').pop() || `${entry.title}.zim`
+        if (existingKeys.has(file_name)) continue
+        if (seenIds.has(entry.id)) continue
+        seenIds.add(entry.id)
+
+        const sizeBytes = parseInt(downloadLink['length'], 10)
+        accumulated.push({
+          id: entry.id,
+          title: entry.title,
+          updated: entry.updated,
+          summary: entry.summary,
+          size_bytes: sizeBytes || 0,
+          download_url,
+          author: entry.author.name,
+          file_name,
+        })
+      }
+
+      if (accumulated.length >= count) break
+      if (currentStart >= totalResults) break
+    }
 
     return {
-      items: withoutExisting,
-      has_more: result.feed.totalResults > start,
-      total_count: result.feed.totalResults,
+      items: accumulated,
+      has_more: currentStart < totalResults,
+      total_count: totalResults,
+      next_start: currentStart,
     }
   }
 
@@ -276,7 +317,7 @@ export class ZimService {
     if (restart) {
       // Check if there are any remaining ZIM download jobs before restarting
       const { QueueService } = await import('./queue_service.js')
-      const queueService = new QueueService()
+      const queueService = QueueService.getInstance()
       const queue = queueService.getQueue('downloads')
 
       // Get all active and waiting jobs
@@ -319,6 +360,8 @@ export class ZimService {
     }
 
     // Create InstalledResource entries for downloaded files
+    const zimStorageDir = join(process.cwd(), ZIM_STORAGE_PATH)
+    let removedSupersededZim = false
     for (const url of urls) {
       // Skip Wikipedia files (managed separately)
       if (url.includes('wikipedia_en_')) continue
@@ -329,10 +372,17 @@ export class ZimService {
       const parsed = CollectionManifestService.parseZimFilename(filename)
       if (!parsed) continue
 
-      const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+      const filepath = join(zimStorageDir, filename)
       const stats = await getFileStatsIfExists(filepath)
 
       try {
+        // Capture the prior install for this resource_id BEFORE updateOrCreate
+        // overwrites it, so we know the old file path to clean up (#634).
+        const prior = await InstalledResource.query()
+          .where('resource_id', parsed.resource_id)
+          .where('resource_type', 'zim')
+          .first()
+
         const { DateTime } = await import('luxon')
         await InstalledResource.updateOrCreate(
           { resource_id: parsed.resource_id, resource_type: 'zim' },
@@ -345,10 +395,170 @@ export class ZimService {
           }
         )
         logger.info(`[ZimService] Created InstalledResource entry for: ${parsed.resource_id}`)
+
+        // Remove the superseded prior version's file if (and only if) every
+        // safety rail passes — see decideSupersededDeletion. The InstalledResource
+        // row already points at the new file, so we delete the old file directly
+        // (NOT via this.delete(), which would drop the row by resource_id).
+        const decision = decideSupersededDeletion({
+          existing: prior ? { file_path: prior.file_path, version: prior.version } : null,
+          newFilePath: filepath,
+          newVersion: parsed.version,
+          newFileExists: !!stats,
+          storageBaseDir: zimStorageDir,
+        })
+        if (decision.delete && decision.path) {
+          try {
+            await deleteFileIfExists(decision.path)
+            removedSupersededZim = true
+            logger.info(
+              `[ZimService] Removed superseded ${parsed.resource_id} file: ${decision.path}`
+            )
+          } catch (err) {
+            logger.warn(`[ZimService] Failed to remove superseded file ${decision.path}:`, err)
+          }
+        } else if (decision.reason !== 'first_install' && decision.reason !== 'same_file') {
+          logger.info(
+            `[ZimService] Kept prior ${parsed.resource_id} file (reason: ${decision.reason})`
+          )
+        }
       } catch (error) {
         logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
       }
     }
+
+    // If we removed any superseded ZIM, rebuild the Kiwix library so its XML no
+    // longer references the deleted file. The earlier rebuild in this flow ran
+    // while both versions were still on disk.
+    if (removedSupersededZim) {
+      try {
+        await new KiwixLibraryService().rebuildFromDisk()
+        logger.info('[ZimService] Rebuilt Kiwix library after removing superseded ZIM(s).')
+      } catch (err) {
+        logger.error('[ZimService] Failed to rebuild Kiwix library after cleanup:', err)
+      }
+    }
+  }
+
+  /**
+   * Rebuilds the kiwix library XML from whatever ZIM files are currently on disk.
+   *
+   * This is the manual counterpart to the automatic rebuilds that run after a
+   * download or delete. It exists for the sideload case: a user copies a .zim file
+   * onto the box (USB, SSH, network share) outside the download flow, and kiwix has
+   * no way to discover it without regenerating the library index.
+   *
+   * In library mode (--monitorLibrary) kiwix-serve hot-reloads the XML on its own, so
+   * no restart is needed. Only legacy glob-mode containers are restarted to pick up
+   * the change. Returns the book count before and after plus the number added.
+   */
+  async rescanLibrary(): Promise<{ before: number; after: number; added: number }> {
+    const kiwixLibraryService = new KiwixLibraryService()
+    const before = await kiwixLibraryService.getBookCount()
+    const after = await kiwixLibraryService.rebuildFromDisk()
+
+    const isLegacy = await this.dockerService.isKiwixOnLegacyConfig()
+    if (isLegacy) {
+      logger.info('[ZimService] Kiwix in legacy mode — restarting container after rescan.')
+      await this.dockerService
+        .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
+        .catch((error) => {
+          logger.error('[ZimService] Failed to restart KIWIX container after rescan:', error)
+        })
+    }
+
+    return { before, after, added: Math.max(0, after - before) }
+  }
+
+  async registerLocalUpload(filename: string): Promise<{ added: number }> {
+    let added = 0
+    try {
+      const result = await this.rescanLibrary()
+      added = result.added
+    } catch (err) {
+      logger.error('[ZimService] Failed to rebuild kiwix library after local upload:', err)
+    }
+
+    const parsed = CollectionManifestService.parseZimFilename(filename)
+    if (parsed) {
+      const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
+      const stats = await getFileStatsIfExists(filepath)
+      try {
+        const { DateTime } = await import('luxon')
+        await InstalledResource.updateOrCreate(
+          { resource_id: parsed.resource_id, resource_type: 'zim' },
+          {
+            version: parsed.version,
+            url: `local-upload://${filename}`,
+            file_path: filepath,
+            file_size_bytes: stats ? Number(stats.size) : null,
+            installed_at: DateTime.now(),
+          }
+        )
+      } catch (error) {
+        logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
+      }
+    }
+
+    // If the uploaded file matches a known Wikipedia option, mark it as installed
+    try {
+      const manifest = await CollectionManifest.find('wikipedia')
+      if (manifest) {
+        const spec = manifest.spec_data as { options: Array<{ id: string; url: string | null }> }
+        const matchedOption = spec.options.find(
+          (opt) => opt.url && opt.url.split('/').pop() === filename
+        )
+        if (matchedOption && matchedOption.url) {
+          const existing = await WikipediaSelection.query().first()
+          if (existing) {
+            existing.option_id = matchedOption.id
+            existing.url = matchedOption.url
+            existing.filename = filename
+            existing.status = 'installed'
+            await existing.save()
+          } else {
+            await WikipediaSelection.create({
+              option_id: matchedOption.id,
+              url: matchedOption.url,
+              filename,
+              status: 'installed',
+            })
+          }
+          logger.info(`[ZimService] Marked Wikipedia option '${matchedOption.id}' as installed from local upload`)
+
+          // Remove any other wikipedia_en_*.zim files, same as the download flow
+          const allFiles = await this.list()
+          const staleWikipediaFiles = allFiles.files.filter(
+            (f) => f.name.startsWith('wikipedia_en_') && f.name !== filename
+          )
+          for (const stale of staleWikipediaFiles) {
+            try {
+              await this.delete(stale.name)
+              logger.info(`[ZimService] Deleted stale Wikipedia file after upload: ${stale.name}`)
+            } catch (err) {
+              logger.warn(`[ZimService] Could not delete stale Wikipedia file: ${stale.name}`, err)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`[ZimService] Failed to update WikipediaSelection for ${filename}:`, error)
+    }
+
+    const ollamaUrl = await this.dockerService.getServiceURL('nomad_ollama')
+    if (ollamaUrl) {
+      try {
+        const { EmbedFileJob } = await import('#jobs/embed_file_job')
+        await EmbedFileJob.dispatch({
+          fileName: filename,
+          filePath: join(process.cwd(), ZIM_STORAGE_PATH, filename),
+        })
+      } catch (error) {
+        logger.error(`[ZimService] EmbedFileJob dispatch failed after local upload:`, error)
+      }
+    }
+
+    return { added }
   }
 
   async delete(file: string): Promise<void> {
@@ -386,6 +596,21 @@ export class ZimService {
         .where('resource_type', 'zim')
         .delete()
       logger.info(`[ZimService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    }
+
+    // If this file was the active Wikipedia selection, clear the selection
+    try {
+      const selection = await WikipediaSelection.query().first()
+      if (selection && selection.filename === fileName) {
+        selection.option_id = 'none'
+        selection.status = 'none'
+        selection.filename = null
+        selection.url = null
+        await selection.save()
+        logger.info(`[ZimService] Cleared WikipediaSelection after deleting ${fileName}`)
+      }
+    } catch (error) {
+      logger.error(`[ZimService] Failed to clear WikipediaSelection after deleting ${fileName}:`, error)
     }
   }
 
@@ -552,40 +777,192 @@ export class ZimService {
   }
 
   async onWikipediaDownloadComplete(url: string, success: boolean): Promise<void> {
+    const filename = url.split('/').pop() || ''
     const selection = await this.getWikipediaSelection()
 
-    if (!selection || selection.url !== url) {
-      logger.warn(`[ZimService] Wikipedia download complete callback for unknown URL: ${url}`)
-      return
+    // Determine which Wikipedia option this file belongs to by matching filename
+    let matchedOptionId: string | null = null
+    try {
+      const options = await this.getWikipediaOptions()
+      for (const opt of options) {
+        if (opt.url && opt.url.split('/').pop() === filename) {
+          matchedOptionId = opt.id
+          break
+        }
+      }
+    } catch {
+      // If we can't fetch options, try to continue with existing selection
     }
 
     if (success) {
-      // Update status to installed
-      selection.status = 'installed'
-      await selection.save()
+      // Update or create the selection record
+      // Match by filename (not URL) so mirror downloads are recognized
+      if (selection) {
+        selection.option_id = matchedOptionId || selection.option_id
+        selection.url = url
+        selection.filename = filename
+        selection.status = 'installed'
+        await selection.save()
+      } else {
+        await WikipediaSelection.create({
+          option_id: matchedOptionId || 'unknown',
+          url: url,
+          filename: filename,
+          status: 'installed',
+        })
+      }
 
-      logger.info(`[ZimService] Wikipedia download completed successfully: ${selection.filename}`)
+      logger.info(`[ZimService] Wikipedia download completed successfully: ${filename}`)
 
-      // Delete the old Wikipedia file if it exists and is different
-      // We need to find what was previously installed
+      // Delete prior versions of THIS specific Wikipedia variant only.
+      // Earlier logic deleted anything starting with `wikipedia_en_`, which silently
+      // wiped distinct corpora the user had installed independently (issue #884).
       const existingFiles = await this.list()
-      const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+      const wikipediaFiles = findReplacedWikipediaFiles(
+        filename,
+        existingFiles.files.map((f) => f.name)
       )
 
       for (const oldFile of wikipediaFiles) {
         try {
-          await this.delete(oldFile.name)
-          logger.info(`[ZimService] Deleted old Wikipedia file: ${oldFile.name}`)
+          await this.delete(oldFile)
+          logger.info(`[ZimService] Deleted old Wikipedia file: ${oldFile}`)
         } catch (error) {
-          logger.warn(`[ZimService] Could not delete old Wikipedia file: ${oldFile.name}`, error)
+          logger.warn(`[ZimService] Could not delete old Wikipedia file: ${oldFile}`, error)
         }
       }
     } else {
-      // Download failed - keep the selection record but mark as failed
-      selection.status = 'failed'
-      await selection.save()
-      logger.error(`[ZimService] Wikipedia download failed for: ${selection.filename}`)
+      // Download failed - update selection if it matches this file
+      if (selection && (!selection.filename || selection.filename === filename)) {
+        selection.status = 'failed'
+        await selection.save()
+        logger.error(`[ZimService] Wikipedia download failed for: ${filename}`)
+      } else {
+        logger.error(`[ZimService] Wikipedia download failed for: ${filename} (no matching selection)`)
+      }
     }
+  }
+
+  // Custom library source management
+
+  async listCustomLibraries(): Promise<CustomLibrarySource[]> {
+    return CustomLibrarySource.all()
+  }
+
+  async addCustomLibrary(name: string, baseUrl: string): Promise<CustomLibrarySource> {
+    const count = await CustomLibrarySource.query().count('* as total')
+    const total = Number(count[0].$extras.total)
+    if (total >= 10) {
+      throw new Error('Maximum of 10 custom libraries allowed')
+    }
+
+    // Ensure URL ends with /
+    const normalizedUrl = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'
+
+    return CustomLibrarySource.create({
+      name,
+      base_url: normalizedUrl,
+    })
+  }
+
+  async removeCustomLibrary(id: number): Promise<void> {
+    const source = await CustomLibrarySource.find(id)
+    if (!source) {
+      throw new Error('Custom library not found')
+    }
+    if (source.is_default) {
+      throw new Error('Cannot remove a built-in mirror')
+    }
+    await source.delete()
+  }
+
+  async browseLibraryUrl(url: string): Promise<{
+    directories: { name: string; url: string }[]
+    files: { name: string; url: string; size_bytes: number | null }[]
+  }> {
+    assertNotPrivateUrl(url)
+
+    const normalizedUrl = url.endsWith('/') ? url : url + '/'
+
+    const res = await axios.get(normalizedUrl, {
+      responseType: 'text',
+      timeout: 15000,
+      headers: {
+        'Accept': 'text/html',
+      },
+    })
+
+    const html: string = res.data
+    const directories: { name: string; url: string }[] = []
+    const files: { name: string; url: string; size_bytes: number | null }[] = []
+
+    const $ = cheerio.load(html)
+
+    $('a').each((_, el) => {
+      const href = el.attribs?.href
+      if (!href || href === '../' || href === './' || href === '/' || href.startsWith('?') || href.startsWith('#')) {
+        return
+      }
+      if (href.startsWith('/') || href.startsWith('http://') || href.startsWith('https://')) {
+        return
+      }
+
+      if (href.endsWith('/')) {
+        const dirName = decodeURIComponent(href.replace(/\/$/, ''))
+        directories.push({
+          name: dirName,
+          url: new URL(href, normalizedUrl).toString(),
+        })
+        return
+      }
+
+      if (href.endsWith('.zim')) {
+        const fileName = decodeURIComponent(href)
+
+        // Apache/Nginx autoindex put the date + size in the text node directly
+        // following </a> within a <pre>. Walk forward across text siblings until
+        // we find a parseable size token.
+        let trailingText = ''
+        let sibling = el.next
+        while (sibling && sibling.type === 'text') {
+          trailingText += sibling.data
+          if (/\n/.test(sibling.data)) break
+          sibling = sibling.next
+        }
+
+        files.push({
+          name: fileName,
+          url: new URL(href, normalizedUrl).toString(),
+          size_bytes: this._parseListingSize(trailingText),
+        })
+      }
+    })
+
+    directories.sort((a, b) => a.name.localeCompare(b.name))
+    files.sort((a, b) => a.name.localeCompare(b.name))
+
+    return { directories, files }
+  }
+
+  /**
+   * Parse a directory-listing size token out of the text that follows an anchor.
+   * Apache renders e.g. `   2024-01-15 10:30  5.1G`; Nginx renders raw bytes.
+   * Returns bytes or null if no size token is found.
+   */
+  private _parseListingSize(text: string): number | null {
+    // Skip the date/time columns; grab the last numeric token (with optional suffix)
+    // before a newline. Matches `5.1G`, `5368709120`, `1.2T`, etc.
+    const sizeMatch = /([\d.]+\s*[KMGT]?B?|\d+)\s*$/i.exec(text.split('\n')[0].trim())
+    if (!sizeMatch) return null
+
+    const sizeStr = sizeMatch[1].replace(/\s|B$/gi, '')
+    const num = parseFloat(sizeStr)
+    if (isNaN(num)) return null
+
+    if (/^\d+$/.test(sizeStr)) return num
+
+    const suffix = sizeStr.slice(-1).toUpperCase()
+    const multipliers: Record<string, number> = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }
+    return multipliers[suffix] ? Math.round(num * multipliers[suffix]) : null
   }
 }

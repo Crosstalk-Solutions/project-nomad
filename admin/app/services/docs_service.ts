@@ -12,9 +12,12 @@ export class DocsService {
     'home': 1,
     'getting-started': 2,
     'use-cases': 3,
-    'faq': 4,
-    'about': 5,
-    'release-notes': 6,
+    'supply-depot-apps': 4,
+    'community-add-ons': 5,
+    'updates': 6,
+    'faq': 7,
+    'about': 8,
+    'release-notes': 9,
   }
 
   async getDocs() {
@@ -91,6 +94,7 @@ export class DocsService {
 
   private static readonly TITLE_OVERRIDES: Record<string, string> = {
     'faq': 'FAQ',
+    'community-add-ons': 'Community Add-Ons',
   }
 
   private prettify(filename: string) {

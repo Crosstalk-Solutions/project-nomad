@@ -5,6 +5,7 @@ import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#val
 import KVStore from '#models/kv_store'
 import { SystemService } from '#services/system_service'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class ChatsController {
@@ -45,8 +46,9 @@ export default class ChatsController {
       const session = await this.chatService.createSession(data.title, data.model)
       return response.status(201).json(session)
     } catch (error) {
+      logger.error({ err: error }, '[ChatsController] Failed to create session')
       return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to create session',
+        error: 'Failed to create session',
       })
     }
   }
@@ -56,8 +58,9 @@ export default class ChatsController {
       const suggestions = await this.chatService.getChatSuggestions()
       return response.status(200).json({ suggestions })
     } catch (error) {
+      logger.error({ err: error }, '[ChatsController] Failed to get suggestions')
       return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to get suggestions',
+        error: 'Failed to get suggestions',
       })
     }
   }
@@ -69,8 +72,9 @@ export default class ChatsController {
       const session = await this.chatService.updateSession(sessionId, data)
       return session
     } catch (error) {
+      logger.error({ err: error }, '[ChatsController] Failed to update session')
       return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to update session',
+        error: 'Failed to update session',
       })
     }
   }
@@ -81,8 +85,9 @@ export default class ChatsController {
       await this.chatService.deleteSession(sessionId)
       return response.status(204)
     } catch (error) {
+      logger.error({ err: error }, '[ChatsController] Failed to delete session')
       return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to delete session',
+        error: 'Failed to delete session',
       })
     }
   }
@@ -94,8 +99,9 @@ export default class ChatsController {
       const message = await this.chatService.addMessage(sessionId, data.role, data.content)
       return response.status(201).json(message)
     } catch (error) {
+      logger.error({ err: error }, '[ChatsController] Failed to add message')
       return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to add message',
+        error: 'Failed to add message',
       })
     }
   }
@@ -105,8 +111,9 @@ export default class ChatsController {
       const result = await this.chatService.deleteAllSessions()
       return response.status(200).json(result)
     } catch (error) {
+      logger.error({ err: error }, '[ChatsController] Failed to delete all sessions')
       return response.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to delete all sessions',
+        error: 'Failed to delete all sessions',
       })
     }
   }

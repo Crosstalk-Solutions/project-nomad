@@ -64,6 +64,11 @@ export type ResourceStatus = 'installed' | 'not_installed' | 'update_available'
 
 export type CategoryWithStatus = SpecCategory & {
   installedTierSlug?: string
+  // Highest tier whose every resource is either installed OR has an in-flight
+  // download. Set only when it differs from installedTierSlug — i.e. the user
+  // picked something larger and downloads are still running. Lets the UI show
+  // the user's actual intent during the (often long) download window.
+  downloadingTierSlug?: string
 }
 
 export type CollectionWithStatus = SpecCollection & {
@@ -86,6 +91,7 @@ export type ResourceUpdateInfo = {
   installed_version: string
   latest_version: string
   download_url: string
+  size_bytes?: number
 }
 
 export type ContentUpdateCheckResult = {

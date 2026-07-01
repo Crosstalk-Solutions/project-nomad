@@ -44,7 +44,9 @@ while true; do
         # These are not real filesystem roots and report misleading sizes
         [[ -f "/host${mountpoint}" ]] && continue
 
-        STATS=$(df -B1 "/host${mountpoint}" 2>/dev/null | awk 'NR==2{print $2,$3,$4,$5}')
+        # Use -P (POSIX) to force single-line output even when device names
+        # are long (e.g. NFS mounts), which otherwise wrap across two lines
+        STATS=$(df -P -B1 "/host${mountpoint}" 2>/dev/null | awk 'NR==2{print $2,$3,$4,$5}')
         [[ -z "$STATS" ]] && continue
 
         read -r size used avail pct <<< "$STATS"
@@ -60,7 +62,7 @@ while true; do
     # The disk-collector container always has /storage bind-mounted from the host,
     # so df on /storage reflects the actual backing device and its capacity.
     if [[ "$FIRST" -eq 1 ]] && mountpoint -q /storage 2>/dev/null; then
-        STATS=$(df -B1 /storage 2>/dev/null | awk 'NR==2{print $1,$2,$3,$4,$5}')
+        STATS=$(df -P -B1 /storage 2>/dev/null | awk 'NR==2{print $1,$2,$3,$4,$5}')
         if [[ -n "$STATS" ]]; then
             read -r dev size used avail pct <<< "$STATS"
             pct="${pct/\%/}"

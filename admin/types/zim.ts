@@ -16,6 +16,7 @@ export type ListRemoteZimFilesResponse = {
   items: RemoteZimFileEntry[]
   has_more: boolean
   total_count: number
+  next_start: number
 }
 
 export type RawRemoteZimFileEntry = {

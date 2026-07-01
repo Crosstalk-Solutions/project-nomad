@@ -5,6 +5,7 @@ import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/ben
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
 import type { BenchmarkType } from '../../types/benchmark.js'
 import { randomUUID } from 'node:crypto'
+import logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class BenchmarkController {
@@ -52,9 +53,10 @@ export default class BenchmarkController {
           result,
         })
       } catch (error) {
+        logger.error({ err: error }, '[BenchmarkController] Benchmark run failed')
         return response.status(500).send({
           success: false,
-          error: error.message,
+          error: 'An internal error occurred while running the benchmark.',
         })
       }
     }
@@ -181,9 +183,10 @@ export default class BenchmarkController {
     } catch (error) {
       // Pass through the status code from the service if available, otherwise default to 400
       const statusCode = (error as any).statusCode || 400
+      logger.error({ err: error }, '[BenchmarkController] Benchmark submit failed')
       return response.status(statusCode).send({
         success: false,
-        error: error.message,
+        error: 'Failed to submit benchmark results.',
       })
     }
   }

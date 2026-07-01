@@ -5,12 +5,22 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { join } from 'path'
-import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import os from 'node:os'
+import env from '#start/env'
+import {
+  ZIM_STORAGE_PATH,
+  BOOKS_STORAGE_PATH,
+  CALIBRE_EMPTY_LIBRARY_ASSET_PATH,
+  VAULTWARDEN_STORAGE_PATH,
+  MESHCORE_WEB_STORAGE_PATH,
+  MEDIA_STORAGE_PATH,
+  JELLYFIN_MEDIA_SUBFOLDERS,
+} from '../utils/fs.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-// import { readdir } from 'fs/promises'
+import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -20,6 +30,19 @@ export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
   public static NOMAD_NETWORK = 'project-nomad_default'
+  public static ADMIN_CONTAINER_NAME = 'nomad_admin'
+  // The admin's own storage mount destination inside its container (compose maps
+  // <hostPath>:/app/storage). Used to locate the backing host path (#938).
+  public static ADMIN_STORAGE_DEST = '/app/storage'
+  // Hardcoded production default host storage root. A seeded/frozen child bind can
+  // still carry this prefix even after NOMAD_STORAGE_PATH is set elsewhere, so it's
+  // matched alongside the env value when relocating binds (#938).
+  public static DEFAULT_HOST_STORAGE_ROOT = '/opt/project-nomad/storage'
+
+  // Resolved once: the host filesystem path backing the admin's /app/storage mount.
+  // Child-service binds are rewritten to live under this so relocating the admin
+  // storage volume relocates every child app too (#938). null = not yet resolved.
+  private _hostStorageRoot: string | null = null
 
   private _servicesStatusCache: { data: { service_name: string; status: string }[]; expiresAt: number } | null = null
   private _servicesStatusInflight: Promise<{ service_name: string; status: string }[]> | null = null
@@ -34,6 +57,27 @@ export class DockerService {
       // Linux uses Unix socket
       this.docker = new Docker({ socketPath: '/var/run/docker.sock' })
     }
+  }
+
+  /**
+   * Pull a Docker image and resolve only when the pull genuinely completes.
+   *
+   * dockerode's `followProgress(stream, onFinished)` reports failures via the
+   * first argument of onFinished. Every call site used to pass the Promise's
+   * `resolve` directly as that callback, so a failed pull (dropped/metered
+   * connection, bad manifest, registry error, disk full mid-pull) resolved as
+   * if it had succeeded — and the code then tried to create/start a container
+   * from a missing or partial image, surfacing a confusing downstream error.
+   * Rejecting on that error here lets callers fail fast with the real cause (#790).
+   */
+  async pullImage(imageName: string): Promise<void> {
+    const pullStream = await this.docker.pull(imageName)
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(pullStream, (error: Error | null) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
   }
 
   async affectContainer(
@@ -110,10 +154,10 @@ export class DockerService {
         message: `Invalid action: ${action}. Use 'start', 'stop', or 'restart'.`,
       }
     } catch (error: any) {
-      logger.error(`Error starting service ${serviceName}: ${error.message}`)
+      logger.error({ err: error }, `[DockerService] Error controlling service ${serviceName}`)
       return {
         success: false,
-        message: `Failed to start service ${serviceName}: ${error.message}`,
+        message: `Failed to ${action} service ${serviceName}. Check server logs for details.`,
       }
     }
   }
@@ -197,6 +241,12 @@ export class DockerService {
     }
 
     const hostname = process.env.NODE_ENV === 'production' ? serviceName : 'localhost'
+
+    // "https:8480" / "http:8480" — explicit scheme + port (e.g. an app serving its own TLS).
+    const schemePort = service.ui_location?.match(/^(https?):(\d+)$/)
+    if (schemePort) {
+      return `${schemePort[1]}://${hostname}:${schemePort[2]}`
+    }
 
     // First, check if ui_location is set and is a valid port number
     if (service.ui_location && parseInt(service.ui_location, 10)) {
@@ -291,8 +341,12 @@ export class DockerService {
 
   /**
    * Force reinstall a service by stopping, removing, and recreating its container.
-   * This method will also clear any associated volumes/data.
-   * Handles edge cases gracefully (e.g., container not running, container not found).
+   *
+   * Volume handling: removes Docker-managed named volumes whose name equals
+   * `serviceName`, starts with `${serviceName}_`, or carries a `service=${serviceName}`
+   * label. Host bind mounts are NOT touched — any data living on a bind-mounted
+   * host path (ZIM stores, model caches, MySQL data dir, etc.) survives the reinstall.
+   * Anonymous volumes (random hash names) are also not matched.
    */
   async forceReinstall(serviceName: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -355,8 +409,8 @@ export class DockerService {
           )
         }
       } catch (error: any) {
-        logger.warn(`Error during container cleanup: ${error.message}`)
-        this._broadcast(serviceName, 'cleanup-warning', `Warning during cleanup: ${error.message}`)
+        logger.warn({ err: error }, `[DockerService] Error during container cleanup for ${serviceName}`)
+        this._broadcast(serviceName, 'cleanup-warning', 'Warning during container cleanup. Check server logs for details.')
       }
 
       // Step 3: Clear volumes/data if needed
@@ -365,7 +419,10 @@ export class DockerService {
         const volumes = await this.docker.listVolumes()
         const serviceVolumes =
           volumes.Volumes?.filter(
-            (v) => v.Name.includes(serviceName) || v.Labels?.service === serviceName
+            (v) =>
+              v.Name === serviceName ||
+              v.Name.startsWith(`${serviceName}_`) ||
+              v.Labels?.service === serviceName
           ) || []
 
         for (const vol of serviceVolumes) {
@@ -382,11 +439,11 @@ export class DockerService {
           this._broadcast(serviceName, 'no-volumes', `No volumes found to clear`)
         }
       } catch (error: any) {
-        logger.warn(`Error during volume cleanup: ${error.message}`)
+        logger.warn({ err: error }, `[DockerService] Error during volume cleanup for ${serviceName}`)
         this._broadcast(
           serviceName,
           'volume-cleanup-warning',
-          `Warning during volume cleanup: ${error.message}`
+          'Warning during volume cleanup. Check server logs for details.'
         )
       }
 
@@ -411,13 +468,127 @@ export class DockerService {
         message: `Service ${serviceName} force reinstall initiated successfully. You can receive updates via server-sent events.`,
       }
     } catch (error: any) {
-      logger.error(`Force reinstall failed for ${serviceName}: ${error.message}`)
+      logger.error({ err: error }, `[DockerService] Force reinstall failed for ${serviceName}`)
       await this._cleanupFailedInstallation(serviceName)
       return {
         success: false,
-        message: `Failed to force reinstall service ${serviceName}: ${error.message}`,
+        message: `Failed to force reinstall service ${serviceName}. Check server logs for details.`,
       }
     }
+  }
+
+  /**
+   * Translate low-level dockerode errors into something a non-technical user can
+   * act on. Currently handles host port conflicts — the most common install
+   * failure, where a service can't bind its port because something on the host
+   * already holds it (classic case: a native Ollama install owns 11434). Returns
+   * the original message unchanged for anything we don't recognize. (#934)
+   */
+  private _humanizeDockerError(error: any, serviceName: string): string {
+    const raw: string = error?.message ?? String(error)
+    // dockerode surfaces port conflicts as e.g.
+    //   "...Bind for 0.0.0.0:11434 failed: port is already allocated"
+    //   "...listen tcp 0.0.0.0:8090: bind: address already in use"
+    const portMatch = raw.match(/(?:Bind for [^:]+:(\d+) failed: port is already allocated|:(\d+): bind: address already in use)/i)
+    if (portMatch) {
+      const port = portMatch[1] || portMatch[2]
+      const portText = port ? `port ${port}` : 'a required port'
+      if (port === '11434' || serviceName === SERVICE_NAMES.OLLAMA) {
+        return `Couldn't start because ${portText} is already in use on this machine. This usually means Ollama is already installed and running directly on the host (outside NOMAD). Stop and disable the host Ollama service (e.g. "sudo systemctl stop ollama" then "sudo systemctl disable ollama"), then try again.`
+      }
+      return `Couldn't start because ${portText} is already in use on this machine. Stop whatever is using ${portText} on the host, then try again.`
+    }
+    return raw
+  }
+
+  /**
+   * Resolve the host filesystem path that backs the admin container's storage
+   * directory (`/app/storage`). Child services are created via the Docker socket,
+   * so their bind mounts need the path on the *host*, not inside the admin
+   * container. Deriving it from the admin's own mount means whatever host path
+   * the admin storage volume is mapped to in compose, child apps follow it
+   * automatically (#938).
+   *
+   * Falls back to NOMAD_STORAGE_PATH / the production default if the admin
+   * container or its storage mount can't be inspected.
+   */
+  private async _resolveHostStorageRoot(): Promise<string> {
+    if (this._hostStorageRoot) return this._hostStorageRoot
+    const fallback = env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT)
+    try {
+      const adminStorageDest = DockerService.ADMIN_STORAGE_DEST
+      const containers = await this.docker.listContainers({ all: true })
+      // Prefer the well-known admin container name; fall back to matching this
+      // process's own container by hostname (Docker defaults it to the short id).
+      let adminInfo = containers.find((c) =>
+        c.Names.includes(`/${DockerService.ADMIN_CONTAINER_NAME}`)
+      )
+      if (!adminInfo) {
+        const hn = os.hostname()
+        adminInfo = containers.find((c) => c.Id.startsWith(hn))
+      }
+      if (!adminInfo) return (this._hostStorageRoot = fallback)
+
+      const inspected = await this.docker.getContainer(adminInfo.Id).inspect()
+      const mount = (inspected.Mounts ?? []).find(
+        (m: any) => m.Type === 'bind' && m.Destination === adminStorageDest
+      )
+      if (mount?.Source) {
+        logger.info(`[DockerService] Resolved host storage root from admin mount: ${mount.Source}`)
+        return (this._hostStorageRoot = mount.Source)
+      }
+      return (this._hostStorageRoot = fallback)
+    } catch (err: any) {
+      logger.warn(
+        `[DockerService] Could not resolve host storage root, using fallback ${fallback}: ${err.message}`
+      )
+      // Deliberately NOT cached: a transient Docker error (e.g. socket not ready at
+      // early boot) shouldn't lock this process into the fallback for its lifetime —
+      // caching here could permanently re-hide #938 after Docker recovers. Retry next call.
+      return fallback
+    }
+  }
+
+  /**
+   * Rewrite the host side of a service's storage bind mounts so they point at the
+   * resolved host storage root. If the admin storage actually lives elsewhere on the
+   * host, swap a known storage-root prefix so the child container mounts the same
+   * physical location (#938).
+   *
+   * A bind's prefix may be the current NOMAD_STORAGE_PATH *or* the hardcoded default:
+   * curated services re-bake their config from the env every boot, but user-modified
+   * curated services and custom apps freeze their binds at edit time and can still
+   * carry the default prefix even after NOMAD_STORAGE_PATH is changed. Matching both
+   * (rather than only the current env, and short-circuiting when env == root) means
+   * the documented "set NOMAD_STORAGE_PATH and relocate the volume" path also fixes
+   * those frozen-prefix apps instead of leaving them mounting an empty directory.
+   * Idempotent: binds already under `root` match no other prefix and are left alone.
+   */
+  private async _applyHostStorageRoot(containerConfig: any): Promise<void> {
+    const binds: string[] | undefined = containerConfig?.HostConfig?.Binds
+    if (!binds?.length) return
+    const root = await this._resolveHostStorageRoot()
+    // Known host-side prefixes a seeded/frozen bind might carry. Exclude `root` itself
+    // so binds already pointing at the resolved location are never rewritten.
+    const seededRoots = [
+      env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT),
+      DockerService.DEFAULT_HOST_STORAGE_ROOT,
+    ].filter((r) => r !== root)
+    if (!seededRoots.length) return
+    containerConfig.HostConfig.Binds = binds.map((b) => {
+      // bind format: "<hostSrc>:<containerDest>[:opts]" — hostSrc is a Linux abs path.
+      const firstColon = b.indexOf(':')
+      if (firstColon < 0) return b
+      const hostSrc = b.slice(0, firstColon)
+      const rest = b.slice(firstColon) // includes leading ':'
+      const seededRoot = seededRoots.find(
+        (r) => hostSrc === r || hostSrc.startsWith(r + '/')
+      )
+      if (seededRoot) {
+        return `${root}${hostSrc.slice(seededRoot.length)}${rest}`
+      }
+      return b
+    })
   }
 
   /**
@@ -426,13 +597,17 @@ export class DockerService {
    * This method will also transmit server-sent events to the client to notify of progress.
    * @param serviceName
    * @returns
-   */
+    */
   async _createContainer(
     service: Service & { dependencies?: Service[] },
     containerConfig: any
   ): Promise<void> {
     try {
       this._broadcast(service.service_name, 'initializing', '')
+
+      // Point storage binds at wherever the admin's storage volume actually lives
+      // on the host (covers dependency installs too — they recurse through here).
+      await this._applyHostStorageRoot(containerConfig)
 
       let dependencies = []
       if (service.depends_on) {
@@ -479,13 +654,12 @@ export class DockerService {
         )
       } else {
         // Start pulling the Docker image and wait for it to complete
-        const pullStream = await this.docker.pull(service.container_image)
         this._broadcast(
           service.service_name,
           'pulling',
           `Pulling Docker image ${service.container_image}...`
         )
-        await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+        await this.pullImage(service.container_image)
       }
 
       if (service.service_name === SERVICE_NAMES.KIWIX) {
@@ -497,9 +671,46 @@ export class DockerService {
         )
       }
 
+      if (service.service_name === SERVICE_NAMES.CALIBREWEB) {
+        await this._runPreinstallActions__CalibreWeb()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Calibre-Web completed successfully.`
+        )
+      }
+
+      if (service.service_name === SERVICE_NAMES.VAULTWARDEN) {
+        await this._runPreinstallActions__Vaultwarden()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Vaultwarden completed successfully.`
+        )
+      }
+
+      if (service.service_name === SERVICE_NAMES.JELLYFIN) {
+        await this._runPreinstallActions__Jellyfin()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Jellyfin completed successfully.`
+        )
+      }
+
+      if (service.service_name === SERVICE_NAMES.MESHCORE_WEB) {
+        await this._runPreinstallActions__MeshCoreWeb()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for MeshCore Web completed successfully.`
+        )
+      }
+
       // GPU-aware configuration for Ollama
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
+      let amdGpuConfigured = false
 
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
         const gpuResult = await this._detectGPUType()
@@ -523,16 +734,50 @@ export class DockerService {
             ],
           }
         } else if (gpuResult.type === 'amd') {
-          this._broadcast(
-            service.service_name,
-            'gpu-config',
-            `AMD GPU detected. ROCm GPU acceleration is not yet supported in this version — proceeding with CPU-only configuration. GPU support for AMD will be available in a future update.`
-          )
-          logger.warn('[DockerService] AMD GPU detected but ROCm support is not yet enabled. Using CPU-only configuration.')
-          // TODO: Re-enable AMD GPU support once ROCm image and device discovery are validated.
-          // When re-enabling:
-          //   1. Switch image to 'ollama/ollama:rocm'
-          //   2. Restore _discoverAMDDevices() to map /dev/kfd and /dev/dri/* into the container
+          // AMD acceleration is opt-out via the 'ai.amdGpuAcceleration' KV key (default-on).
+          // Per memory feedback: KV values can be string or boolean — coerce explicitly.
+          const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
+          const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
+
+          if (amdAccelerationEnabled) {
+            this._broadcast(
+              service.service_name,
+              'gpu-config',
+              `AMD GPU detected. Using ROCm image with /dev/kfd and /dev/dri passthrough...`
+            )
+
+            finalImage = 'ollama/ollama:rocm'
+
+            // The pull-if-missing earlier in this function used service.container_image
+            // (the DB-pinned tag, e.g. ollama/ollama:0.18.2). The AMD branch overrides
+            // to a different tag — so we need to pull :rocm separately if it's not local.
+            const rocmImageExists = await this._checkImageExists(finalImage)
+            if (!rocmImageExists) {
+              this._broadcast(
+                service.service_name,
+                'pulling',
+                `Pulling Docker image ${finalImage}...`
+              )
+              await this.pullImage(finalImage)
+            }
+
+            const amdDevices = await this._discoverAMDDevices()
+            gpuHostConfig = {
+              ...gpuHostConfig,
+              Devices: amdDevices,
+            }
+            amdGpuConfigured = true
+            logger.info(
+              `[DockerService] Configured ROCm image and ${amdDevices.length} AMD device entries for Ollama`
+            )
+          } else {
+            this._broadcast(
+              service.service_name,
+              'gpu-config',
+              `AMD GPU detected but acceleration is disabled via ai.amdGpuAcceleration. Using CPU-only configuration.`
+            )
+            logger.info('[DockerService] AMD GPU acceleration disabled by KV opt-out; using CPU-only configuration.')
+          }
         } else if (gpuResult.toolkitMissing) {
           this._broadcast(
             service.service_name,
@@ -554,6 +799,14 @@ export class DockerService {
         const flashAttentionEnabled = await KVStore.getValue('ai.ollamaFlashAttention')
         if (flashAttentionEnabled !== false) {
           ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
+        }
+        if (amdGpuConfigured) {
+          // gfx-aware HSA override — only set for cards that actually need it. See
+          // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.
+          const hsaOverride = await this._resolveAmdHsaOverride()
+          if (hsaOverride) {
+            ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
+          }
         }
       }
 
@@ -628,14 +881,15 @@ export class DockerService {
         `Service ${service.service_name} installation completed successfully.`
       )
     } catch (error: any) {
+      const friendly = this._humanizeDockerError(error, service.service_name)
       this._broadcast(
         service.service_name,
         'error',
-        `Error installing service ${service.service_name}: ${error.message}`
+        `Error installing service ${service.service_name}: ${friendly}`
       )
       // Mark install as failed and cleanup
       await this._cleanupFailedInstallation(service.service_name)
-      throw new Error(`Failed to install service ${service.service_name}: ${error.message}`)
+      throw new Error(`Failed to install service ${service.service_name}: ${friendly}`)
     }
   }
 
@@ -664,10 +918,10 @@ export class DockerService {
 
       return { success: true, message: `Service ${serviceName} container removed successfully` }
     } catch (error: any) {
-      logger.error(`Error removing service container: ${error.message}`)
+      logger.error({ err: error }, `[DockerService] Error removing service container ${serviceName}`)
       return {
         success: false,
-        message: `Failed to remove service ${serviceName} container: ${error.message}`,
+        message: `Failed to remove service ${serviceName} container. Check server logs for details.`,
       }
     }
   }
@@ -726,12 +980,249 @@ export class DockerService {
     }
   }
 
+  /**
+   * Calibre-Web cannot create a library from scratch — without an existing Calibre database it
+   * dead-ends at the "Database Configuration" page. Seed an empty library (bundled in the admin
+   * image) into storage/books so the user just points Calibre-Web at /books and starts adding
+   * books. Only seeds when no metadata.db already exists, so an existing library is never clobbered.
+   * Ownership is handed to the container user (PUID/PGID 1000 in the seeder) so Calibre-Web can
+   * write to the library and create book folders on upload.
+   */
+  private async _runPreinstallActions__CalibreWeb(): Promise<void> {
+    // Keep in sync with the PUID/PGID set on the Calibre-Web service in the seeder.
+    const CALIBRE_WEB_UID = 1000
+    const CALIBRE_WEB_GID = 1000
+
+    const booksDir = join(process.cwd(), BOOKS_STORAGE_PATH)
+    const metadataPath = join(booksDir, 'metadata.db')
+    const assetPath = join(process.cwd(), CALIBRE_EMPTY_LIBRARY_ASSET_PATH)
+
+    this._broadcast(
+      SERVICE_NAMES.CALIBREWEB,
+      'preinstall',
+      `Running pre-install actions for Calibre-Web...`
+    )
+
+    try {
+      await mkdir(booksDir, { recursive: true })
+
+      // Don't clobber an existing library — only seed when there's no metadata.db yet.
+      const alreadyHasLibrary = await access(metadataPath)
+        .then(() => true)
+        .catch(() => false)
+
+      if (alreadyHasLibrary) {
+        this._broadcast(
+          SERVICE_NAMES.CALIBREWEB,
+          'preinstall',
+          `Existing Calibre library found in books folder — leaving it as-is.`
+        )
+      } else {
+        await copyFile(assetPath, metadataPath)
+        this._broadcast(
+          SERVICE_NAMES.CALIBREWEB,
+          'preinstall',
+          `Seeded an empty Calibre library into the books folder.`
+        )
+      }
+
+      // Hand the books folder + library to the Calibre-Web container user so it can read/write
+      // the library and create book folders on upload (Docker creates bind dirs as root otherwise).
+      await chown(booksDir, CALIBRE_WEB_UID, CALIBRE_WEB_GID)
+      await chown(metadataPath, CALIBRE_WEB_UID, CALIBRE_WEB_GID)
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.CALIBREWEB,
+        'preinstall-error',
+        `Failed to prepare the Calibre library: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Ensure a self-signed TLS cert (cert.pem + key.pem) exists in `certDir`, generating one if not.
+   * Used by apps that need a secure (HTTPS) context but run on a LAN appliance with no public DNS to
+   * get a trusted cert for. Idempotent: an existing pair is left untouched, so the cert is stable
+   * across reinstalls (no fresh browser warning each time) and a cert an admin swapped in by hand is
+   * never clobbered. The private key is locked to 0600; the cert stays world-readable.
+   */
+  private async _ensureSelfSignedCert(
+    certDir: string,
+    commonName: string
+  ): Promise<{ certPath: string; keyPath: string }> {
+    const certPath = join(certDir, 'cert.pem')
+    const keyPath = join(certDir, 'key.pem')
+
+    await mkdir(certDir, { recursive: true })
+
+    const alreadyHasCert = await Promise.all([
+      access(certPath)
+        .then(() => true)
+        .catch(() => false),
+      access(keyPath)
+        .then(() => true)
+        .catch(() => false),
+    ]).then(([c, k]) => c && k)
+
+    if (alreadyHasCert) return { certPath, keyPath }
+
+    // 10-year self-signed cert. CN/SAN are cosmetic for a self-signed cert (the browser warns
+    // regardless), but a SAN keeps it structurally valid for clients that require one.
+    const execAsync = promisify(exec)
+    await execAsync(
+      `openssl req -x509 -newkey rsa:2048 -nodes ` +
+        `-keyout "${keyPath}" -out "${certPath}" -days 3650 ` +
+        `-subj "/CN=${commonName}" ` +
+        `-addext "subjectAltName=DNS:nomad,DNS:localhost"`
+    )
+
+    await chmod(keyPath, 0o600)
+    await chmod(certPath, 0o644)
+
+    return { certPath, keyPath }
+  }
+
+  /**
+   * Vaultwarden's web vault refuses to run without a secure context — over plain HTTP it shows
+   * "You need to enable HTTPS!" and you can't register or unlock. We give it a self-signed TLS
+   * cert in its /data volume so it serves HTTPS out of the box (paired with the ROCKET_TLS env and
+   * the `https:8480` ui_location set in the seeder). Users click through a one-time browser warning;
+   * after that the vault is fully functional offline.
+   */
+  private async _runPreinstallActions__Vaultwarden(): Promise<void> {
+    const dataDir = join(process.cwd(), VAULTWARDEN_STORAGE_PATH)
+
+    this._broadcast(
+      SERVICE_NAMES.VAULTWARDEN,
+      'preinstall',
+      `Running pre-install actions for Vaultwarden...`
+    )
+
+    try {
+      await this._ensureSelfSignedCert(dataDir, 'Project NOMAD Vaultwarden')
+      this._broadcast(
+        SERVICE_NAMES.VAULTWARDEN,
+        'preinstall',
+        `Vaultwarden HTTPS certificate is ready.`
+      )
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.VAULTWARDEN,
+        'preinstall-error',
+        `Failed to prepare the Vaultwarden certificate: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * The MeshCore web client (aXistem's prebuilt image) is stock nginx serving a static Flutter build
+   * over plain HTTP. The client reaches a radio over Web Bluetooth / Web Serial, which browsers only
+   * permit from a secure (HTTPS) context — so over plain HTTP the app loads but can't connect to a
+   * thing. We generate a self-signed cert and a small SSL nginx config here; the seeder bind-mounts
+   * both into the container (the config over the image's default.conf) so it serves the same static
+   * files over HTTPS instead. Same one-time-browser-warning approach as Vaultwarden.
+   */
+  private async _runPreinstallActions__MeshCoreWeb(): Promise<void> {
+    const appDir = join(process.cwd(), MESHCORE_WEB_STORAGE_PATH)
+    const certDir = join(appDir, 'certs')
+    const nginxConfPath = join(appDir, 'nginx-ssl.conf')
+
+    this._broadcast(
+      SERVICE_NAMES.MESHCORE_WEB,
+      'preinstall',
+      `Running pre-install actions for MeshCore Web...`
+    )
+
+    try {
+      await this._ensureSelfSignedCert(certDir, 'Project NOMAD MeshCore Web')
+
+      // SSL server block bind-mounted over the image's default.conf. Serves the Flutter build that
+      // already lives at /usr/share/nginx/html in the image, over HTTPS only, with the SPA fallback
+      // that single-page apps need. Cert paths match the /certs bind mount set in the seeder.
+      const nginxConf =
+        [
+          'server {',
+          '    listen 443 ssl;',
+          '    server_name _;',
+          '    ssl_certificate     /certs/cert.pem;',
+          '    ssl_certificate_key /certs/key.pem;',
+          '    root /usr/share/nginx/html;',
+          '    index index.html;',
+          '    location / {',
+          '        try_files $uri $uri/ /index.html;',
+          '    }',
+          '}',
+        ].join('\n') + '\n'
+      await writeFile(nginxConfPath, nginxConf)
+      await chmod(nginxConfPath, 0o644)
+
+      this._broadcast(
+        SERVICE_NAMES.MESHCORE_WEB,
+        'preinstall',
+        `MeshCore Web HTTPS certificate and config are ready.`
+      )
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.MESHCORE_WEB,
+        'preinstall-error',
+        `Failed to prepare MeshCore Web: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Jellyfin works best when each library points at its own subfolder. Pointing one library at the
+   * whole media root and another at a subfolder inside it makes Jellyfin report a "duplicate path"
+   * and silently drop the nested library's content. To steer users toward the one-folder-per-type
+   * layout (and match the documentation), we pre-create the suggested subfolders under the shared
+   * media root so they're ready to pick in the setup wizard. Idempotent: only missing folders are
+   * created (mkdir is a no-op on existing ones) and nothing the user added is ever touched.
+   */
+  private async _runPreinstallActions__Jellyfin(): Promise<void> {
+    const mediaDir = join(process.cwd(), MEDIA_STORAGE_PATH)
+
+    this._broadcast(
+      SERVICE_NAMES.JELLYFIN,
+      'preinstall',
+      `Running pre-install actions for Jellyfin...`
+    )
+
+    try {
+      await mkdir(mediaDir, { recursive: true })
+      for (const name of JELLYFIN_MEDIA_SUBFOLDERS) {
+        await mkdir(join(mediaDir, name), { recursive: true })
+      }
+      this._broadcast(
+        SERVICE_NAMES.JELLYFIN,
+        'preinstall',
+        `Prepared media folders: ${JELLYFIN_MEDIA_SUBFOLDERS.join(', ')}.`
+      )
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.JELLYFIN,
+        'preinstall-error',
+        `Failed to prepare the Jellyfin media folders: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
   private async _cleanupFailedInstallation(serviceName: string): Promise<void> {
     try {
       const service = await Service.query().where('service_name', serviceName).first()
       if (service) {
-        service.installation_status = 'error'
-        await service.save()
+        if (service.is_custom) {
+          // Custom apps have no seeder definition to fall back to — leaving the row would
+          // surface a phantom, un-installable card. Remove the record entirely so a failed
+          // install cleanly disappears. (The 'error' broadcast has already fired upstream.)
+          await service.delete()
+        } else {
+          service.installation_status = 'error'
+          await service.save()
+        }
       }
       this.activeInstallations.delete(serviceName)
 
@@ -819,6 +1310,7 @@ export class DockerService {
       await service.save()
 
       const containerConfig = this._parseContainerConfig(service.container_config)
+      await this._applyHostStorageRoot(containerConfig)
 
       // Step 4: Recreate container directly (skipping _createContainer to avoid re-downloading
       // the bootstrap ZIM — ZIM files already exist on disk)
@@ -857,7 +1349,10 @@ export class DockerService {
   /**
    * Detect GPU type and toolkit availability.
    * Primary: Check Docker runtimes via docker.info() (works from inside containers).
-   * Fallback: lspci for host-based installs and AMD detection.
+   * Secondary: Read /app/storage/.nomad-gpu-type written by install_nomad.sh — needed
+   *   for AMD detection because lspci isn't available inside the admin container and
+   *   AMD has no Docker runtime registration to query.
+   * Fallback: lspci for host-based installs.
    */
   private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'none'; toolkitMissing?: boolean }> {
     try {
@@ -872,6 +1367,24 @@ export class DockerService {
         }
       } catch (error: any) {
         logger.warn(`[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`)
+      }
+
+      // Secondary: install_nomad.sh writes the host-detected GPU type to a marker file in
+      // the storage volume so the admin container (which lacks lspci) can read it.
+      try {
+        const marker = (await readFile('/app/storage/.nomad-gpu-type', 'utf8')).trim()
+        if (marker === 'nvidia') {
+          // Hardware present but Docker doesn't have nvidia runtime → toolkit missing
+          logger.warn('[DockerService] NVIDIA GPU recorded in marker file but NVIDIA Container Toolkit is not installed')
+          return { type: 'none', toolkitMissing: true }
+        }
+        if (marker === 'amd') {
+          logger.info('[DockerService] AMD GPU detected via install-time marker file')
+          await this._persistGPUType('amd')
+          return { type: 'amd' }
+        }
+      } catch {
+        // No marker file — fall through to lspci attempt for host-based installs
       }
 
       // Fallback: lspci for host-based installs (not available inside Docker)
@@ -937,60 +1450,84 @@ export class DockerService {
   }
 
   /**
-   * Discover AMD GPU DRI devices dynamically.
-   * Returns an array of device configurations for Docker.
+   * Resolve the HSA_OVERRIDE_GFX_VERSION value for the host's AMD GPU.
+   *
+   * gfx1030 (RX 6800/6700/etc.), gfx1100/1101/1102 (RX 7900/7800/7600) are on AMD's
+   * official ROCm allowlist — forcing an override on these breaks GPU discovery.
+   * gfx1035 / gfx1036 (RDNA 2 iGPUs like 680M) need 10.3.0 to coerce to gfx1030.
+   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) need 11.0.0.
+   *
+   * Resolution order:
+   *   1. KV `ai.amdHsaOverride` — manual user override; accepts 'none' (disable) or a semver-style value.
+   *   2. Marker file `/app/storage/.nomad-amd-gfx` written by install_nomad.sh.
+   *   3. Default: '11.0.0' — preserves prior behavior so existing iGPU users don't regress on
+   *      upgrade. Discrete-card users on existing installs can opt out via the KV.
+   *
+   * Returns null when no override should be applied.
    */
-  // private async _discoverAMDDevices(): Promise<
-  //   Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }>
-  // > {
-  //   try {
-  //     const devices: Array<{
-  //       PathOnHost: string
-  //       PathInContainer: string
-  //       CgroupPermissions: string
-  //     }> = []
+  private async _resolveAmdHsaOverride(): Promise<string | null> {
+    const manualRaw = await KVStore.getValue('ai.amdHsaOverride')
+    if (manualRaw !== null && manualRaw !== undefined && String(manualRaw).trim() !== '') {
+      const manual = String(manualRaw).trim().toLowerCase()
+      if (manual === 'none' || manual === 'off' || manual === 'false') {
+        logger.info('[DockerService] HSA override disabled via ai.amdHsaOverride')
+        return null
+      }
+      if (/^\d+\.\d+\.\d+$/.test(manual)) {
+        logger.info(`[DockerService] HSA override forced to ${manual} via ai.amdHsaOverride`)
+        return manual
+      }
+      logger.warn(`[DockerService] Ignoring invalid ai.amdHsaOverride value: ${manualRaw}`)
+    }
 
-  //     // Always add /dev/kfd (Kernel Fusion Driver)
-  //     devices.push({
-  //       PathOnHost: '/dev/kfd',
-  //       PathInContainer: '/dev/kfd',
-  //       CgroupPermissions: 'rwm',
-  //     })
+    try {
+      const gfx = (await readFile('/app/storage/.nomad-amd-gfx', 'utf8')).trim()
+      const mapped = this._mapGfxToHsaOverride(gfx)
+      logger.info(`[DockerService] AMD gfx marker '${gfx}' → HSA override ${mapped ?? 'none'}`)
+      return mapped
+    } catch {
+      // Marker absent — most likely an existing install upgraded without re-running
+      // install_nomad.sh. Fall through to the default.
+    }
 
-  //     // Discover DRI devices in /dev/dri/
-  //     try {
-  //       const driDevices = await readdir('/dev/dri')
-  //       for (const device of driDevices) {
-  //         const devicePath = `/dev/dri/${device}`
-  //         devices.push({
-  //           PathOnHost: devicePath,
-  //           PathInContainer: devicePath,
-  //           CgroupPermissions: 'rwm',
-  //         })
-  //       }
-  //       logger.info(
-  //         `[DockerService] Discovered ${driDevices.length} DRI devices: ${driDevices.join(', ')}`
-  //       )
-  //     } catch (error) {
-  //       logger.warn(`[DockerService] Could not read /dev/dri directory: ${error.message}`)
-  //       // Fallback to common device names if directory read fails
-  //       const fallbackDevices = ['card0', 'renderD128']
-  //       for (const device of fallbackDevices) {
-  //         devices.push({
-  //           PathOnHost: `/dev/dri/${device}`,
-  //           PathInContainer: `/dev/dri/${device}`,
-  //           CgroupPermissions: 'rwm',
-  //         })
-  //       }
-  //       logger.info(`[DockerService] Using fallback DRI devices: ${fallbackDevices.join(', ')}`)
-  //     }
+    logger.info('[DockerService] No AMD gfx marker; defaulting HSA override to 11.0.0 for backward compatibility')
+    return '11.0.0'
+  }
 
-  //     return devices
-  //   } catch (error) {
-  //     logger.error(`[DockerService] Error discovering AMD devices: ${error.message}`)
-  //     return []
-  //   }
-  // }
+  private _mapGfxToHsaOverride(gfx: string): string | null {
+    // Officially supported by ROCm — no override needed
+    if (gfx === 'gfx1030' || gfx === 'gfx1100' || gfx === 'gfx1101' || gfx === 'gfx1102') {
+      return null
+    }
+    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M)
+    if (/^gfx103[1-6]$/.test(gfx)) {
+      return '10.3.0'
+    }
+    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo = gfx1151)
+    if (gfx === 'gfx1103' || gfx === 'gfx1150' || gfx === 'gfx1151') {
+      return '11.0.0'
+    }
+    return '11.0.0'
+  }
+
+  /**
+   * Build the Docker Devices array for AMD GPU passthrough.
+   *
+   * Returns /dev/kfd (Kernel Fusion Driver, required by ROCm) and /dev/dri (the DRM
+   * device tree). Passing /dev/dri as a single directory entry mirrors Docker CLI
+   * --device behavior — the daemon expands it to all child devices (card*, renderD*)
+   * regardless of how the host enumerates them. This avoids the brittle hardcoded
+   * fallback (card0/renderD128) the prior implementation used, which was wrong on
+   * systems where the AMD GPU enumerates as card1+ (e.g. UM890 Pro 780M iGPU).
+   */
+  private async _discoverAMDDevices(): Promise<
+    Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }>
+  > {
+    return [
+      { PathOnHost: '/dev/kfd', PathInContainer: '/dev/kfd', CgroupPermissions: 'rwm' },
+      { PathOnHost: '/dev/dri', PathInContainer: '/dev/dri', CgroupPermissions: 'rwm' },
+    ]
+  }
 
   /**
    * Update a service container to a new image version while preserving volumes and data.
@@ -1011,20 +1548,82 @@ export class DockerService {
       if (this.activeInstallations.has(serviceName)) {
         return { success: false, message: `Service ${serviceName} already has an operation in progress` }
       }
+      // DB-level guard mirrors the install path. Unlike the in-memory Set above, this survives a
+      // page reload and is visible to other clients, so a second Update click (or one from another
+      // tab) is rejected cleanly instead of racing two updateContainer runs into Docker 304/400
+      // errors (stop/rename on a container the first run already moved).
+      if (service.installation_status === 'installing') {
+        return { success: false, message: `Service ${serviceName} already has an update in progress` }
+      }
 
       this.activeInstallations.add(serviceName)
+      // Persist the in-progress flag so the Apps page can durably disable the Update button while
+      // the (often multi-GB, multi-minute) pull runs. Cleared in the finally below.
+      service.installation_status = 'installing'
+      await service.save()
 
-      // Compute new image string
+      // newImage = the semver tag we record in the DB after the update (e.g. ollama/ollama:0.23.2).
+      // runtimeImage = the tag we actually pull and run. For AMD-on-Ollama these diverge: we run
+      // the rolling :rocm tag because per-version ROCm tags aren't always published, but the DB
+      // must keep the semver tag so the Apps page shows the actual version (not literally "rocm")
+      // and the registry update-check parses a valid tag (instead of looping on the same update).
       const currentImage = service.container_image
       const imageBase = currentImage.includes(':')
         ? currentImage.substring(0, currentImage.lastIndexOf(':'))
         : currentImage
       const newImage = `${imageBase}:${targetVersion}`
+      let runtimeImage = newImage
 
-      // Step 1: Pull new image
-      this._broadcast(serviceName, 'update-pulling', `Pulling image ${newImage}...`)
-      const pullStream = await this.docker.pull(newImage)
-      await new Promise((res) => this.docker.modem.followProgress(pullStream, res))
+      // GPU detection runs before the pull so AMD updates pull ollama/ollama:rocm rather
+      // than the standard tag. Detection result is reused below when building the new
+      // container config (devices, env). Non-Ollama services skip this entirely.
+      let updatedDeviceRequests: any[] | undefined = undefined
+      let updatedAmdDevices: any[] | undefined = undefined
+      let updatedAmdGpuConfigured = false
+      if (serviceName === SERVICE_NAMES.OLLAMA) {
+        const gpuResult = await this._detectGPUType()
+        if (gpuResult.type === 'nvidia') {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `NVIDIA container runtime detected. Configuring updated container with GPU support...`
+          )
+          updatedDeviceRequests = [
+            { Driver: 'nvidia', Count: -1, Capabilities: [['gpu']] },
+          ]
+        } else if (gpuResult.type === 'amd') {
+          const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
+          const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
+          if (amdAccelerationEnabled) {
+            this._broadcast(
+              serviceName,
+              'update-gpu-config',
+              `AMD GPU detected. Using ROCm image with /dev/kfd and /dev/dri passthrough...`
+            )
+            runtimeImage = 'ollama/ollama:rocm'
+            updatedAmdDevices = await this._discoverAMDDevices()
+            updatedAmdGpuConfigured = true
+          } else {
+            this._broadcast(
+              serviceName,
+              'update-gpu-config',
+              `AMD GPU detected but acceleration is disabled via ai.amdGpuAcceleration. Using CPU-only configuration.`
+            )
+          }
+        } else if (gpuResult.toolkitMissing) {
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
+          )
+        } else {
+          this._broadcast(serviceName, 'update-gpu-config', `No GPU detected. Using CPU-only configuration.`)
+        }
+      }
+
+      // Step 1: Pull new image (runtimeImage diverges from newImage for AMD, see above)
+      this._broadcast(serviceName, 'update-pulling', `Pulling image ${runtimeImage}...`)
+      await this.pullImage(runtimeImage)
 
       // Step 2: Find and stop existing container
       this._broadcast(serviceName, 'update-stopping', `Stopping current container...`)
@@ -1047,55 +1646,58 @@ export class DockerService {
 
       // Step 3: Rename old container as safety net
       const oldName = `${serviceName}_old`
+
+      // Clear any stale rollback container left behind by a previously failed update.
+      // Otherwise the rename below collides with the existing `<name>_old` and throws,
+      // which wedges every subsequent retry on the same error.
+      const staleOld = (await this.docker.listContainers({ all: true })).find((c) =>
+        c.Names.includes(`/${oldName}`)
+      )
+      if (staleOld) {
+        try {
+          await this.docker.getContainer(staleOld.Id).remove({ force: true })
+        } catch {
+          // Best effort — if it can't be removed the rename below will surface the error.
+        }
+      }
+
       await oldContainer.rename({ name: oldName })
+
+      // Restore the previous container after a failed update: rename the renamed-aside
+      // old container back into place and start it, so a failure anywhere between here
+      // and the health check never leaves the service down.
+      const rollbackToOld = async () => {
+        const containers = await this.docker.listContainers({ all: true })
+        const oldRef = containers.find((c) => c.Names.includes(`/${oldName}`))
+        if (oldRef) {
+          const rollbackContainer = this.docker.getContainer(oldRef.Id)
+          await rollbackContainer.rename({ name: serviceName }).catch(() => {})
+          await rollbackContainer.start().catch(() => {})
+        }
+      }
 
       // Step 4: Create new container with inspected config + new image
       this._broadcast(serviceName, 'update-creating', `Creating updated container...`)
 
       const hostConfig = inspectData.HostConfig || {}
 
-      // Re-run GPU detection for Ollama so updates always reflect the current GPU environment.
-      // This handles cases where the NVIDIA Container Toolkit was installed after the initial
-      // Ollama setup, and ensures DeviceRequests are always built fresh rather than relying on
-      // round-tripping the Docker inspect format back into the create API.
-      let updatedDeviceRequests: any[] | undefined = undefined
-      if (serviceName === SERVICE_NAMES.OLLAMA) {
-        const gpuResult = await this._detectGPUType()
-
-        if (gpuResult.type === 'nvidia') {
-          this._broadcast(
-            serviceName,
-            'update-gpu-config',
-            `NVIDIA container runtime detected. Configuring updated container with GPU support...`
-          )
-          updatedDeviceRequests = [
-            {
-              Driver: 'nvidia',
-              Count: -1,
-              Capabilities: [['gpu']],
-            },
-          ]
-        } else if (gpuResult.type === 'amd') {
-          this._broadcast(
-            serviceName,
-            'update-gpu-config',
-            `AMD GPU detected. ROCm GPU acceleration is not yet supported — using CPU-only configuration.`
-          )
-        } else if (gpuResult.toolkitMissing) {
-          this._broadcast(
-            serviceName,
-            'update-gpu-config',
-            `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
-          )
-        } else {
-          this._broadcast(serviceName, 'update-gpu-config', `No GPU detected. Using CPU-only configuration.`)
+      // GPU detection already ran above (before the pull) so we know the right image, devices,
+      // and whether HSA_OVERRIDE needs injection. For AMD, replace any prior HSA_OVERRIDE in
+      // the inspect-captured env so updates from older containers pick up the current value.
+      const baseEnv = inspectData.Config?.Env || []
+      let finalEnv = baseEnv
+      if (updatedAmdGpuConfigured) {
+        const hsaOverride = await this._resolveAmdHsaOverride()
+        finalEnv = baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
+        if (hsaOverride) {
+          finalEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
         }
       }
 
       const newContainerConfig: any = {
-        Image: newImage,
+        Image: runtimeImage,
         name: serviceName,
-        Env: inspectData.Config?.Env || undefined,
+        Env: finalEnv.length > 0 ? finalEnv : undefined,
         Cmd: inspectData.Config?.Cmd || undefined,
         ExposedPorts: inspectData.Config?.ExposedPorts || undefined,
         WorkingDir: inspectData.Config?.WorkingDir || undefined,
@@ -1105,7 +1707,7 @@ export class DockerService {
           PortBindings: hostConfig.PortBindings || undefined,
           RestartPolicy: hostConfig.RestartPolicy || undefined,
           DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
-          Devices: hostConfig.Devices || undefined,
+          Devices: serviceName === SERVICE_NAMES.OLLAMA && updatedAmdDevices ? updatedAmdDevices : (hostConfig.Devices || undefined),
         },
         NetworkingConfig: inspectData.NetworkSettings?.Networks
           ? {
@@ -1129,16 +1731,35 @@ export class DockerService {
       } catch (createError: any) {
         // Rollback: rename old container back
         this._broadcast(serviceName, 'update-rollback', `Failed to create new container: ${createError.message}. Rolling back...`)
-        const rollbackContainer = this.docker.getContainer((await this.docker.listContainers({ all: true })).find((c) => c.Names.includes(`/${oldName}`))!.Id)
-        await rollbackContainer.rename({ name: serviceName })
-        await rollbackContainer.start()
+        await rollbackToOld()
         this.activeInstallations.delete(serviceName)
         return { success: false, message: `Failed to create updated container: ${createError.message}` }
       }
 
-      // Step 5: Start new container
+      // Step 5: Start new container. If the start itself throws (bad device/GPU config,
+      // a host port already bound, image incompatibility), roll back to the previous
+      // container instead of leaving the service stopped with no replacement running.
       this._broadcast(serviceName, 'update-starting', `Starting updated container...`)
-      await newContainer.start()
+      try {
+        await newContainer.start()
+      } catch (startError: any) {
+        this._broadcast(
+          serviceName,
+          'update-rollback',
+          `Updated container failed to start: ${startError.message}. Rolling back to previous version...`
+        )
+        try {
+          await newContainer.remove({ force: true })
+        } catch {
+          // Best effort — leave the half-created container for manual cleanup if needed.
+        }
+        await rollbackToOld()
+        this.activeInstallations.delete(serviceName)
+        return {
+          success: false,
+          message: `Update failed: new container did not start (${startError.message}). Rolled back to previous version.`,
+        }
+      }
 
       // Step 6: Health check — verify container stays running for 5 seconds
       await new Promise((resolve) => setTimeout(resolve, 5000))
@@ -1184,14 +1805,7 @@ export class DockerService {
           // Best effort cleanup
         }
 
-        // Restore old container
-        const oldContainers = await this.docker.listContainers({ all: true })
-        const oldRef = oldContainers.find((c) => c.Names.includes(`/${oldName}`))
-        if (oldRef) {
-          const rollbackContainer = this.docker.getContainer(oldRef.Id)
-          await rollbackContainer.rename({ name: serviceName })
-          await rollbackContainer.start()
-        }
+        await rollbackToOld()
 
         this.activeInstallations.delete(serviceName)
         return {
@@ -1204,10 +1818,25 @@ export class DockerService {
       this._broadcast(
         serviceName,
         'update-rollback',
-        `Update failed: ${error.message}`
+        'Update failed. Check server logs for details.'
       )
-      logger.error(`[DockerService] Update failed for ${serviceName}: ${error.message}`)
-      return { success: false, message: `Update failed: ${error.message}` }
+      logger.error({ err: error }, `[DockerService] Update failed for ${serviceName}`)
+      return { success: false, message: 'Update failed. Check server logs for details.' }
+    } finally {
+      // Always clear the in-progress flag we set above, on every exit path (success, rollback,
+      // not-found, or thrown error). The success path already persisted the new image/version on
+      // this same in-memory model, so saving again with idle preserves that — it only flips the
+      // status. The existing activeInstallations.delete() calls on each branch handle the
+      // in-memory lock; this just keeps the durable DB flag honest.
+      const svc = await Service.query().where('service_name', serviceName).first()
+      if (svc && svc.installation_status === 'installing') {
+        svc.installation_status = 'idle'
+        try {
+          await svc.save()
+        } catch (saveErr: any) {
+          logger.error({ err: saveErr }, `[DockerService] Failed to reset installation_status for ${serviceName}`)
+        }
+      }
     }
   }
 
@@ -1237,6 +1866,334 @@ export class DockerService {
     } catch (error: any) {
       logger.error(`Failed to parse container configuration: ${error.message}`)
       throw new Error(`Invalid container configuration: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check whether any of the supplied host ports are already bound by a running or stopped
+   * Docker container. Uses the Docker API exclusively — probing ports via net.createServer()
+   * would only test the admin container's own network namespace (DooD pattern), not the host.
+   */
+  async checkPortConflicts(
+    ports: number[]
+  ): Promise<{ conflicts: { port: number; usedBy: string }[] }> {
+    if (!ports.length) return { conflicts: [] }
+
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const bound = new Map<number, string>()
+
+      for (const c of containers) {
+        const name = (c.Names[0] || '').replace('/', '')
+        for (const p of c.Ports) {
+          if (p.PublicPort) bound.set(p.PublicPort, name || c.Id.slice(0, 12))
+        }
+      }
+
+      const conflicts = ports
+        .filter((p) => bound.has(p))
+        .map((p) => ({ port: p, usedBy: bound.get(p)! }))
+
+      return { conflicts }
+    } catch (error: any) {
+      logger.warn(`[DockerService] checkPortConflicts failed: ${error.message}`)
+      return { conflicts: [] }
+    }
+  }
+
+  /**
+   * Remove a custom-app container and, when `removeImage` is set, its backing image too. Called
+   * before deleting the DB record. Image removal is best-effort: a shared/in-use image is left alone.
+   */
+  async removeCustomAppContainer(
+    serviceName: string,
+    removeImage = false
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const container = containers.find((c) => c.Names.includes(`/${serviceName}`))
+
+      if (!container) return { success: true, message: 'No container found — nothing to remove' }
+
+      const imageRef = container.Image
+      const c = this.docker.getContainer(container.Id)
+      if (container.State === 'running') await c.stop()
+      await c.remove({ force: true })
+
+      if (removeImage && imageRef) {
+        try {
+          await this.docker.getImage(imageRef).remove()
+        } catch (imgErr: any) {
+          // Non-fatal: the image may be shared with another container or already gone.
+          logger.warn(`[DockerService] Could not remove image ${imageRef} for ${serviceName}: ${imgErr.message}`)
+        }
+      }
+
+      this.invalidateServicesStatusCache()
+      return { success: true, message: `Container ${serviceName} removed` }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] removeCustomAppContainer failed for ${serviceName}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /**
+   * Uninstall a curated catalog app: stop and remove its container (and, optionally, its image),
+   * then mark the record not-installed so the card returns to the available catalog. Host
+   * bind-mount data is deliberately left on disk — a later reinstall picks it back up. Contrast
+   * with forceReinstall, which clears volumes and immediately recreates the container.
+   */
+  async uninstallService(
+    serviceName: string,
+    removeImage = false
+  ): Promise<{ success: boolean; message: string }> {
+    const service = await Service.query().where('service_name', serviceName).first()
+    if (!service || !service.installed) {
+      return { success: false, message: `Service ${serviceName} not found or not installed` }
+    }
+
+    // Container/image removal is shared with custom-app deletion — the lookup is by container
+    // name, which is the service_name for curated and custom apps alike.
+    const removal = await this.removeCustomAppContainer(serviceName, removeImage)
+    if (!removal.success) return removal
+
+    service.installed = false
+    service.installation_status = 'idle'
+    await service.save()
+    this.invalidateServicesStatusCache()
+
+    return { success: true, message: `Service ${serviceName} uninstalled` }
+  }
+
+  /** Find a container by its managed service name (`/serviceName`), or null. */
+  private async _findContainerByName(serviceName: string) {
+    const containers = await this.docker.listContainers({ all: true })
+    return containers.find((c) => c.Names.includes(`/${serviceName}`)) ?? null
+  }
+
+  /**
+   * Decode the multiplexed stream Docker returns for non-TTY container logs. Each frame is an
+   * 8-byte header ([streamType, 0,0,0, big-endian payloadSize]) followed by the payload.
+   */
+  private _demuxDockerLog(buf: Buffer): string {
+    let out = ''
+    let offset = 0
+    while (offset + 8 <= buf.length) {
+      const size = buf.readUInt32BE(offset + 4)
+      offset += 8
+      if (offset + size > buf.length) {
+        out += buf.toString('utf8', offset)
+        break
+      }
+      out += buf.toString('utf8', offset, offset + size)
+      offset += size
+    }
+    return out
+  }
+
+  /** Return the last `tail` lines of a service container's combined stdout/stderr. */
+  async getContainerLogs(
+    serviceName: string,
+    tail = 200
+  ): Promise<{ success: boolean; logs?: string; message?: string }> {
+    try {
+      const info = await this._findContainerByName(serviceName)
+      if (!info) return { success: false, message: `No container found for ${serviceName}` }
+
+      const container = this.docker.getContainer(info.Id)
+      const inspect = await container.inspect()
+      const tty = inspect.Config?.Tty ?? false
+
+      const buf = (await container.logs({
+        stdout: true,
+        stderr: true,
+        follow: false,
+        tail,
+        timestamps: false,
+      })) as unknown as Buffer
+
+      const logs = tty ? buf.toString('utf8') : this._demuxDockerLog(buf)
+      return { success: true, logs }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] getContainerLogs failed for ${serviceName}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /**
+   * Return a single resource-usage snapshot (CPU %, memory) for a running service container.
+   * Uses Docker's non-streaming stats, which include precpu_stats so CPU % is computable.
+   */
+  async getContainerStats(serviceName: string): Promise<{
+    success: boolean
+    running?: boolean
+    stats?: { cpuPercent: number; memUsageBytes: number; memLimitBytes: number; memPercent: number }
+    message?: string
+  }> {
+    try {
+      const info = await this._findContainerByName(serviceName)
+      if (!info) return { success: false, message: `No container found for ${serviceName}` }
+      if (info.State !== 'running') return { success: true, running: false }
+
+      const container = this.docker.getContainer(info.Id)
+      const s: any = await container.stats({ stream: false })
+
+      const cpuDelta =
+        (s.cpu_stats?.cpu_usage?.total_usage ?? 0) - (s.precpu_stats?.cpu_usage?.total_usage ?? 0)
+      const systemDelta =
+        (s.cpu_stats?.system_cpu_usage ?? 0) - (s.precpu_stats?.system_cpu_usage ?? 0)
+      const numCpus =
+        s.cpu_stats?.online_cpus ?? s.cpu_stats?.cpu_usage?.percpu_usage?.length ?? 1
+      const cpuPercent =
+        systemDelta > 0 && cpuDelta > 0 ? (cpuDelta / systemDelta) * numCpus * 100 : 0
+
+      // Subtract page cache from usage to better reflect the container's working set.
+      const cache = s.memory_stats?.stats?.cache ?? s.memory_stats?.stats?.inactive_file ?? 0
+      const memUsageBytes = Math.max(0, (s.memory_stats?.usage ?? 0) - cache)
+      const memLimitBytes = s.memory_stats?.limit ?? 0
+      const memPercent = memLimitBytes > 0 ? (memUsageBytes / memLimitBytes) * 100 : 0
+
+      return {
+        success: true,
+        running: true,
+        stats: {
+          cpuPercent: Math.round(cpuPercent * 10) / 10,
+          memUsageBytes,
+          memLimitBytes,
+          memPercent: Math.round(memPercent * 10) / 10,
+        },
+      }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] getContainerStats failed for ${serviceName}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /**
+   * Wait for a freshly started container to be "ready". If the image declares a HEALTHCHECK we poll
+   * its health until healthy/unhealthy (up to timeoutMs); otherwise we fall back to a 5s settle and
+   * a plain Running check. Returns whether it's ready plus a reason when not.
+   */
+  private async _awaitContainerReady(
+    container: any,
+    timeoutMs = 30000
+  ): Promise<{ ready: boolean; reason?: string }> {
+    let inspect = await container.inspect()
+    const hasHealthcheck = !!inspect.State?.Health
+
+    if (!hasHealthcheck) {
+      await new Promise((r) => setTimeout(r, 5000))
+      inspect = await container.inspect()
+      return inspect.State?.Running
+        ? { ready: true }
+        : { ready: false, reason: 'container did not stay running' }
+    }
+
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      inspect = await container.inspect()
+      if (!inspect.State?.Running) return { ready: false, reason: 'container exited' }
+      const status = inspect.State?.Health?.Status
+      if (status === 'healthy') return { ready: true }
+      if (status === 'unhealthy') return { ready: false, reason: 'failed its health check' }
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+    // Still in "starting" at timeout — accept it if it's at least running rather than roll back a slow boot.
+    return inspect.State?.Running ? { ready: true } : { ready: false, reason: 'health check timed out' }
+  }
+
+  /**
+   * Recreate a custom app's container from its (already-updated) Service record, preserving data.
+   * Uses the same rename-and-rollback safety net as the update flow: the live container is renamed
+   * aside, a new one is created from the new config/image, health-gated, and only then is the old one
+   * removed — otherwise we roll back to it. Bind-mounted data is untouched throughout. Pass
+   * `forcePull` to always re-pull the image first (used by the "update" action for moving tags).
+   */
+  async recreateCustomAppContainer(
+    serviceName: string,
+    opts: { forcePull?: boolean } = {}
+  ): Promise<{ success: boolean; message: string }> {
+    const service = await Service.query().where('service_name', serviceName).first()
+    if (!service) return { success: false, message: `Service ${serviceName} not found` }
+
+    const containerConfig = this._parseContainerConfig(service.container_config)
+    const oldInfo = await this._findContainerByName(serviceName)
+    const oldName = `${serviceName}_old`
+
+    // Clear any stale `_old` left behind by a previous recreate that died mid-flight. Without this,
+    // the rename below would fail (name in use) and the rollback path would then destroy the live
+    // container and resurrect the stale one in its place.
+    const staleOld = await this._findContainerByName(oldName)
+    if (staleOld) {
+      await this.docker.getContainer(staleOld.Id).remove({ force: true }).catch(() => {})
+    }
+
+    try {
+      // Stop + rename the existing container aside as a rollback safety net.
+      if (oldInfo) {
+        const oldContainer = this.docker.getContainer(oldInfo.Id)
+        if (oldInfo.State === 'running') await oldContainer.stop({ t: 10 }).catch(() => {})
+        await oldContainer.rename({ name: oldName })
+      }
+
+      // Pull the image if it's missing locally, or always when forcePull (e.g. :latest updates).
+      if (opts.forcePull || !(await this._checkImageExists(service.container_image))) {
+        await this.pullImage(service.container_image)
+      }
+
+      const newContainer = await this.docker.createContainer({
+        Image: service.container_image,
+        name: serviceName,
+        Labels: {
+          ...(containerConfig?.Labels ?? {}),
+          'com.docker.compose.project': 'project-nomad-managed',
+          'io.project-nomad.managed': 'true',
+        },
+        ...(containerConfig?.User && { User: containerConfig.User }),
+        HostConfig: containerConfig?.HostConfig ?? {},
+        ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
+        ...(containerConfig?.Env && { Env: containerConfig.Env }),
+        ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
+        ...(process.env.NODE_ENV === 'production' && {
+          NetworkingConfig: { EndpointsConfig: { [DockerService.NOMAD_NETWORK]: {} } },
+        }),
+      })
+      await newContainer.start()
+
+      // Health gate before discarding the old container.
+      const readiness = await this._awaitContainerReady(newContainer)
+      if (!readiness.ready) throw new Error(`recreated container ${readiness.reason}`)
+
+      if (oldInfo) {
+        const oldRef = await this._findContainerByName(oldName)
+        if (oldRef) await this.docker.getContainer(oldRef.Id).remove({ force: true })
+      }
+      service.installed = true
+      service.installation_status = 'idle'
+      await service.save()
+      this.invalidateServicesStatusCache()
+      return { success: true, message: `Service ${serviceName} reconfigured successfully` }
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] recreateCustomAppContainer failed for ${serviceName}`)
+      // Roll back: discard the failed new container and restore the renamed original.
+      try {
+        const failedNew = await this._findContainerByName(serviceName)
+        if (failedNew) {
+          const c = this.docker.getContainer(failedNew.Id)
+          await c.stop({ t: 5 }).catch(() => {})
+          await c.remove({ force: true }).catch(() => {})
+        }
+        const renamed = await this._findContainerByName(oldName)
+        if (renamed) {
+          const c = this.docker.getContainer(renamed.Id)
+          await c.rename({ name: serviceName })
+          await c.start().catch(() => {})
+        }
+      } catch (rollbackError: any) {
+        logger.error({ err: rollbackError }, `[DockerService] rollback failed for ${serviceName}`)
+      }
+      this.invalidateServicesStatusCache()
+      return { success: false, message: `Reconfigure failed and was rolled back: ${error.message}` }
     }
   }
 

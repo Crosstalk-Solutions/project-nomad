@@ -4,6 +4,8 @@ import {
   assertNotPrivateUrl,
   downloadCollectionValidator,
   filenameParamValidator,
+  mapExtractPreflightValidator,
+  mapExtractValidator,
   remoteDownloadValidator,
   remoteDownloadValidatorOptional,
 } from '#validators/common'
@@ -87,6 +89,28 @@ export default class MapsController {
     }
   }
 
+  async listCountries({}: HttpContext) {
+    return { countries: await this.mapService.listCountries() }
+  }
+
+  async listCountryGroups({}: HttpContext) {
+    return { groups: await this.mapService.listCountryGroups() }
+  }
+
+  async extractPreflight({ request }: HttpContext) {
+    const payload = await request.validateUsing(mapExtractPreflightValidator)
+    return await this.mapService.extractPreflight(payload)
+  }
+
+  async extractRegion({ request }: HttpContext) {
+    const payload = await request.validateUsing(mapExtractValidator)
+    const result = await this.mapService.extractRegion(payload)
+    return {
+      message: 'Extract started successfully',
+      ...result,
+    }
+  }
+
   async styles({ request, response }: HttpContext) {
     // Automatically ensure base assets are present before generating styles
     const baseAssetsExist = await this.mapService.ensureBaseAssets()
@@ -137,9 +161,11 @@ export default class MapsController {
       vine.compile(
         vine.object({
           name: vine.string().trim().minLength(1).maxLength(255),
-          longitude: vine.number(),
-          latitude: vine.number(),
+          longitude: vine.number().min(-180).max(180),
+          latitude: vine.number().min(-90).max(90),
           color: vine.string().trim().maxLength(20).optional(),
+          notes: vine.string().trim().nullable().optional(),
+          marker_type: vine.string().trim().maxLength(20).optional(),
         })
       )
     )
@@ -148,6 +174,8 @@ export default class MapsController {
       longitude: payload.longitude,
       latitude: payload.latitude,
       color: payload.color ?? 'orange',
+      notes: payload.notes ?? null,
+      marker_type: payload.marker_type ?? 'pin',
     })
     return marker
   }
@@ -163,11 +191,19 @@ export default class MapsController {
         vine.object({
           name: vine.string().trim().minLength(1).maxLength(255).optional(),
           color: vine.string().trim().maxLength(20).optional(),
+          longitude: vine.number().min(-180).max(180).optional(),
+          latitude: vine.number().min(-90).max(90).optional(),
+          notes: vine.string().trim().nullable().optional(),
+          marker_type: vine.string().trim().maxLength(20).optional(),
         })
       )
     )
     if (payload.name !== undefined) marker.name = payload.name
     if (payload.color !== undefined) marker.color = payload.color
+    if (payload.longitude !== undefined) marker.longitude = payload.longitude
+    if (payload.latitude !== undefined) marker.latitude = payload.latitude
+    if (payload.notes !== undefined) marker.notes = payload.notes
+    if (payload.marker_type !== undefined) marker.marker_type = payload.marker_type
     await marker.save()
     return marker
   }

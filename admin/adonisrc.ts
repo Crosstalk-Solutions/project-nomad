@@ -55,6 +55,9 @@ export default defineConfig({
     () => import('@adonisjs/transmit/transmit_provider'),
     () => import('#providers/map_static_provider'),
     () => import('#providers/kiwix_migration_provider'),
+    () => import('#providers/qdrant_restart_policy_provider'),
+    () => import('#providers/version_check_provider'),
+    () => import('#providers/gpu_passthrough_remediation_provider'),
   ],
 
   /*
@@ -104,6 +107,10 @@ export default defineConfig({
   metaFiles: [
     {
       pattern: 'resources/views/**/*.edge',
+      reloadServer: false,
+    },
+    {
+      pattern: 'resources/geodata/**/*.geojson',
       reloadServer: false,
     },
     {

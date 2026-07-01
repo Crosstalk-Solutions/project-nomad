@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
 import type { Stream } from 'openai/streaming.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
-import { FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
+import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import logger from '@adonisjs/core/services/logger'
@@ -53,6 +53,7 @@ export class OllamaService {
   private baseUrl: string | null = null
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
+  private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
 
   constructor() {}
 
@@ -91,10 +92,46 @@ export class OllamaService {
   /**
    * Downloads a model from Ollama with progress tracking. Only works with Ollama backends.
    * Use dispatchModelDownload() for background job processing where possible.
+   *
+   * @param signal Optional AbortSignal — when triggered, the underlying axios stream is cancelled
+   *               and the method returns a non-retryable failure so callers can mark the job
+   *               unrecoverable in BullMQ and avoid the 40-attempt retry storm.
+   * @param jobId Optional BullMQ job id — included in progress broadcasts so the frontend can
+   *              correlate Transmit events to a cancellable job.
    */
   async downloadModel(
     model: string,
-    progressCallback?: (percent: number) => void
+    progressCallback?: (
+      percent: number,
+      bytes?: { downloadedBytes: number; totalBytes: number }
+    ) => void,
+    signal?: AbortSignal,
+    jobId?: string
+  ): Promise<{ success: boolean; message: string; retryable?: boolean }> {
+    // Deduplicate concurrent downloads of the same model
+    const existing = this.activeDownloads.get(model)
+    if (existing) {
+      logger.info(`[OllamaService] Download already in progress for "${model}", waiting on existing download.`)
+      return existing
+    }
+
+    const downloadPromise = this._doDownloadModel(model, progressCallback, signal, jobId)
+    this.activeDownloads.set(model, downloadPromise)
+    try {
+      return await downloadPromise
+    } finally {
+      this.activeDownloads.delete(model)
+    }
+  }
+
+  private async _doDownloadModel(
+    model: string,
+    progressCallback?: (
+      percent: number,
+      bytes?: { downloadedBytes: number; totalBytes: number }
+    ) => void,
+    signal?: AbortSignal,
+    jobId?: string
   ): Promise<{ success: boolean; message: string; retryable?: boolean }> {
     await this._ensureDependencies()
     if (!this.baseUrl) {
@@ -121,15 +158,45 @@ export class OllamaService {
         }
       }
 
-      // Stream pull via Ollama native API
+      // Stream pull via Ollama native API. axios supports `signal` natively for AbortController
+      // integration — when triggered, the request errors with code 'ERR_CANCELED' which we detect
+      // in the catch block below to return a non-retryable cancel result.
       const pullResponse = await axios.post(
         `${this.baseUrl}/api/pull`,
         { model, stream: true },
-        { responseType: 'stream', timeout: 0 }
+        { responseType: 'stream', timeout: 0, signal }
       )
+
+      // Ollama's pull API reports progress per-digest (each blob). A single model can contain
+      // multiple blobs (weights, tokenizer, template, etc.) and each is reported in turn.
+      // Aggregate across all digests so the UI shows a single monotonically-increasing total,
+      // matching the behavior of the content download progress (Active Downloads section).
+      const digestProgress = new Map<string, { completed: number; total: number }>()
+
+      // Throttle broadcasts to once per BROADCAST_THROTTLE_MS — Ollama can emit hundreds of
+      // progress events per second for fast connections, which would flood the Transmit SSE
+      // channel and cause jittery speed calculations on the frontend.
+      const BROADCAST_THROTTLE_MS = 500
+      let lastBroadcastAt = 0
 
       await new Promise<void>((resolve, reject) => {
         let buffer = ''
+        // If the abort fires after headers are received but mid-stream, axios's signal handling
+        // destroys the stream which surfaces as an 'error' event — wire the signal listener so
+        // the promise rejects promptly with a recognizable cancel reason.
+        const onAbort = () => {
+          const err: any = new Error('Download cancelled')
+          err.code = 'ERR_CANCELED'
+          pullResponse.data.destroy(err)
+        }
+        if (signal) {
+          if (signal.aborted) {
+            onAbort()
+            return
+          }
+          signal.addEventListener('abort', onAbort, { once: true })
+        }
+
         pullResponse.data.on('data', (chunk: Buffer) => {
           buffer += chunk.toString()
           const lines = buffer.split('\n')
@@ -138,23 +205,74 @@ export class OllamaService {
             if (!line.trim()) continue
             try {
               const parsed = JSON.parse(line)
-              if (parsed.completed && parsed.total) {
-                const percent = parseFloat(((parsed.completed / parsed.total) * 100).toFixed(2))
-                this.broadcastDownloadProgress(model, percent)
-                if (progressCallback) progressCallback(percent)
+              if (parsed.completed && parsed.total && parsed.digest) {
+                // Update this digest's progress — take the max seen value so transient
+                // out-of-order updates don't make the aggregate jump backwards.
+                const existing = digestProgress.get(parsed.digest)
+                digestProgress.set(parsed.digest, {
+                  completed: Math.max(existing?.completed ?? 0, parsed.completed),
+                  total: Math.max(existing?.total ?? 0, parsed.total),
+                })
+
+                // Compute aggregate across all known blobs
+                let aggCompleted = 0
+                let aggTotal = 0
+                for (const { completed, total } of digestProgress.values()) {
+                  aggCompleted += completed
+                  aggTotal += total
+                }
+
+                const percent = aggTotal > 0
+                  ? parseFloat(((aggCompleted / aggTotal) * 100).toFixed(2))
+                  : 0
+
+                // Throttle broadcasts. Always call the progressCallback though — the worker
+                // uses it to update job state in Redis, which should reflect the latest view.
+                const now = Date.now()
+                if (now - lastBroadcastAt >= BROADCAST_THROTTLE_MS) {
+                  lastBroadcastAt = now
+                  this.broadcastDownloadProgress(model, percent, jobId, {
+                    downloadedBytes: aggCompleted,
+                    totalBytes: aggTotal,
+                  })
+                }
+                if (progressCallback) {
+                  progressCallback(percent, {
+                    downloadedBytes: aggCompleted,
+                    totalBytes: aggTotal,
+                  })
+                }
               }
             } catch {
               // ignore parse errors on partial lines
             }
           }
         })
-        pullResponse.data.on('end', resolve)
-        pullResponse.data.on('error', reject)
+        pullResponse.data.on('end', () => {
+          if (signal) signal.removeEventListener('abort', onAbort)
+          resolve()
+        })
+        pullResponse.data.on('error', (err: any) => {
+          if (signal) signal.removeEventListener('abort', onAbort)
+          reject(err)
+        })
       })
 
       logger.info(`[OllamaService] Model "${model}" downloaded successfully.`)
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
+      // Detect axios cancel (signal-triggered abort). Don't broadcast an error event for
+      // user-initiated cancels — the cancel handler in DownloadService already broadcasts
+      // a cancelled state. Returning retryable: false prevents BullMQ retries.
+      const isCancelled =
+        axios.isCancel(error) ||
+        (error as any)?.code === 'ERR_CANCELED' ||
+        (error as any)?.name === 'CanceledError'
+      if (isCancelled) {
+        logger.info(`[OllamaService] Model "${model}" download cancelled by user.`)
+        return { success: false, message: 'Download cancelled', retryable: false }
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(
         `[OllamaService] Failed to download model "${model}": ${errorMessage}`
@@ -352,8 +470,54 @@ export class OllamaService {
   }
 
   /**
+   * Hard char cap per embed input, applied as a runtime safety net regardless of
+   * which backend path runs. The chunker in RagService caps at MAX_SAFE_TOKENS=1600
+   * (3200 chars at the conservative 2 chars/token estimate), but dense technical
+   * content has been observed to slip past on multi-batch ZIM ingestion (#881).
+   *
+   * 4000 chars ≈ 1000–2000 tokens depending on density, which keeps us comfortably
+   * under nomic-embed-text:v1.5's default 2048-token context even on the OpenAI-compat
+   * fallback path (which can't pass `truncate:true`/`num_ctx` to the model).
+   */
+  public static readonly EMBED_MAX_INPUT_CHARS = 4000
+
+  /**
+   * Aggressive 2048-safe character cap, applied only on a context-length retry. nomic-embed-text:v1.5
+   * defaults to a 2048-token context, and on the OpenAI-compat fallback path (or an older Ollama that
+   * ignores num_ctx for embeddings) we cannot widen it at request time. 2000 chars stays under 2048
+   * tokens even for the densest content (~1 char/token code/markup), so an oversized chunk gets
+   * truncated-and-kept instead of silently dropped from Qdrant — and the embed job stops re-embedding
+   * the whole file 30x on the one bad chunk (#881).
+   */
+  public static readonly EMBED_CONTEXT_SAFE_CHARS = 2000
+
+  /**
+   * True if the error is the model rejecting input that exceeds its context window
+   * ("input length exceeds the context length"). Matches both the native /api/embed axios error
+   * shape and the OpenAI-compat BadRequestError. Drives the truncate-and-retry here and the
+   * non-retryable classification in EmbedFileJob (#881).
+   */
+  public static isContextLengthError(err: unknown): boolean {
+    const parts: string[] = []
+    if (err instanceof Error && err.message) parts.push(err.message)
+    const anyErr = err as any
+    const data = anyErr?.response?.data
+    if (data) parts.push(typeof data === 'string' ? data : JSON.stringify(data))
+    if (anyErr?.error) parts.push(typeof anyErr.error === 'string' ? anyErr.error : JSON.stringify(anyErr.error))
+    const haystack = parts.join(' ').toLowerCase()
+    return (
+      (haystack.includes('context length') && haystack.includes('exceed')) ||
+      haystack.includes('input length exceeds')
+    )
+  }
+
+  /**
    * Generate embeddings for the given input strings.
    * Tries the Ollama native /api/embed endpoint first, falls back to /v1/embeddings.
+   *
+   * If the first attempt fails because a chunk exceeds the model's context window, retries once
+   * with an aggressive 2048-safe truncation (EMBED_CONTEXT_SAFE_CHARS) so the chunk is embedded
+   * (start-of-chunk) rather than silently dropped from Qdrant (#881).
    */
   public async embed(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
     await this._ensureDependencies()
@@ -361,11 +525,52 @@ export class OllamaService {
       throw new Error('AI service is not initialized.')
     }
 
+    const cap = (arr: string[], max: number) => arr.map((s) => (s.length > max ? s.slice(0, max) : s))
+
+    // Generous pre-cap (#881): fine for the native path (num_ctx=8192) but can still exceed a
+    // 2048-context fallback on dense content. The context-length retry below is the hard backstop.
+    const safeInput = cap(input, OllamaService.EMBED_MAX_INPUT_CHARS)
+
     try {
-      // Prefer Ollama native endpoint (supports batch input natively)
+      return await this._embedWithFallback(model, safeInput)
+    } catch (err) {
+      if (!OllamaService.isContextLengthError(err)) throw err
+      // One or more chunks exceeded the model's context even after the pre-cap — typically an
+      // older Ollama that ignores num_ctx for embeddings, or the OpenAI-compat fallback path.
+      // Retry once, truncated hard enough to fit a 2048-token context at any density, so the
+      // chunk is embedded (truncated) instead of dropped and the job doesn't storm.
+      const hardCapped = cap(input, OllamaService.EMBED_CONTEXT_SAFE_CHARS)
+      const reduced = hardCapped.reduce((n, s, i) => (s.length < safeInput[i].length ? n + 1 : n), 0)
+      logger.warn(
+        '[OllamaService] embed: context-length overflow; retrying %d/%d inputs hard-capped at %d chars',
+        reduced,
+        input.length,
+        OllamaService.EMBED_CONTEXT_SAFE_CHARS
+      )
+      return await this._embedWithFallback(model, hardCapped)
+    }
+  }
+
+  /**
+   * Single embed attempt: native /api/embed first, then the OpenAI-compat /v1/embeddings fallback.
+   * Both paths request num_ctx/truncate (Ollama's OpenAI-compat shim forwards them). A context-length
+   * error from the native path is re-thrown rather than falling back, because the fallback has a
+   * smaller effective context and would only fail the same way — the caller (embed) retries it
+   * truncated instead.
+   */
+  private async _embedWithFallback(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
+    try {
+      // Pass num_ctx explicitly so we don't depend on the embedding model's modelfile defaults.
+      // Some installs ship nomic-embed-text:v1.5 with num_ctx=2048; 8192 matches its RoPE-extrapolated
+      // max. truncate:true is a server-side net for any chunk that still overshoots.
       const response = await axios.post(
         `${this.baseUrl}/api/embed`,
-        { model, input },
+        {
+          model,
+          input,
+          truncate: true,
+          options: { num_ctx: 8192 },
+        },
         { timeout: 60000 }
       )
       // Some backends (e.g. LM Studio) return HTTP 200 for unknown endpoints with an incompatible
@@ -374,14 +579,132 @@ export class OllamaService {
         throw new Error('Invalid /api/embed response — missing embeddings array')
       }
       return { embeddings: response.data.embeddings }
-    } catch {
-      // Fall back to OpenAI-compatible /v1/embeddings
-      // Explicitly request float format — some backends (e.g. LM Studio) don't reliably
-      // implement the base64 encoding the OpenAI SDK requests by default.
-      logger.info('[OllamaService] /api/embed unavailable, falling back to /v1/embeddings')
-      const results = await this.openai.embeddings.create({ model, input, encoding_format: 'float' })
+    } catch (err) {
+      // Let context-length errors bubble so embed() can retry with a smaller cap; the fallback
+      // endpoint (smaller effective context, no num_ctx honored on older Ollama) can't help here.
+      if (OllamaService.isContextLengthError(err)) throw err
+      // Log the original error so we know *why* we fell back. Earlier bare catches here masked
+      // recurring failures for months (#369, #670, #881).
+      logger.warn(
+        '[OllamaService] /api/embed failed, falling back to /v1/embeddings: %s',
+        err instanceof Error ? err.message : String(err)
+      )
+      // Fall back to OpenAI-compatible /v1/embeddings. Explicitly request float format — some
+      // backends (e.g. LM Studio) don't reliably implement the base64 the OpenAI SDK defaults to.
+      // truncate/num_ctx are forwarded by Ollama's OpenAI-compat shim; the SDK types omit them,
+      // hence the cast. We only ever talk to a local Ollama here, not real OpenAI.
+      const results = await this.openai!.embeddings.create({
+        model,
+        input,
+        encoding_format: 'float',
+        truncate: true,
+        options: { num_ctx: 8192 },
+      } as any)
       return { embeddings: results.data.map((e) => e.embedding as number[]) }
     }
+  }
+
+  /**
+   * Returns true if Ollama is currently running an embedding model with non-zero VRAM
+   * (i.e., GPU-offloaded). Returns false if the model is running CPU-only OR if it's
+   * not currently loaded OR if /api/ps is unreachable.
+   *
+   * Used by EmbedFileJob to pace continuation batches when the embedding model is
+   * CPU-bound — sustained 100% CPU on a multi-batch ZIM ingestion can starve other
+   * services (sshd, etc.) hard enough to require a power-cycle. AMD ROCm installs
+   * hit this today because Ollama's ROCm build doesn't accelerate nomic-bert; on
+   * NVIDIA, nomic-embed-text runs at 100% GPU and pacing is unnecessary.
+   *
+   * Only the Ollama-native endpoint is supported — backends that expose
+   * `/v1/embeddings` (LM Studio, llama.cpp) don't surface placement info.
+   */
+  public async isEmbeddingGpuAccelerated(): Promise<boolean> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return false
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/ps`, { timeout: 5000 })
+      const models: Array<{ name?: string; size_vram?: number }> = response.data?.models ?? []
+      // Match any loaded model whose name signals it's an embedding model.
+      // nomic-embed-text, mxbai-embed-large, snowflake-arctic-embed, etc. all follow this convention.
+      return models.some(
+        (m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0
+      )
+    } catch (err: any) {
+      // /api/ps unreachable (Ollama down, non-native backend, etc.) — fail closed: assume CPU,
+      // which means we'll pace. Better to over-pace than risk box-killing CPU saturation.
+      logger.warn(
+        `[OllamaService] Could not check embedding placement via /api/ps: ${err?.message ?? err}`
+      )
+      return false
+    }
+  }
+
+  /**
+   * Enforces the "at most one chat model resident in VRAM" invariant by firing
+   * `keep_alive: 0` against every currently-loaded model except (a) the
+   * embedding model (always exempt) and (b) `targetModel` (the one we want
+   * loaded next — leaving it alone preserves a hot model when the target is
+   * already loaded).
+   *
+   * Best-effort: queries `/api/ps` and POSTs unload hints in parallel. Network
+   * or Ollama errors are swallowed and logged — neither chat nor page-load
+   * should fail just because the unload housekeeping didn't go through.
+   *
+   * Returns the list of model names that were sent the unload hint, so the
+   * caller (and tests) can confirm what actually happened.
+   *
+   * Pass `targetModel: null` to unload every chat model (used for the future
+   * "free up VRAM" path; not exposed yet but the helper supports it).
+   *
+   * Note that `keep_alive: 0` is a post-completion hint, not a force-kill —
+   * Ollama defers eviction until the runner is idle, so in-flight inference
+   * on the same model is never interrupted. See the design doc for the race
+   * analysis behind this.
+   */
+  public async unloadAllChatModelsExcept(targetModel: string | null): Promise<string[]> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return []
+
+    let loadedModels: string[] = []
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/ps`, { timeout: 5000 })
+      loadedModels = (response.data?.models ?? [])
+        .map((m: { name?: string }) => m.name)
+        .filter((name: unknown): name is string => typeof name === 'string')
+    } catch (err: any) {
+      logger.warn(
+        `[OllamaService] unloadAllChatModelsExcept: /api/ps unreachable, skipping unload sweep: ${err?.message ?? err}`
+      )
+      return []
+    }
+
+    const toUnload = loadedModels.filter(
+      (name) => name !== EMBEDDING_MODEL_NAME && name !== targetModel
+    )
+
+    await Promise.all(
+      toUnload.map(async (modelName) => {
+        try {
+          await axios.post(
+            `${this.baseUrl}/api/generate`,
+            { model: modelName, prompt: '', keep_alive: 0 },
+            { timeout: 10000 }
+          )
+        } catch (err: any) {
+          logger.warn(
+            `[OllamaService] Failed to send unload hint for ${modelName}: ${err?.message ?? err}`
+          )
+        }
+      })
+    )
+
+    if (toUnload.length > 0) {
+      logger.info(
+        `[OllamaService] Sent unload hint for ${toUnload.length} chat model(s): ${toUnload.join(', ')}`
+      )
+    }
+    return toUnload
   }
 
   public async getModels(includeEmbeddings = false): Promise<NomadInstalledModel[]> {
@@ -628,10 +951,19 @@ export class OllamaService {
     })
   }
 
-  private broadcastDownloadProgress(model: string, percent: number) {
+  private broadcastDownloadProgress(
+    model: string,
+    percent: number,
+    jobId?: string,
+    bytes?: { downloadedBytes: number; totalBytes: number }
+  ) {
+    // Conditional spread on jobId/bytes — Transmit's Broadcastable type rejects fields whose
+    // value is `undefined`, so we omit each key entirely when its value isn't available.
     transmit.broadcast(BROADCAST_CHANNELS.OLLAMA_MODEL_DOWNLOAD, {
       model,
       percent,
+      ...(jobId ? { jobId } : {}),
+      ...(bytes ? { downloadedBytes: bytes.downloadedBytes, totalBytes: bytes.totalBytes } : {}),
       timestamp: new Date().toISOString(),
     })
     logger.info(`[OllamaService] Download progress for model "${model}": ${percent}%`)

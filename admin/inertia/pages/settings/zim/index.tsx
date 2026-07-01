@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import api from '~/lib/api'
@@ -8,21 +9,76 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Alert from '~/components/Alert'
+import { useNotifications } from '~/context/NotificationContext'
+import ZimUploader from '~/components/ZimUploader'
 import { ZimFileWithMetadata } from '../../../../types/zim'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
+import { formatBytes } from '~/lib/util'
+import { IconArrowDown, IconArrowUp, IconArrowsSort } from '@tabler/icons-react'
+
+type SortKey = 'name' | 'size'
+type SortDirection = 'asc' | 'desc'
 
 export default function ZimPage() {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
+  const { addNotification } = useNotifications()
   const { isInstalled } = useServiceInstalledStatus(SERVICE_NAMES.KIWIX)
+  const [sortKey, setSortKey] = useState<SortKey>('size')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [showUploader, setShowUploader] = useState(false)
   const { data, isLoading } = useQuery<ZimFileWithMetadata[]>({
     queryKey: ['zim-files'],
     queryFn: getFiles,
+    refetchOnWindowFocus: false,
   })
 
   async function getFiles() {
     const res = await api.listZimFiles()
     return res.data.files
+  }
+
+  const sortedData = useMemo(() => {
+    if (!data) return []
+    const copy = [...data]
+    copy.sort((a, b) => {
+      let cmp = 0
+      if (sortKey === 'size') {
+        const aSize = a.size_bytes ?? 0
+        const bSize = b.size_bytes ?? 0
+        cmp = aSize - bSize
+      } else {
+        const aName = (a.title || a.name).toLowerCase()
+        const bName = (b.title || b.name).toLowerCase()
+        cmp = aName.localeCompare(bName)
+      }
+      return sortDirection === 'asc' ? cmp : -cmp
+    })
+    return copy
+  }, [data, sortKey, sortDirection])
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDirection(key === 'size' ? 'desc' : 'asc')
+    }
+  }
+
+  function renderSortHeader(label: string, key: SortKey) {
+    const active = sortKey === key
+    const Icon = !active ? IconArrowsSort : sortDirection === 'asc' ? IconArrowUp : IconArrowDown
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(key)}
+        className="flex items-center gap-1 font-semibold text-text-primary hover:text-desert-orange"
+      >
+        {label}
+        <Icon className="size-4" />
+      </button>
+    )
   }
 
   async function confirmDeleteFile(file: ZimFileWithMetadata) {
@@ -54,19 +110,78 @@ export default function ZimPage() {
     },
   })
 
+  const rescanMutation = useMutation({
+    mutationFn: async () => api.rescanZimLibrary(),
+    onSuccess: (result) => {
+      // catchInternal returns undefined on error (and shows its own error toast)
+      if (!result) return
+      queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+      addNotification({
+        type: 'success',
+        message:
+          result.added > 0
+            ? `Found ${result.added} new ${result.added === 1 ? 'book' : 'books'}. Library now has ${result.after}.`
+            : `Library is up to date (${result.after} ${result.after === 1 ? 'book' : 'books'}).`,
+      })
+    },
+  })
+
   return (
     <SettingsLayout>
       <Head title="Content Manager | Project N.O.M.A.D." />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
               <p className="text-text-muted">
                 Manage your stored content files.
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <StyledButton
+                variant="secondary"
+                icon={showUploader ? 'IconX' : 'IconUpload'}
+                onClick={() => setShowUploader((v) => !v)}
+              >
+                {showUploader ? 'Hide Uploader' : 'Upload ZIM File'}
+              </StyledButton>
+              {isInstalled && (
+                <StyledButton
+                  variant="secondary"
+                  icon={'IconRefresh'}
+                  loading={rescanMutation.isPending}
+                  title="Rebuild the Kiwix library index from the files on disk. Use this after manually adding ZIM files outside of NOMAD."
+                  onClick={() => rescanMutation.mutate()}
+                >
+                  Rescan Library
+                </StyledButton>
+              )}
+            </div>
           </div>
+          {showUploader && (
+            <div className="mt-6">
+              <p className="text-text-muted text-sm mb-3">
+                Upload a ZIM file from your browser. Files up to 20 GB are supported. For best results upload from the same machine or over a stable LAN connection. Larger files should be copied directly to the storage volume.
+              </p>
+              <ZimUploader
+                existingFilenames={data?.map((f) => f.name) ?? []}
+                onUploadComplete={(added) => {
+                  queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+                  queryClient.invalidateQueries({ queryKey: ['wikipedia-state'] })
+                  queryClient.invalidateQueries({ queryKey: ['curated-categories'] })
+                  setShowUploader(false)
+                  addNotification({
+                    type: 'success',
+                    message:
+                      added > 0
+                        ? `Upload complete. ${added} new ${added === 1 ? 'book' : 'books'} added to the library.`
+                        : 'Upload complete. Library is up to date.',
+                  })
+                }}
+              />
+            </div>
+          )}
           {!isInstalled && (
             <Alert
               title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
@@ -83,7 +198,7 @@ export default function ZimPage() {
             columns={[
               {
                 accessor: 'title',
-                title: 'Title',
+                title: renderSortHeader('Title', 'name'),
                 render: (record) => (
                   <span className="font-medium">
                     {record.title || record.name}
@@ -96,6 +211,15 @@ export default function ZimPage() {
                 render: (record) => (
                   <span className="text-text-secondary text-sm line-clamp-2">
                     {record.summary || '—'}
+                  </span>
+                ),
+              },
+              {
+                accessor: 'size_bytes',
+                title: renderSortHeader('Size', 'size'),
+                render: (record) => (
+                  <span className="text-text-secondary tabular-nums">
+                    {record.size_bytes ? formatBytes(record.size_bytes, 1) : '—'}
                   </span>
                 ),
               },
@@ -117,7 +241,7 @@ export default function ZimPage() {
                 ),
               },
             ]}
-            data={data || []}
+            data={sortedData}
           />
         </main>
       </div>

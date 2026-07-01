@@ -1,10 +1,11 @@
 import ChatSession from '#models/chat_session'
 import ChatMessage from '#models/chat_message'
+import KVStore from '#models/kv_store'
 import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
-import { DEFAULT_QUERY_REWRITE_MODEL, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
 @inject()
@@ -36,17 +37,23 @@ export class ChatService {
         return [] // If no models are available, return empty suggestions
       }
 
-      // Larger models generally give "better" responses, so pick the largest one
-      const largestModel = models.reduce((prev, current) => {
-        return prev.size > current.size ? prev : current
-      })
+      // Prefer the user's selected chat model. Fall back to the smallest
+      // installed model — picking the largest by file size is unsafe: if any
+      // installed model exceeds available VRAM (e.g. llama3.1:405b on a 96 GB
+      // GPU), Ollama spends minutes trying to load it and the request 500s.
+      // Suggestions are short prompts that don't benefit from a flagship model.
+      const lastModel = await KVStore.getValue('chat.lastModel')
+      const preferred = lastModel ? models.find((m) => m.name === lastModel) : undefined
+      const chosen =
+        preferred ??
+        models.reduce((prev, current) => (prev.size < current.size ? prev : current))
 
-      if (!largestModel) {
+      if (!chosen) {
         return []
       }
 
       const response = await this.ollamaService.chat({
-        model: largestModel.name,
+        model: chosen.name,
         messages: [
           {
             role: 'user',
@@ -232,29 +239,22 @@ export class ChatService {
     }
   }
 
-  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string) {
+  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string, model: string) {
     try {
-      const models = await this.ollamaService.getModels()
-      const titleModelAvailable = models?.some((m) => m.name === DEFAULT_QUERY_REWRITE_MODEL)
-
       let title: string
 
-      if (!titleModelAvailable) {
-        title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
-      } else {
-        const response = await this.ollamaService.chat({
-          model: DEFAULT_QUERY_REWRITE_MODEL,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPTS.title_generation },
-            { role: 'user', content: userMessage },
-            { role: 'assistant', content: assistantMessage },
-          ],
-        })
+      const response = await this.ollamaService.chat({
+        model,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPTS.title_generation },
+          { role: 'user', content: userMessage },
+          { role: 'assistant', content: assistantMessage },
+        ],
+      })
 
-        title = response?.message?.content?.trim()
-        if (!title) {
-          title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
-        }
+      title = response?.message?.content?.trim()
+      if (!title) {
+        title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
       }
 
       await this.updateSession(sessionId, { title })

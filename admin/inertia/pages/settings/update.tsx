@@ -1,20 +1,21 @@
 import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import StyledButton from '~/components/StyledButton'
-import StyledTable from '~/components/StyledTable'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconAlertCircle, IconArrowBigUpLines, IconCheck, IconCircleCheck, IconReload } from '@tabler/icons-react'
 import { SystemUpdateStatus } from '../../../types/system'
-import type { ContentUpdateCheckResult, ResourceUpdateInfo } from '../../../types/collections'
 import api from '~/lib/api'
 import Input from '~/components/inputs/Input'
 import Switch from '~/components/inputs/Switch'
 import { useMutation } from '@tanstack/react-query'
 import { useNotifications } from '~/context/NotificationContext'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import CoreAutoUpdateSection from '~/components/updates/CoreAutoUpdateSection'
+import AppAutoUpdateSection from '~/components/updates/AppAutoUpdateSection'
+import ContentAutoUpdateSection from '~/components/updates/ContentAutoUpdateSection'
+import ContentUpdatesSection from '~/components/updates/ContentUpdatesSection'
 
 type Props = {
   updateAvailable: boolean
@@ -23,205 +24,22 @@ type Props = {
   earlyAccess: boolean
 }
 
-function ContentUpdatesSection() {
-  const { addNotification } = useNotifications()
-  const [checkResult, setCheckResult] = useState<ContentUpdateCheckResult | null>(null)
-  const [isChecking, setIsChecking] = useState(false)
-  const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
-  const [isApplyingAll, setIsApplyingAll] = useState(false)
-
-  const handleCheck = async () => {
-    setIsChecking(true)
-    try {
-      const result = await api.checkForContentUpdates()
-      if (result) {
-        setCheckResult(result)
-      }
-    } catch {
-      setCheckResult({
-        updates: [],
-        checked_at: new Date().toISOString(),
-        error: 'Failed to check for content updates',
-      })
-    } finally {
-      setIsChecking(false)
-    }
-  }
-
-  const handleApply = async (update: ResourceUpdateInfo) => {
-    setApplyingIds((prev) => new Set(prev).add(update.resource_id))
-    try {
-      const result = await api.applyContentUpdate(update)
-      if (result?.success) {
-        addNotification({ type: 'success', message: `Update started for ${update.resource_id}` })
-        // Remove from the updates list
-        setCheckResult((prev) =>
-          prev
-            ? { ...prev, updates: prev.updates.filter((u) => u.resource_id !== update.resource_id) }
-            : prev
-        )
-      } else {
-        addNotification({ type: 'error', message: result?.error || 'Failed to start update' })
-      }
-    } catch {
-      addNotification({ type: 'error', message: `Failed to start update for ${update.resource_id}` })
-    } finally {
-      setApplyingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(update.resource_id)
-        return next
-      })
-    }
-  }
-
-  const handleApplyAll = async () => {
-    if (!checkResult?.updates.length) return
-    setIsApplyingAll(true)
-    try {
-      const result = await api.applyAllContentUpdates(checkResult.updates)
-      if (result?.results) {
-        const succeeded = result.results.filter((r) => r.success).length
-        const failed = result.results.filter((r) => !r.success).length
-        if (succeeded > 0) {
-          addNotification({ type: 'success', message: `Started ${succeeded} update(s)` })
-        }
-        if (failed > 0) {
-          addNotification({ type: 'error', message: `${failed} update(s) could not be started` })
-        }
-        // Remove successful updates from the list
-        const successIds = new Set(result.results.filter((r) => r.success).map((r) => r.resource_id))
-        setCheckResult((prev) =>
-          prev
-            ? { ...prev, updates: prev.updates.filter((u) => !successIds.has(u.resource_id)) }
-            : prev
-        )
-      }
-    } catch {
-      addNotification({ type: 'error', message: 'Failed to apply updates' })
-    } finally {
-      setIsApplyingAll(false)
-    }
-  }
-
-  return (
-    <div className="mt-8">
-      <StyledSectionHeader title="Content Updates" />
-
-      <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden p-6">
-        <div className="flex items-center justify-between">
-          <p className="text-desert-stone-dark">
-            Check if newer versions of your installed ZIM files and maps are available.
-          </p>
-          <StyledButton
-            variant="primary"
-            icon="IconRefresh"
-            onClick={handleCheck}
-            loading={isChecking}
-          >
-            Check for Content Updates
-          </StyledButton>
-        </div>
-
-        {checkResult?.error && (
-          <Alert
-            type="warning"
-            title="Update Check Issue"
-            message={checkResult.error}
-            variant="bordered"
-            className="my-4"
-          />
-        )}
-
-        {checkResult && !checkResult.error && checkResult.updates.length === 0 && (
-          <Alert
-            type="success"
-            title="All Content Up to Date"
-            message="All your installed content is running the latest available version."
-            variant="bordered"
-            className="my-4"
-          />
-        )}
-
-        {checkResult && checkResult.updates.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-desert-stone-dark">
-                {checkResult.updates.length} update(s) available
-              </p>
-              <StyledButton
-                variant="primary"
-                size="sm"
-                icon="IconDownload"
-                onClick={handleApplyAll}
-                loading={isApplyingAll}
-              >
-                Update All ({checkResult.updates.length})
-              </StyledButton>
-            </div>
-            <StyledTable
-              data={checkResult.updates}
-              columns={[
-                {
-                  accessor: 'resource_id',
-                  title: 'Title',
-                  render: (record) => (
-                    <span className="font-medium text-desert-green">{record.resource_id}</span>
-                  ),
-                },
-                {
-                  accessor: 'resource_type',
-                  title: 'Type',
-                  render: (record) => (
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${record.resource_type === 'zim'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-emerald-100 text-emerald-800'
-                        }`}
-                    >
-                      {record.resource_type === 'zim' ? 'ZIM' : 'Map'}
-                    </span>
-                  ),
-                },
-                {
-                  accessor: 'installed_version',
-                  title: 'Version',
-                  render: (record) => (
-                    <span className="text-desert-stone-dark">
-                      {record.installed_version} → {record.latest_version}
-                    </span>
-                  ),
-                },
-                {
-                  accessor: 'resource_id',
-                  title: '',
-                  render: (record) => (
-                    <StyledButton
-                      variant="secondary"
-                      size="sm"
-                      icon="IconDownload"
-                      onClick={() => handleApply(record)}
-                      loading={applyingIds.has(record.resource_id)}
-                    >
-                      Update
-                    </StyledButton>
-                  ),
-                },
-              ]}
-            />
-          </div>
-        )}
-
-        {checkResult?.checked_at && (
-          <p className="text-xs text-desert-stone mt-3">
-            Last checked: {new Date(checkResult.checked_at).toLocaleString()}
-          </p>
-        )}
-      </div>
-
-      <ActiveDownloads withHeader />
-    </div>
-  )
+const STAGE_LABELS: Record<SystemUpdateStatus['stage'], string> = {
+  idle: 'Preparing Update',
+  starting: 'Starting Update',
+  pulling: 'Pulling Images',
+  pulled: 'Images Pulled',
+  recreating: 'Recreating Containers',
+  complete: 'Update Complete',
+  error: 'Update Failed',
 }
+
+const ADVANCED_STAGES: ReadonlySet<SystemUpdateStatus['stage']> = new Set([
+  'pulling',
+  'pulled',
+  'recreating',
+  'complete',
+])
 
 export default function SystemUpdatePage(props: { system: Props }) {
   const { addNotification } = useNotifications()
@@ -234,6 +52,12 @@ export default function SystemUpdatePage(props: { system: Props }) {
   const [email, setEmail] = useState('')
   const [versionInfo, setVersionInfo] = useState<Omit<Props, 'earlyAccess'>>(props.system)
   const [showConnectionLostNotice, setShowConnectionLostNotice] = useState(false)
+  // Tracks whether this update session has progressed past 'idle'/'starting'.
+  // The sidecar sits on 'complete' for ~5s before resetting to 'idle' (see
+  // install/sidecar-updater/update-watcher.sh), and the SPA can miss that
+  // window across the admin container restart. If we resurface to 'idle'
+  // after seeing an advanced stage, treat it as the missed completion.
+  const seenAdvancedStageRef = useRef(false)
 
   const earlyAccessSetting = useSystemSetting({
     key: 'system.earlyAccess', initialData: {
@@ -253,11 +77,22 @@ export default function SystemUpdatePage(props: { system: Props }) {
         }
         setUpdateStatus(response)
 
+        if (ADVANCED_STAGES.has(response.stage)) {
+          seenAdvancedStageRef.current = true
+        }
+
         // If we can connect again, hide the connection lost notice
         setShowConnectionLostNotice(false)
 
-        // Check if update is complete or errored
-        if (response.stage === 'complete') {
+        // Check if update is complete or errored. We also treat a return to
+        // 'idle' as completion if we previously saw an advanced stage — this
+        // catches the race where the sidecar's brief 'complete' window passes
+        // while we're disconnected during the admin container restart.
+        const isComplete =
+          response.stage === 'complete' ||
+          (response.stage === 'idle' && seenAdvancedStageRef.current)
+
+        if (isComplete) {
           // Re-check version so the KV store clears the stale "update available" flag
           // before we reload, otherwise the banner shows "current → current"
           try {
@@ -287,6 +122,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
   const handleStartUpdate = async () => {
     try {
       setError(null)
+      seenAdvancedStageRef.current = false
       setIsUpdating(true)
       const response = await api.startSystemUpdate()
       if (!response || !response.success) {
@@ -351,7 +187,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
     if (updateStatus?.stage === 'error')
       return <IconAlertCircle className="h-12 w-12 text-desert-red" />
     if (isUpdating) return <IconReload className="h-12 w-12 text-desert-green animate-spin" />
-    if (props.system.updateAvailable)
+    if (versionInfo.updateAvailable)
       return <IconArrowBigUpLines className="h-16 w-16 text-desert-green" />
     return <IconCircleCheck className="h-16 w-16 text-desert-olive" />
   }
@@ -363,6 +199,9 @@ export default function SystemUpdatePage(props: { system: Props }) {
     onSuccess: () => {
       addNotification({ message: 'Setting updated successfully.', type: 'success' })
       earlyAccessSetting.refetch()
+      // Toggling Early Access changes which versions are eligible, so re-evaluate
+      // immediately rather than making the user click Check Again.
+      checkVersionMutation.mutate()
     },
     onError: (error) => {
       console.error('Error updating setting:', error)
@@ -444,11 +283,11 @@ export default function SystemUpdatePage(props: { system: Props }) {
               {!isUpdating && (
                 <>
                   <h2 className="text-2xl font-bold text-desert-green mb-2">
-                    {props.system.updateAvailable ? 'Update Available' : 'System Up to Date'}
+                    {versionInfo.updateAvailable ? 'Update Available' : 'System Up to Date'}
                   </h2>
                   <p className="text-desert-stone-dark mb-6">
-                    {props.system.updateAvailable
-                      ? `A new version (${props.system.latestVersion}) is available for your Project N.O.M.A.D. instance.`
+                    {versionInfo.updateAvailable
+                      ? `A new version (${versionInfo.latestVersion}) is available for your Project N.O.M.A.D. instance.`
                       : 'Your system is running the latest version!'}
                   </p>
                 </>
@@ -456,8 +295,8 @@ export default function SystemUpdatePage(props: { system: Props }) {
 
               {isUpdating && updateStatus && (
                 <>
-                  <h2 className="text-2xl font-bold text-desert-green mb-2 capitalize">
-                    {updateStatus.stage === 'idle' ? 'Preparing Update' : updateStatus.stage}
+                  <h2 className="text-2xl font-bold text-desert-green mb-2">
+                    {STAGE_LABELS[updateStatus.stage] ?? updateStatus.stage}
                   </h2>
                   <p className="text-desert-stone-dark mb-6">{updateStatus.message}</p>
                 </>
@@ -613,6 +452,9 @@ export default function SystemUpdatePage(props: { system: Props }) {
               description="Receive release candidate (RC) versions before they are officially released. Note: RC versions may contain bugs and are not recommended for environments where stability and data integrity are critical."
             />
           </div>
+          <CoreAutoUpdateSection />
+          <AppAutoUpdateSection />
+          <ContentAutoUpdateSection />
           <ContentUpdatesSection />
           <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden py-6 mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">

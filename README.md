@@ -14,7 +14,7 @@
 
 ---
 
-Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
+Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered — anytime, anywhere.
 
 ## Installation & Quickstart
 Project N.O.M.A.D. can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
@@ -32,7 +32,7 @@ sudo bash install_nomad.sh
 
 Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
 
-For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install).
+For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install). For Windows users, see the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) — community-supported path covering native Docker and Docker Desktop install routes.
 
 ### Advanced Installation
 For more control over the installation process, copy and paste the [Docker Compose template](https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
@@ -48,6 +48,8 @@ N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a col
 - **Data Tools** — encryption, encoding, and analysis via [CyberChef](https://gchq.github.io/CyberChef/)
 - **Notes** — local note-taking via [FlatNotes](https://github.com/dullage/flatnotes)
 - **System Benchmark** — hardware scoring with a [community leaderboard](https://benchmark.projectnomad.us)
+- **Supply Depot** — a one-click app catalog (PDF tools, file browser, e-book library, password manager, and more) plus the ability to run your own custom Docker containers
+- **Automatic Updates** — opt-in, hands-off updates for the core software, installed apps, and offline content, on a schedule you control
 - **Easy Setup Wizard** — guided first-time configuration with curated content collections
 
 N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM library manager, and content explorer.
@@ -59,18 +61,19 @@ N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM l
 | Information Library | Kiwix | Offline Wikipedia, medical references, survival guides, ebooks |
 | AI Assistant | Ollama + Qdrant | Built-in chat with document upload and semantic search |
 | Education Platform | Kolibri | Khan Academy courses, progress tracking, multi-user support |
-| Offline Maps | ProtoMaps | Downloadable regional maps with search and navigation |
+| Offline Maps | ProtoMaps | Downloadable regional maps for offline viewing and search |
 | Data Tools | CyberChef | Encryption, encoding, hashing, and data analysis |
 | Notes | FlatNotes | Local note-taking with markdown support |
 | System Benchmark | Built-in | Hardware scoring, Builder Tags, and community leaderboard |
+| Supply Depot | Built-in | One-click app catalog + bring-your-own custom Docker containers |
 
 ## Device Requirements
 While many similar offline survival computers are designed to be run on bare-minimum, lightweight hardware, Project N.O.M.A.D. is quite the opposite. To install and run the
 available AI tools, we highly encourage the use of a beefy, GPU-backed device to make the most of your install.
 
-At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones installation of the management application itself, the following minimal specs are required:
+At its core, however, N.O.M.A.D. is still very lightweight. For a barebones installation of the management application itself, the following minimal specs are required:
 
-*Note: Project N.O.M.A.D. is not sponsored by any hardware manufacturer and is designed to be as hardware-agnostic as possible. The harware listed below is for example/comparison use only*
+*Note: Project N.O.M.A.D. is not sponsored by any hardware manufacturer and is designed to be as hardware-agnostic as possible. The hardware listed below is for example/comparison use only*
 
 #### Minimum Specs
 - Processor: 2 GHz dual-core processor or better
@@ -79,7 +82,7 @@ At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones ins
 - OS: Debian-based (Ubuntu recommended)
 - Stable internet connection (required during install only)
 
-To run LLM's and other included AI tools:
+To run LLMs and other included AI tools:
 
 #### Optimal Specs
 - Processor: AMD Ryzen 7 or Intel Core i7 or better
@@ -91,12 +94,12 @@ To run LLM's and other included AI tools:
 
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 
-Again, Project N.O.M.A.D. itself is quite lightweight - it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
+Again, Project N.O.M.A.D. itself is quite lightweight — it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
 
 #### Running AI models on a different host
-By default, N.O.M.A.D.'s installer will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio).  
-Note that if you use Ollama on a different host, you must start the server with this option `OLLAMA_HOST=0.0.0.0`.  
-Ollama is the preferred way to use the AI assistant as it has features such as model download that OpenAI API does not support. So when using LM Studio for example, you will have to use LM Studio to download models.
+By default, N.O.M.A.D.'s installer will attempt to setup Ollama on the host when the AI Assistant is installed. However, if you would like to run the AI model on a different host, you can go to the settings of the AI assistant and input a URL for either an ollama or OpenAI-compatible API server (such as LM Studio).  
+Note that if you use Ollama on a different host, you must start the server with this option: `OLLAMA_HOST=0.0.0.0`.  
+Ollama is the preferred way to use the AI assistant, as it has features such as model download that OpenAI API does not support. So when using LM Studio, for example, you will have to use LM Studio to download models.
 You are responsible for the setup of Ollama/OpenAI server on the other host.
 
 ## Frequently Asked Questions (FAQ)
@@ -105,25 +108,62 @@ For answers to common questions about Project N.O.M.A.D., please see our [FAQ](F
 ## About Internet Usage & Privacy
 Project N.O.M.A.D. is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, N.O.M.A.D. does not require an internet connection and has ZERO built-in telemetry.
 
-To test internet connectivity, N.O.M.A.D. attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace` and checks for a successful response.
+To test internet connectivity, N.O.M.A.D. first attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace`. If that endpoint is unreachable (for example, because your network blocks `1.1.1.1`), it falls back to other endpoints the application already contacts (the GitHub API and the Project N.O.M.A.D. API) and considers the connection online if any of them respond.
+
+You can override the endpoint used for this check in two ways. The connectivity test URL can be configured from the UI under **Settings → Advanced** (stored locally on your instance), or you can set the `INTERNET_STATUS_TEST_URL` environment variable. When set, the environment variable always takes precedence over the UI-configured value. If neither is set, the built-in defaults above are used.
 
 ## About Security
-By design, Project N.O.M.A.D. is intended to be open and available without hurdles - it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access it's resources), you can block/open ports to control which services are exposed.
+By design, Project N.O.M.A.D. is intended to be open and available without hurdles — it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access its resources), you can block/open ports to control which services are exposed.
 
-**Will authentication be added in the future?** Maybe. It's not currently a priority, but if there's enough demand for it, we may consider building in an optional authentication layer in a future release to support uses cases where multiple users need access to the same instance but with different permission levels (e.g. family use with parental controls, classroom use with teacher/admin accounts, etc.). We have a suggestion for this on our public roadmap, so if this is something you'd like to see, please upvote it here: https://roadmap.projectnomad.us/posts/1/user-authentication-please-build-in-user-auth-with-admin-user-roles
+**Will authentication be added in the future?** Maybe. It's not currently a priority, but if there's enough demand for it, we may consider building in an optional authentication layer in a future release to support use cases where multiple users need access to the same instance but with different permission levels (e.g. family use with parental controls, classroom use with teacher/admin accounts, etc.). We have a suggestion for this on our public roadmap, so if this is something you'd like to see, please upvote it here: https://roadmap.projectnomad.us/posts/1/user-authentication-please-build-in-user-auth-with-admin-user-roles
 
 For now, we recommend using network-level controls to manage access if you're planning to expose your N.O.M.A.D. instance to other devices on a local network. N.O.M.A.D. is not designed to be exposed directly to the internet, and we strongly advise against doing so unless you really know what you're doing, have taken appropriate security measures, and understand the risks involved.
 
 ## Contributing
 Contributions are welcome and appreciated! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to the project.
 
+### Testing Auto-Updates (Dry Run)
+
+The Command Center can automatically install **minor/patch** updates of itself during a configurable window, after a cool-off period, and only when pre-flight checks pass (sufficient disk for the new image, no downloads or app installs in progress). Major versions always require a manual update.
+
+Because exercising this logic with real version bumps is impractical, an Ace command runs the **entire decision pipeline without ever triggering an update**. Run it from the `admin/` directory:
+
+```bash
+# 1) Deterministic scenario suite — no network, DB, or Docker required.
+#    Proves every branch (major-only, cool-off, prerelease/draft, window wrap, …)
+#    and exits non-zero on failure, so it's safe to wire into CI.
+node ace auto-update:dry-run --scenarios
+
+# 2) Simulate "what would happen if I were running 1.32.0 right now?"
+#    against the LIVE GitHub releases feed and real pre-flight checks:
+node ace auto-update:dry-run --current=1.32.0 --force-enabled
+
+# 3) Fully offline simulation with a canned release list and a fixed clock:
+node ace auto-update:dry-run --current=1.32.0 --force-enabled \
+  --releases-file=./fixtures/releases.json --now=2026-06-04T21:00:00Z \
+  --window-start=20:00 --window-end=23:00 --cooloff=72 --skip-preflight
+```
+
+It prints the resolved decision — current version, whether the clock is inside the window, the eligible target (if any), and pre-flight blockers — ending in a clear verdict such as `WOULD UPDATE → v1.33.2` or `WOULD NOT UPDATE (outside-window): …`. **No real update is ever requested.**
+
+| Flag | Description |
+|------|-------------|
+| `--scenarios` | Run the built-in deterministic scenario suite and exit |
+| `--current=<version>` | Simulate this currently-running version (e.g. `1.32.0`) |
+| `--force-enabled` | Treat auto-update as enabled, ignoring the saved setting |
+| `--cooloff=<hours>` | Override the cool-off period |
+| `--window-start=<HH:MM>` / `--window-end=<HH:MM>` | Override the update window |
+| `--now=<ISO timestamp>` | Simulate the clock at a specific time |
+| `--releases-file=<path>` | Use a local JSON releases array instead of fetching GitHub (offline) |
+| `--skip-preflight` | Bypass the Docker/disk/queue pre-flight checks |
+
 ## Community & Resources
 
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
 - **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
 - **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
-- **Troubleshooting Guide:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Find solutions to common issues
 - **FAQ:** [FAQ.md](FAQ.md) - Find answers to frequently asked questions
+- **Community Add-Ons:** [admin/docs/community-add-ons.md](admin/docs/community-add-ons.md) - Third-party content packs built by the community
 
 ## License
 

@@ -2,9 +2,10 @@ import axios, { AxiosError, AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
-import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
+import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, ContentAutoUpdateStatus, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
-import { EmbedJobWithProgress } from '../../types/rag'
+import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
+import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
@@ -126,6 +127,15 @@ class API {
       const response = await this.client.post<
         { filename: string; size: number } | { message: string }
       >('/maps/download-remote-preflight', { url })
+      return response.data
+    })()
+  }
+
+  async deleteMapRegionFile(filename: string): Promise<{ message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(
+        `/maps/${encodeURIComponent(filename)}`
+      )
       return response.data
     })()
   }
@@ -258,6 +268,24 @@ class API {
   async getInstalledModels() {
     return catchInternal(async () => {
       const response = await this.client.get<NomadInstalledModel[]>('/ollama/installed-models')
+      return response.data
+    })()
+  }
+
+  /**
+   * Ask the backend to send Ollama `keep_alive: 0` to every currently-loaded
+   * chat model except `targetModel` (and the embedding model, which is always
+   * exempt server-side). Fire-and-forget — the chat UI doesn't await this
+   * before creating a new session, since unload is housekeeping.
+   *
+   * Pass `null` to unload every chat model.
+   */
+  async unloadChatModels(targetModel: string | null) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ unloaded: string[] }>(
+        '/ollama/unload-chat-models',
+        { targetModel }
+      )
       return response.data
     })()
   }
@@ -451,16 +479,55 @@ class API {
     })()
   }
 
+  async cancelAllEmbedJobs(): Promise<{ message: string; cancelled: number; filesDeleted: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string; cancelled: number; filesDeleted: number }>('/rag/jobs')
+      return response.data
+    })()
+  }
+
+  async checkRAGHealth() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ online: boolean; message?: string }>('/rag/health')
+      return response.data
+    })()
+  }
+
   async getStoredRAGFiles() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ files: string[] }>('/rag/files')
+      const response = await this.client.get<{ files: StoredFileInfo[] }>('/rag/files')
       return response.data.files
+    })()
+  }
+
+  async embedSingleRAGFile(source: string, force: boolean = false) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/embed', { source, force })
+      return response.data
+    })()
+  }
+
+  async getKbFileWarnings() {
+    return catchInternal(async () => {
+      const response = await this.client.get<FileWarningsResult>('/rag/file-warnings')
+      return response.data
     })()
   }
 
   async deleteRAGFile(source: string) {
     return catchInternal(async () => {
       const response = await this.client.delete<{ message: string }>('/rag/files', { data: { source } })
+      return response.data
+    })()
+  }
+
+  async getFileContent(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        content: string
+        extension: string
+        fileName: string
+      }>('/rag/files/content', { params: { source } })
       return response.data
     })()
   }
@@ -489,6 +556,39 @@ class API {
   async getSystemUpdateLogs() {
     return catchInternal(async () => {
       const response = await this.client.get<{ logs: string }>('/system/update/logs')
+      return response.data
+    })()
+  }
+
+  async getAutoUpdateStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<AutoUpdateStatus>('/system/auto-update/status')
+      return response.data
+    })()
+  }
+
+  async getAppAutoUpdateStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<AppAutoUpdateStatus>('/system/apps/auto-update/status')
+      return response.data
+    })()
+  }
+
+  async getContentAutoUpdateStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<ContentAutoUpdateStatus>(
+        '/system/content/auto-update/status'
+      )
+      return response.data
+    })()
+  }
+
+  async setServiceAutoUpdate(serviceName: string, enabled: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/auto-update',
+        { service_name: serviceName, enabled }
+      )
       return response.data
     })()
   }
@@ -541,6 +641,46 @@ class API {
     })()
   }
 
+  async listCountries() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ countries: Country[] }>('/maps/countries')
+      return response.data.countries
+    })()
+  }
+
+  async listCountryGroups() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ groups: CountryGroup[] }>('/maps/country-groups')
+      return response.data.groups
+    })()
+  }
+
+  async extractMapPreflight(params: { countries: CountryCode[]; maxzoom?: number }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<MapExtractPreflight>(
+        '/maps/extract-preflight',
+        params
+      )
+      return response.data
+    })()
+  }
+
+  async extractMapRegion(params: {
+    countries: CountryCode[]
+    maxzoom?: number
+    label?: string
+    estimatedBytes?: number
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        filename: string
+        jobId?: string
+      }>('/maps/extract', params)
+      return response.data
+    })()
+  }
+
   async listCuratedMapCollections() {
     return catchInternal(async () => {
       const response = await this.client.get<CollectionWithStatus[]>(
@@ -574,7 +714,7 @@ class API {
   async listMapMarkers() {
     return catchInternal(async () => {
       const response = await this.client.get<
-        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }>
+        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>
       >('/maps/markers')
       return response.data
     })()
@@ -583,7 +723,7 @@ class API {
   async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
     return catchInternal(async () => {
       const response = await this.client.post<
-        { id: number; name: string; longitude: number; latitude: number; color: string; created_at: string }
+        { id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }
       >('/maps/markers', data)
       return response.data
     })()
@@ -624,6 +764,42 @@ class API {
     })()
   }
 
+  async listCustomLibraries() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ id: number; name: string; base_url: string; is_default: boolean }[]>(
+        '/zim/custom-libraries'
+      )
+      return response.data
+    })()
+  }
+
+  async addCustomLibrary(name: string, base_url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        library: { id: number; name: string; base_url: string }
+      }>('/zim/custom-libraries', { name, base_url })
+      return response.data
+    })()
+  }
+
+  async removeCustomLibrary(id: number) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string }>(`/zim/custom-libraries/${id}`)
+      return response.data
+    })()
+  }
+
+  async browseLibrary(url: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        directories: { name: string; url: string }[]
+        files: { name: string; url: string; size_bytes: number | null }[]
+      }>('/zim/browse-library', { params: { url } })
+      return response.data
+    })()
+  }
+
   async deleteZimFile(filename: string) {
     return catchInternal(async () => {
       const response = await this.client.delete<{ message: string }>(`/zim/${filename}`)
@@ -634,6 +810,18 @@ class API {
   async listZimFiles() {
     return catchInternal(async () => {
       return await this.client.get<ListZimFilesResponse>('/zim/list')
+    })()
+  }
+
+  async rescanZimLibrary() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        message: string
+        before: number
+        after: number
+        added: number
+      }>('/zim/rescan-library')
+      return response.data
     })()
   }
 
@@ -727,6 +915,52 @@ class API {
     })()
   }
 
+  async reembedAllRAG() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        filesScanned?: number
+        filesQueued?: number
+      }>('/rag/re-embed-all')
+      return response.data
+    })()
+  }
+
+  async resetAndRebuildRAG() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        filesScanned?: number
+        filesQueued?: number
+      }>('/rag/reset-and-rebuild')
+      return response.data
+    })()
+  }
+
+  async estimateEmbeddingBatch(files: { filename: string; sizeBytes: number }[]) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        totalChunks: number
+        totalBytes: number
+        hasUnknown: boolean
+      }>('/rag/estimate-batch', { files })
+      return response.data
+    })()
+  }
+
+  async getKbPolicyPromptState() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        shouldPrompt: boolean
+        hasContent: boolean
+        totalFiles: number
+      }>('/rag/policy-prompt-state')
+      return response.data
+    })()
+  }
+
   // Wikipedia selector methods
 
   async getWikipediaState(): Promise<WikipediaState | undefined> {
@@ -792,6 +1026,171 @@ class API {
         '/system/settings',
         { key, value }
       )
+      return response.data
+    })()
+  }
+
+  async preflightCheck(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        portConflicts: Array<{ port: number; usedBy: string }>
+        resourceWarnings: string[]
+      }>('/system/services/preflight', { params: { service_name } })
+      return response.data
+    })()
+  }
+
+  async suggestCustomPort() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ port: number }>('/system/services/suggest-port')
+      return response.data
+    })()
+  }
+
+  async preflightCustomApp(payload: {
+    image?: string
+    ports?: number[]
+    volumes?: Array<{ host_path: string; container_path: string }>
+    exclude_service?: string
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        portConflicts: Array<{ port: number; usedBy: string }>
+        resourceWarnings: string[]
+        blocked: string[]
+      }>('/system/services/preflight-custom', payload)
+      return response.data
+    })()
+  }
+
+  async createCustomApp(payload: {
+    friendly_name: string
+    image: string
+    ports?: Array<{ container: number; host: number }>
+    volumes?: Array<{ host_path: string; container_path: string }>
+    env?: string[]
+    category?: string
+    icon?: string
+    memory_mb?: number
+    cpus?: number
+    force?: boolean
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        service_name: string
+      }>('/system/services/custom', payload)
+      return response.data
+    })()
+  }
+
+  async setServiceCustomUrl(service_name: string, custom_url: string | null) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{ success: boolean; custom_url: string | null }>(
+        '/system/services/custom-url',
+        { service_name, custom_url }
+      )
+      return response.data
+    })()
+  }
+
+  async deleteCustomApp(service_name: string, remove_image = false) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        '/system/services/custom',
+        { data: { service_name, remove_image } }
+      )
+      return response.data
+    })()
+  }
+
+  async uninstallService(service_name: string, remove_image = false) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/uninstall',
+        { service_name, remove_image }
+      )
+      return response.data
+    })()
+  }
+
+  async updateCustomAppImage(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/system/services/custom/update',
+        { service_name }
+      )
+      return response.data
+    })()
+  }
+
+  async getServiceLogs(service_name: string, tail = 200) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ success: boolean; logs: string }>(
+        `/system/services/${service_name}/logs`,
+        { params: { tail } }
+      )
+      return response.data
+    })()
+  }
+
+  async getServiceStats(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        success: boolean
+        running: boolean
+        stats: {
+          cpuPercent: number
+          memUsageBytes: number
+          memLimitBytes: number
+          memPercent: number
+        } | null
+      }>(`/system/services/${service_name}/stats`)
+      return response.data
+    })()
+  }
+
+  async getCustomApp(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        success: boolean
+        app: {
+          service_name: string
+          friendly_name: string | null
+          image: string
+          category: string
+          icon: string
+          ports: Array<{ container: number; host: number }>
+          volumes: Array<{ host_path: string; container_path: string }>
+          env: string[]
+          memory_mb?: number
+          cpus?: number
+        }
+      }>(`/system/services/custom/${service_name}`)
+      return response.data
+    })()
+  }
+
+  async updateCustomApp(payload: {
+    service_name: string
+    friendly_name: string
+    image: string
+    ports?: Array<{ container: number; host: number }>
+    volumes?: Array<{ host_path: string; container_path: string }>
+    env?: string[]
+    category?: string
+    icon?: string
+    memory_mb?: number
+    cpus?: number
+    force?: boolean
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{
+        success: boolean
+        message: string
+        service_name: string
+      }>('/system/services/custom', payload)
       return response.data
     })()
   }

@@ -34,6 +34,10 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
   const [isInstalling, setIsInstalling] = useState(false)
   const [loading, setLoading] = useState(false)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
+  // Services with an update in flight. Seeded optimistically on click so the button disables
+  // instantly, and reconciled with the durable `installation_status` from the server so the
+  // disabled state survives a page reload or a second open tab while the pull runs.
+  const [updatingServices, setUpdatingServices] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (installActivity.length === 0) return
@@ -181,16 +185,25 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         onCancel={closeAllModals}
         onUpdate={async (targetVersion: string) => {
           closeAllModals()
+          // Mark this service as updating instead of showing the fullscreen spinner, so the table
+          // and the activity feed stay visible (the feed streams live pull/stop/start progress)
+          // while the button shows "Updating..." and is disabled.
+          setUpdatingServices((prev) => new Set(prev).add(record.service_name))
           try {
-            setLoading(true)
             const response = await api.updateService(record.service_name, targetVersion)
             if (!response?.success) {
               throw new Error(response?.message || 'Update failed')
             }
+            // On success the backend broadcasts `update-complete`, which triggers the reload effect
+            // above and refreshes the version + status. Leave the button disabled until then.
           } catch (error) {
             console.error(`Error updating service ${record.service_name}:`, error)
             showError(`Failed to update service: ${error.message || 'Unknown error'}`)
-            setLoading(false)
+            setUpdatingServices((prev) => {
+              const next = new Set(prev)
+              next.delete(record.service_name)
+              return next
+            })
           }
         }}
         showError={showError}
@@ -253,21 +266,26 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         <StyledButton
           icon={'IconExternalLink'}
           onClick={() => {
-            window.open(getServiceLink(record.ui_location || 'unknown'), '_blank')
+            window.open(getServiceLink(record.ui_location || 'unknown', record.custom_url), '_blank')
           }}
         >
           Open
         </StyledButton>
-        {record.available_update_version && (
-          <StyledButton
-            icon="IconArrowUp"
-            variant="primary"
-            onClick={() => handleUpdateService(record)}
-            disabled={isInstalling || !isOnline}
-          >
-            Update
-          </StyledButton>
-        )}
+        {record.available_update_version && (() => {
+          const isUpdating =
+            updatingServices.has(record.service_name) || record.installation_status === 'installing'
+          return (
+            <StyledButton
+              icon="IconArrowUp"
+              variant="primary"
+              onClick={() => handleUpdateService(record)}
+              disabled={isInstalling || !isOnline || isUpdating}
+              loading={isUpdating}
+            >
+              {isUpdating ? 'Updating...' : 'Update'}
+            </StyledButton>
+          )
+        })()}
         {record.status && record.status !== 'unknown' && (
           <>
             <StyledButton
@@ -374,7 +392,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   title: 'Location',
                   render: (record) => (
                     <a
-                      href={getServiceLink(record.ui_location || 'unknown')}
+                      href={getServiceLink(record.ui_location || 'unknown', record.custom_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-desert-green hover:underline font-semibold"

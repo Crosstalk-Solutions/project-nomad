@@ -39,6 +39,14 @@ export class CheckServiceUpdatesJob {
 
         const latestUpdate = updates.length > 0 ? updates[0].tag : null
 
+        // Stamp/clear the cool-off anchor only when the available version *changes*.
+        // Registry tags carry no publish date, so the auto-update cool-off is measured
+        // from when a version was first detected; leaving the timestamp untouched while
+        // the same version persists keeps the cool-off clock running.
+        if (latestUpdate !== service.available_update_version) {
+          service.available_update_first_seen_at = latestUpdate ? DateTime.now() : null
+        }
+
         service.available_update_version = latestUpdate
         service.update_checked_at = DateTime.now()
         await service.save()
@@ -95,7 +103,7 @@ export class CheckServiceUpdatesJob {
   }
 
   static async scheduleNightly() {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     await queue.upsertJobScheduler(
@@ -114,7 +122,7 @@ export class CheckServiceUpdatesJob {
   }
 
   static async dispatch() {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     const job = await queue.add(

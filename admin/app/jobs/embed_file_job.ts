@@ -4,9 +4,11 @@ import { EmbedJobWithProgress } from '../../types/rag.js'
 import { RagService } from '#services/rag_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
+import KbIngestState from '#models/kb_ingest_state'
 import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
+import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -16,6 +18,11 @@ export interface EmbedFileJobParams {
   batchOffset?: number  // Current batch offset (for ZIM files)
   totalArticles?: number // Total articles in ZIM (for progress tracking)
   isFinalBatch?: boolean // Whether this is the last batch (prevents premature deletion)
+  // Running total of chunks embedded across prior batches in this dispatch chain.
+  // Carried forward so the final batch can persist an accurate `chunks_embedded`
+  // count via KbIngestState.markIndexed (see #933 — without this, only the last
+  // batch's chunk count was stored while Qdrant held the full set).
+  chunksSoFar?: number
 }
 
 export class EmbedFileJob {
@@ -26,6 +33,12 @@ export class EmbedFileJob {
   static get key() {
     return 'embed-file'
   }
+
+  // Delay between continuation batches when embedding runs CPU-only. Gives the OS
+  // scheduler a brief idle window so sshd / disk-collector / other services don't
+  // starve during long multi-batch ZIM ingestions. Skipped entirely when the
+  // embedding model is GPU-offloaded — see OllamaService.isEmbeddingGpuAccelerated().
+  static readonly CPU_BATCH_DELAY_MS = 1000
 
   static getJobId(filePath: string): string {
     return createHash('sha256').update(filePath).digest('hex').slice(0, 16)
@@ -77,8 +90,16 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
-      // Update progress starting
-      await this.safeUpdateProgress(job, 5)
+      // Anchor initial progress to where we are in the overall file. For a
+      // continuation batch midway through a multi-batch ZIM (e.g. offset 100k of
+      // 600k), the hardcoded 5 used to make the gauge briefly flash 0→5→real,
+      // which read as a backward jump. Fall back to 5 for single-batch files
+      // where totalArticles isn't set.
+      const initialPercent =
+        totalArticles && totalArticles > 0
+          ? Math.min(99, Math.round(((batchOffset || 0) / totalArticles) * 100))
+          : 5
+      await this.safeUpdateProgress(job, initialPercent)
       await job.updateData({
         ...job.data,
         status: 'processing',
@@ -87,9 +108,25 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Processing file: ${filePath}`)
 
-      // Progress callback: maps service-reported 0-100% into the 5-95% job range
+      // Progress callback. For multi-batch ZIM ingestions, scale the service-reported
+      // 0-100% (which is % through the current batch's chunks) into the overall-file
+      // frame so the UI gauge climbs monotonically across the many continuation jobs
+      // BullMQ creates per file. Without this, every new continuation jobId resets the
+      // gauge to ~5% and the user sees ingestion progress "jumping around" between
+      // each batch's local frame and the end-of-batch overall-file overwrite below.
+      //
+      // For single-batch files (uploaded PDFs, txts) totalArticles is undefined and
+      // we fall back to the original 5-95% per-job range, which is what the UI expects
+      // for a one-shot file with no continuations.
       const onProgress = async (percent: number) => {
-        await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
+        const useOverallFrame = totalArticles && totalArticles > 0
+        if (useOverallFrame) {
+          const articlesDone = (batchOffset || 0) + (percent / 100) * ZIM_BATCH_SIZE
+          const overallPercent = Math.min(99, Math.round((articlesDone / totalArticles) * 100))
+          await this.safeUpdateProgress(job, overallPercent)
+        } else {
+          await this.safeUpdateProgress(job, Math.min(95, Math.round(5 + percent * 0.9)))
+        }
       }
 
       // Process and embed the file
@@ -114,18 +151,59 @@ export class EmbedFileJob {
           `[EmbedFileJob] Batch complete. Dispatching next batch at offset ${nextOffset}`
         )
 
-        // Dispatch next batch (not final yet)
+        // Pace continuation batches when embedding is CPU-bound. Sustained 100% CPU
+        // saturation across all cores during multi-batch ZIM ingestion can starve
+        // other services (sshd has been seen to lose responsiveness hard enough to
+        // require a power-cycle). When GPU-accelerated, embeddings stream through
+        // the GPU and CPUs stay free — no pacing needed.
+        const isGpuAccelerated = await ollamaService.isEmbeddingGpuAccelerated()
+        if (!isGpuAccelerated) {
+          logger.info(
+            `[EmbedFileJob] Embedding is CPU-only — pacing ${EmbedFileJob.CPU_BATCH_DELAY_MS}ms before dispatching next batch`
+          )
+          await new Promise((resolve) => setTimeout(resolve, EmbedFileJob.CPU_BATCH_DELAY_MS))
+        }
+
+        // Bail before re-populating the queue if this job was cancelled mid-batch.
+        // cancelAllJobs() obliterates the queue (including this active job), but a
+        // worker already inside handle() would otherwise dispatch its continuation
+        // afterwards and silently revive a cancelled ZIM ingestion. If our own job
+        // key is gone, the cancel happened — skip the dispatch. Mirrors the
+        // "tolerate external removal" handling in safeUpdateProgress above.
+        const stillQueued = await QueueService.getInstance()
+          .getQueue(EmbedFileJob.queue)
+          .getJob(job.id!)
+        if (!stillQueued) {
+          logger.info(
+            `[EmbedFileJob] Job ${fileName} was cancelled; skipping continuation dispatch`
+          )
+          return { success: false, cancelled: true, fileName, filePath }
+        }
+
+        // Dispatch next batch (not final yet). Carry forward the running
+        // chunk count so the final batch can persist an accurate total (#933).
+        const chunksSoFarNext = (job.data.chunksSoFar || 0) + (result.chunks || 0)
         await EmbedFileJob.dispatch({
           filePath,
           fileName,
           batchOffset: nextOffset,
           totalArticles: totalArticles || result.totalArticles,
           isFinalBatch: false, // Explicitly not final
+          chunksSoFar: chunksSoFarNext,
         })
 
-        // Calculate progress based on articles processed
+        // Calculate progress based on articles processed.
+        //
+        // nextOffset counts entries passing our isArticleEntry() filter, but the
+        // denominator (totalArticles = archive.articleCount) uses libzim's
+        // narrower article definition. On ZIMs that pack one logical article as
+        // several sub-pages (e.g. iFixit), nextOffset outruns articleCount and a
+        // raw ratio overflows past 100%, which the UI pins at 99% for the entire
+        // tail so the file looks stuck (#903). Grow the denominator once we pass
+        // the reported count so the gauge keeps creeping forward monotonically,
+        // and never report 100% before the genuinely-final batch (handled below).
         const progress = totalArticles
-          ? Math.round((nextOffset / totalArticles) * 100)
+          ? Math.min(99, Math.round((nextOffset / Math.max(totalArticles, nextOffset + ZIM_BATCH_SIZE)) * 100))
           : 50
 
         await this.safeUpdateProgress(job, progress)
@@ -133,7 +211,7 @@ export class EmbedFileJob {
           ...job.data,
           status: 'batch_completed',
           lastBatchAt: Date.now(),
-          chunks: (job.data.chunks || 0) + (result.chunks || 0),
+          chunks: chunksSoFarNext,
         })
 
         return {
@@ -147,8 +225,11 @@ export class EmbedFileJob {
         }
       }
 
-      // Final batch or non-batched file - mark as complete
-      const totalChunks = (job.data.chunks || 0) + (result.chunks || 0)
+      // Final batch or non-batched file - mark as complete.
+      // chunksSoFar carries the accumulated count from prior dispatched batches
+      // (each continuation passes it forward — see EmbedFileJobParams). For a
+      // non-batched file it is undefined and we just count this single result.
+      const totalChunks = (job.data.chunksSoFar || 0) + (result.chunks || 0)
       await this.safeUpdateProgress(job, 100)
       await job.updateData({
         ...job.data,
@@ -156,6 +237,18 @@ export class EmbedFileJob {
         completedAt: Date.now(),
         chunks: totalChunks,
       })
+
+      // Persist the post-job state so scanAndSyncStorage knows this file is done.
+      // BullMQ's :completed retention (50 jobs) ages out, so the state row is
+      // the only durable record of "this file finished embedding".
+      try {
+        await KbIngestState.markIndexed(filePath, totalChunks)
+      } catch (stateErr) {
+        logger.warn(
+          `[EmbedFileJob] Failed to persist ingest state for ${fileName}: %s`,
+          stateErr instanceof Error ? stateErr.message : String(stateErr)
+        )
+      }
 
       const batchMsg = isZimBatch ? ` (final batch, total chunks: ${totalChunks})` : ''
       logger.info(
@@ -170,73 +263,149 @@ export class EmbedFileJob {
         message: `Successfully embedded ${result.chunks} chunks`,
       }
     } catch (error) {
-      logger.error(`[EmbedFileJob] Error embedding file ${fileName}:`, error)
+      // A chunk that still exceeds the model's context after OllamaService's truncate-and-retry is
+      // permanently oversized for this install (e.g. a model whose context is smaller than our safe
+      // cap). Re-embedding the whole file 30x re-processes everything and can never succeed — that is
+      // the "endless queue loop" / "api/embed for weeks" (#881/#944/#959). Mark it unrecoverable so
+      // BullMQ stops after one pass instead of storming.
+      let normalizedError = error
+      if (!(error instanceof UnrecoverableError) && OllamaService.isContextLengthError(error)) {
+        logger.warn(
+          `[EmbedFileJob] Context-length overflow persisted for ${fileName} after truncation; not retrying.`
+        )
+        normalizedError = new UnrecoverableError(
+          error instanceof Error ? error.message : 'Embedding input exceeds the model context length'
+        )
+      }
+
+      logger.error(`[EmbedFileJob] Error embedding file ${fileName}:`, normalizedError)
 
       await job.updateData({
         ...job.data,
         status: 'failed',
         failedAt: Date.now(),
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: normalizedError instanceof Error ? normalizedError.message : 'Unknown error',
       })
 
-      throw error
+      // Only persist `failed` for unrecoverable errors. Retryable errors get
+      // automatic BullMQ retries (30 attempts); marking state failed on every
+      // transient blip would suppress the retry-driven recovery path.
+      if (normalizedError instanceof UnrecoverableError) {
+        try {
+          await KbIngestState.markFailed(
+            filePath,
+            normalizedError instanceof Error ? normalizedError.message : 'Unknown error'
+          )
+        } catch (stateErr) {
+          logger.warn(
+            `[EmbedFileJob] Failed to persist failed state for ${fileName}: %s`,
+            stateErr instanceof Error ? stateErr.message : String(stateErr)
+          )
+        }
+      }
+
+      throw normalizedError
     }
   }
 
   static async listActiveJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
 
-    return jobs.map((job) => ({
-      jobId: job.id!.toString(),
-      fileName: (job.data as EmbedFileJobParams).fileName,
-      filePath: (job.data as EmbedFileJobParams).filePath,
-      progress: typeof job.progress === 'number' ? job.progress : 0,
-      status: ((job.data as any).status as string) ?? 'waiting',
-    }))
+    return jobs.map((job) => {
+      const data = job.data as EmbedFileJobParams & {
+        status?: string
+        lastBatchAt?: number
+        startedAt?: number
+        chunks?: number
+      }
+      return {
+        jobId: job.id!.toString(),
+        fileName: data.fileName,
+        filePath: data.filePath,
+        progress: typeof job.progress === 'number' ? job.progress : 0,
+        status: data.status ?? 'waiting',
+        lastBatchAt: data.lastBatchAt,
+        startedAt: data.startedAt,
+        chunks: data.chunks,
+      }
+    })
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(filePath)
     return await queue.getJob(jobId)
   }
 
-  static async dispatch(params: EmbedFileJobParams) {
-    const queueService = new QueueService()
+  static async dispatch(params: EmbedFileJobParams, options?: { force?: boolean }) {
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
-    const jobId = this.getJobId(params.filePath)
+
+    // Continuation batches (batchOffset > 0) must NOT reuse the deterministic
+    // per-file jobId. Two BullMQ dedupe paths would otherwise silently swallow them:
+    //   1) The parent batch's handle() calls dispatch() before returning, so the
+    //      parent job is still `active` and locked — queue.add() with the same
+    //      jobId returns the locked parent rather than enqueueing the new batch.
+    //   2) After the parent completes, its entry stays in `completed` (held by
+    //      `removeOnComplete: { count: 50 }`), still tripping jobId dedupe.
+    // Letting BullMQ auto-generate a unique jobId for continuation batches stacks
+    // them as independent queue entries that each process via handle().
+    // Initial dispatches keep the deterministic jobId so re-triggering an install
+    // (UI re-click, sync rescan, etc.) is still idempotent.
+    // `force` skips the deterministic jobId for bulk callers (reembedAll /
+    // resetAndRebuild) where historical entries in :completed would otherwise
+    // silently swallow the new dispatch.
+    const isContinuation = !!(params.batchOffset && params.batchOffset > 0)
+    const force = !!options?.force
+    const initialJobId = this.getJobId(params.filePath)
+
+    const jobOptions: Parameters<typeof queue.add>[2] = {
+      attempts: 30,
+      backoff: {
+        type: 'fixed',
+        delay: 60000, // Check every 60 seconds for service readiness
+      },
+      removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
+      removeOnFail: { count: 20 }, // Keep last 20 failed jobs for debugging
+    }
+    if (!isContinuation && !force) {
+      jobOptions.jobId = initialJobId
+    }
 
     try {
-      const job = await queue.add(this.key, params, {
-        jobId,
-        attempts: 30,
-        backoff: {
-          type: 'fixed',
-          delay: 60000, // Check every 60 seconds for service readiness
-        },
-        removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
-        removeOnFail: { count: 20 } // Keep last 20 failed jobs for debugging
-      })
+      const job = await queue.add(this.key, params, jobOptions)
 
-      logger.info(`[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}`)
+      const label = isContinuation
+        ? ` (continuation @ offset ${params.batchOffset})`
+        : force
+          ? ' (forced re-dispatch)'
+          : ''
+      logger.info(
+        `[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}${label}`
+      )
 
       return {
         job,
         created: true,
-        jobId,
+        jobId: job.id ?? initialJobId,
         message: `File queued for embedding: ${params.fileName}`,
       }
     } catch (error) {
-      if (error.message && error.message.includes('job already exists')) {
-        const existing = await queue.getJob(jobId)
+      if (
+        !isContinuation &&
+        !force &&
+        error.message &&
+        error.message.includes('job already exists')
+      ) {
+        const existing = await queue.getJob(initialJobId)
         logger.info(`[EmbedFileJob] Job already exists for file: ${params.fileName}`)
         return {
           job: existing,
           created: false,
-          jobId,
+          jobId: initialJobId,
           message: `Embedding job already exists for: ${params.fileName}`,
         }
       }
@@ -245,7 +414,7 @@ export class EmbedFileJob {
   }
 
   static async listFailedJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     // Jobs that have failed at least once are in 'delayed' (retrying) or terminal 'failed' state.
     // We identify them by job.data.status === 'failed' set in the catch block of handle().
@@ -264,7 +433,7 @@ export class EmbedFileJob {
   }
 
   static async cleanupFailedJobs(): Promise<{ cleaned: number; filesDeleted: number }> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const allJobs = await queue.getJobs(['waiting', 'delayed', 'failed'])
     const failedJobs = allJobs.filter((job) => (job.data as any).status === 'failed')
@@ -288,6 +457,46 @@ export class EmbedFileJob {
 
     logger.info(`[EmbedFileJob] Cleaned up ${cleaned} failed jobs, deleted ${filesDeleted} files`)
     return { cleaned, filesDeleted }
+  }
+
+  /** Unconditionally clear every embedding job regardless of state.
+   *
+   *  cleanupFailedJobs only removes jobs explicitly tagged status === 'failed',
+   *  which leaves stuck jobs (waiting / active / delayed / paused that never
+   *  reached 'failed') unreachable from the UI — the operator's only recourse was
+   *  flushing Redis by hand. This wipes the whole queue, including a locked active
+   *  job, via obliterate({ force: true }) (plain obliterate/job.remove throw on a
+   *  locked job). It touches only Redis, so it is safe while Qdrant/Ollama are
+   *  offline — which is exactly when jobs pile up and wedge. */
+  static async cancelAllJobs(): Promise<{ cancelled: number; filesDeleted: number }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(this.queue)
+    const jobs = await queue.getJobs(['waiting', 'active', 'delayed', 'paused', 'failed'])
+
+    let filesDeleted = 0
+    for (const job of jobs) {
+      const filePath = (job.data as EmbedFileJobParams).filePath
+      // Same guard as cleanupFailedJobs: only delete user uploads, never ZIM
+      // library files or Nomad docs that live outside the uploads path.
+      if (filePath && filePath.includes(RagService.UPLOADS_STORAGE_PATH)) {
+        try {
+          await fs.unlink(filePath)
+          filesDeleted++
+        } catch {
+          // File may already be deleted — that's fine
+        }
+      }
+    }
+
+    const cancelled = jobs.length
+
+    // force: true removes the locked/active job too. An in-flight worker may keep
+    // running its current batch in memory; the self-exists guard in handle()
+    // prevents it from dispatching a continuation back into the cleared queue.
+    await queue.obliterate({ force: true })
+
+    logger.info(`[EmbedFileJob] Cancelled ${cancelled} jobs, deleted ${filesDeleted} files`)
+    return { cancelled, filesDeleted }
   }
 
   static async getStatus(filePath: string): Promise<{

@@ -317,6 +317,23 @@ export class BenchmarkService {
         }
       }
 
+      // Fallback: AMD discrete cards. si.graphics() returns empty inside Docker for AMD,
+      // the nvidia-smi path doesn't apply, and the APU regex only catches integrated parts.
+      // SystemService.getSystemInfo() already handles AMD via the marker file + Ollama log
+      // probe added in PR #804, so reuse that plumbing rather than duplicating it here.
+      if (!gpuModel) {
+        try {
+          const systemService = new (await import('./system_service.js')).SystemService(this.dockerService)
+          const sysInfo = await systemService.getSystemInfo()
+          const sysGpuModel = sysInfo?.graphics?.controllers?.[0]?.model
+          if (sysGpuModel) {
+            gpuModel = sysGpuModel
+          }
+        } catch (sysError: any) {
+          logger.warn(`[BenchmarkService] system_service AMD fallback failed: ${sysError.message}`)
+        }
+      }
+
       return {
         cpu_model: `${cpu.manufacturer} ${cpu.brand}`,
         cpu_cores: cpu.physicalCores,
@@ -597,8 +614,7 @@ export class BenchmarkService {
       await this.dockerService.docker.getImage(SYSBENCH_IMAGE).inspect()
     } catch {
       this._updateStatus('starting', `Pulling sysbench image...`)
-      const pullStream = await this.dockerService.docker.pull(SYSBENCH_IMAGE)
-      await new Promise((resolve) => this.dockerService.docker.modem.followProgress(pullStream, resolve))
+      await this.dockerService.pullImage(SYSBENCH_IMAGE)
     }
   }
 
