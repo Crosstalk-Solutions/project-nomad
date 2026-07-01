@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Project N.O.M.A.D.! Community contributions are what keep this project growing and improving. Please read this guide fully before getting started — it will save you (and the maintainers) a lot of time.
 
-> **Note:** Acceptance of contributions is not guaranteed. All pull requests are evaluated based on quality, relevance, and alignment with the project's goals. The maintainers of Project N.O.M.A.D. ("Nomad") reserve the right accept, deny, or modify any pull request at their sole discretion.
+> **Note:** Acceptance of contributions is not guaranteed. All pull requests are evaluated based on quality, relevance, and alignment with the project's goals. The maintainers of Project N.O.M.A.D. ("Nomad") reserve the right to accept, deny, or modify any pull request at their sole discretion.
 
 ---
 
