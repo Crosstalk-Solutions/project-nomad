@@ -130,7 +130,7 @@ Do NOT use:
 
 Return ONLY the 3 suggestions as a comma-separated list with no additional text, formatting, numbering, or quotation marks.
 The suggestions should be in title case.
-Ensure that your suggestions are comma-seperated with no conjunctions like "and" or "or".
+Ensure that your suggestions are comma-separated with no conjunctions like "and" or "or".
 Do not use line breaks, new lines, or extra spacing to separate the suggestions.
 Format: suggestion1, suggestion2, suggestion3
 `,
