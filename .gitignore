@@ -41,3 +41,5 @@ admin/public/assets
 
 # Admin specific development files
 admin/storage
+nomad_admin_config.json
+nomad_admin_hostconfig.json

@@ -27,15 +27,13 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import { KB_COLLECTIONS } from '../../../constants/kb_collections'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
   onClose: () => void
 }
 
-// File extensions the in-browser viewer can render. Must stay in sync with
-// `RagService.VIEWABLE_TEXT_EXTENSIONS` — anything outside this set falls back
-// to Download.
 const VIEWABLE_EXTENSIONS = new Set(['md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html'])
 
 function isViewableExtension(filename: string): boolean {
@@ -69,13 +67,6 @@ function renderSortHeader(
   )
 }
 
-/**
- * Compact label for the per-row ingestion state. Files that exist in Qdrant
- * with no `kb_ingest_state` row (`state === null`) are legacy/pre-RFC-883
- * installs whose chunks are real, so we display them as "Indexed" rather than
- * surfacing the absent-row detail. Admin-docs group has no pill (the "Managed
- * by NOMAD" message in the action column carries the same signal).
- */
 function renderStatePill(record: KbFileGroup): React.ReactNode {
   if (record.bucket === 'admin_docs') return null
   const effective: KbIngestStateValue = record.state ?? 'indexed'
@@ -114,13 +105,6 @@ type RowAction =
   | { kind: 'index'; label: string; force: boolean; variant: 'primary'; icon: DynamicIconName }
   | { kind: 'reembed'; label: string; force: true; variant: 'secondary'; icon: DynamicIconName }
 
-/**
- * Pick the single adaptive per-row action button. Returns null when no action
- * makes sense for the current state (e.g. healthy indexed file with no
- * warnings — bulk Re-embed All covers that case). `hasWarnings` lets us
- * surface a Re-embed affordance specifically when a file *looks* indexed but
- * has zero chunks or a stalled-mid-ingestion warning attached.
- */
 function pickRowAction(record: KbFileGroup, hasWarnings: boolean): RowAction | null {
   if (record.bucket === 'admin_docs') return null
   const effective: KbIngestStateValue = record.state ?? 'indexed'
@@ -143,6 +127,8 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadCollection, setUploadCollection] = useState<string>('')
+  const [collectionFilter, setCollectionFilter] = useState<string>('All')
   const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
   const [confirmReembed, setConfirmReembed] = useState<{ source: string; displayName: string } | null>(null)
   const [bulkMode, setBulkMode] = useState<null | 'reembed' | 'reset'>(null)
@@ -172,10 +158,12 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     select: (data) => data || [],
   })
 
-  // Per-file conditional warnings (RFC #883 §6). `ok: false` means the
-  // computation itself failed (Qdrant/DB/FS) — distinct from `ok: true` with
-  // an empty map, which means everything is healthy. We surface the failure
-  // explicitly so a silent backend failure doesn't masquerade as health.
+  const { data: knownCollections = [] } = useQuery({
+    queryKey: ['kbCollections'],
+    queryFn: () => api.getKnowledgeCollections(),
+    select: (data) => data?.collections ?? [],
+  })
+
   const { data: warningsResult } = useQuery({
     queryKey: ['kbFileWarnings'],
     queryFn: () => api.getKbFileWarnings(),
@@ -184,9 +172,6 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const fileWarnings = warningsResult?.warnings ?? {}
   const warningsUnavailable = warningsResult !== undefined && warningsResult.ok === false
 
-  // Global auto-index policy. KVStore returns `null` for an unset key, which
-  // we treat as 'Always' for backward compatibility with installs that predate
-  // this UI. The user can opt into Manual mode from the toggle below.
   const { data: ingestPolicySetting } = useQuery({
     queryKey: ['ingestPolicy'],
     queryFn: () => api.getSetting('rag.defaultIngestPolicy'),
@@ -216,7 +201,20 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   })
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => api.uploadDocument(file),
+    mutationFn: (file: File) => api.uploadDocument(file, uploadCollection || undefined),
+  })
+
+  const updateCollectionMutation = useMutation({
+    mutationFn: ({ source, collection }: { source: string; collection: string }) =>
+      api.updateFileCollection(source, collection || null),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Collection updated.' })
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['kbCollections'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to update collection.' })
+    },
   })
 
   const deleteMutation = useMutation({
@@ -461,7 +459,20 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   setFiles(Array.from(uploadedFiles))
                 }}
               />
-              <div className="flex justify-center gap-4 my-6">
+              <div className="flex justify-center items-center gap-4 my-6">
+                <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  Collection:
+                  <select
+                    value={uploadCollection}
+                    onChange={(e) => setUploadCollection(e.target.value)}
+                    className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
+                  >
+                    <option value="">Uncategorized</option>
+                    {KB_COLLECTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
                 <StyledButton
                   variant="primary"
                   size="lg"
@@ -585,8 +596,6 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 >
                   Clean Up Failed
                 </StyledButton>
-                {/* Not gated on qdrantOffline: clearing stuck jobs must work during
-                    a Qdrant/Ollama outage, which is exactly when they wedge. */}
                 <StyledButton
                   variant="danger"
                   size="md"
@@ -607,6 +616,19 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
             <div className='flex items-center justify-between mb-6 gap-2 flex-wrap'>
               <StyledSectionHeader title="Stored Knowledge Base Files" className='!mb-0' />
               <div className="flex items-center gap-2 flex-wrap">
+                <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  Search in:
+                  <select
+                    value={collectionFilter}
+                    onChange={(e) => setCollectionFilter(e.target.value)}
+                    className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
+                  >
+                    <option value="All">All</option>
+                    {KB_COLLECTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
                 <StyledButton
                   variant="danger"
                   size="md"
@@ -701,8 +723,6 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   title: renderSortHeader('Size', 'size', sort, setSort),
                   className: 'whitespace-nowrap',
                   render(record) {
-                    // The collapsed admin_docs group has no single size — leave blank
-                    // rather than misleadingly summing across N files.
                     if (record.bucket === 'admin_docs' || record.size === null) {
                       return <span className="text-text-muted">—</span>
                     }
@@ -726,12 +746,37 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
                 {
+                  accessor: 'collection',
+                  title: 'Collection',
+                  className: 'whitespace-nowrap',
+                  render(record) {
+                    if (record.bucket === 'admin_docs') {
+                      return <span className="text-text-muted">—</span>
+                    }
+                    const isSaving =
+                      updateCollectionMutation.isPending &&
+                      updateCollectionMutation.variables?.source === record.source
+                    return (
+                      <select
+                        value={record.collection ?? ''}
+                        disabled={isSaving}
+                        onChange={(e) =>
+                          updateCollectionMutation.mutate({ source: record.source, collection: e.target.value })
+                        }
+                        className="rounded border border-border-subtle bg-surface-primary px-2 py-1 text-xs text-text-primary"
+                      >
+                        <option value="">Uncategorized</option>
+                        {KB_COLLECTIONS.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    )
+                  },
+                },
+                {
                   accessor: 'source',
                   title: '',
                   render(record) {
-                    // Admin docs are auto-discovered and managed by NOMAD itself —
-                    // deleting one would just be re-embedded on the next sync, so
-                    // we surface them as informational only and hide Delete.
                     if (record.bucket === 'admin_docs') {
                       return (
                         <div className="flex justify-end">
@@ -827,7 +872,12 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
               ]}
-              data={groupAndSortKbFiles(storedFiles, sort)}
+              data={groupAndSortKbFiles(
+                collectionFilter === 'All'
+                  ? storedFiles
+                  : storedFiles.filter((f) => f.collection === collectionFilter),
+                sort
+              )}
               loading={isLoadingFiles}
             />
           </div>
@@ -977,13 +1027,8 @@ function FileViewerModal({ source, onClose }: { source: string; onClose: () => v
     staleTime: 60_000,
   })
 
-  // Title falls back to the trailing path segment so the modal still has a
-  // useful header while the fetch is in-flight or if it failed.
   const fallbackName = source.split(/[/\\]/).at(-1) ?? source
   const title = data?.fileName ?? fallbackName
-  // `catchInternal` swallows errors and resolves to undefined, surfacing a
-  // toast — so the "couldn't load" branch is gated on a finished-but-empty
-  // fetch rather than on react-query's `isError`.
   const showError = isFetched && !data
 
   return (

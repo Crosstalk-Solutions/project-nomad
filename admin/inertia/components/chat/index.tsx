@@ -11,6 +11,7 @@ import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconX } from '@tabler/icons-react'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
+import { KB_COLLECTIONS } from '../../../constants/kb_collections'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 
 interface ChatProps {
@@ -33,6 +34,7 @@ export default function Chat({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [collectionFilter, setCollectionFilter] = useState<string>('')
   const [pendingModelSwitch, setPendingModelSwitch] = useState<string | null>(null)
   const pageLoadNormalizedRef = useRef(false)
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
@@ -102,6 +104,7 @@ export default function Chat({
       model: string
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
       sessionId?: number
+      collection?: string
     }) => api.sendChatMessage({ ...request, stream: false }),
     onSuccess: async (data) => {
       if (!data || !activeSessionId) {
@@ -323,7 +326,13 @@ export default function Chat({
 
         try {
           await api.streamChatMessage(
-            { model: selectedModel || 'llama3.2', messages: chatMessages, stream: true, sessionId: sessionId ? Number(sessionId) : undefined },
+            {
+              model: selectedModel || 'llama3.2',
+              messages: chatMessages,
+              stream: true,
+              sessionId: sessionId ? Number(sessionId) : undefined,
+              collection: collectionFilter || undefined,
+            },
             (chunkContent, chunkThinking, done) => {
               if (chunkThinking.length > 0 && thinkingStartTime === null) {
                 thinkingStartTime = Date.now()
@@ -414,10 +423,11 @@ export default function Chat({
           model: selectedModel || 'llama3.2',
           messages: chatMessages,
           sessionId: sessionId ? Number(sessionId) : undefined,
+          collection: collectionFilter || undefined,
         })
       }
     },
-    [activeSessionId, messages, selectedModel, chatMutation, queryClient, streamingEnabled]
+    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled]
   )
 
   return (
@@ -471,6 +481,22 @@ export default function Chat({
                 {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
               </span>
             )}
+            <div className="flex items-center gap-2">
+              <label htmlFor="collection-select" className="text-sm text-text-secondary">
+                Search in:
+              </label>
+              <select
+                id="collection-select"
+                value={collectionFilter}
+                onChange={(e) => setCollectionFilter(e.target.value)}
+                className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+              >
+                <option value="">All</option>
+                {KB_COLLECTIONS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-2">
               <label htmlFor="model-select" className="text-sm text-text-secondary">
                 Model:

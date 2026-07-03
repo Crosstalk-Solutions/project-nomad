@@ -20,6 +20,8 @@ export default class RagController {
       return response.status(400).json({ error: 'No file uploaded' })
     }
 
+    const collection: string | null = request.input('collection', null)
+
     const randomSuffix = randomBytes(6).toString('hex')
     const sanitizedName = sanitizeFilename(uploadedFile.clientName)
 
@@ -34,6 +36,7 @@ export default class RagController {
     const result = await EmbedFileJob.dispatch({
       filePath: fullPath,
       fileName,
+      ...(collection ? { collection } : {}),
     })
 
     return response.status(202).json({
@@ -42,9 +45,9 @@ export default class RagController {
       fileName,
       filePath: `/${RagService.UPLOADS_STORAGE_PATH}/${fileName}`,
       alreadyProcessing: !result.created,
+      ...(collection ? { collection } : {}),
     })
   }
-
   public async getActiveJobs({ response }: HttpContext) {
     const jobs = await EmbedFileJob.listActiveJobs()
     return response.status(200).json(jobs)
@@ -66,6 +69,29 @@ export default class RagController {
   public async getStoredFiles({ response }: HttpContext) {
     const files = await this.ragService.getStoredFiles()
     return response.status(200).json({ files })
+  }
+
+  public async getKnowledgeCollections({ response }: HttpContext) {
+    const collections = await this.ragService.getKnowledgeCollections()
+    return response.status(200).json({ collections })
+  }
+
+  public async updateFileCollection({ request, response }: HttpContext) {
+    const source: string | null = request.input('source', null)
+    // Empty string means "clear back to Uncategorized" — coerce to null rather
+    // than rejecting, so the frontend can offer an Uncategorized option.
+    const rawCollection: string | null = request.input('collection', null)
+    const collection = rawCollection && rawCollection.trim() !== '' ? rawCollection : null
+
+    if (!source) {
+      return response.status(400).json({ error: 'source is required.' })
+    }
+
+    const result = await this.ragService.updateFileCollection(source, collection)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
   }
 
   public async getFileWarnings({ response }: HttpContext) {

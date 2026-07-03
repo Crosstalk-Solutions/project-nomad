@@ -124,9 +124,10 @@ class API {
 
   async downloadRemoteMapRegionPreflight(url: string) {
     return catchInternal(async () => {
-      const response = await this.client.post<
-        { filename: string; size: number } | { message: string }
-      >('/maps/download-remote-preflight', { url })
+      const response = await this.client.post<{ filename: string; size: number } | { message: string }>(
+        '/maps/download-remote-preflight',
+        { url }
+      )
       return response.data
     })()
   }
@@ -272,14 +273,6 @@ class API {
     })()
   }
 
-  /**
-   * Ask the backend to send Ollama `keep_alive: 0` to every currently-loaded
-   * chat model except `targetModel` (and the embedding model, which is always
-   * exempt server-side). Fire-and-forget — the chat UI doesn't await this
-   * before creating a new session, since unload is housekeeping.
-   *
-   * Pass `null` to unload every chat model.
-   */
   async unloadChatModels(targetModel: string | null) {
     return catchInternal(async () => {
       const response = await this.client.post<{ unloaded: string[] }>(
@@ -314,7 +307,6 @@ class API {
     onChunk: (content: string, thinking: string, done: boolean) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    // Axios doesn't support ReadableStream in browser, so need to use fetch
     const response = await fetch('/api/ollama/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -344,7 +336,7 @@ class API {
           let data: any
           try {
             data = JSON.parse(line.slice(6))
-          } catch { continue /* skip malformed chunks */ }
+          } catch { continue }
 
           if (data.error) throw new Error('The model encountered an error. Please try again.')
 
@@ -376,15 +368,13 @@ class API {
 
   async getChatSessions() {
     return catchInternal(async () => {
-      const response = await this.client.get<
-        Array<{
-          id: string
-          title: string
-          model: string | null
-          timestamp: string
-          lastMessage: string | null
-        }>
-      >('/chat/sessions')
+      const response = await this.client.get<Array<{
+        id: string
+        title: string
+        model: string | null
+        timestamp: string
+        lastMessage: string | null
+      }>>('/chat/sessions')
       return response.data
     })()
   }
@@ -713,27 +703,21 @@ class API {
 
   async listMapMarkers() {
     return catchInternal(async () => {
-      const response = await this.client.get<
-        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>
-      >('/maps/markers')
+      const response = await this.client.get<Array<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>>('/maps/markers')
       return response.data
     })()
   }
 
   async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string }) {
     return catchInternal(async () => {
-      const response = await this.client.post<
-        { id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }
-      >('/maps/markers', data)
+      const response = await this.client.post<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>('/maps/markers', data)
       return response.data
     })()
   }
 
   async updateMapMarker(id: number, data: { name?: string; color?: string }) {
     return catchInternal(async () => {
-      const response = await this.client.patch<
-        { id: number; name: string; longitude: number; latitude: number; color: string }
-      >(`/maps/markers/${id}`, data)
+      const response = await this.client.patch<{ id: number; name: string; longitude: number; latitude: number; color: string }>(`/maps/markers/${id}`, data)
       return response.data
     })()
   }
@@ -872,13 +856,11 @@ class API {
       const response = await this.client.post<SubmitBenchmarkResponse>('/benchmark/submit', { benchmark_id, anonymous })
       return response.data
     } catch (error: any) {
-      // For 409 Conflict errors, throw a specific error that the UI can handle
       if (error.response?.status === 409) {
         const err = new Error(error.response?.data?.error || 'This benchmark has already been submitted to the repository')
           ; (err as any).status = 409
         throw err
       }
-      // For other errors, extract the message and throw
       const errorMessage = error.response?.data?.error || error.message || 'Failed to submit benchmark'
       throw new Error(errorMessage)
     }
@@ -952,8 +934,6 @@ class API {
     })()
   }
 
-  // Wikipedia selector methods
-
   async getWikipediaState(): Promise<WikipediaState | undefined> {
     return catchInternal(async () => {
       const response = await this.client.get<WikipediaState>('/zim/wikipedia')
@@ -984,10 +964,11 @@ class API {
     })()
   }
 
-  async uploadDocument(file: File) {
+  async uploadDocument(file: File, collection?: string) {
     return catchInternal(async () => {
       const formData = new FormData()
       formData.append('file', file)
+      if (collection) formData.append('collection', collection)
       const response = await this.client.post<{ message: string; file_path: string }>(
         '/rag/upload',
         formData,
@@ -997,6 +978,23 @@ class API {
           },
         }
       )
+      return response.data
+    })()
+  }
+
+  async getKnowledgeCollections() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ collections: string[] }>('/rag/collections')
+      return response.data
+    })()
+  }
+
+  async updateFileCollection(source: string, collection: string | null) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/update-collection', {
+        source,
+        collection,
+      })
       return response.data
     })()
   }
