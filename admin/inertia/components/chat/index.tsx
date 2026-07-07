@@ -11,7 +11,6 @@ import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconX } from '@tabler/icons-react'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
-import { KB_COLLECTIONS } from '../../../constants/kb_collections'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 
 interface ChatProps {
@@ -72,6 +71,12 @@ export default function Chat({
     queryFn: () => api.getInstalledModels(),
     enabled,
     select: (data) => data || [],
+  })
+
+  const { data: knownCollections = [] } = useQuery({
+    queryKey: ['kbCollections'],
+    queryFn: () => api.getKnowledgeCollections(),
+    select: (data) => data?.collections ?? [],
   })
 
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
@@ -492,7 +497,7 @@ export default function Chat({
                 className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
               >
                 <option value="">All</option>
-                {KB_COLLECTIONS.map((c) => (
+                {knownCollections.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
