@@ -999,6 +999,25 @@ class API {
     })()
   }
 
+  async renameCollection(oldName: string, newName: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/rename-collection', {
+        oldName,
+        newName,
+      })
+      return response.data
+    })()
+  }
+
+  async deleteCollection(name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/delete-collection', {
+        name,
+      })
+      return response.data
+    })()
+  }
+
   async getSetting(key: string) {
     return catchInternal(async () => {
       const response = await this.client.get<{ key: string; value: any }>(

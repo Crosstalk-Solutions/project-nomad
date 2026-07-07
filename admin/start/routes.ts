@@ -163,6 +163,8 @@ router
     router.get('/health', [RagController, 'health'])
     router.get('/collections', [RagController, 'getKnowledgeCollections'])
     router.post('/update-collection', [RagController, 'updateFileCollection'])
+    router.post('/rename-collection', [RagController, 'renameKnowledgeCollection'])
+    router.post('/delete-collection', [RagController, 'deleteKnowledgeCollection'])
   })
   .prefix('/api/rag')
 

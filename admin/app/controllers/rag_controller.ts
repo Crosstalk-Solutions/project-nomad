@@ -94,6 +94,35 @@ export default class RagController {
     return response.status(200).json({ message: result.message })
   }
 
+  public async renameKnowledgeCollection({ request, response }: HttpContext) {
+    const oldName: string | null = request.input('oldName', null)
+    const newName: string | null = request.input('newName', null)
+
+    if (!oldName || !newName) {
+      return response.status(400).json({ error: 'oldName and newName are required.' })
+    }
+
+    const result = await this.ragService.renameKnowledgeCollection(oldName, newName)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
+  public async deleteKnowledgeCollection({ request, response }: HttpContext) {
+    const name: string | null = request.input('name', null)
+
+    if (!name) {
+      return response.status(400).json({ error: 'name is required.' })
+    }
+
+    const result = await this.ragService.deleteKnowledgeCollection(name)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
   public async getFileWarnings({ response }: HttpContext) {
     const result = await this.ragService.computeFileWarnings()
     return response.status(200).json(result)

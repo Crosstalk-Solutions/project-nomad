@@ -1240,6 +1240,64 @@ export class RagService {
   }
 
   /**
+   * Rename a knowledge-base collection everywhere it's referenced: updates every
+   * Qdrant point tagged with the old name in place, and mirrors the change onto
+   * any matching KbIngestState rows so getStoredFiles() reflects it immediately.
+   */
+  public async renameKnowledgeCollection(
+    oldName: string,
+    newName: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!oldName || !newName || oldName === newName) {
+        return { success: false, message: 'Invalid collection names.' }
+      }
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+        payload: { collection: newName },
+        filter: { must: [{ key: 'collection', match: { value: oldName } }] },
+      })
+
+      await KbIngestState.query().where('collection', oldName).update({ collection: newName })
+
+      return { success: true, message: `Renamed "${oldName}" to "${newName}".` }
+    } catch (error) {
+      logger.error('[RAG] Error renaming knowledge collection:', error)
+      return { success: false, message: 'Error renaming collection.' }
+    }
+  }
+
+  /**
+   * Remove a collection by reassigning every file tagged with it back to
+   * Uncategorized (collection: null). Non-destructive — no files or embeddings
+   * are deleted, only the grouping label is cleared so items can be
+   * recategorized later.
+   */
+  public async deleteKnowledgeCollection(
+    name: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!name) {
+        return { success: false, message: 'Invalid collection name.' }
+      }
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+        payload: { collection: null },
+        filter: { must: [{ key: 'collection', match: { value: name } }] },
+      })
+
+      await KbIngestState.query().where('collection', name).update({ collection: null })
+
+      return { success: true, message: `"${name}" removed. Files moved to Uncategorized.` }
+    } catch (error) {
+      logger.error('[RAG] Error deleting knowledge collection:', error)
+      return { success: false, message: 'Error deleting collection.' }
+    }
+  }
+
+  /**
    * Resolve a stored-file `source` to an absolute disk path, but only if the
    * path lives under the uploads directory. Mirrors the docs_service traversal
    * guard: resolve, then require the resolved path to be strictly inside the

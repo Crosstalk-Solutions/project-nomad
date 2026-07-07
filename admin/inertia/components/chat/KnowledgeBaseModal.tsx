@@ -27,7 +27,7 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
 import { SERVICE_NAMES } from '../../../constants/service_names'
-import { KB_COLLECTIONS } from '../../../constants/kb_collections'
+import CollectionsManager from './CollectionsManager'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -129,6 +129,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const [isUploading, setIsUploading] = useState(false)
   const [uploadCollection, setUploadCollection] = useState<string>('')
   const [collectionFilter, setCollectionFilter] = useState<string>('All')
+  const [manageCollectionsOpen, setManageCollectionsOpen] = useState(false)
   const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
   const [confirmReembed, setConfirmReembed] = useState<{ source: string; displayName: string } | null>(null)
   const [bulkMode, setBulkMode] = useState<null | 'reembed' | 'reset'>(null)
@@ -464,13 +465,21 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   Collection:
                   <select
                     value={uploadCollection}
-                    onChange={(e) => setUploadCollection(e.target.value)}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        const name = window.prompt('New collection name:')
+                        if (name && name.trim()) setUploadCollection(name.trim())
+                        return
+                      }
+                      setUploadCollection(e.target.value)
+                    }}
                     className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
                   >
                     <option value="">Uncategorized</option>
-                    {KB_COLLECTIONS.map((c) => (
+                    {knownCollections.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
+                    <option value="__new__">+ New collection…</option>
                   </select>
                 </label>
                 <StyledButton
@@ -624,11 +633,19 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                     className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
                   >
                     <option value="All">All</option>
-                    {KB_COLLECTIONS.map((c) => (
+                    {knownCollections.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </label>
+                <StyledButton
+                  variant="secondary"
+                  size="md"
+                  icon="IconSettings"
+                  onClick={() => setManageCollectionsOpen(true)}
+                >
+                  Manage Collections
+                </StyledButton>
                 <StyledButton
                   variant="danger"
                   size="md"
@@ -760,15 +777,23 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       <select
                         value={record.collection ?? ''}
                         disabled={isSaving}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          if (e.target.value === '__new__') {
+                            const name = window.prompt('New collection name:')
+                            if (name && name.trim()) {
+                              updateCollectionMutation.mutate({ source: record.source, collection: name.trim() })
+                            }
+                            return
+                          }
                           updateCollectionMutation.mutate({ source: record.source, collection: e.target.value })
-                        }
+                        }}
                         className="rounded border border-border-subtle bg-surface-primary px-2 py-1 text-xs text-text-primary"
                       >
                         <option value="">Uncategorized</option>
-                        {KB_COLLECTIONS.map((c) => (
+                        {knownCollections.map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
+                        <option value="__new__">+ New collection…</option>
                       </select>
                     )
                   },
@@ -1015,6 +1040,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           source={viewerSource}
           onClose={() => setViewerSource(null)}
         />
+      )}
+
+      {manageCollectionsOpen && (
+        <CollectionsManager onClose={() => setManageCollectionsOpen(false)} />
       )}
     </div>
   )
