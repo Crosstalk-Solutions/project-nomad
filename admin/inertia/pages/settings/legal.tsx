@@ -34,7 +34,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Third-Party Software Attribution</h2>
             <p className="text-text-primary mb-4">
-              Project NOMAD integrates the following open source projects. We are grateful to
+              Project NOMAD&trade; integrates the following open source projects. We are grateful to
               their developers and communities:
             </p>
             <ul className="space-y-3 text-text-primary">
