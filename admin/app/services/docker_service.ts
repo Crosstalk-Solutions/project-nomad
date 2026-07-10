@@ -21,6 +21,7 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -810,6 +811,13 @@ export class DockerService {
         }
       }
 
+      const appEnv: string[] = []
+      if (service.service_name === SERVICE_NAMES.HOMEBOX) {
+        // Homebox >= 0.26 panics at boot without a >= 32-byte pepper (#1043). Generate once,
+        // persist, and reuse so updates/reinstalls don't invalidate issued API keys.
+        appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`)
+      }
+
       this._broadcast(
         service.service_name,
         'creating',
@@ -827,7 +835,7 @@ export class DockerService {
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
-        Env: [...(containerConfig?.Env ?? []), ...ollamaEnv],
+        Env: [...(containerConfig?.Env ?? []), ...ollamaEnv, ...appEnv],
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         // Ensure container is attached to the Nomad docker network in production
         ...(process.env.NODE_ENV === 'production' && {
@@ -1465,6 +1473,26 @@ export class DockerService {
    *
    * Returns null when no override should be applied.
    */
+  /**
+   * Resolve the Homebox API-key pepper, generating and persisting one on first use.
+   *
+   * Homebox >= 0.26 panics at boot unless HBOX_AUTH_API_KEY_PEPPER is set to a value of at
+   * least 32 bytes (#1043). The pepper must be STABLE across updates and reinstalls:
+   * rotating it invalidates every API key a user has issued from Homebox. So we generate it
+   * once and persist it in the KV store, then reuse it for the life of the install.
+   */
+  private async _resolveHomeboxPepper(): Promise<string> {
+    const existing = await KVStore.getValue('apps.homebox.apiKeyPepper')
+    if (typeof existing === 'string' && existing.length >= 32) {
+      return existing
+    }
+    // 48 raw bytes -> 64 base64 chars, comfortably over Homebox's 32-byte floor.
+    const pepper = randomBytes(48).toString('base64')
+    await KVStore.setValue('apps.homebox.apiKeyPepper', pepper)
+    logger.info('[DockerService] Generated and persisted Homebox API key pepper')
+    return pepper
+  }
+
   private async _resolveAmdHsaOverride(): Promise<string | null> {
     const manualRaw = await KVStore.getValue('ai.amdHsaOverride')
     if (manualRaw !== null && manualRaw !== undefined && String(manualRaw).trim() !== '') {
@@ -1692,6 +1720,15 @@ export class DockerService {
         if (hsaOverride) {
           finalEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
         }
+      }
+
+      // Heal a Homebox container that predates the #1043 fix: inject the persisted pepper on
+      // update if it's missing, so an update (not just a force-reinstall) fixes the crash loop.
+      if (
+        serviceName === SERVICE_NAMES.HOMEBOX &&
+        !finalEnv.some((e: string) => e.startsWith('HBOX_AUTH_API_KEY_PEPPER='))
+      ) {
+        finalEnv = [...finalEnv, `HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`]
       }
 
       const newContainerConfig: any = {
@@ -2141,6 +2178,17 @@ export class DockerService {
         await this.pullImage(service.container_image)
       }
 
+      // Runtime-injected secrets (e.g. Homebox's API-key pepper, #1043) live in the KV store, not
+      // in container_config. This path rebuilds Env from container_config alone, so re-inject them
+      // here — otherwise an Edit or in-place recreate drops the pepper and Homebox crash-loops again.
+      let recreateEnv: string[] = containerConfig?.Env ?? []
+      if (
+        serviceName === SERVICE_NAMES.HOMEBOX &&
+        !recreateEnv.some((e: string) => e.startsWith('HBOX_AUTH_API_KEY_PEPPER='))
+      ) {
+        recreateEnv = [...recreateEnv, `HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`]
+      }
+
       const newContainer = await this.docker.createContainer({
         Image: service.container_image,
         name: serviceName,
@@ -2152,7 +2200,7 @@ export class DockerService {
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: containerConfig?.HostConfig ?? {},
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
-        ...(containerConfig?.Env && { Env: containerConfig.Env }),
+        ...(recreateEnv.length ? { Env: recreateEnv } : {}),
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         ...(process.env.NODE_ENV === 'production' && {
           NetworkingConfig: { EndpointsConfig: { [DockerService.NOMAD_NETWORK]: {} } },
