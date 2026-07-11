@@ -43,6 +43,9 @@ type ChatInput = {
   model: string
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
   think?: boolean | 'medium'
+  // Whether the target model supports thinking. Lets chat()/chatStream() tell "capable but
+  // disabled" (send reasoning_effort:'none') apart from "not capable" (send nothing).
+  thinkingCapable?: boolean
   stream?: boolean
   numCtx?: number
   // Aborts the upstream request when the client disconnects, so an abandoned generation
@@ -57,6 +60,9 @@ export class OllamaService {
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
   private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
+  // Memoized `thinking` capability per model name (see checkModelHasThinking). Only successful
+  // /api/show lookups are cached; transient failures are left uncached so they can be retried.
+  private thinkingCapabilityCache: Map<string, boolean> = new Map()
 
   constructor() {}
 
@@ -332,6 +338,15 @@ export class OllamaService {
     if (chatRequest.think) {
       params.think = chatRequest.think
     }
+    // The /v1 (OpenAI-compat) endpoint ignores `think`; `reasoning_effort` is the actual lever.
+    // Only touch it for thinking-capable models so non-Ollama backends never get an unexpected
+    // param. gpt-oss requires an explicit level; a capable-but-disabled model gets 'none' to
+    // suppress thinking (capable models default thinking ON otherwise, so think===true is a no-op).
+    if (chatRequest.think === 'medium') {
+      params.reasoning_effort = 'medium'
+    } else if (chatRequest.thinkingCapable && chatRequest.think === false) {
+      params.reasoning_effort = 'none'
+    }
     if (chatRequest.numCtx) {
       params.num_ctx = chatRequest.numCtx
     }
@@ -364,6 +379,15 @@ export class OllamaService {
     }
     if (chatRequest.think) {
       params.think = chatRequest.think
+    }
+    // The /v1 (OpenAI-compat) endpoint ignores `think`; `reasoning_effort` is the actual lever.
+    // Only touch it for thinking-capable models so non-Ollama backends never get an unexpected
+    // param. gpt-oss requires an explicit level; a capable-but-disabled model gets 'none' to
+    // suppress thinking (capable models default thinking ON otherwise, so think===true is a no-op).
+    if (chatRequest.think === 'medium') {
+      params.reasoning_effort = 'medium'
+    } else if (chatRequest.thinkingCapable && chatRequest.think === false) {
+      params.reasoning_effort = 'none'
     }
     if (chatRequest.numCtx) {
       params.num_ctx = chatRequest.numCtx
@@ -444,13 +468,22 @@ export class OllamaService {
     await this._ensureDependencies()
     if (!this.baseUrl) return false
 
+    // A model's capabilities don't change at runtime, so memoize the /api/show result. Without
+    // this, loading the chat picker fires one /api/show per installed model and every chat send
+    // fires another — this collapses those to a single call per model per process.
+    const cached = this.thinkingCapabilityCache.get(modelName)
+    if (cached !== undefined) return cached
+
     try {
       const response = await axios.post(
         `${this.baseUrl}/api/show`,
         { model: modelName },
         { timeout: 5000 }
       )
-      return Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+      const hasThinking =
+        Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+      this.thinkingCapabilityCache.set(modelName, hasThinking)
+      return hasThinking
     } catch {
       // Non-Ollama backends don't expose /api/show — assume no thinking support
       return false

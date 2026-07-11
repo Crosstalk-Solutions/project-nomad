@@ -68,6 +68,11 @@ export default function Chat({
 
   const { data: lastModelSetting } = useSystemSetting({ key: 'chat.lastModel', enabled })
   const { data: remoteOllamaUrlSetting } = useSystemSetting({ key: 'ai.remoteOllamaUrl', enabled })
+  const { data: autoThinkingSetting } = useSystemSetting({ key: 'ai.autoThinking', enabled })
+  // Global default for models the user hasn't explicitly toggled. Coerce defensively — KV
+  // booleans have historically round-tripped as strings.
+  const autoThinkingDefault =
+    autoThinkingSetting?.value === true || autoThinkingSetting?.value === 'true'
 
   const { data: remoteStatus } = useQuery({
     queryKey: ['remoteOllamaStatus'],
@@ -88,6 +93,38 @@ export default function Chat({
     queryFn: () => api.getKnowledgeCollections(),
     select: (data) => data?.collections ?? [],
   })
+
+  // Per-model thinking overrides, remembered client-side (localStorage, keyed by model name).
+  // An entry here means the user explicitly toggled thinking for that model; absent means fall
+  // back to the global default (ai.autoThinking). Seeded from localStorage when models load.
+  const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    const next: Record<string, boolean> = {}
+    for (const m of installedModels) {
+      try {
+        const stored = localStorage.getItem(`nomad:thinking:${m.name}`)
+        if (stored !== null) next[m.name] = stored === 'true'
+      } catch {}
+    }
+    setThinkingOverrides(next)
+  }, [installedModels])
+
+  const selectedModelSupportsThinking =
+    installedModels.find((m) => m.name === selectedModel)?.thinking === true
+
+  // Effective thinking preference for a model: explicit override wins, else the global default.
+  const effectiveThinking = useCallback(
+    (model: string): boolean =>
+      model in thinkingOverrides ? thinkingOverrides[model] : autoThinkingDefault,
+    [thinkingOverrides, autoThinkingDefault]
+  )
+
+  const setModelThinking = useCallback((model: string, value: boolean) => {
+    setThinkingOverrides((prev) => ({ ...prev, [model]: value }))
+    try {
+      localStorage.setItem(`nomad:thinking:${model}`, String(value))
+    } catch {}
+  }, [])
 
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
     queryKey: ['chatSuggestions'],
@@ -119,6 +156,7 @@ export default function Chat({
       model: string
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
       sessionId?: number
+      think?: boolean
       collection?: string
     }) => api.sendChatMessage({ ...request, stream: false }),
     onSuccess: async (data) => {
@@ -345,7 +383,7 @@ export default function Chat({
               model: selectedModel || 'llama3.2',
               messages: chatMessages,
               stream: true,
-              sessionId: sessionId ? Number(sessionId) : undefined,
+              sessionId: sessionId ? Number(sessionId) : undefined, think: effectiveThinking(selectedModel),
               collection: collectionFilter || undefined,
             },
             (chunkContent, chunkThinking, done) => {
@@ -437,11 +475,12 @@ export default function Chat({
           model: selectedModel || 'llama3.2',
           messages: chatMessages,
           sessionId: sessionId ? Number(sessionId) : undefined,
+          think: effectiveThinking(selectedModel),
           collection: collectionFilter || undefined,
         })
       }
     },
-    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled]
+    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
   )
 
   return (
@@ -557,7 +596,21 @@ export default function Chat({
                   </select>
                 )}
               </div>
-              {isInModal && (
+              {selectedModelSupportsThinking && (
+              <label
+                className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer select-none"
+                title="When on, this model reasons before answering. Remembered for this model."
+              >
+                <input
+                  type="checkbox"
+                  checked={effectiveThinking(selectedModel)}
+                  onChange={(e) => setModelThinking(selectedModel, e.target.checked)}
+                  className="h-4 w-4 rounded border-border-default text-desert-green focus:ring-desert-green"
+                />
+                Thinking
+              </label>
+            )}
+            {isInModal && (
                 <button
                   type="button"
                   aria-label="Close chat"
