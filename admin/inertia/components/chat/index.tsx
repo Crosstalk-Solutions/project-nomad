@@ -12,6 +12,8 @@ import classNames from '~/lib/classNames'
 import { IconMenu2, IconX } from '@tabler/icons-react'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import Switch from '~/components/inputs/Switch'
+import InfoTooltip from '~/components/InfoTooltip'
 
 interface ChatProps {
   enabled: boolean
@@ -597,18 +599,19 @@ export default function Chat({
                 )}
               </div>
               {selectedModelSupportsThinking && (
-              <label
-                className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer select-none"
-                title="When on, this model reasons before answering. Remembered for this model."
-              >
-                <input
-                  type="checkbox"
-                  checked={effectiveThinking(selectedModel)}
-                  onChange={(e) => setModelThinking(selectedModel, e.target.checked)}
-                  className="h-4 w-4 rounded border-border-default text-desert-green focus:ring-desert-green"
+              <div className="flex items-center">
+                <span className="text-sm text-text-secondary select-none">Thinking:</span>
+                <InfoTooltip
+                  position="bottom"
+                  align="right"
+                  text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
                 />
-                Thinking
-              </label>
+                <Switch
+                  id="chat-thinking-toggle"
+                  checked={effectiveThinking(selectedModel)}
+                  onChange={(v) => setModelThinking(selectedModel, v)}
+                />
+              </div>
             )}
             {isInModal && (
                 <button
