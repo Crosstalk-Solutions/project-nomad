@@ -12,6 +12,7 @@ Thank you for your interest in contributing to Project N.O.M.A.D.! Community con
 - [Before You Start](#before-you-start)
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
+- [UI Consistency](#ui-consistency)
 - [Commit Messages](#commit-messages)
 - [Release Notes](#release-notes)
 - [Versioning](#versioning)
@@ -99,6 +100,34 @@ Because Nomad relies heavily on Docker, we actually recommend against installing
 5. **Commit your changes** using [Conventional Commits](#commit-messages).
 
 6. **Push your branch** and open a pull request.
+
+---
+
+## UI Consistency
+
+N.O.M.A.D.'s guiding principle is that **user-friendliness is paramount**: a control that looks or behaves differently from the rest of the app reads as broken to a non-technical user. New frontend (inertia/React) work should be visually and behaviorally uniform with what is already there. Before adding a UI element, look at its neighbors and reuse the shared building blocks rather than hand-rolling a one-off.
+
+**Reuse the shared components** in `admin/inertia/components/` (and `.../components/inputs/`):
+
+| Need | Use | Not |
+|------|-----|-----|
+| Binary on/off setting | `Switch` | a raw `<input type="checkbox">` |
+| Explanatory hover help | `InfoTooltip` | a raw `title=` attribute or a bespoke tooltip |
+| Modal / confirmation dialog | `StyledModal` | a hand-built overlay |
+| Text field | `Input` | a bare `<input>` |
+| Section heading | `StyledSectionHeader` | ad-hoc heading markup |
+
+Grep for an existing component before building a new one.
+
+**Match the neighbors.** Copy the exact classes and conventions of adjacent elements:
+
+- **Labels:** match punctuation and casing of sibling labels. If the field beside yours reads `Model:` (with a colon), yours should read `Thinking:`, not `Thinking`. Reuse the same typography tokens (e.g. `text-sm text-text-secondary`).
+- **Theme:** use design tokens (`text-*`, `bg-*`, `border-*`) so the element works in light and dark mode. Never hardcode colors.
+- **Placement:** make sure popovers and tooltips are not clipped or crushed against a viewport edge, including when the trigger sits near an edge of the screen.
+
+**When a raw control is fine.** These conventions are about matching intent, not banning primitives. A raw checkbox is appropriate for a multi-select list or a consent box; radio groups and native selects are fine where a shared component does not exist. The point is to reach for the shared component when your case matches its intent (a binary setting toggle should be a `Switch`), not to eliminate primitives.
+
+**Test UI changes in a real browser.** Most of these conventions are judgment calls that tooling cannot fully enforce, so the single most important habit is to load your change in a browser against a running instance before submitting. Several classes of issue (clipped or cramped tooltips, layout breaking at different window widths, blank-screen render errors) are invisible to type-checking and only show up when you actually look at the page. Check the states that should appear *and* the states that should be hidden, and try more than one window width when layout or positioning is involved.
 
 ---
 
