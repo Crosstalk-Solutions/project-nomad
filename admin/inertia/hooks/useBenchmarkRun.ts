@@ -31,6 +31,10 @@ type LiveState = {
   /** Authoritative in-test disk throughput (sysbench interim lines), MiB/s. */
   diskMibs: number | null
   diskMibsHistory: number[]
+  /** NVIDIA GPU stats during the AI stage (null when no GPU / not sampling). */
+  gpuUtil: number | null
+  gpuVramUsedMb: number | null
+  gpuVramTotalMb: number | null
 }
 
 const EMPTY_LIVE: LiveState = {
@@ -49,6 +53,9 @@ const EMPTY_LIVE: LiveState = {
   cpuEventsHistory: [],
   diskMibs: null,
   diskMibsHistory: [],
+  gpuUtil: null,
+  gpuVramUsedMb: null,
+  gpuVramTotalMb: null,
 }
 
 const pushRing = (arr: number[], v: number) => {
@@ -70,11 +77,14 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [live, setLive] = useState<LiveState>(EMPTY_LIVE)
   const [partials, setPartials] = useState<BenchmarkPartialResult[]>([])
+  // Last-seen progress status, so stage transitions can reset in-test buffers.
+  const lastStatusRef = useRef<BenchmarkStatus | null>(null)
 
   const reset = useCallback(() => {
     setProgress(null)
     setLive(EMPTY_LIVE)
     setPartials([])
+    lastStatusRef.current = null
   }, [])
 
   useEffect(() => {
@@ -82,6 +92,20 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
       BROADCAST_CHANNELS.BENCHMARK_PROGRESS,
       (data: BenchmarkProgressWithID) => {
         setProgress(data)
+        // On stage transition, clear the in-test buffers so each stage starts
+        // clean (e.g. the disk-read throughput doesn't linger into the write
+        // stage). Always-on host telemetry (perCore, cpuOverall, disk proxy,
+        // temp) is intentionally left untouched.
+        if (lastStatusRef.current !== data.status) {
+          lastStatusRef.current = data.status
+          setLive((prev) => ({
+            ...prev,
+            cpuEventsPerSec: null,
+            cpuEventsHistory: [],
+            diskMibs: null,
+            diskMibsHistory: [],
+          }))
+        }
         if (data.partial_result) {
           const incoming = data.partial_result
           setPartials((prev) => {
@@ -127,6 +151,9 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
             diskMibsHistory: isMib
               ? pushRing(prev.diskMibsHistory, data.stage_metric!.value)
               : prev.diskMibsHistory,
+            gpuUtil: data.gpu ? data.gpu.util : prev.gpuUtil,
+            gpuVramUsedMb: data.gpu ? data.gpu.vram_used_mb : prev.gpuVramUsedMb,
+            gpuVramTotalMb: data.gpu ? data.gpu.vram_total_mb : prev.gpuVramTotalMb,
           }
         })
       }
