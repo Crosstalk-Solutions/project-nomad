@@ -56,6 +56,13 @@ export default class BenchmarkResult extends BaseModel {
   @column()
   declare ai_time_to_first_token: number | null
 
+  // Harness forensic metadata (nullable — added in Score v2 Phase 1)
+  @column()
+  declare sysbench_digest: string | null
+
+  @column()
+  declare ollama_version: string | null
+
   // Composite NOMAD score (0-100)
   @column()
   declare nomad_score: number

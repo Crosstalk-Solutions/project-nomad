@@ -49,7 +49,9 @@ const SCORE_WEIGHTS = {
 }
 
 // Benchmark configuration constants
-const SYSBENCH_IMAGE = 'severalnines/sysbench:latest'
+// Pinned by digest (was severalnines/sysbench:latest) so a latest-tag format change can't silently break the parsers fleet-wide. Digest validated on the NOMAD6 reference build 2026-07-12.
+const SYSBENCH_IMAGE = 'severalnines/sysbench@sha256:64cd003bfa21eaab22f985e7b95f90d21a970229f5f628718657dd1bae669abd'
+const SYSBENCH_DIGEST = 'sha256:64cd003bfa21eaab22f985e7b95f90d21a970229f5f628718657dd1bae669abd'
 const SYSBENCH_CONTAINER_NAME = 'nomad_benchmark_sysbench'
 
 // Reference model for AI benchmark - small but meaningful
@@ -459,6 +461,8 @@ export class BenchmarkService {
         ai_time_to_first_token: aiScores.ai_time_to_first_token || null,
         nomad_score: nomadScore,
         submitted_to_repository: false,
+        sysbench_digest: SYSBENCH_DIGEST,
+        ollama_version: aiScores.ai_ollama_version ?? null,
       })
 
       this._updateStatus('completed', 'Benchmark completed successfully')
@@ -618,6 +622,10 @@ export class BenchmarkService {
       throw new Error(`Ollama is not running or not accessible (${errorCode}). Ensure AI Assistant is installed and running.`)
     }
 
+    // Record the Ollama version for forensics (null-tolerant — never fail the run on this)
+    const versionResp = await axios.get(`${ollamaAPIURL}/api/version`, { timeout: 5000 }).catch(() => null)
+    const ollamaVersion: string | null = versionResp?.data?.version ?? null
+
     // GPU-util overlay (NVIDIA only): probe once; if a GPU answers, poll for the
     // duration of the AI stage. If the probe returns null (no GPU / AMD), the
     // overlay simply never appears. Best-effort: failures never affect the run.
@@ -726,12 +734,13 @@ export class BenchmarkService {
         ? finalPromptEvalDuration / 1e6 // Convert ns to ms
         : (totalTime * 1000) / 2 // Estimate if not available
 
-      return {
-        ai_tokens_per_second: Math.round(tokensPerSecond * 100) / 100,
-        ai_model_used: AI_BENCHMARK_MODEL,
-        ai_time_to_first_token: Math.round(ttft * 100) / 100,
+        return {
+          ai_tokens_per_second: Math.round(tokensPerSecond * 100) / 100,
+          ai_model_used: AI_BENCHMARK_MODEL,
+          ai_time_to_first_token: Math.round(ttft * 100) / 100,
+          ai_ollama_version: ollamaVersion,
+        }
       }
-    }
 
     // Fallback if Ollama didn't return eval metrics: use the streamed counts.
     const estimatedTokens = streamedTokens || responseText.split(' ').length * 1.3 || 100
@@ -743,6 +752,7 @@ export class BenchmarkService {
       ai_time_to_first_token: firstTokenAt
         ? Math.round(firstTokenAt - startTime)
         : Math.round((totalTime * 1000) / 2),
+        ai_ollama_version: ollamaVersion,
     }
     } catch (error) {
       throw new Error(`AI benchmark failed: ${error.message}`)
@@ -877,8 +887,14 @@ export class BenchmarkService {
     const totalEventsMatch = output.match(/total number of events:\s*(\d+)/i)
     logger.debug(`[BenchmarkService] CPU output parsing - events/s: ${eventsMatch?.[1]}, total_time: ${totalTimeMatch?.[1]}, total_events: ${totalEventsMatch?.[1]}`)
 
+    // Scored primary metric: fail loudly instead of silently scoring zero on a parse miss
+    const eventsPerSecond = eventsMatch ? parseFloat(eventsMatch[1]) : Number.NaN
+    if (!eventsMatch || !Number.isFinite(eventsPerSecond) || eventsPerSecond <= 0) {
+      throw new Error('sysbench CPU benchmark produced no parseable events/sec — aborting (output may have changed or the test failed)')
+    }
+
     return {
-      events_per_second: eventsMatch ? parseFloat(eventsMatch[1]) : 0,
+      events_per_second: eventsPerSecond,
       total_time: totalTimeMatch ? parseFloat(totalTimeMatch[1]) : 30,
       total_events: totalEventsMatch ? parseInt(totalEventsMatch[1]) : 0,
     }
@@ -902,8 +918,14 @@ export class BenchmarkService {
     const transferMatch = output.match(/([\d.]+)\s*MiB\/sec/i)
     const timeMatch = output.match(/total time:\s*([\d.]+)s/i)
 
+    // Scored primary metric: fail loudly instead of silently scoring zero on a parse miss
+    const opsPerSecond = opsMatch ? parseFloat(opsMatch[1]) : Number.NaN
+    if (!opsMatch || !Number.isFinite(opsPerSecond) || opsPerSecond <= 0) {
+      throw new Error('sysbench memory benchmark produced no parseable ops/sec — aborting')
+    }
+
     return {
-      operations_per_second: opsMatch ? parseFloat(opsMatch[1]) : 0,
+      operations_per_second: opsPerSecond,
       transfer_rate_mb_per_sec: transferMatch ? parseFloat(transferMatch[1]) : 0,
       total_time: timeMatch ? parseFloat(timeMatch[1]) : 0,
     }
@@ -939,10 +961,16 @@ export class BenchmarkService {
 
     logger.debug(`[BenchmarkService] Disk read output parsing - read: ${readMatch?.[1]}, reads/s: ${readsPerSecMatch?.[1]}`)
 
+    // Scored primary metric: fail loudly instead of silently scoring zero on a parse miss
+    const readMbPerSec = readMatch ? parseFloat(readMatch[1]) : Number.NaN
+    if (!readMatch || !Number.isFinite(readMbPerSec) || readMbPerSec <= 0) {
+      throw new Error('sysbench disk-read benchmark produced no parseable MiB/s — aborting')
+    }
+
     return {
       reads_per_second: readsPerSecMatch ? parseFloat(readsPerSecMatch[1]) : 0,
       writes_per_second: 0,
-      read_mb_per_sec: readMatch ? parseFloat(readMatch[1]) : 0,
+      read_mb_per_sec: readMbPerSec,
       write_mb_per_sec: 0,
       total_time: 30,
     }
@@ -976,11 +1004,17 @@ export class BenchmarkService {
 
     logger.debug(`[BenchmarkService] Disk write output parsing - written: ${writeMatch?.[1]}, writes/s: ${writesPerSecMatch?.[1]}`)
 
+    // Scored primary metric: fail loudly instead of silently scoring zero on a parse miss
+    const writeMbPerSec = writeMatch ? parseFloat(writeMatch[1]) : Number.NaN
+    if (!writeMatch || !Number.isFinite(writeMbPerSec) || writeMbPerSec <= 0) {
+      throw new Error('sysbench disk-write benchmark produced no parseable MiB/s — aborting')
+    }
+
     return {
       reads_per_second: 0,
       writes_per_second: writesPerSecMatch ? parseFloat(writesPerSecMatch[1]) : 0,
       read_mb_per_sec: 0,
-      write_mb_per_sec: writeMatch ? parseFloat(writeMatch[1]) : 0,
+      write_mb_per_sec: writeMbPerSec,
       total_time: 30,
     }
   }
