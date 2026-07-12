@@ -25,6 +25,7 @@ import { SERVICE_NAMES } from '../../../constants/service_names'
 import { useBenchmarkRun } from '~/hooks/useBenchmarkRun'
 import BenchmarkRunView from '~/components/benchmark/BenchmarkRunView'
 import ScoreReveal from '~/components/benchmark/ScoreReveal'
+import { getScoreDisplay } from '~/lib/benchmarkScore'
 
 export default function BenchmarkPage(props: {
   benchmark: {
@@ -174,6 +175,10 @@ export default function BenchmarkPage(props: {
     latestResult.ai_tokens_per_second !== null &&
     latestResult.ai_tokens_per_second > 0 &&
     !latestResult.submitted_to_repository
+
+  // How to present the headline score: partial (System/AI Only) runs are NOT the
+  // NOMAD Score and are relabelled + flagged so users don't mistake them for it.
+  const scoreInfo = latestResult ? getScoreDisplay(latestResult.benchmark_type) : null
 
   // Handle Full Benchmark click with pre-flight check
   const handleFullBenchmarkClick = () => {
@@ -330,7 +335,12 @@ export default function BenchmarkPage(props: {
               <section className="mb-12">
                 <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
                   <div className="w-1 h-6 bg-desert-green" />
-                  NOMAD Score
+                  {scoreInfo?.label ?? 'NOMAD Score'}
+                  {scoreInfo?.isPartial && (
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-desert-stone-light text-desert-stone-dark text-xs font-semibold uppercase tracking-wide">
+                      Partial
+                    </span>
+                  )}
                 </h2>
 
                 <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
@@ -338,21 +348,35 @@ export default function BenchmarkPage(props: {
                     <div className="shrink-0">
                       <CircularGauge
                         value={latestResult.nomad_score}
-                        label="NOMAD Score"
+                        label={scoreInfo?.label ?? 'NOMAD Score'}
                         size="lg"
                         variant="cpu"
                         subtext="out of 100"
+                        muted={scoreInfo?.isPartial}
                         icon={<IconChartBar className="w-8 h-8" />}
                       />
                     </div>
                     <div className="flex-1 space-y-4">
-                      <div
-                        className={`text-5xl font-bold ${getScoreColor(latestResult.nomad_score)}`}
-                      >
-                        {latestResult.nomad_score.toFixed(1)}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`text-5xl font-bold ${
+                            scoreInfo?.isPartial
+                              ? 'text-desert-stone-dark'
+                              : getScoreColor(latestResult.nomad_score)
+                          }`}
+                        >
+                          {latestResult.nomad_score.toFixed(1)}
+                        </div>
+                        {scoreInfo?.isPartial && (
+                          <span className="px-2 py-1 rounded-md bg-desert-stone-light text-desert-stone-dark text-xs font-semibold uppercase tracking-wide">
+                            Partial
+                          </span>
+                        )}
                       </div>
                       <p className="text-desert-stone-dark">
-                        Your NOMAD Score is a weighted composite of all benchmark results.
+                        {scoreInfo?.isPartial
+                          ? scoreInfo.cta
+                          : 'Your NOMAD Score is a weighted composite of all benchmark results.'}
                       </p>
 
                       {/* Share with Community - Only for full benchmarks with AI data */}
