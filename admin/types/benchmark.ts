@@ -35,7 +35,10 @@ export type SystemScores = Pick<
 export type AIScores = Pick<
   BenchmarkResult,
   'ai_tokens_per_second' | 'ai_model_used' | 'ai_time_to_first_token'
->
+> & {
+  // Forensic metadata: Ollama server version at benchmark time (null if /api/version unavailable)
+  ai_ollama_version?: string | null
+}
 
 // Slim version for lists
 export type BenchmarkResultSlim = Pick<
