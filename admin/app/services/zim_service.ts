@@ -29,10 +29,12 @@ import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
+import { KiwixCatalogService } from './kiwix_catalog_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
+import { resolveZimDownload } from '../utils/zim_download_resolution.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -267,33 +269,40 @@ export class ZimService {
 
     if (toDownload.length === 0) return null
 
+    const latestByResource = await new KiwixCatalogService().getLatestForResources(
+      toDownload.map((resource) => ({ resource_id: resource.id, resource_type: 'zim' }))
+    )
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const existingJob = await RunDownloadJob.getActiveByUrl(resource.url)
+      const resolved = resolveZimDownload(
+        resource,
+        latestByResource.get(`zim:${resource.id}`) ?? null
+      )
+      const existingJob = await RunDownloadJob.getActiveByUrl(resolved.url)
       if (existingJob) {
-        logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)
+        logger.warn(`[ZimService] Download already in progress for ${resolved.url}, skipping.`)
         continue
       }
 
-      const filename = resource.url.split('/').pop()
+      const filename = resolved.url.split('/').pop()
       if (!filename) continue
 
       downloadFilenames.push(filename)
       const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
       await RunDownloadJob.dispatch({
-        url: resource.url,
+        url: resolved.url,
         filepath,
         timeout: 30000,
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
         title: (resource as any).title || undefined,
-        totalBytes: (resource as any).size_mb ? (resource as any).size_mb * 1024 * 1024 : undefined,
+        totalBytes: resolved.sizeBytes,
         resourceMetadata: {
           resource_id: resource.id,
-          version: resource.version,
+          version: resolved.version,
           collection_ref: categorySlug,
         },
       })
