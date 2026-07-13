@@ -93,7 +93,17 @@ export default function BenchmarkPage(props: {
       setErrorMsg(null)
       run.reset()
       setIsRunning(true)
-      return await api.runBenchmark(type)
+      setProgress({
+        status: 'starting',
+        progress: 5,
+        message: 'Starting benchmark... This takes 3-6 minutes.',
+        current_stage: 'Starting',
+        benchmark_id: '',
+        timestamp: new Date().toISOString(),
+      })
+
+      // Use sync mode - runs inline without needing Redis/queue worker
+      return await api.runBenchmark(type, true)
     },
     onSuccess: (data) => {
       // Dispatch only confirms the job started; the 'completed'/'error' SSE event
@@ -279,7 +289,7 @@ export default function BenchmarkPage(props: {
                   )}
                   <p className="text-desert-stone-dark">
                     Run a benchmark to measure your system's CPU, memory, disk, and AI inference
-                    performance. The benchmark takes approximately 2-5 minutes to complete.
+                    performance. The benchmark takes approximately 3-6 minutes to complete.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <StyledButton
@@ -348,7 +358,7 @@ export default function BenchmarkPage(props: {
                     <div className="shrink-0">
                       <CircularGauge
                         value={latestResult.nomad_score}
-                        label={scoreInfo?.label ?? 'NOMAD Score'}
+                        label={latestResult.nomad_score_v2 != null ? 'Legacy Score' : 'NOMAD Score'}
                         size="lg"
                         variant="cpu"
                         subtext="out of 100"
@@ -357,27 +367,49 @@ export default function BenchmarkPage(props: {
                       />
                     </div>
                     <div className="flex-1 space-y-4">
-                      <div className="flex items-center gap-3">
+                      {latestResult.nomad_score_v2 != null ? (
+                        <>
+                          <div className="flex items-baseline gap-3">
+                            <div className="text-5xl font-bold text-desert-green">
+                              {latestResult.nomad_score_v2.toFixed(1)}
+                            </div>
+                            <div className="text-sm text-desert-stone-dark flex items-center gap-1">
+                              NOMAD Score
+                              <InfoTooltip text="NOMAD Score v2 is an uncapped index versus the NOMAD Reference Build, which scores exactly 1000. Higher is better, and there is no ceiling." />
+                            </div>
+                          </div>
+                          <p className="text-sm text-desert-stone-dark">
+                            Reference Build = 1000.{' '}
+                            <span className="text-desert-stone">
+                              Legacy scale: {latestResult.nomad_score.toFixed(1)} / 100
+                            </span>
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-3">
                         <div
-                          className={`text-5xl font-bold ${
+                              className={`text-5xl font-bold ${
                             scoreInfo?.isPartial
                               ? 'text-desert-stone-dark'
                               : getScoreColor(latestResult.nomad_score)
                           }`}
-                        >
-                          {latestResult.nomad_score.toFixed(1)}
-                        </div>
+                            >
+                              {latestResult.nomad_score.toFixed(1)}
+                            </div>
                         {scoreInfo?.isPartial && (
                           <span className="px-2 py-1 rounded-md bg-desert-stone-light text-desert-stone-dark text-xs font-semibold uppercase tracking-wide">
                             Partial
                           </span>
                         )}
                       </div>
-                      <p className="text-desert-stone-dark">
-                        {scoreInfo?.isPartial
+                          <p className="text-desert-stone-dark">
+                            {scoreInfo?.isPartial
                           ? scoreInfo.cta
                           : 'Your NOMAD Score is a weighted composite of all benchmark results.'}
-                      </p>
+                          </p>
+                        </>
+                      )}
 
                       {/* Share with Community - Only for full benchmarks with AI data */}
                       {canShareBenchmark && (
@@ -644,7 +676,7 @@ export default function BenchmarkPage(props: {
                       <div>
                         <div className="text-desert-stone-dark">NOMAD Score</div>
                         <div className="font-bold text-desert-green">
-                          {latestResult.nomad_score.toFixed(1)}
+                          {(latestResult.nomad_score_v2 ?? latestResult.nomad_score).toFixed(1)}
                         </div>
                       </div>
                     </div>
@@ -755,6 +787,101 @@ export default function BenchmarkPage(props: {
                           </div>
                         </div>
                       </div>
+
+                      {/* v2 raw measurements + run environment */}
+                      {latestResult.cpu_events_multi != null && (
+                        <div className="mt-6 pt-6 border-t border-desert-stone-light grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-semibold text-desert-green mb-3">
+                              Measured Performance (v2)
+                            </h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">CPU single-thread</span>
+                                <span className="font-mono">
+                                  {latestResult.cpu_events_single?.toFixed(1)} events/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  CPU multi-thread ({latestResult.cpu_benchmark_threads}T)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.cpu_events_multi?.toFixed(1)} events/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  Memory ({latestResult.memory_threads}T)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.memory_ops_per_sec?.toLocaleString()} ops/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  Disk read (O_DIRECT)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.disk_read_mb_per_sec?.toFixed(1)} MB/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  Disk write (O_DIRECT)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.disk_write_mb_per_sec?.toFixed(1)} MB/s
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-semibold text-desert-green mb-3">Environment</h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">Run environment</span>
+                                <span className="font-mono">
+                                  {latestResult.run_environment || 'Unknown'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">Storage backend</span>
+                                <span className="font-mono">
+                                  {latestResult.storage_path_type || 'Unknown'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">GPU compute</span>
+                                <span className="font-mono">
+                                  {latestResult.gpu_compute_detected == null
+                                    ? 'Unknown'
+                                    : latestResult.gpu_compute_detected
+                                      ? 'Detected'
+                                      : 'Not detected'}
+                                </span>
+                              </div>
+                              {latestResult.sysbench_digest && (
+                                <div className="flex justify-between">
+                                  <span className="text-desert-stone-dark">sysbench</span>
+                                  <span className="font-mono text-xs">
+                                    {latestResult.sysbench_digest.replace('sha256:', '').slice(0, 12)}
+                                  </span>
+                                </div>
+                              )}
+                              {latestResult.ollama_version && (
+                                <div className="flex justify-between">
+                                  <span className="text-desert-stone-dark">Ollama</span>
+                                  <span className="font-mono text-xs">
+                                    {latestResult.ollama_version}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
