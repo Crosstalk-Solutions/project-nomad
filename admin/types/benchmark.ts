@@ -160,6 +160,37 @@ export type UpdateBuilderTagResponse = {
   error: string
 }
 
+// NOMAD Score v2 raw channels captured from a full benchmark run (all present
+// and > 0). cpu_events_multi is measured at cpu_benchmark_threads; memory at
+// memory_threads; disk figures are O_DIRECT MB/s. total_events/total_time are the
+// W6 consistency companions from the multi-thread CPU pass.
+export type SystemBenchmarkRawsV2 = {
+  cpu_events_single: number
+  cpu_events_multi: number
+  cpu_benchmark_threads: number
+  cpu_total_events: number
+  cpu_total_time: number
+  memory_ops_per_sec: number
+  memory_threads: number
+  disk_read_mb_per_sec: number
+  disk_write_mb_per_sec: number
+}
+
+// Result of a system benchmark pass: the legacy 0-1 sub-scores (v1) plus the v2
+// raw channels, both derived from the same sysbench runs.
+export type SystemBenchmarkOutput = {
+  scores: SystemScores
+  raws: SystemBenchmarkRawsV2
+}
+
+// Best-effort run-environment metadata (issue #1016). Any field may be null when
+// detection fails; none of them gate a submission.
+export type RunEnvironmentInfo = {
+  run_environment: string | null
+  storage_path_type: string | null
+  gpu_compute_detected: boolean | null
+}
+
 // Central repository submission payload (privacy-first)
 export type RepositorySubmission = Pick<
   BenchmarkResult,
@@ -180,6 +211,46 @@ export type RepositorySubmission = Pick<
   benchmark_version: string
   ram_gb: number
   builder_tag: string | null // null = anonymous submission
+}
+
+// NOMAD Score v2 submission payload. Mirrors the leaderboard's submitValidatorV2
+// exactly: raw channels in (server recomputes the score), required test params +
+// W6 companions + provenance, optional environment metadata. ai_time_to_first_token
+// is in SECONDS here (the server treats it as seconds); the client stores TTFT in
+// ms, so submitToRepository divides by 1000.
+export type RepositorySubmissionV2 = {
+  // Hardware
+  cpu_model: string
+  cpu_cores: number
+  cpu_threads: number
+  ram_gb: number
+  disk_type: DiskType
+  gpu_model: string | null
+  // Scored raw channels (all required, > 0)
+  ai_tokens_per_second: number
+  cpu_events_single: number
+  cpu_events_multi: number
+  memory_ops_per_sec: number
+  disk_read_mb_per_sec: number
+  disk_write_mb_per_sec: number
+  // Test parameters
+  cpu_benchmark_threads: number
+  memory_threads: number
+  // Metadata channel (weight 0) + W6 consistency companions
+  ai_time_to_first_token: number // seconds
+  cpu_total_events: number
+  cpu_total_time: number
+  // Provenance (required)
+  ollama_version: string
+  sysbench_digest: string
+  // Environment metadata (best-effort)
+  run_environment?: string
+  storage_path_type?: string
+  gpu_compute_detected?: boolean
+  // Benchmark metadata (shared with v1)
+  nomad_version: string
+  benchmark_version: string
+  builder_tag?: string
 }
 
 // Central repository response types
