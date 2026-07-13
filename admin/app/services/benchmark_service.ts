@@ -69,11 +69,12 @@ const BENCHMARK_VERSION = '2.0.0'
 // with direct-I/O disk 2026-07-12. There are NO clamps here; outlier control is
 // the server's rejection gates + quarantine, not the score math.
 const REFERENCE_SCORES_V2 = {
-  // TODO(score-v2): STALE — 40.5 was measured on llama3.2:1b. The reference model
-  // is now llama3.1:8b; re-measure this on the Reference Build (NOMAD6) with the
-  // v2 harness (unload + num_predict + median-of-3) and update here AND in the
-  // leaderboard's score_service.ts (must byte-match) before v2 ships.
-  ai_tokens_per_second: 40.5,
+  // Measured on the Reference Build (NOMAD6, 780M) with llama3.1:8b under the v2
+  // harness (VRAM evict + unload + num_predict=256 + median-of-3), iGPU
+  // acceleration enabled (OLLAMA_IGPU_ENABLE — the config PR #1074 ships fleet-
+  // wide). Must stay byte-identical to the leaderboard's score_service.ts. Final
+  // confirm against the exact shipping Ollama config before v1.34.0 GA.
+  ai_tokens_per_second: 13.2,
   cpu_events_multi: 19231, // all-threads on the reference box (16T)
   cpu_events_single: 2351, // 1T
   memory_ops_per_sec: 26862960, // 4T, 1K block (bandwidth peak)
