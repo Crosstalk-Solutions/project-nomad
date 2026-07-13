@@ -193,6 +193,25 @@ export class BenchmarkService {
   }
 
   /**
+   * Whether to show the dashboard "re-run under Score v2" banner. Shown to users
+   * who have a v1 leaderboard submission but no Score v2 result yet, and who
+   * haven't dismissed it. Self-clears two ways: dismiss sets the KV flag, and any
+   * result carrying a nomad_score_v2 (i.e. a v2 run happened) flips (b) false.
+   */
+  async shouldShowRerunBanner(): Promise<boolean> {
+    const dismissed = await KVStore.getValue('benchmark.rerunBannerDismissed')
+    if (dismissed === true) return false
+
+    const hasV2Run = await BenchmarkResult.query().whereNotNull('nomad_score_v2').first()
+    if (hasV2Run) return false
+
+    const hasSubmittedV1 = await BenchmarkResult.query()
+      .where('submitted_to_repository', true)
+      .first()
+    return hasSubmittedV1 !== null
+  }
+
+  /**
    * Submit benchmark results to central repository
    */
   async submitToRepository(benchmarkId?: string, anonymous?: boolean): Promise<RepositorySubmitResponse> {

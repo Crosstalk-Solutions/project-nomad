@@ -42,6 +42,7 @@ export const KV_STORE_SCHEMA = {
   'ai.amdHsaOverride':          'string',
   'ai.autoFixGpuPassthrough':   'boolean',
   'gpu.autoRemediatedAt':       'string',
+  'benchmark.rerunBannerDismissed': 'boolean',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

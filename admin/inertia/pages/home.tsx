@@ -13,6 +13,12 @@ import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import {
+  useBenchmarkRerunBanner,
+  BENCHMARK_RERUN_BANNER_QUERY_KEY,
+} from '~/hooks/useBenchmarkRerunBanner'
+import { useQueryClient } from '@tanstack/react-query'
+import api from '~/lib/api'
 import Alert from '~/components/Alert'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
@@ -91,7 +97,14 @@ export default function Home(props: {
 }) {
   const items: DashboardItem[] = []
   const updateInfo = useUpdateAvailable();
+  const rerunBanner = useBenchmarkRerunBanner()
+  const queryClient = useQueryClient()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
+
+  const handleDismissRerunBanner = async () => {
+    await api.updateSetting('benchmark.rerunBannerDismissed', true)
+    queryClient.invalidateQueries({ queryKey: BENCHMARK_RERUN_BANNER_QUERY_KEY })
+  }
 
   // Check if user has visited Easy Setup
   const { data: easySetupVisited } = useSystemSetting({
@@ -150,6 +163,27 @@ export default function Home(props: {
                 children: 'Go to Settings',
                 icon: 'IconSettings',
                 onClick: () => router.visit('/settings/update'),
+              }}
+            />
+          </div>
+        )
+      }
+      {
+        rerunBanner?.show && (
+          <div className='flex justify-center items-center px-4 pt-4 w-full'>
+            <Alert
+              title="Your benchmark can be re-scored with Score v2"
+              message="We've upgraded the benchmark scoring system. Re-run your benchmark to get an updated Score v2 result on the community leaderboard."
+              type="info-inverted"
+              variant="solid"
+              className="w-full"
+              dismissible
+              onDismiss={handleDismissRerunBanner}
+              buttonProps={{
+                variant: 'primary',
+                children: 'Re-run benchmark',
+                icon: 'IconRefresh',
+                onClick: () => router.visit('/settings/benchmark'),
               }}
             />
           </div>
