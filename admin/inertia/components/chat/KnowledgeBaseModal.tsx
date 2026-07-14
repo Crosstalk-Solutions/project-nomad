@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
 import type { DynamicIconName } from '~/lib/icons'
@@ -28,6 +28,8 @@ import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import CollectionsManager from './CollectionsManager'
+import { KB_COLLECTIONS } from '../../../constants/kb_collections'
+import CollectionCombobox from './CollectionCombobox'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -164,6 +166,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     queryFn: () => api.getKnowledgeCollections(),
     select: (data) => data?.collections ?? [],
   })
+
+  const comboboxOptions = useMemo(() => {
+    return Array.from(new Set([...KB_COLLECTIONS, ...knownCollections])).sort()
+  }, [knownCollections])
 
   const { data: warningsResult } = useQuery({
     queryKey: ['kbFileWarnings'],
@@ -463,24 +469,12 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               <div className="flex justify-center items-center gap-4 my-6">
                 <label className="flex items-center gap-2 text-sm text-text-secondary">
                   Collection:
-                  <select
+                  <CollectionCombobox
                     value={uploadCollection}
-                    onChange={(e) => {
-                      if (e.target.value === '__new__') {
-                        const name = window.prompt('New collection name:')
-                        if (name && name.trim()) setUploadCollection(name.trim())
-                        return
-                      }
-                      setUploadCollection(e.target.value)
-                    }}
-                    className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
-                  >
-                    <option value="">Uncategorized</option>
-                    {knownCollections.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                    <option value="__new__">+ New collection…</option>
-                  </select>
+                    onChange={setUploadCollection}
+                    options={comboboxOptions}
+                    className="w-48"
+                  />
                 </label>
                 <StyledButton
                   variant="primary"
@@ -774,27 +768,13 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       updateCollectionMutation.isPending &&
                       updateCollectionMutation.variables?.source === record.source
                     return (
-                      <select
+                      <CollectionCombobox
                         value={record.collection ?? ''}
+                        onChange={(val) => updateCollectionMutation.mutate({ source: record.source, collection: val })}
+                        options={comboboxOptions}
                         disabled={isSaving}
-                        onChange={(e) => {
-                          if (e.target.value === '__new__') {
-                            const name = window.prompt('New collection name:')
-                            if (name && name.trim()) {
-                              updateCollectionMutation.mutate({ source: record.source, collection: name.trim() })
-                            }
-                            return
-                          }
-                          updateCollectionMutation.mutate({ source: record.source, collection: e.target.value })
-                        }}
-                        className="rounded border border-border-subtle bg-surface-primary px-2 py-1 text-xs text-text-primary"
-                      >
-                        <option value="">Uncategorized</option>
-                        {knownCollections.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                        <option value="__new__">+ New collection…</option>
-                      </select>
+                        className="w-40"
+                      />
                     )
                   },
                 },

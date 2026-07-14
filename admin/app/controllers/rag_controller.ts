@@ -9,6 +9,7 @@ import { sanitizeFilename } from '../utils/fs.js'
 import { basename } from 'node:path'
 import { deleteFileSchema, embedFileSchema, estimateBatchSchema, fileSourceSchema, getJobStatusSchema } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
+import { sanitizeCollectionName } from '../../constants/kb_collections.js'
 
 @inject()
 export default class RagController {
@@ -20,7 +21,7 @@ export default class RagController {
       return response.status(400).json({ error: 'No file uploaded' })
     }
 
-    const collection: string | null = request.input('collection', null)
+    const collection = sanitizeCollectionName(request.input('collection', null))
 
     const randomSuffix = randomBytes(6).toString('hex')
     const sanitizedName = sanitizeFilename(uploadedFile.clientName)
@@ -78,10 +79,9 @@ export default class RagController {
 
   public async updateFileCollection({ request, response }: HttpContext) {
     const source: string | null = request.input('source', null)
-    // Empty string means "clear back to Uncategorized" — coerce to null rather
-    // than rejecting, so the frontend can offer an Uncategorized option.
-    const rawCollection: string | null = request.input('collection', null)
-    const collection = rawCollection && rawCollection.trim() !== '' ? rawCollection : null
+    // sanitizeCollectionName trims/lowercases/caps length, and returns null
+    // for empty input — which doubles as "clear back to Uncategorized".
+    const collection = sanitizeCollectionName(request.input('collection', null))
 
     if (!source) {
       return response.status(400).json({ error: 'source is required.' })
@@ -95,8 +95,8 @@ export default class RagController {
   }
 
   public async renameKnowledgeCollection({ request, response }: HttpContext) {
-    const oldName: string | null = request.input('oldName', null)
-    const newName: string | null = request.input('newName', null)
+    const oldName = sanitizeCollectionName(request.input('oldName', null))
+    const newName = sanitizeCollectionName(request.input('newName', null))
 
     if (!oldName || !newName) {
       return response.status(400).json({ error: 'oldName and newName are required.' })
@@ -110,7 +110,7 @@ export default class RagController {
   }
 
   public async deleteKnowledgeCollection({ request, response }: HttpContext) {
-    const name: string | null = request.input('name', null)
+    const name = sanitizeCollectionName(request.input('name', null))
 
     if (!name) {
       return response.status(400).json({ error: 'name is required.' })
