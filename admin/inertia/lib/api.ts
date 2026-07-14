@@ -82,6 +82,13 @@ class API {
     })()
   }
 
+  async setupWorldBasemap() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean }>('/maps/setup-world-basemap')
+      return response.data
+    })()
+  }
+
   async downloadMapCollection(slug: string): Promise<{
     message: string
     slug: string
