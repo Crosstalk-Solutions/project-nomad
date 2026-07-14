@@ -4,6 +4,7 @@ import KVStore from '#models/kv_store'
 import InstalledResource from '#models/installed_resource'
 import { DownloadService } from '#services/download_service'
 import { CollectionUpdateService } from '#services/collection_update_service'
+import { DrugReferenceService } from '#services/drug_reference_service'
 import {
   KiwixCatalogService,
   reconcileResourceUpdateState,
@@ -269,8 +270,11 @@ export class ContentAutoUpdateService {
       await this.maybeResetWindowBudget(config, now)
 
       // Local catalog check + persist available-update state for every resource.
-      // ZIM/map catalog path only — `dataset` resources are excluded (they get
-      // their own freshness path; no-op today as none are written in this slice).
+      // ZIM/map catalog path only — `dataset` resources are excluded here because
+      // their freshness key (openFDA `export_date`) and apply path (the drug
+      // download/ingest chain) don't fit the catalog-version model. They refresh
+      // via `attemptDrugDataset()`, which the same content-update job runs under
+      // the same master switch + window.
       const installed = await InstalledResource.query().whereNot('resource_type', 'dataset')
       const latestByKey = await this.catalog.getLatestForResources(
         // `dataset` rows are filtered out above, so the type narrows to ZIM/map.
@@ -376,6 +380,39 @@ export class ContentAutoUpdateService {
       await this.recordRun(`Failed: ${message}`)
       logger.error(`[ContentAutoUpdateService] Run failed: ${message}`)
       return { started: 0, reason: `Failed: ${message}` }
+    }
+  }
+
+  /**
+   * Freshness pass for the FDA drug dataset (`resource_type` 'dataset'), run by
+   * the same hourly ContentAutoUpdateJob as the ZIM/map `attempt()` and gated on
+   * the SAME master switch + window. The dataset's apply path differs from the
+   * catalog loop (openFDA `export_date` + the drug download/ingest chain rather
+   * than an InstalledResource catalog-version row), so it runs as its own step
+   * instead of through `selectUnderCap` — but sharing `contentAutoUpdate.*` means
+   * it never updates while content auto-update is off, and refreshes alongside
+   * ZIMs and maps when it is on. Isolated so a drug-side failure can't affect the
+   * catalog run.
+   */
+  async attemptDrugDataset(): Promise<{ started: number; reason: string }> {
+    const config = await this.getConfig()
+    if (!config.enabled) {
+      return { started: 0, reason: 'Content auto-update is disabled' }
+    }
+    if (!isWithinWindow(config.windowStart, config.windowEnd, DateTime.now())) {
+      return {
+        started: 0,
+        reason: `Outside update window (${config.windowStart}-${config.windowEnd})`,
+      }
+    }
+
+    try {
+      const result = await new DrugReferenceService().attemptAutoUpdate()
+      return { started: result.started ? 1 : 0, reason: `drug dataset: ${result.reason}` }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.warn(`[ContentAutoUpdateService] Drug dataset freshness check failed: ${message}`)
+      return { started: 0, reason: `drug dataset check failed: ${message}` }
     }
   }
 

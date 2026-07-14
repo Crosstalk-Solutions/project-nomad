@@ -300,8 +300,8 @@ export class DownloadDrugDataJob {
   /**
    * Fetch + parse the openFDA download manifest. The SINGLE source of truth for
    * the openFDA manifest call (Maxim 4): the download job uses it on pass 0, and
-   * the freshness check (DrugReferenceService.checkForUpdate → DrugAutoUpdateJob)
-   * reuses it so there is exactly one place that knows the URL and the
+   * the freshness check (DrugReferenceService.checkForUpdate, driven by
+   * attemptAutoUpdate) reuses it so there is exactly one place that knows the URL and the
    * offline-error translation.
    */
   static async fetchManifest(): Promise<DrugLabelManifest> {

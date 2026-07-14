@@ -408,15 +408,15 @@ export class DrugReferenceService {
   }
 
   /**
-   * Freshness check for the daily auto-update path: compare the live openFDA
+   * Freshness check for the content-auto-update path: compare the live openFDA
    * manifest `export_date` against the last-ingested one (KV
    * `drugReference.lastUpdatedExportDate`). Reuses the job's single manifest
    * fetch (Maxim 4 — one openFDA call site) and the pure `isExportDateNewer`
    * compare (defensive about the unconfirmed date format; see its TODO).
    *
    * Returns `{ updateAvailable, latestExportDate, currentExportDate }`. Never
-   * triggers a download itself — the caller (DrugAutoUpdateJob) decides whether
-   * to, after its own gating (only when installed, no active job).
+   * triggers a download itself — `attemptAutoUpdate` decides whether to, after
+   * its own gating (only when installed, no active job).
    */
   async checkForUpdate(): Promise<{
     updateAvailable: boolean
@@ -430,6 +430,79 @@ export class DrugReferenceService {
       updateAvailable: isExportDateNewer(latest ?? '', current),
       latestExportDate: latest,
       currentExportDate: current,
+    }
+  }
+
+  /**
+   * Freshness pass for the drug dataset, invoked from
+   * `ContentAutoUpdateService.attemptDrugDataset()` inside the hourly content
+   * loop — so the dataset refreshes alongside ZIMs and maps under the shared
+   * `contentAutoUpdate.*` master switch and window, not on a rogue schedule.
+   *
+   * Gating (unchanged from the prior standalone job): only acts when the dataset
+   * is installed, and never while a drug download or ingest is already in flight,
+   * so it can't stack a refresh on a running install. A failed manifest fetch is
+   * a transient miss (offline), reported rather than thrown.
+   */
+  async attemptAutoUpdate(): Promise<{
+    started: boolean
+    reason: string
+    latestExportDate?: string | null
+  }> {
+    // Only act when the dataset is installed.
+    const rowCount = await this.rowCount()
+    if (rowCount === 0) {
+      return { started: false, reason: 'not-installed' }
+    }
+
+    // Don't stack on top of an in-flight download/ingest.
+    const [dlJob, ingJob] = await Promise.all([
+      DownloadDrugDataJob.getJob(),
+      IngestDrugDataJob.getJob(),
+    ])
+    const activeStates = ['active', 'waiting', 'delayed']
+    const dlState = dlJob ? await dlJob.getState() : undefined
+    const ingState = ingJob ? await ingJob.getState() : undefined
+    if (
+      (dlState && activeStates.includes(dlState)) ||
+      (ingState && activeStates.includes(ingState))
+    ) {
+      return { started: false, reason: 'job-in-flight' }
+    }
+
+    let check: Awaited<ReturnType<DrugReferenceService['checkForUpdate']>>
+    try {
+      check = await this.checkForUpdate()
+    } catch (err) {
+      // Offline or manifest fetch failed — transient, retried next run.
+      logger.warn(
+        `[DrugReferenceService] Freshness check failed (will retry next run): ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      )
+      return { started: false, reason: 'check-failed' }
+    }
+
+    if (!check.updateAvailable) {
+      return {
+        started: false,
+        reason: `up-to-date (current=${check.currentExportDate ?? 'none'}, latest=${
+          check.latestExportDate ?? 'unknown'
+        })`,
+        latestExportDate: check.latestExportDate,
+      }
+    }
+
+    logger.info(
+      `[DrugReferenceService] Newer export_date available ` +
+        `(current=${check.currentExportDate ?? 'none'} → latest=${check.latestExportDate}); ` +
+        'triggering re-download.'
+    )
+    const result = await this.triggerDownload()
+    return {
+      started: result.created,
+      reason: result.created ? 'update-dispatched' : result.message,
+      latestExportDate: check.latestExportDate,
     }
   }
 
