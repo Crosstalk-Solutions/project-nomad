@@ -10,7 +10,6 @@ import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
 import JSZip from 'jszip'
 import * as cheerio from 'cheerio'
-import mammoth from 'mammoth'
 import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
@@ -617,16 +616,6 @@ export class RagService {
   }
 
   /**
-   * Extract text content from a DOCX file using mammoth. DOCX is a ZIP-based
-   * XML format, so raw-text extraction (extractTXTText) would return garbage —
-   * this parses the document XML properly and returns clean plain text.
-   */
-  private async processDocxFile(fileBuffer: Buffer): Promise<string> {
-    const { value: text } = await mammoth.extractRawText({ buffer: fileBuffer })
-    return text
-  }
-
-  /**
    * Extract text content from an EPUB file.
    * EPUBs are ZIP archives containing XHTML content files.
    * Reads the OPF manifest to determine reading order, then extracts
@@ -782,9 +771,6 @@ export class RagService {
           break
         case 'pdf':
           extractedText = await this.processPDFFile(fileBuffer!)
-          break
-        case 'docx':
-          extractedText = await this.processDocxFile(fileBuffer!)
           break
         case 'epub':
           extractedText = await this.processEPUBFile(fileBuffer!)
