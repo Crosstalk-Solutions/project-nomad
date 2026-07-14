@@ -512,6 +512,15 @@ export class DockerService {
    * Falls back to NOMAD_STORAGE_PATH / the production default if the admin
    * container or its storage mount can't be inspected.
    */
+  /**
+   * Public accessor for the resolved host path backing `/app/storage`. Used by the
+   * Debug Info bundle so support can see where content actually lives on the host
+   * (the #1050 class of "moved my data, admin doesn't see it" reports).
+   */
+  async getHostStorageRoot(): Promise<string> {
+    return this._resolveHostStorageRoot()
+  }
+
   private async _resolveHostStorageRoot(): Promise<string> {
     if (this._hostStorageRoot) return this._hostStorageRoot
     const fallback = env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT)
