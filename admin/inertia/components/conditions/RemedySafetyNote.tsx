@@ -26,7 +26,8 @@ export default function RemedySafetyNote() {
         <p className="font-bold">Informational only — not medical advice.</p>
         <p className="text-amber-800">
           These remedies have limited or mixed evidence, are not FDA-evaluated, and are not a
-          substitute for professional care. Talk to a clinician before use.
+          substitute for professional care. Check with a clinician before using any of them, and
+          before combining one with a medication you already take.
         </p>
         <p className="text-amber-800">
           In an emergency, or if symptoms are severe or worsening,{' '}
