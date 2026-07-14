@@ -5,6 +5,7 @@ import StyledButton from '~/components/StyledButton'
 import DrugResultRow from '~/components/drug-reference/DrugResultRow'
 import IngestStatus from '~/components/drug-reference/IngestStatus'
 import SafetyBanner from '~/components/conditions/SafetyBanner'
+import RemedySafetyNote from '~/components/conditions/RemedySafetyNote'
 import { IconSearch, IconFirstAidKit, IconLeaf } from '@tabler/icons-react'
 import type {
   DrugSearchResult,
@@ -668,10 +669,9 @@ export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions,
                         Natural remedies
                       </span>
                     </div>
-                    <p className="px-4 py-2 text-xs text-desert-stone-dark border-b border-desert-tan-lighter/20">
-                      Complementary remedies — limited evidence, not FDA-evaluated. Talk to a
-                      clinician before use.
-                    </p>
+                    <div className="border-b border-desert-tan-lighter/20 p-3">
+                      <RemedySafetyNote />
+                    </div>
                     <div className="divide-y divide-desert-tan-lighter/30">
                       {visibleSituationRemedies.map((r) => (
                         <SituationRemedyRow key={r.slug} remedy={r} />
@@ -722,10 +722,9 @@ export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions,
                     {remedyMatches.length} match{remedyMatches.length !== 1 ? 'es' : ''}
                   </span>
                 </div>
-                <p className="px-4 py-2 text-xs text-desert-stone-dark border-b border-desert-tan-lighter/20">
-                  Complementary remedies — limited evidence, not FDA-evaluated. Talk to a
-                  clinician before use.
-                </p>
+                <div className="border-b border-desert-tan-lighter/20 p-3">
+                  <RemedySafetyNote />
+                </div>
                 <div className="divide-y divide-desert-tan-lighter/30">
                   {remedyMatches.map((r) => (
                     <SituationRemedyRow key={`name-${r.slug}`} remedy={r} />
