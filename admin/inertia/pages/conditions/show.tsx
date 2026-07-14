@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react'
 import { IconArrowLeft, IconLeaf } from '@tabler/icons-react'
 import AppLayout from '~/layouts/AppLayout'
 import SafetyBanner from '~/components/conditions/SafetyBanner'
+import RemedySafetyNote from '~/components/conditions/RemedySafetyNote'
 import DrugResultRow from '~/components/drug-reference/DrugResultRow'
 import type { ConditionSummary, NaturalRemedy } from '../../../types/conditions'
 import { remedySourceName } from '../../../util/conditions'
@@ -106,11 +107,11 @@ export default function ConditionsShow({ condition, drugs, remedies, drugRowCoun
               </span>
             </div>
 
-            {/* Caveat — prominent, before the cards. */}
-            <p className="mb-3 text-xs text-desert-stone-dark bg-desert-sand/60 border border-desert-tan-lighter/60 rounded-lg px-3 py-2">
-              <strong>Complementary remedies</strong> — limited or mixed evidence, not FDA-evaluated.
-              These are not substitutes for medical treatment. Talk to a clinician before use.
-            </p>
+            {/* Safety note — co-located with the affirmative remedy guidance,
+                not just the page-top banner (upstream PR #1040 requirement). */}
+            <div className="mb-3">
+              <RemedySafetyNote />
+            </div>
 
             <div className="space-y-3">
               {remedies.map((r) => (
