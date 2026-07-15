@@ -86,6 +86,7 @@ export const creatorPacksSpecSchema = vine.object({
       video_count: vine.number().min(0),
       size_mb: vine.number().min(0),
       license_id: vine.string(),
+      banner_url: vine.string().url().optional(),
       poster_url: vine.string().url().optional(),
       logo_url: vine.string().url().optional(),
     })

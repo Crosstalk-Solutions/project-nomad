@@ -58,7 +58,7 @@ const CreatorPacksSection: React.FC = () => {
       </div>
 
       {packs.length > 0 ? (
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {packs.map((pack) => (
             <CreatorPackCard key={pack.id} pack={pack} onClick={setPackToInstall} />
           ))}

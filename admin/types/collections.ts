@@ -77,7 +77,13 @@ export type CreatorPack = {
   video_count: number
   size_mb: number
   license_id: string
-  /** Optional card art (Phase 2). The Kiwix grid icon is baked into the ZIM. */
+  /**
+   * Optional branded 1060x175 banner (the card hero). When omitted, the app
+   * uses the banner it bundles by pack id (`/creator-packs/<id>.webp`). The
+   * Kiwix grid icon is baked into the ZIM separately.
+   */
+  banner_url?: string
+  /** Optional card art. */
   poster_url?: string
   logo_url?: string
 }
