@@ -8,7 +8,7 @@ import InstalledResource from '#models/installed_resource'
 import WikipediaSelection from '#models/wikipedia_selection'
 import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
-import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema } from '#validators/curated_collections'
+import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema, creatorPacksSpecSchema } from '#validators/curated_collections'
 import {
   ensureDirectoryExists,
   listDirectoryContents,
@@ -19,8 +19,10 @@ import type {
   ManifestType,
   ZimCategoriesSpec,
   MapsSpec,
+  CreatorPacksSpec,
   CategoryWithStatus,
   CollectionWithStatus,
+  CreatorPackWithStatus,
   SpecResource,
   SpecTier,
 } from '../../types/collections.js'
@@ -29,12 +31,14 @@ const SPEC_URLS: Record<ManifestType, string> = {
   zim_categories: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
   maps: 'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/collections/maps.json',
   wikipedia: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
+  creator_packs: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/creator-packs.json',
 }
 
 const VALIDATORS: Record<ManifestType, any> = {
   zim_categories: zimCategoriesSpecSchema,
   maps: mapsSpecSchema,
   wikipedia: wikipediaSpecSchema,
+  creator_packs: creatorPacksSpecSchema,
 }
 
 export class CollectionManifestService {
@@ -186,6 +190,39 @@ export class CollectionManifestService {
         installed_count: installedCount,
         total_count: collection.resources.length,
       }
+    })
+  }
+
+  /**
+   * Per-pack install status for Creator Packs. Packs are single ZIMs, so this is
+   * a one-resource-per-pack join (simpler than the tiered category logic):
+   * catalog ⋈ InstalledResource (resource_type 'zim', matched on resource_id) ⋈
+   * the in-flight download queue. `available_update_version` is set when an
+   * installed pack's version trails the catalog (a creator published a rebuild).
+   */
+  async getCreatorPacksWithStatus(): Promise<CreatorPackWithStatus[]> {
+    const spec = await this.getSpecWithFallback<CreatorPacksSpec>('creator_packs')
+    if (!spec) return []
+
+    const installedResources = await InstalledResource.query().where('resource_type', 'zim')
+    const installedMap = new Map(installedResources.map((r) => [r.resource_id, r]))
+    const inFlightIds = await this.getInFlightZimResourceIds()
+
+    return spec.packs.map((pack) => {
+      const installed = installedMap.get(pack.resource_id)
+      if (installed) {
+        const hasUpdate = installed.version !== pack.version
+        return {
+          ...pack,
+          status: 'installed' as const,
+          installed_version: installed.version,
+          ...(hasUpdate ? { available_update_version: pack.version } : {}),
+        }
+      }
+      if (inFlightIds.has(pack.resource_id)) {
+        return { ...pack, status: 'downloading' as const }
+      }
+      return { ...pack, status: 'available' as const }
     })
   }
 

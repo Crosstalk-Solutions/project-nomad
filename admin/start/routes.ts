@@ -19,6 +19,7 @@ import SettingsController from '#controllers/settings_controller'
 import SupplyDepotController from '#controllers/supply_depot_controller'
 import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
+import CreatorPacksController from '#controllers/creator_packs_controller'
 import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
@@ -229,6 +230,13 @@ router
     router.delete('/:filename', [ZimController, 'delete'])
   })
   .prefix('/api/zim')
+
+router
+  .group(() => {
+    router.get('/', [CreatorPacksController, 'index'])
+    router.post('/:id/install', [CreatorPacksController, 'install'])
+  })
+  .prefix('/api/creator-packs')
 
 router
   .group(() => {

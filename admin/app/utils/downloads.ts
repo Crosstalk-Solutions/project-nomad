@@ -34,6 +34,7 @@ export async function doResumableDownload({
   onComplete,
   forceNew = false,
   allowedMimeTypes,
+  requestHeaders,
 }: DoResumableDownloadParams): Promise<string> {
   const dirname = path.dirname(filepath)
   await ensureDirectoryExists(dirname)
@@ -51,11 +52,12 @@ export async function doResumableDownload({
     appendMode = true
   }
 
-  // Get file info with HEAD request first
+  // Get file info with HEAD request first. Gated sources (Creator Packs) require
+  // the auth header on the HEAD too, or the probe 401s before the GET is reached.
   const headResponse = await axios.head(url, {
     signal,
     timeout,
-    headers: DOWNLOAD_HEADERS,
+    headers: requestHeaders,
   })
 
   // Some upstream hosts (notably download.kiwix.org for .zim files) don't set a
@@ -99,7 +101,10 @@ export async function doResumableDownload({
     appendMode = false
   }
 
-  const headers: Record<string, string> = {}
+  // Seed with any caller-supplied headers (e.g. Creator Packs' Authorization
+  // bearer) so every GET attempt below — including the range-restart retry —
+  // carries them. The Range header composes on top.
+  const headers: Record<string, string> = { ...requestHeaders }
   if (supportsRangeRequests && startByte > 0) {
     headers.Range = `bytes=${startByte}-`
   }
