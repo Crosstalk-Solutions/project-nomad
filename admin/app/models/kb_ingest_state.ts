@@ -41,20 +41,20 @@ export default class KbIngestState extends BaseModel {
   declare updated_at: DateTime
 
   static async getOrCreate(filePath: string, collection?: string): Promise<KbIngestState> {
-  return this.firstOrCreate(
-    { file_path: filePath },
-    { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null }
-  )
- }
+    return this.firstOrCreate(
+      { file_path: filePath },
+      { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null }
+    )
+  }
 
   static async markIndexed(filePath: string, chunksEmbedded: number, collection?: string): Promise<void> {
-  const row = await this.getOrCreate(filePath, collection)
-  row.state = 'indexed'
-  row.chunks_embedded = chunksEmbedded
-  row.last_error = null
-  if (collection) row.collection = collection
-  await row.save()
- }
+    const row = await this.getOrCreate(filePath, collection)
+    row.state = 'indexed'
+    row.chunks_embedded = chunksEmbedded
+    row.last_error = null
+    if (collection) row.collection = collection
+    await row.save()
+  }
 
   static async markFailed(filePath: string, errorMessage: string): Promise<void> {
     const row = await this.getOrCreate(filePath)

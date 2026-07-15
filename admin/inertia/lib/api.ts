@@ -273,6 +273,14 @@ class API {
     })()
   }
 
+  /**
+   * Ask the backend to send Ollama `keep_alive: 0` to every currently-loaded
+   * chat model except `targetModel` (and the embedding model, which is always
+   * exempt server-side). Fire-and-forget -- the chat UI doesn't await this
+   * before creating a new session, since unload is housekeeping.
+   *
+   * Pass `null` to unload every chat model.
+   */
   async unloadChatModels(targetModel: string | null) {
     return catchInternal(async () => {
       const response = await this.client.post<{ unloaded: string[] }>(
@@ -307,6 +315,7 @@ class API {
     onChunk: (content: string, thinking: string, done: boolean) => void,
     signal?: AbortSignal
   ): Promise<void> {
+    // Axios doesn't support ReadableStream in browser, so need to use fetch
     const response = await fetch('/api/ollama/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -336,7 +345,7 @@ class API {
           let data: any
           try {
             data = JSON.parse(line.slice(6))
-          } catch { continue }
+          } catch { continue /* skip malformed chunks */ }
 
           if (data.error) throw new Error('The model encountered an error. Please try again.')
 
@@ -856,11 +865,13 @@ class API {
       const response = await this.client.post<SubmitBenchmarkResponse>('/benchmark/submit', { benchmark_id, anonymous })
       return response.data
     } catch (error: any) {
+      // For 409 Conflict errors, throw a specific error that the UI can handle
       if (error.response?.status === 409) {
         const err = new Error(error.response?.data?.error || 'This benchmark has already been submitted to the repository')
           ; (err as any).status = 409
         throw err
       }
+      // For other errors, extract the message and throw
       const errorMessage = error.response?.data?.error || error.message || 'Failed to submit benchmark'
       throw new Error(errorMessage)
     }
@@ -933,6 +944,8 @@ class API {
       return response.data
     })()
   }
+
+  // Wikipedia selector methods
 
   async getWikipediaState(): Promise<WikipediaState | undefined> {
     return catchInternal(async () => {

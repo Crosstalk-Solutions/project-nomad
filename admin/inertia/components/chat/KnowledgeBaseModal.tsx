@@ -36,6 +36,9 @@ interface KnowledgeBaseModalProps {
   onClose: () => void
 }
 
+// File extensions the in-browser viewer can render. Must stay in sync with
+// `RagService.VIEWABLE_TEXT_EXTENSIONS` -- anything outside this set falls back
+// to Download.
 const VIEWABLE_EXTENSIONS = new Set(['md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html'])
 
 function isViewableExtension(filename: string): boolean {
@@ -69,6 +72,13 @@ function renderSortHeader(
   )
 }
 
+/**
+ * Compact label for the per-row ingestion state. Files that exist in Qdrant
+ * with no `kb_ingest_state` row (`state === null`) are legacy/pre-RFC-883
+ * installs whose chunks are real, so we display them as "Indexed" rather than
+ * surfacing the absent-row detail. Admin-docs group has no pill (the "Managed
+ * by NOMAD" message in the action column carries the same signal).
+ */
 function renderStatePill(record: KbFileGroup): React.ReactNode {
   if (record.bucket === 'admin_docs') return null
   const effective: KbIngestStateValue = record.state ?? 'indexed'
@@ -107,6 +117,13 @@ type RowAction =
   | { kind: 'index'; label: string; force: boolean; variant: 'primary'; icon: DynamicIconName }
   | { kind: 'reembed'; label: string; force: true; variant: 'secondary'; icon: DynamicIconName }
 
+/**
+ * Pick the single adaptive per-row action button. Returns null when no action
+ * makes sense for the current state (e.g. healthy indexed file with no
+ * warnings -- bulk Re-embed All covers that case). `hasWarnings` lets us
+ * surface a Re-embed affordance specifically when a file *looks* indexed but
+ * has zero chunks or a stalled-mid-ingestion warning attached.
+ */
 function pickRowAction(record: KbFileGroup, hasWarnings: boolean): RowAction | null {
   if (record.bucket === 'admin_docs') return null
   const effective: KbIngestStateValue = record.state ?? 'indexed'
@@ -171,6 +188,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     return Array.from(new Set([...KB_COLLECTIONS, ...knownCollections])).sort()
   }, [knownCollections])
 
+  // Per-file conditional warnings (RFC #883 section 6). `ok: false` means the
+  // computation itself failed (Qdrant/DB/FS) -- distinct from `ok: true` with
+  // an empty map, which means everything is healthy. We surface the failure
+  // explicitly so a silent backend failure doesn't masquerade as health.
   const { data: warningsResult } = useQuery({
     queryKey: ['kbFileWarnings'],
     queryFn: () => api.getKbFileWarnings(),
@@ -179,6 +200,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const fileWarnings = warningsResult?.warnings ?? {}
   const warningsUnavailable = warningsResult !== undefined && warningsResult.ok === false
 
+  // Global auto-index policy. KVStore returns `null` for an unset key, which
+  // we treat as 'Always' for backward compatibility with installs that predate
+  // this UI. The user can opt into Manual mode from the toggle below.
   const { data: ingestPolicySetting } = useQuery({
     queryKey: ['ingestPolicy'],
     queryFn: () => api.getSetting('rag.defaultIngestPolicy'),
@@ -1036,8 +1060,13 @@ function FileViewerModal({ source, onClose }: { source: string; onClose: () => v
     staleTime: 60_000,
   })
 
+  // Title falls back to the trailing path segment so the modal still has a
+  // useful header while the fetch is in-flight or if it failed.
   const fallbackName = source.split(/[/\\]/).at(-1) ?? source
   const title = data?.fileName ?? fallbackName
+  // `catchInternal` swallows errors and resolves to undefined, surfacing a
+  // toast -- so the "couldn't load" branch is gated on a finished-but-empty
+  // fetch rather than on react-query's `isError`.
   const showError = isFetched && !data
 
   return (

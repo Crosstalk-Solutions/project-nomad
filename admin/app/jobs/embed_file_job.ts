@@ -18,6 +18,10 @@ export interface EmbedFileJobParams {
   batchOffset?: number  // Current batch offset (for ZIM files)
   totalArticles?: number // Total articles in ZIM (for progress tracking)
   isFinalBatch?: boolean // Whether this is the last batch (prevents premature deletion)
+  // Running total of chunks embedded across prior batches in this dispatch chain.
+  // Carried forward so the final batch can persist an accurate `chunks_embedded`
+  // count via KbIngestState.markIndexed (see #933 -- without this, only the last
+  // batch's chunk count was stored while Qdrant held the full set).
   chunksSoFar?: number
   collection?: string
 }
