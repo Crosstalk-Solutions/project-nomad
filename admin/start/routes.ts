@@ -56,6 +56,7 @@ router
     router.get('/update', [SettingsController, 'update'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
+    router.get('/creator-packs', [SettingsController, 'creatorPacks'])
     router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
     router.get('/advanced', [SettingsController, 'advanced'])

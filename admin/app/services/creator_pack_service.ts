@@ -48,6 +48,16 @@ export class CreatorPackService {
     return (env.get('CREATOR_PACKS_WORKER_BASE') || DEFAULT_WORKER_BASE).replace(/\/+$/, '')
   }
 
+  /**
+   * Whether this build can actually install packs — i.e. the release-injected
+   * app key is present. Forks built from source have no key; the UI uses this to
+   * HIDE the Creator Packs surfaces entirely rather than show install buttons
+   * that would 503. The public catalog still lists, but nothing is installable.
+   */
+  isConfigured(): boolean {
+    return !!env.get('CREATOR_PACKS_APP_KEY')
+  }
+
   /** Stable, per-version download URL. Not signed — the gate is the auth header. */
   packUrl(id: string, version: string): string {
     return `${this.workerBase}/packs/${id}_${version}.zim`

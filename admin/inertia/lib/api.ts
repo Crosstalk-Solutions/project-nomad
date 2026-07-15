@@ -6,7 +6,7 @@ import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, Conten
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
 import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
-import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
+import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, CreatorPackWithStatus, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
@@ -692,6 +692,26 @@ class API {
   async listCuratedCategories() {
     return catchInternal(async () => {
       const response = await this.client.get<CategoryWithStatus[]>('/easy-setup/curated-categories')
+      return response.data
+    })()
+  }
+
+  async getCreatorPacks() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        configured: boolean
+        packs: CreatorPackWithStatus[]
+        downloads: DownloadJobWithProgress[]
+      }>('/creator-packs')
+      return response.data
+    })()
+  }
+
+  async installCreatorPack(id: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; filename?: string }>(
+        `/creator-packs/${id}/install`
+      )
       return response.data
     })()
   }

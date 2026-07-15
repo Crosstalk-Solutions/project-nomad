@@ -14,10 +14,11 @@ export default class CreatorPacksController {
    */
   async index({ response }: HttpContext) {
     try {
+      const configured = this.creatorPackService.isConfigured()
       const packs = await this.creatorPackService.listPacksWithStatus()
       const downloadService = new DownloadService(QueueService.getInstance())
       const downloads = await downloadService.listDownloadJobs('zim')
-      return { packs, downloads }
+      return { configured, packs, downloads }
     } catch (error: any) {
       logger.error('[CreatorPacksController] Failed to list creator packs:', error?.message || error)
       return response.status(500).send({ message: 'Failed to load creator packs' })
