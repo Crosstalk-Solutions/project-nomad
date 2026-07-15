@@ -716,6 +716,15 @@ class API {
     })()
   }
 
+  async uninstallCreatorPack(id: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ message: string; filename?: string }>(
+        `/creator-packs/${id}`
+      )
+      return response.data
+    })()
+  }
+
   async listDocs() {
     return catchInternal(async () => {
       const response = await this.client.get<Array<{ title: string; slug: string }>>('/docs/list')

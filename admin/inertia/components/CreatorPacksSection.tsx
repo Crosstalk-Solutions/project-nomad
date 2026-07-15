@@ -9,24 +9,37 @@ import StyledModal from '~/components/StyledModal'
 import { formatBytes } from '~/lib/util'
 import type { CreatorPackWithStatus } from '../../types/collections'
 
+// Canonical Creator Pack License (one license across the seed packs). Opened in a
+// new tab from the install modal; install is an online action so an external link
+// is fine. A per-pack catalog `license_url` can supersede this later if needed.
+const LICENSE_URL =
+  'https://github.com/Crosstalk-Solutions/project-nomad/blob/main/collections/creator-pack-license.md'
+
+export interface CreatorPacksSectionProps {
+  /** Show uninstall controls on installed packs (the settings "manage" surface). */
+  allowUninstall?: boolean
+}
+
 /**
- * Install-on-click grid of Creator Packs + a confirm modal. Shared by the
- * Content Explorer block and the /settings/creator-packs page. Renders NOTHING
- * when the build isn't configured (fork / key unset) — a fork never sees a
- * broken install button. The Easy Setup wizard does NOT use this (it needs
- * selection semantics, not install-on-click) and drives CreatorPackCard itself.
+ * Install-on-click grid of Creator Packs + confirm modals. Shared by the Content
+ * Explorer block and the /settings/creator-packs page. Renders NOTHING when the
+ * build isn't configured (fork / key unset) — a fork never sees a broken install
+ * button. The Easy Setup wizard does NOT use this (it needs selection semantics,
+ * not install-on-click) and drives CreatorPackCard itself.
  */
-const CreatorPacksSection: React.FC = () => {
+const CreatorPacksSection: React.FC<CreatorPacksSectionProps> = ({ allowUninstall }) => {
   const { configured, packs, invalidate: invalidateCreatorPacks } = useCreatorPacks()
   const { invalidate: invalidateDownloads } = useDownloads({ filetype: 'zim' })
   const { addNotification } = useNotifications()
 
   const [packToInstall, setPackToInstall] = useState<CreatorPackWithStatus | null>(null)
   const [installing, setInstalling] = useState(false)
+  const [packToUninstall, setPackToUninstall] = useState<CreatorPackWithStatus | null>(null)
+  const [uninstalling, setUninstalling] = useState(false)
 
   if (!configured) return null
 
-  const handleConfirm = async () => {
+  const handleConfirmInstall = async () => {
     if (!packToInstall) return
     setInstalling(true)
     try {
@@ -40,6 +53,23 @@ const CreatorPacksSection: React.FC = () => {
       addNotification({ message: 'An error occurred while starting the install.', type: 'error' })
     } finally {
       setInstalling(false)
+    }
+  }
+
+  const handleConfirmUninstall = async () => {
+    if (!packToUninstall) return
+    setUninstalling(true)
+    try {
+      await api.uninstallCreatorPack(packToUninstall.id)
+      addNotification({ message: `Uninstalled "${packToUninstall.name}"`, type: 'success' })
+      invalidateCreatorPacks()
+      invalidateDownloads()
+      setPackToUninstall(null)
+    } catch (error) {
+      console.error('Error uninstalling creator pack:', error)
+      addNotification({ message: 'An error occurred while uninstalling.', type: 'error' })
+    } finally {
+      setUninstalling(false)
     }
   }
 
@@ -60,7 +90,12 @@ const CreatorPacksSection: React.FC = () => {
       {packs.length > 0 ? (
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {packs.map((pack) => (
-            <CreatorPackCard key={pack.id} pack={pack} onClick={setPackToInstall} />
+            <CreatorPackCard
+              key={pack.id}
+              pack={pack}
+              onClick={setPackToInstall}
+              onUninstall={allowUninstall ? setPackToUninstall : undefined}
+            />
           ))}
         </div>
       ) : (
@@ -72,10 +107,8 @@ const CreatorPacksSection: React.FC = () => {
         title={packToInstall ? `Install ${packToInstall.name}?` : 'Install Creator Pack'}
         onClose={() => !installing && setPackToInstall(null)}
         onCancel={() => setPackToInstall(null)}
-        onConfirm={handleConfirm}
-        confirmText={
-          packToInstall?.available_update_version ? 'Update pack' : 'Install pack'
-        }
+        onConfirm={handleConfirmInstall}
+        confirmText={packToInstall?.available_update_version ? 'Update pack' : 'Install pack'}
         confirmIcon="IconDownload"
         confirmLoading={installing}
         icon={<IconMovie className="w-6 h-6" />}
@@ -88,9 +121,39 @@ const CreatorPacksSection: React.FC = () => {
               background and appear in Kiwix when ready.
             </p>
             <p className="text-sm text-text-muted">
-              Licensed content — personal use, not for redistribution.
+              Licensed content — personal use, not for redistribution.{' '}
+              <a
+                href={LICENSE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-desert-green underline hover:no-underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                View license
+              </a>
             </p>
           </div>
+        )}
+      </StyledModal>
+
+      <StyledModal
+        open={!!packToUninstall}
+        title={packToUninstall ? `Uninstall ${packToUninstall.name}?` : 'Uninstall Creator Pack'}
+        onClose={() => !uninstalling && setPackToUninstall(null)}
+        onCancel={() => setPackToUninstall(null)}
+        onConfirm={handleConfirmUninstall}
+        confirmText="Uninstall pack"
+        confirmIcon="IconTrash"
+        confirmVariant="danger"
+        confirmLoading={uninstalling}
+        icon={<IconMovie className="w-6 h-6" />}
+      >
+        {packToUninstall && (
+          <p className="text-text-secondary">
+            This removes the downloaded videos (
+            {formatBytes(packToUninstall.size_mb * 1024 * 1024, 0)}) from this NOMAD. You can
+            reinstall the pack anytime.
+          </p>
         )}
       </StyledModal>
     </>

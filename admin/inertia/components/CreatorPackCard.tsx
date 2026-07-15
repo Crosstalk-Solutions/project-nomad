@@ -7,6 +7,7 @@ import {
   IconCircleCheck,
   IconLoader2,
   IconMovie,
+  IconTrash,
 } from '@tabler/icons-react'
 
 export interface CreatorPackCardProps {
@@ -14,9 +15,11 @@ export interface CreatorPackCardProps {
   /** In-session wizard selection highlight (before anything is installed). */
   selected?: boolean
   onClick?: (pack: CreatorPackWithStatus) => void
+  /** When set, an installed pack shows an uninstall control (settings surface only). */
+  onUninstall?: (pack: CreatorPackWithStatus) => void
 }
 
-const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onClick }) => {
+const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onClick, onUninstall }) => {
   const isInstalled = pack.status === 'installed'
   const isDownloading = pack.status === 'downloading'
   const hasUpdate = !!pack.available_update_version
@@ -91,7 +94,23 @@ const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onCli
             </span>
           )}
         </div>
-        {statusBadge}
+        <div className="flex items-center gap-2 shrink-0">
+          {statusBadge}
+          {onUninstall && isInstalled && (
+            <button
+              type="button"
+              title="Uninstall pack"
+              aria-label="Uninstall pack"
+              className="p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                onUninstall(pack)
+              }}
+            >
+              <IconTrash className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

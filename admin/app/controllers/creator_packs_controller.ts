@@ -47,4 +47,16 @@ export default class CreatorPacksController {
         })
     }
   }
+
+  async uninstall({ params, response }: HttpContext) {
+    const packId = params.id as string
+    const result = await this.creatorPackService.uninstallPack(packId)
+
+    switch (result.code) {
+      case 'uninstalled':
+        return { message: 'Pack uninstalled', filename: result.filename }
+      case 'not_installed':
+        return response.status(404).send({ message: `Creator pack is not installed: ${packId}` })
+    }
+  }
 }

@@ -236,6 +236,7 @@ router
   .group(() => {
     router.get('/', [CreatorPacksController, 'index'])
     router.post('/:id/install', [CreatorPacksController, 'install'])
+    router.delete('/:id', [CreatorPacksController, 'uninstall'])
   })
   .prefix('/api/creator-packs')
 

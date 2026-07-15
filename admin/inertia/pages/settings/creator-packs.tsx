@@ -20,7 +20,7 @@ export default function CreatorPacksPage() {
 
           {configured ? (
             <>
-              <CreatorPacksSection />
+              <CreatorPacksSection allowUninstall />
               <div className="mt-10">
                 <ActiveDownloads filetype="zim" withHeader />
               </div>

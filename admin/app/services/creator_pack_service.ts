@@ -2,6 +2,7 @@ import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
 import { join } from 'node:path'
 import { DockerService } from '#services/docker_service'
+import { ZimService } from '#services/zim_service'
 import { CollectionManifestService } from '#services/collection_manifest_service'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
@@ -27,6 +28,10 @@ export type InstallPackResult =
   | { code: 'already_downloading' }
   | { code: 'not_found' }
   | { code: 'not_configured' }
+
+export type UninstallPackResult =
+  | { code: 'uninstalled'; filename: string }
+  | { code: 'not_installed' }
 
 /**
  * Creator Packs install rail. Diverges from the curated-collections rail in
@@ -127,6 +132,30 @@ export class CreatorPackService {
 
     logger.info(`[CreatorPackService] Dispatched download for pack ${pack.id} (${filename})`)
     return { code: 'dispatched', filename }
+  }
+
+  /**
+   * Uninstall an installed pack: delete the ZIM (which via ZimService.delete also
+   * removes it from the Kiwix library and clears its InstalledResource row).
+   * Uses the INSTALLED version (not the catalog's) so we remove the file that's
+   * actually on disk even if a newer version has since been published.
+   */
+  async uninstallPack(packId: string): Promise<UninstallPackResult> {
+    const { default: InstalledResource } = await import('#models/installed_resource')
+    const installed = await InstalledResource.query()
+      .where('resource_type', 'zim')
+      .where('resource_id', packId)
+      .first()
+    if (!installed) {
+      return { code: 'not_installed' }
+    }
+
+    const filename = `${packId}_${installed.version}.zim`
+    const zimService = new ZimService(this.dockerService)
+    await zimService.delete(filename)
+
+    logger.info(`[CreatorPackService] Uninstalled pack ${packId} (${filename})`)
+    return { code: 'uninstalled', filename }
   }
 
   private async ensureKiwixInstalled(): Promise<void> {
