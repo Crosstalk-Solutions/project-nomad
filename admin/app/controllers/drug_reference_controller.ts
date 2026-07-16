@@ -5,6 +5,7 @@ import { ConditionService } from '#services/condition_service'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
 import { parseCompareIds } from '../../util/compare_ids.js'
 import { situationsForIndications } from '../../util/conditions.js'
+import { affirmativeRemediesEnabled } from '../utils/affirmative_remedies.js'
 
 /**
  * Drug Reference v1 — HTTP boundary.
@@ -31,16 +32,21 @@ export default class DrugReferenceController {
   async index({ inertia }: HttpContext) {
     try {
       const conditionService = new ConditionService()
-      const [status, count] = await Promise.all([
+      const [status, count, remediesOn] = await Promise.all([
         this.service.getIngestStatus(),
         this.service.rowCount(),
+        affirmativeRemediesEnabled(),
       ])
 
       return inertia.render('drug-reference/index', {
         ingestStatus: status,
         rowCount: count,
         conditions: conditionService.listConditions(),
-        remedies: conditionService.listRemedies(),
+        // Affirmative remedy content is gated off by default (#1040): keep it out
+        // of the payload entirely when disabled, and tell the page so it can hide
+        // the "Natural" filter too. Drug search + condition matching are unaffected.
+        remedies: remediesOn ? conditionService.listRemedies() : [],
+        remediesEnabled: remediesOn,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -50,6 +56,7 @@ export default class DrugReferenceController {
         rowCount: 0,
         conditions: [],
         remedies: [],
+        remediesEnabled: false,
       })
     }
   }
