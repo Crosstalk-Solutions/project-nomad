@@ -20,6 +20,12 @@ interface PageProps {
   rowCount: number
   conditions: ConditionSummary[]
   remedies: NaturalRemedy[]
+  /**
+   * Affirmative-content gate (#1040). False by default: the server sends no
+   * remedy data and the "Natural" filter is hidden, so only FDA label search and
+   * condition→OTC matching show. Flipped on after a clinician content-pass.
+   */
+  remediesEnabled?: boolean
 }
 
 /**
@@ -113,7 +119,7 @@ function drugKey(d: DrugSearchResult): string {
  * Once data is loaded: chips + dual-section results, with the FDA-data update control
  * and source citation at the foot.
  */
-export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions, remedies = [] }: PageProps) {
+export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions, remedies = [], remediesEnabled = false }: PageProps) {
   const [query, setQuery] = useState('')
   const [productType, setProductType] = useState<string | null>(null)
   const [route, setRoute] = useState<string | null>(null)
@@ -563,13 +569,17 @@ export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions,
               >
                 Rx
               </FilterPill>
-              <FilterPill
-                active={productType === NATURAL_FILTER}
-                tone="olive"
-                onClick={() => handleFilterChange(NATURAL_FILTER)}
-              >
-                Natural
-              </FilterPill>
+              {/* Affirmative-content gate (#1040): the "Natural" remedy filter
+                  only appears once remedies are enabled (post clinician-pass). */}
+              {remediesEnabled && (
+                <FilterPill
+                  active={productType === NATURAL_FILTER}
+                  tone="olive"
+                  onClick={() => handleFilterChange(NATURAL_FILTER)}
+                >
+                  Natural
+                </FilterPill>
+              )}
 
               {/* Secondary controls: route + sort for the drug-name search, or
                   herb/self-care sub-filter when Natural is active. */}

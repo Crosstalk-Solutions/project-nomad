@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import { ConditionService } from '#services/condition_service'
 import { conditionDrugsValidator } from '#validators/conditions'
+import { affirmativeRemediesEnabled } from '../utils/affirmative_remedies.js'
 
 /**
  * "When to use what" — condition-first HTTP boundary (Phase 1).
@@ -46,15 +47,18 @@ export default class ConditionsController {
         return response.notFound({ error: 'Condition not found' })
       }
 
-      const [result, drugRowCount] = await Promise.all([
+      const [result, drugRowCount, remediesOn] = await Promise.all([
         this.service.drugsForSlug(slug),
         this.service.drugRowCount(),
+        affirmativeRemediesEnabled(),
       ])
 
       return inertia.render('conditions/show', {
         condition: result?.condition ?? null,
         drugs: result?.drugs ?? [],
-        remedies: result?.remedies ?? [],
+        // Affirmative remedies gated off by default (#1040); the OTC/condition
+        // match above is regulated label text and stays live.
+        remedies: remediesOn ? (result?.remedies ?? []) : [],
         drugRowCount,
       })
     } catch (err) {
@@ -82,16 +86,22 @@ export default class ConditionsController {
         sort: params.sort,
       }
 
+      // Strip affirmative remedies from the situation-search response when the
+      // gate is closed (#1040); the OTC drug matches are regulated label text and
+      // are returned either way.
+      const remediesOn = await affirmativeRemediesEnabled()
+
       if (params.slug) {
         const result = await this.service.drugsForSlug(params.slug, params.limit, filterOpts)
         if (!result) {
           return response.notFound({ error: 'Condition not found' })
         }
-        return result
+        return remediesOn ? result : { ...result, remedies: [] }
       }
 
       if (params.q) {
-        return await this.service.drugsForFreeText(params.q, params.limit, filterOpts)
+        const result = await this.service.drugsForFreeText(params.q, params.limit, filterOpts)
+        return remediesOn ? result : { ...result, remedies: [] }
       }
 
       return response.badRequest({ error: 'Provide a slug or q query parameter' })

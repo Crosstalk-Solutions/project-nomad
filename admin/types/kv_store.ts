@@ -60,6 +60,12 @@ export const KV_STORE_SCHEMA = {
   // null fallback — the key simply doesn't exist before the first download.
   // Cleared after a full ingest succeeds (when the on-disk parts are deleted).
   'drugReference.downloadState': 'string',
+  // Drug Reference — affirmative-content gate (upstream #1040). Independent of
+  // the tier install: installing `medicine-standard` lights up the verbatim FDA
+  // label search and condition→OTC matching, but the hand-authored self-care and
+  // herbal REMEDY sections stay hidden until this flips true. Defaults off
+  // (null → false); flipped on after a clinician content-pass, not user-toggled.
+  'drugReference.remediesEnabled': 'boolean',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string
