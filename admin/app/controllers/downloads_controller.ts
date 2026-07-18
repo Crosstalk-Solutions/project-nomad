@@ -24,4 +24,8 @@ export default class DownloadsController {
   async cancelJob({ params }: HttpContext) {
     return this.downloadService.cancelJob(params.jobId)
   }
+
+  async retryJob({ params }: HttpContext) {
+    return this.downloadService.retryFailedJob(params.jobId)
+  }
 }
