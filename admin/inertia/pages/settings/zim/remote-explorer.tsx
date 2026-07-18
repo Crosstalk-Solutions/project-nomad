@@ -638,6 +638,8 @@ export default function ZimRemoteExplorer() {
                 ]}
                 expandable={{
                   expandedRowRender(record) {
+                    const issuedDate = record.issued ? new Date(record.issued) : null
+                    const hasValidIssuedDate = issuedDate && !Number.isNaN(issuedDate.getTime())
                     return (
                       <div className="py-4 px-6">
                         <p className="text-sm text-text-primary mb-4">{record.summary}</p>
@@ -682,13 +684,13 @@ export default function ZimRemoteExplorer() {
                               </span>
                             </div>
                           )}
-                          {record.issued && (
+                          {hasValidIssuedDate && (
                             <div>
                               <span className="text-text-muted">Issued: </span>
                               <span className="text-text-primary">
                                 {new Intl.DateTimeFormat('en-US', {
                                   dateStyle: 'medium',
-                                }).format(new Date(record.issued))}
+                                }).format(issuedDate!)}
                               </span>
                             </div>
                           )}
