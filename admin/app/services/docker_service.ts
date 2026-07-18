@@ -1460,13 +1460,17 @@ export class DockerService {
    * gfx1030 (RX 6800/6700/etc.), gfx1100/1101/1102 (RX 7900/7800/7600) are on AMD's
    * official ROCm allowlist — forcing an override on these breaks GPU discovery.
    * gfx1035 / gfx1036 (RDNA 2 iGPUs like 680M) need 10.3.0 to coerce to gfx1030.
-   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) need 11.0.0.
+   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) are
+   * natively supported by the ROCm 7.2 the current ollama:rocm image bundles, so they
+   * need NO override. Forcing 11.0.0 coerces them to gfx1100's kernels — unnecessary on
+   * the 890M and a source of faults on the 780M (gfx1100 WMMA instructions it lacks). See #1056.
    *
    * Resolution order:
    *   1. KV `ai.amdHsaOverride` — manual user override; accepts 'none' (disable) or a semver-style value.
    *   2. Marker file `/app/storage/.nomad-amd-gfx` written by install_nomad.sh.
-   *   3. Default: '11.0.0' — preserves prior behavior so existing iGPU users don't regress on
-   *      upgrade. Discrete-card users on existing installs can opt out via the KV.
+   *   3. Default: none — let ROCm discover the GPU natively. Users on hardware that still
+   *      needs coercion can force a value via the KV. A hardcoded default gets more wrong
+   *      as ROCm adds native targets, so null is the safer forward-looking default.
    *
    * Returns null when no override should be applied.
    */
@@ -1495,8 +1499,8 @@ export class DockerService {
       // install_nomad.sh. Fall through to the default.
     }
 
-    logger.info('[DockerService] No AMD gfx marker; defaulting HSA override to 11.0.0 for backward compatibility')
-    return '11.0.0'
+    logger.info('[DockerService] No AMD gfx marker; applying no HSA override (native ROCm discovery)')
+    return null
   }
 
   private _mapGfxToHsaOverride(gfx: string): string | null {
@@ -1504,15 +1508,18 @@ export class DockerService {
     if (gfx === 'gfx1030' || gfx === 'gfx1100' || gfx === 'gfx1101' || gfx === 'gfx1102') {
       return null
     }
-    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M)
+    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M) — not natively
+    // supported, still need coercion to gfx1030.
     if (/^gfx103[1-6]$/.test(gfx)) {
       return '10.3.0'
     }
-    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo = gfx1151)
+    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo =
+    // gfx1151) are native under ROCm 7.2 — no override (forcing 11.0.0 faults the 780M). See #1056.
     if (gfx === 'gfx1103' || gfx === 'gfx1150' || gfx === 'gfx1151') {
-      return '11.0.0'
+      return null
     }
-    return '11.0.0'
+    // Unknown/newer target: prefer native discovery over a coercion that's likely wrong.
+    return null
   }
 
   /**
