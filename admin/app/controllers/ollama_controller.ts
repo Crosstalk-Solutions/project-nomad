@@ -164,14 +164,32 @@ export default class OllamaController {
 
       if (reqData.stream) {
         logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
-        // Headers already flushed above
-        const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think, numCtx })
+        // Headers already flushed above.
+        // Abort the upstream generation if the client disconnects — otherwise an abandoned
+        // request keeps decoding server-side and, with Ollama's default OLLAMA_NUM_PARALLEL=1,
+        // blocks every later chat/RAG request until the model is manually stopped (#1065).
+        const abortController = new AbortController()
+        response.response.on('close', () => abortController.abort())
+        const stream = await this.ollamaService.chatStream({
+          ...ollamaRequest,
+          think,
+          numCtx,
+          signal: abortController.signal,
+        })
         let fullContent = ''
-        for await (const chunk of stream) {
-          if (chunk.message?.content) {
-            fullContent += chunk.message.content
+        try {
+          for await (const chunk of stream) {
+            if (chunk.message?.content) {
+              fullContent += chunk.message.content
+            }
+            response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
           }
-          response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
+        } catch (err) {
+          if (abortController.signal.aborted) {
+            logger.debug('[OllamaController] Client disconnected; aborted upstream Ollama generation')
+            return
+          }
+          throw err
         }
         response.response.end()
 
