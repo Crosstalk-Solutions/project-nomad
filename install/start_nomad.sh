@@ -1,12 +1,12 @@
 #!/bin/bash
 
-echo "Finding Project N.O.M.A.D containers..."
+echo "Finding Project NOMAD containers..."
 
 # -a to include all containers (running and stopped)
 containers=$(docker ps -a --filter "name=^nomad_" --format "{{.Names}}")
 
 if [ -z "$containers" ]; then
-    echo "No containers found for Project N.O.M.A.D. Is it installed?"
+    echo "No containers found for Project NOMAD Is it installed?"
     exit 0
 fi
 
@@ -24,4 +24,4 @@ for container in $containers; do
     echo ""
 done
 
-echo "Finished initiating start of all Project N.O.M.A.D containers."
+echo "Finished initiating start of all Project NOMAD containers."

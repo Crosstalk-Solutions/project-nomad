@@ -8,10 +8,10 @@ contact_links:
     about: Check the official documentation and guides
   - name: 🏆 Community Leaderboard
     url: https://benchmark.projectnomad.us
-    about: View the N.O.M.A.D. benchmark leaderboard
+    about: View the NOMAD benchmark leaderboard
   - name: 🤝 Contributing Guide
     url: https://github.com/Crosstalk-Solutions/project-nomad/blob/main/CONTRIBUTING.md
-    about: Learn how to contribute to Project N.O.M.A.D.
+    about: Learn how to contribute to Project NOMAD
   - name: 📅 Roadmap
     url: https://roadmap.projectnomad.us
     about: See our public roadmap, vote on features, and suggest new ones

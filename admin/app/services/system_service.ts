@@ -38,7 +38,7 @@ export class SystemService {
   async getInternetStatus(): Promise<boolean> {
     // Primary endpoint stays Cloudflare's privacy-respecting utility endpoint.
     // The fallbacks are hosts the application already contacts elsewhere
-    // (GitHub API for update checks, the Project N.O.M.A.D. API for release-note
+    // (GitHub API for update checks, the Project NOMAD API for release-note
     // subscriptions), so no new third-party services are introduced. They exist
     // to avoid false "offline" reports on networks that block 1.1.1.1.
     const DEFAULT_TEST_URLS = [

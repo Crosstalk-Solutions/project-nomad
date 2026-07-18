@@ -64,6 +64,13 @@ export type RemoteZimFileEntry = {
   download_url: string
   author: string
   file_name: string
+  language?: string
+  category?: string
+  tags?: string
+  article_count?: number
+  media_count?: number
+  publisher?: string
+  issued?: string
 }
 
 export type ExtractZIMContentOptions = {
@@ -71,8 +78,8 @@ export type ExtractZIMContentOptions = {
   maxArticles?: number
   onProgress?: (processedArticles: number, totalArticles: number) => void
   // Batch processing options to avoid lock timeouts
-  startOffset?: number  // Article index to start from for resuming
-  batchSize?: number    // Max articles to process in this batch
+  startOffset?: number // Article index to start from for resuming
+  batchSize?: number // Max articles to process in this batch
 }
 
 export type ExtractZIMChunkingStrategy = 'structured' | 'simple'

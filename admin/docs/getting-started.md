@@ -1,12 +1,12 @@
-# Getting Started with N.O.M.A.D.
+# Getting Started with NOMAD
 
-This guide will help you get the most out of your N.O.M.A.D. server.
+This guide will help you get the most out of your NOMAD server.
 
 ---
 
 ## Easy Setup Wizard
 
-If this is your first time using N.O.M.A.D., the Easy Setup wizard will help you get everything configured.
+If this is your first time using NOMAD, the Easy Setup wizard will help you get everything configured.
 
 **[Launch Easy Setup →](/easy-setup)**
 
@@ -66,7 +66,7 @@ The Education Platform provides complete educational courses that work offline.
 
 ![AI Chat interface](/docs/ai-chat.webp)
 
-N.O.M.A.D. includes a built-in AI chat interface powered by Ollama. It runs entirely on your server — no internet needed, no data sent anywhere.
+NOMAD includes a built-in AI chat interface powered by Ollama. It runs entirely on your server — no internet needed, no data sent anywhere.
 
 **What can it do:**
 - Answer questions on any topic
@@ -84,7 +84,7 @@ N.O.M.A.D. includes a built-in AI chat interface powered by Ollama. It runs enti
 
 **Note:** The AI Assistant must be installed first. Enable it during Easy Setup or install it from the [Supply Depot](/supply-depot).
 
-**GPU Acceleration:** If your server has an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed, N.O.M.A.D. will automatically use it for AI — dramatically faster responses (10-20x improvement). If you add a GPU later, go to the [Supply Depot](/supply-depot) and **Force Reinstall** the AI Assistant to enable it.
+**GPU Acceleration:** If your server has an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed, NOMAD will automatically use it for AI — dramatically faster responses (10-20x improvement). If you add a GPU later, go to the [Supply Depot](/supply-depot) and **Force Reinstall** the AI Assistant to enable it.
 
 ---
 
@@ -150,7 +150,7 @@ As your needs change, you can add more content anytime:
 
 ![Content Explorer — browse and download Wikipedia packages and curated collections](/docs/content-explorer.webp)
 
-N.O.M.A.D. includes a dedicated Wikipedia content management tool for browsing and downloading Wikipedia packages.
+NOMAD includes a dedicated Wikipedia content management tool for browsing and downloading Wikipedia packages.
 
 **How to use it:**
 1. Go to **[Content Explorer →](/settings/zim/remote-explorer)**
@@ -184,7 +184,7 @@ While you have internet, periodically check for updates:
 
 Content updates (Wikipedia, maps, etc.) can be managed separately from software updates.
 
-**Automatic updates:** N.O.M.A.D. can also keep itself current without you having to check. Software, installed apps, and content can each be set to update automatically on an opt-in basis, with safety checks and a time window you control. See the **[Updates guide](/docs/updates)** for the full picture.
+**Automatic updates:** NOMAD can also keep itself current without you having to check. Software, installed apps, and content can each be set to update automatically on an opt-in basis, with safety checks and a time window you control. See the **[Updates guide](/docs/updates)** for the full picture.
 
 **Early Access Channel:** Want the latest features before they hit stable? Enable the Early Access Channel from the Check for Updates page to receive release candidate builds. You can switch back to stable anytime.
 
@@ -226,7 +226,7 @@ Check storage usage in **Settings → System**.
 
 ## Next Steps
 
-You're ready to use N.O.M.A.D. Here are some things to try:
+You're ready to use NOMAD Here are some things to try:
 
 1. **Look something up** — Search for a topic in the Information Library
 2. **Learn something** — Start a Khan Academy course in the Education Platform

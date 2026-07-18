@@ -45,6 +45,9 @@ type ChatInput = {
   think?: boolean | 'medium'
   stream?: boolean
   numCtx?: number
+  // Aborts the upstream request when the client disconnects, so an abandoned generation
+  // doesn't keep decoding server-side and block Ollama's single parallel slot (#1065).
+  signal?: AbortSignal
 }
 
 @inject()
@@ -333,13 +336,15 @@ export class OllamaService {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const response = await this.openai.chat.completions.create(params)
+    const response = await this.openai.chat.completions.create(params, { signal: chatRequest.signal })
     const choice = response.choices[0]
 
     return {
       message: {
         content: choice.message.content ?? '',
-        thinking: (choice.message as any).thinking ?? undefined,
+        // Ollama's OpenAI-compat endpoint (/v1) emits thinking as `reasoning`; its native
+        // shape uses `thinking`. Read both so thinking is never silently dropped (#1065).
+        thinking: (choice.message as any).thinking ?? (choice.message as any).reasoning ?? undefined,
       },
       done: true,
       model: response.model,
@@ -364,7 +369,9 @@ export class OllamaService {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
+    const stream = (await this.openai.chat.completions.create(params, {
+      signal: chatRequest.signal,
+    })) as unknown as Stream<ChatCompletionChunk>
 
     // Returns how many trailing chars of `text` could be the start of `tag`
     function partialTagSuffix(tag: string, text: string): number {
@@ -383,7 +390,8 @@ export class OllamaService {
 
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta
-        const nativeThinking: string = (delta as any)?.thinking ?? ''
+        // /v1 emits thinking as `reasoning`; native Ollama uses `thinking`. Read both (#1065).
+        const nativeThinking: string = (delta as any)?.thinking ?? (delta as any)?.reasoning ?? ''
         const rawContent: string = delta?.content ?? ''
 
         // Parse <think> tags out of the content stream

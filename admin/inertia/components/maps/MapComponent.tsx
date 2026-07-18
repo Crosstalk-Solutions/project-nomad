@@ -311,6 +311,7 @@ export default function MapComponent({
     [hideCoordinates, isHoveringUI, isDraggingMap, showCoordinatesEnabled]
   )
 
+
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
     setTargetIndicator(null)
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
