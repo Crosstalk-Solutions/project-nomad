@@ -807,6 +807,11 @@ export class DockerService {
           if (hsaOverride) {
             ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
           }
+          // Ollama's scheduler drops integrated GPUs unless this is set (issue #1056), so
+          // AMD APUs (780M/890M/8060S) fall back to CPU-only despite correct device
+          // passthrough. It's a no-op on discrete AMD cards, so it's safe to set whenever
+          // AMD acceleration is configured.
+          ollamaEnv.push('OLLAMA_IGPU_ENABLE=1')
         }
       }
 
@@ -1688,10 +1693,16 @@ export class DockerService {
       let finalEnv = baseEnv
       if (updatedAmdGpuConfigured) {
         const hsaOverride = await this._resolveAmdHsaOverride()
-        finalEnv = baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
+        finalEnv = baseEnv.filter(
+          (e: string) =>
+            !e.startsWith('HSA_OVERRIDE_GFX_VERSION=') && !e.startsWith('OLLAMA_IGPU_ENABLE=')
+        )
         if (hsaOverride) {
           finalEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
         }
+        // Re-assert the iGPU flag so updates from a container provisioned before the
+        // issue #1056 fix (which wouldn't have it in the captured env) pick it up.
+        finalEnv.push('OLLAMA_IGPU_ENABLE=1')
       }
 
       const newContainerConfig: any = {
