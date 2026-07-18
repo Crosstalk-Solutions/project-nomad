@@ -11,6 +11,7 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import Alert from '~/components/Alert'
 import { useNotifications } from '~/context/NotificationContext'
 import ZimUploader from '~/components/ZimUploader'
+import Switch from '~/components/inputs/Switch'
 import { ZimFileWithMetadata } from '../../../../types/zim'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 import { formatBytes } from '~/lib/util'
@@ -126,6 +127,34 @@ export default function ZimPage() {
     },
   })
 
+  const embedMutation = useMutation({
+    mutationFn: async (file: ZimFileWithMetadata) =>
+      api.embedSingleRAGFile(file.type === 'file' ? file.key : file.name),
+    onSuccess: (result) => {
+      if (!result) return
+      queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+      addNotification({
+        type: 'success',
+        message: result.message || 'Added to the knowledge base. It will be searchable once embedding finishes.',
+      })
+    },
+  })
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ file, active }: { file: ZimFileWithMetadata; active: boolean }) =>
+      api.toggleRagFileActive(file.type === 'file' ? file.key : file.name, active),
+    onSuccess: (result, { active }) => {
+      if (!result) return
+      queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+      addNotification({
+        type: 'success',
+        message: active
+          ? 'Re-included in AI search.'
+          : 'Excluded from AI search. It stays indexed, so re-enabling is instant.',
+      })
+    },
+  })
+
   return (
     <SettingsLayout>
       <Head title="Content Manager | Project NOMAD" />
@@ -222,6 +251,39 @@ export default function ZimPage() {
                     {record.size_bytes ? formatBytes(record.size_bytes, 1) : '—'}
                   </span>
                 ),
+              },
+              {
+                accessor: 'kb_status',
+                title: 'Knowledge Base',
+                render: (record) => {
+                  if (record.kb_status === 'not_added') {
+                    const pending =
+                      embedMutation.isPending && embedMutation.variables?.name === record.name
+                    return (
+                      <StyledButton
+                        variant="secondary"
+                        size="sm"
+                        icon="IconPlus"
+                        loading={pending}
+                        onClick={() => embedMutation.mutate(record)}
+                      >
+                        Add to Knowledge Base
+                      </StyledButton>
+                    )
+                  }
+                  const isActive = record.kb_status === 'active'
+                  const pending =
+                    toggleActiveMutation.isPending &&
+                    toggleActiveMutation.variables?.file.name === record.name
+                  return (
+                    <Switch
+                      checked={isActive}
+                      onChange={(checked) => toggleActiveMutation.mutate({ file: record, active: checked })}
+                      disabled={pending}
+                      label={isActive ? 'Active' : 'Inactive'}
+                    />
+                  )
+                },
               },
               {
                 accessor: 'actions',

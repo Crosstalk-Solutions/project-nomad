@@ -25,6 +25,7 @@ import vine from '@vinejs/vine'
 import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
+import KbIngestState from '#models/kb_ingest_state'
 import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
@@ -48,16 +49,34 @@ export class ZimService {
     const all = await listDirectoryContents(dirPath)
     const zimEntries = all.filter((item) => item.name.endsWith('.zim'))
 
+    // Resolve each entry's file path up front so the kb_ingest_state lookup
+    // can be a single batched query instead of one query per file (N+1) --
+    // matters once there are dozens/hundreds of ZIMs (see #followup-proposal).
+    const filePaths = zimEntries.map((entry) =>
+      entry.type === 'file' ? entry.key : join(dirPath, entry.name)
+    )
+    const kbStates = filePaths.length
+      ? await KbIngestState.query().whereIn('file_path', filePaths)
+      : []
+    const kbStateByPath = new Map(kbStates.map((row) => [row.file_path, row]))
+
     const files = await Promise.all(
-      zimEntries.map(async (entry) => {
-        const filePath = entry.type === 'file' ? entry.key : join(dirPath, entry.name)
+      zimEntries.map(async (entry, i) => {
+        const filePath = filePaths[i]
         const stats = await getFileStatsIfExists(filePath)
+        const kbState = kbStateByPath.get(filePath)
+        const kb_status: 'not_added' | 'active' | 'inactive' = !kbState
+          ? 'not_added'
+          : kbState.active
+            ? 'active'
+            : 'inactive'
         return {
           ...entry,
           title: null,
           summary: null,
           author: null,
           size_bytes: stats ? Number(stats.size) : null,
+          kb_status,
         }
       })
     )
@@ -552,18 +571,11 @@ export class ZimService {
       logger.error(`[ZimService] Failed to update WikipediaSelection for ${filename}:`, error)
     }
 
-    const ollamaUrl = await this.dockerService.getServiceURL('nomad_ollama')
-    if (ollamaUrl) {
-      try {
-        const { EmbedFileJob } = await import('#jobs/embed_file_job')
-        await EmbedFileJob.dispatch({
-          fileName: filename,
-          filePath: join(process.cwd(), ZIM_STORAGE_PATH, filename),
-        })
-      } catch (error) {
-        logger.error(`[ZimService] EmbedFileJob dispatch failed after local upload:`, error)
-      }
-    }
+    // NOTE: uploaded ZIM files are intentionally NOT auto-embedded into the
+    // knowledge base. ZIM/Kiwix content must be explicitly opted in via
+    // RagService.embedSingleFile() (e.g. the Content Manager's "Add to
+    // Knowledge Base" action) so browsing content in Kiwix never implies
+    // consent to include it in AI search.
 
     return { added }
   }
@@ -603,6 +615,23 @@ export class ZimService {
         .where('resource_type', 'zim')
         .delete()
       logger.info(`[ZimService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    }
+
+    // If this ZIM was indexed into the AI knowledge base, clean up its Qdrant
+    // points + kb_ingest_state row too -- otherwise a hard delete here leaves
+    // an orphaned "Indexed" entry behind that never gets cleaned up until a
+    // full Reset & Rebuild.
+    try {
+      const kbRow = await KbIngestState.query().where('file_path', fullPath).first()
+      if (kbRow) {
+        const appModule = await import('@adonisjs/core/services/app')
+        const { RagService } = await import('#services/rag_service')
+        const ragService = await appModule.default.container.make(RagService)
+        await ragService.deleteFileBySource(fullPath)
+        logger.info(`[ZimService] Cleaned up knowledge-base entry for deleted ZIM: ${fileName}`)
+      }
+    } catch (error) {
+      logger.error(`[ZimService] Failed to clean up knowledge-base entry for ${fileName}:`, error)
     }
 
     // If this file was the active Wikipedia selection, clear the selection

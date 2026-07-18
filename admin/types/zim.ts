@@ -1,10 +1,13 @@
 import { FileEntry } from './files.js'
 
+export type ZimKbStatus = 'not_added' | 'active' | 'inactive'
+
 export type ZimFileWithMetadata = FileEntry & {
   title: string | null
   summary: string | null
   author: string | null
   size_bytes: number | null
+  kb_status: ZimKbStatus
 }
 
 export type ListZimFilesResponse = {

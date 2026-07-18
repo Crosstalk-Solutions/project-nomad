@@ -7,7 +7,7 @@ import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
 import { basename } from 'node:path'
-import { deleteFileSchema, embedFileSchema, estimateBatchSchema, fileSourceSchema, getJobStatusSchema } from '#validators/rag'
+import { deleteFileSchema, embedFileSchema, estimateBatchSchema, fileSourceSchema, getJobStatusSchema, toggleActiveSchema } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
@@ -95,6 +95,17 @@ export default class RagController {
       return response.status(status).json({ error: result.message, code: result.code })
     }
     return response.status(202).json({ message: result.message })
+  }
+
+  public async toggleActive({ request, response }: HttpContext) {
+    const { source, active } = await request.validateUsing(toggleActiveSchema)
+    const found = await this.ragService.toggleFileActive(source, active)
+    if (!found) {
+      return response.status(404).json({ error: 'File is not a tracked knowledge-base source.' })
+    }
+    return response.status(200).json({
+      message: active ? 'File re-included in search.' : 'File excluded from search.',
+    })
   }
 
   public async getFailedJobs({ response }: HttpContext) {

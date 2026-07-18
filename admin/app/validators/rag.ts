@@ -19,6 +19,13 @@ export const embedFileSchema = vine.compile(
   })
 )
 
+export const toggleActiveSchema = vine.compile(
+  vine.object({
+    source: vine.string().minLength(1),
+    active: vine.boolean(),
+  })
+)
+
 export const fileSourceSchema = vine.compile(
   vine.object({
     source: vine.string().minLength(1),

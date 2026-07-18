@@ -507,6 +507,13 @@ class API {
     })()
   }
 
+  async toggleRagFileActive(source: string, active: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/toggle-active', { source, active })
+      return response.data
+    })()
+  }
+
   async getKbFileWarnings() {
     return catchInternal(async () => {
       const response = await this.client.get<FileWarningsResult>('/rag/file-warnings')
