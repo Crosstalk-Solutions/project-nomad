@@ -8,7 +8,7 @@ interface LoadingSpinnerProps {
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   text,
-  fullscreen = true,
+  fullscreen = false,
   iconOnly = false,
   light = false,
   className,
@@ -29,9 +29,12 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   }
 
   return (
-    <div className={className}>
-      <div className="ui active inverted dimmer">
-        <div className="ui text loader">{!iconOnly && <span>{text || 'Loading'}</span>}</div>
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm ${className || ''}`}
+    >
+      <div className="flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-[3px] border-white border-t-transparent rounded-full animate-spin" />
+        {!iconOnly && <div className="text-white mt-3 font-medium">{text || 'Loading'}</div>}
       </div>
     </div>
   )

@@ -139,11 +139,17 @@ export class ContainerRegistryService {
         allTags.push(...data.tags)
       }
 
-      // Handle pagination via Link header
+      // Handle pagination via Link header. Per the OCI/Docker registry spec the next-page
+      // URL is relative (e.g. "/v2/<repo>/tags/list?last=<tag>&n=1000"), so it must be
+      // resolved against the registry origin before re-fetching — assigning the raw relative
+      // path to `url` makes fetch() throw "Failed to parse URL". This silently broke update
+      // checks for any repo with >1000 tags (e.g. ollama/ollama, filebrowser/filebrowser),
+      // which is the root cause of #945. new URL(relative, base) also passes absolute
+      // next-URLs through unchanged, so it's safe for registries that return those.
       const linkHeader = response.headers.get('link')
       if (linkHeader) {
         const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-        url = match ? match[1] : ''
+        url = match ? new URL(match[1], `https://${parsed.registry}`).toString() : ''
       } else {
         url = ''
       }
@@ -197,6 +203,66 @@ export class ContainerRegistryService {
     } catch (error) {
       logger.warn(`[ContainerRegistryService] Error checking arch for ${tag}: ${error.message}`)
       return true // Assume compatible on error
+    }
+  }
+
+  /**
+   * Estimate the compressed download size (in bytes) of an image tag for the
+   * given host architecture by summing its layer sizes from the manifest.
+   *
+   * Resolves a multi-arch manifest list/index down to the platform-specific
+   * manifest before summing `layers[].size`. Returns null on any failure so
+   * callers can fall back to a conservative fixed threshold rather than
+   * silently skipping a disk pre-flight check.
+   */
+  async getImageDownloadSize(
+    parsed: ParsedImageReference,
+    tag: string,
+    hostArch: string
+  ): Promise<number | null> {
+    try {
+      const token = await this.getToken(parsed.registry, parsed.fullName)
+      const manifestAccept = [
+        'application/vnd.oci.image.index.v1+json',
+        'application/vnd.docker.distribution.manifest.list.v2+json',
+        'application/vnd.oci.image.manifest.v1+json',
+        'application/vnd.docker.distribution.manifest.v2+json',
+      ].join(', ')
+
+      const fetchManifest = async (ref: string) =>
+        this.fetchWithRetry(`https://${parsed.registry}/v2/${parsed.fullName}/manifests/${ref}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: manifestAccept },
+        })
+
+      const topRes = await fetchManifest(tag)
+      if (!topRes.ok) return null
+
+      let manifest = (await topRes.json()) as {
+        mediaType?: string
+        layers?: Array<{ size?: number }>
+        manifests?: Array<{ digest?: string; platform?: { architecture?: string } }>
+      }
+
+      // Multi-arch manifest list/index — resolve to the host-arch child manifest.
+      if (manifest.manifests?.length) {
+        const match =
+          manifest.manifests.find((m) => m.platform?.architecture === hostArch) ||
+          manifest.manifests[0]
+        if (!match?.digest) return null
+
+        const childRes = await fetchManifest(match.digest)
+        if (!childRes.ok) return null
+        manifest = (await childRes.json()) as { layers?: Array<{ size?: number }> }
+      }
+
+      if (!manifest.layers?.length) return null
+
+      return manifest.layers.reduce((total, layer) => total + (layer.size || 0), 0)
+    } catch (error) {
+      logger.warn(
+        `[ContainerRegistryService] Failed to get image size for ${parsed.fullName}:${tag}: ${error.message}`
+      )
+      return null
     }
   }
 

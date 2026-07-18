@@ -187,7 +187,71 @@ export class KiwixLibraryService {
       .filter((b) => b.id && b.path)
   }
 
-  async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<void> {
+  /**
+   * Returns the number of books currently listed in the library XML, or 0 if the
+   * file doesn't exist yet. Used to report a before/after delta on a manual rescan.
+   */
+  async getBookCount(): Promise<number> {
+    try {
+      const content = await readFile(this.getLibraryFilePath(), 'utf-8')
+      return this._parseExistingBooks(content).length
+    } catch (err: any) {
+      if (err.code === 'ENOENT') return 0
+      throw err
+    }
+  }
+
+  /**
+   * True if the library XML parses and has a <library> root. A truncated or
+   * corrupt file (e.g. an interrupted write) fails this even though it exists,
+   * so the caller can rebuild rather than leave Kiwix serving a broken library.
+   * An empty-but-well-formed library is considered valid (nothing to repair).
+   */
+  private _isValidLibraryXml(xmlContent: string): boolean {
+    try {
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: '@_',
+        isArray: (name) => name === 'book',
+      })
+      const parsed = parser.parse(xmlContent)
+      return parsed?.library !== undefined && parsed?.library !== null
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Boot-time safety net: if the library XML is missing or unparseable, rebuild
+   * it from the ZIM files on disk so Kiwix (running in library mode with
+   * --monitorLibrary) doesn't come up serving an empty/broken library with no
+   * path to recovery. This covers files lost or corrupted outside the normal
+   * download flow (storage relocation, interrupted write, manual deletion).
+   *
+   * Returns true if a rebuild was performed. Filesystem errors other than
+   * "not found" are surfaced rather than masked by a rebuild.
+   */
+  async ensureLibraryXmlHealthy(): Promise<boolean> {
+    let content: string
+    try {
+      content = await readFile(this.getLibraryFilePath(), 'utf-8')
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        logger.warn('[KiwixLibraryService] Library XML missing on startup; rebuilding from disk.')
+        await this.rebuildFromDisk()
+        return true
+      }
+      throw err
+    }
+
+    if (this._isValidLibraryXml(content)) return false
+
+    logger.warn('[KiwixLibraryService] Library XML present but invalid; rebuilding from disk.')
+    await this.rebuildFromDisk()
+    return true
+  }
+
+  async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<number> {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
     await ensureDirectoryExists(dirPath)
 
@@ -221,6 +285,7 @@ export class KiwixLibraryService {
     const xml = this._buildXml(books)
     await this._atomicWrite(xml)
     logger.info(`[KiwixLibraryService] Rebuilt library XML with ${books.length} book(s).`)
+    return books.length
   }
 
   async addBook(filename: string): Promise<void> {

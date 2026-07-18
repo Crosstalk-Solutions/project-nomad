@@ -19,6 +19,12 @@ export const embedFileSchema = vine.compile(
   })
 )
 
+export const fileSourceSchema = vine.compile(
+  vine.object({
+    source: vine.string().minLength(1),
+  })
+)
+
 export const estimateBatchSchema = vine.compile(
   vine.object({
     files: vine

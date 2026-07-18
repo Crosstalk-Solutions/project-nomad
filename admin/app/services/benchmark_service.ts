@@ -614,8 +614,7 @@ export class BenchmarkService {
       await this.dockerService.docker.getImage(SYSBENCH_IMAGE).inspect()
     } catch {
       this._updateStatus('starting', `Pulling sysbench image...`)
-      const pullStream = await this.dockerService.docker.pull(SYSBENCH_IMAGE)
-      await new Promise((resolve) => this.dockerService.docker.modem.followProgress(pullStream, resolve))
+      await this.dockerService.pullImage(SYSBENCH_IMAGE)
     }
   }
 

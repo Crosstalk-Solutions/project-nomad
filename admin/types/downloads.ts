@@ -41,6 +41,13 @@ export type RunDownloadJobParams = Omit<
     resource_id: string
     version: string
     collection_ref: string | null
+    /**
+     * True only when this download was initiated by the content auto-updater.
+     * Gates the per-resource auto-update backoff (success reset in
+     * RunDownloadJob.onComplete, terminal-failure increment in the worker
+     * `failed` handler) so manual downloads never touch the counter.
+     */
+    auto?: boolean
   }
 }
 

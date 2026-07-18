@@ -61,7 +61,7 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
         'Interactive exercises and quizzes',
         'Progress tracking for learners',
       ],
-      services: [SERVICE_NAMES.KOLIBRI],
+      services: [SERVICE_NAMES.KOLIBRI_GEN2],
       icon: 'IconSchool',
     },
     {

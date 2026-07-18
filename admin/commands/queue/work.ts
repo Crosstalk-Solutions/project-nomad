@@ -9,6 +9,9 @@ import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
 import { EmbedFileJob } from '#jobs/embed_file_job'
 import { CheckUpdateJob } from '#jobs/check_update_job'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
+import { AutoUpdateJob } from '#jobs/auto_update_job'
+import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
+import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -90,6 +93,36 @@ export default class QueueWork extends BaseCommand {
             )
           }
         }
+
+        // Terminal failure of an AUTO content update → advance that resource's
+        // backoff (self-disables after MAX_CONSECUTIVE_FAILURES). BullMQ emits
+        // `failed` on every attempt, so gate on the final attempt to count each
+        // doomed download once, not once per retry. Manual downloads (auto !== true)
+        // are deliberately excluded.
+        const meta = job?.data?.resourceMetadata
+        const isTerminal = (job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 1)
+        if (job?.name === RunDownloadJob.key && meta?.auto === true && isTerminal) {
+          try {
+            const { default: InstalledResource } = await import('#models/installed_resource')
+            const { recordResourceUpdateFailure } = await import(
+              '../../app/utils/content_auto_update_backoff.js'
+            )
+            const resource = await InstalledResource.query()
+              .where('resource_id', meta.resource_id)
+              .where('resource_type', job.data.filetype)
+              .first()
+            if (resource) {
+              await recordResourceUpdateFailure(
+                resource,
+                err instanceof Error ? err.message : String(err)
+              )
+            }
+          } catch (e: any) {
+            this.logger.error(
+              `[${queueName}] Failed to record content auto-update backoff: ${e.message}`
+            )
+          }
+        }
       })
 
       worker.on('completed', (job) => {
@@ -103,6 +136,9 @@ export default class QueueWork extends BaseCommand {
     // Schedule nightly update checks (idempotent, will persist over restarts)
     await CheckUpdateJob.scheduleNightly()
     await CheckServiceUpdatesJob.scheduleNightly()
+    await AutoUpdateJob.schedule()
+    await AppAutoUpdateJob.schedule()
+    await ContentAutoUpdateJob.schedule()
 
     // Safety net: log unhandled rejections instead of crashing the worker process.
     // Individual job errors are already caught by BullMQ; this catches anything that
@@ -133,6 +169,9 @@ export default class QueueWork extends BaseCommand {
     handlers.set(EmbedFileJob.key, new EmbedFileJob())
     handlers.set(CheckUpdateJob.key, new CheckUpdateJob())
     handlers.set(CheckServiceUpdatesJob.key, new CheckServiceUpdatesJob())
+    handlers.set(AutoUpdateJob.key, new AutoUpdateJob())
+    handlers.set(AppAutoUpdateJob.key, new AppAutoUpdateJob())
+    handlers.set(ContentAutoUpdateJob.key, new ContentAutoUpdateJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
@@ -141,6 +180,9 @@ export default class QueueWork extends BaseCommand {
     queues.set(EmbedFileJob.key, EmbedFileJob.queue)
     queues.set(CheckUpdateJob.key, CheckUpdateJob.queue)
     queues.set(CheckServiceUpdatesJob.key, CheckServiceUpdatesJob.queue)
+    queues.set(AutoUpdateJob.key, AutoUpdateJob.queue)
+    queues.set(AppAutoUpdateJob.key, AppAutoUpdateJob.queue)
+    queues.set(ContentAutoUpdateJob.key, ContentAutoUpdateJob.queue)
 
     return [handlers, queues]
   }

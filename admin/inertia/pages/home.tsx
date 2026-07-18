@@ -1,8 +1,8 @@
 import {
   IconBolt,
+  IconBox,
   IconHelp,
   IconMapRoute,
-  IconPlus,
   IconSettings,
   IconWifiOff,
 } from '@tabler/icons-react'
@@ -42,11 +42,11 @@ const SYSTEM_ITEMS = [
     poweredBy: null,
   },
   {
-    label: 'Install Apps',
-    to: '/settings/apps',
+    label: 'Supply Depot',
+    to: '/supply-depot',
     target: '',
-    description: 'Not seeing your favorite app? Install it here!',
-    icon: <IconPlus size={48} />,
+    description: 'Browse and install curated apps, or add your own Docker container',
+    icon: <IconBox size={48} />,
     installed: true,
     displayOrder: 51,
     poweredBy: null,
@@ -101,12 +101,15 @@ export default function Home(props: {
 
   // Add installed services (non-dependency services only)
   props.system.services
-    .filter((service) => service.installed && service.ui_location)
+    .filter((service) => service.installed && (service.ui_location || service.custom_url))
     .forEach((service) => {
       items.push({
         // Inject custom AI Assistant name if this is the chat service
         label: service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName ? aiAssistantName : (service.friendly_name || service.service_name),
-        to: service.ui_location ? getServiceLink(service.ui_location) : '#',
+        to:
+          service.ui_location || service.custom_url
+            ? getServiceLink(service.ui_location || '', service.custom_url)
+            : '#',
         target: '_blank',
         description:
           service.description ||

@@ -56,6 +56,15 @@ export type StoredFileInfo = {
   source: string
   state: import('./kb_ingest_state.js').KbIngestStateValue | null
   chunksEmbedded: number
+  /** Filename portion of `source` (last path segment). */
+  fileName: string
+  /** File size in bytes from disk; null if the file is missing or unreadable. */
+  size: number | null
+  /** Last-modified timestamp from disk (ISO 8601); null if unavailable. */
+  uploadedAt: string | null
+  /** True when `source` lives under the user-uploads directory. Drives which
+   * rows offer view/download in the UI. */
+  isUserUpload: boolean
 }
 
 /**

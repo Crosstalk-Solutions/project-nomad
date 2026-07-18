@@ -16,6 +16,7 @@ import MapsController from '#controllers/maps_controller'
 import OllamaController from '#controllers/ollama_controller'
 import RagController from '#controllers/rag_controller'
 import SettingsController from '#controllers/settings_controller'
+import SupplyDepotController from '#controllers/supply_depot_controller'
 import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
 import ZimController from '#controllers/zim_controller'
@@ -29,6 +30,7 @@ router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
 router.get('/chat', [ChatsController, 'inertia'])
 router.get('/maps', [MapsController, 'index'])
+router.get('/supply-depot', [SupplyDepotController, 'index'])
 router.on('/knowledge-base').redirectToPath('/chat?knowledge_base=true') // redirect for legacy knowledge-base links
 
 router.get('/easy-setup', [EasySetupController, 'index'])
@@ -46,7 +48,7 @@ router
 router
   .group(() => {
     router.get('/system', [SettingsController, 'system'])
-    router.get('/apps', [SettingsController, 'apps'])
+    router.on('/apps').redirectToPath('/supply-depot') // superseded by Supply Depot
     router.get('/legal', [SettingsController, 'legal'])
     router.get('/maps', [SettingsController, 'maps'])
     router.get('/models', [SettingsController, 'models'])
@@ -55,6 +57,7 @@ router
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
     router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
+    router.get('/advanced', [SettingsController, 'advanced'])
   })
   .prefix('/settings')
 
@@ -145,9 +148,12 @@ router
     router.get('/file-warnings', [RagController, 'getFileWarnings'])
     router.delete('/files', [RagController, 'deleteFile'])
     router.post('/files/embed', [RagController, 'embedFile'])
+    router.get('/files/content', [RagController, 'getFileContent'])
+    router.get('/files/download', [RagController, 'downloadFile'])
     router.get('/active-jobs', [RagController, 'getActiveJobs'])
     router.get('/failed-jobs', [RagController, 'getFailedJobs'])
     router.delete('/failed-jobs', [RagController, 'cleanupFailedJobs'])
+    router.delete('/jobs', [RagController, 'cancelAllJobs'])
     router.get('/job-status', [RagController, 'getJobStatus'])
     router.post('/sync', [RagController, 'scanAndSync'])
     router.post('/re-embed-all', [RagController, 'reembedAll'])
@@ -167,14 +173,30 @@ router
     router.post('/services/affect', [SystemController, 'affectService'])
     router.post('/services/install', [SystemController, 'installService'])
     router.post('/services/force-reinstall', [SystemController, 'forceReinstallService'])
+    router.post('/services/uninstall', [SystemController, 'uninstallService'])
     router.post('/services/check-updates', [SystemController, 'checkServiceUpdates'])
+    router.get('/services/preflight', [SystemController, 'preflightCheck'])
+    router.get('/services/suggest-port', [SystemController, 'suggestCustomPort'])
+    router.post('/services/preflight-custom', [SystemController, 'preflightCustomApp'])
+    router.post('/services/custom', [SystemController, 'createCustomApp'])
+    router.put('/services/custom', [SystemController, 'updateCustomApp'])
+    router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest'])
+    router.delete('/services/custom', [SystemController, 'deleteCustomApp'])
+    router.get('/services/custom/:name', [SystemController, 'getCustomApp'])
+    router.put('/services/custom-url', [SystemController, 'setServiceCustomUrl'])
+    router.get('/services/:name/logs', [SystemController, 'getServiceLogs'])
+    router.get('/services/:name/stats', [SystemController, 'getServiceStats'])
     router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions'])
     router.post('/services/update', [SystemController, 'updateService'])
+    router.post('/services/auto-update', [SystemController, 'setServiceAutoUpdate'])
+    router.get('/apps/auto-update/status', [SystemController, 'getAppAutoUpdateStatus'])
+    router.get('/content/auto-update/status', [SystemController, 'getContentAutoUpdateStatus'])
     router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes'])
     router.get('/latest-version', [SystemController, 'checkLatestVersion'])
     router.post('/update', [SystemController, 'requestSystemUpdate'])
     router.get('/update/status', [SystemController, 'getSystemUpdateStatus'])
     router.get('/update/logs', [SystemController, 'getSystemUpdateLogs'])
+    router.get('/auto-update/status', [SystemController, 'getAutoUpdateStatus'])
     router.get('/settings', [SettingsController, 'getSetting'])
     router.patch('/settings', [SettingsController, 'updateSetting'])
   })
@@ -188,6 +210,7 @@ router
     router.post('/download-remote', [ZimController, 'downloadRemote'])
     router.post('/download-category-tier', [ZimController, 'downloadCategoryTier'])
 
+    router.post('/upload', [ZimController, 'upload'])
     router.get('/wikipedia', [ZimController, 'getWikipediaState'])
     router.post('/wikipedia/select', [ZimController, 'selectWikipedia'])
 
@@ -195,6 +218,8 @@ router
     router.post('/custom-libraries', [ZimController, 'addCustomLibrary'])
     router.delete('/custom-libraries/:id', [ZimController, 'removeCustomLibrary'])
     router.get('/browse-library', [ZimController, 'browseLibrary'])
+
+    router.post('/rescan-library', [ZimController, 'rescanLibrary'])
 
     router.delete('/:filename', [ZimController, 'delete'])
   })

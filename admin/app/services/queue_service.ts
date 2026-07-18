@@ -1,11 +1,11 @@
 import { Queue } from 'bullmq'
 import queueConfig from '#config/queue'
 
-// Process-wide singleton. Each `Queue` opens two ioredis connections (one for
-// commands, one blocking). Instantiating a fresh QueueService per dispatch /
-// status lookup leaks both, and under sustained job churn (e.g. multi-batch ZIM
-// ingestion enqueueing a continuation every few seconds) it saturates Redis's
-// maxclients within hours.
+// Process-wide singleton. Instantiating a fresh QueueService per dispatch /
+// status lookup leaks connections, and under sustained job churn (e.g.
+// multi-batch ZIM ingestion enqueueing a continuation every few seconds) it
+// saturates Redis's maxclients within hours. All queues additionally reuse the
+// single shared ioredis instance exported from #config/queue (#885).
 export class QueueService {
   private queues: Map<string, Queue> = new Map()
 

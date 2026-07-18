@@ -18,11 +18,14 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /opt/project-nomad/storage:/app/storage # If you change the default storage path (/opt/project-nomad/storage), make sure to update the disk-collector config as well!
+      # To store NOMAD's data somewhere other than /opt/project-nomad/storage, change the HOST side (left of the colon) here AND set NOMAD_STORAGE_PATH below to the same host path, then update the disk-collector volume at the bottom to match. The admin auto-detects this mount so child apps (Kiwix, Ollama, etc.) follow it, but setting NOMAD_STORAGE_PATH keeps everything explicit.
+      - /opt/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
+      # NOMAD_STORAGE_PATH is the HOST path where NOMAD stores all of its data (ZIMs, models, notes, etc.). It MUST match the host side of the /app/storage volume above and the disk-collector volume below. The admin also auto-detects its storage mount, so child apps follow it even if this is left at the default, but keep all three in sync to avoid surprises.
+      - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
       # PORT is the port the admin server listens on *inside* the container and should not be changed. If you want to change which port the admin interface is accessible from on the host, you can change the port mapping in the "ports" section (e.g. "9090:8080" to access it on port 9090 from the host)
       - PORT=8080
       - LOG_LEVEL=info

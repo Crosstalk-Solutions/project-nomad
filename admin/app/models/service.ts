@@ -59,8 +59,41 @@ export default class Service extends BaseModel {
   @column()
   declare ui_location: string | null
 
+  // User-set override for the launch ("Open") link (e.g. a reverse-proxy/local-DNS host like
+  // https://jellyfin.myhomelab.net). When null, the default host + port link derived from
+  // ui_location is used. Only affects user-facing links — never internal service-to-service URLs.
+  @column()
+  declare custom_url: string | null
+
   @column()
   declare metadata: string | null
+
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_custom: boolean
+
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_user_modified: boolean
+
+  @column()
+  declare category: string | null
+
+  // When true the service is sunset: hidden from the install catalog unless it is already
+  // installed (see SystemService.getServices). Lets a deprecated app stay manageable for users who
+  // still run it while keeping new users from installing it.
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_deprecated: boolean
 
   @column()
   declare source_repo: string | null
@@ -70,6 +103,28 @@ export default class Service extends BaseModel {
 
   @column.dateTime()
   declare update_checked_at: DateTime | null
+
+  // Per-app opt-in for automatic updates. An app auto-updates only when both this
+  // and the global `appAutoUpdate.enabled` master switch are on.
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare auto_update_enabled: boolean
+
+  // When the current `available_update_version` was first detected — the anchor for
+  // the auto-update cool-off (registry tags carry no publish timestamp).
+  @column.dateTime()
+  declare available_update_first_seen_at: DateTime | null
+
+  // Per-app auto-update failure backoff; at the threshold the app self-disables via
+  // `auto_update_disabled_reason` without affecting other apps.
+  @column()
+  declare auto_update_consecutive_failures: number
+
+  @column()
+  declare auto_update_disabled_reason: string | null
 
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime

@@ -4,6 +4,7 @@ FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y \
       bash \
       curl \
+      openssl \
       graphicsmagick \
       libvips-dev \
       build-essential \
@@ -83,6 +84,10 @@ RUN echo "{\"version\":\"${VERSION}\"}" > /app/version.json
 # Copy docs and README for access within the container
 COPY admin/docs /app/docs
 COPY README.md /app/README.md
+
+# Empty Calibre library, seeded into storage/books on Calibre-Web install
+# (see DockerService._runPreinstallActions__CalibreWeb)
+COPY install/calibre-empty-library/metadata.db /app/assets/calibre/metadata.db
 
 # Copy entrypoint script and ensure it's executable
 COPY install/entrypoint.sh /usr/local/bin/entrypoint.sh

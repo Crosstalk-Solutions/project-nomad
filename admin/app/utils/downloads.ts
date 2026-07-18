@@ -54,8 +54,8 @@ export async function doResumableDownload({
   // Without this default, the validator below throws `MIME type  is not allowed`
   // and breaks all downloads from kiwix's primary host (#848).
   const contentType =
-    headResponse.headers['content-type'] || 'application/octet-stream'
-  const totalBytes = parseInt(headResponse.headers['content-length'] || '0')
+    headResponse.headers['content-type']?.toString() || 'application/octet-stream'
+  const totalBytes = parseInt(headResponse.headers['content-length']?.toString() || '0', 10)
   const supportsRangeRequests = headResponse.headers['accept-ranges'] === 'bytes'
 
   // If allowedMimeTypes is provided, check content type

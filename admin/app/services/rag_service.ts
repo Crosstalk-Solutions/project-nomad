@@ -18,6 +18,7 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
+import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult, StoredFileInfo } from '../../types/rag.js'
@@ -46,6 +47,10 @@ export class RagService {
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
+  // Upper bound on distinct sources returned by Qdrant's facet API. Real
+  // NOMADs cap out at a few hundred ZIM files + uploaded PDFs; 10k leaves
+  // generous headroom without paying the cost of an unbounded request.
+  public static FACET_SOURCE_LIMIT = 10_000
   public static MODEL_CONTEXT_LENGTH = 2048 // nomic-embed-text has 2K token context
   public static MAX_SAFE_TOKENS = 1600 // Leave buffer for prefix and tokenization variance
   public static TARGET_TOKENS_PER_CHUNK = 1500 // Target 1500 tokens per chunk for embedding
@@ -1007,6 +1012,29 @@ export class RagService {
           }
         }
 
+        // Boost when query keywords match the chunk's section/article heading. ZIM
+        // content carries this structural metadata (already fetched, no extra cost),
+        // and a query term appearing in a heading is a strong relevance signal that
+        // body-text matching alone misses. Same conservative, score-scaled, diminishing
+        // -returns shape as the boosts above, so it can't promote a weak match.
+        const headingText = [result.full_title, result.section_title, result.article_title]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (headingText) {
+          const headingHits = queryKeywords.filter((kw) =>
+            headingText.includes(kw.toLowerCase())
+          ).length
+          if (headingHits > 0) {
+            const headingRatio = headingHits / Math.max(queryKeywords.length, 1)
+            const headingBoost = Math.sqrt(headingRatio) * 0.1 * result.score
+            logger.debug(
+              `[RAG] Heading match: ${headingHits}/${queryKeywords.length} - Boost: ${headingBoost.toFixed(3)}`
+            )
+            finalScore += headingBoost
+          }
+        }
+
         finalScore = Math.min(1.0, finalScore + keywordBoost)
 
         return {
@@ -1069,29 +1097,21 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
+      // Use Qdrant's facet API to enumerate distinct `source` values in one
+      // call. The previous scroll-loop walked every point in the collection
+      // (3M+ on a fully-ingested NOMAD) just to learn the ~40 unique sources,
+      // which made this endpoint take 50+ seconds. Facet returns the unique
+      // values directly. `exact: true` so the count we'll reuse for warnings
+      // matches what would be reported by an exhaustive walk.
       const sources = new Set<string>()
-      let offset: string | number | null | Record<string, unknown> = null
-      const batchSize = 100
-
-      // Scroll through all points in the collection (only fetch source field)
-      do {
-        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: batchSize,
-          offset: offset,
-          with_payload: ['source'],
-          with_vector: false,
-        })
-
-        // Extract unique source values from payloads
-        scrollResult.points.forEach((point) => {
-          const source = point.payload?.source
-          if (source && typeof source === 'string') {
-            sources.add(source)
-          }
-        })
-
-        offset = scrollResult.next_page_offset || null
-      } while (offset !== null)
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      for (const hit of facetResult.hits) {
+        if (typeof hit.value === 'string') sources.add(hit.value)
+      }
 
       // Union the Qdrant-derived list with the disk-backed file paths the
       // state machine has tracked. Without this, files known to the scanner
@@ -1120,18 +1140,88 @@ export class RagService {
         )
       }
 
-      return Array.from(sources).map((source) => {
-        const row = stateByPath.get(source)
-        return {
-          source,
-          state: row?.state ?? null,
-          chunksEmbedded: row?.chunks_embedded ?? 0,
-        }
-      })
+      const uploadsAbsPath = resolve(join(process.cwd(), RagService.UPLOADS_STORAGE_PATH))
+      return await Promise.all(
+        Array.from(sources).map(async (source) => {
+          const row = stateByPath.get(source)
+          const fileName = source.split(/[/\\]/).at(-1) ?? source
+          const isUserUpload = resolve(source).startsWith(uploadsAbsPath + sep)
+          const stats = await getFileStatsIfExists(source)
+          return {
+            source,
+            state: row?.state ?? null,
+            chunksEmbedded: row?.chunks_embedded ?? 0,
+            fileName,
+            size: stats?.size ?? null,
+            uploadedAt: stats?.modifiedTime.toISOString() ?? null,
+            isUserUpload,
+          }
+        })
+      )
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
     }
+  }
+
+  /**
+   * Resolve a stored-file `source` to an absolute disk path, but only if the
+   * path lives under the uploads directory. Mirrors the docs_service traversal
+   * guard: resolve, then require the resolved path to be strictly inside the
+   * base + path separator (so siblings of `kb_uploads` can't slip through).
+   * Returns null for anything else — ZIMs, admin docs, README, or paths
+   * outside the app entirely. The viewer/download endpoints lean on this so
+   * they don't need to repeat the check.
+   */
+  private resolveUploadPath(source: string): string | null {
+    const uploadsAbsPath = resolve(join(process.cwd(), RagService.UPLOADS_STORAGE_PATH))
+    const resolved = resolve(source)
+    if (!resolved.startsWith(uploadsAbsPath + sep)) return null
+    return resolved
+  }
+
+  private static readonly VIEWABLE_TEXT_EXTENSIONS: ReadonlySet<string> = new Set([
+    'md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html',
+  ])
+
+  /**
+   * Read the text content of a user-uploaded file for in-browser viewing.
+   * Returns null when the source is outside uploads, missing, or not a
+   * recognized text extension. The extension allowlist is intentionally narrow
+   * — PDFs/EPUBs/ZIMs round-trip through Download, not the viewer.
+   */
+  public async readFileContent(
+    source: string
+  ): Promise<{ content: string; extension: string; fileName: string } | null> {
+    const resolved = this.resolveUploadPath(source)
+    if (!resolved) return null
+
+    const extension = resolved.split('.').at(-1)?.toLowerCase() ?? ''
+    if (!RagService.VIEWABLE_TEXT_EXTENSIONS.has(extension)) return null
+
+    const stats = await getFileStatsIfExists(resolved)
+    if (!stats) return null
+
+    try {
+      const { readFile } = await import('node:fs/promises')
+      const content = await readFile(resolved, 'utf-8')
+      const fileName = resolved.split(/[/\\]/).at(-1) ?? resolved
+      return { content, extension, fileName }
+    } catch (error) {
+      logger.warn({ err: error, source }, '[RagService.readFileContent] read failed')
+      return null
+    }
+  }
+
+  /**
+   * Resolve a download-target path for a stored upload. Returns null if the
+   * source isn't an upload or the file is missing on disk.
+   */
+  public async resolveDownloadPath(source: string): Promise<string | null> {
+    const resolved = this.resolveUploadPath(source)
+    if (!resolved) return null
+    const stats = await getFileStatsIfExists(resolved)
+    return stats ? resolved : null
   }
 
   /**
@@ -1180,28 +1270,21 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
-      // Per-source chunk count from a single scroll. We deliberately don't
-      // assume `kb_ingest_state.chunks_embedded` here so this PR stays
-      // independent of the state-machine PR (#888) — but a future cleanup can
-      // read from there for efficiency once both have landed.
+      // Per-source chunk count via Qdrant's facet API. Was a full scroll of
+      // every point in the collection, which on a fully-ingested NOMAD takes
+      // ~50s for a 3M-point KB just to count ~40 sources. Facet returns the
+      // distinct values + counts in a single call. `exact: true` because the
+      // counts feed Warning A's zero_chunks decision — approximate counts
+      // could mis-fire warnings near thresholds.
       const chunksBySource = new Map<string, number>()
-      let offset: string | number | null | Record<string, unknown> = null
-      const batchSize = 100
-      do {
-        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: batchSize,
-          offset,
-          with_payload: ['source'],
-          with_vector: false,
-        })
-        for (const point of scrollResult.points) {
-          const source = point.payload?.source
-          if (source && typeof source === 'string') {
-            chunksBySource.set(source, (chunksBySource.get(source) ?? 0) + 1)
-          }
-        }
-        offset = scrollResult.next_page_offset || null
-      } while (offset !== null)
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      for (const hit of facetResult.hits) {
+        if (typeof hit.value === 'string') chunksBySource.set(hit.value, hit.count)
+      }
 
       // Scan the filesystem the same way scanAndSyncStorage does so Warning A
       // can fire on files with zero qdrant points (the headline "video-only
@@ -1230,9 +1313,14 @@ export class RagService {
         const fileSizeBytes = sizeByPath.get(source) ?? 0
         const chunksInQdrant = chunksBySource.get(source) ?? 0
         const fileName = source.split(/[/\\]/).pop() ?? source
+        // ignoreCatchAll: the partial_stall warning must only fire when the
+        // registry has a *specific* expectation for this file. The empty-pattern
+        // fallback (100 chunks/MB) over-predicts wildly for atypical ZIMs that
+        // are mostly PDFs/images/link-outs (e.g. military-medicine), producing
+        // false "ingestion stalled" warnings. Suppress Warning B in that case. (#913)
         const expectedChunks =
           fileSizeBytes > 0
-            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes)
+            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes, { ignoreCatchAll: true })
             : null
 
         const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks })
@@ -1290,6 +1378,98 @@ export class RagService {
       logger.error('[RAG] Error deleting file from knowledge base:', error)
       return { success: false, message: 'Error deleting file from knowledge base.' }
     }
+  }
+
+  /**
+   * Reconcile the knowledge base after a curated content file (a ZIM) is
+   * replaced on disk by a newer downloaded version. Called from
+   * `RunDownloadJob.onComplete` once the new file is written and the old file
+   * has been deleted from disk.
+   *
+   * The decision (see `decideContentReindex` for the exhaustive, tested
+   * contract) mirrors the REPLACED file's prior indexed state instead of the
+   * global `rag.defaultIngestPolicy`. On a content update the user has already
+   * chosen whether this content belongs in the AI knowledge base, so we honor
+   * that choice in both directions:
+   *
+   *   1. (caller already deleted the outdated file from disk)
+   *   2. Qdrant not installed          → no-op (no knowledge base exists)
+   *   3. Old file WAS indexed + Qdrant
+   *      running                       → delete ONLY the old file's points
+   *                                       (filter `source == oldFilePath`), drop
+   *                                       its ingest-state row, and queue the new
+   *                                       file for embedding — BYPASSING the
+   *                                       Always/Manual policy on purpose.
+   *   4. Old file NOT indexed          → no-op (respect the prior un-indexed /
+   *                                       browse-only choice; do NOT auto-embed
+   *                                       even under an Always policy)
+   *   5. Old indexed but Qdrant NOT
+   *      currently running             → no-op. We can't remove the stale points,
+   *                                       and a queued embed job could be cleared
+   *                                       before Qdrant returns. Acting half-way is
+   *                                       wasteful, so we defer entirely. Accepted
+   *                                       tradeoff: the old file's points linger in
+   *                                       Qdrant until a future re-index; they are
+   *                                       NOT auto-reaped here.
+   *
+   * Point deletion is exact: ZIM chunks are stored with `source` equal to the
+   * full file path (see embedAndStoreText callers), so filtering on the old path
+   * can only ever remove the replaced file's own points.
+   *
+   * Returns the decision outcome for logging/tests; never throws on a Qdrant
+   * hiccup mid-reindex (logged and surfaced as `qdrant_not_running` semantics by
+   * the caller's try/catch).
+   */
+  public async reconcileReplacedContentFile(params: {
+    oldFilePath: string
+    newFilePath: string
+    fileName: string
+  }): Promise<ReindexOutcome> {
+    const { oldFilePath, newFilePath, fileName } = params
+
+    const isReplacement = !!oldFilePath && oldFilePath !== newFilePath
+
+    // Step 2: is the knowledge base even installed? Short-circuits before any
+    // KB-state lookup, per the spec ordering.
+    const qdrantInstalled = isReplacement
+      ? !!(await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT))
+      : false
+
+    // Steps 3/4: was the OUTDATED file actually indexed? The state row is the
+    // authoritative signal (RFC #883) — chunk presence alone can't distinguish
+    // a fully-indexed file from a stalled ingestion.
+    let oldFileWasIndexed = false
+    if (isReplacement && qdrantInstalled) {
+      const oldState = await KbIngestState.query().where('file_path', oldFilePath).first()
+      oldFileWasIndexed = oldState?.state === 'indexed'
+    }
+
+    // Step 5: only check liveness once we know we'd otherwise act. The health
+    // check is a real network round-trip, so we avoid it on the common no-op
+    // paths above.
+    let qdrantRunning = false
+    if (isReplacement && qdrantInstalled && oldFileWasIndexed) {
+      qdrantRunning = (await this.checkQdrantHealth()).online
+    }
+
+    const outcome = decideContentReindex({
+      isReplacement,
+      qdrantInstalled,
+      oldFileWasIndexed,
+      qdrantRunning,
+    })
+
+    if (outcome === 'reindex') {
+      // Order matters: remove the stale points and state row BEFORE queueing the
+      // new embed so a fresh index can't be conflated with the old one. Each step
+      // targets only `oldFilePath` / `newFilePath` — never another resource.
+      await this._deletePointsBySource(oldFilePath)
+      await KbIngestState.remove(oldFilePath)
+      const { EmbedFileJob } = await import('#jobs/embed_file_job')
+      await EmbedFileJob.dispatch({ fileName, filePath: newFilePath })
+    }
+
+    return outcome
   }
 
   public async discoverNomadDocs(force?: boolean): Promise<{ success: boolean; message: string }> {
@@ -1548,22 +1728,17 @@ export class RagService {
       )
 
       // Collect every unique `source` already in Qdrant so we can skip files
-      // that have already been embedded.
+      // that have already been embedded. Facet returns the distinct values in
+      // a single call rather than scrolling the whole collection.
       const sourcesInQdrant = new Set<string>()
-      let offset: string | number | null | Record<string, unknown> = null
-      do {
-        const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
-          limit: 100,
-          offset,
-          with_payload: ['source'],
-          with_vector: false,
-        })
-        scrollResult.points.forEach((point) => {
-          const source = point.payload?.source
-          if (source && typeof source === 'string') sourcesInQdrant.add(source)
-        })
-        offset = scrollResult.next_page_offset || null
-      } while (offset !== null)
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      for (const hit of facetResult.hits) {
+        if (typeof hit.value === 'string') sourcesInQdrant.add(hit.value)
+      }
 
       logger.info(`[RAG] Found ${sourcesInQdrant.size} unique sources in Qdrant`)
 

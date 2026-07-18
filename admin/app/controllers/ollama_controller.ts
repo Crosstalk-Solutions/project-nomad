@@ -106,8 +106,17 @@ export default class OllamaController {
             `[RAG] Injecting ${trimmedDocs.length}/${relevantDocs.length} results (model: ${reqData.model}, maxResults: ${maxResults}, maxTokens: ${maxTokens || 'unlimited'})`
           )
 
+          // Label each context block with its source title when available (a neutral,
+          // honest provenance signal) but never the raw relevance score — nomic cosine
+          // scores for genuinely relevant passages sit ~0.4-0.6, and surfacing e.g.
+          // "42%" primes the model to distrust correct context. Scores stay in the logs
+          // above for debugging.
           const contextText = trimmedDocs
-            .map((doc, idx) => `[Context ${idx + 1}] (Relevance: ${(doc.score * 100).toFixed(1)}%)\n${doc.text}`)
+            .map((doc, idx) => {
+              const title = doc.metadata?.full_title || doc.metadata?.article_title
+              const label = title ? `[Context ${idx + 1} — ${title}]` : `[Context ${idx + 1}]`
+              return `${label}\n${doc.text}`
+            })
             .join('\n\n')
 
           const systemMessage = {

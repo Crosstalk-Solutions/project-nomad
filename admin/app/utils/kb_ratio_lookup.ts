@@ -66,10 +66,21 @@ export function estimateBatch(
  *
  * Returns `null` if no row matches and no empty-string fallback is present —
  * caller decides whether to surface "unknown" or use its own default.
+ *
+ * `ignoreCatchAll` excludes the empty-string catch-all row from matching, so a
+ * filename that only the fallback would have matched returns `null` instead.
+ * Callers that need a *specific* expectation (e.g. the partial_stall warning,
+ * which must not fire on atypical ZIMs the registry can't actually characterize)
+ * pass this; rough aggregate estimates (disk cost) leave it off. See #913.
  */
-export function findChunksPerMb(filename: string, rows: RatioRow[]): number | null {
+export function findChunksPerMb(
+  filename: string,
+  rows: RatioRow[],
+  opts: { ignoreCatchAll?: boolean } = {}
+): number | null {
   let best: RatioRow | null = null
   for (const row of rows) {
+    if (opts.ignoreCatchAll && row.pattern === '') continue
     if (!filename.startsWith(row.pattern)) continue
     if (best === null || row.pattern.length > best.pattern.length) {
       best = row
@@ -88,9 +99,10 @@ export function findChunksPerMb(filename: string, rows: RatioRow[]): number | nu
 export function estimateChunkCount(
   filename: string,
   fileSizeBytes: number,
-  rows: RatioRow[]
+  rows: RatioRow[],
+  opts: { ignoreCatchAll?: boolean } = {}
 ): number | null {
-  const ratio = findChunksPerMb(filename, rows)
+  const ratio = findChunksPerMb(filename, rows, opts)
   if (ratio === null) return null
   const megabytes = fileSizeBytes / (1024 * 1024)
   return Math.round(ratio * megabytes)

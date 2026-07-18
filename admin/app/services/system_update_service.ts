@@ -18,9 +18,18 @@ export class SystemUpdateService {
   private static LOG_FILE = join(SystemUpdateService.SHARED_DIR, 'update-log')
 
   /**
-   * Requests a system update by creating a request file that the sidecar will detect
+   * Requests a system update by creating a request file that the sidecar will detect.
+   *
+   * @param options.targetTag - Explicit Docker image tag to install (e.g. "v1.33.2").
+   *   When omitted, falls back to the cached `system.latestVersion` (manual-update
+   *   behavior). Auto-update passes an eligibility-vetted tag here, which may differ
+   *   from `system.latestVersion` when the newest release is a major bump.
+   * @param options.requester - Identifier recorded in the request file for auditing.
    */
-  async requestUpdate(): Promise<{ success: boolean; message: string }> {
+  async requestUpdate(options?: {
+    targetTag?: string
+    requester?: string
+  }): Promise<{ success: boolean; message: string }> {
     try {
       const currentStatus = this.getUpdateStatus()
       if (currentStatus && !['idle', 'complete', 'error'].includes(currentStatus.stage)) {
@@ -30,13 +39,18 @@ export class SystemUpdateService {
         }
       }
 
-      // Determine the Docker image tag to install.
-      const latestVersion = await KVStore.getValue('system.latestVersion')
+      // Determine the Docker image tag to install. Prefer an explicit caller-supplied
+      // tag; otherwise use the cached latest version.
+      let targetTag = options?.targetTag
+      if (!targetTag) {
+        const latestVersion = await KVStore.getValue('system.latestVersion')
+        targetTag = latestVersion ? `v${latestVersion}` : 'latest'
+      }
 
       const requestData = {
         requested_at: new Date().toISOString(),
-        requester: 'admin-api',
-        target_tag: latestVersion ? `v${latestVersion}` : 'latest',
+        requester: options?.requester ?? 'admin-api',
+        target_tag: targetTag,
       }
 
       await writeFile(SystemUpdateService.REQUEST_FILE, JSON.stringify(requestData, null, 2))

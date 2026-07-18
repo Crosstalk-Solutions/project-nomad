@@ -1,4 +1,5 @@
 import Service from '#models/service'
+import InstalledResource from '#models/installed_resource'
 import { inject } from '@adonisjs/core'
 import { DockerService } from '#services/docker_service'
 import { ServiceSlim } from '../../types/services.js'
@@ -35,29 +36,54 @@ export class SystemService {
   }
 
   async getInternetStatus(): Promise<boolean> {
-    const DEFAULT_TEST_URL = 'https://1.1.1.1/cdn-cgi/trace'
+    // Primary endpoint stays Cloudflare's privacy-respecting utility endpoint.
+    // The fallbacks are hosts the application already contacts elsewhere
+    // (GitHub API for update checks, the Project N.O.M.A.D. API for release-note
+    // subscriptions), so no new third-party services are introduced. They exist
+    // to avoid false "offline" reports on networks that block 1.1.1.1.
+    const DEFAULT_TEST_URLS = [
+      'https://1.1.1.1/cdn-cgi/trace',
+      'https://api.github.com',
+      'https://api.projectnomad.us',
+    ]
     const MAX_ATTEMPTS = 3
 
-    let testUrl = DEFAULT_TEST_URL
-    let customTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
+    let testUrls = DEFAULT_TEST_URLS
 
-    // check that customTestUrl is a valid URL, if provided
+    // Resolve the test endpoint in priority order: the INTERNET_STATUS_TEST_URL
+    // env var always wins (legacy override for operators who intentionally point
+    // connectivity checks at a specific endpoint), then the UI-configurable value
+    // stored in KVStore, and finally the built-in defaults.
+    const envTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
+    const kvTestUrl = (await KVStore.getValue('system.internetStatusTestUrl'))?.trim()
+    const customTestUrl = envTestUrl || kvTestUrl
+
+    // If a custom test URL is provided and valid, use it exclusively.
     if (customTestUrl && customTestUrl !== '') {
       try {
         new URL(customTestUrl)
-        testUrl = customTestUrl
+        testUrls = [customTestUrl]
       } catch (error) {
         logger.warn(
-          `Invalid INTERNET_STATUS_TEST_URL: ${customTestUrl}. Falling back to default URL.`
+          `Invalid internet status test URL: ${customTestUrl}. Falling back to default URLs.`
         )
       }
     }
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const res = await axios.get(testUrl, { timeout: 5000 })
-        return res.status === 200
+        // Probe all test endpoints in parallel and resolve as soon as the first one
+        // responds. Any HTTP response (including non-2xx) means we reached the
+        // internet, so accept all status codes rather than requiring a strict 200.
+        await Promise.any(
+          testUrls.map((testUrl) => {
+            logger.debug(`[SystemService] Checking internet connectivity via: ${testUrl}`)
+            return axios.get(testUrl, { timeout: 5000, validateStatus: () => true })
+          })
+        )
+        return true
       } catch (error) {
+        // Promise.any only rejects (with an AggregateError) when every endpoint failed.
         logger.warn(
           `Internet status check attempt ${attempt}/${MAX_ATTEMPTS} failed: ${error instanceof Error ? error.message : error}`
         )
@@ -302,15 +328,26 @@ export class SystemService {
         'installed',
         'installation_status',
         'ui_location',
+        'custom_url',
         'friendly_name',
         'description',
         'icon',
         'powered_by',
         'display_order',
         'container_image',
-        'available_update_version'
+        'available_update_version',
+        'auto_update_enabled',
+        'is_custom',
+        'is_user_modified',
+        'is_deprecated',
+        'category'
       )
       .where('is_dependency_service', false)
+      // Deprecated/sunset apps stay visible only while still installed, so the user can manage and
+      // uninstall them — they never reappear in the install catalog once removed.
+      .where((q) => {
+        q.where('is_deprecated', false).orWhere('installed', true)
+      })
     if (installedOnly) {
       query.where('installed', true)
     }
@@ -334,10 +371,16 @@ export class SystemService {
         installation_status: service.installation_status,
         status: status ? status.status : 'unknown',
         ui_location: service.ui_location || '',
+        custom_url: service.custom_url,
         powered_by: service.powered_by,
         display_order: service.display_order,
         container_image: service.container_image,
         available_update_version: service.available_update_version,
+        auto_update_enabled: service.auto_update_enabled,
+        is_custom: service.is_custom,
+        is_user_modified: service.is_user_modified,
+        is_deprecated: service.is_deprecated,
+        category: service.category,
       })
     }
 
@@ -826,6 +869,31 @@ export class SystemService {
     if (key === 'ai.assistantCustomName') {
       invalidateAssistantNameCache()
     }
+    // Re-enabling auto-update after a backoff-driven auto-disable clears the
+    // failure state so it gets a fresh start instead of immediately re-tripping.
+    if (key === 'autoUpdate.enabled' && (value === true || value === 'true')) {
+      await KVStore.setValue('autoUpdate.consecutiveFailures', '0')
+      await KVStore.clearValue('autoUpdate.autoDisabledReason')
+    }
+    // Re-enabling the global app auto-update master switch clears every app's
+    // per-app failure backoff so previously self-disabled apps get a fresh start.
+    if (key === 'appAutoUpdate.enabled' && (value === true || value === 'true')) {
+      await Service.query().update({
+        auto_update_consecutive_failures: 0,
+        auto_update_disabled_reason: null,
+      })
+    }
+    // Re-enabling content auto-update clears the feature-level backoff and every
+    // resource's per-resource backoff so previously self-disabled content gets a
+    // fresh start.
+    if (key === 'contentAutoUpdate.enabled' && (value === true || value === 'true')) {
+      await KVStore.setValue('contentAutoUpdate.consecutiveFailures', '0')
+      await KVStore.clearValue('contentAutoUpdate.autoDisabledReason')
+      await InstalledResource.query().update({
+        auto_update_consecutive_failures: 0,
+        auto_update_disabled_reason: null,
+      })
+    }
   }
 
   /**
@@ -927,5 +995,84 @@ export class SystemService {
           })),
         }
       })
+  }
+
+  /**
+   * Check whether the host has enough free memory and disk to comfortably run an app.
+   * Returns an array of human-readable warning strings; an empty array means no concerns.
+   * These are advisory only — the caller decides whether to block or warn.
+   */
+  async checkResourceWarnings(minMemoryMB: number, minDiskMB: number): Promise<string[]> {
+    const warnings: string[] = []
+
+    try {
+      const mem = await si.mem()
+      const availableMB = Math.floor(mem.available / 1024 / 1024)
+      if (availableMB < minMemoryMB) {
+        warnings.push(
+          `Low memory: ${availableMB} MB available, this app recommends at least ${minMemoryMB} MB free.`
+        )
+      }
+    } catch (err: any) {
+      logger.warn(`[SystemService] checkResourceWarnings mem check failed: ${err.message}`)
+    }
+
+    try {
+      const storagePath = env.get('NOMAD_STORAGE_PATH', '/opt/project-nomad/storage')
+      const fsSizes = await si.fsSize()
+      // Find the filesystem whose mount point is the longest prefix of storagePath
+      const fs = fsSizes
+        .filter((f) => storagePath.startsWith(f.mount))
+        .sort((a, b) => b.mount.length - a.mount.length)[0]
+
+      if (fs) {
+        const availableDiskMB = Math.floor((fs.size - fs.used) / 1024 / 1024)
+        if (availableDiskMB < minDiskMB) {
+          warnings.push(
+            `Low disk space: ${availableDiskMB} MB available on ${fs.mount}, this app recommends at least ${minDiskMB} MB free.`
+          )
+        }
+      }
+    } catch (err: any) {
+      logger.warn(`[SystemService] checkResourceWarnings disk check failed: ${err.message}`)
+    }
+
+    return warnings
+  }
+
+  /**
+   * Return the next suggested host port for a custom app in the 8600+ range.
+   * Looks at existing custom service records and all Docker container port bindings.
+   */
+  async getNextSuggestedCustomPort(): Promise<number> {
+    const CUSTOM_PORT_START = 8600
+    const occupied = new Set<number>()
+
+    try {
+      // Ports used by existing custom services in the DB
+      const customServices = await Service.query().where('is_custom', true)
+      for (const svc of customServices) {
+        const config = svc.container_config ? JSON.parse(svc.container_config) : null
+        const bindings = config?.HostConfig?.PortBindings ?? {}
+        for (const binding of Object.values(bindings) as any[]) {
+          const port = parseInt(binding?.[0]?.HostPort, 10)
+          if (!isNaN(port)) occupied.add(port)
+        }
+      }
+
+      // Ports used by any running Docker container in the 8600+ range
+      const containers = await this.dockerService.docker.listContainers({ all: true })
+      for (const c of containers) {
+        for (const p of c.Ports) {
+          if (p.PublicPort && p.PublicPort >= CUSTOM_PORT_START) occupied.add(p.PublicPort)
+        }
+      }
+    } catch (err: any) {
+      logger.warn(`[SystemService] getNextSuggestedCustomPort probe failed: ${err.message}`)
+    }
+
+    let candidate = CUSTOM_PORT_START
+    while (occupied.has(candidate)) candidate += 10
+    return candidate
   }
 }

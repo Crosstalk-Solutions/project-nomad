@@ -21,6 +21,7 @@ import logger from '@adonisjs/core/services/logger'
 import { assertNotPrivateUrl } from '#validators/common'
 import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
+import { decideSupersededDeletion } from '../utils/superseded_resource.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps.js'
 import {
@@ -199,10 +200,18 @@ export class MapService implements IMapService {
       const parsed = CollectionManifestService.parseMapFilename(filename)
       if (!parsed) continue
 
-      const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
+      const pmtilesDir = join(process.cwd(), this.mapStoragePath, 'pmtiles')
+      const filepath = join(pmtilesDir, filename)
       const stats = await getFileStatsIfExists(filepath)
 
       try {
+        // Capture the prior install for this resource_id before updateOrCreate
+        // overwrites it, so we know the old file to clean up (#634).
+        const prior = await InstalledResource.query()
+          .where('resource_id', parsed.resource_id)
+          .where('resource_type', 'map')
+          .first()
+
         const { DateTime } = await import('luxon')
         await InstalledResource.updateOrCreate(
           { resource_id: parsed.resource_id, resource_type: 'map' },
@@ -215,6 +224,31 @@ export class MapService implements IMapService {
           }
         )
         logger.info(`[MapService] Created InstalledResource entry for: ${parsed.resource_id}`)
+
+        // Remove the superseded prior version's pmtiles file if every safety
+        // rail passes (see decideSupersededDeletion). Maps have no library index,
+        // so a direct delete of the recorded old file is sufficient.
+        const decision = decideSupersededDeletion({
+          existing: prior ? { file_path: prior.file_path, version: prior.version } : null,
+          newFilePath: filepath,
+          newVersion: parsed.version,
+          newFileExists: !!stats,
+          storageBaseDir: pmtilesDir,
+        })
+        if (decision.delete && decision.path) {
+          try {
+            await deleteFileIfExists(decision.path)
+            logger.info(
+              `[MapService] Removed superseded ${parsed.resource_id} file: ${decision.path}`
+            )
+          } catch (err) {
+            logger.warn(`[MapService] Failed to remove superseded file ${decision.path}:`, err)
+          }
+        } else if (decision.reason !== 'first_install' && decision.reason !== 'same_file') {
+          logger.info(
+            `[MapService] Kept prior ${parsed.resource_id} file (reason: ${decision.reason})`
+          )
+        }
       } catch (error) {
         logger.error(`[MapService] Failed to create InstalledResource for ${filename}:`, error)
       }
@@ -301,7 +335,7 @@ export class MapService implements IMapService {
       }
 
       const contentLength = response.headers['content-length']
-      const size = contentLength ? parseInt(contentLength, 10) : 0
+      const size = contentLength ? parseInt(contentLength.toString(), 10) : 0
 
       return { filename, size }
     } catch (error: any) {
@@ -457,6 +491,18 @@ export class MapService implements IMapService {
     return await listDirectoryContentsRecursive(this.baseDirPath)
   }
 
+  /**
+   * Compare two map-file versions (YYYY-MM, or null for an undated legacy file). Returns >0 if
+   * `a` is newer than `b`, <0 if older, 0 if equal. A dated build is always newer than an undated
+   * legacy file; two dated builds compare lexicographically (correct for zero-padded YYYY-MM).
+   */
+  private static compareMapVersions(a: string | null, b: string | null): number {
+    if (a === b) return 0
+    if (a === null) return -1
+    if (b === null) return 1
+    return a < b ? -1 : 1
+  }
+
   private generateSourcesArray(host: string | null, regions: FileEntry[], protocol: string = 'http'): BaseStylesFile['sources'][] {
     const sources: BaseStylesFile['sources'][] = []
     const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
@@ -474,21 +520,45 @@ export class MapService implements IMapService {
       sources.push(worldSource)
     }
 
+    // Dedupe by region name, keeping only the newest file per region. The source name is the
+    // date-stripped region (e.g. both "washington.pmtiles" and "washington_2025-12.pmtiles" map
+    // to "washington"). Emitting both produces duplicate source keys and duplicate layer ids,
+    // which MapLibre rejects outright — blanking the ENTIRE map, not just that region. Old copies
+    // linger when a newer curated version installs (#634), so guard against it here so the style
+    // stays valid even if cleanup hasn't run. A dated build beats an undated legacy file; between
+    // two dated builds the later YYYY-MM wins (lexicographic compare is correct for that format).
+    const bestByRegion = new Map<string, { region: FileEntry; version: string | null }>()
     for (const region of regions) {
       if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
-        // Strip .pmtiles and date suffix (e.g. "alaska_2025-12" -> "alaska") for stable source names
         const parsed = CollectionManifestService.parseMapFilename(region.name)
         const regionName = parsed ? parsed.resource_id : region.name.replace('.pmtiles', '')
-        const source: BaseStylesFile['sources'] = {}
-        const sourceUrl = urlJoin(baseUrl, region.name)
-
-        source[regionName] = {
-          type: 'vector',
-          attribution: PMTILES_ATTRIBUTION,
-          url: `pmtiles://${sourceUrl}`,
+        const version = parsed?.version ?? null
+        const existing = bestByRegion.get(regionName)
+        if (!existing || MapService.compareMapVersions(version, existing.version) > 0) {
+          if (existing) {
+            logger.warn(
+              `[MapService] Duplicate map region "${regionName}": using "${region.name}" over "${existing.region.name}" (keeping newest)`
+            )
+          }
+          bestByRegion.set(regionName, { region, version })
+        } else {
+          logger.warn(
+            `[MapService] Duplicate map region "${regionName}": skipping "${region.name}" in favor of "${existing.region.name}" (keeping newest)`
+          )
         }
-        sources.push(source)
       }
+    }
+
+    for (const [regionName, { region }] of bestByRegion) {
+      const source: BaseStylesFile['sources'] = {}
+      const sourceUrl = urlJoin(baseUrl, region.name)
+
+      source[regionName] = {
+        type: 'vector',
+        attribution: PMTILES_ATTRIBUTION,
+        url: `pmtiles://${sourceUrl}`,
+      }
+      sources.push(source)
     }
 
     return sources

@@ -14,24 +14,42 @@ import ipaddr from 'ipaddr.js'
  */
 export function assertNotPrivateUrl(urlString: string): void {
   const parsed = new URL(urlString)
-  const hostname = parsed.hostname.toLowerCase()
 
-  // `URL.hostname` strips the surrounding brackets from IPv6 literals
-  // (e.g. `http://[::1]/` → hostname `::1`), so IPv6 patterns must match
-  // the unbracketed form.
-  const blockedPatterns = [
-    /^localhost$/,
-    /^127\.\d+\.\d+\.\d+$/,
-    /^0\.0\.0\.0$/,
-    /^169\.254\.\d+\.\d+$/, // Link-local / cloud metadata
-    /^::1$/, // IPv6 loopback
-    /^fe80:/i, // IPv6 link-local
-    /^::ffff:/i, // IPv4-mapped IPv6 (e.g. ::ffff:7f00:1 = 127.0.0.1)
-    /^::$/, // IPv6 all-zeros (equivalent to 0.0.0.0)
-  ]
+  // Normalize the host before classifying it:
+  //  - lowercase for the `localhost` comparison
+  //  - strip the surrounding brackets `URL.hostname` leaves on IPv6 literals
+  //    (`http://[::1]/` → `::1`)
+  //  - strip any trailing root dot(s): `localhost.` and `127.0.0.1.` resolve to
+  //    the same target as the dotless form, so they must not slip past the
+  //    checks below (#911).
+  const hostname = parsed.hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
 
-  if (blockedPatterns.some((re) => re.test(hostname))) {
+  if (hostname === 'localhost') {
     throw new Error(`Download URL must not point to a loopback or link-local address: ${hostname}`)
+  }
+
+  // Anything that isn't a literal IP (DNS names, bare LAN hostnames like
+  // `nomad3`, external FQDNs) is allowed — LAN appliances need them, and DNS
+  // rebinding is a fetch-time concern outside this guard's scope. Classifying
+  // literal addresses with ipaddr.js (rather than a regex list) catches
+  // alternate encodings and normalizes address ranges correctly (#922).
+  if (!ipaddr.isValid(hostname)) return
+
+  let addr = ipaddr.parse(hostname)
+  if (addr.kind() === 'ipv6' && (addr as ipaddr.IPv6).isIPv4MappedAddress()) {
+    // e.g. ::ffff:127.0.0.1 — classify by the embedded IPv4 so a mapped
+    // loopback/link-local is blocked while a mapped public IP is allowed.
+    addr = (addr as ipaddr.IPv6).toIPv4Address()
+  }
+
+  const range = addr.range()
+  if (range === 'loopback' || range === 'linkLocal' || range === 'unspecified') {
+    throw new Error(
+      `Download URL must not point to a loopback or link-local address: ${addr.toNormalizedString()}`
+    )
   }
 }
 

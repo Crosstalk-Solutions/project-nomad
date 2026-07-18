@@ -49,10 +49,22 @@ export default class KbRatioRegistry extends BaseModel {
     return findChunksPerMb(filename, rows)
   }
 
-  /** Estimate total chunks for a file of the given size on disk. */
-  static async estimateChunks(filename: string, fileSizeBytes: number): Promise<number | null> {
+  /**
+   * Estimate total chunks for a file of the given size on disk.
+   *
+   * `ignoreCatchAll` excludes the empty-pattern fallback, returning `null` for
+   * filenames that only the catch-all would match. The partial_stall warning
+   * uses this so it never flags ZIMs the registry can't specifically
+   * characterize (e.g. PDF/link-out-heavy archives whose byte size wildly
+   * over-predicts embeddable chunks). See #913.
+   */
+  static async estimateChunks(
+    filename: string,
+    fileSizeBytes: number,
+    opts: { ignoreCatchAll?: boolean } = {}
+  ): Promise<number | null> {
     const rows = await this.all()
-    return estimateChunkCount(filename, fileSizeBytes, rows)
+    return estimateChunkCount(filename, fileSizeBytes, rows, opts)
   }
 
   /**
