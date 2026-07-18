@@ -4,6 +4,11 @@ export default class AddVisibilityAndIconFieldsToMapMarkers extends BaseSchema {
   protected tableName = 'map_markers'
 
   async up() {
+    // create_map_markers_table now includes these columns on fresh installs.
+    if (await this.schema.hasColumn(this.tableName, 'custom_color')) {
+      return
+    }
+
     this.schema.alterTable(this.tableName, (table) => {
       table.string('custom_color', 7).nullable()
       table.string('icon', 50).nullable()
