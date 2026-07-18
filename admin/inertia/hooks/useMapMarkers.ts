@@ -47,8 +47,14 @@ export function useMapMarkers() {
   }, [])
 
   const addMarker = useCallback(
-    async (name: string, longitude: number, latitude: number, color: PinColorId = 'orange') => {
-      const result = await api.createMapMarker({ name, longitude, latitude, color })
+    async (
+      name: string,
+      longitude: number,
+      latitude: number,
+      color: PinColorId = 'orange',
+      notes: string | null = null
+    ) => {
+      const result = await api.createMapMarker({ name, longitude, latitude, color, notes })
       if (result) {
         const marker: MapMarker = {
           id: result.id,
