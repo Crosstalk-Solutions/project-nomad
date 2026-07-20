@@ -4,6 +4,7 @@ import StageRail from './StageRail'
 import CoreGrid from './CoreGrid'
 import Sparkline from './Sparkline'
 import LiveReadout from './LiveReadout'
+import ResultsSoFar from './ResultsSoFar'
 import type { BenchmarkRunHook } from '~/hooks/useBenchmarkRun'
 import type { BenchmarkStatus } from '../../../types/benchmark'
 
@@ -39,18 +40,24 @@ function StageHero({ run }: { run: BenchmarkRunHook }) {
 
   if (status === 'running_disk_read' || status === 'running_disk_write') {
     const isRead = status === 'running_disk_read'
+    // Prefer the authoritative in-test sysbench throughput once it's flowing;
+    // fall back to the coarse host-proxy disk numbers until then.
+    const hasInTest = run.diskMibs !== null
     return (
       <div className={heroCard}>
         <div className={title}><IconServer className="w-4 h-4" /> {isRead ? 'Disk Read' : 'Disk Write'}</div>
         <div className="flex-1 flex flex-col justify-center gap-4">
           <LiveReadout
-            value={isRead ? run.diskReadMbs : run.diskWriteMbs}
+            value={hasInTest ? run.diskMibs : isRead ? run.diskReadMbs : run.diskWriteMbs}
             unit="MB/s"
-            label="System disk activity"
+            label={hasInTest ? 'Benchmark throughput' : 'System disk activity'}
             size="lg"
           />
           <div className="text-desert-olive">
-            <Sparkline data={isRead ? run.diskReadHistory : run.diskWriteHistory} height={64} />
+            <Sparkline
+              data={hasInTest ? run.diskMibsHistory : isRead ? run.diskReadHistory : run.diskWriteHistory}
+              height={64}
+            />
           </div>
         </div>
       </div>
@@ -93,6 +100,14 @@ function StageHero({ run }: { run: BenchmarkRunHook }) {
       </div>
       <div className="flex-1 flex flex-col justify-center">
         <CoreGrid loads={run.perCore} />
+        {status === 'running_cpu' && run.cpuEventsPerSec !== null && (
+          <div className="mt-4 space-y-2">
+            <LiveReadout value={run.cpuEventsPerSec} unit="ev/s" label="Events per second" />
+            <div className="text-desert-olive">
+              <Sparkline data={run.cpuEventsHistory} height={48} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -162,6 +177,7 @@ export default function BenchmarkRunView({ run }: { run: BenchmarkRunHook }) {
         </div>
         <VitalsStrip run={run} />
       </div>
+      <ResultsSoFar partials={run.partials} />
     </div>
   )
 }

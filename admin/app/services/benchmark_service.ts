@@ -22,6 +22,7 @@ import type {
   RepositorySubmitResponse,
   RepositoryStats,
   BenchmarkStageDescriptor,
+  BenchmarkPartialResult,
 } from '../../types/benchmark.js'
 import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
@@ -409,6 +410,14 @@ export class BenchmarkService {
       if (includeAI && (type === 'full' || type === 'ai')) {
         try {
           aiScores = await this._runAIBenchmark()
+          if (aiScores.ai_tokens_per_second !== undefined && aiScores.ai_tokens_per_second !== null) {
+            this._emitPartialResult({
+              status: 'running_ai',
+              label: 'AI',
+              value: Math.round(aiScores.ai_tokens_per_second),
+              unit: 'tok/s',
+            })
+          }
         } catch (error) {
           // For AI-only benchmarks, failing is fatal - don't save useless results with all zeros
           if (type === 'ai') {
@@ -471,17 +480,41 @@ export class BenchmarkService {
     // Run CPU benchmark
     this._updateStatus('running_cpu', 'Running CPU benchmark...')
     const cpuResult = await this._runSysbenchCpu()
+    this._emitPartialResult({
+      status: 'running_cpu',
+      label: 'CPU',
+      value: Math.round(cpuResult.events_per_second),
+      unit: 'ev/s',
+    })
 
     // Run memory benchmark
     this._updateStatus('running_memory', 'Running memory benchmark...')
     const memoryResult = await this._runSysbenchMemory()
+    this._emitPartialResult({
+      status: 'running_memory',
+      label: 'Memory',
+      value: Math.round(memoryResult.operations_per_second),
+      unit: 'ops/s',
+    })
 
     // Run disk benchmarks
     this._updateStatus('running_disk_read', 'Running disk read benchmark...')
     const diskReadResult = await this._runSysbenchDiskRead()
+    this._emitPartialResult({
+      status: 'running_disk_read',
+      label: 'Read',
+      value: Math.round(diskReadResult.read_mb_per_sec),
+      unit: 'MB/s',
+    })
 
     this._updateStatus('running_disk_write', 'Running disk write benchmark...')
     const diskWriteResult = await this._runSysbenchDiskWrite()
+    this._emitPartialResult({
+      status: 'running_disk_write',
+      label: 'Write',
+      value: Math.round(diskWriteResult.write_mb_per_sec),
+      unit: 'MB/s',
+    })
 
     // Normalize scores to 0-100 scale
     return {
@@ -708,14 +741,25 @@ export class BenchmarkService {
    * Run sysbench CPU benchmark
    */
   private async _runSysbenchCpu(): Promise<SysbenchCpuResult> {
-    const output = await this._runSysbenchCommand([
-      'sysbench',
-      'cpu',
-      '--cpu-max-prime=20000',
-      '--threads=4',
-      '--time=30',
-      'run',
-    ])
+    // --report-interval=1 emits interim lines like:
+    //   [ 1s ] thds: 4 eps: 7589.48 lat (ms,95%): 0.60
+    // They drive live telemetry only; the SCORED numbers still come from the
+    // final report parsed below, exactly as before.
+    const output = await this._runSysbenchCommandStreaming(
+      [
+        'sysbench',
+        'cpu',
+        '--cpu-max-prime=20000',
+        '--threads=4',
+        '--time=30',
+        '--report-interval=1',
+        'run',
+      ],
+      (line) => {
+        const m = line.match(/eps:\s*([\d.]+)/)
+        if (m) this.telemetry?.setStageMetric('events_per_sec', parseFloat(m[1]))
+      }
+    )
 
     // Parse output for events per second
     const eventsMatch = output.match(/events per second:\s*([\d.]+)/i)
@@ -761,13 +805,23 @@ export class BenchmarkService {
   private async _runSysbenchDiskRead(): Promise<SysbenchDiskResult> {
     // Run prepare, test, and cleanup in a single container
     // This is necessary because each container has its own filesystem
-    const output = await this._runSysbenchCommand([
-      'sh',
-      '-c',
-      'sysbench fileio --file-total-size=1G --file-num=4 prepare && ' +
-        'sysbench fileio --file-total-size=1G --file-num=4 --file-test-mode=seqrd --time=30 run && ' +
-        'sysbench fileio --file-total-size=1G --file-num=4 cleanup',
-    ])
+    // --report-interval=1 (run step only) emits interim lines like:
+    //   [ 1s ] reads: 216.75 MiB/s writes: 0.00 MiB/s fsyncs: 551.89/s ...
+    // They drive live telemetry only; the SCORED numbers still come from the
+    // final report parsed below, exactly as before.
+    const output = await this._runSysbenchCommandStreaming(
+      [
+        'sh',
+        '-c',
+        'sysbench fileio --file-total-size=1G --file-num=4 prepare && ' +
+          'sysbench fileio --file-total-size=1G --file-num=4 --file-test-mode=seqrd --time=30 --report-interval=1 run && ' +
+          'sysbench fileio --file-total-size=1G --file-num=4 cleanup',
+      ],
+      (line) => {
+        const m = line.match(/reads:\s*([\d.]+)\s*MiB\/s/)
+        if (m) this.telemetry?.setStageMetric('mib_s', parseFloat(m[1]))
+      }
+    )
 
     // Parse output - look for the Throughput section
     const readMatch = output.match(/read,\s*MiB\/s:\s*([\d.]+)/i)
@@ -790,13 +844,21 @@ export class BenchmarkService {
   private async _runSysbenchDiskWrite(): Promise<SysbenchDiskResult> {
     // Run prepare, test, and cleanup in a single container
     // This is necessary because each container has its own filesystem
-    const output = await this._runSysbenchCommand([
-      'sh',
-      '-c',
-      'sysbench fileio --file-total-size=1G --file-num=4 prepare && ' +
-        'sysbench fileio --file-total-size=1G --file-num=4 --file-test-mode=seqwr --time=30 run && ' +
-        'sysbench fileio --file-total-size=1G --file-num=4 cleanup',
-    ])
+    // --report-interval=1 (run step only) drives live telemetry; the SCORED
+    // numbers still come from the final report parsed below, exactly as before.
+    const output = await this._runSysbenchCommandStreaming(
+      [
+        'sh',
+        '-c',
+        'sysbench fileio --file-total-size=1G --file-num=4 prepare && ' +
+          'sysbench fileio --file-total-size=1G --file-num=4 --file-test-mode=seqwr --time=30 --report-interval=1 run && ' +
+          'sysbench fileio --file-total-size=1G --file-num=4 cleanup',
+      ],
+      (line) => {
+        const m = line.match(/writes:\s*([\d.]+)\s*MiB\/s/)
+        if (m) this.telemetry?.setStageMetric('mib_s', parseFloat(m[1]))
+      }
+    )
 
     // Parse output - look for the Throughput section
     const writeMatch = output.match(/written,\s*MiB\/s:\s*([\d.]+)/i)
@@ -868,6 +930,125 @@ export class BenchmarkService {
       logger.error(`Sysbench command failed: ${error.message}`)
       throw new Error(`Sysbench command failed: ${error.message}`)
     }
+  }
+
+  /**
+   * Like _runSysbenchCommand but attaches to the container's output stream and
+   * invokes onLine for every complete line as it arrives, so interim
+   * --report-interval lines can drive live telemetry. Still returns the full
+   * accumulated stdout so the caller's final-report regexes (the SCORED numbers)
+   * parse exactly as before. onLine parsing must never throw.
+   */
+  private async _runSysbenchCommandStreaming(
+    cmd: string[],
+    onLine: (line: string) => void
+  ): Promise<string> {
+    let container: Dockerode.Container | null = null
+    try {
+      container = await this.dockerService.docker.createContainer({
+        Image: SYSBENCH_IMAGE,
+        Cmd: cmd,
+        name: `${SYSBENCH_CONTAINER_NAME}_${Date.now()}`,
+        Tty: true, // Important: prevents multiplexed stdout/stderr headers
+        HostConfig: {
+          AutoRemove: false, // Don't auto-remove to avoid race condition with output capture
+        },
+      })
+
+      // Attach BEFORE starting so no early output is missed. With Tty: true the
+      // attach stream is raw (non-multiplexed), so no demuxing is needed.
+      const stream = await container.attach({ stream: true, stdout: true, stderr: true })
+
+      // The attach stream drives the live onLine callbacks only (best-effort
+      // telemetry). A missed trailing line here is harmless — it never feeds the
+      // scored numbers, which come from container.logs() after exit below.
+      let buffer = ''
+      stream.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString('utf8')
+        let newlineIdx: number
+        while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, newlineIdx)
+          buffer = buffer.slice(newlineIdx + 1)
+          try {
+            onLine(line)
+          } catch {
+            // Live-parse failures must never affect the benchmark itself.
+          }
+        }
+      })
+
+      await container.start()
+      await container.wait()
+
+      // Flush any trailing partial line through onLine (best-effort).
+      if (buffer.length > 0) {
+        try {
+          onLine(buffer)
+        } catch {
+          // Live-parse failures must never affect the benchmark itself.
+        }
+      }
+
+      // Authoritative output for the SCORED parse. Fetch the complete captured
+      // log AFTER exit, exactly like _runSysbenchCommand does, rather than
+      // trusting the live attach stream — attach 'data' events can flush after
+      // container.wait() resolves, which would truncate the final report and
+      // break the scoring regexes. This makes the returned output byte-identical
+      // to the non-streaming path.
+      const logs = await container.logs({
+        stdout: true,
+        stderr: true,
+      })
+      const cleaned = logs
+        .toString('utf8')
+        .replace(/[\x00-\x08]/g, '') // Remove control characters
+        .trim()
+
+      // Manually remove the container after capturing output
+      try {
+        await container.remove()
+      } catch (removeError) {
+        // Log but don't fail if removal fails (container might already be gone)
+        logger.warn(`Failed to remove sysbench container: ${removeError.message}`)
+      }
+
+      return cleaned
+    } catch (error) {
+      // Clean up container on error if it exists
+      if (container) {
+        try {
+          await container.remove({ force: true })
+        } catch (removeError) {
+          // Ignore removal errors
+        }
+      }
+      logger.error(`Sysbench command failed: ${error.message}`)
+      throw new Error(`Sysbench command failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Broadcast a progress frame carrying a just-finished stage's raw result.
+   * Reuses the current status/progress so the StageRail is undisturbed; the
+   * partial_result field fills the "results so far" strip in the live UI.
+   */
+  private _emitPartialResult(result: BenchmarkPartialResult) {
+    const progress: BenchmarkProgress = {
+      status: this.currentStatus,
+      progress: this._getProgressPercent(this.currentStatus),
+      message: this._getStageLabel(this.currentStatus),
+      current_stage: this._getStageLabel(this.currentStatus),
+      timestamp: new Date().toISOString(),
+      stages: this.currentStages,
+      stage_index: this.currentStages.findIndex((s) => s.status === this.currentStatus),
+      stage_count: this.currentStages.length,
+      partial_result: result,
+    }
+
+    transmit.broadcast(BROADCAST_CHANNELS.BENCHMARK_PROGRESS, {
+      benchmark_id: this.currentBenchmarkId,
+      ...progress,
+    })
   }
 
   /**
