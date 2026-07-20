@@ -146,13 +146,21 @@ export default class OllamaController {
         logger.debug(`[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`)
       }
 
-      // Check if the model supports "thinking" capability for enhanced response generation
+      // Check if the model supports "thinking" capability for enhanced response generation.
+      // Thinking is only enabled when the model supports it AND the user wants it: the explicit
+      // per-request preference wins, otherwise the global default (ai.autoThinking, default OFF).
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
-      const think: boolean | 'medium' = thinkingCapability ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+      let thinkingEnabled = false
+      if (thinkingCapability) {
+        thinkingEnabled = reqData.think ?? ((await KVStore.getValue('ai.autoThinking')) ?? false)
+      }
+      const think: boolean | 'medium' =
+        thinkingEnabled ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
 
-      // Separate sessionId from the Ollama request payload — Ollama rejects unknown fields
-      const { sessionId, ...ollamaRequest } = reqData
+      // Separate sessionId and the resolved thinking preference from the Ollama request payload —
+      // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
+      const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
 
       // Save user message to DB before streaming if sessionId provided
       let userContent: string | null = null
@@ -175,6 +183,7 @@ export default class OllamaController {
         const stream = await this.ollamaService.chatStream({
           ...ollamaRequest,
           think,
+          thinkingCapable: thinkingCapability,
           numCtx,
           signal: abortController.signal,
         })
@@ -209,7 +218,7 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think, numCtx })
+      const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
@@ -389,7 +398,14 @@ export default class OllamaController {
   }
 
   async installedModels({ }: HttpContext) {
-    return await this.ollamaService.getModels()
+    const models = await this.ollamaService.getModels()
+    // Enrich each model with its thinking capability so the chat picker knows which models
+    // to show the per-model thinking toggle for. checkModelHasThinking memoizes /api/show
+    // results, so this stays cheap on repeat loads. Best-effort per model.
+    const thinking = await Promise.all(
+      models.map((m) => this.ollamaService.checkModelHasThinking(m.name))
+    )
+    return models.map((m, i) => ({ ...m, thinking: thinking[i] }))
   }
 
   /**
