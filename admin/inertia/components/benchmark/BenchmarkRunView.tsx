@@ -33,6 +33,25 @@ function StageHero({ run }: { run: BenchmarkRunHook }) {
           <div className="text-desert-green">
             <Sparkline data={run.aiTokHistory} height={64} />
           </div>
+          {run.gpuUtil !== null && (
+            <div className="pt-3 border-t border-desert-stone-light">
+              <div className="flex items-center gap-2 text-xs font-semibold text-desert-stone-dark uppercase tracking-wide mb-2">
+                <IconChartBar className="w-4 h-4" /> GPU
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <LiveReadout value={run.gpuUtil} unit="%" label="Utilization" />
+                <LiveReadout
+                  value={run.gpuVramUsedMb !== null ? run.gpuVramUsedMb / 1024 : null}
+                  unit="GB"
+                  label={
+                    run.gpuVramTotalMb !== null
+                      ? `VRAM (of ${(run.gpuVramTotalMb / 1024).toFixed(1)} GB)`
+                      : 'VRAM'
+                  }
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
