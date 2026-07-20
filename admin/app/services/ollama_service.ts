@@ -772,7 +772,7 @@ export class OllamaService {
   ): Promise<{ models: NomadOllamaModel[]; hasMore: boolean } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort, force)
-      if (!models) {
+      if (!models || models.length === 0) {
         logger.warn(
           '[OllamaService] Returning fallback recommended models due to failure in fetching available models'
         )
@@ -827,7 +827,10 @@ export class OllamaService {
     try {
       if (!force) {
         const cachedModels = await this.readModelsFromCache()
-        if (cachedModels) {
+        // An empty cached array (e.g. written from a transient empty upstream
+        // response) must not be treated as valid data — fall through to a
+        // fresh fetch and, failing that, the fallback list.
+        if (cachedModels && cachedModels.length > 0) {
           logger.info('[OllamaService] Using cached available models data')
           return this.sortModels(cachedModels, sort)
         }
@@ -840,7 +843,7 @@ export class OllamaService {
       const baseUrl = env.get('NOMAD_API_URL') || NOMAD_API_DEFAULT_BASE_URL
       const fullUrl = new URL(NOMAD_MODELS_API_PATH, baseUrl).toString()
 
-      const response = await axios.get(fullUrl)
+      const response = await axios.get(fullUrl, { timeout: 10000 })
       if (!response.data || !Array.isArray(response.data.models)) {
         logger.warn(
           `[OllamaService] Invalid response format when fetching available models: ${JSON.stringify(response.data)}`
@@ -856,6 +859,16 @@ export class OllamaService {
           tags: model.tags.filter((tag) => !tag.cloud),
         }))
         .filter((model) => model.tags.length > 0)
+
+      // A successful-but-empty upstream response (0 models, or all filtered out
+      // as cloud-only) is a soft failure: return null so the caller serves the
+      // fallback list, and don't poison the 24h cache with an empty array.
+      if (noCloud.length === 0) {
+        logger.warn(
+          '[OllamaService] Nomad API returned no usable (non-cloud) models; using fallback'
+        )
+        return null
+      }
 
       await this.writeModelsToCache(noCloud)
       return this.sortModels(noCloud, sort)

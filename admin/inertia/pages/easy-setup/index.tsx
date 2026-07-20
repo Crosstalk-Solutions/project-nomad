@@ -11,7 +11,7 @@ import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
-import { IconCheck, IconChevronDown, IconChevronUp, IconCpu, IconBooks } from '@tabler/icons-react'
+import { IconCheck, IconCpu, IconBooks } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
@@ -81,30 +81,10 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
   ]
 }
 
-const ADDITIONAL_TOOLS: Capability[] = [
-  {
-    id: 'notes',
-    name: 'Notes',
-    technicalName: 'FlatNotes',
-    description: 'Simple note-taking app with local storage',
-    features: ['Markdown support', 'All notes stored locally', 'No account required'],
-    services: [SERVICE_NAMES.FLATNOTES],
-    icon: 'IconNotes',
-  },
-  {
-    id: 'datatools',
-    name: 'Data Tools',
-    technicalName: 'CyberChef',
-    description: 'Swiss Army knife for data encoding, encryption, and analysis',
-    features: [
-      'Encode/decode data (Base64, hex, etc.)',
-      'Encryption and hashing tools',
-      'Data format conversion',
-    ],
-    services: [SERVICE_NAMES.CYBERCHEF],
-    icon: 'IconChefHat',
-  },
-]
+// Additional tools (Notes, Data Tools, and the rest of the catalog) are no
+// longer surfaced in onboarding — they live in Supply Depot, where the full
+// app catalog is browsable any time. Step 1 keeps the focus on the three core
+// capabilities and points users to Supply Depot for everything else.
 
 type WizardStep = 1 | 2 | 3 | 4 | 5
 
@@ -123,14 +103,14 @@ export default function EasySetupWizard(props: {
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   // Auto-index policy for the AI Assistant Knowledge Base. Defaults to
-  // 'Always' so a new user who keeps the default behavior gets the "just
-  // works" experience — downloads become searchable automatically. Persisted
-  // to KVStore['rag.defaultIngestPolicy'] on wizard submit (same key #894's
-  // KB modal toggle reads/writes) so the JIT prompt at first chat sees a
-  // decided policy and doesn't ask again.
-  const [ingestPolicy, setIngestPolicy] = useState<'Always' | 'Manual'>('Always')
+  // 'Manual' ("Ask me first"): auto-indexing has real cost and resource
+  // implications a non-technical user won't anticipate from the toggle alone,
+  // so we default to the safe choice and let them opt in. Persisted to
+  // KVStore['rag.defaultIngestPolicy'] on wizard submit (same key #894's KB
+  // modal toggle reads/writes) so the JIT prompt at first chat sees a decided
+  // policy and doesn't ask again.
+  const [ingestPolicy, setIngestPolicy] = useState<'Always' | 'Manual'>('Manual')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [showAdditionalTools, setShowAdditionalTools] = useState(false)
   const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(
     () => !!props.system.remoteOllamaUrl
   )
@@ -591,7 +571,7 @@ export default function EasySetupWizard(props: {
     if (capability.id === 'ai' && isSelected) {
       const hasAiSelections =
         selectedAiModels.length > 0 ||
-        ingestPolicy !== 'Always' ||
+        ingestPolicy !== 'Manual' ||
         remoteOllamaEnabled
       if (hasAiSelections) {
         const confirmed = window.confirm(
@@ -600,7 +580,7 @@ export default function EasySetupWizard(props: {
         if (!confirmed) return
       }
       setSelectedAiModels([])
-      setIngestPolicy('Always')
+      setIngestPolicy('Manual')
       setRemoteOllamaEnabled(false)
       setRemoteOllamaUrl('')
       setRemoteOllamaUrlError(null)
@@ -723,13 +703,11 @@ export default function EasySetupWizard(props: {
   const renderStep1 = () => {
     // Show all capabilities that exist in the system (including installed ones)
     const existingCoreCapabilities = CORE_CAPABILITIES.filter(capabilityExists)
-    const existingAdditionalTools = ADDITIONAL_TOOLS.filter(capabilityExists)
 
-    // Check if ALL capabilities are already installed (nothing left to install)
-    const allCoreInstalled = existingCoreCapabilities.every(isCapabilityInstalled)
-    const allAdditionalInstalled = existingAdditionalTools.every(isCapabilityInstalled)
+    // Check if ALL core capabilities are already installed (nothing left to install)
     const allInstalled =
-      allCoreInstalled && allAdditionalInstalled && existingCoreCapabilities.length > 0
+      existingCoreCapabilities.length > 0 &&
+      existingCoreCapabilities.every(isCapabilityInstalled)
 
     return (
       <div className="space-y-8">
@@ -811,29 +789,29 @@ export default function EasySetupWizard(props: {
               </div>
             )}
 
-            {/* Additional Tools - Collapsible */}
-            {existingAdditionalTools.length > 0 && (
-              <div className="border-t border-desert-stone-light pt-6">
-                <button
-                  onClick={() => setShowAdditionalTools(!showAdditionalTools)}
-                  className="flex items-center justify-between w-full text-left"
+            {/* Everything beyond the core capabilities lives in Supply Depot,
+                the browsable app catalog. Keep onboarding focused and point
+                users there for Notes, Data Tools, and the rest. */}
+            <div className="border-t border-desert-stone-light pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-lg bg-surface-secondary p-4">
+                <div>
+                  <h3 className="text-md font-medium text-text-primary mb-1">
+                    Looking for more apps?
+                  </h3>
+                  <p className="text-sm text-text-secondary">
+                    Notes, data tools, and the full catalog of add-on apps are available any time in
+                    Supply Depot.
+                  </p>
+                </div>
+                <StyledButton
+                  variant="secondary"
+                  onClick={() => router.visit('/supply-depot')}
+                  className="flex-shrink-0"
                 >
-                  <h3 className="text-md font-medium text-text-muted">Additional Tools</h3>
-                  {showAdditionalTools ? (
-                    <IconChevronUp size={20} className="text-text-muted" />
-                  ) : (
-                    <IconChevronDown size={20} className="text-text-muted" />
-                  )}
-                </button>
-                {showAdditionalTools && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    {existingAdditionalTools.map((capability) =>
-                      renderCapabilityCard(capability, false)
-                    )}
-                  </div>
-                )}
+                  Open Supply Depot
+                </StyledButton>
               </div>
-            )}
+            </div>
           </>
         )}
       </div>
@@ -847,6 +825,20 @@ export default function EasySetupWizard(props: {
         <p className="text-text-secondary">
           Select map region collections to download for offline use. You can always download more
           regions later.
+        </p>
+      </div>
+      <div className="mx-auto max-w-2xl rounded-lg border border-border-subtle bg-surface-secondary p-3 text-center">
+        <p className="text-sm text-text-secondary">
+          Only need a specific country, or want the whole world? Individual countries and a full
+          global map can be installed any time from the{' '}
+          <button
+            type="button"
+            onClick={() => router.visit('/settings/maps')}
+            className="font-medium text-desert-green underline"
+          >
+            Maps Manager
+          </button>
+          .
         </p>
       </div>
       {isLoadingMaps ? (
@@ -1161,9 +1153,9 @@ export default function EasySetupWizard(props: {
                   Capabilities to Install
                 </h3>
                 <ul className="space-y-2">
-                  {[...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS]
-                    .filter((cap) => cap.services.some((s) => selectedServices.includes(s)))
-                    .map((capability) => (
+                  {CORE_CAPABILITIES.filter((cap) =>
+                    cap.services.some((s) => selectedServices.includes(s))
+                  ).map((capability) => (
                       <li key={capability.id} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
                         <span className="text-text-primary">
@@ -1353,7 +1345,7 @@ export default function EasySetupWizard(props: {
 
                 <p className="text-sm text-text-secondary">
                   {(() => {
-                    const count = [...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS].filter((cap) =>
+                    const count = CORE_CAPABILITIES.filter((cap) =>
                       cap.services.some((s) => selectedServices.includes(s))
                     ).length
                     return `${count} ${count === 1 ? 'capability' : 'capabilities'}`
