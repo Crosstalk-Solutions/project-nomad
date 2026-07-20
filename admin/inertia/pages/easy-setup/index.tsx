@@ -7,6 +7,7 @@ import api from '~/lib/api'
 import { ServiceSlim } from '../../../types/services'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import CategoryCard from '~/components/CategoryCard'
+import CreatorPackCard from '~/components/CreatorPackCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import LoadingSpinner from '~/components/LoadingSpinner'
@@ -15,6 +16,7 @@ import { IconCheck, IconCpu, IconBooks } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
+import useCreatorPacks from '~/hooks/useCreatorPacks'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
 import classNames from 'classnames'
@@ -86,7 +88,19 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
 // app catalog is browsable any time. Step 1 keeps the focus on the three core
 // capabilities and points users to Supply Depot for everything else.
 
-type WizardStep = 1 | 2 | 3 | 4 | 5
+// Stable step IDs. Creator Packs (4) and AI (5) are BOTH optional, so the set of
+// active steps is computed at runtime (see `activeSteps`) and navigation walks
+// that ordered list rather than doing hardcoded skip math.
+type WizardStep = 1 | 2 | 3 | 4 | 5 | 6
+
+const STEP_LABELS: Record<WizardStep, string> = {
+  1: 'Apps',
+  2: 'Maps',
+  3: 'Content',
+  4: 'Creator Packs',
+  5: 'AI',
+  6: 'Review',
+}
 
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
@@ -101,6 +115,7 @@ export default function EasySetupWizard(props: {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
+  const [selectedCreatorPacks, setSelectedCreatorPacks] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   // Auto-index policy for the AI Assistant Knowledge Base. Defaults to
   // 'Manual' ("Ask me first"): auto-indexing has real cost and resource
@@ -129,10 +144,13 @@ export default function EasySetupWizard(props: {
   const { isOnline } = useInternetStatus()
   const queryClient = useQueryClient()
   const { data: systemInfo } = useSystemInfo({ enabled: true })
+  // Creator Packs are hidden entirely on builds without the release-injected key.
+  const { configured: creatorPacksConfigured, packs: creatorPacks } = useCreatorPacks()
 
   const anySelectionMade =
     selectedServices.length > 0 ||
     selectedMapCollections.length > 0 ||
+    selectedCreatorPacks.length > 0 ||
     selectedTiers.size > 0 ||
     selectedAiModels.length > 0 ||
     (selectedWikipedia !== null && selectedWikipedia !== 'none')
@@ -192,9 +210,26 @@ export default function EasySetupWizard(props: {
     [selectedServices, installedServices, remoteOllamaEnabled]
   )
 
+  // Ordered list of the steps actually shown to THIS user. Creator Packs (4) and
+  // AI (5) are both optional; everything else is fixed. Navigation walks this
+  // list (see handleNext/handleBack), so a step's absence needs no skip math.
+  const activeSteps = useMemo<WizardStep[]>(() => {
+    const steps: WizardStep[] = [1, 2, 3]
+    if (creatorPacksConfigured) steps.push(4)
+    if (isAiInSetup) steps.push(5)
+    steps.push(6)
+    return steps
+  }, [creatorPacksConfigured, isAiInSetup])
+
   const toggleMapCollection = (slug: string) => {
     setSelectedMapCollections((prev) =>
       prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    )
+  }
+
+  const toggleCreatorPack = (id: string) => {
+    setSelectedCreatorPacks((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     )
   }
 
@@ -260,6 +295,14 @@ export default function EasySetupWizard(props: {
       })
     }
 
+    // Add creator packs
+    selectedCreatorPacks.forEach((id) => {
+      const pack = creatorPacks.find((p) => p.id === id)
+      if (pack) {
+        totalBytes += pack.size_mb * 1024 * 1024
+      }
+    })
+
     // Add AI models
     if (recommendedModels) {
       selectedAiModels.forEach((modelName) => {
@@ -295,10 +338,12 @@ export default function EasySetupWizard(props: {
   }, [
     selectedTiers,
     selectedMapCollections,
+    selectedCreatorPacks,
     selectedAiModels,
     selectedWikipedia,
     categories,
     mapCollections,
+    creatorPacks,
     recommendedModels,
     wikipediaState,
   ])
@@ -306,10 +351,9 @@ export default function EasySetupWizard(props: {
   // Get primary disk/filesystem info for storage projection
   const storageInfo = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
 
-  // Final step number (4 when AI is off, 5 when AI is on). Centralizing this
-  // here so canProceedToNextStep / handleNext / handleBack / the bottom-bar
-  // Next-vs-Finish switch all read the same value.
-  const finalStep: WizardStep = isAiInSetup ? 5 : 4
+  // The review step is always the last active step. Read by canProceedToNextStep
+  // and the bottom-bar Next-vs-Finish switch.
+  const finalStep: WizardStep = activeSteps[activeSteps.length - 1]
 
   const canProceedToNextStep = () => {
     if (!isOnline) return false // Must be online to proceed
@@ -317,18 +361,18 @@ export default function EasySetupWizard(props: {
     return currentStep < finalStep
   }
 
+  // Navigate to the next/previous ACTIVE step relative to the current one. Using
+  // a value comparison (not indexOf) keeps nav correct even if currentStep goes
+  // momentarily stale — e.g. the user disables AI while standing on the AI step,
+  // dropping it from activeSteps; the next click still lands on the right step.
   const handleNext = () => {
-    if (currentStep >= finalStep) return
-    // Skip the AI step (4) on forward nav when isAiInSetup is false.
-    const next = currentStep === 3 && !isAiInSetup ? 5 : currentStep + 1
-    setCurrentStep(next as WizardStep)
+    const next = activeSteps.find((s) => s > currentStep)
+    if (next !== undefined) setCurrentStep(next)
   }
 
   const handleBack = () => {
-    if (currentStep <= 1) return
-    // Skip the AI step (4) on back nav when isAiInSetup is false.
-    const prev = currentStep === 5 && !isAiInSetup ? 3 : currentStep - 1
-    setCurrentStep(prev as WizardStep)
+    const prev = [...activeSteps].reverse().find((s) => s < currentStep)
+    if (prev !== undefined) setCurrentStep(prev)
   }
 
   const handleFinish = async () => {
@@ -388,6 +432,7 @@ export default function EasySetupWizard(props: {
       const downloadPromises = [
         ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
         ...categoryTierPromises,
+        ...selectedCreatorPacks.map((id) => api.installCreatorPack(id)),
         ...selectedAiModels.map((modelName) => api.downloadModel(modelName)),
       ]
 
@@ -451,24 +496,14 @@ export default function EasySetupWizard(props: {
 
   const renderStepIndicator = () => {
     // `step` is the stable WizardStep value (1=Apps, 2=Maps, 3=Content,
-    // 4=AI, 5=Review). `displayNumber` is the sequential position shown in
-    // the dot (always 1..N) so users see "1 2 3 4" when AI is off and
-    // "1 2 3 4 5" when AI is on, with no gap.
-    const baseSteps: Array<{ step: WizardStep; label: string }> = isAiInSetup
-      ? [
-          { step: 1, label: 'Apps' },
-          { step: 2, label: 'Maps' },
-          { step: 3, label: 'Content' },
-          { step: 4, label: 'AI' },
-          { step: 5, label: 'Review' },
-        ]
-      : [
-          { step: 1, label: 'Apps' },
-          { step: 2, label: 'Maps' },
-          { step: 3, label: 'Content' },
-          { step: 5, label: 'Review' },
-        ]
-    const steps = baseSteps.map((s, idx) => ({ ...s, displayNumber: idx + 1 }))
+    // 4=Creator Packs, 5=AI, 6=Review). Only the ACTIVE steps are shown, and
+    // `displayNumber` is the sequential position in the dot (always 1..N) so
+    // there's no gap when Creator Packs and/or AI are absent.
+    const steps = activeSteps.map((step, idx) => ({
+      step,
+      label: STEP_LABELS[step],
+      displayNumber: idx + 1,
+    }))
 
     return (
       <nav aria-label="Progress" className="px-6 pt-6">
@@ -980,6 +1015,43 @@ export default function EasySetupWizard(props: {
     )
   }
 
+  const renderCreatorPacks = () => {
+    // Creator Packs step. Only present when this build is configured (see
+    // activeSteps); a fork built without the key never reaches it. Selection is
+    // by pack id, held in selectedCreatorPacks; installs fire in handleFinish.
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-text-primary mb-2">Stock Creator Packs</h2>
+          <p className="text-text-secondary">
+            Branded video collections from creators, downloaded for offline viewing in Kiwix.
+          </p>
+        </div>
+
+        {creatorPacks.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {creatorPacks.map((pack) => (
+              <CreatorPackCard
+                key={pack.id}
+                pack={pack}
+                selected={selectedCreatorPacks.includes(pack.id)}
+                onClick={
+                  pack.status === 'installed' && !pack.available_update_version
+                    ? undefined
+                    : () => isOnline && toggleCreatorPack(pack.id)
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-text-secondary text-lg">No creator packs available right now.</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderStep4 = () => {
     // AI step (issue #905). Only rendered when isAiInSetup is true; otherwise
     // the wizard's step array drops it and forward/back nav jumps Content → Review.
@@ -1127,6 +1199,7 @@ export default function EasySetupWizard(props: {
     const hasSelections =
       selectedServices.length > 0 ||
       selectedMapCollections.length > 0 ||
+      selectedCreatorPacks.length > 0 ||
       selectedTiers.size > 0 ||
       selectedAiModels.length > 0 ||
       (selectedWikipedia !== null && selectedWikipedia !== 'none')
@@ -1182,6 +1255,25 @@ export default function EasySetupWizard(props: {
                       <li key={slug} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
                         <span className="text-text-primary">{collection?.name || slug}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {selectedCreatorPacks.length > 0 && (
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
+                  Creator Packs to Install ({selectedCreatorPacks.length})
+                </h3>
+                <ul className="space-y-2">
+                  {selectedCreatorPacks.map((id) => {
+                    const pack = creatorPacks.find((p) => p.id === id)
+                    return (
+                      <li key={id} className="flex items-center">
+                        <IconCheck size={20} className="text-desert-green mr-2" />
+                        <span className="text-text-primary">{pack?.name || id}</span>
                       </li>
                     )
                   })}
@@ -1327,8 +1419,9 @@ export default function EasySetupWizard(props: {
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
-            {currentStep === 4 && isAiInSetup && renderStep4()}
-            {currentStep === 5 && renderStep5()}
+            {currentStep === 4 && creatorPacksConfigured && renderCreatorPacks()}
+            {currentStep === 5 && isAiInSetup && renderStep4()}
+            {currentStep === 6 && renderStep5()}
 
             <div className="flex justify-between mt-8 pt-4 border-t border-desert-stone-light">
               <div className="flex space-x-4 items-center">
@@ -1353,6 +1446,12 @@ export default function EasySetupWizard(props: {
                   , {selectedMapCollections.length} map region
                   {selectedMapCollections.length !== 1 && 's'}, {selectedTiers.size}{' '}
                   content categor{selectedTiers.size !== 1 ? 'ies' : 'y'},{' '}
+                  {creatorPacksConfigured && (
+                    <>
+                      {selectedCreatorPacks.length} creator pack
+                      {selectedCreatorPacks.length !== 1 && 's'},{' '}
+                    </>
+                  )}
                   {selectedAiModels.length} AI model{selectedAiModels.length !== 1 && 's'} selected
                 </p>
               </div>

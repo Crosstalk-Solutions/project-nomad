@@ -67,7 +67,7 @@ export class RunDownloadJob {
   }
 
   async handle(job: Job) {
-    const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype, resourceMetadata } =
+    const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype, resourceMetadata, requestHeaders } =
       job.data as RunDownloadJobParams
 
     // Register abort controller for this job
@@ -110,6 +110,7 @@ export class RunDownloadJob {
         timeout,
         allowedMimeTypes,
         forceNew,
+        requestHeaders,
         signal: abortController.signal,
         onProgress(progress) {
           const progressPercent = (progress.downloadedBytes / (progress.totalBytes || 1)) * 100
@@ -208,9 +209,11 @@ export class RunDownloadJob {
               const zimService = new ZimService(dockerService)
               await zimService.downloadRemoteSuccessCallback([url], true)
 
-              // Only touch the knowledge base if AI Assistant (Ollama) is installed
+              // Only touch the knowledge base if AI Assistant (Ollama) is installed.
+              // skip_embedding opts a ZIM out entirely — Creator Pack video ZIMs are
+              // media galleries, not text, so they must never be embedded or KB-reconciled.
               const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
-              if (ollamaUrl) {
+              if (ollamaUrl && !resourceMetadata?.skip_embedding) {
                 // A content UPDATE replaces a prior file at a DIFFERENT path
                 // (version is in the filename). A fresh install has no prior row;
                 // a same-version re-download keeps the same path. The two cases

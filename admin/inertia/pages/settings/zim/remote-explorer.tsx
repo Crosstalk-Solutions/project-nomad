@@ -32,6 +32,7 @@ import {
 } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import CategoryCard from '~/components/CategoryCard'
+import CreatorPacksSection from '~/components/CreatorPacksSection'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -517,6 +518,9 @@ export default function ZimRemoteExplorer() {
               />
             </div>
           ) : null}
+
+          {/* Creator Packs (hidden entirely when this build isn't configured) */}
+          <CreatorPacksSection />
 
           {/* Tiered Category Collections */}
           <div className="flex items-center gap-3 mt-8 mb-4">
