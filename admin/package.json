@@ -59,7 +59,7 @@
     "prettier": "3.8.1",
     "ts-node-maintained": "10.9.6",
     "typescript": "5.8.3",
-    "vite": "6.4.2"
+    "vite": "6.4.3"
   },
   "dependencies": {
     "@adonisjs/auth": "9.6.0",
@@ -97,7 +97,7 @@
     "bullmq": "5.77.6",
     "cheerio": "1.2.0",
     "compression": "1.8.1",
-    "dockerode": "4.0.9",
+    "dockerode": "5.0.0",
     "edge.js": "6.4.0",
     "fast-xml-parser": "5.7.0",
     "fuse.js": "7.1.0",
@@ -125,7 +125,7 @@
     "stopword": "3.1.5",
     "systeminformation": "5.31.6",
     "tailwindcss": "4.2.2",
-    "tar": "7.5.11",
+    "tar": "7.5.16",
     "tesseract.js": "7.0.0",
     "url-join": "5.0.0",
     "yaml": "2.8.3"
