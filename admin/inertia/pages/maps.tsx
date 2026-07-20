@@ -1,19 +1,58 @@
 import { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
-import { IconArrowLeft } from '@tabler/icons-react'
 
 import MapsLayout from '~/layouts/MapsLayout'
 import MapComponent from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
+import { IconArrowLeft, IconCrosshair, IconMapPin, IconPlaneTilt } from '@tabler/icons-react'
+import { FileEntry } from '../../types/files'
 import Alert from '~/components/Alert'
 
-import { FileEntry } from '../../types/files'
+type MapCommand = {
+  id: number
+  lat: number
+  lng: number
+  action: 'fly' | 'marker'
+}
 
 export default function Maps(props: {
   maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
 }) {
   const [isHoveringUI, setIsHoveringUI] = useState(false)
-  const [showMapCoordinates, setShowMapCoordinates] = useState(true)
+
+  const [coordinateSearch, setCoordinateSearch] = useState('')
+  const [mapCommand, setMapCommand] = useState<MapCommand | null>(null)
+  const [showCoordinatesEnabled, setShowCoordinatesEnabled] = useState(true)
+
+  const parseCoordinates = () => {
+    const [latRaw, lngRaw] = coordinateSearch.split(',').map((value) => value.trim())
+    const lat = Number(latRaw)
+    const lng = Number(lngRaw)
+
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      return null
+    }
+
+    return { lat, lng }
+  }
+
+  const handleCoordinateAction = (action: 'fly' | 'marker') => {
+    const coordinates = parseCoordinates()
+    if (!coordinates) return
+
+    setMapCommand({
+      id: Date.now(),
+      ...coordinates,
+      action,
+    })
+  }
 
   const alertMessage = !props.maps.baseAssetsExist
     ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
@@ -37,16 +76,50 @@ export default function Maps(props: {
             <p className="text-lg text-text-secondary">Back to Home</p>
           </Link>
 
-          <div className="flex items-center gap-3 mr-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="lat,lng"
+              value={coordinateSearch}
+              onChange={(event) => setCoordinateSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') handleCoordinateAction('fly')
+              }}
+              className="w-52 rounded border border-border-default bg-surface-primary px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:border-desert-green focus:outline-none"
+            />
+
             <button
               type="button"
-              onClick={() => setShowMapCoordinates((prev) => !prev)}
-              className="rounded px-3 py-2 text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
+              onClick={() => handleCoordinateAction('fly')}
+              className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
+              title="Fly to coordinates"
             >
-              {showMapCoordinates ? 'Hide Coordinates' : 'Show Coordinates'}
+              <IconPlaneTilt size={18}/>
             </button>
 
-            <Link href="/settings/maps">
+            <button
+              type="button"
+              onClick={() => handleCoordinateAction('marker')}
+              className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
+              title="Add marker at coordinates"
+            >
+              <IconMapPin size={18}/>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCoordinatesEnabled((prev) => !prev)}
+              className={`rounded border border-border-default p-2 transition-colors ${
+                showCoordinatesEnabled
+                  ? 'bg-desert-green text-white'
+                  : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
+              }`}
+              title={showCoordinatesEnabled ? 'Hide coordinates' : 'Show coordinates'}
+            >
+              <IconCrosshair size={18}/>
+            </button>
+
+            <Link href="/settings/maps" className="mr-4">
               <StyledButton variant="primary" icon="IconSettings">
                 Manage Map Regions
               </StyledButton>
@@ -77,10 +150,12 @@ export default function Maps(props: {
         )}
 
         {/* Map */}
+
         <div className="absolute inset-0">
           <MapComponent
+            mapCommand={mapCommand}
             isHoveringUI={isHoveringUI}
-            showCoordinatesEnabled={showMapCoordinates}
+            showCoordinatesEnabled={showCoordinatesEnabled}
           />
         </div>
       </div>

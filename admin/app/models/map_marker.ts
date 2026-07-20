@@ -35,6 +35,18 @@ export default class MapMarker extends BaseModel {
   @column()
   declare notes: string | null
 
+  @column()
+  declare custom_color: string | null
+
+  @column()
+  declare icon: string | null
+
+  @column()
+  declare icon_color: string | null
+
+  @column()
+  declare visible: boolean
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 
