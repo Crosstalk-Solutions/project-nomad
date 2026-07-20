@@ -23,6 +23,7 @@ export class BenchmarkTelemetrySampler {
   private status: BenchmarkStatus = 'starting'
   private startedAt = Date.now()
   private stageMetric: BenchmarkTelemetry['stage_metric'] | undefined
+  private gpu: BenchmarkTelemetry['gpu'] | undefined
   private sampling = false
 
   constructor(benchmarkId: string | null) {
@@ -38,15 +39,21 @@ export class BenchmarkTelemetrySampler {
     this.timer = setInterval(() => void this._sample(), SAMPLE_INTERVAL_MS)
   }
 
-  /** Tag subsequent frames with the current stage; clears any prior in-test metric. */
+  /** Tag subsequent frames with the current stage; clears any prior in-test state. */
   setStage(status: BenchmarkStatus) {
     this.status = status
     this.stageMetric = undefined
+    this.gpu = undefined
   }
 
   /** Inject an in-test metric (e.g. live AI tokens/sec) into subsequent frames. */
   setStageMetric(kind: NonNullable<BenchmarkTelemetry['stage_metric']>['kind'], value: number, ttftMs?: number) {
     this.stageMetric = { kind, value, ...(ttftMs !== undefined ? { ttft_ms: ttftMs } : {}) }
+  }
+
+  /** Inject NVIDIA GPU stats into subsequent frames (null clears them). */
+  setGpuStats(gpu: NonNullable<BenchmarkTelemetry['gpu']> | null) {
+    this.gpu = gpu ?? undefined
   }
 
   stop() {
@@ -82,6 +89,7 @@ export class BenchmarkTelemetrySampler {
         temp_c: tempC,
         disk: { read_mb_s: readMb, write_mb_s: writeMb },
         ...(this.stageMetric ? { stage_metric: this.stageMetric } : {}),
+        ...(this.gpu ? { gpu: this.gpu } : {}),
       }
 
       transmit.broadcast(BROADCAST_CHANNELS.BENCHMARK_TELEMETRY, payload)

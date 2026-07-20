@@ -11,6 +11,7 @@ import type {
   BenchmarkType,
   BenchmarkStatus,
   BenchmarkProgress,
+  BenchmarkTelemetry,
   HardwareInfo,
   DiskType,
   SystemScores,
@@ -526,9 +527,73 @@ export class BenchmarkService {
   }
 
   /**
+   * Probe live NVIDIA GPU stats by exec-ing nvidia-smi inside the Ollama
+   * container (same approach as SystemService.getNvidiaSmiInfo). Telemetry-only:
+   * returns null on any failure (no Ollama container, no NVIDIA GPU / AMD,
+   * unparseable output) and must never affect the scored benchmark numbers.
+   */
+  private async _probeGpuStats(): Promise<NonNullable<BenchmarkTelemetry['gpu']> | null> {
+    try {
+      const containers = await this.dockerService.docker.listContainers({ all: false })
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
+      if (!ollamaContainer) return null
+
+      const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
+      const exec = await container.exec({
+        Cmd: [
+          'nvidia-smi',
+          '--query-gpu=utilization.gpu,memory.used,memory.total',
+          '--format=csv,noheader,nounits',
+        ],
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+      })
+
+      // Read the output stream with a timeout to prevent hanging if nvidia-smi fails
+      const stream = await exec.start({ Tty: true })
+      const output = await new Promise<string>((resolve) => {
+        let data = ''
+        const timeout = setTimeout(() => resolve(data), 3000)
+        stream.on('data', (chunk: Buffer) => {
+          data += chunk.toString()
+        })
+        stream.on('end', () => {
+          clearTimeout(timeout)
+          resolve(data)
+        })
+      })
+
+      // Remove any non-printable characters and trim the output
+      const cleaned = Array.from(output)
+        .filter((character) => character.charCodeAt(0) > 8)
+        .join('')
+        .trim()
+      if (!cleaned || cleaned.toLowerCase().includes('error') || cleaned.toLowerCase().includes('not found')) {
+        return null
+      }
+
+      // First GPU only: "<util>, <used>, <total>"
+      const parts = cleaned.split('\n')[0].split(',').map((s) => s.trim())
+      if (parts.length < 3) return null
+      const util = Number.parseInt(parts[0], 10)
+      const used = Number.parseInt(parts[1], 10)
+      const total = Number.parseInt(parts[2], 10)
+      if (!Number.isFinite(util) || !Number.isFinite(used) || !Number.isFinite(total)) return null
+
+      return { util, vram_used_mb: used, vram_total_mb: total }
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Run AI benchmark using Ollama
    */
   private async _runAIBenchmark(): Promise<AIScores> {
+    // Live GPU-util overlay poller. Side-effect-only: it feeds telemetry frames
+    // and is cleared in the finally below so it never outlives the AI stage.
+    let gpuPollTimer: NodeJS.Timeout | null = null
     try {
 
     this._updateStatus('running_ai', 'Running AI benchmark...')
@@ -544,6 +609,29 @@ export class BenchmarkService {
     } catch (error) {
       const errorCode = error.code || error.response?.status || 'unknown'
       throw new Error(`Ollama is not running or not accessible (${errorCode}). Ensure AI Assistant is installed and running.`)
+    }
+
+    // GPU-util overlay (NVIDIA only): probe once; if a GPU answers, poll for the
+    // duration of the AI stage. If the probe returns null (no GPU / AMD), the
+    // overlay simply never appears. Best-effort: failures never affect the run.
+    try {
+      const initialGpu = await this._probeGpuStats()
+      if (initialGpu) {
+        this.telemetry?.setGpuStats(initialGpu)
+        let gpuProbeInFlight = false
+        gpuPollTimer = setInterval(() => {
+          if (gpuProbeInFlight) return
+          gpuProbeInFlight = true
+          this._probeGpuStats()
+            .then((stats) => this.telemetry?.setGpuStats(stats))
+            .catch(() => this.telemetry?.setGpuStats(null))
+            .finally(() => {
+              gpuProbeInFlight = false
+            })
+        }, 1000)
+      }
+    } catch {
+      // GPU overlay is cosmetic; ignore probe failures entirely.
     }
 
     // Check if the benchmark model is available, pull if not
@@ -651,6 +739,10 @@ export class BenchmarkService {
     }
     } catch (error) {
       throw new Error(`AI benchmark failed: ${error.message}`)
+    } finally {
+      // Stop the GPU-util poller and clear the overlay from telemetry frames.
+      if (gpuPollTimer) clearInterval(gpuPollTimer)
+      this.telemetry?.setGpuStats(null)
     }
   }
 

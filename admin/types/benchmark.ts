@@ -114,6 +114,8 @@ export type BenchmarkTelemetry = {
     value: number
     ttft_ms?: number
   }
+  // NVIDIA GPU stats sampled during the AI stage (absent when no NVIDIA GPU)
+  gpu?: { util: number; vram_used_mb: number; vram_total_mb: number }
 }
 
 // API request types

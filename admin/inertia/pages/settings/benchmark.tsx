@@ -24,6 +24,7 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import { useBenchmarkRun } from '~/hooks/useBenchmarkRun'
 import BenchmarkRunView from '~/components/benchmark/BenchmarkRunView'
+import ScoreReveal from '~/components/benchmark/ScoreReveal'
 
 export default function BenchmarkPage(props: {
   benchmark: {
@@ -36,6 +37,7 @@ export default function BenchmarkPage(props: {
   const queryClient = useQueryClient()
   const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
+  const [revealing, setRevealing] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -64,6 +66,7 @@ export default function BenchmarkPage(props: {
       setIsRunning(false)
       if (status === 'completed') {
         refetchLatest()
+        setRevealing(true)
       } else {
         setErrorMsg(message || 'Benchmark failed')
       }
@@ -222,6 +225,23 @@ export default function BenchmarkPage(props: {
 
             {isRunning ? (
               <BenchmarkRunView run={run} />
+            ) : revealing ? (
+              // Reveal slot: wait for the refetched latest result to be the one
+              // from this run, then hand it to the score reveal.
+              (() => {
+                const ready =
+                  latestResult && latestResult.benchmark_id === run.progress?.benchmark_id
+                return ready ? (
+                  <ScoreReveal result={latestResult} onDone={() => setRevealing(false)} />
+                ) : (
+                  <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
+                    <div className="flex items-center justify-center gap-3 text-desert-green animate-pulse">
+                      <div className="animate-spin h-6 w-6 border-2 border-desert-green border-t-transparent rounded-full" />
+                      <span className="text-lg font-medium">Compiling report...</span>
+                    </div>
+                  </div>
+                )
+              })()
             ) : (
               <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
                 <div className="space-y-6">
