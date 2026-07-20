@@ -58,7 +58,51 @@ export type WikipediaSpec = {
   options: WikipediaOption[]
 }
 
-export type ManifestType = 'zim_categories' | 'maps' | 'wikipedia'
+// ---- Creator Packs spec ----
+//
+// A creator pack is a branded ZIM of a creator's curated YouTube videos, served
+// offline through Kiwix. The public catalog carries display metadata ONLY — there
+// is NO download url here. The bytes live in a private R2 bucket behind an
+// entitlement Worker; CreatorPackService resolves the (stable) Worker URL and
+// sends the auth header at install time. See project_content_creator_packs.
+export type CreatorPack = {
+  id: string
+  name: string
+  creator: string
+  description: string
+  /** YYYY-MM; combines with id as `<id>_<version>.zim` (parseZimFilename). */
+  version: string
+  /** InstalledResource.resource_id used for install/status reconciliation. */
+  resource_id: string
+  video_count: number
+  size_mb: number
+  license_id: string
+  /**
+   * Optional branded 1060x175 banner (the card hero). When omitted, the app
+   * uses the banner it bundles by pack id (`/creator-packs/<id>.webp`). The
+   * Kiwix grid icon is baked into the ZIM separately.
+   */
+  banner_url?: string
+  /** Optional card art. */
+  poster_url?: string
+  logo_url?: string
+}
+
+export type CreatorPacksSpec = {
+  spec_version: string
+  packs: CreatorPack[]
+}
+
+export type CreatorPackStatus = 'installed' | 'downloading' | 'available'
+
+export type CreatorPackWithStatus = CreatorPack & {
+  status: CreatorPackStatus
+  installed_version?: string
+  /** Set when an installed pack has a newer catalog version available. */
+  available_update_version?: string
+}
+
+export type ManifestType = 'zim_categories' | 'maps' | 'wikipedia' | 'creator_packs'
 
 export type ResourceStatus = 'installed' | 'not_installed' | 'update_available'
 

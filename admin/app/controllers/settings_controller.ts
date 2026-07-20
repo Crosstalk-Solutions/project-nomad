@@ -99,6 +99,10 @@ export default class SettingsController {
     return inertia.render('settings/zim/remote-explorer')
   }
 
+  async creatorPacks({ inertia }: HttpContext) {
+    return inertia.render('settings/creator-packs')
+  }
+
   async benchmark({ inertia }: HttpContext) {
     const latestResult = await this.benchmarkService.getLatestResult()
     const status = this.benchmarkService.getStatus()

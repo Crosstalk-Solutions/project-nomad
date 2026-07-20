@@ -7,6 +7,13 @@ export type DoResumableDownloadParams = {
   onProgress?: (progress: DoResumableDownloadProgress) => void
   onComplete?: (url: string, path: string) => void | Promise<void>
   forceNew?: boolean
+  /**
+   * Extra HTTP request headers sent on BOTH the HEAD probe and the GET stream.
+   * Used by Creator Packs to carry the `Authorization: Bearer <APP_KEY>` the
+   * entitlement Worker requires; the Range header still composes on top for
+   * resumed downloads. Kept generic so any gated source can reuse it.
+   */
+  requestHeaders?: Record<string, string>
 }
 
 export type DoResumableDownloadWithRetryParams = DoResumableDownloadParams & {
@@ -48,6 +55,13 @@ export type RunDownloadJobParams = Omit<
      * `failed` handler) so manual downloads never touch the counter.
      */
     auto?: boolean
+    /**
+     * Skip the RAG/knowledge-base ingestion branch in RunDownloadJob.onComplete.
+     * Set for video ZIMs (Creator Packs) — they are media galleries, not text,
+     * and must never be dispatched to EmbedFileJob or the replacement-reconcile
+     * path. The Kiwix rebuild still runs so the pack appears in the grid.
+     */
+    skip_embedding?: boolean
   }
 }
 

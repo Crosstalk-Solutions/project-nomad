@@ -52,3 +52,4 @@ jobs:
             VERSION=${{ inputs.version }}
             BUILD_DATE=${{ github.event.workflow_run.created_at }}
             VCS_REF=${{ github.sha }}
+            CREATOR_PACKS_APP_KEY=${{ secrets.CREATOR_PACKS_APP_KEY }}
