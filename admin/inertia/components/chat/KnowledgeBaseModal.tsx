@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
 import type { DynamicIconName } from '~/lib/icons'
@@ -27,6 +27,9 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '../StyledModal'
 import ActiveEmbedJobs from '~/components/ActiveEmbedJobs'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import CollectionsManager from './CollectionsManager'
+import { KB_COLLECTIONS } from '../../../constants/kb_collections'
+import CollectionCombobox from './CollectionCombobox'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -34,7 +37,7 @@ interface KnowledgeBaseModalProps {
 }
 
 // File extensions the in-browser viewer can render. Must stay in sync with
-// `RagService.VIEWABLE_TEXT_EXTENSIONS` — anything outside this set falls back
+// `RagService.VIEWABLE_TEXT_EXTENSIONS` -- anything outside this set falls back
 // to Download.
 const VIEWABLE_EXTENSIONS = new Set(['md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html'])
 
@@ -117,7 +120,7 @@ type RowAction =
 /**
  * Pick the single adaptive per-row action button. Returns null when no action
  * makes sense for the current state (e.g. healthy indexed file with no
- * warnings — bulk Re-embed All covers that case). `hasWarnings` lets us
+ * warnings -- bulk Re-embed All covers that case). `hasWarnings` lets us
  * surface a Re-embed affordance specifically when a file *looks* indexed but
  * has zero chunks or a stalled-mid-ingestion warning attached.
  */
@@ -143,6 +146,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadCollection, setUploadCollection] = useState<string>('')
+  const [collectionFilter, setCollectionFilter] = useState<string>('All')
+  const [manageCollectionsOpen, setManageCollectionsOpen] = useState(false)
   const [confirmDeleteSource, setConfirmDeleteSource] = useState<string | null>(null)
   const [confirmReembed, setConfirmReembed] = useState<{ source: string; displayName: string } | null>(null)
   const [bulkMode, setBulkMode] = useState<null | 'reembed' | 'reset'>(null)
@@ -172,8 +178,18 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     select: (data) => data || [],
   })
 
-  // Per-file conditional warnings (RFC #883 §6). `ok: false` means the
-  // computation itself failed (Qdrant/DB/FS) — distinct from `ok: true` with
+  const { data: knownCollections = [] } = useQuery({
+    queryKey: ['kbCollections'],
+    queryFn: () => api.getKnowledgeCollections(),
+    select: (data) => data?.collections ?? [],
+  })
+
+  const comboboxOptions = useMemo(() => {
+    return Array.from(new Set([...KB_COLLECTIONS, ...knownCollections])).sort()
+  }, [knownCollections])
+
+  // Per-file conditional warnings (RFC #883 section 6). `ok: false` means the
+  // computation itself failed (Qdrant/DB/FS) -- distinct from `ok: true` with
   // an empty map, which means everything is healthy. We surface the failure
   // explicitly so a silent backend failure doesn't masquerade as health.
   const { data: warningsResult } = useQuery({
@@ -216,7 +232,20 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   })
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => api.uploadDocument(file),
+    mutationFn: (file: File) => api.uploadDocument(file, uploadCollection || undefined),
+  })
+
+  const updateCollectionMutation = useMutation({
+    mutationFn: ({ source, collection }: { source: string; collection: string }) =>
+      api.updateFileCollection(source, collection || null),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Collection updated.' })
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['kbCollections'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to update collection.' })
+    },
   })
 
   const deleteMutation = useMutation({
@@ -461,7 +490,16 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   setFiles(Array.from(uploadedFiles))
                 }}
               />
-              <div className="flex justify-center gap-4 my-6">
+              <div className="flex justify-center items-center gap-4 my-6">
+                <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  Collection:
+                  <CollectionCombobox
+                    value={uploadCollection}
+                    onChange={setUploadCollection}
+                    options={comboboxOptions}
+                    className="w-48"
+                  />
+                </label>
                 <StyledButton
                   variant="primary"
                   size="lg"
@@ -585,8 +623,6 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 >
                   Clean Up Failed
                 </StyledButton>
-                {/* Not gated on qdrantOffline: clearing stuck jobs must work during
-                    a Qdrant/Ollama outage, which is exactly when they wedge. */}
                 <StyledButton
                   variant="danger"
                   size="md"
@@ -607,6 +643,27 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
             <div className='flex items-center justify-between mb-6 gap-2 flex-wrap'>
               <StyledSectionHeader title="Stored Knowledge Base Files" className='!mb-0' />
               <div className="flex items-center gap-2 flex-wrap">
+                <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  Search in:
+                  <select
+                    value={collectionFilter}
+                    onChange={(e) => setCollectionFilter(e.target.value)}
+                    className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
+                  >
+                    <option value="All">All</option>
+                    {knownCollections.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
+                <StyledButton
+                  variant="secondary"
+                  size="md"
+                  icon="IconSettings"
+                  onClick={() => setManageCollectionsOpen(true)}
+                >
+                  Manage Collections
+                </StyledButton>
                 <StyledButton
                   variant="danger"
                   size="md"
@@ -701,8 +758,6 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   title: renderSortHeader('Size', 'size', sort, setSort),
                   className: 'whitespace-nowrap',
                   render(record) {
-                    // The collapsed admin_docs group has no single size — leave blank
-                    // rather than misleadingly summing across N files.
                     if (record.bucket === 'admin_docs' || record.size === null) {
                       return <span className="text-text-muted">—</span>
                     }
@@ -726,12 +781,31 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
                 {
+                  accessor: 'collection',
+                  title: 'Collection',
+                  className: 'whitespace-nowrap',
+                  render(record) {
+                    if (record.bucket === 'admin_docs') {
+                      return <span className="text-text-muted">—</span>
+                    }
+                    const isSaving =
+                      updateCollectionMutation.isPending &&
+                      updateCollectionMutation.variables?.source === record.source
+                    return (
+                      <CollectionCombobox
+                        value={record.collection ?? ''}
+                        onChange={(val) => updateCollectionMutation.mutate({ source: record.source, collection: val })}
+                        options={comboboxOptions}
+                        disabled={isSaving}
+                        className="w-40"
+                      />
+                    )
+                  },
+                },
+                {
                   accessor: 'source',
                   title: '',
                   render(record) {
-                    // Admin docs are auto-discovered and managed by NOMAD itself —
-                    // deleting one would just be re-embedded on the next sync, so
-                    // we surface them as informational only and hide Delete.
                     if (record.bucket === 'admin_docs') {
                       return (
                         <div className="flex justify-end">
@@ -827,7 +901,12 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   },
                 },
               ]}
-              data={groupAndSortKbFiles(storedFiles, sort)}
+              data={groupAndSortKbFiles(
+                collectionFilter === 'All'
+                  ? storedFiles
+                  : storedFiles.filter((f) => f.collection === collectionFilter),
+                sort
+              )}
               loading={isLoadingFiles}
             />
           </div>
@@ -966,6 +1045,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           onClose={() => setViewerSource(null)}
         />
       )}
+
+      {manageCollectionsOpen && (
+        <CollectionsManager onClose={() => setManageCollectionsOpen(false)} />
+      )}
     </div>
   )
 }
@@ -982,7 +1065,7 @@ function FileViewerModal({ source, onClose }: { source: string; onClose: () => v
   const fallbackName = source.split(/[/\\]/).at(-1) ?? source
   const title = data?.fileName ?? fallbackName
   // `catchInternal` swallows errors and resolves to undefined, surfacing a
-  // toast — so the "couldn't load" branch is gated on a finished-but-empty
+  // toast -- so the "couldn't load" branch is gated on a finished-but-empty
   // fetch rather than on react-query's `isError`.
   const showError = isFetched && !data
 

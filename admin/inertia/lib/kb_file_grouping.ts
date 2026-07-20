@@ -61,6 +61,9 @@ export interface KbFileGroup {
   /** True when the row corresponds to a user upload — drives whether the
    * view/download buttons render. False for the collapsed admin_docs group. */
   isUserUpload: boolean
+  /** Subject/category tag, or null if uncategorized. Always null for the
+   * collapsed admin_docs group. */
+  collection: string | null
 }
 
 const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'admin_docs', 'other']
@@ -136,6 +139,7 @@ export function groupAndSortKbFiles(
         size: null,
         uploadedAt: null,
         isUserUpload: false,
+        collection: null,
       })
       continue
     }
@@ -152,6 +156,7 @@ export function groupAndSortKbFiles(
         size: file.size,
         uploadedAt: file.uploadedAt,
         isUserUpload: file.isUserUpload,
+        collection: file.collection,
       })
     }
   }

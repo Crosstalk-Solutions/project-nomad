@@ -20,9 +20,10 @@ export interface EmbedFileJobParams {
   isFinalBatch?: boolean // Whether this is the last batch (prevents premature deletion)
   // Running total of chunks embedded across prior batches in this dispatch chain.
   // Carried forward so the final batch can persist an accurate `chunks_embedded`
-  // count via KbIngestState.markIndexed (see #933 — without this, only the last
+  // count via KbIngestState.markIndexed (see #933 -- without this, only the last
   // batch's chunk count was stored while Qdrant held the full set).
   chunksSoFar?: number
+  collection?: string
 }
 
 export class EmbedFileJob {
@@ -56,7 +57,7 @@ export class EmbedFileJob {
   }
 
   async handle(job: Job) {
-    const { filePath, fileName, batchOffset, totalArticles } = job.data as EmbedFileJobParams
+    const { filePath, fileName, batchOffset, totalArticles, collection } = job.data as EmbedFileJobParams
 
     const isZimBatch = batchOffset !== undefined
     const batchInfo = isZimBatch ? ` (batch offset: ${batchOffset})` : ''
@@ -136,7 +137,8 @@ export class EmbedFileJob {
         filePath,
         allowDeletion,
         batchOffset,
-        onProgress
+        onProgress,
+        collection
       )
 
       if (!result.success) {
@@ -242,7 +244,7 @@ export class EmbedFileJob {
       // BullMQ's :completed retention (50 jobs) ages out, so the state row is
       // the only durable record of "this file finished embedding".
       try {
-        await KbIngestState.markIndexed(filePath, totalChunks)
+        await KbIngestState.markIndexed(filePath, totalChunks, collection)
       } catch (stateErr) {
         logger.warn(
           `[EmbedFileJob] Failed to persist ingest state for ${fileName}: %s`,
