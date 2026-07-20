@@ -38,6 +38,7 @@ export const KV_STORE_SCHEMA = {
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',
   'ai.ollamaFlashAttention':    'boolean',
+  'ai.autoThinking':            'boolean',
   'ai.amdGpuAcceleration':      'boolean',
   'ai.amdHsaOverride':          'string',
   'ai.autoFixGpuPassthrough':   'boolean',
