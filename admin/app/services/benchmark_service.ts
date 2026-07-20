@@ -21,11 +21,13 @@ import type {
   RepositorySubmission,
   RepositorySubmitResponse,
   RepositoryStats,
+  BenchmarkStageDescriptor,
 } from '../../types/benchmark.js'
 import { randomUUID, createHmac } from 'node:crypto'
 import { DockerService } from './docker_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
+import { BenchmarkTelemetrySampler } from './benchmark_telemetry.js'
 import Dockerode from 'dockerode'
 
 // HMAC secret for signing submissions to the benchmark repository
@@ -67,8 +69,27 @@ const REFERENCE_SCORES = {
 export class BenchmarkService {
   private currentBenchmarkId: string | null = null
   private currentStatus: BenchmarkStatus = 'idle'
+  private currentStages: BenchmarkStageDescriptor[] = []
+  private telemetry: BenchmarkTelemetrySampler | null = null
 
   constructor(private dockerService: DockerService) {}
+
+  /**
+   * Build the ordered stage plan for a run so the live UI can render a rail of
+   * pending/active/complete nodes. Mirrors exactly the stages `_runBenchmark`
+   * emits for the given type.
+   */
+  private _buildStageList(type: BenchmarkType, includeAI: boolean): BenchmarkStageDescriptor[] {
+    const stages: BenchmarkStatus[] = ['detecting_hardware']
+    if (type === 'full' || type === 'system') {
+      stages.push('running_cpu', 'running_memory', 'running_disk_read', 'running_disk_write')
+    }
+    if (includeAI && (type === 'full' || type === 'ai')) {
+      stages.push('running_ai')
+    }
+    stages.push('calculating_score')
+    return stages.map((status) => ({ status, label: this._getStageLabel(status) }))
+  }
 
   /**
    * Run a full benchmark suite
@@ -357,6 +378,14 @@ export class BenchmarkService {
     }
 
     this.currentBenchmarkId = randomUUID()
+    this.currentStages = this._buildStageList(type, includeAI)
+
+    // Start live host-telemetry sampling for the duration of the run. This runs
+    // in the orchestration process, not inside the sysbench container, so it
+    // cannot influence the scored numbers.
+    this.telemetry = new BenchmarkTelemetrySampler(this.currentBenchmarkId)
+    this.telemetry.start()
+
     this._updateStatus('starting', 'Starting benchmark...')
 
     try {
@@ -425,6 +454,10 @@ export class BenchmarkService {
       this.currentStatus = 'idle'
       this.currentBenchmarkId = null
       throw error
+    } finally {
+      this.telemetry?.stop()
+      this.telemetry = null
+      this.currentStages = []
     }
   }
 
@@ -487,49 +520,102 @@ export class BenchmarkService {
       throw new Error(`Model does not exist and failed to download: ${modelResponse.message}`)
     }
 
-    // Run inference benchmark
+    // Run inference benchmark. We stream the response so the live UI can show
+    // tokens/sec climbing and stamp the true time-to-first-token, but the SCORED
+    // numbers still come from Ollama's authoritative final eval_count /
+    // eval_duration / prompt_eval_duration, exactly as the non-streaming path did.
     const startTime = Date.now()
+    let firstTokenAt: number | null = null
+    let streamedTokens = 0
+    let responseText = ''
+    let finalEvalCount = 0
+    let finalEvalDuration = 0
+    let finalPromptEvalDuration = 0
 
-      const response = await axios.post(
-        `${ollamaAPIURL}/api/generate`,
-        {
-          model: AI_BENCHMARK_MODEL,
-          prompt: AI_BENCHMARK_PROMPT,
-          stream: false,
-        },
-        { timeout: 120000 }
-      )
+    const response = await axios.post(
+      `${ollamaAPIURL}/api/generate`,
+      {
+        model: AI_BENCHMARK_MODEL,
+        prompt: AI_BENCHMARK_PROMPT,
+        stream: true,
+      },
+      { timeout: 120000, responseType: 'stream' }
+    )
 
-      const endTime = Date.now()
-      const totalTime = (endTime - startTime) / 1000 // seconds
-
-      // Ollama returns eval_count (tokens generated) and eval_duration (nanoseconds)
-      if (response.data.eval_count && response.data.eval_duration) {
-        const tokenCount = response.data.eval_count
-        const evalDurationSeconds = response.data.eval_duration / 1e9
-        const tokensPerSecond = tokenCount / evalDurationSeconds
-
-        // Time to first token from prompt_eval_duration
-        const ttft = response.data.prompt_eval_duration
-          ? response.data.prompt_eval_duration / 1e6 // Convert to ms
-          : (totalTime * 1000) / 2 // Estimate if not available
-
-        return {
-          ai_tokens_per_second: Math.round(tokensPerSecond * 100) / 100,
-          ai_model_used: AI_BENCHMARK_MODEL,
-          ai_time_to_first_token: Math.round(ttft * 100) / 100,
+    await new Promise<void>((resolve, reject) => {
+      let buffer = ''
+      let lastEmit = 0
+      response.data.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString('utf8')
+        // Ollama streams newline-delimited JSON; process each complete line.
+        let newlineIdx: number
+        while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, newlineIdx).trim()
+          buffer = buffer.slice(newlineIdx + 1)
+          if (!line) continue
+          try {
+            const obj = JSON.parse(line)
+            if (typeof obj.response === 'string' && obj.response.length > 0) {
+              if (firstTokenAt === null) {
+                firstTokenAt = Date.now()
+                this.telemetry?.setStageMetric('tokens_per_sec', 0, firstTokenAt - startTime)
+              }
+              responseText += obj.response
+              streamedTokens++
+              const now = Date.now()
+              if (firstTokenAt && now - lastEmit >= 400) {
+                const elapsed = (now - firstTokenAt) / 1000
+                const rate = elapsed > 0 ? streamedTokens / elapsed : 0
+                this.telemetry?.setStageMetric(
+                  'tokens_per_sec',
+                  Math.round(rate * 10) / 10,
+                  firstTokenAt - startTime
+                )
+                lastEmit = now
+              }
+            }
+            if (obj.done) {
+              finalEvalCount = obj.eval_count || 0
+              finalEvalDuration = obj.eval_duration || 0
+              finalPromptEvalDuration = obj.prompt_eval_duration || 0
+            }
+          } catch {
+            // Ignore a partial or non-JSON line; the next chunk completes it.
+          }
         }
-      }
+      })
+      response.data.on('end', () => resolve())
+      response.data.on('error', (err: Error) => reject(err))
+    })
 
-      // Fallback calculation
-      const estimatedTokens = response.data.response?.split(' ').length * 1.3 || 100
-      const tokensPerSecond = estimatedTokens / totalTime
+    const totalTime = (Date.now() - startTime) / 1000 // seconds
+
+    // Authoritative scored numbers (identical to the previous non-streaming path).
+    if (finalEvalCount && finalEvalDuration) {
+      const evalDurationSeconds = finalEvalDuration / 1e9
+      const tokensPerSecond = finalEvalCount / evalDurationSeconds
+      const ttft = finalPromptEvalDuration
+        ? finalPromptEvalDuration / 1e6 // Convert ns to ms
+        : (totalTime * 1000) / 2 // Estimate if not available
 
       return {
         ai_tokens_per_second: Math.round(tokensPerSecond * 100) / 100,
         ai_model_used: AI_BENCHMARK_MODEL,
-        ai_time_to_first_token: Math.round((totalTime * 1000) / 2),
+        ai_time_to_first_token: Math.round(ttft * 100) / 100,
       }
+    }
+
+    // Fallback if Ollama didn't return eval metrics: use the streamed counts.
+    const estimatedTokens = streamedTokens || responseText.split(' ').length * 1.3 || 100
+    const tokensPerSecond = totalTime > 0 ? estimatedTokens / totalTime : 0
+
+    return {
+      ai_tokens_per_second: Math.round(tokensPerSecond * 100) / 100,
+      ai_model_used: AI_BENCHMARK_MODEL,
+      ai_time_to_first_token: firstTokenAt
+        ? Math.round(firstTokenAt - startTime)
+        : Math.round((totalTime * 1000) / 2),
+    }
     } catch (error) {
       throw new Error(`AI benchmark failed: ${error.message}`)
     }
@@ -789,6 +875,7 @@ export class BenchmarkService {
    */
   private _updateStatus(status: BenchmarkStatus, message: string) {
     this.currentStatus = status
+    this.telemetry?.setStage(status)
 
     const progress: BenchmarkProgress = {
       status,
@@ -796,6 +883,9 @@ export class BenchmarkService {
       message,
       current_stage: this._getStageLabel(status),
       timestamp: new Date().toISOString(),
+      stages: this.currentStages,
+      stage_index: this.currentStages.findIndex((s) => s.status === status),
+      stage_count: this.currentStages.length,
     }
 
     transmit.broadcast(BROADCAST_CHANNELS.BENCHMARK_PROGRESS, {

@@ -64,6 +64,20 @@ export type BenchmarkSettings = {
   last_benchmark_run: string | null
 }
 
+// A single stage in the ordered run plan (drives the frontend stage rail)
+export type BenchmarkStageDescriptor = {
+  status: BenchmarkStatus
+  label: string
+}
+
+// The raw metric produced when a stage finishes, surfaced to the live UI
+export type BenchmarkPartialResult = {
+  status: BenchmarkStatus
+  label: string
+  value: number
+  unit: string
+}
+
 // Progress update for real-time feedback
 export type BenchmarkProgress = {
   status: BenchmarkStatus
@@ -71,6 +85,35 @@ export type BenchmarkProgress = {
   message: string
   current_stage: string
   timestamp: string
+  // The ordered stage plan for this run + where we are in it. Optional so old
+  // clients / payloads without these fields still render.
+  stages?: BenchmarkStageDescriptor[]
+  stage_index?: number
+  stage_count?: number
+  // Raw result of the stage that just completed (fills the "results so far" strip)
+  partial_result?: BenchmarkPartialResult
+}
+
+// High-rate live telemetry sample broadcast during a run (1-2 Hz)
+export type BenchmarkTelemetry = {
+  benchmark_id: string | null
+  status: BenchmarkStatus
+  t: number // ms since run start
+  cpu: {
+    overall: number // 0-100
+    per_core: number[] // 0-100 per host thread
+  }
+  temp_c: number | null // null when host sensors are unavailable
+  disk: {
+    read_mb_s: number
+    write_mb_s: number
+  }
+  // In-test metric injected by the active stage (e.g. live AI tokens/sec)
+  stage_metric?: {
+    kind: 'tokens_per_sec' | 'events_per_sec' | 'mib_s'
+    value: number
+    ttft_ms?: number
+  }
 }
 
 // API request types

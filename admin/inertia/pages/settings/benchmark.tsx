@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
@@ -17,15 +17,13 @@ import {
   IconChevronDown,
   IconClock,
 } from '@tabler/icons-react'
-import { useTransmit } from 'react-adonis-transmit'
-import { BenchmarkProgress, BenchmarkStatus } from '../../../types/benchmark'
+import { BenchmarkStatus } from '../../../types/benchmark'
 import BenchmarkResult from '#models/benchmark_result'
 import api from '~/lib/api'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../../constants/service_names'
-import { BROADCAST_CHANNELS } from '../../../constants/broadcast'
-
-type BenchmarkProgressWithID = BenchmarkProgress & { benchmark_id: string }
+import { useBenchmarkRun } from '~/hooks/useBenchmarkRun'
+import BenchmarkRunView from '~/components/benchmark/BenchmarkRunView'
 
 export default function BenchmarkPage(props: {
   benchmark: {
@@ -35,12 +33,10 @@ export default function BenchmarkPage(props: {
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
-  const { subscribe } = useTransmit()
   const queryClient = useQueryClient()
   const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
-  const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
-  const refetchLatestRef = useRef<(() => void) | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
@@ -61,7 +57,18 @@ export default function BenchmarkPage(props: {
     },
     initialData: props.benchmark.latestResult,
   })
-  refetchLatestRef.current = refetchLatest
+
+  // Live run state: owns the progress + telemetry SSE subscriptions.
+  const run = useBenchmarkRun({
+    onFinished: (status, message) => {
+      setIsRunning(false)
+      if (status === 'completed') {
+        refetchLatest()
+      } else {
+        setErrorMsg(message || 'Benchmark failed')
+      }
+    },
+  })
 
   // Fetch all benchmark results for history
   const { data: benchmarkHistory } = useQuery({
@@ -75,55 +82,26 @@ export default function BenchmarkPage(props: {
     },
   })
 
-  // Run benchmark mutation (uses sync mode by default for simpler local dev)
+  // Run benchmark mutation (async: dispatched to the queue worker; live progress
+  // and completion arrive over SSE via useBenchmarkRun).
   const runBenchmark = useMutation({
     mutationFn: async (type: 'full' | 'system' | 'ai') => {
+      setErrorMsg(null)
+      run.reset()
       setIsRunning(true)
-      setProgress({
-        status: 'starting',
-        progress: 5,
-        message: 'Starting benchmark... This takes 2-5 minutes.',
-        current_stage: 'Starting',
-        benchmark_id: '',
-        timestamp: new Date().toISOString(),
-      })
-
-      // Use sync mode - runs inline without needing Redis/queue worker
-      return await api.runBenchmark(type, true)
+      return await api.runBenchmark(type)
     },
     onSuccess: (data) => {
-      if (data?.success) {
-        setProgress({
-          status: 'completed',
-          progress: 100,
-          message: 'Benchmark completed!',
-          current_stage: 'Complete',
-          benchmark_id: data.benchmark_id,
-          timestamp: new Date().toISOString(),
-        })
-        refetchLatest()
-      } else {
-        setProgress({
-          status: 'error',
-          progress: 0,
-          message: 'Benchmark failed',
-          current_stage: 'Error',
-          benchmark_id: '',
-          timestamp: new Date().toISOString(),
-        })
+      // Dispatch only confirms the job started; the 'completed'/'error' SSE event
+      // drives the rest (see useBenchmarkRun's onFinished).
+      if (!data?.success) {
+        setIsRunning(false)
+        setErrorMsg('Failed to start benchmark')
       }
-      setIsRunning(false)
     },
     onError: (error) => {
-      setProgress({
-        status: 'error',
-        progress: 0,
-        message: error.message || 'Benchmark failed',
-        current_stage: 'Error',
-        benchmark_id: '',
-        timestamp: new Date().toISOString(),
-      })
       setIsRunning(false)
+      setErrorMsg(error.message || 'Failed to start benchmark')
     },
   })
 
@@ -204,120 +182,6 @@ export default function BenchmarkPage(props: {
     runBenchmark.mutate('full')
   }
 
-  // Simulate progress during sync benchmark (since we don't get SSE updates)
-  useEffect(() => {
-    if (!isRunning || progress?.status === 'completed' || progress?.status === 'error') return
-
-    const stages: {
-      status: BenchmarkStatus
-      progress: number
-      message: string
-      label: string
-      duration: number
-    }[] = [
-      {
-        status: 'detecting_hardware',
-        progress: 10,
-        message: 'Detecting system hardware...',
-        label: 'Detecting Hardware',
-        duration: 2000,
-      },
-      {
-        status: 'running_cpu',
-        progress: 25,
-        message: 'Running CPU benchmark (30s)...',
-        label: 'CPU Benchmark',
-        duration: 32000,
-      },
-      {
-        status: 'running_memory',
-        progress: 40,
-        message: 'Running memory benchmark...',
-        label: 'Memory Benchmark',
-        duration: 8000,
-      },
-      {
-        status: 'running_disk_read',
-        progress: 55,
-        message: 'Running disk read benchmark (30s)...',
-        label: 'Disk Read Test',
-        duration: 35000,
-      },
-      {
-        status: 'running_disk_write',
-        progress: 70,
-        message: 'Running disk write benchmark (30s)...',
-        label: 'Disk Write Test',
-        duration: 35000,
-      },
-      {
-        status: 'downloading_ai_model',
-        progress: 80,
-        message: 'Downloading AI benchmark model (first run only)...',
-        label: 'Downloading AI Model',
-        duration: 5000,
-      },
-      {
-        status: 'running_ai',
-        progress: 85,
-        message: 'Running AI inference benchmark...',
-        label: 'AI Inference Test',
-        duration: 15000,
-      },
-      {
-        status: 'calculating_score',
-        progress: 95,
-        message: 'Calculating NOMAD score...',
-        label: 'Calculating Score',
-        duration: 2000,
-      },
-    ]
-
-    let currentStage = 0
-    const advanceStage = () => {
-      if (currentStage < stages.length && isRunning) {
-        const stage = stages[currentStage]
-        setProgress({
-          status: stage.status,
-          progress: stage.progress,
-          message: stage.message,
-          current_stage: stage.label,
-          benchmark_id: '',
-          timestamp: new Date().toISOString(),
-        })
-        currentStage++
-      }
-    }
-
-    // Start the first stage after a short delay
-    const timers: NodeJS.Timeout[] = []
-    let elapsed = 1000
-    stages.forEach((stage) => {
-      timers.push(setTimeout(() => advanceStage(), elapsed))
-      elapsed += stage.duration
-    })
-
-    return () => {
-      timers.forEach((t) => clearTimeout(t))
-    }
-  }, [isRunning])
-
-  // Listen for benchmark progress via SSE (backup for async mode)
-  useEffect(() => {
-    const unsubscribe = subscribe(BROADCAST_CHANNELS.BENCHMARK_PROGRESS, (data: BenchmarkProgressWithID) => {
-      setProgress(data)
-      if (data.status === 'completed' || data.status === 'error') {
-        setIsRunning(false)
-        refetchLatestRef.current?.()
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscribe])
-
   const formatBytes = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024)
     return `${gb.toFixed(1)} GB`
@@ -327,25 +191,6 @@ export default function BenchmarkPage(props: {
     if (score >= 70) return 'text-green-600'
     if (score >= 40) return 'text-yellow-600'
     return 'text-red-600'
-  }
-
-  const getProgressPercent = () => {
-    if (!progress) return 0
-    const stages: Record<BenchmarkStatus, number> = {
-      idle: 0,
-      starting: 5,
-      detecting_hardware: 10,
-      running_cpu: 25,
-      running_memory: 40,
-      running_disk_read: 55,
-      running_disk_write: 70,
-      downloading_ai_model: 80,
-      running_ai: 85,
-      calculating_score: 95,
-      completed: 100,
-      error: 0,
-    }
-    return stages[progress.status] || 0
   }
 
   // Calculate AI score from tokens per second (normalized to 0-100)
@@ -375,33 +220,19 @@ export default function BenchmarkPage(props: {
               Run Benchmark
             </h2>
 
-            <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
-              {isRunning ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin h-6 w-6 border-2 border-desert-green border-t-transparent rounded-full" />
-                    <span className="text-lg font-medium">
-                      {progress?.current_stage || 'Running benchmark...'}
-                    </span>
-                  </div>
-                  <div className="w-full bg-desert-stone-lighter rounded-full h-4 overflow-hidden">
-                    <div
-                      className="bg-desert-green h-full transition-all duration-500"
-                      style={{ width: `${getProgressPercent()}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-desert-stone-dark">{progress?.message}</p>
-                </div>
-              ) : (
+            {isRunning ? (
+              <BenchmarkRunView run={run} />
+            ) : (
+              <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
                 <div className="space-y-6">
-                  {progress?.status === 'error' && (
+                  {errorMsg && (
                     <Alert
                       type="error"
                       title="Benchmark Failed"
-                      message={progress.message}
+                      message={errorMsg}
                       variant="bordered"
                       dismissible
-                      onDismiss={() => setProgress(null)}
+                      onDismiss={() => setErrorMsg(null)}
                     />
                   )}
                   {showAIRequiredAlert && (
@@ -469,8 +300,8 @@ export default function BenchmarkPage(props: {
                     </p>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </section>
 
           {/* Results Section */}
