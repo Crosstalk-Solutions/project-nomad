@@ -65,6 +65,8 @@ export type StoredFileInfo = {
   /** True when `source` lives under the user-uploads directory. Drives which
    * rows offer view/download in the UI. */
   isUserUpload: boolean
+  /** Subject/category tag, or null if uncategorized. */
+  collection: string | null
 }
 
 /**

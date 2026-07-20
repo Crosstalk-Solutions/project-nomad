@@ -124,9 +124,10 @@ class API {
 
   async downloadRemoteMapRegionPreflight(url: string) {
     return catchInternal(async () => {
-      const response = await this.client.post<
-        { filename: string; size: number } | { message: string }
-      >('/maps/download-remote-preflight', { url })
+      const response = await this.client.post<{ filename: string; size: number } | { message: string }>(
+        '/maps/download-remote-preflight',
+        { url }
+      )
       return response.data
     })()
   }
@@ -275,7 +276,7 @@ class API {
   /**
    * Ask the backend to send Ollama `keep_alive: 0` to every currently-loaded
    * chat model except `targetModel` (and the embedding model, which is always
-   * exempt server-side). Fire-and-forget — the chat UI doesn't await this
+   * exempt server-side). Fire-and-forget -- the chat UI doesn't await this
    * before creating a new session, since unload is housekeeping.
    *
    * Pass `null` to unload every chat model.
@@ -376,15 +377,13 @@ class API {
 
   async getChatSessions() {
     return catchInternal(async () => {
-      const response = await this.client.get<
-        Array<{
-          id: string
-          title: string
-          model: string | null
-          timestamp: string
-          lastMessage: string | null
-        }>
-      >('/chat/sessions')
+      const response = await this.client.get<Array<{
+        id: string
+        title: string
+        model: string | null
+        timestamp: string
+        lastMessage: string | null
+      }>>('/chat/sessions')
       return response.data
     })()
   }
@@ -713,27 +712,21 @@ class API {
 
   async listMapMarkers() {
     return catchInternal(async () => {
-      const response = await this.client.get<
-        Array<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>
-      >('/maps/markers')
+      const response = await this.client.get<Array<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>>('/maps/markers')
       return response.data
     })()
   }
 
   async createMapMarker(data: { name: string; longitude: number; latitude: number; color?: string; notes?: string | null }) {
     return catchInternal(async () => {
-      const response = await this.client.post<
-        { id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }
-      >('/maps/markers', data)
+      const response = await this.client.post<{ id: number; name: string; longitude: number; latitude: number; color: string; notes: string | null; created_at: string }>('/maps/markers', data)
       return response.data
     })()
   }
 
   async updateMapMarker(id: number, data: { name?: string; color?: string }) {
     return catchInternal(async () => {
-      const response = await this.client.patch<
-        { id: number; name: string; longitude: number; latitude: number; color: string }
-      >(`/maps/markers/${id}`, data)
+      const response = await this.client.patch<{ id: number; name: string; longitude: number; latitude: number; color: string }>(`/maps/markers/${id}`, data)
       return response.data
     })()
   }
@@ -993,10 +986,11 @@ class API {
     })()
   }
 
-  async uploadDocument(file: File) {
+  async uploadDocument(file: File, collection?: string) {
     return catchInternal(async () => {
       const formData = new FormData()
       formData.append('file', file)
+      if (collection) formData.append('collection', collection)
       const response = await this.client.post<{ message: string; file_path: string }>(
         '/rag/upload',
         formData,
@@ -1006,6 +1000,42 @@ class API {
           },
         }
       )
+      return response.data
+    })()
+  }
+
+  async getKnowledgeCollections() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ collections: string[] }>('/rag/collections')
+      return response.data
+    })()
+  }
+
+  async updateFileCollection(source: string, collection: string | null) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/update-collection', {
+        source,
+        collection,
+      })
+      return response.data
+    })()
+  }
+
+  async renameCollection(oldName: string, newName: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/rename-collection', {
+        oldName,
+        newName,
+      })
+      return response.data
+    })()
+  }
+
+  async deleteCollection(name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/delete-collection', {
+        name,
+      })
       return response.data
     })()
   }

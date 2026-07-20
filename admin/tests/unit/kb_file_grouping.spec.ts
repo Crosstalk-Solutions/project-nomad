@@ -23,6 +23,7 @@ const asInfos = (sources: string[]): StoredFileInfo[] =>
     size: null,
     uploadedAt: null,
     isUserUpload: classifyKbFile(source) === 'upload',
+    collection: null,
   }))
 
 test('classifyKbFile distinguishes ZIM, upload, admin_docs, and other', () => {
@@ -121,9 +122,9 @@ test('groupAndSortKbFiles preserves a stable synthetic key for the admin docs gr
  * three sort keys (name, size, uploadedAt) produce visibly different orders —
  * if a test passed for name it had better fail for size. */
 const sized: StoredFileInfo[] = [
-  { source: '/app/storage/kb_uploads/charlie.txt', state: null, chunksEmbedded: 0, fileName: 'charlie.txt', size: 100, uploadedAt: '2026-01-01T00:00:00Z', isUserUpload: true },
-  { source: '/app/storage/kb_uploads/alpha.txt',   state: null, chunksEmbedded: 0, fileName: 'alpha.txt',   size: 300, uploadedAt: '2026-03-01T00:00:00Z', isUserUpload: true },
-  { source: '/app/storage/kb_uploads/bravo.txt',   state: null, chunksEmbedded: 0, fileName: 'bravo.txt',   size: 200, uploadedAt: '2026-02-01T00:00:00Z', isUserUpload: true },
+  { source: '/app/storage/kb_uploads/charlie.txt', state: null, chunksEmbedded: 0, fileName: 'charlie.txt', size: 100, uploadedAt: '2026-01-01T00:00:00Z', isUserUpload: true, collection: null },
+  { source: '/app/storage/kb_uploads/alpha.txt',   state: null, chunksEmbedded: 0, fileName: 'alpha.txt',   size: 300, uploadedAt: '2026-03-01T00:00:00Z', isUserUpload: true, collection: null },
+  { source: '/app/storage/kb_uploads/bravo.txt',   state: null, chunksEmbedded: 0, fileName: 'bravo.txt',   size: 200, uploadedAt: '2026-02-01T00:00:00Z', isUserUpload: true, collection: null },
 ]
 
 test('groupAndSortKbFiles sorts by size ascending', () => {
@@ -149,7 +150,7 @@ test('groupAndSortKbFiles sorts by uploadedAt descending', () => {
 test('groupAndSortKbFiles parks files with null size at the end of size sort', () => {
   const withMissing: StoredFileInfo[] = [
     ...sized,
-    { source: '/app/storage/kb_uploads/zzz_missing.txt', state: null, chunksEmbedded: 0, fileName: 'zzz_missing.txt', size: null, uploadedAt: null, isUserUpload: true },
+    { source: '/app/storage/kb_uploads/zzz_missing.txt', state: null, chunksEmbedded: 0, fileName: 'zzz_missing.txt', size: null, uploadedAt: null, isUserUpload: true, collection: null },
   ]
   // Missing-size files sort last regardless of direction so the "real" data
   // owns the top of the view either way.
@@ -161,9 +162,9 @@ test('groupAndSortKbFiles parks files with null size at the end of size sort', (
 
 test('groupAndSortKbFiles preserves bucket order across all sort modes', () => {
   const mixed: StoredFileInfo[] = [
-    { source: '/app/storage/zim/big.zim',           state: null, chunksEmbedded: 0, fileName: 'big.zim',     size: 999, uploadedAt: '2026-01-01T00:00:00Z', isUserUpload: false },
-    { source: '/app/storage/kb_uploads/small.txt',  state: null, chunksEmbedded: 0, fileName: 'small.txt',   size: 1,   uploadedAt: '2026-09-01T00:00:00Z', isUserUpload: true },
-    { source: '/app/docs/release-notes.md',         state: null, chunksEmbedded: 0, fileName: 'release-notes.md', size: 50, uploadedAt: '2026-05-01T00:00:00Z', isUserUpload: false },
+    { source: '/app/storage/zim/big.zim',           state: null, chunksEmbedded: 0, fileName: 'big.zim',     size: 999, uploadedAt: '2026-01-01T00:00:00Z', isUserUpload: false, collection: null },
+    { source: '/app/storage/kb_uploads/small.txt',  state: null, chunksEmbedded: 0, fileName: 'small.txt',   size: 1,   uploadedAt: '2026-09-01T00:00:00Z', isUserUpload: true, collection: null },
+    { source: '/app/docs/release-notes.md',         state: null, chunksEmbedded: 0, fileName: 'release-notes.md', size: 50, uploadedAt: '2026-05-01T00:00:00Z', isUserUpload: false, collection: null },
   ]
   // Even if size-desc would put zim first naturally, sort runs *within* a
   // bucket — buckets themselves stay in the canonical zim → upload → admin_docs
