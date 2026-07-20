@@ -429,9 +429,16 @@ export class BenchmarkService {
         }
       }
 
-      // Calculate NOMAD score
+      // Calculate NOMAD score. Only pass systemScores when the system benchmarks
+      // actually ran, so an AI-only run renormalizes to just the AI weights
+      // (an AI-only pass with default-zero system scores would otherwise be
+      // scaled against the full NOMAD 100).
       this._updateStatus('calculating_score', 'Calculating NOMAD score...')
-      const nomadScore = this._calculateNomadScore(systemScores, aiScores)
+      const systemMeasured = type === 'full' || type === 'system'
+      const nomadScore = this._calculateNomadScore(
+        systemMeasured ? systemScores : null,
+        aiScores
+      )
 
       // Save result
       const result = await BenchmarkResult.create({
@@ -749,23 +756,34 @@ export class BenchmarkService {
   /**
    * Calculate weighted NOMAD score
    */
-  private _calculateNomadScore(systemScores: SystemScores, aiScores: Partial<AIScores>): number {
+  private _calculateNomadScore(
+    systemScores: SystemScores | null,
+    aiScores: Partial<AIScores>
+  ): number {
     let totalWeight = 0
     let weightedSum = 0
 
-    // CPU score
-    weightedSum += systemScores.cpu_score * SCORE_WEIGHTS.cpu
-    totalWeight += SCORE_WEIGHTS.cpu
+    // System scores (only when the system benchmarks actually ran). Passing null
+    // for an AI-only run keeps the system weights OUT of the denominator so the
+    // score renormalizes to just the AI portion's 0-100 range, rather than being
+    // scaled against the full NOMAD 100 (where an excellent AI setup would cap
+    // at ~40). System-only already renormalizes correctly because aiScores is
+    // empty and its weights are likewise skipped below.
+    if (systemScores) {
+      // CPU score
+      weightedSum += systemScores.cpu_score * SCORE_WEIGHTS.cpu
+      totalWeight += SCORE_WEIGHTS.cpu
 
-    // Memory score
-    weightedSum += systemScores.memory_score * SCORE_WEIGHTS.memory
-    totalWeight += SCORE_WEIGHTS.memory
+      // Memory score
+      weightedSum += systemScores.memory_score * SCORE_WEIGHTS.memory
+      totalWeight += SCORE_WEIGHTS.memory
 
-    // Disk scores
-    weightedSum += systemScores.disk_read_score * SCORE_WEIGHTS.disk_read
-    totalWeight += SCORE_WEIGHTS.disk_read
-    weightedSum += systemScores.disk_write_score * SCORE_WEIGHTS.disk_write
-    totalWeight += SCORE_WEIGHTS.disk_write
+      // Disk scores
+      weightedSum += systemScores.disk_read_score * SCORE_WEIGHTS.disk_read
+      totalWeight += SCORE_WEIGHTS.disk_read
+      weightedSum += systemScores.disk_write_score * SCORE_WEIGHTS.disk_write
+      totalWeight += SCORE_WEIGHTS.disk_write
+    }
 
     // AI scores (if available)
     if (aiScores.ai_tokens_per_second !== undefined && aiScores.ai_tokens_per_second !== null) {
