@@ -6,6 +6,7 @@ import type {
   BenchmarkTelemetry,
   BenchmarkStatus,
   BenchmarkStageDescriptor,
+  BenchmarkPartialResult,
 } from '../../types/benchmark'
 
 // Rolling window length for the sparklines (~1 minute at 1 Hz).
@@ -25,6 +26,11 @@ type LiveState = {
   aiTokensPerSec: number | null
   aiTokHistory: number[]
   aiTtftMs: number | null
+  cpuEventsPerSec: number | null
+  cpuEventsHistory: number[]
+  /** Authoritative in-test disk throughput (sysbench interim lines), MiB/s. */
+  diskMibs: number | null
+  diskMibsHistory: number[]
 }
 
 const EMPTY_LIVE: LiveState = {
@@ -39,6 +45,10 @@ const EMPTY_LIVE: LiveState = {
   aiTokensPerSec: null,
   aiTokHistory: [],
   aiTtftMs: null,
+  cpuEventsPerSec: null,
+  cpuEventsHistory: [],
+  diskMibs: null,
+  diskMibsHistory: [],
 }
 
 const pushRing = (arr: number[], v: number) => {
@@ -59,10 +69,12 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
 
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [live, setLive] = useState<LiveState>(EMPTY_LIVE)
+  const [partials, setPartials] = useState<BenchmarkPartialResult[]>([])
 
   const reset = useCallback(() => {
     setProgress(null)
     setLive(EMPTY_LIVE)
+    setPartials([])
   }, [])
 
   useEffect(() => {
@@ -70,6 +82,18 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
       BROADCAST_CHANNELS.BENCHMARK_PROGRESS,
       (data: BenchmarkProgressWithID) => {
         setProgress(data)
+        if (data.partial_result) {
+          const incoming = data.partial_result
+          setPartials((prev) => {
+            const idx = prev.findIndex((p) => p.status === incoming.status)
+            if (idx >= 0) {
+              const next = prev.slice()
+              next[idx] = incoming
+              return next
+            }
+            return [...prev, incoming]
+          })
+        }
         if (data.status === 'completed' || data.status === 'error') {
           onFinishedRef.current?.(data.status, data.message)
         }
@@ -81,6 +105,8 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
       (data: BenchmarkTelemetry) => {
         setLive((prev) => {
           const isTok = data.stage_metric?.kind === 'tokens_per_sec'
+          const isEps = data.stage_metric?.kind === 'events_per_sec'
+          const isMib = data.stage_metric?.kind === 'mib_s'
           return {
             perCore: data.cpu.per_core,
             cpuOverall: data.cpu.overall,
@@ -93,6 +119,14 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
             aiTokensPerSec: isTok ? data.stage_metric!.value : prev.aiTokensPerSec,
             aiTokHistory: isTok ? pushRing(prev.aiTokHistory, data.stage_metric!.value) : prev.aiTokHistory,
             aiTtftMs: isTok && data.stage_metric!.ttft_ms !== undefined ? data.stage_metric!.ttft_ms : prev.aiTtftMs,
+            cpuEventsPerSec: isEps ? data.stage_metric!.value : prev.cpuEventsPerSec,
+            cpuEventsHistory: isEps
+              ? pushRing(prev.cpuEventsHistory, data.stage_metric!.value)
+              : prev.cpuEventsHistory,
+            diskMibs: isMib ? data.stage_metric!.value : prev.diskMibs,
+            diskMibsHistory: isMib
+              ? pushRing(prev.diskMibsHistory, data.stage_metric!.value)
+              : prev.diskMibsHistory,
           }
         })
       }
@@ -117,6 +151,7 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
     message: progress?.message ?? '',
     progressPercent: progress?.progress ?? 0,
     ...live,
+    partials,
     reset,
   }
 }
