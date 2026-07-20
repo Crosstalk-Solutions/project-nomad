@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { IconChartBar, IconCpu, IconDatabase, IconRobot, IconServer } from '@tabler/icons-react'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
 import StyledButton from '~/components/StyledButton'
+import { getScoreDisplay } from '~/lib/benchmarkScore'
 import BenchmarkResult from '#models/benchmark_result'
 
 interface ScoreRevealProps {
@@ -52,6 +53,8 @@ export default function ScoreReveal({
   onDone,
 }: ScoreRevealProps) {
   const displayScore = useCountUp(result.nomad_score)
+  // A partial (System/AI Only) run is not the NOMAD Score -- relabel + flag it.
+  const scoreInfo = getScoreDisplay(result.benchmark_type)
 
   // Sub-score gauges, mirroring the System Performance / AI Performance grids.
   const gauges: {
@@ -104,6 +107,11 @@ export default function ScoreReveal({
         <div className="bg-desert-olive px-6 py-2 flex items-center gap-2">
           <div className="w-1 h-4 bg-desert-green" />
           <span className="text-xs font-semibold text-white uppercase tracking-wide">Report</span>
+          {scoreInfo.isPartial && (
+            <span className="ml-auto px-2 py-0.5 rounded-full bg-desert-white/20 text-white text-xs font-semibold uppercase tracking-wide">
+              Partial
+            </span>
+          )}
         </div>
 
         <div className="p-8">
@@ -111,21 +119,26 @@ export default function ScoreReveal({
             <div className="shrink-0">
               <CircularGauge
                 value={Math.min(100, (result.nomad_score / scoreScale.max) * 100)}
-                label="NOMAD Score"
+                label={scoreInfo.label}
                 size="lg"
                 variant="cpu"
                 subtext={scoreScale.caption}
+                muted={scoreInfo.isPartial}
                 icon={<IconChartBar className="w-8 h-8" />}
               />
             </div>
             <div className="flex-1 space-y-4">
               <div
-                className={`text-5xl font-bold font-mono tabular-nums ${getScoreColor(result.nomad_score)}`}
+                className={`text-5xl font-bold font-mono tabular-nums ${
+                  scoreInfo.isPartial ? 'text-desert-stone-dark' : getScoreColor(result.nomad_score)
+                }`}
               >
                 {displayScore.toFixed(1)}
               </div>
               <p className="text-desert-stone-dark">
-                Your NOMAD Score is a weighted composite of all benchmark results.
+                {scoreInfo.isPartial
+                  ? scoreInfo.cta
+                  : 'Your NOMAD Score is a weighted composite of all benchmark results.'}
               </p>
             </div>
           </div>
