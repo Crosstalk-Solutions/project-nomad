@@ -253,6 +253,7 @@ router
     router.post('/builder-tag', [BenchmarkController, 'updateBuilderTag'])
     router.get('/comparison', [BenchmarkController, 'comparison'])
     router.get('/status', [BenchmarkController, 'status'])
+    router.get('/rerun-banner', [BenchmarkController, 'rerunBanner'])
     router.get('/settings', [BenchmarkController, 'settings'])
     router.post('/settings', [BenchmarkController, 'updateSettings'])
   })
