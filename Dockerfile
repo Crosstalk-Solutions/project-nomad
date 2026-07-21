@@ -28,6 +28,14 @@ FROM base AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules /app/node_modules
 ADD admin/ ./
+# Regenerate the curated drug-reference data modules
+# (app/data/{conditions,natural_remedies,home_remedies}.ts) from their single
+# source of truth — the repo-root collections/*.json — so the JSON is what gets
+# compiled into the image and the committed .ts can never silently drift from it
+# in a build. The gen script resolves ../../collections relative to admin/scripts,
+# which is /collections once admin/ has been copied to /app.
+COPY collections/ /collections/
+RUN npm run gen:curated-data
 RUN node ace build
 
 # Production stage
