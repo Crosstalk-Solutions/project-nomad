@@ -405,6 +405,34 @@ export class MapService implements IMapService {
   }
 
   /**
+   * Whether the low-zoom world basemap is present on disk. Checked directly (rather than trusting
+   * the in-process `worldBasemapReady` flag) so callers get an accurate answer regardless of whether
+   * `ensureWorldBasemap()` has run yet this process. Used to warn the user instead of showing a
+   * silent grey map when the basemap was never provisioned (e.g. installed straight offline, #1030).
+   */
+  async checkWorldBasemapExists(): Promise<boolean> {
+    const basePath = resolve(join(this.baseDirPath, 'pmtiles'))
+    const filepath = resolve(join(basePath, WORLD_BASEMAP_FILENAME))
+    if (!filepath.startsWith(basePath + sep)) return false
+    const stats = await getFileStatsIfExists(filepath)
+    const exists = !!stats && Number(stats.size) > 0
+    if (exists) this.worldBasemapReady = true
+    return exists
+  }
+
+  /**
+   * Explicitly (re)provision the world basemap on demand. Ensures base assets exist, then extracts
+   * the basemap if it isn't present yet. Requires internet — surfaced to the user as a "download the
+   * base map" action so the one network dependency can be satisfied deliberately while online (#1030).
+   */
+  async provisionWorldBasemap(): Promise<boolean> {
+    const baseAssetsExist = await this.ensureBaseAssets()
+    if (!baseAssetsExist) return false
+    await this.ensureWorldBasemap()
+    return this.checkWorldBasemapExists()
+  }
+
+  /**
    * Extract a low-zoom global basemap once so the map isn't grey outside a
    * regional extract's polygon. Cheap (~15 MB, a handful of HTTP range
    * requests) and layered underneath regional sources at render time.

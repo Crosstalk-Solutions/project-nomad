@@ -80,6 +80,7 @@ router
     router.get('/curated-collections', [MapsController, 'listCuratedCollections'])
     router.post('/fetch-latest-collections', [MapsController, 'fetchLatestCollections'])
     router.post('/download-base-assets', [MapsController, 'downloadBaseAssets'])
+    router.post('/setup-world-basemap', [MapsController, 'setupWorldBasemap'])
     router.post('/download-remote', [MapsController, 'downloadRemote'])
     router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight'])
     router.post('/download-collection', [MapsController, 'downloadCollection'])
