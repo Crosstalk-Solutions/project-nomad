@@ -9,6 +9,9 @@ export const specResourceValidator = vine.object({
   description: vine.string(),
   url: vine.string().url(),
   size_mb: vine.number().min(0).optional(),
+  // Resource-type discriminator (absent == 'zim'). Required here because VineJS
+  // strips unknown keys, which would silently drop the field on manifest fetch.
+  type: vine.enum(['zim', 'dataset']).optional(),
 })
 
 // ---- ZIM Categories spec (versioned) ----
