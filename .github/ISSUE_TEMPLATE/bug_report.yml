@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug or issue with Project N.O.M.A.D.
+description: Report a bug or issue with Project NOMAD
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 body:
@@ -10,9 +10,9 @@ body:
         
         **Before submitting:**
         - Search existing issues to avoid duplicates
-        - Ensure you're running the latest version of N.O.M.A.D.
+        - Ensure you're running the latest version of NOMAD
         - Redact any personal or sensitive information from logs/configs
-        - Please don't submit issues related to running N.O.M.A.D. on Unraid or another NAS - we don't have plans to support these kinds of platforms at this time
+        - Please don't submit issues related to running NOMAD on Unraid or another NAS - we don't have plans to support these kinds of platforms at this time
 
   - type: dropdown
     id: issue-category
@@ -75,8 +75,8 @@ body:
   - type: input
     id: nomad-version
     attributes:
-      label: N.O.M.A.D. Version
-      description: What version of N.O.M.A.D. are you running? (Check Settings > Update or run `docker ps` and check nomad_admin image tag)
+      label: NOMAD Version
+      description: What version of NOMAD are you running? (Check Settings > Update or run `docker ps` and check nomad_admin image tag)
       placeholder: "e.g., 1.29.0"
     validations:
       required: true
@@ -85,7 +85,7 @@ body:
     id: os
     attributes:
       label: Operating System
-      description: What OS are you running N.O.M.A.D. on?
+      description: What OS are you running NOMAD on?
       options:
         - Ubuntu 24.04
         - Ubuntu 22.04
@@ -150,7 +150,7 @@ body:
         Include any relevant logs or error messages. **Please redact any personal/sensitive information.**
         
         Useful commands for collecting logs:
-        - N.O.M.A.D. management app: `docker logs nomad_admin`
+        - NOMAD management app: `docker logs nomad_admin`
         - Ollama: `docker logs nomad_ollama`
         - Qdrant: `docker logs nomad_qdrant`
         - Specific service: `docker logs nomad_<service-name>`
@@ -185,9 +185,9 @@ body:
       options:
         - label: I have searched for existing issues that might be related to this bug
           required: true
-        - label: I am running the latest version of Project N.O.M.A.D. (or have noted my version above)
+        - label: I am running the latest version of Project NOMAD (or have noted my version above)
           required: true
         - label: I have redacted any personal or sensitive information from logs and screenshots
           required: true
-        - label: This issue is NOT related to running N.O.M.A.D. on an unsupported/non-Debian-based OS
+        - label: This issue is NOT related to running NOMAD on an unsupported/non-Debian-based OS
           required: false

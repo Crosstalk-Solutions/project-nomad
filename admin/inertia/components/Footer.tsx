@@ -13,7 +13,7 @@ export default function Footer() {
     <footer>
       <div className="flex items-center justify-center gap-3 border-t border-border-subtle py-4">
         <p className="text-sm/6 text-text-secondary">
-          Project N.O.M.A.D. Command Center v{appVersion}
+          Project NOMAD&trade; Command Center v{appVersion}
         </p>
         <span className="text-gray-300">|</span>
         <button

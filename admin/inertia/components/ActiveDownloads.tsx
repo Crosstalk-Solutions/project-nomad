@@ -2,7 +2,7 @@ import { useRef, useState, useCallback } from 'react'
 import useDownloads, { useDownloadsProps } from '~/hooks/useDownloads'
 import { extractFileName, formatBytes } from '~/lib/util'
 import StyledSectionHeader from './StyledSectionHeader'
-import { IconAlertTriangle, IconX, IconLoader2 } from '@tabler/icons-react'
+import { IconAlertTriangle, IconX, IconLoader2, IconRefresh, IconExternalLink } from '@tabler/icons-react'
 import api from '~/lib/api'
 
 interface ActiveDownloadProps {
@@ -39,6 +39,7 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
   const { data: downloads, invalidate } = useDownloads({ filetype })
   const [cancellingJobs, setCancellingJobs] = useState<Set<string>>(new Set())
   const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null)
+  const [retryingJobs, setRetryingJobs] = useState<Set<string>>(new Set())
 
   // Track previous downloadedBytes for speed calculation
   const prevBytesRef = useRef<Map<string, { bytes: number; time: number }>>(new Map())
@@ -83,6 +84,20 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
     invalidate()
   }
 
+  const handleRetry = async (jobId: string) => {
+    setRetryingJobs((prev) => new Set(prev).add(jobId))
+    try {
+      await api.retryDownloadJob(jobId)
+    } finally {
+      setRetryingJobs((prev) => {
+        const next = new Set(prev)
+        next.delete(jobId)
+        return next
+      })
+      invalidate()
+    }
+  }
+
   const handleCancel = async (jobId: string) => {
     setCancellingJobs((prev) => new Set(prev).add(jobId))
     setConfirmingCancel(null)
@@ -113,6 +128,8 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
             const isCancelling = cancellingJobs.has(download.jobId)
             const isConfirming = confirmingCancel === download.jobId
 
+            const isRetrying = retryingJobs.has(download.jobId)
+
             return (
               <div
                 key={download.jobId}
@@ -123,26 +140,55 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
                 }`}
               >
                 {status === 'failed' ? (
-                  <div className="flex items-center gap-2">
-                    <IconAlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">
-                        {download.title || filename}
-                      </p>
-                      {download.title && (
-                        <p className="text-xs text-text-muted truncate">{filename}</p>
-                      )}
-                      <p className="text-xs text-red-600 mt-0.5">
-                        Download failed{download.failedReason ? `: ${download.failedReason}` : ''}
-                      </p>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <IconAlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {download.title || filename}
+                        </p>
+                        {download.title && (
+                          <p className="text-xs text-text-muted truncate">{filename}</p>
+                        )}
+                        <p className="text-xs text-red-600 mt-0.5">
+                          Download failed{download.failedReason ? `: ${download.failedReason}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDismiss(download.jobId)}
+                        className="flex-shrink-0 p-1 rounded hover:bg-red-100 transition-colors"
+                        title="Dismiss failed download"
+                      >
+                        <IconX className="w-4 h-4 text-red-400 hover:text-red-600" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleDismiss(download.jobId)}
-                      className="flex-shrink-0 p-1 rounded hover:bg-red-100 transition-colors"
-                      title="Dismiss failed download"
-                    >
-                      <IconX className="w-4 h-4 text-red-400 hover:text-red-600" />
-                    </button>
+                    <div className="flex items-center gap-2 pl-7">
+                      <button
+                        onClick={() => handleRetry(download.jobId)}
+                        disabled={isRetrying}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-desert-green text-white hover:bg-desert-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Retry download"
+                      >
+                        {isRetrying ? (
+                          <IconLoader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <IconRefresh className="w-3.5 h-3.5" />
+                        )}
+                        {isRetrying ? 'Retrying...' : 'Retry'}
+                      </button>
+                      {download.url && download.url.startsWith('http') && (
+                        <a
+                          href={download.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-desert-stone-lighter text-text-secondary hover:bg-desert-stone-light transition-colors"
+                          title="Open resource download page"
+                        >
+                          <IconExternalLink className="w-3.5 h-3.5" />
+                          Download page
+                        </a>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">

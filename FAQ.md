@@ -1,6 +1,6 @@
 # Frequently Asked Questions (FAQ)
 
-Find answers to some of the most common questions about Project N.O.M.A.D.
+Find answers to some of the most common questions about Project NOMAD
 
 ## Can I customize the port(s) that NOMAD uses?
 
@@ -26,30 +26,30 @@ Long answer: Custom storage paths, mount points, and external drives (like iSCSI
 
 ## Why does NOMAD require a Debian-based OS?
 
-Project N.O.M.A.D. is currently designed to run on Debian-based Linux distributions (with Ubuntu being the recommended distro) because our installation scripts and Docker configurations are optimized for this environment. While it's technically possible to run the Docker containers on other operating systems that support Docker, we have not tested or optimized the installation process for non-Debian-based systems, so we cannot guarantee a smooth experience on those platforms at this time.
+Project NOMAD is currently designed to run on Debian-based Linux distributions (with Ubuntu being the recommended distro) because our installation scripts and Docker configurations are optimized for this environment. While it's technically possible to run the Docker containers on other operating systems that support Docker, we have not tested or optimized the installation process for non-Debian-based systems, so we cannot guarantee a smooth experience on those platforms at this time.
 
 Support for other operating systems will come in the future, but because our development resources are limited as a free and open-source project, we needed to prioritize our efforts and focus on a narrower set of supported platforms for the initial release. We chose Debian-based Linux as our starting point because it's widely used, easy to spin up, and provides a stable environment for running Docker containers.
 
-For Windows users, the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) provides a community-supported path. Community members have also published guides for other platforms (e.g. macOS) in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), so if you're interested in running N.O.M.A.D. on a non-Debian-based system, we recommend checking there for any available resources or guides. However, keep in mind that if you choose to run N.O.M.A.D. on a non-Debian-based system, you may encounter issues that we won't be able to provide support for, and you may need to have a higher level of technical expertise to troubleshoot and resolve any problems that arise.
+For Windows users, the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) provides a community-supported path. Community members have also published guides for other platforms (e.g. macOS) in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), so if you're interested in running NOMAD on a non-Debian-based system, we recommend checking there for any available resources or guides. However, keep in mind that if you choose to run NOMAD on a non-Debian-based system, you may encounter issues that we won't be able to provide support for, and you may need to have a higher level of technical expertise to troubleshoot and resolve any problems that arise.
 
 ## Can I run NOMAD on a Raspberry Pi or other ARM-based device?
-Project N.O.M.A.D. is currently designed to run on x86-64 architecture, and we have not yet tested or optimized it for ARM-based devices like the Raspberry Pi (and have not published any official images for ARM architecture).
+Project NOMAD is currently designed to run on x86-64 architecture, and we have not yet tested or optimized it for ARM-based devices like the Raspberry Pi (and have not published any official images for ARM architecture).
 
 Support for ARM-based devices is on our roadmap, but our initial focus was on x86-64 hardware due to its widespread use and compatibility with a wide range of applications.
 
-Community members have forked and published their own ARM-compatible images and installation guides for running N.O.M.A.D. on Raspberry Pi and other ARM-based devices in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), but these are not officially supported by the core development team, and we cannot guarantee their functionality or provide support for any issues that arise when using these community-created resources.
+Community members have forked and published their own ARM-compatible images and installation guides for running NOMAD on Raspberry Pi and other ARM-based devices in our Discord community and [Github Discussions](https://github.com/Crosstalk-Solutions/project-nomad/discussions), but these are not officially supported by the core development team, and we cannot guarantee their functionality or provide support for any issues that arise when using these community-created resources.
 
 ## What are the hardware requirements for running NOMAD?
 
-Project N.O.M.A.D. itself is quite lightweight and can run on even modest x86-64 hardware, but the tools and resources you choose to install with N.O.M.A.D. will determine the specs required for your unique deployment. Please see the [Hardware Guide](https://www.projectnomad.us/hardware) for detailed build recommendations at various price points.
+Project NOMAD itself is quite lightweight and can run on even modest x86-64 hardware, but the tools and resources you choose to install with NOMAD will determine the specs required for your unique deployment. Please see the [Hardware Guide](https://www.projectnomad.us/hardware) for detailed build recommendations at various price points.
 
 ## Does NOMAD support languages other than English?
 
-As of March 2026, Project N.O.M.A.D.'s UI is only available in English, and the majority of the tools and resources available through N.O.M.A.D. are also primarily in English. However, we have multi-language support on our roadmap for a future release, and we are actively working on adding support for additional languages both in the UI and in the available tools/resources. If you're interested in contributing to this effort, please check out our [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to get involved.
+As of March 2026, Project NOMAD's UI is only available in English, and the majority of the tools and resources available through NOMAD are also primarily in English. However, we have multi-language support on our roadmap for a future release, and we are actively working on adding support for additional languages both in the UI and in the available tools/resources. If you're interested in contributing to this effort, please check out our [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to get involved.
 
 ## What technologies is NOMAD built with?
 
-Project N.O.M.A.D. is built using a combination of technologies, including:
+Project NOMAD is built using a combination of technologies, including:
 - **Docker:** for containerization of the Command Center and its dependencies
 - **Node.js & TypeScript:** for the backend of the Command Center, particularly the [AdonisJS](https://adonisjs.com/) framework
 - **React:** for the frontend of the Command Center, utilizing [Vite](https://vitejs.dev/) and [Inertia.js](https://inertiajs.com/) under the hood
@@ -59,7 +59,7 @@ Project N.O.M.A.D. is built using a combination of technologies, including:
 NOMAD makes use of the Docker-outside-of-Docker ("DooD") pattern, which allows the Command Center to manage and orchestrate other Docker containers on the host machine without needing to run Docker itself inside a container. This approach provides better performance and compatibility with a wider range of host environments while still allowing for powerful container management capabilities through the Command Center's UI.
 
 ## Can I run NOMAD if I have existing Docker containers on my machine?
-Yes, you can safely run Project N.O.M.A.D. on a machine that already has existing Docker containers. NOMAD is designed to coexist with other Docker containers and will not interfere with them as long as there are no port conflicts or resource constraints.
+Yes, you can safely run Project NOMAD on a machine that already has existing Docker containers. NOMAD is designed to coexist with other Docker containers and will not interfere with them as long as there are no port conflicts or resource constraints.
 
 All of NOMAD's containers are prefixed with `nomad_` in their names, so they can be easily identified and managed separately from any other containers you may have running. Just make sure to review the ports that NOMAD's core services (Command Center, MySQL, Redis) use during installation and adjust them if necessary to avoid conflicts with your existing containers.
 
@@ -76,17 +76,17 @@ NOMAD by default uses Ollama inside of a docker container to run LLM Models for 
 No, the AI features in NOMAD (Ollama, Qdrant, custom RAG pipeline, etc.) are all optional and not required to use the core functionality of NOMAD.
 
 ## Is NOMAD actually free? Are there any hidden costs?
-Yes, Project N.O.M.A.D. is completely free and open-source software licensed under the Apache License 2.0. There are no hidden costs or fees associated with using NOMAD itself, and we don't have any plans to introduce "premium" features or paid tiers.
+Yes, Project NOMAD is completely free and open-source software licensed under the Apache License 2.0. There are no hidden costs or fees associated with using NOMAD itself, and we don't have any plans to introduce "premium" features or paid tiers.
 
 Aside from the cost of the hardware you choose to run it on, there are no costs associated with using NOMAD.
 
 ## Do you sell hardware or pre-built devices with NOMAD pre-installed?
 
-No, we do not sell hardware or pre-built devices with NOMAD pre-installed at this time. Project N.O.M.A.D. is a free and open-source software project, and we provide detailed installation instructions and hardware recommendations for users to set up their own NOMAD instances on compatible hardware of their choice. The tradeoff to this DIY approach is some additional setup time and technical know-how required on the user's end, but it also allows for greater flexibility and customization in terms of hardware selection and configuration to best suit each user's unique needs, budget, and preferences.
+No, we do not sell hardware or pre-built devices with NOMAD pre-installed at this time. Project NOMAD is a free and open-source software project, and we provide detailed installation instructions and hardware recommendations for users to set up their own NOMAD instances on compatible hardware of their choice. The tradeoff to this DIY approach is some additional setup time and technical know-how required on the user's end, but it also allows for greater flexibility and customization in terms of hardware selection and configuration to best suit each user's unique needs, budget, and preferences.
 
 ## How quickly are issues resolved when reported?
 
-We strive to address and resolve issues as quickly as possible, but please keep in mind that Project N.O.M.A.D. is a free and open-source project maintained by a small team of volunteers. We prioritize issues based on their severity, impact on users, and the resources required to resolve them. Critical issues that affect a large number of users are typically addressed more quickly, while less severe issues may take longer to resolve. Aside from the development efforts needed to address the issue, we do our best to conduct thorough testing and validation to ensure that any fix we implement doesn't introduce new issues or regressions, which also adds to the time it takes to resolve an issue.
+We strive to address and resolve issues as quickly as possible, but please keep in mind that Project NOMAD is a free and open-source project maintained by a small team of volunteers. We prioritize issues based on their severity, impact on users, and the resources required to resolve them. Critical issues that affect a large number of users are typically addressed more quickly, while less severe issues may take longer to resolve. Aside from the development efforts needed to address the issue, we do our best to conduct thorough testing and validation to ensure that any fix we implement doesn't introduce new issues or regressions, which also adds to the time it takes to resolve an issue.
 
 We also encourage community involvement in troubleshooting and resolving issues, so if you encounter a problem, please consider checking our Discord community and Github Discussions for potential solutions or workarounds while we work on an official fix.
 

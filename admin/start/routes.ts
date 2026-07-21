@@ -21,6 +21,7 @@ import SettingsController from '#controllers/settings_controller'
 import SupplyDepotController from '#controllers/supply_depot_controller'
 import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
+import CreatorPacksController from '#controllers/creator_packs_controller'
 import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
@@ -57,6 +58,7 @@ router
     router.get('/update', [SettingsController, 'update'])
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
+    router.get('/creator-packs', [SettingsController, 'creatorPacks'])
     router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
     router.get('/advanced', [SettingsController, 'advanced'])
@@ -80,6 +82,7 @@ router
     router.get('/curated-collections', [MapsController, 'listCuratedCollections'])
     router.post('/fetch-latest-collections', [MapsController, 'fetchLatestCollections'])
     router.post('/download-base-assets', [MapsController, 'downloadBaseAssets'])
+    router.post('/setup-world-basemap', [MapsController, 'setupWorldBasemap'])
     router.post('/download-remote', [MapsController, 'downloadRemote'])
     router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight'])
     router.post('/download-collection', [MapsController, 'downloadCollection'])
@@ -109,6 +112,7 @@ router
     router.get('/jobs/:filetype', [DownloadsController, 'filetype'])
     router.delete('/jobs/:jobId', [DownloadsController, 'removeJob'])
     router.post('/jobs/:jobId/cancel', [DownloadsController, 'cancelJob'])
+    router.post('/jobs/:jobId/retry', [DownloadsController, 'retryJob'])
   })
   .prefix('/api/downloads')
 
@@ -163,6 +167,10 @@ router
     router.post('/estimate-batch', [RagController, 'estimateBatch'])
     router.get('/policy-prompt-state', [RagController, 'policyPromptState'])
     router.get('/health', [RagController, 'health'])
+    router.get('/collections', [RagController, 'getKnowledgeCollections'])
+    router.post('/update-collection', [RagController, 'updateFileCollection'])
+    router.post('/rename-collection', [RagController, 'renameKnowledgeCollection'])
+    router.post('/delete-collection', [RagController, 'deleteKnowledgeCollection'])
   })
   .prefix('/api/rag')
 
@@ -229,6 +237,14 @@ router
 
 router
   .group(() => {
+    router.get('/', [CreatorPacksController, 'index'])
+    router.post('/:id/install', [CreatorPacksController, 'install'])
+    router.delete('/:id', [CreatorPacksController, 'uninstall'])
+  })
+  .prefix('/api/creator-packs')
+
+router
+  .group(() => {
     router.post('/run', [BenchmarkController, 'run'])
     router.post('/run/system', [BenchmarkController, 'runSystem'])
     router.post('/run/ai', [BenchmarkController, 'runAI'])
@@ -239,6 +255,7 @@ router
     router.post('/builder-tag', [BenchmarkController, 'updateBuilderTag'])
     router.get('/comparison', [BenchmarkController, 'comparison'])
     router.get('/status', [BenchmarkController, 'status'])
+    router.get('/rerun-banner', [BenchmarkController, 'rerunBanner'])
     router.get('/settings', [BenchmarkController, 'settings'])
     router.post('/settings', [BenchmarkController, 'updateSettings'])
   })

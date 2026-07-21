@@ -190,13 +190,15 @@ export function matchesDevice(fsPath: string, deviceName: string): boolean {
   return false
 }
 
-export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 'epub' | 'zim' | 'unknown' {
+export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 'docx' | 'epub' | 'zim' | 'unknown' {
   const ext = path.extname(filename).toLowerCase()
   if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'].includes(ext)) {
     return 'image'
   } else if (ext === '.pdf') {
     return 'pdf'
-  } else if (['.txt', '.md', '.docx', '.rtf'].includes(ext)) {
+  } else if (ext === '.docx') {
+    return 'docx'
+  } else if (['.txt', '.md', '.rtf'].includes(ext)) {
     return 'text'
   } else if (ext === '.epub') {
     return 'epub'

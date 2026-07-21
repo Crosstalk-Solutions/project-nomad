@@ -4,7 +4,7 @@ import SettingsLayout from '~/layouts/SettingsLayout'
 export default function LegalPage() {
   return (
     <SettingsLayout>
-      <Head title="Legal Notices | Project N.O.M.A.D." />
+      <Head title="Legal Notices | Project NOMAD" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6 max-w-4xl">
           <h1 className="text-4xl font-semibold mb-8">Legal Notices</h1>
@@ -34,7 +34,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Third-Party Software Attribution</h2>
             <p className="text-text-primary mb-4">
-              Project N.O.M.A.D. integrates the following open source projects. We are grateful to
+              Project NOMAD&trade; integrates the following open source projects. We are grateful to
               their developers and communities:
             </p>
             <ul className="space-y-3 text-text-primary">
@@ -75,12 +75,12 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Privacy Statement</h2>
             <p className="text-text-primary mb-3">
-              Project N.O.M.A.D. is designed with privacy as a core principle:
+              Project NOMAD is designed with privacy as a core principle:
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary">
-              <li><strong>Zero Telemetry:</strong> N.O.M.A.D. does not collect, transmit, or store any usage data, analytics, or telemetry.</li>
+              <li><strong>Zero Telemetry:</strong> NOMAD does not collect, transmit, or store any usage data, analytics, or telemetry.</li>
               <li><strong>Local-First:</strong> All your data, downloaded content, AI conversations, and notes remain on your device.</li>
-              <li><strong>No Accounts Required:</strong> N.O.M.A.D. operates without user accounts or authentication by default.</li>
+              <li><strong>No Accounts Required:</strong> NOMAD operates without user accounts or authentication by default.</li>
               <li><strong>Network Optional:</strong> An internet connection is only required to download content or updates. All installed features work fully offline.</li>
             </ul>
           </section>
@@ -89,7 +89,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Content Disclaimer</h2>
             <p className="text-text-primary mb-3">
-              Project N.O.M.A.D. provides tools to download and access content from third-party sources
+              Project NOMAD provides tools to download and access content from third-party sources
               including Wikipedia, Wikibooks, medical references, educational platforms, and other
               publicly available resources.
             </p>
@@ -108,7 +108,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Medical and Emergency Information Disclaimer</h2>
             <p className="text-text-primary mb-3">
-              Some content available through N.O.M.A.D. includes medical references, first aid guides,
+              Some content available through NOMAD includes medical references, first aid guides,
               and emergency preparedness information. This content is provided for general
               informational purposes only.
             </p>
@@ -127,7 +127,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Data Storage</h2>
             <p className="text-text-primary mb-3">
-              All data associated with Project N.O.M.A.D. is stored locally on your device:
+              All data associated with Project NOMAD is stored locally on your device:
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary">
               <li><strong>Installation Directory:</strong> /opt/project-nomad</li>
@@ -135,7 +135,7 @@ export default function LegalPage() {
               <li><strong>Application Data:</strong> Stored in Docker volumes on your local system</li>
             </ul>
             <p className="text-text-primary mt-3">
-              You maintain full control over your data. Uninstalling N.O.M.A.D. or deleting these
+              You maintain full control over your data. Uninstalling NOMAD or deleting these
               directories will permanently remove all associated data.
             </p>
           </section>

@@ -62,8 +62,8 @@ RUN set -eux; \
     /usr/local/bin/pmtiles version
 
 # Labels
-LABEL org.opencontainers.image.title="Project N.O.M.A.D" \
-      org.opencontainers.image.description="The Project N.O.M.A.D Official Docker image" \
+LABEL org.opencontainers.image.title="Project NOMAD" \
+      org.opencontainers.image.description="The Project NOMAD Official Docker image" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
@@ -73,6 +73,17 @@ LABEL org.opencontainers.image.title="Project N.O.M.A.D" \
       org.opencontainers.image.licenses="Apache-2.0"
 
 ENV NODE_ENV=production
+
+# Creator Packs entitlement key, injected into OFFICIAL release builds at build
+# time (--build-arg CREATOR_PACKS_APP_KEY=... from the CREATOR_PACKS_APP_KEY CI
+# secret; see build-primary-image.yml). Baked as an ENV so admin/start/env.ts
+# reads it at runtime. Empty by default, so builds from source (and any build
+# without the secret) ship UNCONFIGURED and hide the Creator Packs UI. The key
+# lands in this public image layer (extractable — the accepted ceiling); rotate
+# via `wrangler secret put APP_KEY` + a new image if it leaks.
+ARG CREATOR_PACKS_APP_KEY=""
+ENV CREATOR_PACKS_APP_KEY=$CREATOR_PACKS_APP_KEY
+
 WORKDIR /app
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. Update Sidecar - Polls for update requests and executes them
+# Project NOMAD Update Sidecar - Polls for update requests and executes them
 
 SHARED_DIR="/shared"
 REQUEST_FILE="${SHARED_DIR}/update-request"
@@ -55,6 +55,10 @@ perform_update() {
     write_status "pulling" 20 "Pulling latest Docker images..."
     log "Pulling latest Docker images..."
 
+    # Snapshot the images backing our managed repos before the pull supersedes
+    # them, so the post-update cleanup can drop only NOMAD's own dangling layers.
+    PRE_UPDATE_IMAGE_IDS=$(snapshot_managed_image_ids)
+
     if docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" pull >> "$LOG_FILE" 2>&1; then
         log "Successfully pulled latest images"
         write_status "pulled" 60 "Images pulled successfully"
@@ -102,10 +106,103 @@ perform_update() {
     done
     
     log "Successfully recreated all containers"
+
+    # Stage 4: Reclaim disk from superseded images (best-effort; never fails the update)
+    prune_old_images
+
     write_status "complete" 100 "System update completed successfully"
     log "System update completed successfully"
-    
+
     return 0
+}
+
+# Record the full image IDs currently backing our compose-managed repositories
+# BEFORE we pull. After the pull, the old digests of moving tags (e.g. :latest)
+# become dangling <none> images; knowing their IDs lets the cleanup target only
+# NOMAD's own images and leave every other app's dangling images on this shared
+# host's Docker daemon alone. --no-trunc so IDs match `docker images` output later.
+snapshot_managed_image_ids() {
+    local managed_repos
+    managed_repos=$(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" config --images 2>/dev/null \
+        | sed 's/[:@].*$//' | sort -u)
+    [ -z "$managed_repos" ] && return 0
+    docker images --no-trunc --format '{{.Repository}} {{.ID}}' | while IFS=' ' read -r repo id; do
+        echo "$managed_repos" | grep -qxF "$repo" && echo "$id"
+    done | sort -u
+}
+
+# Reclaim disk left behind by updates. Every update pulls new image versions but
+# never removed the old ones, so /var/lib/containerd grows unbounded across
+# releases (observed 50+ GB of orphaned layers on long-running installs; issue
+# #858). This runs only after a confirmed-successful recreate.
+#
+# Deliberately conservative for an offline-first appliance: we do NOT run
+# `docker system/image prune -a`, which would delete images for installed-but-
+# stopped Supply Depot / curated services and force a re-pull that fails with no
+# internet. Instead we (1) drop dangling layers and (2) remove only superseded
+# tags of the core services this updater manages (the images in compose.yml),
+# keeping the refs now in use. Optional/offline images are never touched.
+prune_old_images() {
+    write_status "pruning" 97 "Reclaiming disk from old images..."
+    log "Pruning superseded Docker images to reclaim disk space..."
+
+    # 1. Drop the prior image layers this update left dangling — but ONLY ours.
+    #    We snapshotted the managed repos' image IDs before pulling; any of those
+    #    IDs now untagged (<none>) is a superseded NOMAD image, safe to remove.
+    #    We deliberately do NOT run `docker image prune`, which would also delete
+    #    unrelated dangling images from other apps sharing this host's daemon.
+    if [ -n "$PRE_UPDATE_IMAGE_IDS" ]; then
+        local dangling_now
+        dangling_now=$(docker images --no-trunc --filter 'dangling=true' --quiet | sort -u)
+        while read -r id; do
+            [ -z "$id" ] && continue
+            echo "$dangling_now" | grep -qxF "$id" || continue   # keep unless now dangling
+            log "  Removing superseded dangling layer: $id"
+            # No -f: docker refuses if a container still references it, so
+            # anything unexpectedly in use is safely skipped.
+            docker rmi "$id" >> "$LOG_FILE" 2>&1 || log "  Skipped $id (still in use or removal failed)"
+        done <<< "$PRE_UPDATE_IMAGE_IDS"
+    else
+        log "  No pre-update image snapshot available; skipping dangling cleanup"
+    fi
+
+    # 2. Superseded tags of compose-managed repositories only.
+    local in_use_raw in_use managed_repos
+    in_use_raw=$(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" config --images 2>/dev/null)
+    # `compose config --images` emits an untagged repo as a bare name, but
+    # `docker images` always reports `repo:tag`. Normalise bare refs to `:latest`
+    # so the in-use check below matches (otherwise the current image, e.g. the
+    # updater's own, looks superseded). Digest refs are left as-is.
+    in_use=$(echo "$in_use_raw" | while read -r r; do
+        [ -z "$r" ] && continue
+        case "${r##*/}" in
+            *:*|*@*) echo "$r" ;;
+            *) echo "$r:latest" ;;
+        esac
+    done | sort -u)
+    if [ -z "$in_use" ]; then
+        log "  Could not resolve in-use images from compose; skipped targeted cleanup"
+        log "Image cleanup complete"
+        return 0
+    fi
+
+    # Repositories we manage = the in-use refs with the tag/digest stripped off.
+    managed_repos=$(echo "$in_use" | sed 's/[:@].*$//' | sort -u)
+
+    while IFS=' ' read -r _img_id img_ref; do
+        [ -z "$img_ref" ] && continue
+        local repo="${img_ref%%:*}"
+        # Only touch repositories this updater manages.
+        echo "$managed_repos" | grep -qxF "$repo" || continue
+        # Keep any ref that is still in use by the current stack.
+        echo "$in_use" | grep -qxF "$img_ref" && continue
+        log "  Removing superseded image: $img_ref"
+        # No -f: docker refuses to remove an image still referenced by a
+        # container, which keeps us safe against removing anything in use.
+        docker rmi "$img_ref" >> "$LOG_FILE" 2>&1 || log "  Skipped $img_ref (still in use or removal failed)"
+    done < <(docker images --format '{{.ID}} {{.Repository}}:{{.Tag}}' | grep -v '<none>')
+
+    log "Image cleanup complete"
 }
 
 cleanup() {

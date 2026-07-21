@@ -77,10 +77,12 @@ export default class OllamaController {
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
       if (rewrittenQuery) {
+        const collectionFilter: string | null = request.input('collection', null)
         const relevantDocs = await this.ragService.searchSimilarDocuments(
           rewrittenQuery,
           5, // Top 5 most relevant chunks
-          0.3 // Minimum similarity score of 0.3
+          0.3, // Minimum similarity score of 0.3
+          collectionFilter ?? undefined
         )
 
         logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
@@ -144,13 +146,21 @@ export default class OllamaController {
         logger.debug(`[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`)
       }
 
-      // Check if the model supports "thinking" capability for enhanced response generation
+      // Check if the model supports "thinking" capability for enhanced response generation.
+      // Thinking is only enabled when the model supports it AND the user wants it: the explicit
+      // per-request preference wins, otherwise the global default (ai.autoThinking, default OFF).
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
-      const think: boolean | 'medium' = thinkingCapability ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+      let thinkingEnabled = false
+      if (thinkingCapability) {
+        thinkingEnabled = reqData.think ?? ((await KVStore.getValue('ai.autoThinking')) ?? false)
+      }
+      const think: boolean | 'medium' =
+        thinkingEnabled ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
 
-      // Separate sessionId from the Ollama request payload — Ollama rejects unknown fields
-      const { sessionId, ...ollamaRequest } = reqData
+      // Separate sessionId and the resolved thinking preference from the Ollama request payload —
+      // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
+      const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
 
       // Save user message to DB before streaming if sessionId provided
       let userContent: string | null = null
@@ -164,14 +174,33 @@ export default class OllamaController {
 
       if (reqData.stream) {
         logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
-        // Headers already flushed above
-        const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think, numCtx })
+        // Headers already flushed above.
+        // Abort the upstream generation if the client disconnects — otherwise an abandoned
+        // request keeps decoding server-side and, with Ollama's default OLLAMA_NUM_PARALLEL=1,
+        // blocks every later chat/RAG request until the model is manually stopped (#1065).
+        const abortController = new AbortController()
+        response.response.on('close', () => abortController.abort())
+        const stream = await this.ollamaService.chatStream({
+          ...ollamaRequest,
+          think,
+          thinkingCapable: thinkingCapability,
+          numCtx,
+          signal: abortController.signal,
+        })
         let fullContent = ''
-        for await (const chunk of stream) {
-          if (chunk.message?.content) {
-            fullContent += chunk.message.content
+        try {
+          for await (const chunk of stream) {
+            if (chunk.message?.content) {
+              fullContent += chunk.message.content
+            }
+            response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
           }
-          response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
+        } catch (err) {
+          if (abortController.signal.aborted) {
+            logger.debug('[OllamaController] Client disconnected; aborted upstream Ollama generation')
+            return
+          }
+          throw err
         }
         response.response.end()
 
@@ -189,7 +218,7 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think, numCtx })
+      const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
@@ -369,7 +398,14 @@ export default class OllamaController {
   }
 
   async installedModels({ }: HttpContext) {
-    return await this.ollamaService.getModels()
+    const models = await this.ollamaService.getModels()
+    // Enrich each model with its thinking capability so the chat picker knows which models
+    // to show the per-model thinking toggle for. checkModelHasThinking memoizes /api/show
+    // results, so this stays cheap on repeat loads. Best-effort per model.
+    const thinking = await Promise.all(
+      models.map((m) => this.ollamaService.checkModelHasThinking(m.name))
+    )
+    return models.map((m, i) => ({ ...m, thinking: thinking[i] }))
   }
 
   /**
@@ -456,3 +492,4 @@ export default class OllamaController {
     }
   }
 }
+

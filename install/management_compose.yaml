@@ -1,6 +1,6 @@
-# Project N.O.M.A.D. management services Docker Compose configuration
+# Project NOMAD management services Docker Compose configuration
 #
-# This compose file defines the admin server, database, and other supporting services required to run Project N.O.M.A.D.
+# This compose file defines the admin server, database, and other supporting services required to run Project NOMAD
 # You can use this with `docker-compose up -d` to start all the necessary services with a single command after installation.
 #
 # Note: we recommend leaving all of the environment variables as-is except for any "replaceme" values,
@@ -18,13 +18,25 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # To store NOMAD's data somewhere other than /opt/project-nomad/storage, change the HOST side (left of the colon) here AND set NOMAD_STORAGE_PATH below to the same host path, then update the disk-collector volume at the bottom to match. The admin auto-detects this mount so child apps (Kiwix, Ollama, etc.) follow it, but setting NOMAD_STORAGE_PATH keeps everything explicit.
+      # RELOCATING STORAGE: the host path on the LEFT of the colon below is the single source of
+      # truth for where all NOMAD data lives (ZIMs, AI models, notes, etc.). At runtime the admin
+      # inspects this mount and points every child app (Kiwix, Ollama, etc.) at the same host
+      # location automatically, so you do NOT edit each service. To move storage:
+      #   1. Stop NOMAD (`docker compose down`) and MOVE the existing data to the new location,
+      #      keeping the subfolders intact (e.g. <new-path>/zim, <new-path>/models). Pointing at an
+      #      empty folder gives an empty Information Library, not your existing content.
+      #   2. Change the host path on the left of the colon below to the new location.
+      #   3. Set it EXACTLY the same in NOMAD_STORAGE_PATH and the disk-collector volume (both below).
+      #      Paths are case-sensitive (/mnt/Data != /mnt/data); a mismatch makes Docker create a new
+      #      empty folder, which is the usual cause of "my content disappeared after moving it".
       - /opt/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
-      # NOMAD_STORAGE_PATH is the HOST path where NOMAD stores all of its data (ZIMs, models, notes, etc.). It MUST match the host side of the /app/storage volume above and the disk-collector volume below. The admin also auto-detects its storage mount, so child apps follow it even if this is left at the default, but keep all three in sync to avoid surprises.
+      # NOMAD_STORAGE_PATH should equal the host path of the /app/storage volume above. The admin
+      # normally auto-detects that mount, so this is a fallback used only if the container can't be
+      # inspected. Keep it in sync anyway so the fallback never sends child apps to the wrong place.
       - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
       # PORT is the port the admin server listens on *inside* the container and should not be changed. If you want to change which port the admin interface is accessible from on the host, you can change the port mapping in the "ports" section (e.g. "9090:8080" to access it on port 9090 from the host)
       - PORT=8080
@@ -117,6 +129,8 @@ services:
     restart: unless-stopped
     volumes:
       - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
+      # If you relocated storage (see the admin service above), set this host path to match EXACTLY,
+      # or the host disk-usage figures shown in the UI will point at the wrong location.
       - /opt/project-nomad/storage:/storage
 
 volumes:

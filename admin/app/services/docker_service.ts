@@ -21,6 +21,7 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
@@ -512,6 +513,15 @@ export class DockerService {
    * Falls back to NOMAD_STORAGE_PATH / the production default if the admin
    * container or its storage mount can't be inspected.
    */
+  /**
+   * Public accessor for the resolved host path backing `/app/storage`. Used by the
+   * Debug Info bundle so support can see where content actually lives on the host
+   * (the #1050 class of "moved my data, admin doesn't see it" reports).
+   */
+  async getHostStorageRoot(): Promise<string> {
+    return this._resolveHostStorageRoot()
+  }
+
   private async _resolveHostStorageRoot(): Promise<string> {
     if (this._hostStorageRoot) return this._hostStorageRoot
     const fallback = env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT)
@@ -807,7 +817,19 @@ export class DockerService {
           if (hsaOverride) {
             ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
           }
+          // Ollama's scheduler drops integrated GPUs unless this is set (issue #1056), so
+          // AMD APUs (780M/890M/8060S) fall back to CPU-only despite correct device
+          // passthrough. It's a no-op on discrete AMD cards, so it's safe to set whenever
+          // AMD acceleration is configured.
+          ollamaEnv.push('OLLAMA_IGPU_ENABLE=1')
         }
+      }
+
+      const appEnv: string[] = []
+      if (service.service_name === SERVICE_NAMES.HOMEBOX) {
+        // Homebox >= 0.26 panics at boot without a >= 32-byte pepper (#1043). Generate once,
+        // persist, and reuse so updates/reinstalls don't invalidate issued API keys.
+        appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`)
       }
 
       this._broadcast(
@@ -827,7 +849,7 @@ export class DockerService {
         HostConfig: gpuHostConfig,
         ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
-        Env: [...(containerConfig?.Env ?? []), ...ollamaEnv],
+        Env: [...(containerConfig?.Env ?? []), ...ollamaEnv, ...appEnv],
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         // Ensure container is attached to the Nomad docker network in production
         ...(process.env.NODE_ENV === 'production' && {
@@ -1455,16 +1477,40 @@ export class DockerService {
    * gfx1030 (RX 6800/6700/etc.), gfx1100/1101/1102 (RX 7900/7800/7600) are on AMD's
    * official ROCm allowlist — forcing an override on these breaks GPU discovery.
    * gfx1035 / gfx1036 (RDNA 2 iGPUs like 680M) need 10.3.0 to coerce to gfx1030.
-   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) need 11.0.0.
+   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) are
+   * natively supported by the ROCm 7.2 the current ollama:rocm image bundles, so they
+   * need NO override. Forcing 11.0.0 coerces them to gfx1100's kernels — unnecessary on
+   * the 890M and a source of faults on the 780M (gfx1100 WMMA instructions it lacks). See #1056.
    *
    * Resolution order:
    *   1. KV `ai.amdHsaOverride` — manual user override; accepts 'none' (disable) or a semver-style value.
    *   2. Marker file `/app/storage/.nomad-amd-gfx` written by install_nomad.sh.
-   *   3. Default: '11.0.0' — preserves prior behavior so existing iGPU users don't regress on
-   *      upgrade. Discrete-card users on existing installs can opt out via the KV.
+   *   3. Default: none — let ROCm discover the GPU natively. Users on hardware that still
+   *      needs coercion can force a value via the KV. A hardcoded default gets more wrong
+   *      as ROCm adds native targets, so null is the safer forward-looking default.
    *
    * Returns null when no override should be applied.
    */
+  /**
+   * Resolve the Homebox API-key pepper, generating and persisting one on first use.
+   *
+   * Homebox >= 0.26 panics at boot unless HBOX_AUTH_API_KEY_PEPPER is set to a value of at
+   * least 32 bytes (#1043). The pepper must be STABLE across updates and reinstalls:
+   * rotating it invalidates every API key a user has issued from Homebox. So we generate it
+   * once and persist it in the KV store, then reuse it for the life of the install.
+   */
+  private async _resolveHomeboxPepper(): Promise<string> {
+    const existing = await KVStore.getValue('apps.homebox.apiKeyPepper')
+    if (typeof existing === 'string' && existing.length >= 32) {
+      return existing
+    }
+    // 48 raw bytes -> 64 base64 chars, comfortably over Homebox's 32-byte floor.
+    const pepper = randomBytes(48).toString('base64')
+    await KVStore.setValue('apps.homebox.apiKeyPepper', pepper)
+    logger.info('[DockerService] Generated and persisted Homebox API key pepper')
+    return pepper
+  }
+
   private async _resolveAmdHsaOverride(): Promise<string | null> {
     const manualRaw = await KVStore.getValue('ai.amdHsaOverride')
     if (manualRaw !== null && manualRaw !== undefined && String(manualRaw).trim() !== '') {
@@ -1490,8 +1536,8 @@ export class DockerService {
       // install_nomad.sh. Fall through to the default.
     }
 
-    logger.info('[DockerService] No AMD gfx marker; defaulting HSA override to 11.0.0 for backward compatibility')
-    return '11.0.0'
+    logger.info('[DockerService] No AMD gfx marker; applying no HSA override (native ROCm discovery)')
+    return null
   }
 
   private _mapGfxToHsaOverride(gfx: string): string | null {
@@ -1499,15 +1545,18 @@ export class DockerService {
     if (gfx === 'gfx1030' || gfx === 'gfx1100' || gfx === 'gfx1101' || gfx === 'gfx1102') {
       return null
     }
-    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M)
+    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M) — not natively
+    // supported, still need coercion to gfx1030.
     if (/^gfx103[1-6]$/.test(gfx)) {
       return '10.3.0'
     }
-    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo = gfx1151)
+    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo =
+    // gfx1151) are native under ROCm 7.2 — no override (forcing 11.0.0 faults the 780M). See #1056.
     if (gfx === 'gfx1103' || gfx === 'gfx1150' || gfx === 'gfx1151') {
-      return '11.0.0'
+      return null
     }
-    return '11.0.0'
+    // Unknown/newer target: prefer native discovery over a coercion that's likely wrong.
+    return null
   }
 
   /**
@@ -1688,10 +1737,25 @@ export class DockerService {
       let finalEnv = baseEnv
       if (updatedAmdGpuConfigured) {
         const hsaOverride = await this._resolveAmdHsaOverride()
-        finalEnv = baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
+        finalEnv = baseEnv.filter(
+          (e: string) =>
+            !e.startsWith('HSA_OVERRIDE_GFX_VERSION=') && !e.startsWith('OLLAMA_IGPU_ENABLE=')
+        )
         if (hsaOverride) {
           finalEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
         }
+        // Re-assert the iGPU flag so updates from a container provisioned before the
+        // issue #1056 fix (which wouldn't have it in the captured env) pick it up.
+        finalEnv.push('OLLAMA_IGPU_ENABLE=1')
+      }
+
+      // Heal a Homebox container that predates the #1043 fix: inject the persisted pepper on
+      // update if it's missing, so an update (not just a force-reinstall) fixes the crash loop.
+      if (
+        serviceName === SERVICE_NAMES.HOMEBOX &&
+        !finalEnv.some((e: string) => e.startsWith('HBOX_AUTH_API_KEY_PEPPER='))
+      ) {
+        finalEnv = [...finalEnv, `HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`]
       }
 
       const newContainerConfig: any = {
@@ -2141,6 +2205,17 @@ export class DockerService {
         await this.pullImage(service.container_image)
       }
 
+      // Runtime-injected secrets (e.g. Homebox's API-key pepper, #1043) live in the KV store, not
+      // in container_config. This path rebuilds Env from container_config alone, so re-inject them
+      // here — otherwise an Edit or in-place recreate drops the pepper and Homebox crash-loops again.
+      let recreateEnv: string[] = containerConfig?.Env ?? []
+      if (
+        serviceName === SERVICE_NAMES.HOMEBOX &&
+        !recreateEnv.some((e: string) => e.startsWith('HBOX_AUTH_API_KEY_PEPPER='))
+      ) {
+        recreateEnv = [...recreateEnv, `HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`]
+      }
+
       const newContainer = await this.docker.createContainer({
         Image: service.container_image,
         name: serviceName,
@@ -2152,7 +2227,7 @@ export class DockerService {
         ...(containerConfig?.User && { User: containerConfig.User }),
         HostConfig: containerConfig?.HostConfig ?? {},
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
-        ...(containerConfig?.Env && { Env: containerConfig.Env }),
+        ...(recreateEnv.length ? { Env: recreateEnv } : {}),
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
         ...(process.env.NODE_ENV === 'production' && {
           NetworkingConfig: { EndpointsConfig: { [DockerService.NOMAD_NETWORK]: {} } },

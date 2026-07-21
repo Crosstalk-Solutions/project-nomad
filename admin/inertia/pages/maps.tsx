@@ -10,13 +10,15 @@ import Alert from '~/components/Alert'
 import { FileEntry } from '../../types/files'
 
 export default function Maps(props: {
-  maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
+  maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
 }) {
   const [isHoveringUI, setIsHoveringUI] = useState(false)
   const [showMapCoordinates, setShowMapCoordinates] = useState(true)
 
   const alertMessage = !props.maps.baseAssetsExist
     ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
+    : !props.maps.worldBasemapExists
+    ? 'The world base map has not been downloaded yet, so the map may appear blank outside downloaded regions. Connect this NOMAD to the internet and download it (~15 MB) from Map Settings.'
     : props.maps.regionFiles.length === 0
     ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
     : null

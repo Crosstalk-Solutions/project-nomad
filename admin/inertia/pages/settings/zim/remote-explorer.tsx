@@ -7,7 +7,6 @@ import {
 } from '@tanstack/react-query'
 import api from '~/lib/api'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { Head } from '@inertiajs/react'
@@ -33,6 +32,7 @@ import {
 } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import CategoryCard from '~/components/CategoryCard'
+import CreatorPacksSection from '~/components/CreatorPacksSection'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -175,6 +175,26 @@ export default function ZimRemoteExplorer() {
   }, [data, downloads, localFiles])
   const hasMore = useMemo(() => data?.pages[data.pages.length - 1]?.has_more || false, [data])
 
+  // When a ZIM download drops off the polled downloads list it has completed (or been
+  // cancelled). The installed-files query (refetchOnWindowFocus is off) won't otherwise
+  // refresh, so a just-installed ZIM stays absent from `localFiles` and reappears in the
+  // accumulated remote pages as a ghost entry. Refresh it so the item is pruned.
+  const prevDownloadKeysRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const currentKeys = new Set((downloads ?? []).map((d) => d.jobId))
+    let anyRemoved = false
+    for (const key of prevDownloadKeysRef.current) {
+      if (!currentKeys.has(key)) {
+        anyRemoved = true
+        break
+      }
+    }
+    prevDownloadKeysRef.current = currentKeys
+    if (anyRemoved) {
+      queryClient.invalidateQueries({ queryKey: [ZIM_FILES_KEY] })
+    }
+  }, [downloads, queryClient])
+
   const fetchOnBottomReached = useCallback(
     (parentRef?: HTMLDivElement | null) => {
       if (parentRef) {
@@ -190,13 +210,6 @@ export default function ZimRemoteExplorer() {
     },
     [fetchNextPage, isFetching, hasMore]
   )
-
-  const virtualizer = useVirtualizer({
-    count: flatData.length,
-    estimateSize: () => 48, // Estimate row height
-    getScrollElement: () => tableParentRef.current,
-    overscan: 5, // Number of items to render outside the visible area
-  })
 
   //a check on mount and after a fetch to see if the table is already scrolled to the bottom and immediately needs to fetch more data
   useEffect(() => {
@@ -447,7 +460,7 @@ export default function ZimRemoteExplorer() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Explorer | Project N.O.M.A.D." />
+      <Head title="Content Explorer | Project NOMAD" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex justify-between items-center">
@@ -505,6 +518,9 @@ export default function ZimRemoteExplorer() {
               />
             </div>
           ) : null}
+
+          {/* Creator Packs (hidden entirely when this build isn't configured) */}
+          <CreatorPacksSection />
 
           {/* Tiered Category Collections */}
           <div className="flex items-center gap-3 mt-8 mb-4">
@@ -591,14 +607,7 @@ export default function ZimRemoteExplorer() {
                 />
               </div>
               <StyledTable<RemoteZimFileEntry & { actions?: any }>
-                data={flatData.map((i, idx) => {
-                  const row = virtualizer.getVirtualItems().find((v) => v.index === idx)
-                  return {
-                    ...i,
-                    height: `${row?.size || 48}px`,
-                    translateY: row?.start || 0,
-                  }
-                })}
+                data={flatData}
                 ref={tableParentRef}
                 loading={isLoading}
                 columns={[
@@ -610,6 +619,13 @@ export default function ZimRemoteExplorer() {
                   },
                   {
                     accessor: 'summary',
+                    render(record) {
+                      return (
+                        <span className="block max-w-md truncate text-text-muted" title={record.summary}>
+                          {record.summary}
+                        </span>
+                      )
+                    },
                   },
                   {
                     accessor: 'updated',
@@ -644,11 +660,97 @@ export default function ZimRemoteExplorer() {
                     },
                   },
                 ]}
-                className="relative overflow-x-auto overflow-y-auto h-[600px] w-full mt-4"
-                tableBodyStyle={{
-                  position: 'relative',
-                  height: `${virtualizer.getTotalSize()}px`,
+                expandable={{
+                  expandedRowRender(record) {
+                    const issuedDate = record.issued ? new Date(record.issued) : null
+                    const hasValidIssuedDate = issuedDate && !Number.isNaN(issuedDate.getTime())
+                    return (
+                      <div className="py-4 px-6">
+                        <p className="text-sm text-text-primary mb-4">{record.summary}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+                          {record.author && (
+                            <div>
+                              <span className="text-text-muted">Author: </span>
+                              <span className="text-text-primary">{record.author}</span>
+                            </div>
+                          )}
+                          {record.publisher && (
+                            <div>
+                              <span className="text-text-muted">Publisher: </span>
+                              <span className="text-text-primary">{record.publisher}</span>
+                            </div>
+                          )}
+                          {record.language && (
+                            <div>
+                              <span className="text-text-muted">Language: </span>
+                              <span className="text-text-primary">{record.language}</span>
+                            </div>
+                          )}
+                          {record.category && (
+                            <div>
+                              <span className="text-text-muted">Category: </span>
+                              <span className="text-text-primary">{record.category}</span>
+                            </div>
+                          )}
+                          {record.article_count != null && record.article_count > 0 && (
+                            <div>
+                              <span className="text-text-muted">Articles: </span>
+                              <span className="text-text-primary">
+                                {record.article_count.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {record.media_count != null && record.media_count > 0 && (
+                            <div>
+                              <span className="text-text-muted">Media: </span>
+                              <span className="text-text-primary">
+                                {record.media_count.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {hasValidIssuedDate && (
+                            <div>
+                              <span className="text-text-muted">Issued: </span>
+                              <span className="text-text-primary">
+                                {new Intl.DateTimeFormat('en-US', {
+                                  dateStyle: 'medium',
+                                }).format(issuedDate!)}
+                              </span>
+                            </div>
+                          )}
+                          {record.size_bytes > 0 && (
+                            <div>
+                              <span className="text-text-muted">Size: </span>
+                              <span className="text-text-primary">{formatBytes(record.size_bytes)}</span>
+                            </div>
+                          )}
+                        </div>
+                        {record.tags && (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {record.tags
+                              .split(';')
+                              .filter(Boolean)
+                              .map((tag, i) => (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center rounded-full bg-surface-elevated px-2.5 py-0.5 text-xs font-medium text-text-muted"
+                                >
+                                  {tag.trim()}
+                                </span>
+                              ))}
+                          </div>
+                        )}
+                        {record.file_name && (
+                          <div className="mt-4">
+                            <span className="text-text-muted text-sm">File: </span>
+                            <code className="text-xs text-text-muted">{record.file_name}</code>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  },
                 }}
+                className="overflow-y-auto h-[600px] w-full mt-4"
                 containerProps={{
                   onScroll: (e) => fetchOnBottomReached(e.currentTarget as HTMLDivElement),
                 }}
@@ -760,7 +862,6 @@ export default function ZimRemoteExplorer() {
               )}
             </div>
           )}
-
           <ActiveDownloads filetype="zim" withHeader />
 
           {/* Manage Custom Libraries Modal */}

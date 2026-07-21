@@ -22,6 +22,7 @@ import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
+import { KiwixLibraryService } from '#services/kiwix_library_service'
 
 @inject()
 export class SystemService {
@@ -38,7 +39,7 @@ export class SystemService {
   async getInternetStatus(): Promise<boolean> {
     // Primary endpoint stays Cloudflare's privacy-respecting utility endpoint.
     // The fallbacks are hosts the application already contacts elsewhere
-    // (GitHub API for update checks, the Project N.O.M.A.D. API for release-note
+    // (GitHub API for update checks, the Project NOMAD API for release-note
     // subscriptions), so no new third-party services are introduced. They exist
     // to avoid false "offline" reports on networks that block 1.1.1.1.
     const DEFAULT_TEST_URLS = [
@@ -757,6 +758,28 @@ export class SystemService {
       this.checkLatestVersion().catch(() => null),
     ])
 
+    // Diagnostics tied to common support cases: storage relocation (#1050),
+    // container/updater issues (#858), GPU passthrough (#755/#878), and the
+    // auto-update trilogy. All best-effort so a single failure never blanks the
+    // whole bundle.
+    const [dockerVersion, hostStorageRoot, kiwixBookCount, gpuType] = await Promise.all([
+      this.dockerService.docker
+        .version()
+        .then((v: any) => v?.Version ?? null)
+        .catch(() => null),
+      this.dockerService.getHostStorageRoot().catch(() => null),
+      new KiwixLibraryService().getBookCount().catch(() => null),
+      KVStore.getValue('gpu.type').catch(() => null),
+    ])
+    const [autoUpdateCore, autoUpdateApps, autoUpdateContent, autoDisabledReason] =
+      await Promise.all([
+        KVStore.getValue('autoUpdate.enabled').catch(() => null),
+        KVStore.getValue('appAutoUpdate.enabled').catch(() => null),
+        KVStore.getValue('contentAutoUpdate.enabled').catch(() => null),
+        KVStore.getValue('autoUpdate.autoDisabledReason').catch(() => null),
+      ])
+    const isEnabled = (v: any) => v === true || v === 'true'
+
     const lines: string[] = [
       'Project NOMAD Debug Info',
       '========================',
@@ -765,7 +788,7 @@ export class SystemService {
     ]
 
     if (systemInfo) {
-      const { cpu, mem, os, disk, fsSize, uptime, graphics } = systemInfo
+      const { cpu, mem, os, disk, fsSize, uptime, graphics, gpuHealth } = systemInfo
 
       lines.push('')
       lines.push('System:')
@@ -773,6 +796,7 @@ export class SystemService {
       if (os.hostname) lines.push(`  Hostname: ${os.hostname}`)
       if (os.kernel) lines.push(`  Kernel: ${os.kernel}`)
       if (os.arch) lines.push(`  Architecture: ${os.arch}`)
+      if (dockerVersion) lines.push(`  Docker Engine: ${dockerVersion}`)
       if (uptime?.uptime) lines.push(`  Uptime: ${this._formatUptime(uptime.uptime)}`)
 
       lines.push('')
@@ -794,6 +818,10 @@ export class SystemService {
       } else {
         lines.push('  GPU: None detected')
       }
+      if (gpuHealth?.status) {
+        const vendor = gpuType || gpuHealth.gpuVendor
+        lines.push(`  GPU Passthrough: ${gpuHealth.status}${vendor ? ` (${vendor})` : ''}`)
+      }
 
       // Disk info — try disk array first, fall back to fsSize
       const diskEntries = disk.filter((d) => d.totalSize > 0)
@@ -812,6 +840,20 @@ export class SystemService {
           lines.push(`  Disk: ${this._formatBytes(f.size)}, ${Math.round(f.use)}% used`)
         }
       }
+    }
+
+    lines.push('')
+    lines.push('Storage:')
+    lines.push(`  Host storage root: ${hostStorageRoot ?? 'unknown'}`)
+    lines.push(`  Container path: ${DockerService.ADMIN_STORAGE_DEST}`)
+    const storageEnv = process.env.NOMAD_STORAGE_PATH
+    lines.push(
+      `  NOMAD_STORAGE_PATH: ${storageEnv ? storageEnv : 'not set (auto-detected from admin mount)'}`
+    )
+    if (kiwixBookCount !== null) {
+      lines.push(
+        `  Kiwix library: ${kiwixBookCount === 0 ? 'empty (0 books)' : `${kiwixBookCount} book(s)`}`
+      )
     }
 
     const installed = services.filter((s) => s.installed)
@@ -835,6 +877,15 @@ export class SystemService {
         ? `Yes (${versionCheck.latestVersion} available)`
         : `No (${versionCheck.currentVersion} is latest)`
       lines.push(`Update Available: ${updateMsg}`)
+    }
+
+    lines.push('')
+    lines.push('Auto-Update:')
+    lines.push(`  Core: ${isEnabled(autoUpdateCore) ? 'Enabled' : 'Disabled'}`)
+    lines.push(`  Apps: ${isEnabled(autoUpdateApps) ? 'Enabled' : 'Disabled'}`)
+    lines.push(`  Content: ${isEnabled(autoUpdateContent) ? 'Enabled' : 'Disabled'}`)
+    if (autoDisabledReason) {
+      lines.push(`  Auto-disabled reason: ${autoDisabledReason}`)
     }
 
     return lines.join('\n')

@@ -29,6 +29,9 @@ export default class KbIngestState extends BaseModel {
   declare chunks_embedded: number
 
   @column()
+  declare collection: string | null
+
+  @column()
   declare last_error: string | null
 
   @column.dateTime({ autoCreate: true })
@@ -37,18 +40,19 @@ export default class KbIngestState extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updated_at: DateTime
 
-  static async getOrCreate(filePath: string): Promise<KbIngestState> {
+  static async getOrCreate(filePath: string, collection?: string): Promise<KbIngestState> {
     return this.firstOrCreate(
       { file_path: filePath },
-      { file_path: filePath, state: 'pending_decision', chunks_embedded: 0 }
+      { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null }
     )
   }
 
-  static async markIndexed(filePath: string, chunksEmbedded: number): Promise<void> {
-    const row = await this.getOrCreate(filePath)
+  static async markIndexed(filePath: string, chunksEmbedded: number, collection?: string): Promise<void> {
+    const row = await this.getOrCreate(filePath, collection)
     row.state = 'indexed'
     row.chunks_embedded = chunksEmbedded
     row.last_error = null
+    if (collection) row.collection = collection
     await row.save()
   }
 

@@ -13,6 +13,8 @@ interface ChatSidebarProps {
   onNewChat: () => void
   onClearHistory: () => void
   isInModal?: boolean
+  isMobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
 export default function ChatSidebar({
@@ -22,6 +24,8 @@ export default function ChatSidebar({
   onNewChat,
   onClearHistory,
   isInModal = false,
+  isMobileOpen = false,
+  onMobileClose,
 }: ChatSidebarProps) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(
@@ -39,9 +43,25 @@ export default function ChatSidebar({
   }
 
   return (
-    <div className="w-64 bg-surface-secondary border-r border-border-subtle flex flex-col h-full">
+    <aside
+      id="chat-sidebar"
+      className={classNames(
+        'w-64 bg-surface-secondary border-r border-border-subtle flex-col h-full shrink-0',
+        'fixed inset-y-0 left-0 z-50 md:static md:z-auto md:flex',
+        isMobileOpen ? 'flex' : 'hidden'
+      )}
+      aria-label="Chat conversations"
+    >
       <div className="p-4 border-b border-border-subtle h-[75px] flex items-center justify-center">
-        <StyledButton onClick={onNewChat} icon="IconPlus" variant="primary" fullWidth>
+        <StyledButton
+          onClick={() => {
+            onNewChat()
+            onMobileClose?.()
+          }}
+          icon="IconPlus"
+          variant="primary"
+          fullWidth
+        >
           New Chat
         </StyledButton>
       </div>
@@ -54,7 +74,10 @@ export default function ChatSidebar({
             {sessions.map((session) => (
               <button
                 key={session.id}
-                onClick={() => onSessionSelect(session.id)}
+                onClick={() => {
+                  onSessionSelect(session.id)
+                  onMobileClose?.()
+                }}
                 className={classNames(
                   'w-full text-left px-3 py-2 rounded-lg transition-colors group',
                   activeSessionId === session.id
@@ -89,7 +112,7 @@ export default function ChatSidebar({
         )}
       </div>
       <div className="p-4 flex flex-col items-center justify-center gap-y-2">
-        <img src="/project_nomad_logo.webp" alt="Project Nomad Logo" className="h-28 w-28 mb-6" />
+        <img src="/project_nomad_logo.webp" alt="Project NOMAD Logo" className="h-28 w-28 mb-6" />
         <StyledButton
           onClick={() => {
             if (isInModal) {
@@ -142,6 +165,6 @@ export default function ChatSidebar({
       {isKnowledgeBaseModalOpen && (
         <KnowledgeBaseModal aiAssistantName={aiAssistantName} onClose={handleCloseKnowledgeBase} />
       )}
-    </div>
+    </aside>
   )
 }

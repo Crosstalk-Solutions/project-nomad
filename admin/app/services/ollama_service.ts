@@ -43,8 +43,14 @@ type ChatInput = {
   model: string
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
   think?: boolean | 'medium'
+  // Whether the target model supports thinking. Lets chat()/chatStream() tell "capable but
+  // disabled" (send reasoning_effort:'none') apart from "not capable" (send nothing).
+  thinkingCapable?: boolean
   stream?: boolean
   numCtx?: number
+  // Aborts the upstream request when the client disconnects, so an abandoned generation
+  // doesn't keep decoding server-side and block Ollama's single parallel slot (#1065).
+  signal?: AbortSignal
 }
 
 @inject()
@@ -54,6 +60,9 @@ export class OllamaService {
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
   private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
+  // Memoized `thinking` capability per model name (see checkModelHasThinking). Only successful
+  // /api/show lookups are cached; transient failures are left uncached so they can be retried.
+  private thinkingCapabilityCache: Map<string, boolean> = new Map()
 
   constructor() {}
 
@@ -329,17 +338,28 @@ export class OllamaService {
     if (chatRequest.think) {
       params.think = chatRequest.think
     }
+    // The /v1 (OpenAI-compat) endpoint ignores `think`; `reasoning_effort` is the actual lever.
+    // Only touch it for thinking-capable models so non-Ollama backends never get an unexpected
+    // param. gpt-oss requires an explicit level; a capable-but-disabled model gets 'none' to
+    // suppress thinking (capable models default thinking ON otherwise, so think===true is a no-op).
+    if (chatRequest.think === 'medium') {
+      params.reasoning_effort = 'medium'
+    } else if (chatRequest.thinkingCapable && chatRequest.think === false) {
+      params.reasoning_effort = 'none'
+    }
     if (chatRequest.numCtx) {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const response = await this.openai.chat.completions.create(params)
+    const response = await this.openai.chat.completions.create(params, { signal: chatRequest.signal })
     const choice = response.choices[0]
 
     return {
       message: {
         content: choice.message.content ?? '',
-        thinking: (choice.message as any).thinking ?? undefined,
+        // Ollama's OpenAI-compat endpoint (/v1) emits thinking as `reasoning`; its native
+        // shape uses `thinking`. Read both so thinking is never silently dropped (#1065).
+        thinking: (choice.message as any).thinking ?? (choice.message as any).reasoning ?? undefined,
       },
       done: true,
       model: response.model,
@@ -360,11 +380,22 @@ export class OllamaService {
     if (chatRequest.think) {
       params.think = chatRequest.think
     }
+    // The /v1 (OpenAI-compat) endpoint ignores `think`; `reasoning_effort` is the actual lever.
+    // Only touch it for thinking-capable models so non-Ollama backends never get an unexpected
+    // param. gpt-oss requires an explicit level; a capable-but-disabled model gets 'none' to
+    // suppress thinking (capable models default thinking ON otherwise, so think===true is a no-op).
+    if (chatRequest.think === 'medium') {
+      params.reasoning_effort = 'medium'
+    } else if (chatRequest.thinkingCapable && chatRequest.think === false) {
+      params.reasoning_effort = 'none'
+    }
     if (chatRequest.numCtx) {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const stream = (await this.openai.chat.completions.create(params)) as unknown as Stream<ChatCompletionChunk>
+    const stream = (await this.openai.chat.completions.create(params, {
+      signal: chatRequest.signal,
+    })) as unknown as Stream<ChatCompletionChunk>
 
     // Returns how many trailing chars of `text` could be the start of `tag`
     function partialTagSuffix(tag: string, text: string): number {
@@ -383,7 +414,8 @@ export class OllamaService {
 
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta
-        const nativeThinking: string = (delta as any)?.thinking ?? ''
+        // /v1 emits thinking as `reasoning`; native Ollama uses `thinking`. Read both (#1065).
+        const nativeThinking: string = (delta as any)?.thinking ?? (delta as any)?.reasoning ?? ''
         const rawContent: string = delta?.content ?? ''
 
         // Parse <think> tags out of the content stream
@@ -436,13 +468,22 @@ export class OllamaService {
     await this._ensureDependencies()
     if (!this.baseUrl) return false
 
+    // A model's capabilities don't change at runtime, so memoize the /api/show result. Without
+    // this, loading the chat picker fires one /api/show per installed model and every chat send
+    // fires another — this collapses those to a single call per model per process.
+    const cached = this.thinkingCapabilityCache.get(modelName)
+    if (cached !== undefined) return cached
+
     try {
       const response = await axios.post(
         `${this.baseUrl}/api/show`,
         { model: modelName },
         { timeout: 5000 }
       )
-      return Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+      const hasThinking =
+        Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+      this.thinkingCapabilityCache.set(modelName, hasThinking)
+      return hasThinking
     } catch {
       // Non-Ollama backends don't expose /api/show — assume no thinking support
       return false
@@ -764,7 +805,7 @@ export class OllamaService {
   ): Promise<{ models: NomadOllamaModel[]; hasMore: boolean } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort, force)
-      if (!models) {
+      if (!models || models.length === 0) {
         logger.warn(
           '[OllamaService] Returning fallback recommended models due to failure in fetching available models'
         )
@@ -819,7 +860,10 @@ export class OllamaService {
     try {
       if (!force) {
         const cachedModels = await this.readModelsFromCache()
-        if (cachedModels) {
+        // An empty cached array (e.g. written from a transient empty upstream
+        // response) must not be treated as valid data — fall through to a
+        // fresh fetch and, failing that, the fallback list.
+        if (cachedModels && cachedModels.length > 0) {
           logger.info('[OllamaService] Using cached available models data')
           return this.sortModels(cachedModels, sort)
         }
@@ -832,7 +876,7 @@ export class OllamaService {
       const baseUrl = env.get('NOMAD_API_URL') || NOMAD_API_DEFAULT_BASE_URL
       const fullUrl = new URL(NOMAD_MODELS_API_PATH, baseUrl).toString()
 
-      const response = await axios.get(fullUrl)
+      const response = await axios.get(fullUrl, { timeout: 10000 })
       if (!response.data || !Array.isArray(response.data.models)) {
         logger.warn(
           `[OllamaService] Invalid response format when fetching available models: ${JSON.stringify(response.data)}`
@@ -848,6 +892,16 @@ export class OllamaService {
           tags: model.tags.filter((tag) => !tag.cloud),
         }))
         .filter((model) => model.tags.length > 0)
+
+      // A successful-but-empty upstream response (0 models, or all filtered out
+      // as cloud-only) is a soft failure: return null so the caller serves the
+      // fallback list, and don't poison the 24h cache with an empty array.
+      if (noCloud.length === 0) {
+        logger.warn(
+          '[OllamaService] Nomad API returned no usable (non-cloud) models; using fallback'
+        )
+        return null
+      }
 
       await this.writeModelsToCache(noCloud)
       return this.sortModels(noCloud, sort)

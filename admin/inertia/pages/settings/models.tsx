@@ -26,7 +26,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -98,6 +98,7 @@ export default function ModelsPage(props: {
   const [ollamaFlashAttention, setOllamaFlashAttention] = useState(
     props.models.settings.ollamaFlashAttention
   )
+  const [autoThinking, setAutoThinking] = useState(props.models.settings.autoThinking)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
   )
@@ -261,7 +262,7 @@ export default function ModelsPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title={`${aiAssistantName} Settings | Project N.O.M.A.D.`} />
+      <Head title={`${aiAssistantName} Settings | Project NOMAD`} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
@@ -319,6 +320,15 @@ export default function ModelsPage(props: {
                 }}
                 label="Flash Attention"
                 description="Enables OLLAMA_FLASH_ATTENTION=1 for improved memory efficiency. Disable if you experience instability. Takes effect after reinstalling the AI Assistant."
+              />
+              <Switch
+                checked={autoThinking}
+                onChange={(newVal) => {
+                  setAutoThinking(newVal)
+                  updateSettingMutation.mutate({ key: 'ai.autoThinking', value: newVal })
+                }}
+                label="Use thinking automatically when a model supports it"
+                description="Sets the default for models that can think. You can still turn thinking on or off for an individual model in the chat window."
               />
               <Input
                 name="aiAssistantCustomName"

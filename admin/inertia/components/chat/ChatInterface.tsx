@@ -28,7 +28,7 @@ export default function ChatInterface({
   chatSuggestions = [],
   chatSuggestionsEnabled = false,
   chatSuggestionsLoading = false,
-  rewriteModelAvailable = false
+  rewriteModelAvailable = false,
 }: ChatInterfaceProps) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
@@ -95,33 +95,39 @@ export default function ChatInterface({
               <p className="text-text-muted text-sm">
                 Interact with your installed language models directly in the Command Center.
               </p>
-              {chatSuggestionsEnabled && chatSuggestions && chatSuggestions.length > 0 && !chatSuggestionsLoading && (
-                <div className="mt-8">
-                  <h4 className="text-sm font-medium text-text-secondary mb-2">Suggestions:</h4>
-                  <div className="flex flex-col gap-2">
-                    {chatSuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setInput(suggestion)
-                          // Focus the textarea after setting input
-                          setTimeout(() => {
-                            textareaRef.current?.focus()
-                          }, 0)
-                        }}
-                        className="px-4 py-2 bg-surface-secondary hover:bg-surface-secondary rounded-lg text-sm text-text-primary transition-colors"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
+              {chatSuggestionsEnabled &&
+                chatSuggestions &&
+                chatSuggestions.length > 0 &&
+                !chatSuggestionsLoading && (
+                  <div className="mt-8">
+                    <h4 className="text-sm font-medium text-text-secondary mb-2">Suggestions:</h4>
+                    <div className="flex flex-col gap-2">
+                      {chatSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            setInput(suggestion)
+                            // Focus the textarea after setting input
+                            setTimeout(() => {
+                              textareaRef.current?.focus()
+                            }, 0)
+                          }}
+                          className="px-4 py-2 bg-surface-secondary hover:bg-surface-secondary rounded-lg text-sm text-text-primary transition-colors"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               {/* Display bouncing dots while loading suggestions */}
-              {chatSuggestionsEnabled && chatSuggestionsLoading && <BouncingDots text="Thinking" containerClassName="mt-8" />}
+              {chatSuggestionsEnabled && chatSuggestionsLoading && (
+                <BouncingDots text="Thinking" containerClassName="mt-8" />
+              )}
               {!chatSuggestionsEnabled && (
                 <div className="mt-8 text-sm text-text-muted">
-                  Need some inspiration? Enable chat suggestions in settings to get started with example prompts.
+                  Need some inspiration? Enable chat suggestions in settings to get started with
+                  example prompts.
                 </div>
               )}
             </div>
@@ -144,7 +150,7 @@ export default function ChatInterface({
             {isLoading && (
               <div className="flex gap-4 justify-start">
                 <ChatAssistantAvatar />
-                <div className="max-w-[70%] rounded-lg px-4 py-3 bg-surface-secondary text-text-primary">
+                <div className="max-w-[85%] sm:max-w-[70%] rounded-lg px-4 py-3 bg-surface-secondary text-text-primary">
                   <BouncingDots text="Thinking" />
                 </div>
               </div>
@@ -203,8 +209,8 @@ export default function ChatInterface({
           title={`Download ${DEFAULT_QUERY_REWRITE_MODEL}?`}
           confirmText="Download"
           cancelText="Cancel"
-          confirmIcon='IconDownload'
-          confirmVariant='primary'
+          confirmIcon="IconDownload"
+          confirmVariant="primary"
           confirmLoading={isDownloading}
           onConfirm={handleDownloadModel}
           onCancel={() => setDownloadDialogOpen(false)}
@@ -212,8 +218,10 @@ export default function ChatInterface({
         >
           <p className="text-text-primary">
             This will dispatch a background download job for{' '}
-            <span className="font-mono font-medium">{DEFAULT_QUERY_REWRITE_MODEL}</span> and may take some time to complete. The model
-            will be used to rewrite queries for improved RAG retrieval performance. Note that download is only supported when using Ollama. If using an OpenAI API interface, please download the model with that software.
+            <span className="font-mono font-medium">{DEFAULT_QUERY_REWRITE_MODEL}</span> and may
+            take some time to complete. The model will be used to rewrite queries for improved RAG
+            retrieval performance. Note that download is only supported when using Ollama. If using
+            an OpenAI API interface, please download the model with that software.
           </p>
         </StyledModal>
       </div>
