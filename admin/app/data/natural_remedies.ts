@@ -1,26 +1,13 @@
+/* eslint-disable */
 /**
- * "When to use what" — curated natural-remedies data (Phase 2, runtime source of truth).
+ * GENERATED FILE — DO NOT EDIT.
  *
- * Hand-curated subset of NCCIH "Herbs at a Glance" (nccih.nih.gov) mapped to our
- * 36-condition spine. Source is US government / public domain; reproduction
- * encouraged with credit (credit appears in the NaturalRemediesFile.source field
- * and in the UI section caveat).
+ * Single source of truth: collections/natural_remedies.json
+ * Regenerate after editing the JSON: `npm run gen:curated-data` (from admin/).
+ * curated_data_sync.standalone.ts fails CI if this file drifts from the JSON.
  *
- * WHY a TS constant (not a JSON file read at runtime):
- *   The repo-root `collections/natural_remedies.json` mirror exists for human
- *   discoverability and parity with the kiwix-categories / conditions convention,
- *   but it is NOT what the running app reads. The Dockerfile copies only `admin/`
- *   into the image (`ADD admin/ ./`) and ships only the compiled `build/` output,
- *   so a repo-root JSON file never reaches the container filesystem. Bundling the
- *   remedies as a compiled module guarantees they are always present at runtime
- *   with no path-resolution fragility.
- *
- * Keep this file and `collections/natural_remedies.json` in sync — same `version`,
- * same remedy slugs, same remedy count. `parseNaturalRemediesFile` (admin/util/conditions.ts)
- * validates the shape so a hand-edit that breaks an entry degrades to "skip that
- * entry" rather than crashing the page. The standalone test asserts sync.
+ * Hand-curated subset of NCCIH "Herbs at a Glance" (nccih.nih.gov), mapped to the condition spine. US-government / public domain; attribution lives in the file `source` field and the UI caveat.
  */
-
 import type { NaturalRemediesFile } from '../../types/conditions.js'
 
 export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
