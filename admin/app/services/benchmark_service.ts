@@ -294,7 +294,7 @@ export class BenchmarkService {
       }
 
       return response.data as RepositorySubmitResponse
-    } catch (error) {
+    } catch (error: any) {
       const detail = error.response?.data?.error || error.message || 'Unknown error'
       const statusCode = error.response?.status
       logger.error(`Failed to submit benchmark to repository: ${detail} (Status: ${statusCode})`)
@@ -394,7 +394,7 @@ export class BenchmarkService {
         timeout: 10000,
       })
       return response.data as RepositoryStats
-    } catch (error) {
+    } catch (error: any) {
       logger.warn(`Failed to fetch comparison stats: ${error.message}`)
       return null
     }
@@ -480,7 +480,7 @@ export class BenchmarkService {
               logger.warn(`[BenchmarkService] NVIDIA runtime detected but failed to get GPU info: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
             }
           }
-        } catch (dockerError) {
+        } catch (dockerError: any) {
           logger.warn(`[BenchmarkService] Could not query Docker info for GPU detection: ${dockerError.message}`)
         }
       }
@@ -529,7 +529,7 @@ export class BenchmarkService {
         disk_type: diskType,
         gpu_model: gpuModel,
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error detecting hardware: ${error.message}`)
       throw new Error(`Failed to detect hardware: ${error.message}`)
     }
@@ -592,7 +592,7 @@ export class BenchmarkService {
               unit: 'tok/s',
             })
           }
-        } catch (error) {
+        } catch (error: any) {
           // For AI-only benchmarks, failing is fatal - don't save useless results with all zeros
           if (type === 'ai') {
             throw new Error(`AI benchmark failed: ${error.message}. Make sure AI Assistant is installed and running.`)
@@ -619,7 +619,7 @@ export class BenchmarkService {
             disk_read_mb_per_sec: systemRaws.disk_read_mb_per_sec,
             disk_write_mb_per_sec: systemRaws.disk_write_mb_per_sec,
           })
-        } catch (error) {
+        } catch (error: any) {
           // A non-positive channel shouldn't reach here (each sysbench step throws
           // on a bad parse), but never let a v2 math error sink the whole run.
           logger.warn(`NOMAD Score v2 not computed: ${error.message}`)
@@ -671,7 +671,7 @@ export class BenchmarkService {
       this.currentBenchmarkId = null
 
       return result
-    } catch (error) {
+    } catch (error: any) {
       this._updateStatus('error', `Benchmark failed: ${error.message}`)
       this.currentStatus = 'idle'
       this.currentBenchmarkId = null
@@ -820,157 +820,101 @@ export class BenchmarkService {
   }
 
   /**
-   * Probe live NVIDIA GPU stats by exec-ing nvidia-smi inside the Ollama
-   * container (same approach as SystemService.getNvidiaSmiInfo). Telemetry-only:
-   * returns null on any failure (no Ollama container, no NVIDIA GPU / AMD,
-   * unparseable output) and must never affect the scored benchmark numbers.
-   */
-  private async _probeGpuStats(): Promise<NonNullable<BenchmarkTelemetry['gpu']> | null> {
-    try {
-      const containers = await this.dockerService.docker.listContainers({ all: false })
-      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
-      if (!ollamaContainer) return null
-
-      const container = this.dockerService.docker.getContainer(ollamaContainer.Id)
-      const exec = await container.exec({
-        Cmd: [
-          'nvidia-smi',
-          '--query-gpu=utilization.gpu,memory.used,memory.total',
-          '--format=csv,noheader,nounits',
-        ],
-        AttachStdout: true,
-        AttachStderr: true,
-        Tty: true,
-      })
-
-      // Read the output stream with a timeout to prevent hanging if nvidia-smi fails
-      const stream = await exec.start({ Tty: true })
-      const output = await new Promise<string>((resolve) => {
-        let data = ''
-        const timeout = setTimeout(() => resolve(data), 3000)
-        stream.on('data', (chunk: Buffer) => {
-          data += chunk.toString()
-        })
-        stream.on('end', () => {
-          clearTimeout(timeout)
-          resolve(data)
-        })
-      })
-
-      // Remove any non-printable characters and trim the output
-      const cleaned = Array.from(output)
-        .filter((character) => character.charCodeAt(0) > 8)
-        .join('')
-        .trim()
-      if (!cleaned || cleaned.toLowerCase().includes('error') || cleaned.toLowerCase().includes('not found')) {
-        return null
-      }
-
-      // First GPU only: "<util>, <used>, <total>"
-      const parts = cleaned.split('\n')[0].split(',').map((s) => s.trim())
-      if (parts.length < 3) return null
-      const util = Number.parseInt(parts[0], 10)
-      const used = Number.parseInt(parts[1], 10)
-      const total = Number.parseInt(parts[2], 10)
-      if (!Number.isFinite(util) || !Number.isFinite(used) || !Number.isFinite(total)) return null
-
-      return { util, vram_used_mb: used, vram_total_mb: total }
-    } catch {
-      return null
-    }
-  }
-
-  /**
    * Run AI benchmark using Ollama
    */
   private async _runAIBenchmark(): Promise<AIScores> {
-    // Live GPU-util overlay poller. Side-effect-only: it feeds telemetry frames
-    // and is cleared in the finally below so it never outlives the AI stage.
     let gpuPollTimer: NodeJS.Timeout | null = null
     try {
+      // Live GPU-util overlay poller. Side-effect-only: it feeds telemetry frames
+      // and is cleared in the finally below so it never outlives the AI stage.
 
-    this._updateStatus('running_ai', 'Running AI benchmark...')
+      this._updateStatus('running_ai', 'Running AI benchmark...')
 
-    const ollamaAPIURL = await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
-    if (!ollamaAPIURL) {
-      throw new Error('AI Assistant service location could not be determined. Ensure AI Assistant is installed and running.')
-    }
-
-    // Check if Ollama is available
-    try {
-      await axios.get(`${ollamaAPIURL}/api/tags`, { timeout: 5000 })
-    } catch (error) {
-      const errorCode = error.code || error.response?.status || 'unknown'
-      throw new Error(`Ollama is not running or not accessible (${errorCode}). Ensure AI Assistant is installed and running.`)
-    }
-
-    // Record the Ollama version for forensics (null-tolerant — never fail the run on this)
-    const versionResp = await axios.get(`${ollamaAPIURL}/api/version`, { timeout: 5000 }).catch(() => null)
-    const ollamaVersion: string | null = versionResp?.data?.version ?? null
-
-    // GPU-util overlay (NVIDIA only): probe once; if a GPU answers, poll for the
-    // duration of the AI stage. If the probe returns null (no GPU / AMD), the
-    // overlay simply never appears. Best-effort: failures never affect the run.
-    try {
-      const initialGpu = await this._probeGpuStats()
-      if (initialGpu) {
-        this.telemetry?.setGpuStats(initialGpu)
-        let gpuProbeInFlight = false
-        gpuPollTimer = setInterval(() => {
-          if (gpuProbeInFlight) return
-          gpuProbeInFlight = true
-          this._probeGpuStats()
-            .then((stats) => this.telemetry?.setGpuStats(stats))
-            .catch(() => this.telemetry?.setGpuStats(null))
-            .finally(() => {
-              gpuProbeInFlight = false
-            })
-        }, 1000)
+      const ollamaAPIURL = await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
+      if (!ollamaAPIURL) {
+        throw new Error('AI Assistant service location could not be determined. Ensure AI Assistant is installed and running.')
       }
-    } catch {
-      // GPU overlay is cosmetic; ignore probe failures entirely.
-    }
 
-    // Check if the benchmark model is available, pull if not
-    const ollamaService = new (await import('./ollama_service.js')).OllamaService()
-    const modelResponse = await ollamaService.downloadModel(AI_BENCHMARK_MODEL)
-    if (!modelResponse.success) {
-      throw new Error(`Model does not exist and failed to download: ${modelResponse.message}`)
-    }
+      // Check if Ollama is available
+      try {
+        await axios.get(`${ollamaAPIURL}/api/tags`, { timeout: 5000 })
+      } catch (error: any) {
+        const errorCode = error.code || error.response?.status || 'unknown'
+        throw new Error(`Ollama is not running or not accessible (${errorCode}). Ensure AI Assistant is installed and running.`)
+      }
 
-    // Evict any other models resident in VRAM/RAM before benchmarking. With an 8B
-    // reference model, a chat model left loaded can starve it of VRAM → Ollama
-    // offloads layers to CPU → a low, non-comparable score. Give the benchmark
-    // model the whole GPU. Best-effort: never fail the run on an eviction hiccup.
-    await this._unloadResidentModels(ollamaAPIURL)
+      // Record the Ollama version for forensics (null-tolerant — never fail the run on this)
+      const versionResp = await axios.get(`${ollamaAPIURL}/api/version`, { timeout: 5000 }).catch(() => null)
+      const ollamaVersion: string | null = versionResp?.data?.version ?? null
 
-    // Run inference AI_BENCHMARK_RUNS times and take the median run by tok/s (W7).
-    // A single inference is noisy (scheduler, thermal, cache); the median damps
-    // outliers without a warmup-run bias. TTFT is reported from the same run that
-    // is the tok/s median, so the two figures always describe one real inference.
-    const runs: { tps: number; ttft: number }[] = []
-    for (let i = 0; i < AI_BENCHMARK_RUNS; i++) {
-      this._updateStatus('running_ai', `Running AI benchmark (${i + 1}/${AI_BENCHMARK_RUNS})...`)
-      runs.push(await this._runSingleAIInference(ollamaAPIURL))
-    }
+      // GPU-util overlay (NVIDIA only): probe once; if a GPU answers, poll for the
+      // duration of the AI stage. If the probe returns null (no GPU / AMD), the
+      // overlay simply never appears. Best-effort: failures never affect the run.
+      try {
+        const initialGpu = await this._probeGpuStats()
+        if (initialGpu) {
+          this.telemetry?.setGpuStats(initialGpu)
+          let gpuProbeInFlight = false
+          gpuPollTimer = setInterval(() => {
+            if (gpuProbeInFlight) return
+            gpuProbeInFlight = true
+            this._probeGpuStats()
+              .then((stats) => this.telemetry?.setGpuStats(stats))
+              .catch(() => this.telemetry?.setGpuStats(null))
+              .finally(() => {
+                gpuProbeInFlight = false
+              })
+          }, 1000)
+        }
+      } catch {
+        // GPU overlay is cosmetic; ignore probe failures entirely.
+      }
 
-    // Median by tok/s (odd count → middle element).
-    runs.sort((a, b) => a.tps - b.tps)
-    const median = runs[Math.floor(runs.length / 2)]
+      // Check if the benchmark model is available, pull if not
+      const ollamaService = new (await import('./ollama_service.js')).OllamaService()
+      const modelResponse = await ollamaService.downloadModel(AI_BENCHMARK_MODEL)
+      if (!modelResponse.success) {
+        throw new Error(`Model does not exist and failed to download: ${modelResponse.message}`)
+      }
 
-    // Leave the GPU as clean as we found it: unload our benchmark model so the
-    // user's next chat loads their model into a free GPU (Ollama reloads on demand;
-    // we deliberately don't try to restore whichever model they had before).
-    await this._unloadResidentModels(ollamaAPIURL)
+      // Evict any other models resident in VRAM/RAM before benchmarking. With an 8B
+      // reference model, a chat model left loaded can starve it of VRAM → Ollama
+      // offloads layers to CPU → a low, non-comparable score. Give the benchmark
+      // model the whole GPU. Best-effort: never fail the run on an eviction hiccup.
+      await this._unloadResidentModels(ollamaAPIURL)
 
-    return {
-      ai_tokens_per_second: Math.round(median.tps * 100) / 100,
-      ai_model_used: AI_BENCHMARK_MODEL,
-      ai_time_to_first_token: Math.round(median.ttft * 100) / 100,
-      ai_ollama_version: ollamaVersion,
-    }
-    } catch (error) {
+      // Run inference AI_BENCHMARK_RUNS times and take the median run by tok/s (W7).
+      // A single inference is noisy (scheduler, thermal, cache); the median damps
+      // outliers without a warmup-run bias. TTFT is reported from the same run that
+      // is the tok/s median, so the two figures always describe one real inference.
+      const runs: { tps: number; ttft: number }[] = []
+      for (let i = 0; i < AI_BENCHMARK_RUNS; i++) {
+        this._updateStatus('running_ai', `Running AI benchmark (${i + 1}/${AI_BENCHMARK_RUNS})...`)
+        runs.push(await this._runSingleAIInference(ollamaAPIURL))
+      }
+
+      // Median by tok/s (odd count → middle element).
+      runs.sort((a, b) => a.tps - b.tps)
+      const median = runs[Math.floor(runs.length / 2)]
+
+      // Leave the GPU as clean as we found it: unload our benchmark model so the
+      // user's next chat loads their model into a free GPU (Ollama reloads on demand;
+      // we deliberately don't try to restore whichever model they had before).
+      await this._unloadResidentModels(ollamaAPIURL)
+
+      return {
+        ai_tokens_per_second: Math.round(median.tps * 100) / 100,
+        ai_model_used: AI_BENCHMARK_MODEL,
+        ai_time_to_first_token: Math.round(median.ttft * 100) / 100,
+        ai_ollama_version: ollamaVersion,
+      }
+    } catch (error: any) {
       throw new Error(`AI benchmark failed: ${error.message}`)
+    } finally {
+      if (gpuPollTimer) {
+        clearInterval(gpuPollTimer)
+      }
+      this.telemetry?.setGpuStats(null)
     }
   }
 
@@ -984,12 +928,6 @@ export class BenchmarkService {
     ollamaAPIURL: string
   ): Promise<{ tps: number; ttft: number }> {
     const startTime = Date.now()
-    let firstTokenAt: number | null = null
-    let streamedTokens = 0
-    let responseText = ''
-    let finalEvalCount = 0
-    let finalEvalDuration = 0
-    let finalPromptEvalDuration = 0
 
     const response = await axios.post(
       `${ollamaAPIURL}/api/generate`,
@@ -1094,7 +1032,7 @@ export class BenchmarkService {
           .post(`${ollamaAPIURL}/api/generate`, { model, keep_alive: 0 }, { timeout: 15000 })
           .catch((e) => logger.warn(`[BenchmarkService] Failed to unload ${model}: ${e.message}`))
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.warn(`[BenchmarkService] Could not enumerate/unload resident models (continuing): ${error.message}`)
     }
   }
@@ -1447,18 +1385,18 @@ export class BenchmarkService {
       // Manually remove the container after getting logs
       try {
         await container.remove()
-      } catch (removeError) {
+      } catch (removeError: any) {
         // Log but don't fail if removal fails (container might already be gone)
         logger.warn(`Failed to remove sysbench container: ${removeError.message}`)
       }
 
       return output
-    } catch (error) {
+    } catch (error: any) {
       // Clean up container on error if it exists
       if (container) {
         try {
           await container.remove({ force: true })
-        } catch (removeError) {
+        } catch (removeError: any) {
           // Ignore removal errors
         }
       }
@@ -1474,6 +1412,8 @@ export class BenchmarkService {
    * accumulated stdout so the caller's final-report regexes (the SCORED numbers)
    * parse exactly as before. onLine parsing must never throw.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-ignore TS6133: Reserved for future live sysbench telemetry mode.
   private async _runSysbenchCommandStreaming(
     cmd: string[],
     onLine: (line: string) => void
@@ -1542,18 +1482,18 @@ export class BenchmarkService {
       // Manually remove the container after capturing output
       try {
         await container.remove()
-      } catch (removeError) {
+      } catch (removeError: any) {
         // Log but don't fail if removal fails (container might already be gone)
         logger.warn(`Failed to remove sysbench container: ${removeError.message}`)
       }
 
       return cleaned
-    } catch (error) {
+    } catch (error: any) {
       // Clean up container on error if it exists
       if (container) {
         try {
           await container.remove({ force: true })
-        } catch (removeError) {
+        } catch (removeError: any) {
           // Ignore removal errors
         }
       }
