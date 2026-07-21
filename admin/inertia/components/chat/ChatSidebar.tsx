@@ -184,6 +184,6 @@ export default function ChatSidebar({
           onClose={() => setIsNomadMdModalOpen(false)}
         />
       )}
-    </div>
+    </aside>
   )
 }
