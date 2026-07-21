@@ -1,14 +1,13 @@
+/* eslint-disable */
 /**
- * Non-herbal home-care / self-care measures (Phase 2b, runtime source of truth).
+ * GENERATED FILE — DO NOT EDIT.
  *
- * Same pattern as natural_remedies.ts / conditions.ts: the repo-root
- * collections/home_remedies.json is the browseable mirror, this compiled module
- * is what the running app reads (the image ships only compiled admin/build/).
- * Keep the two in sync. Sources are US-government public-domain pages (CDC,
- * NIH/NLM MedlinePlus summaries, FDA consumer updates) — each entry carries its
- * exact sourceUrl.
+ * Single source of truth: collections/home_remedies.json
+ * Regenerate after editing the JSON: `npm run gen:curated-data` (from admin/).
+ * curated_data_sync.standalone.ts fails CI if this file drifts from the JSON.
+ *
+ * Non-herbal home-care / self-care measures from US-government public-domain pages (CDC, NIH/NLM MedlinePlus, FDA); each entry carries its own sourceUrl.
  */
-
 import type { NaturalRemediesFile } from '../../types/conditions.js'
 
 export const HOME_REMEDIES_FILE: NaturalRemediesFile = {

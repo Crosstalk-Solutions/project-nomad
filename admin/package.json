@@ -12,6 +12,7 @@
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "gen:curated-data": "node --experimental-strip-types scripts/generate_curated_data.ts && prettier --write app/data/conditions.ts app/data/natural_remedies.ts app/data/home_remedies.ts",
     "typecheck": "tsc --noEmit",
     "work:downloads": "node ace queue:work --queue=downloads",
     "work:model-downloads": "node ace queue:work --queue=model-downloads",
