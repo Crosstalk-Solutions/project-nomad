@@ -19,10 +19,14 @@ export default class MapsController {
 
   async index({ inertia }: HttpContext) {
     const baseAssetsCheck = await this.mapService.ensureBaseAssets()
-    const regionFiles = await this.mapService.listRegions()
+    const [regionFiles, worldBasemapExists] = await Promise.all([
+      this.mapService.listRegions(),
+      this.mapService.checkWorldBasemapExists(),
+    ])
     return inertia.render('maps', {
       maps: {
         baseAssetsExist: baseAssetsCheck,
+        worldBasemapExists,
         regionFiles: regionFiles.files,
       },
     })
@@ -33,6 +37,24 @@ export default class MapsController {
     if (payload.url) assertNotPrivateUrl(payload.url)
     await this.mapService.downloadBaseAssets(payload.url)
     return { success: true }
+  }
+
+  async setupWorldBasemap({ response }: HttpContext) {
+    try {
+      const ready = await this.mapService.provisionWorldBasemap()
+      if (!ready) {
+        return response.status(500).send({
+          message:
+            'Could not download the base map. Please connect this NOMAD to the internet and try again.',
+        })
+      }
+      return { success: true }
+    } catch {
+      return response.status(500).send({
+        message:
+          'Could not download the base map. Please connect this NOMAD to the internet and try again.',
+      })
+    }
   }
 
   async downloadRemote({ request }: HttpContext) {

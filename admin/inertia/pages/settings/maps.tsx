@@ -24,7 +24,7 @@ const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 const GLOBAL_MAP_INFO_KEY = 'global-map-info'
 
 export default function MapsManager(props: {
-  maps: { baseAssetsExist: boolean; regionFiles: FileEntry[] }
+  maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
 }) {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
@@ -60,6 +60,24 @@ export default function MapsManager(props: {
     refetchOnWindowFocus: false,
   })
   const globalMapAlreadyDownloaded = hasDownloadedGlobalMap(globalMapInfo?.key, props.maps.regionFiles)
+
+  const setupWorldBasemap = useMutation({
+    mutationFn: () => api.setupWorldBasemap(),
+    onSuccess: () => {
+      addNotification({
+        type: 'success',
+        message: 'Base map downloaded successfully.',
+      })
+      router.reload({ only: ['maps'] })
+    },
+    onError: () => {
+      addNotification({
+        type: 'error',
+        message:
+          'Could not download the base map. Please connect this NOMAD to the internet and try again.',
+      })
+    },
+  })
 
   const downloadGlobalMap = useMutation({
     mutationFn: () => api.downloadGlobalMap(),
@@ -303,6 +321,22 @@ export default function MapsManager(props: {
                 icon: 'IconDownload',
                 loading: downloading,
                 onClick: () => downloadBaseAssets(),
+              }}
+            />
+          )}
+          {props.maps.baseAssetsExist && !props.maps.worldBasemapExists && (
+            <Alert
+              title="World base map not downloaded"
+              message="The low-zoom world base map (~15 MB) hasn't been downloaded yet, so the map appears blank outside any regions you've downloaded. Connect this NOMAD to the internet and download it once for offline use."
+              type="warning"
+              variant="solid"
+              className="my-4"
+              buttonProps={{
+                variant: 'secondary',
+                children: 'Download Base Map',
+                icon: 'IconCloudDownload',
+                loading: setupWorldBasemap.isPending,
+                onClick: () => setupWorldBasemap.mutate(),
               }}
             />
           )}
