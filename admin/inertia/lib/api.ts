@@ -1103,6 +1103,23 @@ class API {
     })()
   }
 
+  async getNomadMd() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ content: string }>('/ai/nomad-md')
+      return response.data
+    })()
+  }
+
+  async saveNomadMd(content: string) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{ success: boolean; message: string }>(
+        '/ai/nomad-md',
+        { content }
+      )
+      return response.data
+    })()
+  }
+
   async preflightCheck(service_name: string) {
     return catchInternal(async () => {
       const response = await this.client.get<{

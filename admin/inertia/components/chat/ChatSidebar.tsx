@@ -5,6 +5,7 @@ import { ChatSession } from '../../../types/chat'
 import { IconMessage } from '@tabler/icons-react'
 import { useState } from 'react'
 import KnowledgeBaseModal from './KnowledgeBaseModal'
+import NomadMdModal from './NomadMdModal'
 
 interface ChatSidebarProps {
   sessions: ChatSession[]
@@ -31,6 +32,7 @@ export default function ChatSidebar({
   const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(
     () => new URLSearchParams(window.location.search).get('knowledge_base') === 'true'
   )
+  const [isNomadMdModalOpen, setIsNomadMdModalOpen] = useState(false)
 
   function handleCloseKnowledgeBase() {
     setIsKnowledgeBaseModalOpen(false)
@@ -150,6 +152,17 @@ export default function ChatSidebar({
         >
           Knowledge Base
         </StyledButton>
+        <StyledButton
+          onClick={() => {
+            setIsNomadMdModalOpen(true)
+          }}
+          icon="IconFileDescription"
+          variant="primary"
+          size="sm"
+          fullWidth
+        >
+          NOMAD.md
+        </StyledButton>
         {sessions.length > 0 && (
           <StyledButton
             onClick={onClearHistory}
@@ -164,6 +177,12 @@ export default function ChatSidebar({
       </div>
       {isKnowledgeBaseModalOpen && (
         <KnowledgeBaseModal aiAssistantName={aiAssistantName} onClose={handleCloseKnowledgeBase} />
+      )}
+      {isNomadMdModalOpen && (
+        <NomadMdModal
+          aiAssistantName={aiAssistantName}
+          onClose={() => setIsNomadMdModalOpen(false)}
+        />
       )}
     </aside>
   )
