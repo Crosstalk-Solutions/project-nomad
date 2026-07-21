@@ -54,3 +54,22 @@ test('older catalog result does not replace newer manifest metadata', () => {
   assert.equal(resolved.url, manifestResource.url)
   assert.equal(resolved.version, manifestResource.version)
 })
+
+test('non-padded catalog months are compared numerically', () => {
+  const resource = {
+    ...manifestResource,
+    version: '2026-2',
+    url: 'https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2026-2.zim',
+  }
+  const resolved = resolveZimDownload(resource, {
+    version: '2026-10',
+    download_url: 'https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2026-10.zim',
+    size_bytes: 13_000,
+  })
+
+  assert.equal(
+    resolved.url,
+    'https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2026-10.zim'
+  )
+  assert.equal(resolved.version, '2026-10')
+})
