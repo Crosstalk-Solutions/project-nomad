@@ -1,5 +1,6 @@
 import { ChatService } from '#services/chat_service'
 import { DockerService } from '#services/docker_service'
+import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
 import Service from '#models/service'
@@ -20,7 +21,8 @@ export default class OllamaController {
     private chatService: ChatService,
     private dockerService: DockerService,
     private ollamaService: OllamaService,
-    private ragService: RagService
+    private ragService: RagService,
+    private nomadMdService: NomadMdService
   ) { }
 
   async availableModels({ request }: HttpContext) {
@@ -69,6 +71,16 @@ export default class OllamaController {
         }
         logger.debug('[OllamaController] Injecting system prompt')
         reqData.messages.unshift(systemPrompt)
+      }
+
+      // Inject the user-managed NOMAD.md as its own leading system message so the
+      // user's persistent instructions take precedence, while the default
+      // formatting prompt and any RAG context below remain intact. A missing or
+      // blank file yields null and changes nothing.
+      const nomadPrompt = await this.nomadMdService.getSystemPrompt()
+      if (nomadPrompt) {
+        logger.debug('[OllamaController] Injecting NOMAD.md system prompt')
+        reqData.messages.unshift({ role: 'system' as const, content: nomadPrompt })
       }
 
       // Query rewriting for better RAG retrieval with manageable context
