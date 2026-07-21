@@ -382,6 +382,13 @@ class API {
     })()
   }
 
+  async checkBenchmarkRerunBanner() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ show: boolean }>('/benchmark/rerun-banner')
+      return response.data
+    })()
+  }
+
   async getChatSessions() {
     return catchInternal(async () => {
       const response = await this.client.get<Array<{

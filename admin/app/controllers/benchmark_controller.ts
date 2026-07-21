@@ -249,6 +249,13 @@ export default class BenchmarkController {
   }
 
   /**
+   * Whether to show the dashboard "re-run under Score v2" banner
+   */
+  async rerunBanner({}: HttpContext) {
+    return { show: await this.benchmarkService.shouldShowRerunBanner() }
+  }
+
+  /**
    * Get benchmark settings
    */
   async settings({}: HttpContext) {
