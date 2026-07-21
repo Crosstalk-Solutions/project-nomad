@@ -1,5 +1,49 @@
 # Release Notes
 
+## Unreleased
+feat: auto-generating OpenAPI docs with Scalar UI (#1128)
+feat(AI): nomad.md for custom instructions (#1127)
+Add offline FDA drug reference (labels, interaction view, conditions, remedies) (#1040)
+fix(KVStore): missing apps.homebox key
+fix(Benchmark): various typescript errors
+feat(benchmark): lock Score v2 AI reference to 13.2 (measured, was placeholder) (#1097)
+feat(benchmark): dashboard re-run banner prompting a Score v2 re-run (#1096)
+feat(benchmark): Score v2 app client — raws, uncapped score, v2 payload + UI
+fix(content): resolve current ZIM URL before download (#1091)
+fix(maps): warn when world basemap missing instead of silent grey map (#1104)
+feat(AI): per-model thinking toggle with global default (off) (#1079)
+feat(creator-packs): gated per-creator video packs, offline via Kiwix (#1106)
+fix(chat): make conversation layout responsive (#1090)
+fix(rag): add proper .docx text extraction via mammoth (#1100)
+feat(rag): add subject/collection organization to knowledge base (#1063)
+feat(benchmark): harness hardening — fail loudly + pin sysbench + record provenance (#1089)
+fix(benchmark): partial runs are not the NOMAD Score (relabel + renormalize) (#1088)
+feat(benchmark): end-of-run score reveal + NVIDIA GPU-util overlay (#1087)
+feat(benchmark): authoritative in-test sysbench numbers + results strip (#1085)
+feat(benchmark): live telemetry during benchmark runs (#1082) (#1084)
+chore(deps): bump tar, vite, and dockerode in admin
+fix(content): refresh installed ZIMs when a download completes to prune ghost entries (#1099)
+fix(downloads): send a descriptive User-Agent so Wikimedia mirrors don't 403 (#1114)
+feat(dashboard): add dismissable "What's new" banner for v1.34 (#1112)
+fix(easy-setup): streamline wizard + robust model recommendations (#1110)
+docs(install): make storage-relocation guidance accurate and consistent (#1103)
+feat(debug-info): add storage, docker, GPU health, and auto-update diagnostics (#1102)
+fix(updater): prune superseded images after update to reclaim disk (#1101)
+fix(install): define missing header_red + colors in uninstall/update scripts (#1098)
+docs(contributing): add UI Consistency section (#1080)
+fix(AI): stream thinking from /v1 reasoning field + abort on client disconnect (#1078)
+fix(supply-depot): generate Homebox API key pepper so it stops crash-looping (#1077)
+fix(AI): stop forcing HSA_OVERRIDE=11.0.0 on natively-supported AMD iGPUs (#1076)
+fix(AI): set OLLAMA_IGPU_ENABLE on AMD provisioning so iGPUs are used (#1074)
+feat(brand): add ™ to Project NOMAD wordmark on prominent surfaces
+chore: standardize brand name to Project NOMAD, retire backronym
+feat: Expandable rows in Kiwix Library browser (#1060)
+fix(downloads): add retry button and resource download link for failed downloads (#1059)
+chore(catalog): sunset orphaned Meshtastic Daemon card (#1049)
+chore(KB): filter non-content sections + render tables in ZIM extraction (#1044)
+feat(maps): add notes input to map pin placement popup (#926)
+
+
 ## Version 1.33.0 - June 23, 2026
 
 ### Features
