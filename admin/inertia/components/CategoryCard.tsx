@@ -75,7 +75,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
               )}
               <span className="text-lime-400 text-sm ml-1">
                 {badgeTier.name}
-                {badgeStatus === 'downloading' && ' (downloading)'}
+                {badgeStatus === 'downloading' &&
+                  (category.downloadingTierIndexing ? ' (indexing)' : ' (downloading)')}
               </span>
             </div>
           ) : (

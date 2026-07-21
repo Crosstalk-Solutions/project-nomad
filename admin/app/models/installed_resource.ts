@@ -11,7 +11,7 @@ export default class InstalledResource extends BaseModel {
   declare resource_id: string
 
   @column()
-  declare resource_type: 'zim' | 'map'
+  declare resource_type: 'zim' | 'map' | 'dataset'
 
   @column()
   declare collection_ref: string | null
