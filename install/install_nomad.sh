@@ -541,7 +541,12 @@ verify_gpu_setup() {
         amd_gfx_version='gfx1034'
       elif echo "${amd_devices}" | grep -iq 'Rembrandt'; then
         amd_gfx_version='gfx1035'
-      elif echo "${amd_devices}" | grep -iEq 'Phoenix1?|Phoenix2'; then
+      elif echo "${amd_devices}" | grep -iEq 'Phoenix[0-9]?|Hawk Point|Radeon (780M|760M)'; then
+        # Phoenix (Ryzen 7040) / Hawk Point (Ryzen 8040) — 780M & 760M are both gfx1103.
+        # lspci device strings vary (Phoenix1/Phoenix2/Phoenix3, "Hawk Point", or the bare
+        # "Radeon 780M Graphics" marketing name), so match all of them or the marker goes
+        # missing and the 780M silently drops to CPU. Kept before the Strix branches so a
+        # "Radeon 780M" string can't be miscaught. See gfx1103 regression.
         amd_gfx_version='gfx1103'
       elif echo "${amd_devices}" | grep -iEq 'Strix Halo'; then
         amd_gfx_version='gfx1151'
