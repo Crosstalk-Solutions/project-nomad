@@ -1,6 +1,6 @@
 {
   "name": "project-nomad",
-  "version": "1.34.0-rc.1",
+  "version": "1.34.0-rc.2",
   "description": "Project NOMAD - an offline-first knowledge and education server.",
   "main": "index.js",
   "scripts": {
