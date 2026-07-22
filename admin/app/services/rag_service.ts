@@ -45,6 +45,10 @@ export class RagService {
   private qdrantInitPromise: Promise<void> | null = null
   private embeddingModelVerified = false
   private resolvedEmbeddingModel: string | null = null
+  // Collections already verified this session (created + payload indexes in place).
+  // Skips the getCollections/createPayloadIndex round-trips that otherwise run on
+  // every embed call — ~45% of per-document Qdrant time on large ingestions (#1129)
+  private ensuredCollections = new Set<string>()
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
@@ -94,6 +98,8 @@ export class RagService {
     } catch {
       this.qdrant = null
       this.qdrantInitPromise = null
+      // Qdrant may have restarted (or been recreated) — re-verify collections on reconnect
+      this.ensuredCollections.clear()
       return {
         online: false,
         message: 'Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.',
@@ -113,6 +119,11 @@ export class RagService {
   ) {
     try {
       await this._ensureDependencies()
+
+      if (this.ensuredCollections.has(collectionName)) {
+        return
+      }
+
       const collections = await this.qdrant!.getCollections()
       const collectionExists = collections.collections.some((col) => col.name === collectionName)
 
@@ -138,6 +149,9 @@ export class RagService {
         field_name: 'collection',
         field_schema: 'keyword',
       })
+
+      // Only memoize after every step succeeded, so a partial failure is retried
+      this.ensuredCollections.add(collectionName)
     } catch (error) {
       logger.error('Error ensuring Qdrant collection:', error)
       throw error
@@ -2103,6 +2117,10 @@ export class RagService {
         // Collection may not exist yet on a fresh install — log and continue.
         logger.warn(`[RAG] deleteCollection failed (may not exist): ${(err as Error).message}`)
       }
+
+      // The collection is gone — drop it from the ensured cache so the
+      // _ensureCollection call below actually recreates it
+      this.ensuredCollections.delete(RagService.CONTENT_COLLECTION_NAME)
 
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
