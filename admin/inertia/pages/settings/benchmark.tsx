@@ -93,14 +93,6 @@ export default function BenchmarkPage(props: {
       setErrorMsg(null)
       run.reset()
       setIsRunning(true)
-      setProgress({
-        status: 'starting',
-        progress: 5,
-        message: 'Starting benchmark... This takes 3-6 minutes.',
-        current_stage: 'Starting',
-        benchmark_id: '',
-        timestamp: new Date().toISOString(),
-      })
 
       // Use sync mode - runs inline without needing Redis/queue worker
       return await api.runBenchmark(type, true)
