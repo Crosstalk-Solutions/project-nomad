@@ -455,7 +455,7 @@ export default function DrugReferenceIndex({ ingestStatus, rowCount, conditions,
     searched && !loading && !showSituationSection && !showDrugSection && !showRemedySection
 
   return (
-    <AppLayout>
+    <AppLayout compact>
       <Head title="Drug Reference" />
 
       <div className="p-4 max-w-4xl mx-auto">

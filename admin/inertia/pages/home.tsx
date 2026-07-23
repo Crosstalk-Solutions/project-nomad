@@ -1,7 +1,6 @@
 import {
   IconBolt,
   IconBox,
-  IconFirstAidKit,
   IconHelp,
   IconMapRoute,
   IconPill,
@@ -44,21 +43,10 @@ const DRUG_REFERENCE_ITEM = {
   label: 'Drug Reference',
   to: '/drug-reference',
   target: '',
-  description: 'Offline FDA drug labels: search by drug name',
+  description: 'Offline FDA drug labels — search by drug name, or by situation (burn, fever, diarrhea)',
   icon: <IconPill size={48} />,
   installed: true,
   displayOrder: 5,
-  poweredBy: null,
-}
-
-const CONDITIONS_ITEM = {
-  label: 'When to use what',
-  to: '/conditions',
-  target: '',
-  description: 'Match a situation (burn, fever, diarrhea) to the right OTC drugs',
-  icon: <IconFirstAidKit size={48} />,
-  installed: true,
-  displayOrder: 6,
   poweredBy: null,
 }
 
@@ -178,7 +166,6 @@ export default function Home(props: {
   // same drug_labels table, so they gate together off one server-computed flag.
   if (props.drugReferenceInstalled) {
     items.push(DRUG_REFERENCE_ITEM)
-    items.push(CONDITIONS_ITEM)
   }
 
   // Add system items
