@@ -773,10 +773,19 @@ export default function DrugReferenceIndex({
                 </section>
               )}
 
-              {/* Per-situation groups (union) */}
-              {selectedSlugs.map((slug) => {
-                const r = sitResults[slug]
-                if (!r || r.loading) return null
+              {/* Per-situation groups — shown only as a fallback when nothing treats
+                  ALL selected (intersection empty), or for a single situation. */}
+              {!situationLoading && intersection.length === 0 && selectedSlugs.length >= 2 && (
+                <p className="mb-3 text-sm text-desert-stone">
+                  No single option treats all {selectedSlugs.length} of these — here are options for each
+                  situation.
+                </p>
+              )}
+              {!situationLoading &&
+                intersection.length === 0 &&
+                selectedSlugs.map((slug) => {
+                  const r = sitResults[slug]
+                  if (!r || r.loading) return null
                 const allDrugs = r.drugs.filter((d) => !intersectionKeys.has(drugKey(d)))
                 const drugs = allDrugs.slice(0, PER_SITUATION_DISPLAY)
                 const remediesShown = remediesEnabled ? r.remedies : []
@@ -797,7 +806,6 @@ export default function DrugReferenceIndex({
                         For <span className="text-desert-olive-dark">&ldquo;{r.label}&rdquo;</span>
                       </h2>
                       <span className="ml-auto text-xs text-desert-stone">
-                        {intersection.length > 0 ? 'also ' : ''}
                         {allDrugs.length} OTC
                         {allDrugs.length > PER_SITUATION_DISPLAY ? ` · top ${PER_SITUATION_DISPLAY}` : ''}
                       </span>
