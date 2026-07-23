@@ -24,7 +24,7 @@ export default function DrugReferenceShow({ label, situations = [] }: PageProps)
   const isOtc = label.product_type === PRODUCT_TYPES.OTC
 
   return (
-    <AppLayout>
+    <AppLayout compact>
       <Head title={label.brand_name ?? label.generic_name ?? 'Drug Detail'} />
 
       <div className="p-4 max-w-3xl mx-auto">

@@ -29,7 +29,7 @@ export default function ConditionsShow({ condition, drugs, remedies, drugRowCoun
   const noData = drugRowCount === 0
 
   return (
-    <AppLayout>
+    <AppLayout compact>
       <Head title={label} />
 
       <div className="p-4 max-w-3xl mx-auto">

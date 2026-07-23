@@ -121,7 +121,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
   const atMax = selectedIds.length >= MAX_COMPARE
 
   return (
-    <AppLayout>
+    <AppLayout compact>
       <Head title="Compare Drug Interactions" />
 
       <div className="p-4 max-w-7xl mx-auto">
