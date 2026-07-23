@@ -122,7 +122,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
 
   return (
     <AppLayout compact>
-      <Head title="Compare Drug Interactions" />
+      <Head title="Compare label warnings" />
 
       <div className="p-4 max-w-7xl mx-auto">
         {/* Back nav */}
@@ -135,7 +135,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
         </Link>
 
         <div className="mb-5">
-          <h1 className="text-2xl font-bold mb-1">Compare Drug Interactions</h1>
+          <h1 className="text-2xl font-bold mb-1">Compare label warnings</h1>
           <p className="text-sm opacity-70">
             View each drug's FDA-labeled interaction warnings side by side. Select up to {MAX_COMPARE} drugs.
           </p>
