@@ -5,6 +5,7 @@ import AppLayout from '~/layouts/AppLayout'
 import StyledButton from '~/components/StyledButton'
 import DrugResultRow from '~/components/drug-reference/DrugResultRow'
 import IngredientGroup, { type IngredientGrouping } from '~/components/drug-reference/IngredientGroup'
+import DrugDisclaimerModal, { hasAcknowledgedDrugDisclaimer } from '~/components/drug-reference/DrugDisclaimerModal'
 import IngestStatus from '~/components/drug-reference/IngestStatus'
 import SafetyBanner from '~/components/conditions/SafetyBanner'
 import RemedySafetyNote from '~/components/conditions/RemedySafetyNote'
@@ -192,6 +193,13 @@ export default function DrugReferenceIndex({
 
   const [error, setError] = useState<string | null>(null)
   const [tabIndex, setTabIndex] = useState(0)
+
+  // First-open disclaimer gate (per-browser, localStorage). Checked after mount
+  // to avoid an SSR/hydration mismatch on window.localStorage.
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
+  useEffect(() => {
+    if (!hasAcknowledgedDrugDisclaimer()) setShowDisclaimer(true)
+  }, [])
 
   const phase = status?.phase ?? 'idle'
   const busy = phase === 'downloading' || phase === 'ingesting'
@@ -451,6 +459,7 @@ export default function DrugReferenceIndex({
         <Head title="Drug Reference" />
         <div className="p-4 max-w-4xl mx-auto">
           <PageHeader rowCount={rowCount} />
+          <DrugDisclaimerModal open={showDisclaimer} onAcknowledge={() => setShowDisclaimer(false)} />
           <div className="border-2 border-dashed border-desert-stone-lighter rounded-2xl p-8 text-center bg-desert-white">
             <p className="text-lg font-semibold mb-2 text-desert-green-darker">No FDA drug data yet</p>
             <p className="mb-6 opacity-70">
@@ -502,6 +511,7 @@ export default function DrugReferenceIndex({
       <Head title="Drug Reference" />
       <div className="p-4 max-w-4xl mx-auto">
         <PageHeader rowCount={rowCount} />
+        <DrugDisclaimerModal open={showDisclaimer} onAcknowledge={() => setShowDisclaimer(false)} />
 
         <TabGroup selectedIndex={tabIndex} onChange={setTabIndex}>
           <TabList className="mb-5 flex gap-1 border-b border-desert-stone-lighter/50">
@@ -633,8 +643,8 @@ export default function DrugReferenceIndex({
                     </span>
                   </div>
                   <div className="divide-y divide-desert-stone-lighter/40">
-                    {ingredientGroups.map((g) => (
-                      <IngredientGroup key={g.key} group={g} />
+                    {ingredientGroups.map((g, i) => (
+                      <IngredientGroup key={g.key} group={g} defaultOpen={i === 0} />
                     ))}
                   </div>
                   {hasMore && (

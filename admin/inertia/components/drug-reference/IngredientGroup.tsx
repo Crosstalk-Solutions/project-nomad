@@ -18,10 +18,15 @@ export interface IngredientGrouping {
  * A single-product group renders as a plain (ingredient-first) row; multi-product
  * groups collapse behind the ingredient name so the list stays scannable.
  */
-export default function IngredientGroup({ group }: { group: IngredientGrouping }) {
-  // Auto-open small groups (and the common single-ingredient case) so the answer
-  // a user typed is visible without a click; collapse large ones by default.
-  const [open, setOpen] = useState(group.products.length <= 4)
+export default function IngredientGroup({
+  group,
+  defaultOpen = false,
+}: {
+  group: IngredientGrouping
+  /** Expand this group on first render (used for the top/first result group). */
+  defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
 
   if (group.products.length === 1) {
     return <DrugResultRow result={group.products[0]} />
