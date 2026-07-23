@@ -72,6 +72,8 @@ const ROUTE_FRIENDLY: Record<string, string> = {
 
 const DEBOUNCE_MS = 350
 const LIMIT = 50
+/** Max drugs shown per situation card (ranked, so the useful ones are on top). */
+const PER_SITUATION_DISPLAY = 25
 
 /** Shared elevated-card surface for the result and detail panels. */
 const CARD_SURFACE =
@@ -97,6 +99,28 @@ function ingredientKey(d: DrugSearchResult): string {
     .filter(Boolean)
     .sort()
     .join(', ')
+}
+
+/** How many active ingredients a product lists (homeopathics carry many). */
+function ingredientCount(d: DrugSearchResult): number {
+  return Math.max(1, (d.generic_name ?? '').split(',').filter((s) => s.trim()).length)
+}
+
+/**
+ * Rank situation matches so simple, single-ingredient OTC drugs (ibuprofen,
+ * acetaminophen) come before the many-ingredient homeopathic products the raw
+ * FDA indication match floods in. Not a medical judgement — just "fewer active
+ * ingredients first", the same principle as the drug-search grouping. Relevance
+ * order is preserved within a tier.
+ */
+function rankSituationDrugs(drugs: DrugSearchResult[]): DrugSearchResult[] {
+  return drugs
+    .map((d, i) => ({ d, i }))
+    .sort((a, b) => {
+      const diff = ingredientCount(a.d) - ingredientCount(b.d)
+      return diff !== 0 ? diff : a.i - b.i
+    })
+    .map((x) => x.d)
 }
 
 /**
@@ -271,7 +295,10 @@ export default function DrugReferenceIndex({
         [c.slug]: { label: c.label, drugs: prev[c.slug]?.drugs ?? [], remedies: prev[c.slug]?.remedies ?? [], loading: true },
       }))
       try {
-        const params = new URLSearchParams({ slug: c.slug })
+        // Pull a wide result set (200) and rank single-ingredient drugs first, so
+        // real OTC options surface above the homeopathic flood — and so the
+        // cross-situation intersection can actually find the common drugs.
+        const params = new URLSearchParams({ slug: c.slug, limit: '200' })
         if (rt) params.set('route', rt)
         if (srt && srt !== 'relevance') params.set('sort', srt)
         const resp = await fetch(`/api/conditions/drugs?${params}`)
@@ -279,7 +306,12 @@ export default function DrugReferenceIndex({
         const json = (await resp.json()) as ConditionDrugsResult
         setSitResults((prev) => ({
           ...prev,
-          [c.slug]: { label: c.label, drugs: json.drugs ?? [], remedies: json.remedies ?? [], loading: false },
+          [c.slug]: {
+            label: c.label,
+            drugs: rankSituationDrugs(json.drugs ?? []),
+            remedies: json.remedies ?? [],
+            loading: false,
+          },
         }))
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Search failed')
@@ -735,9 +767,10 @@ export default function DrugReferenceIndex({
               {selectedSlugs.map((slug) => {
                 const r = sitResults[slug]
                 if (!r || r.loading) return null
-                const drugs = r.drugs.filter((d) => !intersectionKeys.has(drugKey(d)))
+                const allDrugs = r.drugs.filter((d) => !intersectionKeys.has(drugKey(d)))
+                const drugs = allDrugs.slice(0, PER_SITUATION_DISPLAY)
                 const remediesShown = remediesEnabled ? r.remedies : []
-                if (drugs.length === 0 && remediesShown.length === 0) {
+                if (allDrugs.length === 0 && remediesShown.length === 0) {
                   return (
                     <p key={slug} className="mb-4 text-sm text-desert-stone">
                       No additional OTC options found for <strong>{r.label}</strong>.
@@ -755,7 +788,8 @@ export default function DrugReferenceIndex({
                       </h2>
                       <span className="ml-auto text-xs text-desert-stone">
                         {intersection.length > 0 ? 'also ' : ''}
-                        {drugs.length} OTC
+                        {allDrugs.length} OTC
+                        {allDrugs.length > PER_SITUATION_DISPLAY ? ` · top ${PER_SITUATION_DISPLAY}` : ''}
                       </span>
                     </div>
                     {drugs.length > 0 && (
