@@ -28,22 +28,46 @@ jobs:
             CHECKED=$((CHECKED + 1))
             printf "Checking: %s ... " "$url"
 
-            # Use Range: bytes=0-0 to avoid downloading the full file.
-            # --max-filesize 1 aborts early if the server ignores the Range header
-            # and returns 200 with the full body. The HTTP status is still captured.
+            # HEAD transfers no body at all, so nothing is downloaded even when a
+            # server ignores Range headers. curl can still exit non-zero (DNS,
+            # TLS, timeout), so capture the status without letting `set -e`
+            # (bash -e) kill the whole step mid-loop.
+            METHOD="HEAD"
+            CURL_EXIT=0
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              --range 0-0 \
-              --max-filesize 1 \
+              --head \
               --max-time 30 \
+              --retry 2 \
+              --retry-delay 2 \
               --location \
-              "$url")
+              "$url") || CURL_EXIT=$?
+
+            # Some servers refuse HEAD outright. Fall back to a single-byte
+            # ranged GET for those. --max-filesize caps the damage if the server
+            # ignores the Range header, but has to stay comfortably above a
+            # redirect body: --location applies the limit to the 3xx body too,
+            # and a cap below that aborts on the redirect itself.
+            case "$HTTP_CODE" in
+              403|405|501)
+                METHOD="GET"
+                CURL_EXIT=0
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                  --range 0-0 \
+                  --max-filesize 8192 \
+                  --max-time 30 \
+                  --retry 2 \
+                  --retry-delay 2 \
+                  --location \
+                  "$url") || CURL_EXIT=$?
+                ;;
+            esac
 
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
-              echo "OK ($HTTP_CODE)"
+              echo "OK ($HTTP_CODE via $METHOD)"
             else
-              echo "FAILED ($HTTP_CODE)"
+              echo "FAILED (HTTP $HTTP_CODE via $METHOD, curl exit $CURL_EXIT)"
               FAILED=$((FAILED + 1))
-              FAILED_URLS="$FAILED_URLS\n  - $url (HTTP $HTTP_CODE)"
+              FAILED_URLS="$FAILED_URLS\n  - $url (HTTP $HTTP_CODE via $METHOD, curl exit $CURL_EXIT)"
             fi
           done <<< "$URLS"
 
