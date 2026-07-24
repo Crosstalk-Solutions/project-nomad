@@ -53,7 +53,7 @@ When opening an issue:
 
 ### Prerequisites
 
-- A Debian-based OS (Ubuntu recommended)
+- A Debian-based OS (Ubuntu 26.04 LTS recommended)
 - `sudo`/root privileges
 - Docker installed and running
 - A stable internet connection (required for dependency downloads)

@@ -87,6 +87,7 @@ body:
       label: Operating System
       description: What OS are you running NOMAD on?
       options:
+        - Ubuntu 26.04 (Resolute Raccoon)
         - Ubuntu 24.04
         - Ubuntu 22.04
         - Ubuntu 20.04
