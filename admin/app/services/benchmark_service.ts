@@ -885,10 +885,25 @@ export class BenchmarkService {
       // model the whole GPU. Best-effort: never fail the run on an eviction hiccup.
       await this._unloadResidentModels(ollamaAPIURL)
 
+      // Warm-up pass (result discarded). The eviction above forces the benchmark
+      // model cold, so without this the first *timed* inference would pay the full
+      // model-load + GPU spin-up cost. On a cold box that lands as a huge outlier
+      // (observed: 173s TTFT / 5.83 tok/s on a run whose warm steady-state was
+      // ~80 tok/s), and since the AI channel is uncapped and ~30% of the composite
+      // it swings the whole NOMAD Score ~2x between a cold first run and a warm
+      // re-run of the same machine. Measure warm, steady-state throughput instead:
+      // load the model and warm the context here, then time the median-of-N below.
+      // Best-effort — a warm-up hiccup must not fail the run (the timed loop will
+      // surface any real inference error). See issue #1139.
+      this._updateStatus('running_ai', 'Warming up AI model...')
+      await this._runSingleAIInference(ollamaAPIURL).catch(() => null)
+
       // Run inference AI_BENCHMARK_RUNS times and take the median run by tok/s (W7).
       // A single inference is noisy (scheduler, thermal, cache); the median damps
-      // outliers without a warmup-run bias. TTFT is reported from the same run that
-      // is the tok/s median, so the two figures always describe one real inference.
+      // outliers. The model is already warm (see the warm-up pass above), so every
+      // timed run measures steady-state throughput. TTFT is reported from the same
+      // run that is the tok/s median, so the two figures always describe one real
+      // inference.
       const runs: { tps: number; ttft: number }[] = []
       for (let i = 0; i < AI_BENCHMARK_RUNS; i++) {
         this._updateStatus('running_ai', `Running AI benchmark (${i + 1}/${AI_BENCHMARK_RUNS})...`)
