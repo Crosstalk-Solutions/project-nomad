@@ -15,7 +15,7 @@
 Project NOMAD is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered — anytime, anywhere.
 
 ## Installation & Quickstart
-Project NOMAD can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup NOMAD as a "server" and access it through other clients.
+Project NOMAD can be installed on any Debian-based operating system (we recommend Ubuntu 26.04 LTS; 24.04 LTS and Debian 12 are also supported). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup NOMAD as a "server" and access it through other clients.
 
 *Note: sudo/root privileges are required to run the install script*
 
@@ -77,7 +77,7 @@ At its core, however, NOMAD is still very lightweight. For a barebones installat
 - Processor: 2 GHz dual-core processor or better
 - RAM: 4GB system memory
 - Storage: At least 5 GB free disk space
-- OS: Debian-based (Ubuntu recommended)
+- OS: Debian-based (Ubuntu 26.04 LTS recommended)
 - Stable internet connection (required during install only)
 
 To run LLMs and other included AI tools:
@@ -87,7 +87,7 @@ To run LLMs and other included AI tools:
 - RAM: 32 GB system memory
 - Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
 - Storage: At least 250 GB free disk space (preferably on SSD)
-- OS: Debian-based (Ubuntu recommended)
+- OS: Debian-based (Ubuntu 26.04 LTS recommended)
 - Stable internet connection (required during install only)
 
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
