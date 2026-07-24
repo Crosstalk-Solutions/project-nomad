@@ -299,9 +299,11 @@ export class BenchmarkService {
       const statusCode = error.response?.status
       logger.error(`Failed to submit benchmark to repository: ${detail} (Status: ${statusCode})`)
       
-      // Create an error with the status code attached for proper handling upstream
+      // Create an error with the status code and raw detail attached for proper
+      // handling upstream (the controller surfaces `detail` as the user-facing reason).
       const err: any = new Error(`Failed to submit benchmark: ${detail}`)
       err.statusCode = statusCode
+      err.detail = detail
       throw err
     }
   }
