@@ -3,6 +3,7 @@ import {
   IconArrowBigUpLines,
   IconBox,
   IconChartBar,
+  IconCode,
   IconDashboard,
   IconFolder,
   IconGavel,
@@ -50,6 +51,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     },
     { name: 'System', href: '/settings/system', icon: IconSettings, current: false },
     { name: 'Advanced', href: '/settings/advanced', icon: IconAdjustments, current: false },
+    { name: 'API Reference', href: '/reference', icon: IconCode, current: false },
     { name: 'Support the Project', href: '/settings/support', icon: IconHeart, current: false },
     { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
   ]

@@ -41,6 +41,7 @@ const REFERENCE_HTML = `<!doctype html>
         url: '/api/openapi.json',
         hideClientButton: true,
         telemetry: false,
+        theme: 'saturn',
       })
     </script>
   </body>
