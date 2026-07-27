@@ -6,6 +6,7 @@
 - **AI**: nomad.md for custom instructions (#1127). Thanks @jakeaturner for the contribution!
 - **AI**: per-model thinking toggle with global default (off) (#1079). Thanks @chriscrosstalk for the contribution!
 - **API Documentation**: Auto-generating OpenAPI docs with Scalar UI (#1128). Thanks @jakeaturner for the contribution!
+- **Benchmark**: official multi-arch sysbench, resolved digest, platform metadata (#1158). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: lock Score v2 AI reference to 13.2 (measured, was placeholder) (#1097). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: dashboard re-run banner prompting a Score v2 re-run (#1096). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: Score v2 app client — raws, uncapped score, v2 payload + UI. Thanks @chriscrosstalk for the contribution!
@@ -28,9 +29,14 @@
 - **AI**: coerce gfx1103 (780M) to HSA_OVERRIDE 11.0.0 so it stays on GPU (#1134). Thanks @jakeaturner for the contribution!
 - **Benchmark**: fix various typescript errors. Thanks @jakeaturner for the contribution!
 - **Benchmark**: partial runs are not the NOMAD Score (relabel + renormalize) (#1088). Thanks @chriscrosstalk for the contribution!
+- **Benchmark**: remove stale progress setter (#1136). Thanks @NgoQuocViet2001 for the contribution!
+- **Benchmark**: surface a clear reason when leaderboard submission fails (#1138). Thanks @chriscrosstalk for the contribution!
+- **Benchmark**: warm the AI model before timed runs for reproducible scores (#1140). Thanks @chriscrosstalk for the contribution!
+- **Benchmark**: block leaderboard submission when AI runs on a remote host (#1157). Thanks @chriscrosstalk for the contribution!
 - **Chat**: make conversation layout responsive (#1090). Thanks @Bortlesboat for the contribution!
 - **Content**: resolve current ZIM URL before download (#1091). Thanks @NgoQuocViet2001 for the contribution!
 - **Content**: refresh installed ZIMs when a download completes to prune ghost entries (#1099). Thanks @chriscrosstalk for the contribution!
+- **Creator Packs**: add missing Modern Rogue banner asset (#1147). Thanks @chriscrosstalk for the contribution!
 - **Downloads**: send a descriptive User-Agent so Wikimedia mirrors don't 403 (#1114). Thanks @chriscrosstalk for the contribution!
 - **Downloads**: add retry button and resource download link for failed downloads (#1059). Thanks @jarvisxyz for the contribution!
 - **Easy Setup**: streamline wizard + robust model recommendations (#1110). Thanks @chriscrosstalk for the contribution!
@@ -40,6 +46,7 @@
 - **RAG**: add proper .docx text extraction via mammoth (#1100). Thanks @just-jbc for the contribution!
 - **RAG**: stop re-creating payload indexes on every embedded document (#1135). Thanks @bragaus for the contribution!
 - **Supply Depot**: generate Homebox API key pepper so it stops crash-looping (#1077). Thanks @chriscrosstalk for the contribution!
+- **UI**: add API reference link to the Settings sidebar. Thanks @jakeaturner for the contribution!
 - **Updater**: prune superseded images after update to reclaim disk (#1101). Thanks @chriscrosstalk for the contribution!
 
 ### Improvements
@@ -47,11 +54,18 @@
 - **Brand**: standardize brand name to Project NOMAD, retire backronym. Thanks @chriscrosstalk for the contribution!
 - **Build**: run drug reference codegen step (#1132). Thanks @jakeaturner for the contribution!
 - **Supply Depot**: sunset orphaned Meshtastic Daemon card (#1049). Thanks @chriscrosstalk for the contribution!
+- **Catalog**: add The Modern Rogue creator pack (dev) (#1146). Thanks @chriscrosstalk for the contribution!
+- **CI**: fix collection URL validation. Thanks @jakeaturner for the contribution!
+- **Collections**: update stale URLs (#1148). Thanks @jakeaturner for the contribution!
 - **Content Manager**: filter non-content sections + render tables in ZIM extraction (#1044). Thanks @chriscrosstalk for the contribution!
 - **Dependencies**: bump tar, vite, and dockerode in admin. Thanks @jakeaturner for the contribution!
+- **Dependencies**: bump axios and systeminformation in admin. Thanks @jakeaturner for the contribution!
 - **Docs**: make storage-relocation guidance accurate and consistent (#1103). Thanks @chriscrosstalk for the contribution!
 - **Docs**: add UI Consistency section (#1080). Thanks @chriscrosstalk for the contribution!
+- **Docs**: recommend Ubuntu 26.04 LTS as the default base (#1141). Thanks @chriscrosstalk for the contribution!
+- **Docs**: point MeshCore Web to the official meshcore.io site (#1142). Thanks @chriscrosstalk for the contribution!
 - **Drug Reference**: make collections JSON the single source for curated data (#1130). Thanks @caweis for the contribution!
+- **Drug Reference**: tabbed redesign with grouped search, multi-select situations, and a disclaimer gate (#1137). Thanks @chriscrosstalk for the contribution!
 
 ## Version 1.33.0 - June 23, 2026
 
