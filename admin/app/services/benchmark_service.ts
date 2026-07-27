@@ -29,6 +29,7 @@ import type {
   RunEnvironmentInfo,
 } from '../../types/benchmark.js'
 import KVStore from '#models/kv_store'
+import { normalizeArchitecture, deriveOsName } from '../utils/platform_metadata.js'
 import { getFreeBytes } from '../utils/image_disk_preflight.js'
 import { readFile } from 'node:fs/promises'
 import { randomUUID, createHmac } from 'node:crypto'
@@ -106,9 +107,27 @@ if (Math.abs(WEIGHT_SUM_V2 - 1) > 1e-9) {
 }
 
 // Benchmark configuration constants
-// Pinned by digest (was severalnines/sysbench:latest) so a latest-tag format change can't silently break the parsers fleet-wide. Digest validated on the NOMAD6 reference build 2026-07-12.
-const SYSBENCH_IMAGE = 'severalnines/sysbench@sha256:64cd003bfa21eaab22f985e7b95f90d21a970229f5f628718657dd1bae669abd'
-const SYSBENCH_DIGEST = 'sha256:64cd003bfa21eaab22f985e7b95f90d21a970229f5f628718657dd1bae669abd'
+// Pinned by digest so a tag-format change can't silently break the parsers
+// fleet-wide.
+//
+// Was severalnines/sysbench, which publishes amd64 ONLY — that locked ARM hosts
+// out of the System Benchmark entirely (not a graceful failure: the container
+// simply cannot run) and forced Apple Silicon through Rosetta emulation, which
+// distorts the very measurement it is taking.
+//
+// This is our own multi-arch build (Debian 12 + sysbench 1.0.20+ds-5, built at
+// Crosstalk-Solutions/nomad-sysbench for linux/amd64 + linux/arm64). ONE digest
+// covers both architectures because a manifest list resolves per-arch on pull.
+//
+// Comparability: 1.0.17 -> 1.0.20 measured 1.25% apart on identical hardware
+// with identical flags (7170.18 vs 7259.56 events/sec) — inside run-to-run
+// noise, ~0.3% on a composite. No rescoring required. Both this and the legacy
+// digest are allowlisted server-side, so the fleet can cross over gradually.
+const SYSBENCH_IMAGE =
+  'ghcr.io/crosstalk-solutions/nomad-sysbench@sha256:1f08e527f5d440135de9bd49006a2c13342cb1e483c59a53774e2db35e8e13f0'
+const SYSBENCH_DIGEST = 'sha256:1f08e527f5d440135de9bd49006a2c13342cb1e483c59a53774e2db35e8e13f0'
+
+
 const SYSBENCH_CONTAINER_NAME = 'nomad_benchmark_sysbench'
 
 // Reference model for AI benchmark. v2 uses an 8B (was llama3.2:1b): a 1B is so
@@ -379,6 +398,12 @@ export class BenchmarkService {
     if (result.storage_path_type) submission.storage_path_type = result.storage_path_type
     if (result.gpu_compute_detected != null) submission.gpu_compute_detected = result.gpu_compute_detected
 
+    // Platform metadata. Optional rather than required so results recorded
+    // before this shipped remain submittable.
+    if (result.cpu_architecture) submission.cpu_architecture = result.cpu_architecture
+    if (result.os_name) submission.os_name = result.os_name
+    if (result.os_version) submission.os_version = result.os_version
+
     // Builder tag: omit entirely when anonymous or unset (validator rejects null).
     if (!anonymous && result.builder_tag) submission.builder_tag = result.builder_tag
 
@@ -602,6 +627,11 @@ export class BenchmarkService {
         }
       }
 
+      // Record the sysbench digest that actually ran, not the compiled-in
+      // constant. Only meaningful when the system benchmarks ran at all — an
+      // AI-only benchmark never pulls the image.
+      const sysbenchDigest = systemRaws ? await this._resolveSysbenchDigest() : null
+
       // Calculate NOMAD scores (v1 legacy + v2 uncapped)
       this._updateStatus('calculating_score', 'Calculating NOMAD score...')
       const nomadScore = this._calculateNomadScore(systemScores, aiScores)
@@ -648,7 +678,7 @@ export class BenchmarkService {
         ai_time_to_first_token: aiScores.ai_time_to_first_token || null,
         nomad_score: nomadScore,
         submitted_to_repository: false,
-        sysbench_digest: SYSBENCH_DIGEST,
+        sysbench_digest: sysbenchDigest,
         ollama_version: aiScores.ai_ollama_version ?? null,
         // v2 raw channels + score (null on system-only / AI-less runs)
         cpu_events_single: systemRaws?.cpu_events_single ?? null,
@@ -664,6 +694,9 @@ export class BenchmarkService {
         run_environment: env.run_environment,
         storage_path_type: env.storage_path_type,
         gpu_compute_detected: env.gpu_compute_detected,
+        cpu_architecture: env.cpu_architecture,
+        os_name: env.os_name,
+        os_version: env.os_version,
       })
 
       this._updateStatus('completed', 'Benchmark completed successfully')
@@ -1131,6 +1164,9 @@ export class BenchmarkService {
       run_environment: null,
       storage_path_type: null,
       gpu_compute_detected: null,
+      cpu_architecture: null,
+      os_name: null,
+      os_version: null,
     }
 
     // run_environment: WSL2 vs native Linux, from the host kernel string.
@@ -1145,6 +1181,21 @@ export class BenchmarkService {
     try {
       const dockerInfo = await this.dockerService.docker.info()
       if (dockerInfo?.Driver) info.storage_path_type = String(dockerInfo.Driver)
+
+      // Platform metadata from the same call. The Docker daemon reports the
+      // HOST, which is the whole point — os.arch() and si.osInfo() inside the
+      // admin container describe the container instead.
+      //
+      // Observed: Architecture 'x86_64' | 'aarch64', OSVersion '24.04',
+      // OperatingSystem 'Ubuntu 24.04.4 LTS'.
+      if (dockerInfo?.Architecture) {
+        info.cpu_architecture = normalizeArchitecture(String(dockerInfo.Architecture))
+      }
+      if (dockerInfo?.OperatingSystem) {
+        const osVersion = dockerInfo.OSVersion ? String(dockerInfo.OSVersion) : null
+        info.os_version = osVersion
+        info.os_name = deriveOsName(String(dockerInfo.OperatingSystem), osVersion)
+      }
     } catch {
       // docker info failed — leave null
     }
@@ -1194,6 +1245,38 @@ export class BenchmarkService {
       this._updateStatus('starting', `Pulling sysbench image...`)
       await this.dockerService.pullImage(SYSBENCH_IMAGE)
     }
+  }
+
+  /**
+   * The sysbench digest actually resolved on this machine.
+   *
+   * Previously the submission reported SYSBENCH_DIGEST — the constant the client
+   * was compiled with. The leaderboard validates that field against an allowlist,
+   * but a constant attests to how the client was BUILT, not to what it RAN, so
+   * any build inherits a valid value simply by carrying the same source.
+   *
+   * Reading it back from the image means a divergent build has to actively
+   * falsify the field rather than passively inherit it. Still forgeable — the
+   * client is open source and always will be — but it moves the bar from "no
+   * effort" to "deliberate", which is the distinction that matters when judging
+   * whether a submission is a mistake or a choice.
+   *
+   * Uses RepoDigests (the manifest digest we pulled by), NOT Id — Id is the
+   * config digest, which differs per architecture and would never match the
+   * allowlist. Falls back to the constant if inspection gives us nothing usable,
+   * so a benchmark never fails over provenance metadata.
+   */
+  private async _resolveSysbenchDigest(): Promise<string> {
+    try {
+      const info = await this.dockerService.docker.getImage(SYSBENCH_IMAGE).inspect()
+      const repoDigest = (info?.RepoDigests ?? []).find((d: string) => d.includes('@sha256:'))
+      const digest = repoDigest?.split('@')[1]
+      if (digest) return digest
+      logger.warn('[BenchmarkService] No RepoDigest on the sysbench image; reporting the pinned constant.')
+    } catch (error: any) {
+      logger.warn(`[BenchmarkService] Could not inspect the sysbench image (${error.message}); reporting the pinned constant.`)
+    }
+    return SYSBENCH_DIGEST
   }
 
   /**

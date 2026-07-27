@@ -189,6 +189,9 @@ export type RunEnvironmentInfo = {
   run_environment: string | null
   storage_path_type: string | null
   gpu_compute_detected: boolean | null
+  cpu_architecture: string | null
+  os_name: string | null
+  os_version: string | null
 }
 
 // Central repository submission payload (privacy-first)
@@ -247,6 +250,11 @@ export type RepositorySubmissionV2 = {
   run_environment?: string
   storage_path_type?: string
   gpu_compute_detected?: boolean
+  // Platform metadata. cpu_architecture is what makes a single cross-ISA
+  // leaderboard honest — without it an ARM result is indistinguishable from x86.
+  cpu_architecture?: string
+  os_name?: string
+  os_version?: string
   // Benchmark metadata (shared with v1)
   nomad_version: string
   benchmark_version: string

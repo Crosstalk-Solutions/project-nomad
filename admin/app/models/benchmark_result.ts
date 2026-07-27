@@ -63,6 +63,18 @@ export default class BenchmarkResult extends BaseModel {
   @column()
   declare ollama_version: string | null
 
+  // Platform metadata (nullable). Sourced from the Docker daemon, not
+  // systeminformation: inside the admin container si.osInfo()/os.arch()
+  // describe the container, not the host.
+  @column()
+  declare cpu_architecture: string | null
+
+  @column()
+  declare os_name: string | null
+
+  @column()
+  declare os_version: string | null
+
   // NOMAD Score v2 raw channels (nullable — added in Score v2 Phase 4). Populated
   // on full benchmarks under benchmark_version >= 2.0.0; the leaderboard recomputes
   // the score from these on submit. cpu_events_multi is measured at
