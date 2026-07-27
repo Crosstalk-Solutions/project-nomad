@@ -47,11 +47,11 @@ export default function DrugResultRow({ result, brandFirst = false }: Props) {
   return (
     <Link
       href={`/drug-reference/${result.id}`}
-      className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors group"
+      className="flex items-center justify-between px-4 py-3 hover:bg-surface-secondary transition-colors group"
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-sm text-gray-900 group-hover:text-desert-green truncate">
+          <span className="font-semibold text-sm text-text-primary group-hover:text-desert-green truncate">
             {headline}
           </span>
 
@@ -67,14 +67,14 @@ export default function DrugResultRow({ result, brandFirst = false }: Props) {
           )}
 
           {result.labelCount > 1 && (
-            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600 flex-shrink-0">
+            <span className="px-1.5 py-0.5 rounded text-xs bg-surface-secondary text-text-secondary flex-shrink-0">
               {result.labelCount} labels
             </span>
           )}
         </div>
 
         {subParts.length > 0 && (
-          <div className="flex flex-wrap gap-x-3 mt-0.5 text-xs text-gray-500">
+          <div className="flex flex-wrap gap-x-3 mt-0.5 text-xs text-text-secondary">
             {subParts.map((p, i) => (
               <span key={i} className="truncate">
                 {p}
@@ -84,7 +84,7 @@ export default function DrugResultRow({ result, brandFirst = false }: Props) {
         )}
       </div>
 
-      <span className="ml-3 text-gray-400 text-xs flex-shrink-0">›</span>
+      <span className="ml-3 text-text-muted text-xs flex-shrink-0">›</span>
     </Link>
   )
 }
