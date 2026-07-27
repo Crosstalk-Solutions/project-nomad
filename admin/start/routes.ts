@@ -71,17 +71,9 @@ import {
   serviceLogsValidator,
   updateCustomAppValidator,
 } from '#validators/system'
-import {
-  chatSchema,
-  unloadChatModelsSchema,
-  getAvailableModelsSchema,
-} from '#validators/ollama'
+import { chatSchema, unloadChatModelsSchema, getAvailableModelsSchema } from '#validators/ollama'
 import { getSettingSchema, updateSettingSchema } from '#validators/settings'
-import {
-  createSessionSchema,
-  updateSessionSchema,
-  addMessageSchema,
-} from '#validators/chat'
+import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#validators/chat'
 import { downloadJobsByFiletypeSchema, modelNameSchema } from '#validators/download'
 import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
 import { healthResponse, errorResponse } from '#validators/responses/common'
@@ -93,6 +85,7 @@ import {
 import { updateNomadMdSchema } from '#validators/nomad_md'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
 import { conditionDrugsValidator } from '#validators/conditions'
+import { updatePersonaOverrideSchema } from '#validators/persona'
 
 transmit.registerRoutes()
 
@@ -177,10 +170,13 @@ router
       summary: 'List curated map collections',
       tags: ['maps'],
     })
-    documented(router.post('/fetch-latest-collections', [MapsController, 'fetchLatestCollections']), {
-      summary: 'Fetch the latest map collections',
-      tags: ['maps'],
-    })
+    documented(
+      router.post('/fetch-latest-collections', [MapsController, 'fetchLatestCollections']),
+      {
+        summary: 'Fetch the latest map collections',
+        tags: ['maps'],
+      }
+    )
     documented(router.post('/download-base-assets', [MapsController, 'downloadBaseAssets']), {
       summary: 'Download base map assets',
       tags: ['maps'],
@@ -195,11 +191,14 @@ router
       tags: ['maps'],
       request: remoteDownloadValidator,
     })
-    documented(router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight']), {
-      summary: 'Preflight a remote map download',
-      tags: ['maps'],
-      request: remoteDownloadValidator,
-    })
+    documented(
+      router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight']),
+      {
+        summary: 'Preflight a remote map download',
+        tags: ['maps'],
+        request: remoteDownloadValidator,
+      }
+    )
     documented(router.post('/download-collection', [MapsController, 'downloadCollection']), {
       summary: 'Download a map collection',
       tags: ['maps'],
@@ -417,14 +416,30 @@ documented(router.get('/api/chat/suggestions', [ChatsController, 'suggestions'])
   tags: ['chat'],
 })
 
-router.get('/api/chat/personas', [ChatsController, 'listPersonas'])
+documented(router.get('/api/chat/personas', [ChatsController, 'listPersonas']), {
+  summary: 'List available chat personas',
+  tags: ['chat', 'personas'],
+})
 
 router
   .group(() => {
-    router.get('/', [PersonasController, 'index'])
-    router.get('/:key', [PersonasController, 'show'])
-    router.put('/:key', [PersonasController, 'update'])
-    router.delete('/:key/override', [PersonasController, 'reset'])
+    documented(router.get('/', [PersonasController, 'index']), {
+      summary: 'List personas with override status',
+      tags: ['personas'],
+    })
+    documented(router.get('/:key', [PersonasController, 'show']), {
+      summary: 'Get a persona and its override',
+      tags: ['personas'],
+    })
+    documented(router.put('/:key', [PersonasController, 'update']), {
+      summary: 'Update a persona override',
+      tags: ['personas'],
+      request: updatePersonaOverrideSchema,
+    })
+    documented(router.delete('/:key/override', [PersonasController, 'reset']), {
+      summary: 'Reset a persona override',
+      tags: ['personas'],
+    })
   })
   .prefix('/api/personas')
 
@@ -557,11 +572,14 @@ router
       tags: ['system'],
       request: installServiceValidator,
     })
-    documented(router.post('/services/force-reinstall', [SystemController, 'forceReinstallService']), {
-      summary: 'Force reinstall a service',
-      tags: ['system'],
-      request: installServiceValidator,
-    })
+    documented(
+      router.post('/services/force-reinstall', [SystemController, 'forceReinstallService']),
+      {
+        summary: 'Force reinstall a service',
+        tags: ['system'],
+        request: installServiceValidator,
+      }
+    )
     documented(router.post('/services/uninstall', [SystemController, 'uninstallService']), {
       summary: 'Uninstall a service',
       tags: ['system'],
@@ -580,11 +598,14 @@ router
       summary: 'Suggest an available custom port',
       tags: ['system'],
     })
-    documented(router.post('/services/preflight-custom', [SystemController, 'preflightCustomApp']), {
-      summary: 'Preflight a custom app install',
-      tags: ['system'],
-      request: preflightCustomValidator,
-    })
+    documented(
+      router.post('/services/preflight-custom', [SystemController, 'preflightCustomApp']),
+      {
+        summary: 'Preflight a custom app install',
+        tags: ['system'],
+        request: preflightCustomValidator,
+      }
+    )
     documented(router.post('/services/custom', [SystemController, 'createCustomApp']), {
       summary: 'Create a custom app',
       tags: ['system'],
@@ -595,11 +616,14 @@ router
       tags: ['system'],
       request: updateCustomAppValidator,
     })
-    documented(router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest']), {
-      summary: 'Pull the latest version of a custom app',
-      tags: ['system'],
-      request: installServiceValidator,
-    })
+    documented(
+      router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest']),
+      {
+        summary: 'Pull the latest version of a custom app',
+        tags: ['system'],
+        request: installServiceValidator,
+      }
+    )
     documented(router.delete('/services/custom', [SystemController, 'deleteCustomApp']), {
       summary: 'Delete a custom app',
       tags: ['system'],
@@ -623,10 +647,13 @@ router
       summary: 'Get service stats',
       tags: ['system'],
     })
-    documented(router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions']), {
-      summary: 'List available service versions',
-      tags: ['system'],
-    })
+    documented(
+      router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions']),
+      {
+        summary: 'List available service versions',
+        tags: ['system'],
+      }
+    )
     documented(router.post('/services/update', [SystemController, 'updateService']), {
       summary: 'Update a service',
       tags: ['system'],
@@ -637,19 +664,28 @@ router
       tags: ['system'],
       request: setServiceAutoUpdateValidator,
     })
-    documented(router.get('/apps/auto-update/status', [SystemController, 'getAppAutoUpdateStatus']), {
-      summary: 'Get app auto-update status',
-      tags: ['system'],
-    })
-    documented(router.get('/content/auto-update/status', [SystemController, 'getContentAutoUpdateStatus']), {
-      summary: 'Get content auto-update status',
-      tags: ['system'],
-    })
-    documented(router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes']), {
-      summary: 'Subscribe to release notes',
-      tags: ['system'],
-      request: subscribeToReleaseNotesValidator,
-    })
+    documented(
+      router.get('/apps/auto-update/status', [SystemController, 'getAppAutoUpdateStatus']),
+      {
+        summary: 'Get app auto-update status',
+        tags: ['system'],
+      }
+    )
+    documented(
+      router.get('/content/auto-update/status', [SystemController, 'getContentAutoUpdateStatus']),
+      {
+        summary: 'Get content auto-update status',
+        tags: ['system'],
+      }
+    )
+    documented(
+      router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes']),
+      {
+        summary: 'Subscribe to release notes',
+        tags: ['system'],
+        request: subscribeToReleaseNotesValidator,
+      }
+    )
     documented(router.get('/latest-version', [SystemController, 'checkLatestVersion']), {
       summary: 'Check the latest available version',
       tags: ['system'],
