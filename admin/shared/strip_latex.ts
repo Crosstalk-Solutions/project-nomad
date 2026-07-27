@@ -21,45 +21,47 @@
 export function stripLatex(text: string): string {
   if (!text) return text
 
-  return text
-    // Display math delimiters: \[ ... \] — strip just the delimiters,
-    // keep the inner expression as plain text.
-    .replace(/\\\[\s*/g, '')
-    .replace(/\s*\\\]/g, '')
-    // Inline math delimiters: \( ... \)
-    .replace(/\\\(/g, '')
-    .replace(/\\\)/g, '')
-    // Display math: $$ ... $$
-    .replace(/\$\$/g, '')
-    // \text{X} → X
-    .replace(/\\text\{([^}]*)\}/g, '$1')
-    // \mathrm{X} → X (occasionally used for units)
-    .replace(/\\mathrm\{([^}]*)\}/g, '$1')
-    // Common binary operators → unicode glyphs
-    .replace(/\\times\b/g, '×')
-    .replace(/\\div\b/g, '÷')
-    .replace(/\\cdot\b/g, '·')
-    .replace(/\\pm\b/g, '±')
-    .replace(/\\approx\b/g, '≈')
-    .replace(/\\leq\b/g, '≤')
-    .replace(/\\geq\b/g, '≥')
-    .replace(/\\neq\b/g, '≠')
-    // Fractions: \frac{a}{b} → (a)/(b)
-    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
-    // Square root: \sqrt{x} → sqrt(x)
-    .replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
-    // Subscript / superscript with braces: x_{1} → x_1, x^{2} → x^2
-    .replace(/_\{([^}]*)\}/g, '_$1')
-    .replace(/\^\{([^}]*)\}/g, '^$1')
-    // LaTeX spacing macros: \, (thin), \: (medium), \; (thick), \! (negative),
-    // \quad, \qquad. Replace with a regular space (most useful in flowing text).
-    .replace(/\\(?:quad|qquad)\b/g, ' ')
-    .replace(/\\[,:;!]/g, ' ')
-    // LaTeX-escaped special characters → the literal character.
-    // \% → %, \$ → $, \& → &, \# → #, \_ → _
-    .replace(/\\([%$&#_])/g, '$1')
-    // Collapse any double spaces introduced by the replacements.
-    .replace(/[ \t]{2,}/g, ' ')
+  return (
+    text
+      // Display math delimiters: \[ ... \] — strip just the delimiters,
+      // keep the inner expression as plain text.
+      .replace(/\\\[\s*/g, '')
+      .replace(/\s*\\\]/g, '')
+      // Inline math delimiters: \( ... \)
+      .replace(/\\\(/g, '')
+      .replace(/\\\)/g, '')
+      // Display math: $$ ... $$
+      .replace(/\$\$/g, '')
+      // \text{X} → X
+      .replace(/\\text\{([^}]*)\}/g, '$1')
+      // \mathrm{X} → X (occasionally used for units)
+      .replace(/\\mathrm\{([^}]*)\}/g, '$1')
+      // Common binary operators → unicode glyphs
+      .replace(/\\times\b/g, '×')
+      .replace(/\\div\b/g, '÷')
+      .replace(/\\cdot\b/g, '·')
+      .replace(/\\pm\b/g, '±')
+      .replace(/\\approx\b/g, '≈')
+      .replace(/\\leq\b/g, '≤')
+      .replace(/\\geq\b/g, '≥')
+      .replace(/\\neq\b/g, '≠')
+      // Fractions: \frac{a}{b} → (a)/(b)
+      .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
+      // Square root: \sqrt{x} → sqrt(x)
+      .replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
+      // Subscript / superscript with braces: x_{1} → x_1, x^{2} → x^2
+      .replace(/_\{([^}]*)\}/g, '_$1')
+      .replace(/\^\{([^}]*)\}/g, '^$1')
+      // LaTeX spacing macros: \, (thin), \: (medium), \; (thick), \! (negative),
+      // \quad, \qquad. Replace with a regular space (most useful in flowing text).
+      .replace(/\\(?:quad|qquad)\b/g, ' ')
+      .replace(/\\[,:;!]/g, ' ')
+      // LaTeX-escaped special characters → the literal character.
+      // \% → %, \$ → $, \& → &, \# → #, \_ → _
+      .replace(/\\([%$&#_])/g, '$1')
+      // Collapse any double spaces introduced by the replacements.
+      .replace(/[ \t]{2,}/g, ' ')
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -68,13 +70,15 @@ export function stripLatex(text: string): string {
  * Patterns that strongly indicate a "closing hedge" paragraph the OFFGRID_BASELINE
  * rule forbids. Matched anywhere in the candidate paragraph.
  */
-const HEDGE_CONTENT = /\b(?:consult\s+(?:a|an|with|someone|the)\s+(?:licensed|qualified|professional|expert|electrician|plumber|doctor|installer|vet|veterinarian)|always\s+(?:consult|prioritize\s+safety|check\s+(?:local|with)|remember|ensure)|remember,?\s+legality|legality\s+varies|if\s+you[’']?re\s+(?:not\s+)?(?:sure|comfortable|unsure)|consider\s+(?:seeking|reaching\s+out|hiring)|seek\s+(?:professional|advice|help\s+from)|follow\s+industry\s+standards|depending\s+on\s+your\s+(?:specific|particular)\s+(?:situation|jurisdiction|location))/i
+const HEDGE_CONTENT =
+  /\b(?:consult\s+(?:a|an|with|someone|the)\s+(?:licensed|qualified|professional|expert|electrician|plumber|doctor|installer|vet|veterinarian)|always\s+(?:consult|prioritize\s+safety|check\s+(?:local|with)|remember|ensure)|remember,?\s+legality|legality\s+varies|if\s+you[’']?re\s+(?:not\s+)?(?:sure|comfortable|unsure)|consider\s+(?:seeking|reaching\s+out|hiring)|seek\s+(?:professional|advice|help\s+from)|follow\s+industry\s+standards|depending\s+on\s+your\s+(?:specific|particular)\s+(?:situation|jurisdiction|location))/i
 
 /**
  * Patterns at the START of a paragraph that mark it as a hedge preamble
  * rather than substantive content.
  */
-const HEDGE_STARTER = /^\s*(?:always\b|remember\b|note:|important:|caution:|warning:|disclaimer:|please\s+(?:note|remember|consult)|safety reminder|be\s+sure\s+to\s+(?:consult|check)|if\s+you[’']?re\s+(?:not\s+)?(?:sure|comfortable|unsure))/i
+const HEDGE_STARTER =
+  /^\s*(?:always\b|remember\b|note:|important:|caution:|warning:|disclaimer:|please\s+(?:note|remember|consult)|safety reminder|be\s+sure\s+to\s+(?:consult|check)|if\s+you[’']?re\s+(?:not\s+)?(?:sure|comfortable|unsure))/i
 
 /**
  * Strip a trailing "closing hedge" paragraph from chat output. Conservative:
@@ -117,7 +121,13 @@ export function truncateAtNonLatin(text: string): string {
   if (idx === -1) return text
   // Try to cut at the most recent sentence boundary before the leak.
   const before = text.slice(0, idx)
-  const cuts = [before.lastIndexOf('. '), before.lastIndexOf('.\n'), before.lastIndexOf('\n\n'), before.lastIndexOf('! '), before.lastIndexOf('? ')]
+  const cuts = [
+    before.lastIndexOf('. '),
+    before.lastIndexOf('.\n'),
+    before.lastIndexOf('\n\n'),
+    before.lastIndexOf('! '),
+    before.lastIndexOf('? '),
+  ]
   const sentenceEnd = Math.max(...cuts)
   if (sentenceEnd >= 0) {
     return text.slice(0, sentenceEnd + 1).trimEnd()

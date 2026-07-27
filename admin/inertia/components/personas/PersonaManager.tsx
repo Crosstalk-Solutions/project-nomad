@@ -30,10 +30,15 @@ function PersonaEditor({ detail }: { detail: PersonaDetail }) {
     mutationFn: () => {
       // Send null when the user has reverted a field to its default — this
       // clears the override on that field so future default changes flow through.
-      const payload: { label?: string | null; description?: string | null; systemPrompt?: string | null } = {
+      const payload: {
+        label?: string | null
+        description?: string | null
+        systemPrompt?: string | null
+      } = {
         label: draft.label === detail.defaults.label ? null : draft.label,
         description: draft.description === detail.defaults.description ? null : draft.description,
-        systemPrompt: draft.systemPrompt === detail.defaults.systemPrompt ? null : draft.systemPrompt,
+        systemPrompt:
+          draft.systemPrompt === detail.defaults.systemPrompt ? null : draft.systemPrompt,
       }
       return api.updatePersonaOverride(detail.key, payload)
     },
@@ -115,8 +120,8 @@ function PersonaEditor({ detail }: { detail: PersonaDetail }) {
           className="w-full px-3 py-2 border border-border-default rounded-lg text-xs font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary resize-y whitespace-pre-wrap"
         />
         <p className="text-xs text-text-muted mt-1">
-          Injected as the system message at the start of every chat using this persona. Empty
-          fields fall back to the built-in default.
+          Injected as the system message at the start of every chat using this persona. Empty fields
+          fall back to the built-in default.
         </p>
       </div>
 
@@ -169,7 +174,10 @@ export default function PersonaManager() {
   })
 
   return (
-    <div className="flex border-2 border-border-subtle rounded-lg overflow-hidden bg-surface-primary" style={{ minHeight: '32rem' }}>
+    <div
+      className="flex border-2 border-border-subtle rounded-lg overflow-hidden bg-surface-primary"
+      style={{ minHeight: '32rem' }}
+    >
       <aside className="w-64 border-r border-border-subtle bg-surface-secondary overflow-y-auto">
         {listLoading && <LoadingSpinner className="m-4" />}
         {!listLoading && (

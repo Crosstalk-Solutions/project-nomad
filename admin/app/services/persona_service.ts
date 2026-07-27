@@ -13,6 +13,24 @@ export interface PersonaWithFlags extends Persona {
   hasOverride: boolean
 }
 
+type PersonaOverrideFields = {
+  label?: string | null
+  description?: string | null
+  system_prompt?: string | null
+}
+
+/** Merge a built-in persona with persisted override fields without touching the database. */
+export function mergePersona(base: Persona, override?: PersonaOverrideFields | null): Persona {
+  if (!override) return base
+  return {
+    key: base.key,
+    label: override.label ?? base.label,
+    description: override.description ?? base.description,
+    systemPrompt: override.system_prompt ?? base.systemPrompt,
+    examples: base.examples,
+  }
+}
+
 /**
  * Merges built-in persona definitions with any user-supplied overrides
  * stored in chat_persona_overrides. Only override fields that are non-null
@@ -29,12 +47,13 @@ export class PersonaService {
     const overrideByKey = new Map(overrides.map((o) => [o.persona_key, o]))
     return Object.values(PERSONAS).map((base) => {
       const override = overrideByKey.get(base.key)
-      return { ...this.merge(base, override), hasOverride: override !== undefined }
+      return { ...mergePersona(base, override), hasOverride: override !== undefined }
     })
   }
 
   async listAllMerged(): Promise<Persona[]> {
-    return (await this.listAllMergedWithFlags()).map(({ hasOverride: _h, ...p }) => p)
+    const personas = await this.listAllMergedWithFlags()
+    return personas.map(({ hasOverride: _h, ...p }) => p)
   }
 
   async getMergedWithOverride(
@@ -42,7 +61,7 @@ export class PersonaService {
   ): Promise<{ persona: Persona; override: ChatPersonaOverride | null }> {
     const base = PERSONAS[key]
     const override = await ChatPersonaOverride.findBy('persona_key', key)
-    return { persona: this.merge(base, override ?? undefined), override }
+    return { persona: mergePersona(base, override), override }
   }
 
   async getMerged(key: PersonaKey | string): Promise<Persona> {
@@ -53,7 +72,8 @@ export class PersonaService {
 
   /** Hot-path used by ollama_controller on every chat completion. */
   async getSystemPrompt(key: PersonaKey | string): Promise<string> {
-    return (await this.getMerged(key)).systemPrompt
+    const persona = await this.getMerged(key)
+    return persona.systemPrompt
   }
 
   /**
@@ -61,9 +81,10 @@ export class PersonaService {
    * Used by ollama_controller to inject example user/assistant pairs on
    * the first turn of a conversation.
    */
-  async getSystemPromptAndExamples(
-    key: PersonaKey | string
-  ): Promise<{ systemPrompt: string; examples: ReadonlyArray<{ user: string; assistant: string }> }> {
+  async getSystemPromptAndExamples(key: PersonaKey | string): Promise<{
+    systemPrompt: string
+    examples: ReadonlyArray<{ user: string; assistant: string }>
+  }> {
     const merged = await this.getMerged(key)
     return { systemPrompt: merged.systemPrompt, examples: merged.examples ?? [] }
   }
@@ -84,7 +105,7 @@ export class PersonaService {
 
     const record = await ChatPersonaOverride.updateOrCreate({ persona_key: key }, update)
     logger.debug(`[PersonaService] Saved override for ${key}`)
-    return this.merge(PERSONAS[key], record)
+    return mergePersona(PERSONAS[key], record)
   }
 
   async resetOverride(key: PersonaKey): Promise<Persona> {
@@ -94,18 +115,5 @@ export class PersonaService {
       logger.debug(`[PersonaService] Reset override for ${key}`)
     }
     return PERSONAS[key]
-  }
-
-  private merge(base: Persona, override?: ChatPersonaOverride | null): Persona {
-    if (!override) return base
-    return {
-      key: base.key,
-      label: override.label ?? base.label,
-      description: override.description ?? base.description,
-      systemPrompt: override.system_prompt ?? base.systemPrompt,
-      // Examples are built-in only (no override schema for them yet) — pass
-      // the base persona's array through so few-shot still works after edits.
-      examples: base.examples,
-    }
   }
 }

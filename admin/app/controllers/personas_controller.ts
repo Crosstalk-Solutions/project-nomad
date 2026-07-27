@@ -4,7 +4,13 @@ import logger from '@adonisjs/core/services/logger'
 import { PersonaService } from '#services/persona_service'
 import KVStore from '#models/kv_store'
 import { updatePersonaOverrideSchema } from '#validators/persona'
-import { DEFAULT_PERSONA, PERSONAS, isPersonaKey, type Persona, type PersonaKey } from '../../constants/ollama.js'
+import {
+  DEFAULT_PERSONA,
+  PERSONAS,
+  isPersonaKey,
+  type Persona,
+  type PersonaKey,
+} from '../../constants/ollama.js'
 
 async function readPersonasEnabled(): Promise<boolean> {
   return (await KVStore.getValue('chat.personasEnabled')) ?? true
