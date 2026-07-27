@@ -176,15 +176,27 @@ def summarize(results: list[dict]) -> dict:
     }
 
 
-def write_report(results: list[dict], summary: dict, run_dir: Path, args: argparse.Namespace) -> None:
+def write_report(
+    results: list[dict], errors: list[dict], summary: dict, run_dir: Path, args: argparse.Namespace
+) -> None:
     lines: list[str] = []
     lines.append(f"# Persona Eval Report — {run_dir.name}")
     lines.append("")
     lines.append(f"- Model: `{args.model}`")
     lines.append(f"- Questions: {summary['totals']['questions']}")
+    lines.append(f"- Evaluation errors: {len(errors)}")
     lines.append(f"- Checks passed: {summary['totals']['checks_passed']}")
     lines.append(f"- Checks failed: {summary['totals']['checks_failed']}")
     lines.append("")
+
+    if errors:
+        lines.append("## Evaluation errors")
+        lines.append("")
+        for error in errors:
+            lines.append(
+                f"- `{error['id']}` ({error['persona']}): `{error['error']}`"
+            )
+        lines.append("")
 
     lines.append("## Per-check pass rate (overall)")
     lines.append("")
@@ -235,6 +247,7 @@ def main() -> int:
     print()
 
     results: list[dict] = []
+    errors: list[dict] = []
     for i, q in enumerate(questions, 1):
         print(f"[{i}/{len(questions)}] {q['persona']:>12} | {q['id']} ...", flush=True, end=" ")
         try:
@@ -245,19 +258,33 @@ def main() -> int:
             results.append(r)
         except Exception as exc:
             print(f"ERROR: {exc}")
+            errors.append(
+                {
+                    "id": q["id"],
+                    "persona": q["persona"],
+                    "error": str(exc),
+                }
+            )
 
     summary = summarize(results)
     (run_dir / "results.json").write_text(json.dumps(
-        {"model": args.model, "label": args.label, "summary": summary, "results": results},
+        {
+            "model": args.model,
+            "label": args.label,
+            "summary": summary,
+            "errors": errors,
+            "results": results,
+        },
         indent=2,
     ))
-    write_report(results, summary, run_dir, args)
+    write_report(results, errors, summary, run_dir, args)
 
     print()
     print(f"Done. Summary in {run_dir / 'report.md'}")
     print(f"  Checks passed: {summary['totals']['checks_passed']}")
     print(f"  Checks failed: {summary['totals']['checks_failed']}")
-    return 0
+    print(f"  Evaluation errors: {len(errors)}")
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":

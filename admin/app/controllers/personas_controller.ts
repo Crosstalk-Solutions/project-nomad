@@ -67,8 +67,8 @@ export default class PersonasController {
   async update(ctx: HttpContext) {
     const key = resolveKey(ctx)
     if (!key) return
+    const data = await ctx.request.validateUsing(updatePersonaOverrideSchema)
     try {
-      const data = await ctx.request.validateUsing(updatePersonaOverrideSchema)
       const merged = await this.personaService.upsertOverride(key, data)
       return ctx.response.status(200).json(toPublicPersona(merged))
     } catch (error) {
