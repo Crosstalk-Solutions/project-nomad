@@ -14,6 +14,10 @@ import { DEFAULT_PERSONA, DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
+import type { NomadInstalledModel } from '../../../types/ollama'
+
+const EMPTY_INSTALLED_MODELS: NomadInstalledModel[] = []
+const EMPTY_KNOWLEDGE_COLLECTIONS: string[] = []
 
 interface ChatProps {
   enabled: boolean
@@ -95,14 +99,14 @@ export default function Chat({
     refetchInterval: 15000,
   })
 
-  const { data: installedModels = [], isLoading: isLoadingModels } = useQuery({
+  const { data: installedModels = EMPTY_INSTALLED_MODELS, isLoading: isLoadingModels } = useQuery({
     queryKey: ['installedModels'],
     queryFn: () => api.getInstalledModels(),
     enabled,
     select: (data) => data || [],
   })
 
-  const { data: knownCollections = [] } = useQuery({
+  const { data: knownCollections = EMPTY_KNOWLEDGE_COLLECTIONS } = useQuery({
     queryKey: ['kbCollections'],
     queryFn: () => api.getKnowledgeCollections(),
     select: (data) => data?.collections ?? [],
@@ -411,7 +415,8 @@ export default function Chat({
               model: selectedModel || 'llama3.2',
               messages: chatMessages,
               stream: true,
-              sessionId: sessionId ? Number(sessionId) : undefined, think: effectiveThinking(selectedModel),
+              sessionId: sessionId ? Number(sessionId) : undefined,
+              think: effectiveThinking(selectedModel),
               collection: collectionFilter || undefined,
             },
             (chunkContent, chunkThinking, done) => {
@@ -508,7 +513,17 @@ export default function Chat({
         })
       }
     },
-    [activeSessionId, messages, selectedModel, selectedPersona, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
+    [
+      activeSessionId,
+      messages,
+      selectedModel,
+      selectedPersona,
+      collectionFilter,
+      chatMutation,
+      queryClient,
+      streamingEnabled,
+      effectiveThinking,
+    ]
   )
 
   return (
@@ -585,31 +600,53 @@ export default function Chat({
                 </span>
               )}
               {personasEnabled && (
-              <div className="flex items-center gap-2">
-                <label htmlFor="persona-select" className="text-sm text-text-secondary">Persona:</label>
-                <select id="persona-select" value={selectedPersona} onChange={(event) => handlePersonaChange(event.target.value as PersonaKey)} title={personas.find((persona) => persona.key === selectedPersona)?.description ?? ''} disabled={personas.length === 0} className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary">
-                  {personas.map((persona) => (<option key={persona.key} value={persona.key} title={persona.description}>{persona.label}</option>))}
-                </select>
-                <a href="/personas" className="text-xs text-text-muted hover:text-text-primary underline whitespace-nowrap">Manage…</a>
-              </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="persona-select" className="text-sm text-text-secondary">
+                    Persona:
+                  </label>
+                  <select
+                    id="persona-select"
+                    value={selectedPersona}
+                    onChange={(event) => handlePersonaChange(event.target.value as PersonaKey)}
+                    title={
+                      personas.find((persona) => persona.key === selectedPersona)?.description ?? ''
+                    }
+                    disabled={personas.length === 0}
+                    className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                  >
+                    {personas.map((persona) => (
+                      <option key={persona.key} value={persona.key} title={persona.description}>
+                        {persona.label}
+                      </option>
+                    ))}
+                  </select>
+                  <a
+                    href="/personas"
+                    className="text-xs text-text-muted hover:text-text-primary underline whitespace-nowrap"
+                  >
+                    Manage…
+                  </a>
+                </div>
               )}
               <div className="flex items-center gap-2">
-              <label htmlFor="collection-select" className="text-sm text-text-secondary">
-                Search in:
-              </label>
-              <select
-                id="collection-select"
-                value={collectionFilter}
-                onChange={(e) => setCollectionFilter(e.target.value)}
-                className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
-              >
-                <option value="">All</option>
-                {knownCollections.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2 min-w-0">
+                <label htmlFor="collection-select" className="text-sm text-text-secondary">
+                  Search in:
+                </label>
+                <select
+                  id="collection-select"
+                  value={collectionFilter}
+                  onChange={(e) => setCollectionFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                >
+                  <option value="">All</option>
+                  {knownCollections.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2 min-w-0">
                 <label htmlFor="model-select" className="text-sm text-text-secondary">
                   Model:
                 </label>
@@ -634,21 +671,21 @@ export default function Chat({
                 )}
               </div>
               {selectedModelSupportsThinking && (
-              <div className="flex items-center">
-                <span className="text-sm text-text-secondary select-none">Thinking:</span>
-                <InfoTooltip
-                  position="bottom"
-                  align="right"
-                  text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
-                />
-                <Switch
-                  id="chat-thinking-toggle"
-                  checked={effectiveThinking(selectedModel)}
-                  onChange={(v) => setModelThinking(selectedModel, v)}
-                />
-              </div>
-            )}
-            {isInModal && (
+                <div className="flex items-center">
+                  <span className="text-sm text-text-secondary select-none">Thinking:</span>
+                  <InfoTooltip
+                    position="bottom"
+                    align="right"
+                    text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
+                  />
+                  <Switch
+                    id="chat-thinking-toggle"
+                    checked={effectiveThinking(selectedModel)}
+                    onChange={(v) => setModelThinking(selectedModel, v)}
+                  />
+                </div>
+              )}
+              {isInModal && (
                 <button
                   type="button"
                   aria-label="Close chat"
