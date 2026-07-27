@@ -151,6 +151,26 @@ const MEMORY_BENCHMARK_THREADS = 4
 // AI is measured as the median of N runs (W7) to damp per-run inference jitter.
 const AI_BENCHMARK_RUNS = 3
 
+/**
+ * Is this GPU "model" a placeholder rather than a real name?
+ *
+ * systeminformation resolves PCI ids against the container's pci.ids database.
+ * When a card is newer than that file it reports the raw id verbatim — an RTX
+ * 5060 comes back as "Device 2d05". Vendor detection still succeeds, so these
+ * strings otherwise pass as legitimate model names and reach the leaderboard.
+ *
+ * Matches the "Device <hex>" shape plus the empty/unknown cases. Deliberately
+ * narrow: it must never reject a real product name, and no shipping GPU is
+ * called "Device" followed by four hex digits.
+ */
+function isUnresolvedGpuModel(model: string): boolean {
+  const s = model.trim()
+  if (s === '') return true
+  if (/^device\s+[0-9a-f]{4}$/i.test(s)) return true
+  if (/^unknown$/i.test(s)) return true
+  return false
+}
+
 // Minimum free disk required before pulling the AI model on first run. llama3.1:8b
 // (Q4) is ~4.9 GB; this covers the model plus headroom for the transient sysbench
 // disk-test file and normal slack. Only enforced when the model isn't already cached.
@@ -510,6 +530,24 @@ export class BenchmarkService {
         gpuModel = discreteGpu?.model || graphics.controllers[0]?.model || null
       }
 
+      // si.graphics() resolves PCI IDs against the container's pci.ids database,
+      // which ages out. A card newer than that file comes back as the literal
+      // "Device <pciid>" — an RTX 5060 reports vendor "NVIDIA Corporation",
+      // model "Device 2d05", vram 32. The vendor string still matches, so the
+      // discrete-GPU finder above accepts it and the authoritative nvidia-smi
+      // path below is skipped by its `if (!gpuModel)` guard.
+      //
+      // That put "Device 2d05" on the public leaderboard, and it is exactly the
+      // newest hardware — the results people most want to show off, and the ones
+      // that anchor the top of the board — that hits this. Treat a placeholder
+      // as no answer so the real detection runs.
+      if (gpuModel && isUnresolvedGpuModel(gpuModel)) {
+        logger.info(
+          `[BenchmarkService] si.graphics() returned an unresolved PCI id ("${gpuModel}"); falling through to authoritative GPU detection`
+        )
+        gpuModel = null
+      }
+
       // Fallback: Check Docker for nvidia runtime and query GPU model via nvidia-smi
       if (!gpuModel) {
         try {
@@ -559,7 +597,10 @@ export class BenchmarkService {
           const systemService = new (await import('./system_service.js')).SystemService(this.dockerService)
           const sysInfo = await systemService.getSystemInfo()
           const sysGpuModel = sysInfo?.graphics?.controllers?.[0]?.model
-          if (sysGpuModel) {
+          // Same si.graphics() source as above, so it can carry the same
+          // placeholder — don't launder an unresolved PCI id in through the
+          // back door.
+          if (sysGpuModel && !isUnresolvedGpuModel(sysGpuModel)) {
             gpuModel = sysGpuModel
           }
         } catch (sysError: any) {
