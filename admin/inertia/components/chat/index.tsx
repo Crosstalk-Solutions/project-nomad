@@ -354,13 +354,19 @@ export default function Chat({
 
   const handlePersonaChange = useCallback(
     async (persona: PersonaKey) => {
+      const previousPersona = selectedPersona
       setSelectedPersona(persona)
       if (activeSessionId) {
-        await api.updateChatSession(activeSessionId, { persona })
+        const updatedSession = await api.updateChatSession(activeSessionId, { persona })
+        if (!updatedSession) {
+          setSelectedPersona(previousPersona)
+          return
+        }
+        setSelectedPersona(updatedSession.persona)
         queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
       }
     },
-    [activeSessionId, queryClient]
+    [activeSessionId, queryClient, selectedPersona]
   )
 
   const handleSendMessage = useCallback(

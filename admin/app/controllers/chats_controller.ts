@@ -18,11 +18,13 @@ export default class ChatsController {
   ) {}
 
   async inertia({ inertia, response }: HttpContext) {
-    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(SERVICE_NAMES.OLLAMA)
+    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(
+      SERVICE_NAMES.OLLAMA
+    )
     if (!aiAssistantInstalled) {
       return response.status(404).json({ error: 'AI Assistant service not installed' })
     }
-    
+
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     const chatPersonasEnabled = (await KVStore.getValue('chat.personasEnabled')) ?? true
     return inertia.render('chat', {
@@ -49,8 +51,8 @@ export default class ChatsController {
   }
 
   async store({ request, response }: HttpContext) {
+    const data = await request.validateUsing(createSessionSchema)
     try {
-      const data = await request.validateUsing(createSessionSchema)
       const session = await this.chatService.createSession(data.title, data.model, data.persona)
       return response.status(201).json(session)
     } catch (error) {
@@ -89,9 +91,9 @@ export default class ChatsController {
   }
 
   async update({ params, request, response }: HttpContext) {
+    const sessionId = parseInt(params.id)
+    const data = await request.validateUsing(updateSessionSchema)
     try {
-      const sessionId = parseInt(params.id)
-      const data = await request.validateUsing(updateSessionSchema)
       const session = await this.chatService.updateSession(sessionId, data)
       return session
     } catch (error) {
