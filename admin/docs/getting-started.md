@@ -4,6 +4,55 @@ This guide will help you get the most out of your NOMAD server.
 
 ---
 
+## System Requirements
+
+If you already have NOMAD running, you can skip this section. It is here for when you are planning a second server, moving to different hardware, or helping someone else get set up.
+
+### Operating System
+
+NOMAD runs on Debian-based Linux.
+
+| Support level | Operating system |
+|---|---|
+| **Recommended** | Ubuntu 26.04 LTS |
+| **Also supported** | Ubuntu 24.04 LTS, Debian 12 |
+| **Community-supported** | Windows via WSL2, other Debian derivatives |
+
+Ubuntu 26.04 LTS is the version we test on and the one we recommend for new installs. If you are already running 24.04 LTS or Debian 12, there is no need to reinstall, both are still supported.
+
+Ubuntu Desktop is the friendlier choice if you are coming from Windows or macOS. Ubuntu Server works just as well if you are comfortable at the terminal, and NOMAD does not need a desktop environment either way since everything is accessed through a browser.
+
+macOS and non-Debian distributions like Fedora or Arch are not officially supported.
+
+### Hardware
+
+NOMAD itself is lightweight. What drives your requirements is the content and tools you choose to install, and whether you want to run AI locally.
+
+**Minimum, without local AI:**
+
+- 2 GHz dual-core processor
+- 4 GB RAM
+- 5 GB free disk space, plus room for whatever content you download
+
+**Recommended, with local AI:**
+
+- AMD Ryzen 7 or Intel Core i7 or better
+- 32 GB RAM
+- NVIDIA RTX 3060 or AMD equivalent, more VRAM lets you run larger models
+- 250 GB or more of free disk space, preferably an SSD
+
+A stable internet connection is required during installation only. After that, NOMAD is designed to run fully offline.
+
+### A note on GPU drivers
+
+The installer sets up Docker and the NVIDIA Container Toolkit for you, but it does **not** install the GPU driver itself. You need that on the host beforehand.
+
+On Ubuntu, the easiest way is to check **"Install third-party drivers for graphics and Wi-Fi hardware"** during setup. If you skipped that, or you added the GPU later, install the driver first and then use **Force Reinstall** on the AI Assistant in the [Supply Depot](/supply-depot) to pick it up.
+
+Without a GPU, the AI Assistant still works. It just runs on the CPU, which is considerably slower.
+
+---
+
 ## Easy Setup Wizard
 
 If this is your first time using NOMAD, the Easy Setup wizard will help you get everything configured.
