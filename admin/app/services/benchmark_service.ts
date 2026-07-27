@@ -260,6 +260,25 @@ export class BenchmarkService {
       throw new Error('Benchmark result has already been submitted')
     }
 
+    // Remote inference cannot be attributed to this machine.
+    //
+    // DockerService.getServiceURL() resolves ai.remoteOllamaUrl ahead of the
+    // local container, so when a remote host is configured the AI channel
+    // measures THAT machine while every other channel measures this one. The
+    // submission would report someone else's tok/s under this hardware, and AI
+    // carries 0.30 of an uncapped v2 score, so the distortion is large.
+    //
+    // Blocks submission only — running the benchmark locally is still useful to
+    // the operator, it just isn't a result about this box.
+    const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    if (remoteOllamaUrl) {
+      throw new Error(
+        'This NOMAD is configured to use a remote AI host, so its AI results measure that machine rather than this one. ' +
+          'Leaderboard results must be measured entirely on the submitting hardware. ' +
+          'To share a result, install the local AI Assistant and run a Full Benchmark.'
+      )
+    }
+
     // Build the v2 payload (raw channels; server recomputes the score). Throws a
     // user-facing error if the row predates v2 and lacks the raw channels.
     const submission = this._buildV2Submission(result, anonymous ?? false)
