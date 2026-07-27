@@ -7,10 +7,10 @@ import StyledModal from '../StyledModal'
 import api from '~/lib/api'
 import { formatBytes } from '~/lib/util'
 import { useModals } from '~/context/ModalContext'
-import { ChatMessage } from '../../../types/chat'
+import { ChatMessage, PersonaKey } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconMenu2, IconX } from '@tabler/icons-react'
-import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
+import { DEFAULT_PERSONA, DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
@@ -35,6 +35,7 @@ export default function Chat({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [selectedPersona, setSelectedPersona] = useState<PersonaKey>(DEFAULT_PERSONA)
   const [collectionFilter, setCollectionFilter] = useState<string>('')
   const [pendingModelSwitch, setPendingModelSwitch] = useState<string | null>(null)
   const pageLoadNormalizedRef = useRef(false)
@@ -51,6 +52,14 @@ export default function Chat({
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [isMobileSidebarOpen])
 
+  const { data: personasData } = useQuery({
+    queryKey: ['personas'],
+    queryFn: () => api.getPersonas(),
+    enabled,
+    staleTime: Infinity,
+  })
+  const personas = personasData?.personas ?? []
+
   // Fetch all sessions
   const { data: sessions = [] } = useQuery({
     queryKey: ['chatSessions'],
@@ -61,6 +70,7 @@ export default function Chat({
         id: s.id,
         title: s.title,
         model: s.model || undefined,
+        persona: s.persona,
         timestamp: new Date(s.timestamp),
         lastMessage: s.lastMessage || undefined,
       })) || [],
@@ -318,6 +328,9 @@ export default function Chat({
       if (sessionData?.model) {
         setSelectedModel(sessionData.model)
       }
+      if (sessionData?.persona) {
+        setSelectedPersona(sessionData.persona)
+      }
 
       // Enforce the one-chat-model-at-a-time invariant: ask the backend to
       // unload anything that isn't the target session's model. Fire-and-forget;
@@ -333,13 +346,24 @@ export default function Chat({
     [installedModels, queryClient, selectedModel]
   )
 
+  const handlePersonaChange = useCallback(
+    async (persona: PersonaKey) => {
+      setSelectedPersona(persona)
+      if (activeSessionId) {
+        await api.updateChatSession(activeSessionId, { persona })
+        queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      }
+    },
+    [activeSessionId, queryClient]
+  )
+
   const handleSendMessage = useCallback(
     async (content: string) => {
       let sessionId = activeSessionId
 
       // Create a new session if none exists
       if (!sessionId) {
-        const newSession = await api.createChatSession('New Chat', selectedModel)
+        const newSession = await api.createChatSession('New Chat', selectedModel, selectedPersona)
         if (newSession) {
           sessionId = newSession.id
           setActiveSessionId(sessionId)
@@ -482,7 +506,7 @@ export default function Chat({
         })
       }
     },
-    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
+    [activeSessionId, messages, selectedModel, selectedPersona, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
   )
 
   return (
@@ -558,6 +582,13 @@ export default function Chat({
                   {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
                 </span>
               )}
+              <div className="flex items-center gap-2">
+                <label htmlFor="persona-select" className="text-sm text-text-secondary">Persona:</label>
+                <select id="persona-select" value={selectedPersona} onChange={(event) => handlePersonaChange(event.target.value as PersonaKey)} title={personas.find((persona) => persona.key === selectedPersona)?.description ?? ''} disabled={personas.length === 0} className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary">
+                  {personas.map((persona) => (<option key={persona.key} value={persona.key} title={persona.description}>{persona.label}</option>))}
+                </select>
+                <a href="/personas" className="text-xs text-text-muted hover:text-text-primary underline whitespace-nowrap">Manage…</a>
+              </div>
               <div className="flex items-center gap-2">
               <label htmlFor="collection-select" className="text-sm text-text-secondary">
                 Search in:

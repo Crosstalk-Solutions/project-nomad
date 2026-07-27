@@ -3,6 +3,8 @@ import { DockerService } from '#services/docker_service'
 import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
+import { PersonaService } from '#services/persona_service'
+import ChatSession from '#models/chat_session'
 import Service from '#models/service'
 import KVStore from '#models/kv_store'
 import { modelNameSchema } from '#validators/download'
@@ -10,7 +12,7 @@ import { chatSchema, getAvailableModelsSchema, unloadChatModelsSchema } from '#v
 import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { DEFAULT_PERSONA, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
@@ -22,7 +24,8 @@ export default class OllamaController {
     private dockerService: DockerService,
     private ollamaService: OllamaService,
     private ragService: RagService,
-    private nomadMdService: NomadMdService
+    private nomadMdService: NomadMdService,
+    private personaService: PersonaService
   ) { }
 
   async availableModels({ request }: HttpContext) {
@@ -62,14 +65,19 @@ export default class OllamaController {
     }
 
     try {
-      // If there are no system messages in the chat inject system prompts
+      // If there are no system messages in the chat inject the selected persona.
       const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
       if (!hasSystemMessage) {
+        let personaKey: string = DEFAULT_PERSONA
+        if (reqData.sessionId) {
+          const session = await ChatSession.find(reqData.sessionId)
+          if (session) personaKey = session.persona
+        }
         const systemPrompt = {
           role: 'system' as const,
-          content: SYSTEM_PROMPTS.default,
+          content: await this.personaService.getSystemPrompt(personaKey),
         }
-        logger.debug('[OllamaController] Injecting system prompt')
+        logger.debug(`[OllamaController] Injecting system prompt for persona: ${personaKey}`)
         reqData.messages.unshift(systemPrompt)
       }
 

@@ -5,7 +5,7 @@ import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
-import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import { DEFAULT_PERSONA, SYSTEM_PROMPTS, isPersonaKey, type PersonaKey } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
 @inject()
@@ -19,6 +19,7 @@ export class ChatService {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        persona: session.persona,
         timestamp: session.updated_at.toJSDate(),
         lastMessage: null, // Will be populated from messages if needed
       }))
@@ -115,6 +116,7 @@ export class ChatService {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        persona: session.persona,
         timestamp: session.updated_at.toJSDate(),
         messages: session.messages.map((msg) => ({
           id: msg.id.toString(),
@@ -133,17 +135,20 @@ export class ChatService {
     }
   }
 
-  async createSession(title: string, model?: string) {
+  async createSession(title: string, model?: string, persona?: PersonaKey) {
     try {
+      const personaKey: PersonaKey = isPersonaKey(persona) ? persona : DEFAULT_PERSONA
       const session = await ChatSession.create({
         title,
         model: model || null,
+        persona: personaKey,
       })
 
       return {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        persona: session.persona,
         timestamp: session.created_at.toJSDate(),
       }
     } catch (error) {
@@ -154,7 +159,10 @@ export class ChatService {
     }
   }
 
-  async updateSession(sessionId: number, data: { title?: string; model?: string }) {
+  async updateSession(
+    sessionId: number,
+    data: { title?: string; model?: string; persona?: PersonaKey }
+  ) {
     try {
       const session = await ChatSession.findOrFail(sessionId)
 
@@ -164,6 +172,9 @@ export class ChatService {
       if (data.model !== undefined) {
         session.model = data.model
       }
+      if (data.persona !== undefined && isPersonaKey(data.persona)) {
+        session.persona = data.persona
+      }
 
       await session.save()
 
@@ -171,6 +182,7 @@ export class ChatService {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        persona: session.persona,
         timestamp: session.updated_at.toJSDate(),
       }
     } catch (error) {

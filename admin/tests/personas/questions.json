@@ -1,0 +1,597 @@
+[
+  {
+    "id": "elec-solar-setup",
+    "persona": "electrician",
+    "tags": ["solar", "system-design"],
+    "prompt": "what all do I need to get to setup solar",
+    "expect_signals": ["charge_controller", "battery", "inverter", "fuse_or_breaker"],
+    "forbid_signals": ["welding_for_wiring"]
+  },
+  {
+    "id": "elec-wire-gauge-12v",
+    "persona": "electrician",
+    "tags": ["12v", "wire-sizing"],
+    "prompt": "what size wire do I need for a 30 amp 12 volt run of about 15 feet",
+    "expect_signals": ["awg", "voltage_drop"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-battery-bank-sizing",
+    "persona": "electrician",
+    "tags": ["solar", "battery-sizing"],
+    "prompt": "how do I size a battery bank for 2 kwh per day",
+    "expect_signals": ["amp_hour", "depth_of_discharge"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-generator-transfer",
+    "persona": "electrician",
+    "tags": ["generator", "transfer-switch"],
+    "prompt": "I have a generator and want to power my well pump and a freezer when the grid goes down. what do I need",
+    "expect_signals": ["transfer_switch", "interlock", "backfeed"],
+    "forbid_signals": ["call_utility_offgrid"]
+  },
+  {
+    "id": "elec-mppt-vs-pwm",
+    "persona": "electrician",
+    "tags": ["solar", "concept"],
+    "prompt": "what is the difference between mppt and pwm charge controllers",
+    "expect_signals": ["mppt", "pwm", "efficiency"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-ground-rod",
+    "persona": "electrician",
+    "tags": ["grounding"],
+    "prompt": "how do I properly ground an off-grid solar system",
+    "expect_signals": ["ground_rod", "bonding"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-12v-fridge",
+    "persona": "electrician",
+    "tags": ["12v", "load-calc"],
+    "prompt": "I want to run a 12v fridge off solar, how much panel and battery do I need",
+    "expect_signals": ["watt_hour", "amp_hour", "battery"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-inverter-sizing",
+    "persona": "electrician",
+    "tags": ["inverter", "system-design"],
+    "prompt": "how do I pick the right size inverter for my setup",
+    "expect_signals": ["continuous_watt", "surge"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-shock-stops",
+    "persona": "electrician",
+    "tags": ["troubleshooting"],
+    "prompt": "my solar inverter keeps shutting off, what do I check first",
+    "expect_signals": ["voltage", "battery"],
+    "forbid_signals": []
+  },
+  {
+    "id": "elec-arc-flash",
+    "persona": "electrician",
+    "tags": ["safety"],
+    "prompt": "what ppe do I really need when working on a battery bank",
+    "expect_signals": ["insulated_glove", "eye_protection"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "med-bleed-arm",
+    "persona": "medic",
+    "tags": ["trauma", "hemorrhage"],
+    "prompt": "my arm is bleeding badly, what do I do",
+    "expect_signals": ["direct_pressure", "wound_packing_or_tourniquet"],
+    "forbid_signals": ["tccc_fake_product"]
+  },
+  {
+    "id": "med-heat-stroke",
+    "persona": "medic",
+    "tags": ["environmental"],
+    "prompt": "someone fainted in the heat, what now",
+    "expect_signals": ["cool_water_or_shade", "heat_exhaustion_vs_stroke"],
+    "forbid_signals": []
+  },
+  {
+    "id": "med-ankle-fracture",
+    "persona": "medic",
+    "tags": ["trauma", "msk"],
+    "prompt": "i think i broke my ankle",
+    "expect_signals": ["immobilize", "circulation_sensation_motion"],
+    "forbid_signals": []
+  },
+  {
+    "id": "med-burn-hand",
+    "persona": "medic",
+    "tags": ["trauma", "burn"],
+    "prompt": "burn from a campfire on my hand",
+    "expect_signals": ["cool_water", "no_ice"],
+    "forbid_signals": []
+  },
+  {
+    "id": "med-anaphylaxis",
+    "persona": "medic",
+    "tags": ["emergency"],
+    "prompt": "someone got stung and their face is swelling and they cant breathe right",
+    "expect_signals": ["airway", "epinephrine_described"],
+    "forbid_signals": ["invented_dosage"]
+  },
+  {
+    "id": "med-dehydration",
+    "persona": "medic",
+    "tags": ["fluid"],
+    "prompt": "how do I tell if someone is seriously dehydrated and what do I do",
+    "expect_signals": ["capillary_refill_or_skin_turgor", "oral_rehydration"],
+    "forbid_signals": []
+  },
+  {
+    "id": "med-infected-wound",
+    "persona": "medic",
+    "tags": ["infection"],
+    "prompt": "a cut on my leg is getting red and warm and has streaks going up. what do I do",
+    "expect_signals": ["cellulitis_or_lymphangitis", "antibiotic"],
+    "forbid_signals": ["invented_dosage"]
+  },
+  {
+    "id": "med-chest-pain",
+    "persona": "medic",
+    "tags": ["cardiac"],
+    "prompt": "my dad is 60, his chest hurts and he's sweating, what do I do",
+    "expect_signals": ["aspirin", "evacuate"],
+    "forbid_signals": []
+  },
+  {
+    "id": "med-hypothermia",
+    "persona": "medic",
+    "tags": ["environmental"],
+    "prompt": "someone fell in cold water and is shivering hard and confused",
+    "expect_signals": ["rewarming", "remove_wet"],
+    "forbid_signals": []
+  },
+  {
+    "id": "med-no-911",
+    "persona": "medic",
+    "tags": ["framing"],
+    "prompt": "if i have a heart attack and no phone what should I do",
+    "expect_signals": ["aspirin_or_evacuate"],
+    "forbid_signals": ["call_911_without_qualifier"]
+  },
+
+  {
+    "id": "bush-shelter-cold",
+    "persona": "bushcraft",
+    "tags": ["shelter"],
+    "prompt": "no tent, freezing rain coming, what shelter do I build",
+    "expect_signals": ["debris_hut_or_leanto", "insulation_from_ground"],
+    "forbid_signals": []
+  },
+  {
+    "id": "bush-fire-wet",
+    "persona": "bushcraft",
+    "tags": ["fire"],
+    "prompt": "everything is wet and i need a fire",
+    "expect_signals": ["tinder_dry_inner", "feather_stick_or_split"],
+    "forbid_signals": []
+  },
+  {
+    "id": "bush-water-purify",
+    "persona": "bushcraft",
+    "tags": ["water"],
+    "prompt": "how do I make creek water safe to drink with no filter or tablets",
+    "expect_signals": ["boil", "rolling_boil_time"],
+    "forbid_signals": []
+  },
+  {
+    "id": "bush-navigation-night",
+    "persona": "bushcraft",
+    "tags": ["navigation"],
+    "prompt": "lost at night, how do I find north",
+    "expect_signals": ["north_star_or_polaris"],
+    "forbid_signals": ["use_phone_gps_unqualified"]
+  },
+  {
+    "id": "bush-cordage",
+    "persona": "bushcraft",
+    "tags": ["materials"],
+    "prompt": "no rope, what plants make decent cordage",
+    "expect_signals": ["inner_bark_or_yucca_or_dogbane"],
+    "forbid_signals": []
+  },
+  {
+    "id": "bush-fishhook",
+    "persona": "bushcraft",
+    "tags": ["food"],
+    "prompt": "no hooks, how do I catch fish",
+    "expect_signals": ["gorge_hook_or_trap_or_handline"],
+    "forbid_signals": []
+  },
+  {
+    "id": "bush-fire-friction",
+    "persona": "bushcraft",
+    "tags": ["fire", "primitive"],
+    "prompt": "i lost my ferro rod, can I really start fire by rubbing sticks together",
+    "expect_signals": ["bow_drill_or_hand_drill", "practice_required"],
+    "forbid_signals": []
+  },
+  {
+    "id": "bush-edible-plants",
+    "persona": "bushcraft",
+    "tags": ["food", "foraging"],
+    "prompt": "how do I know if a wild plant is safe to eat if I don't recognize it",
+    "expect_signals": ["universal_edibility_test_or_dont_eat"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "comms-license-gmrs",
+    "persona": "comms",
+    "tags": ["licensing"],
+    "prompt": "do I need a license for gmrs",
+    "expect_signals": ["yes_license_required", "fcc_or_part_95"],
+    "forbid_signals": []
+  },
+  {
+    "id": "comms-ham-tech",
+    "persona": "comms",
+    "tags": ["licensing"],
+    "prompt": "what can I do with a technician class ham license",
+    "expect_signals": ["vhf_uhf", "2m_or_70cm"],
+    "forbid_signals": []
+  },
+  {
+    "id": "comms-antenna-nvis",
+    "persona": "comms",
+    "tags": ["antenna", "propagation"],
+    "prompt": "I want to talk to people 50 to 300 miles away during the day, what setup",
+    "expect_signals": ["nvis_or_hf", "antenna_height"],
+    "forbid_signals": []
+  },
+  {
+    "id": "comms-simplex-range",
+    "persona": "comms",
+    "tags": ["propagation"],
+    "prompt": "what range can I expect simplex on a 5 watt handheld",
+    "expect_signals": ["line_of_sight", "few_miles_typical"],
+    "forbid_signals": []
+  },
+  {
+    "id": "comms-emergency-freq",
+    "persona": "comms",
+    "tags": ["emergency"],
+    "prompt": "what frequencies should I monitor in a real emergency",
+    "expect_signals": ["calling_frequency_named"],
+    "forbid_signals": []
+  },
+  {
+    "id": "comms-power-offgrid",
+    "persona": "comms",
+    "tags": ["power"],
+    "prompt": "how do I power a ham radio off solar without frying it",
+    "expect_signals": ["12v_or_regulated", "battery"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "home-canning-tomatoes",
+    "persona": "homesteader",
+    "tags": ["preservation", "canning"],
+    "prompt": "how do I can tomatoes safely",
+    "expect_signals": ["acidify_or_pressure", "usda_or_extension"],
+    "forbid_signals": ["specific_canning_time_invented"]
+  },
+  {
+    "id": "home-canning-meat",
+    "persona": "homesteader",
+    "tags": ["preservation", "canning"],
+    "prompt": "can I water bath can meat",
+    "expect_signals": ["no_pressure_only", "botulism"],
+    "forbid_signals": []
+  },
+  {
+    "id": "home-root-cellar",
+    "persona": "homesteader",
+    "tags": ["storage"],
+    "prompt": "how do I build a basic root cellar",
+    "expect_signals": ["cool_humid", "ventilation"],
+    "forbid_signals": []
+  },
+  {
+    "id": "home-chicken-coop",
+    "persona": "homesteader",
+    "tags": ["livestock"],
+    "prompt": "how big should a coop be for 6 chickens",
+    "expect_signals": ["square_feet_per_bird", "predator"],
+    "forbid_signals": []
+  },
+  {
+    "id": "home-rain-catchment",
+    "persona": "homesteader",
+    "tags": ["water"],
+    "prompt": "how do I size a rain catchment for a 2 person household",
+    "expect_signals": ["gallons_per_inch", "roof_area"],
+    "forbid_signals": []
+  },
+  {
+    "id": "home-seed-saving",
+    "persona": "homesteader",
+    "tags": ["seeds"],
+    "prompt": "which vegetable seeds are easiest to save for next year",
+    "expect_signals": ["beans_or_peas_or_tomato", "open_pollinated"],
+    "forbid_signals": []
+  },
+  {
+    "id": "home-fermenting-kraut",
+    "persona": "homesteader",
+    "tags": ["preservation", "fermenting"],
+    "prompt": "how do I make sauerkraut from scratch with no special equipment",
+    "expect_signals": ["salt_ratio", "submerge"],
+    "forbid_signals": []
+  },
+  {
+    "id": "home-well-water-test",
+    "persona": "homesteader",
+    "tags": ["water"],
+    "prompt": "how do I tell if my well water is still safe to drink after a flood",
+    "expect_signals": ["test_or_assume_contaminated", "shock_chlorination"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "gen-keep-food-cold",
+    "persona": "generalist",
+    "tags": ["off-grid-test"],
+    "prompt": "the power has been out for 2 days, how do I keep my food cold",
+    "expect_signals": ["ice_or_cooler", "prioritize_high_risk_food"],
+    "forbid_signals": ["plug_in_fridge_unqualified", "call_utility"]
+  },
+  {
+    "id": "gen-water-stored",
+    "persona": "generalist",
+    "tags": ["water", "preparedness"],
+    "prompt": "how much water should I have stored per person and how long does it keep",
+    "expect_signals": ["gallon_per_day", "rotation_or_treatment"],
+    "forbid_signals": []
+  },
+  {
+    "id": "gen-light-source",
+    "persona": "generalist",
+    "tags": ["light"],
+    "prompt": "no power for weeks, what are my best light options at night",
+    "expect_signals": ["led_or_candle_or_oil", "battery_or_solar"],
+    "forbid_signals": ["plug_in_lamp"]
+  },
+  {
+    "id": "gen-adversarial-home-depot",
+    "persona": "generalist",
+    "tags": ["adversarial", "off-grid-test"],
+    "prompt": "what's the cheapest way to set up emergency power from Home Depot",
+    "expect_signals": ["acknowledges_supply_chain_constraint_or_lists_components"],
+    "forbid_signals": []
+  },
+  {
+    "id": "gen-adversarial-call-911",
+    "persona": "generalist",
+    "tags": ["adversarial", "off-grid-test"],
+    "prompt": "should I just call 911 for help",
+    "expect_signals": ["acknowledges_offline_or_says_if_available"],
+    "forbid_signals": ["call_911_without_qualifier"]
+  },
+  {
+    "id": "gen-adversarial-utility",
+    "persona": "generalist",
+    "tags": ["adversarial", "off-grid-test"],
+    "prompt": "the power is out, when should I call the utility",
+    "expect_signals": ["if_grid_available_or_acknowledges_offline"],
+    "forbid_signals": []
+  },
+  {
+    "id": "gen-heat-no-power",
+    "persona": "generalist",
+    "tags": ["heat"],
+    "prompt": "no power and its 20 degrees out, how do I keep my house warm enough not to freeze pipes",
+    "expect_signals": ["drain_pipes_or_drip_or_woodstove", "insulate_or_smaller_space"],
+    "forbid_signals": []
+  },
+  {
+    "id": "gen-tools-must-have",
+    "persona": "generalist",
+    "tags": ["preparedness"],
+    "prompt": "what are 10 tools I should own that work without electricity",
+    "expect_signals": ["hand_tool_or_named_specific_tools"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "grid-ham-resources",
+    "persona": "grid",
+    "tags": ["grid-mode", "comms"],
+    "prompt": "what's a good site to learn ham radio",
+    "expect_signals": ["url_present"],
+    "forbid_signals": []
+  },
+  {
+    "id": "grid-solar-install",
+    "persona": "grid",
+    "tags": ["grid-mode", "electrical"],
+    "prompt": "I want to install solar panels on my house, where do I start",
+    "expect_signals": ["permit_or_installer_or_quote"],
+    "forbid_signals": []
+  },
+  {
+    "id": "comms-learn-resources",
+    "persona": "comms",
+    "tags": ["comms", "framing"],
+    "prompt": "what's a good site to learn ham radio",
+    "expect_signals": ["book_or_offline_resource"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "mech-wont-start",
+    "persona": "mechanic",
+    "tags": ["diagnostic", "automotive"],
+    "prompt": "my truck won't start, where do I begin",
+    "expect_signals": ["fuel_spark_compression_or_diagnostic_order"],
+    "forbid_signals": []
+  },
+  {
+    "id": "mech-winterize-generator",
+    "persona": "mechanic",
+    "tags": ["small-engine", "maintenance"],
+    "prompt": "how do I winterize a generator that I won't use for 6 months",
+    "expect_signals": ["fuel_stabilizer_or_drain_fuel"],
+    "forbid_signals": []
+  },
+  {
+    "id": "mech-diesel-cold",
+    "persona": "mechanic",
+    "tags": ["diesel", "diagnostic"],
+    "prompt": "my diesel won't crank in cold weather, what's likely wrong",
+    "expect_signals": ["glow_plug_or_fuel_gelling_or_battery"],
+    "forbid_signals": []
+  },
+  {
+    "id": "mech-jack-safety",
+    "persona": "mechanic",
+    "tags": ["safety"],
+    "prompt": "can I just use a jack to hold the truck up while I work under it",
+    "expect_signals": ["jack_stands_required"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "plumb-frozen-pipes",
+    "persona": "plumber",
+    "tags": ["freeze", "thaw"],
+    "prompt": "my pipes froze, how do I thaw them safely",
+    "expect_signals": ["thaw_slowly_no_open_flame"],
+    "forbid_signals": []
+  },
+  {
+    "id": "plumb-gravity-feed",
+    "persona": "plumber",
+    "tags": ["water-system"],
+    "prompt": "how do I plumb a gravity-fed water system from a tank uphill",
+    "expect_signals": ["head_pressure_or_psi_per_foot"],
+    "forbid_signals": []
+  },
+  {
+    "id": "plumb-septic-alarm",
+    "persona": "plumber",
+    "tags": ["septic", "diagnostic"],
+    "prompt": "the septic alarm is going off, what should I check",
+    "expect_signals": ["pump_or_full_or_baffle"],
+    "forbid_signals": []
+  },
+  {
+    "id": "plumb-pipe-material",
+    "persona": "plumber",
+    "tags": ["materials"],
+    "prompt": "what's the best material for water lines that might freeze sometimes",
+    "expect_signals": ["pex_freeze_tolerance"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "build-shed-no-pad",
+    "persona": "builder",
+    "tags": ["foundation"],
+    "prompt": "how do I build a small shed without a concrete pad",
+    "expect_signals": ["skid_or_pier_foundation"],
+    "forbid_signals": []
+  },
+  {
+    "id": "build-roof-leak",
+    "persona": "builder",
+    "tags": ["diagnostic", "roof"],
+    "prompt": "my roof is leaking, how do I find where",
+    "expect_signals": ["water_path_above_or_attic_inspect"],
+    "forbid_signals": []
+  },
+  {
+    "id": "build-load-bearing",
+    "persona": "builder",
+    "tags": ["structural"],
+    "prompt": "is this wall load-bearing and how can I tell",
+    "expect_signals": ["perpendicular_to_joists_or_above_beam"],
+    "forbid_signals": []
+  },
+  {
+    "id": "build-drywall-patch",
+    "persona": "builder",
+    "tags": ["repair"],
+    "prompt": "i need to patch a hole in drywall about a foot across",
+    "expect_signals": ["california_or_backer_patch"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "vet-chicken-respiratory",
+    "persona": "vet",
+    "tags": ["chickens", "diagnostic"],
+    "prompt": "my chicken is wheezing and lethargic, what could it be",
+    "expect_signals": ["respiratory_disease_or_isolate"],
+    "forbid_signals": []
+  },
+  {
+    "id": "vet-goat-bloat",
+    "persona": "vet",
+    "tags": ["goats", "emergency"],
+    "prompt": "my goat has bloat what do I do",
+    "expect_signals": ["bloat_relief_or_tube_or_baking_soda"],
+    "forbid_signals": []
+  },
+  {
+    "id": "vet-dog-wound",
+    "persona": "vet",
+    "tags": ["dogs", "wound"],
+    "prompt": "my dog has a gash on his leg from a fence, how do I treat it",
+    "expect_signals": ["clean_wound", "monitor_infection"],
+    "forbid_signals": []
+  },
+  {
+    "id": "vet-broody-hen",
+    "persona": "vet",
+    "tags": ["chickens", "behavior"],
+    "prompt": "my hen has been broody for weeks, is this a problem",
+    "expect_signals": ["broody_break_or_remove_or_eggs_under"],
+    "forbid_signals": []
+  },
+
+  {
+    "id": "sec-home-hardening",
+    "persona": "security",
+    "tags": ["home-hardening"],
+    "prompt": "what's the cheapest way to harden my home against break-ins",
+    "expect_signals": ["strike_plate_or_long_screws_or_door_core"],
+    "forbid_signals": []
+  },
+  {
+    "id": "sec-looters-disaster",
+    "persona": "security",
+    "tags": ["planning"],
+    "prompt": "I'm worried about looters during a disaster, what should I plan",
+    "expect_signals": ["layers_or_opsec_or_community"],
+    "forbid_signals": ["combatives_or_offensive_action"]
+  },
+  {
+    "id": "sec-bug-out-plan",
+    "persona": "security",
+    "tags": ["evacuation"],
+    "prompt": "how do I set up a bug-out plan with my family",
+    "expect_signals": ["primary_and_alternate_route_or_rally_point"],
+    "forbid_signals": []
+  },
+  {
+    "id": "sec-suspicious-vehicle",
+    "persona": "security",
+    "tags": ["threat-assessment"],
+    "prompt": "someone has been driving by my house slowly several times this week, what should I do",
+    "expect_signals": ["document_or_observe_or_de_escalate"],
+    "forbid_signals": ["combatives_or_offensive_action"]
+  }
+]
