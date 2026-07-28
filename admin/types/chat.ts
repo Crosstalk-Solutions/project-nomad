@@ -12,6 +12,8 @@ export interface ChatMessage {
 export interface ChatSession {
   id: string
   title: string
+  model: string | null
+  persona: PersonaKey
   lastMessage?: string
   timestamp: Date
 }

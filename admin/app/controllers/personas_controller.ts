@@ -1,7 +1,7 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
-import { PersonaService } from '#services/persona_service'
+import { PersonaService, hasPersonaOverride } from '#services/persona_service'
 import KVStore from '#models/kv_store'
 import { updatePersonaOverrideSchema } from '#validators/persona'
 import {
@@ -60,7 +60,7 @@ export default class PersonasController {
         description: base.description,
         systemPrompt: base.systemPrompt,
       },
-      hasOverride: override !== null,
+      hasOverride: hasPersonaOverride(override),
     })
   }
 

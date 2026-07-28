@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { mergePersona } from '../../app/services/persona_service.js'
+import { hasPersonaOverride, mergePersona } from '../../app/services/persona_service.js'
 import { DEFAULT_PERSONA, PERSONAS, PERSONA_KEYS, isPersonaKey } from '../../constants/ollama.js'
 import {
   cleanChatOutput,
@@ -34,6 +34,15 @@ test('mergePersona applies values, preserves defaults for nulls, and keeps examp
   assert.equal(merged.systemPrompt, 'Be concise.')
   assert.equal(merged.examples, base.examples)
   assert.equal(mergePersona(base), base)
+})
+
+test('hasPersonaOverride ignores empty rows and detects active fields', () => {
+  assert.equal(hasPersonaOverride(), false)
+  assert.equal(hasPersonaOverride({ label: null, description: null, system_prompt: null }), false)
+  assert.equal(
+    hasPersonaOverride({ label: null, description: 'Updated', system_prompt: null }),
+    true
+  )
 })
 
 test('stripLatex converts delimiters, macros, fractions, and units to plain text', () => {

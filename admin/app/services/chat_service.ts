@@ -36,7 +36,7 @@ function sanitizeGeneratedTitle(raw?: string | null): string {
   // fallback than a Chinese / Cyrillic / etc. label in the sidebar.
   if (NON_LATIN_SCRIPT.test(title)) return ''
   // Cap to ~60 chars.
-  if (title.length > 60) title = title.slice(0, 57).trimEnd() + '…'
+  if (title.length > 60) title = title.slice(0, 57).trimEnd() + '...'
   return title
 }
 

@@ -31,6 +31,14 @@ export function mergePersona(base: Persona, override?: PersonaOverrideFields | n
   }
 }
 
+/** Whether a persisted row changes at least one built-in persona field. */
+export function hasPersonaOverride(override?: PersonaOverrideFields | null): boolean {
+  return Boolean(
+    override &&
+    (override.label != null || override.description != null || override.system_prompt != null)
+  )
+}
+
 /**
  * Merges built-in persona definitions with any user-supplied overrides
  * stored in chat_persona_overrides. Only override fields that are non-null
@@ -47,7 +55,7 @@ export class PersonaService {
     const overrideByKey = new Map(overrides.map((o) => [o.persona_key, o]))
     return Object.values(PERSONAS).map((base) => {
       const override = overrideByKey.get(base.key)
-      return { ...mergePersona(base, override), hasOverride: override !== undefined }
+      return { ...mergePersona(base, override), hasOverride: hasPersonaOverride(override) }
     })
   }
 
