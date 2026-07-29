@@ -40,7 +40,7 @@ export default function IngredientGroup({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+        className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-surface-secondary transition-colors"
       >
         <IconChevronDown
           size={16}

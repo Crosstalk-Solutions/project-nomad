@@ -65,7 +65,7 @@ export default function DrugReferenceShow({ label, situations = [] }: PageProps)
           </div>
 
           {label.brand_name && label.generic_name && (
-            <p className="text-base text-gray-600 italic">{label.generic_name}</p>
+            <p className="text-base text-text-secondary italic">{label.generic_name}</p>
           )}
 
           <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
@@ -132,7 +132,7 @@ export default function DrugReferenceShow({ label, situations = [] }: PageProps)
                 <Link
                   key={s.slug}
                   href={`/drug-reference?situation=${encodeURIComponent(s.slug)}`}
-                  className="rounded-full border border-desert-olive/40 bg-white px-3 py-1 text-sm text-desert-olive-dark transition-colors hover:border-desert-olive hover:bg-desert-olive hover:text-white"
+                  className="rounded-full border border-desert-olive/40 bg-surface-primary px-3 py-1 text-sm text-desert-olive-dark transition-colors hover:border-desert-olive hover:bg-desert-olive hover:text-white"
                 >
                   {s.label}
                 </Link>
@@ -176,7 +176,7 @@ export default function DrugReferenceShow({ label, situations = [] }: PageProps)
         )}
 
         {/* ── Footer citation ───────────────────────────────────────────────── */}
-        <footer className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500 space-y-1">
+        <footer className="mt-8 pt-4 border-t border-border-subtle text-xs text-text-secondary space-y-1">
           <p>
             <strong>Source:</strong> U.S. Food &amp; Drug Administration drug labeling, via{' '}
             <strong>openFDA</strong> — public domain (CC0 1.0). NOMAD is not affiliated with or
@@ -209,10 +209,10 @@ function LabelSection({
 }) {
   return (
     <section className="mb-6">
-      <h2 className="text-base font-bold mb-2 border-b border-gray-200 pb-1">{title}</h2>
+      <h2 className="text-base font-bold mb-2 border-b border-border-subtle pb-1">{title}</h2>
       <LabelBlocks text={body} />
       {footnote && (
-        <p className="mt-2 text-xs text-gray-500 italic">{footnote}</p>
+        <p className="mt-2 text-xs text-text-secondary italic">{footnote}</p>
       )}
     </section>
   )

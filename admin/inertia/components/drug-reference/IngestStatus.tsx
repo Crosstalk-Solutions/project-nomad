@@ -62,14 +62,14 @@ function PhaseBlock({
       ? 'text-green-700'
       : running
         ? accentRunning
-        : 'text-gray-500'
+        : 'text-text-secondary'
   const barColor = failed
     ? 'bg-red-500'
     : completed
       ? 'bg-green-500'
       : running
         ? accentRunning.replace('text-', 'bg-')
-        : 'bg-gray-300'
+        : 'bg-surface-elevated'
 
   return (
     <div className="space-y-1">
@@ -83,14 +83,14 @@ function PhaseBlock({
         )}
       </div>
 
-      <p className="text-xs text-gray-500">{explainer}</p>
+      <p className="text-xs text-text-secondary">{explainer}</p>
 
       {counterLeft && (
-        <div className="text-xs text-gray-600 tabular-nums">{counterLeft}</div>
+        <div className="text-xs text-text-secondary tabular-nums">{counterLeft}</div>
       )}
 
       {(running || completed || failed) && (
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-surface-elevated rounded-full h-2 overflow-hidden">
           <div
             className={`h-2 rounded-full transition-all duration-500 ${barColor}`}
             style={{ width: `${failed ? 100 : pct}%` }}
@@ -206,7 +206,7 @@ export default function IngestStatus({ status, onRefresh, pollIntervalMs = 3000 
 
   const downloadTiming =
     status.phase === 'downloading' && elapsedMs !== null ? (
-      <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-500 tabular-nums">
+      <div className="flex flex-wrap items-center gap-x-3 text-xs text-text-secondary tabular-nums">
         <span>Elapsed {fmtDuration(elapsedMs)}</span>
         {dlBytes && <span>{dlBytes} this part</span>}
       </div>
@@ -214,11 +214,11 @@ export default function IngestStatus({ status, onRefresh, pollIntervalMs = 3000 
 
   const ingestTiming =
     status.phase === 'ingesting' && elapsedMs !== null ? (
-      <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-500 tabular-nums">
+      <div className="flex flex-wrap items-center gap-x-3 text-xs text-text-secondary tabular-nums">
         <span>Elapsed {fmtDuration(elapsedMs)}</span>
         {etaMs !== null && (
           <span>
-            ~{fmtDuration(etaMs)} left <span className="text-gray-400">(estimate)</span>
+            ~{fmtDuration(etaMs)} left <span className="text-text-muted">(estimate)</span>
           </span>
         )}
       </div>
@@ -247,11 +247,11 @@ export default function IngestStatus({ status, onRefresh, pollIntervalMs = 3000 
         counterLeft={
           ingest.state === 'running' || ingest.state === 'completed' ? (
             <span>
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm font-semibold text-text-primary">
                 {ingest.records.toLocaleString()}
               </span>
               {expected > 0 && (
-                <span className="text-gray-400"> of ~{expected.toLocaleString()} labels</span>
+                <span className="text-text-muted"> of ~{expected.toLocaleString()} labels</span>
               )}
             </span>
           ) : undefined
@@ -262,7 +262,7 @@ export default function IngestStatus({ status, onRefresh, pollIntervalMs = 3000 
 
       {/* Reassurance while busy */}
       {busy && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-text-muted">
           Runs in the background — you can leave this page and it keeps going. Search turns on
           automatically when ingest finishes.
         </p>
@@ -270,7 +270,7 @@ export default function IngestStatus({ status, onRefresh, pollIntervalMs = 3000 
 
       {/* Ready footer */}
       {status.phase === 'ready' && status.lastUpdated && (
-        <p className="text-xs text-gray-500">FDA data version {status.lastUpdated}.</p>
+        <p className="text-xs text-text-secondary">FDA data version {status.lastUpdated}.</p>
       )}
     </div>
   )
