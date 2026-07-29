@@ -10,6 +10,7 @@ import type {
   ContentUpdateCheckResult,
 } from '../../types/collections.js'
 import { KiwixCatalogService, reconcileResourceUpdateState } from './kiwix_catalog_service.js'
+import { CollectionManifestService } from './collection_manifest_service.js'
 
 const MAP_STORAGE_PATH = '/storage/maps'
 
@@ -27,7 +28,18 @@ export class CollectionUpdateService {
     // ZIM/map catalog update path only — exclude `dataset` resources (e.g. the
     // FDA drug labels), which are not filename-versioned and get their own
     // freshness path. No-op today (no dataset rows are written in this slice).
-    const installed = await InstalledResource.query().whereNot('resource_type', 'dataset')
+    const allInstalled = await InstalledResource.query().whereNot('resource_type', 'dataset')
+
+    // Content we host ourselves is versioned by the manifest, not by the Kiwix
+    // catalog, so it has no business in this check. Excluding it also means a
+    // resource-id collision can't let a third-party mirror present itself as a
+    // newer version and overwrite our content. See resolveZimDownload, which
+    // pins the same resources to their manifest URL on the install path.
+    const gatedIds = await new CollectionManifestService().getGatedZimResourceIds()
+    const installed = allInstalled.filter(
+      (r) => !(r.resource_type === 'zim' && gatedIds.has(r.resource_id))
+    )
+
     if (installed.length === 0) {
       return {
         updates: [],

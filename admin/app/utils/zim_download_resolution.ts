@@ -1,5 +1,6 @@
 import type { CatalogResult } from '../services/kiwix_catalog_service.js'
 import type { SpecResource } from '../../types/collections.js'
+import { isGatedResource } from './hosted_content.js'
 
 export type ResolvedZimDownload = {
   url: string
@@ -30,6 +31,22 @@ export function resolveZimDownload(
   latest: CatalogResult | null
 ): ResolvedZimDownload {
   const manifestSizeBytes = resource.size_mb > 0 ? resource.size_mb * 1024 * 1024 : undefined
+
+  // Content we host ourselves is pinned to the manifest URL, never the Kiwix
+  // catalog. It isn't in the openzim catalog at all, so this is normally a no-op
+  // — but a resource-id collision would otherwise silently redirect a gated
+  // download to a third-party mirror, losing both the auth header and any
+  // guarantee about what the bytes are.
+  //
+  // Consequence, stated rather than implied: gated content does NOT participate
+  // in catalog-driven auto-update. New versions ship by bumping the manifest.
+  if (isGatedResource(resource)) {
+    return {
+      url: resource.url,
+      version: resource.version,
+      sizeBytes: manifestSizeBytes,
+    }
+  }
 
   if (!latest || compareZimVersions(latest.version, resource.version) < 0) {
     return {
