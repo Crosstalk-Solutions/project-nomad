@@ -105,7 +105,7 @@ Because NOMAD relies heavily on Docker, we actually recommend against installing
 
 ## UI Consistency
 
-N.O.M.A.D.'s guiding principle is that **user-friendliness is paramount**: a control that looks or behaves differently from the rest of the app reads as broken to a non-technical user. New frontend (inertia/React) work should be visually and behaviorally uniform with what is already there. Before adding a UI element, look at its neighbors and reuse the shared building blocks rather than hand-rolling a one-off.
+NOMAD's guiding principle is that **user-friendliness is paramount**: a control that looks or behaves differently from the rest of the app reads as broken to a non-technical user. New frontend (inertia/React) work should be visually and behaviorally uniform with what is already there. Before adding a UI element, look at its neighbors and reuse the shared building blocks rather than hand-rolling a one-off.
 
 **Reuse the shared components** in `admin/inertia/components/` (and `.../components/inputs/`):
 
