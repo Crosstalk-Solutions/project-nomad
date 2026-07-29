@@ -16,7 +16,7 @@ export default function LabelBlocks({
 }) {
   const blocks = parseLabelSection(text)
   if (blocks.length === 0) return null
-  const bodyColor = tone === 'danger' ? 'text-red-800' : 'text-gray-800'
+  const bodyColor = tone === 'danger' ? 'text-red-800' : 'text-text-primary'
   return (
     <div className="space-y-3">
       {blocks.map((block, i) => (
@@ -39,7 +39,7 @@ function LabelBlockView({ block, bodyColor }: { block: LabelBlock; bodyColor: st
 
   if (isLabelSectionHeader(block.text)) {
     return (
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
         {block.text!.replace(/^\s*\d{1,2}\s+/, '')}
       </p>
     )
@@ -48,7 +48,7 @@ function LabelBlockView({ block, bodyColor }: { block: LabelBlock; bodyColor: st
   return (
     <p className={`text-sm ${bodyColor} leading-relaxed`}>
       {block.label && (
-        <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-xs font-semibold align-baseline">
+        <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded bg-surface-secondary text-text-secondary text-xs font-semibold align-baseline">
           {block.label}
         </span>
       )}

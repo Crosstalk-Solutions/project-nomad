@@ -154,7 +154,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
 
         {isEmpty ? (
           // ── Empty state (no data ingested) ─────────────────────────────────
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <div className="border-2 border-dashed border-border-default rounded-lg p-8 text-center">
             <p className="text-lg font-semibold mb-2">No FDA drug data yet</p>
             <p className="mb-6 opacity-70">
               Download the openFDA drug-label dataset to enable offline search and comparison.
@@ -173,9 +173,9 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
         ) : (
           <>
             {/* ── Drug picker ───────────────────────────────────────────────── */}
-            <div className="mb-6 border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="mb-6 border border-border-subtle rounded-lg p-4 bg-surface-secondary">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-700">Select drugs to compare</h2>
+                <h2 className="text-sm font-semibold text-text-primary">Select drugs to compare</h2>
                 {atMax && (
                   <span className="text-xs text-amber-700 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
                     Maximum {MAX_COMPARE} drugs reached
@@ -208,7 +208,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
                     .map((id) => (
                       <span
                         key={id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-300 text-gray-600 animate-pulse"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-elevated text-text-secondary animate-pulse"
                       >
                         #{id}
                         <button
@@ -231,21 +231,21 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
                 onChange={handleQueryChange}
                 placeholder="Search for a drug to add…"
                 disabled={atMax}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green disabled:bg-gray-100 disabled:text-gray-400"
+                className="w-full border border-border-default rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green disabled:bg-surface-secondary disabled:text-text-muted"
               />
 
               {/* Picker results */}
               {pickerLoading && (
-                <div className="mt-2 text-xs text-gray-500">Searching…</div>
+                <div className="mt-2 text-xs text-text-secondary">Searching…</div>
               )}
               {pickerError && (
                 <div className="mt-2 text-xs text-red-600">{pickerError}</div>
               )}
               {pickerSearched && pickerResults.length === 0 && !pickerLoading && (
-                <div className="mt-2 text-xs text-gray-500">No results for "{query}"</div>
+                <div className="mt-2 text-xs text-text-secondary">No results for "{query}"</div>
               )}
               {pickerResults.length > 0 && !atMax && (
-                <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-200 max-h-64 overflow-y-auto bg-white">
+                <div className="mt-2 border border-border-subtle rounded-lg overflow-hidden divide-y divide-border-subtle max-h-64 overflow-y-auto bg-surface-primary">
                   {pickerResults.map((r) => (
                     <PickerRow
                       key={r.id}
@@ -260,19 +260,24 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
 
             {/* ── Comparison columns ────────────────────────────────────────── */}
             {selectedIds.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+              <div className="text-center py-12 text-text-muted border-2 border-dashed border-border-subtle rounded-lg">
                 <p className="text-sm">Select drugs above to compare their labeled interaction warnings.</p>
               </div>
             ) : loadingEntries ? (
-              <div className="text-center py-12 text-gray-400">
+              <div className="text-center py-12 text-text-muted">
                 <p className="text-sm">Loading…</p>
               </div>
             ) : (
-              // Stacked single-column on phones; fixed-min-width columns that
-              // scroll sideways (never crush) from sm: up, even at MAX_COMPARE.
+              // Stacked single-column on phones. From sm: up the columns share
+              // the available width instead of sitting at a fixed 15rem, so one
+              // selection reads full-width and two split it in half. Label text
+              // runs long (opioid interaction sections are hundreds of words),
+              // and a narrow column next to empty space made it near-unreadable.
+              // min-w-60 keeps the old width as a floor, so at MAX_COMPARE on a
+              // narrow viewport they still scroll sideways rather than crush.
               <div className="flex flex-col gap-3 sm:flex-row sm:gap-3 sm:overflow-x-auto sm:pb-2">
                 {entries.map((entry) => (
-                  <div key={entry.id} className="w-full sm:flex-none sm:w-60">
+                  <div key={entry.id} className="w-full sm:flex-1 sm:min-w-60">
                     <InteractionColumn entry={entry} onRemove={removeId} />
                   </div>
                 ))}
@@ -282,7 +287,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
         )}
 
         {/* ── Source citation (CC0, no-endorsement) ───────────────────────── */}
-        <footer className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500">
+        <footer className="mt-8 pt-4 border-t border-border-subtle text-xs text-text-secondary">
           <strong>Source:</strong> U.S. Food &amp; Drug Administration drug labeling, via{' '}
           <strong>openFDA</strong> — public domain (CC0 1.0). NOMAD is not affiliated with or
           endorsed by the FDA. Label data is provided as-is; do not rely on it for medical
@@ -305,14 +310,14 @@ interface PickerRowProps {
 
 function PickerRow({ result, selected, onAdd }: PickerRowProps) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50">
+    <div className="flex items-center justify-between px-3 py-2 hover:bg-surface-secondary">
       {/* Reuse the same visual pattern as DrugResultRow but without a Link */}
       <div className="min-w-0 flex-1 mr-3">
-        <span className="text-sm font-medium text-gray-900 block truncate">
+        <span className="text-sm font-medium text-text-primary block truncate">
           {result.brand_name ?? result.generic_name ?? 'Unknown'}
         </span>
         {result.brand_name && result.generic_name && (
-          <span className="text-xs text-gray-500 italic">{result.generic_name}</span>
+          <span className="text-xs text-text-secondary italic">{result.generic_name}</span>
         )}
       </div>
       {selected ? (

@@ -547,7 +547,7 @@ export default function DrugReferenceIndex({
                   onChange={handleQueryChange}
                   autoFocus
                   placeholder="Search a medicine by name — ibuprofen, Benadryl, loratadine…"
-                  className="w-full rounded-lg border border-desert-stone-lighter bg-white py-2.5 pl-10 pr-4 text-sm text-desert-green-darker transition focus:border-desert-green focus:outline-none focus:ring-2 focus:ring-desert-green/20"
+                  className="w-full rounded-lg border border-desert-stone-lighter bg-surface-primary py-2.5 pl-10 pr-4 text-sm text-desert-green-darker transition focus:border-desert-green focus:outline-none focus:ring-2 focus:ring-desert-green/20"
                 />
               </div>
 
@@ -574,7 +574,7 @@ export default function DrugReferenceIndex({
                   <button
                     type="button"
                     onClick={() => setFiltersOpen((o) => !o)}
-                    className="ml-auto flex items-center gap-1 rounded-full border border-desert-stone-lighter bg-white px-3 py-1 text-xs text-desert-green-darker hover:border-desert-green"
+                    className="ml-auto flex items-center gap-1 rounded-full border border-desert-stone-lighter bg-surface-primary px-3 py-1 text-xs text-desert-green-darker hover:border-desert-green"
                   >
                     <IconAdjustmentsHorizontal size={14} />
                     {route ? ROUTE_FRIENDLY[route] : 'Form'} · {sort === 'name' ? 'A–Z' : 'Best match'}
@@ -588,7 +588,7 @@ export default function DrugReferenceIndex({
                       <select
                         value={route ?? ''}
                         onChange={(e) => handleRouteChange(e.target.value || null)}
-                        className="rounded-lg border border-desert-stone-lighter bg-white px-2 py-1 text-xs text-desert-green-darker focus:border-desert-green focus:outline-none"
+                        className="rounded-lg border border-desert-stone-lighter bg-surface-primary px-2 py-1 text-xs text-desert-green-darker focus:border-desert-green focus:outline-none"
                       >
                         <option value="">Any form</option>
                         {ROUTE_OPTIONS.map((r) => (
@@ -603,7 +603,7 @@ export default function DrugReferenceIndex({
                       <select
                         value={sort}
                         onChange={(e) => handleSortChange(e.target.value as 'relevance' | 'name')}
-                        className="rounded-lg border border-desert-stone-lighter bg-white px-2 py-1 text-xs text-desert-green-darker focus:border-desert-green focus:outline-none"
+                        className="rounded-lg border border-desert-stone-lighter bg-surface-primary px-2 py-1 text-xs text-desert-green-darker focus:border-desert-green focus:outline-none"
                       >
                         <option value="relevance">Best match</option>
                         <option value="name">A–Z</option>
@@ -704,7 +704,7 @@ export default function DrugReferenceIndex({
                 <button
                   type="button"
                   onClick={() => setBrowseOpen((o) => !o)}
-                  className="flex items-center gap-1 rounded-full border border-desert-stone-lighter bg-white px-3 py-1 text-xs text-desert-green-darker hover:border-desert-olive"
+                  className="flex items-center gap-1 rounded-full border border-desert-stone-lighter bg-surface-primary px-3 py-1 text-xs text-desert-green-darker hover:border-desert-olive"
                 >
                   <IconFirstAidKit size={14} />
                   {anySituationSelected ? 'Add another situation' : 'Pick one or more situations'}
@@ -729,7 +729,7 @@ export default function DrugReferenceIndex({
                                 className={`rounded-full border px-3 py-1 text-sm transition-colors ${
                                   active
                                     ? 'border-desert-olive bg-desert-olive text-white'
-                                    : 'border-desert-stone-lighter bg-white text-desert-green-darker hover:border-desert-olive hover:bg-desert-olive/5'
+                                    : 'border-desert-stone-lighter bg-surface-primary text-desert-green-darker hover:border-desert-olive hover:bg-desert-olive/5'
                                 }`}
                               >
                                 {c.label}
@@ -977,7 +977,7 @@ function FilterPill({
       type="button"
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-        active ? activeClass : `border-desert-stone-lighter bg-white text-desert-green-darker ${hoverClass}`
+        active ? activeClass : `border-desert-stone-lighter bg-surface-primary text-desert-green-darker ${hoverClass}`
       }`}
     >
       {children}
