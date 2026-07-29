@@ -34,6 +34,9 @@ export default class KbIngestState extends BaseModel {
   @column()
   declare last_error: string | null
 
+  @column()
+  declare active: boolean
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 
@@ -73,6 +76,14 @@ export default class KbIngestState extends BaseModel {
     const row = await this.getOrCreate(filePath)
     row.state = 'stalled'
     await row.save()
+  }
+
+  static async setActive(filePath: string, active: boolean): Promise<KbIngestState | null> {
+    const row = await this.query().where('file_path', filePath).first()
+    if (!row) return null
+    row.active = active
+    await row.save()
+    return row
   }
 
   static async remove(filePath: string): Promise<void> {

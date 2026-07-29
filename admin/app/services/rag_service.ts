@@ -904,12 +904,27 @@ export class RagService {
         `[RAG] Searching for top ${searchLimit} semantic matches (threshold: ${scoreThreshold})`
       )
 
+      // Exclude sources the user has explicitly toggled inactive (e.g. a ZIM
+      // added to the KB but temporarily excluded from search) without
+      // touching their underlying embeddings -- see KbIngestState.active.
+      const inactiveSources = (
+        await KbIngestState.query().where('active', false).select('file_path')
+      ).map((row) => row.file_path)
+
+      const filter: Record<string, unknown> = {}
+      if (collection) {
+        filter.must = [{ key: 'collection', match: { value: collection } }]
+      }
+      if (inactiveSources.length > 0) {
+        filter.must_not = [{ key: 'source', match: { any: inactiveSources } }]
+      }
+      
       const searchResults = await this.qdrant!.search(RagService.CONTENT_COLLECTION_NAME, {
         vector: response.embeddings[0],
         limit: searchLimit,
         score_threshold: scoreThreshold,
         with_payload: true,
-        ...(collection ? { filter: { must: [{ key: 'collection', match: { value: collection } }] } } : {}),
+        ...(Object.keys(filter).length > 0 ? { filter } : {}),
       })
 
       logger.debug(`[RAG] Found ${searchResults.length} results above threshold ${scoreThreshold}`)
@@ -1677,19 +1692,21 @@ export class RagService {
   }
 
   /**
-   * Walk kb_uploads and zim storage directories, returning the full path of
-   * every embeddable file. Non-embeddable types (e.g. kiwix-library.xml) are
-   * filtered out so they aren't dispatched only to fail with "Unsupported file
-   * type" and retry on every sync.
+   * Walk the kb_uploads storage directory, returning the full path of every
+   * embeddable file. ZIM_STORAGE_PATH is intentionally NOT walked here -- ZIM
+   * / Kiwix content must be explicitly opted into the knowledge base via
+   * embedSingleFile() (e.g. the Content Manager's "Add to Knowledge Base"
+   * action) rather than being auto-discovered by Sync Storage / Always-policy
+   * ingestion. Non-embeddable types (e.g. kiwix-library.xml) are filtered out
+   * so they aren't dispatched only to fail with "Unsupported file type" and
+   * retry on every sync.
    */
   private async _discoverKbFiles(): Promise<string[]> {
     const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
-    const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
     const filesInStorage: string[] = []
 
     for (const [label, dirPath] of [
       [RagService.UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH] as const,
-      [ZIM_STORAGE_PATH, ZIM_PATH] as const,
     ]) {
       try {
         const contents = await listDirectoryContentsRecursive(dirPath)
@@ -1770,8 +1787,13 @@ export class RagService {
   ): Promise<EmbedSingleFileResult> {
     const stateRow = await KbIngestState.query().where('file_path', source).first()
     if (!stateRow) {
-      const knownFiles = await this._discoverKbFiles()
-      if (!knownFiles.includes(source)) {
+      // Deliberate opt-in path (e.g. "Add to Knowledge Base" on a ZIM file):
+      // validate directly against disk rather than via _discoverKbFiles(),
+      // which intentionally excludes ZIM_STORAGE_PATH from automatic
+      // discovery/sync. A file can still be explicitly added even though it
+      // won't be picked up by Sync Storage.
+      const stats = await getFileStatsIfExists(source)
+      if (!stats || determineFileType(source) === 'unknown') {
         return {
           success: false,
           code: 'not_found',
@@ -1817,6 +1839,17 @@ export class RagService {
       success: true,
       message: force ? 'Re-embed queued for this file.' : 'Indexing queued for this file.',
     }
+  }
+
+  /**
+   * Flip whether a tracked knowledge-base source is eligible for RAG search,
+   * without touching its underlying Qdrant points or re-embedding anything.
+   * Returns null if there's no kb_ingest_state row for this source (nothing
+   * to toggle -- it was never indexed).
+   */
+  public async toggleFileActive(source: string, active: boolean): Promise<boolean> {
+    const row = await KbIngestState.setActive(source, active)
+    return row !== null
   }
 
   /**

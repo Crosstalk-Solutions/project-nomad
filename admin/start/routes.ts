@@ -53,6 +53,7 @@ import {
   embedFileSchema,
   fileSourceSchema,
   estimateBatchSchema,
+  toggleActiveSchema,
 } from '#validators/rag'
 import {
   installServiceValidator,
@@ -415,7 +416,6 @@ documented(router.get('/api/chat/suggestions', [ChatsController, 'suggestions'])
   summary: 'List chat suggestions',
   tags: ['chat'],
 })
-
 router
   .group(() => {
     documented(router.post('/upload', [RagController, 'upload']), {
@@ -439,6 +439,11 @@ router
       summary: 'Embed a RAG file',
       tags: ['rag'],
       request: embedFileSchema,
+    })
+    documented(router.post('/files/toggle-active', [RagController, 'toggleActive']), {
+      summary: 'Toggle whether a RAG file is active for search',
+      tags: ['rag'],
+      request: toggleActiveSchema,
     })
     documented(router.get('/files/content', [RagController, 'getFileContent']), {
       summary: 'Get RAG file content',
