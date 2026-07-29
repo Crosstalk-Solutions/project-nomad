@@ -7,14 +7,16 @@ import api from '~/lib/api'
 import { ServiceSlim } from '../../../types/services'
 import CuratedCollectionCard from '~/components/CuratedCollectionCard'
 import CategoryCard from '~/components/CategoryCard'
+import CreatorPackCard from '~/components/CreatorPackCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
-import { IconCheck, IconChevronDown, IconChevronUp, IconCpu, IconBooks } from '@tabler/icons-react'
+import { IconCheck, IconCpu, IconBooks } from '@tabler/icons-react'
 import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
+import useCreatorPacks from '~/hooks/useCreatorPacks'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
 import classNames from 'classnames'
@@ -81,32 +83,24 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
   ]
 }
 
-const ADDITIONAL_TOOLS: Capability[] = [
-  {
-    id: 'notes',
-    name: 'Notes',
-    technicalName: 'FlatNotes',
-    description: 'Simple note-taking app with local storage',
-    features: ['Markdown support', 'All notes stored locally', 'No account required'],
-    services: [SERVICE_NAMES.FLATNOTES],
-    icon: 'IconNotes',
-  },
-  {
-    id: 'datatools',
-    name: 'Data Tools',
-    technicalName: 'CyberChef',
-    description: 'Swiss Army knife for data encoding, encryption, and analysis',
-    features: [
-      'Encode/decode data (Base64, hex, etc.)',
-      'Encryption and hashing tools',
-      'Data format conversion',
-    ],
-    services: [SERVICE_NAMES.CYBERCHEF],
-    icon: 'IconChefHat',
-  },
-]
+// Additional tools (Notes, Data Tools, and the rest of the catalog) are no
+// longer surfaced in onboarding — they live in Supply Depot, where the full
+// app catalog is browsable any time. Step 1 keeps the focus on the three core
+// capabilities and points users to Supply Depot for everything else.
 
-type WizardStep = 1 | 2 | 3 | 4 | 5
+// Stable step IDs. Creator Packs (4) and AI (5) are BOTH optional, so the set of
+// active steps is computed at runtime (see `activeSteps`) and navigation walks
+// that ordered list rather than doing hardcoded skip math.
+type WizardStep = 1 | 2 | 3 | 4 | 5 | 6
+
+const STEP_LABELS: Record<WizardStep, string> = {
+  1: 'Apps',
+  2: 'Maps',
+  3: 'Content',
+  4: 'Creator Packs',
+  5: 'AI',
+  6: 'Review',
+}
 
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
@@ -121,16 +115,17 @@ export default function EasySetupWizard(props: {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
+  const [selectedCreatorPacks, setSelectedCreatorPacks] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
   // Auto-index policy for the AI Assistant Knowledge Base. Defaults to
-  // 'Always' so a new user who keeps the default behavior gets the "just
-  // works" experience — downloads become searchable automatically. Persisted
-  // to KVStore['rag.defaultIngestPolicy'] on wizard submit (same key #894's
-  // KB modal toggle reads/writes) so the JIT prompt at first chat sees a
-  // decided policy and doesn't ask again.
-  const [ingestPolicy, setIngestPolicy] = useState<'Always' | 'Manual'>('Always')
+  // 'Manual' ("Ask me first"): auto-indexing has real cost and resource
+  // implications a non-technical user won't anticipate from the toggle alone,
+  // so we default to the safe choice and let them opt in. Persisted to
+  // KVStore['rag.defaultIngestPolicy'] on wizard submit (same key #894's KB
+  // modal toggle reads/writes) so the JIT prompt at first chat sees a decided
+  // policy and doesn't ask again.
+  const [ingestPolicy, setIngestPolicy] = useState<'Always' | 'Manual'>('Manual')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [showAdditionalTools, setShowAdditionalTools] = useState(false)
   const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(
     () => !!props.system.remoteOllamaUrl
   )
@@ -149,10 +144,13 @@ export default function EasySetupWizard(props: {
   const { isOnline } = useInternetStatus()
   const queryClient = useQueryClient()
   const { data: systemInfo } = useSystemInfo({ enabled: true })
+  // Creator Packs are hidden entirely on builds without the release-injected key.
+  const { configured: creatorPacksConfigured, packs: creatorPacks } = useCreatorPacks()
 
   const anySelectionMade =
     selectedServices.length > 0 ||
     selectedMapCollections.length > 0 ||
+    selectedCreatorPacks.length > 0 ||
     selectedTiers.size > 0 ||
     selectedAiModels.length > 0 ||
     (selectedWikipedia !== null && selectedWikipedia !== 'none')
@@ -212,9 +210,26 @@ export default function EasySetupWizard(props: {
     [selectedServices, installedServices, remoteOllamaEnabled]
   )
 
+  // Ordered list of the steps actually shown to THIS user. Creator Packs (4) and
+  // AI (5) are both optional; everything else is fixed. Navigation walks this
+  // list (see handleNext/handleBack), so a step's absence needs no skip math.
+  const activeSteps = useMemo<WizardStep[]>(() => {
+    const steps: WizardStep[] = [1, 2, 3]
+    if (creatorPacksConfigured) steps.push(4)
+    if (isAiInSetup) steps.push(5)
+    steps.push(6)
+    return steps
+  }, [creatorPacksConfigured, isAiInSetup])
+
   const toggleMapCollection = (slug: string) => {
     setSelectedMapCollections((prev) =>
       prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    )
+  }
+
+  const toggleCreatorPack = (id: string) => {
+    setSelectedCreatorPacks((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     )
   }
 
@@ -280,6 +295,14 @@ export default function EasySetupWizard(props: {
       })
     }
 
+    // Add creator packs
+    selectedCreatorPacks.forEach((id) => {
+      const pack = creatorPacks.find((p) => p.id === id)
+      if (pack) {
+        totalBytes += pack.size_mb * 1024 * 1024
+      }
+    })
+
     // Add AI models
     if (recommendedModels) {
       selectedAiModels.forEach((modelName) => {
@@ -315,10 +338,12 @@ export default function EasySetupWizard(props: {
   }, [
     selectedTiers,
     selectedMapCollections,
+    selectedCreatorPacks,
     selectedAiModels,
     selectedWikipedia,
     categories,
     mapCollections,
+    creatorPacks,
     recommendedModels,
     wikipediaState,
   ])
@@ -326,10 +351,9 @@ export default function EasySetupWizard(props: {
   // Get primary disk/filesystem info for storage projection
   const storageInfo = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
 
-  // Final step number (4 when AI is off, 5 when AI is on). Centralizing this
-  // here so canProceedToNextStep / handleNext / handleBack / the bottom-bar
-  // Next-vs-Finish switch all read the same value.
-  const finalStep: WizardStep = isAiInSetup ? 5 : 4
+  // The review step is always the last active step. Read by canProceedToNextStep
+  // and the bottom-bar Next-vs-Finish switch.
+  const finalStep: WizardStep = activeSteps[activeSteps.length - 1]
 
   const canProceedToNextStep = () => {
     if (!isOnline) return false // Must be online to proceed
@@ -337,18 +361,18 @@ export default function EasySetupWizard(props: {
     return currentStep < finalStep
   }
 
+  // Navigate to the next/previous ACTIVE step relative to the current one. Using
+  // a value comparison (not indexOf) keeps nav correct even if currentStep goes
+  // momentarily stale — e.g. the user disables AI while standing on the AI step,
+  // dropping it from activeSteps; the next click still lands on the right step.
   const handleNext = () => {
-    if (currentStep >= finalStep) return
-    // Skip the AI step (4) on forward nav when isAiInSetup is false.
-    const next = currentStep === 3 && !isAiInSetup ? 5 : currentStep + 1
-    setCurrentStep(next as WizardStep)
+    const next = activeSteps.find((s) => s > currentStep)
+    if (next !== undefined) setCurrentStep(next)
   }
 
   const handleBack = () => {
-    if (currentStep <= 1) return
-    // Skip the AI step (4) on back nav when isAiInSetup is false.
-    const prev = currentStep === 5 && !isAiInSetup ? 3 : currentStep - 1
-    setCurrentStep(prev as WizardStep)
+    const prev = [...activeSteps].reverse().find((s) => s < currentStep)
+    if (prev !== undefined) setCurrentStep(prev)
   }
 
   const handleFinish = async () => {
@@ -408,6 +432,7 @@ export default function EasySetupWizard(props: {
       const downloadPromises = [
         ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
         ...categoryTierPromises,
+        ...selectedCreatorPacks.map((id) => api.installCreatorPack(id)),
         ...selectedAiModels.map((modelName) => api.downloadModel(modelName)),
       ]
 
@@ -471,24 +496,14 @@ export default function EasySetupWizard(props: {
 
   const renderStepIndicator = () => {
     // `step` is the stable WizardStep value (1=Apps, 2=Maps, 3=Content,
-    // 4=AI, 5=Review). `displayNumber` is the sequential position shown in
-    // the dot (always 1..N) so users see "1 2 3 4" when AI is off and
-    // "1 2 3 4 5" when AI is on, with no gap.
-    const baseSteps: Array<{ step: WizardStep; label: string }> = isAiInSetup
-      ? [
-          { step: 1, label: 'Apps' },
-          { step: 2, label: 'Maps' },
-          { step: 3, label: 'Content' },
-          { step: 4, label: 'AI' },
-          { step: 5, label: 'Review' },
-        ]
-      : [
-          { step: 1, label: 'Apps' },
-          { step: 2, label: 'Maps' },
-          { step: 3, label: 'Content' },
-          { step: 5, label: 'Review' },
-        ]
-    const steps = baseSteps.map((s, idx) => ({ ...s, displayNumber: idx + 1 }))
+    // 4=Creator Packs, 5=AI, 6=Review). Only the ACTIVE steps are shown, and
+    // `displayNumber` is the sequential position in the dot (always 1..N) so
+    // there's no gap when Creator Packs and/or AI are absent.
+    const steps = activeSteps.map((step, idx) => ({
+      step,
+      label: STEP_LABELS[step],
+      displayNumber: idx + 1,
+    }))
 
     return (
       <nav aria-label="Progress" className="px-6 pt-6">
@@ -591,7 +606,7 @@ export default function EasySetupWizard(props: {
     if (capability.id === 'ai' && isSelected) {
       const hasAiSelections =
         selectedAiModels.length > 0 ||
-        ingestPolicy !== 'Always' ||
+        ingestPolicy !== 'Manual' ||
         remoteOllamaEnabled
       if (hasAiSelections) {
         const confirmed = window.confirm(
@@ -600,7 +615,7 @@ export default function EasySetupWizard(props: {
         if (!confirmed) return
       }
       setSelectedAiModels([])
-      setIngestPolicy('Always')
+      setIngestPolicy('Manual')
       setRemoteOllamaEnabled(false)
       setRemoteOllamaUrl('')
       setRemoteOllamaUrlError(null)
@@ -723,13 +738,11 @@ export default function EasySetupWizard(props: {
   const renderStep1 = () => {
     // Show all capabilities that exist in the system (including installed ones)
     const existingCoreCapabilities = CORE_CAPABILITIES.filter(capabilityExists)
-    const existingAdditionalTools = ADDITIONAL_TOOLS.filter(capabilityExists)
 
-    // Check if ALL capabilities are already installed (nothing left to install)
-    const allCoreInstalled = existingCoreCapabilities.every(isCapabilityInstalled)
-    const allAdditionalInstalled = existingAdditionalTools.every(isCapabilityInstalled)
+    // Check if ALL core capabilities are already installed (nothing left to install)
     const allInstalled =
-      allCoreInstalled && allAdditionalInstalled && existingCoreCapabilities.length > 0
+      existingCoreCapabilities.length > 0 &&
+      existingCoreCapabilities.every(isCapabilityInstalled)
 
     return (
       <div className="space-y-8">
@@ -811,29 +824,29 @@ export default function EasySetupWizard(props: {
               </div>
             )}
 
-            {/* Additional Tools - Collapsible */}
-            {existingAdditionalTools.length > 0 && (
-              <div className="border-t border-desert-stone-light pt-6">
-                <button
-                  onClick={() => setShowAdditionalTools(!showAdditionalTools)}
-                  className="flex items-center justify-between w-full text-left"
+            {/* Everything beyond the core capabilities lives in Supply Depot,
+                the browsable app catalog. Keep onboarding focused and point
+                users there for Notes, Data Tools, and the rest. */}
+            <div className="border-t border-desert-stone-light pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-lg bg-surface-secondary p-4">
+                <div>
+                  <h3 className="text-md font-medium text-text-primary mb-1">
+                    Looking for more apps?
+                  </h3>
+                  <p className="text-sm text-text-secondary">
+                    Notes, data tools, and the full catalog of add-on apps are available any time in
+                    Supply Depot.
+                  </p>
+                </div>
+                <StyledButton
+                  variant="secondary"
+                  onClick={() => router.visit('/supply-depot')}
+                  className="flex-shrink-0"
                 >
-                  <h3 className="text-md font-medium text-text-muted">Additional Tools</h3>
-                  {showAdditionalTools ? (
-                    <IconChevronUp size={20} className="text-text-muted" />
-                  ) : (
-                    <IconChevronDown size={20} className="text-text-muted" />
-                  )}
-                </button>
-                {showAdditionalTools && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    {existingAdditionalTools.map((capability) =>
-                      renderCapabilityCard(capability, false)
-                    )}
-                  </div>
-                )}
+                  Open Supply Depot
+                </StyledButton>
               </div>
-            )}
+            </div>
           </>
         )}
       </div>
@@ -847,6 +860,20 @@ export default function EasySetupWizard(props: {
         <p className="text-text-secondary">
           Select map region collections to download for offline use. You can always download more
           regions later.
+        </p>
+      </div>
+      <div className="mx-auto max-w-2xl rounded-lg border border-border-subtle bg-surface-secondary p-3 text-center">
+        <p className="text-sm text-text-secondary">
+          Only need a specific country, or want the whole world? Individual countries and a full
+          global map can be installed any time from the{' '}
+          <button
+            type="button"
+            onClick={() => router.visit('/settings/maps')}
+            className="font-medium text-desert-green underline"
+          >
+            Maps Manager
+          </button>
+          .
         </p>
       </div>
       {isLoadingMaps ? (
@@ -982,6 +1009,43 @@ export default function EasySetupWizard(props: {
               No content-based capabilities selected. You can skip this step or go back to select
               capabilities that require content.
             </p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderCreatorPacks = () => {
+    // Creator Packs step. Only present when this build is configured (see
+    // activeSteps); a fork built without the key never reaches it. Selection is
+    // by pack id, held in selectedCreatorPacks; installs fire in handleFinish.
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-text-primary mb-2">Stock Creator Packs</h2>
+          <p className="text-text-secondary">
+            Branded video collections from creators, downloaded for offline viewing in Kiwix.
+          </p>
+        </div>
+
+        {creatorPacks.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {creatorPacks.map((pack) => (
+              <CreatorPackCard
+                key={pack.id}
+                pack={pack}
+                selected={selectedCreatorPacks.includes(pack.id)}
+                onClick={
+                  pack.status === 'installed' && !pack.available_update_version
+                    ? undefined
+                    : () => isOnline && toggleCreatorPack(pack.id)
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-text-secondary text-lg">No creator packs available right now.</p>
           </div>
         )}
       </div>
@@ -1135,6 +1199,7 @@ export default function EasySetupWizard(props: {
     const hasSelections =
       selectedServices.length > 0 ||
       selectedMapCollections.length > 0 ||
+      selectedCreatorPacks.length > 0 ||
       selectedTiers.size > 0 ||
       selectedAiModels.length > 0 ||
       (selectedWikipedia !== null && selectedWikipedia !== 'none')
@@ -1161,9 +1226,9 @@ export default function EasySetupWizard(props: {
                   Capabilities to Install
                 </h3>
                 <ul className="space-y-2">
-                  {[...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS]
-                    .filter((cap) => cap.services.some((s) => selectedServices.includes(s)))
-                    .map((capability) => (
+                  {CORE_CAPABILITIES.filter((cap) =>
+                    cap.services.some((s) => selectedServices.includes(s))
+                  ).map((capability) => (
                       <li key={capability.id} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
                         <span className="text-text-primary">
@@ -1190,6 +1255,25 @@ export default function EasySetupWizard(props: {
                       <li key={slug} className="flex items-center">
                         <IconCheck size={20} className="text-desert-green mr-2" />
                         <span className="text-text-primary">{collection?.name || slug}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {selectedCreatorPacks.length > 0 && (
+              <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
+                  Creator Packs to Install ({selectedCreatorPacks.length})
+                </h3>
+                <ul className="space-y-2">
+                  {selectedCreatorPacks.map((id) => {
+                    const pack = creatorPacks.find((p) => p.id === id)
+                    return (
+                      <li key={id} className="flex items-center">
+                        <IconCheck size={20} className="text-desert-green mr-2" />
+                        <span className="text-text-primary">{pack?.name || id}</span>
                       </li>
                     )
                   })}
@@ -1335,8 +1419,9 @@ export default function EasySetupWizard(props: {
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
-            {currentStep === 4 && isAiInSetup && renderStep4()}
-            {currentStep === 5 && renderStep5()}
+            {currentStep === 4 && creatorPacksConfigured && renderCreatorPacks()}
+            {currentStep === 5 && isAiInSetup && renderStep4()}
+            {currentStep === 6 && renderStep5()}
 
             <div className="flex justify-between mt-8 pt-4 border-t border-desert-stone-light">
               <div className="flex space-x-4 items-center">
@@ -1353,7 +1438,7 @@ export default function EasySetupWizard(props: {
 
                 <p className="text-sm text-text-secondary">
                   {(() => {
-                    const count = [...CORE_CAPABILITIES, ...ADDITIONAL_TOOLS].filter((cap) =>
+                    const count = CORE_CAPABILITIES.filter((cap) =>
                       cap.services.some((s) => selectedServices.includes(s))
                     ).length
                     return `${count} ${count === 1 ? 'capability' : 'capabilities'}`
@@ -1361,6 +1446,12 @@ export default function EasySetupWizard(props: {
                   , {selectedMapCollections.length} map region
                   {selectedMapCollections.length !== 1 && 's'}, {selectedTiers.size}{' '}
                   content categor{selectedTiers.size !== 1 ? 'ies' : 'y'},{' '}
+                  {creatorPacksConfigured && (
+                    <>
+                      {selectedCreatorPacks.length} creator pack
+                      {selectedCreatorPacks.length !== 1 && 's'},{' '}
+                    </>
+                  )}
                   {selectedAiModels.length} AI model{selectedAiModels.length !== 1 && 's'} selected
                 </p>
               </div>

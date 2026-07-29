@@ -9,9 +9,11 @@ import { formatBytes } from '~/lib/util'
 import { useModals } from '~/context/ModalContext'
 import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
-import { IconX } from '@tabler/icons-react'
+import { IconMenu2, IconX } from '@tabler/icons-react'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import Switch from '~/components/inputs/Switch'
+import InfoTooltip from '~/components/InfoTooltip'
 
 interface ChatProps {
   enabled: boolean
@@ -33,10 +35,21 @@ export default function Chat({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [collectionFilter, setCollectionFilter] = useState<string>('')
   const [pendingModelSwitch, setPendingModelSwitch] = useState<string | null>(null)
   const pageLoadNormalizedRef = useRef(false)
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileSidebarOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [isMobileSidebarOpen])
 
   // Fetch all sessions
   const { data: sessions = [] } = useQuery({
@@ -57,6 +70,11 @@ export default function Chat({
 
   const { data: lastModelSetting } = useSystemSetting({ key: 'chat.lastModel', enabled })
   const { data: remoteOllamaUrlSetting } = useSystemSetting({ key: 'ai.remoteOllamaUrl', enabled })
+  const { data: autoThinkingSetting } = useSystemSetting({ key: 'ai.autoThinking', enabled })
+  // Global default for models the user hasn't explicitly toggled. Coerce defensively — KV
+  // booleans have historically round-tripped as strings.
+  const autoThinkingDefault =
+    autoThinkingSetting?.value === true || autoThinkingSetting?.value === 'true'
 
   const { data: remoteStatus } = useQuery({
     queryKey: ['remoteOllamaStatus'],
@@ -72,6 +90,44 @@ export default function Chat({
     select: (data) => data || [],
   })
 
+  const { data: knownCollections = [] } = useQuery({
+    queryKey: ['kbCollections'],
+    queryFn: () => api.getKnowledgeCollections(),
+    select: (data) => data?.collections ?? [],
+  })
+
+  // Per-model thinking overrides, remembered client-side (localStorage, keyed by model name).
+  // An entry here means the user explicitly toggled thinking for that model; absent means fall
+  // back to the global default (ai.autoThinking). Seeded from localStorage when models load.
+  const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    const next: Record<string, boolean> = {}
+    for (const m of installedModels) {
+      try {
+        const stored = localStorage.getItem(`nomad:thinking:${m.name}`)
+        if (stored !== null) next[m.name] = stored === 'true'
+      } catch {}
+    }
+    setThinkingOverrides(next)
+  }, [installedModels])
+
+  const selectedModelSupportsThinking =
+    installedModels.find((m) => m.name === selectedModel)?.thinking === true
+
+  // Effective thinking preference for a model: explicit override wins, else the global default.
+  const effectiveThinking = useCallback(
+    (model: string): boolean =>
+      model in thinkingOverrides ? thinkingOverrides[model] : autoThinkingDefault,
+    [thinkingOverrides, autoThinkingDefault]
+  )
+
+  const setModelThinking = useCallback((model: string, value: boolean) => {
+    setThinkingOverrides((prev) => ({ ...prev, [model]: value }))
+    try {
+      localStorage.setItem(`nomad:thinking:${model}`, String(value))
+    } catch {}
+  }, [])
+
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
     queryKey: ['chatSuggestions'],
     queryFn: async ({ signal }) => {
@@ -84,7 +140,7 @@ export default function Chat({
   })
 
   const rewriteModelAvailable = useMemo(() => {
-    return installedModels.some(model => model.name === DEFAULT_QUERY_REWRITE_MODEL)
+    return installedModels.some((model) => model.name === DEFAULT_QUERY_REWRITE_MODEL)
   }, [installedModels])
 
   const deleteAllSessionsMutation = useMutation({
@@ -102,6 +158,8 @@ export default function Chat({
       model: string
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
       sessionId?: number
+      think?: boolean
+      collection?: string
     }) => api.sendChatMessage({ ...request, stream: false }),
     onSuccess: async (data) => {
       if (!data || !activeSessionId) {
@@ -323,7 +381,13 @@ export default function Chat({
 
         try {
           await api.streamChatMessage(
-            { model: selectedModel || 'llama3.2', messages: chatMessages, stream: true, sessionId: sessionId ? Number(sessionId) : undefined },
+            {
+              model: selectedModel || 'llama3.2',
+              messages: chatMessages,
+              stream: true,
+              sessionId: sessionId ? Number(sessionId) : undefined, think: effectiveThinking(selectedModel),
+              collection: collectionFilter || undefined,
+            },
             (chunkContent, chunkThinking, done) => {
               if (chunkThinking.length > 0 && thinkingStartTime === null) {
                 thinkingStartTime = Date.now()
@@ -348,20 +412,23 @@ export default function Chat({
                 if (isThinkingPhase && chunkContent.length > 0) {
                   isThinkingPhase = false
                   if (thinkingStartTime !== null) {
-                    thinkingDuration = Math.max(1, Math.round((Date.now() - thinkingStartTime) / 1000))
+                    thinkingDuration = Math.max(
+                      1,
+                      Math.round((Date.now() - thinkingStartTime) / 1000)
+                    )
                   }
                 }
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
                       ? {
-                        ...m,
-                        content: m.content + chunkContent,
-                        thinking: (m.thinking ?? '') + chunkThinking,
-                        isStreaming: !done,
-                        isThinking: isThinkingPhase,
-                        thinkingDuration: thinkingDuration ?? undefined,
-                      }
+                          ...m,
+                          content: m.content + chunkContent,
+                          thinking: (m.thinking ?? '') + chunkThinking,
+                          isStreaming: !done,
+                          isThinking: isThinkingPhase,
+                          thinkingDuration: thinkingDuration ?? undefined,
+                        }
                       : m
                   )
                 )
@@ -376,9 +443,7 @@ export default function Chat({
             setMessages((prev) => {
               const hasAssistantMsg = prev.some((m) => m.id === assistantMsgId)
               if (hasAssistantMsg) {
-                return prev.map((m) =>
-                  m.id === assistantMsgId ? { ...m, isStreaming: false } : m
-                )
+                return prev.map((m) => (m.id === assistantMsgId ? { ...m, isStreaming: false } : m))
               }
               return [
                 ...prev,
@@ -399,9 +464,7 @@ export default function Chat({
         if (fullContent && sessionId) {
           // Ensure the streaming cursor is removed
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId ? { ...m, isStreaming: false } : m
-            )
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, isStreaming: false } : m))
           )
 
           // Refresh sessions to pick up backend-persisted messages and title
@@ -414,111 +477,169 @@ export default function Chat({
           model: selectedModel || 'llama3.2',
           messages: chatMessages,
           sessionId: sessionId ? Number(sessionId) : undefined,
+          think: effectiveThinking(selectedModel),
+          collection: collectionFilter || undefined,
         })
       }
     },
-    [activeSessionId, messages, selectedModel, chatMutation, queryClient, streamingEnabled]
+    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
   )
 
   return (
     <>
-    {pendingModelSwitch && (
-      <StyledModal
-        title={`Switch to ${pendingModelSwitch}?`}
-        onConfirm={handleConfirmModelSwitch}
-        onCancel={handleCancelModelSwitch}
-        open={true}
-        confirmText="Switch & New Chat"
-        cancelText="Cancel"
-        confirmVariant="primary"
-      >
-        <p className="text-text-primary">
-          Switching to <strong>{pendingModelSwitch}</strong> will start a new chat. Your current
-          conversation stays available in the sidebar.
-        </p>
-      </StyledModal>
-    )}
-    <div
-      className={classNames(
-        'flex border border-border-subtle overflow-hidden shadow-sm w-full',
-        isInModal ? 'h-full rounded-lg' : 'h-screen'
+      {pendingModelSwitch && (
+        <StyledModal
+          title={`Switch to ${pendingModelSwitch}?`}
+          onConfirm={handleConfirmModelSwitch}
+          onCancel={handleCancelModelSwitch}
+          open={true}
+          confirmText="Switch & New Chat"
+          cancelText="Cancel"
+          confirmVariant="primary"
+        >
+          <p className="text-text-primary">
+            Switching to <strong>{pendingModelSwitch}</strong> will start a new chat. Your current
+            conversation stays available in the sidebar.
+          </p>
+        </StyledModal>
       )}
-    >
-      <ChatSidebar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onSessionSelect={handleSessionSelect}
-        onNewChat={handleNewChat}
-        onClearHistory={handleClearHistory}
-        isInModal={isInModal}
-      />
-      <div className="flex-1 flex flex-col min-h-0">
-        <KbPolicyPromptBanner />
-        <div className="px-6 py-3 border-b border-border-subtle bg-surface-secondary flex items-center justify-between h-[75px] flex-shrink-0">
-          <h2 className="text-lg font-semibold text-text-primary">
-            {activeSession?.title || 'New Chat'}
-          </h2>
-          <div className="flex items-center gap-4">
-            {remoteOllamaUrlSetting?.value && (
-              <span
-                className={classNames(
-                  'text-xs rounded px-2 py-1 font-medium',
-                  remoteStatus?.connected === false
-                    ? 'text-red-700 bg-red-50 border border-red-200'
-                    : 'text-green-700 bg-green-50 border border-green-200'
-                )}
+      <div
+        className={classNames(
+          'flex border border-border-subtle overflow-hidden shadow-sm w-full',
+          isInModal ? 'h-full rounded-lg' : 'h-screen'
+        )}
+      >
+        <ChatSidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSessionSelect={handleSessionSelect}
+          onNewChat={handleNewChat}
+          onClearHistory={handleClearHistory}
+          isInModal={isInModal}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
+        />
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Close conversation sidebar"
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
+          <KbPolicyPromptBanner />
+          <div className="px-3 sm:px-6 py-3 border-b border-border-subtle bg-surface-secondary flex flex-wrap items-center justify-between gap-2 min-h-[75px] flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                className="rounded-lg p-1.5 hover:bg-surface-primary focus:outline-none focus:ring-2 focus:ring-desert-green md:hidden"
+                aria-label="Open conversation sidebar"
+                aria-controls="chat-sidebar"
+                aria-expanded={isMobileSidebarOpen}
+                onClick={() => setIsMobileSidebarOpen(true)}
               >
-                {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
-              </span>
-            )}
-            <div className="flex items-center gap-2">
-              <label htmlFor="model-select" className="text-sm text-text-secondary">
-                Model:
-              </label>
-              {isLoadingModels ? (
-                <div className="text-sm text-text-muted">Loading models...</div>
-              ) : installedModels.length === 0 ? (
-                <div className="text-sm text-red-600">No models installed</div>
-              ) : (
-                <select
-                  id="model-select"
-                  value={pendingModelSwitch ?? selectedModel}
-                  onChange={(e) => handleUserSelectedModel(e.target.value)}
-                  className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                <IconMenu2 className="h-6 w-6 text-text-muted" aria-hidden="true" />
+              </button>
+              <h2 className="text-lg font-semibold text-text-primary truncate">
+                {activeSession?.title || 'New Chat'}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              {remoteOllamaUrlSetting?.value && (
+                <span
+                  className={classNames(
+                    'text-xs rounded px-2 py-1 font-medium',
+                    remoteStatus?.connected === false
+                      ? 'text-red-700 bg-red-50 border border-red-200'
+                      : 'text-green-700 bg-green-50 border border-green-200'
+                  )}
                 >
-                  {installedModels.map((model) => (
-                    <option key={model.name} value={model.name}>
-                      {model.name}{model.size > 0 ? ` (${formatBytes(model.size)})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
+                </span>
+              )}
+              <div className="flex items-center gap-2">
+              <label htmlFor="collection-select" className="text-sm text-text-secondary">
+                Search in:
+              </label>
+              <select
+                id="collection-select"
+                value={collectionFilter}
+                onChange={(e) => setCollectionFilter(e.target.value)}
+                className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+              >
+                <option value="">All</option>
+                {knownCollections.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+                <label htmlFor="model-select" className="text-sm text-text-secondary">
+                  Model:
+                </label>
+                {isLoadingModels ? (
+                  <div className="text-sm text-text-muted">Loading models...</div>
+                ) : installedModels.length === 0 ? (
+                  <div className="text-sm text-red-600">No models installed</div>
+                ) : (
+                  <select
+                    id="model-select"
+                    value={pendingModelSwitch ?? selectedModel}
+                    onChange={(e) => handleUserSelectedModel(e.target.value)}
+                    className="min-w-0 max-w-44 sm:max-w-none px-2 sm:px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                  >
+                    {installedModels.map((model) => (
+                      <option key={model.name} value={model.name}>
+                        {model.name}
+                        {model.size > 0 ? ` (${formatBytes(model.size)})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {selectedModelSupportsThinking && (
+              <div className="flex items-center">
+                <span className="text-sm text-text-secondary select-none">Thinking:</span>
+                <InfoTooltip
+                  position="bottom"
+                  align="right"
+                  text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
+                />
+                <Switch
+                  id="chat-thinking-toggle"
+                  checked={effectiveThinking(selectedModel)}
+                  onChange={(v) => setModelThinking(selectedModel, v)}
+                />
+              </div>
+            )}
+            {isInModal && (
+                <button
+                  type="button"
+                  aria-label="Close chat"
+                  onClick={() => {
+                    if (onClose) {
+                      onClose()
+                    }
+                  }}
+                  className="rounded-lg hover:bg-surface-secondary transition-colors"
+                >
+                  <IconX className="h-6 w-6 text-text-muted" aria-hidden="true" />
+                </button>
               )}
             </div>
-            {isInModal && (
-              <button
-                onClick={() => {
-                  if (onClose) {
-                    onClose()
-                  }
-                }}
-                className="rounded-lg hover:bg-surface-secondary transition-colors"
-              >
-                <IconX className="h-6 w-6 text-text-muted" />
-              </button>
-            )}
           </div>
+          <ChatInterface
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            isLoading={isStreamingResponse || chatMutation.isPending}
+            chatSuggestions={chatSuggestions}
+            chatSuggestionsEnabled={suggestionsEnabled}
+            chatSuggestionsLoading={chatSuggestionsLoading}
+            rewriteModelAvailable={rewriteModelAvailable}
+          />
         </div>
-        <ChatInterface
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          isLoading={isStreamingResponse || chatMutation.isPending}
-          chatSuggestions={chatSuggestions}
-          chatSuggestionsEnabled={suggestionsEnabled}
-          chatSuggestionsLoading={chatSuggestionsLoading}
-          rewriteModelAvailable={rewriteModelAvailable}
-        />
       </div>
-    </div>
     </>
   )
 }

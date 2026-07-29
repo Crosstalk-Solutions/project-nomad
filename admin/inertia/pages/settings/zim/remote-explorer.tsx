@@ -32,6 +32,7 @@ import {
 } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import CategoryCard from '~/components/CategoryCard'
+import CreatorPacksSection from '~/components/CreatorPacksSection'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -173,6 +174,26 @@ export default function ZimRemoteExplorer() {
     })
   }, [data, downloads, localFiles])
   const hasMore = useMemo(() => data?.pages[data.pages.length - 1]?.has_more || false, [data])
+
+  // When a ZIM download drops off the polled downloads list it has completed (or been
+  // cancelled). The installed-files query (refetchOnWindowFocus is off) won't otherwise
+  // refresh, so a just-installed ZIM stays absent from `localFiles` and reappears in the
+  // accumulated remote pages as a ghost entry. Refresh it so the item is pruned.
+  const prevDownloadKeysRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const currentKeys = new Set((downloads ?? []).map((d) => d.jobId))
+    let anyRemoved = false
+    for (const key of prevDownloadKeysRef.current) {
+      if (!currentKeys.has(key)) {
+        anyRemoved = true
+        break
+      }
+    }
+    prevDownloadKeysRef.current = currentKeys
+    if (anyRemoved) {
+      queryClient.invalidateQueries({ queryKey: [ZIM_FILES_KEY] })
+    }
+  }, [downloads, queryClient])
 
   const fetchOnBottomReached = useCallback(
     (parentRef?: HTMLDivElement | null) => {
@@ -497,6 +518,9 @@ export default function ZimRemoteExplorer() {
               />
             </div>
           ) : null}
+
+          {/* Creator Packs (hidden entirely when this build isn't configured) */}
+          <CreatorPacksSection />
 
           {/* Tiered Category Collections */}
           <div className="flex items-center gap-3 mt-8 mb-4">

@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
@@ -17,15 +17,15 @@ import {
   IconChevronDown,
   IconClock,
 } from '@tabler/icons-react'
-import { useTransmit } from 'react-adonis-transmit'
-import { BenchmarkProgress, BenchmarkStatus } from '../../../types/benchmark'
+import { BenchmarkStatus } from '../../../types/benchmark'
 import BenchmarkResult from '#models/benchmark_result'
 import api from '~/lib/api'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../../constants/service_names'
-import { BROADCAST_CHANNELS } from '../../../constants/broadcast'
-
-type BenchmarkProgressWithID = BenchmarkProgress & { benchmark_id: string }
+import { useBenchmarkRun } from '~/hooks/useBenchmarkRun'
+import BenchmarkRunView from '~/components/benchmark/BenchmarkRunView'
+import ScoreReveal from '~/components/benchmark/ScoreReveal'
+import { getScoreDisplay } from '~/lib/benchmarkScore'
 
 export default function BenchmarkPage(props: {
   benchmark: {
@@ -35,12 +35,11 @@ export default function BenchmarkPage(props: {
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
-  const { subscribe } = useTransmit()
   const queryClient = useQueryClient()
   const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
-  const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
-  const refetchLatestRef = useRef<(() => void) | null>(null)
+  const [revealing, setRevealing] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
@@ -61,7 +60,19 @@ export default function BenchmarkPage(props: {
     },
     initialData: props.benchmark.latestResult,
   })
-  refetchLatestRef.current = refetchLatest
+
+  // Live run state: owns the progress + telemetry SSE subscriptions.
+  const run = useBenchmarkRun({
+    onFinished: (status, message) => {
+      setIsRunning(false)
+      if (status === 'completed') {
+        refetchLatest()
+        setRevealing(true)
+      } else {
+        setErrorMsg(message || 'Benchmark failed')
+      }
+    },
+  })
 
   // Fetch all benchmark results for history
   const { data: benchmarkHistory } = useQuery({
@@ -75,55 +86,28 @@ export default function BenchmarkPage(props: {
     },
   })
 
-  // Run benchmark mutation (uses sync mode by default for simpler local dev)
+  // Run benchmark mutation (async: dispatched to the queue worker; live progress
+  // and completion arrive over SSE via useBenchmarkRun).
   const runBenchmark = useMutation({
     mutationFn: async (type: 'full' | 'system' | 'ai') => {
+      setErrorMsg(null)
+      run.reset()
       setIsRunning(true)
-      setProgress({
-        status: 'starting',
-        progress: 5,
-        message: 'Starting benchmark... This takes 2-5 minutes.',
-        current_stage: 'Starting',
-        benchmark_id: '',
-        timestamp: new Date().toISOString(),
-      })
 
       // Use sync mode - runs inline without needing Redis/queue worker
       return await api.runBenchmark(type, true)
     },
     onSuccess: (data) => {
-      if (data?.success) {
-        setProgress({
-          status: 'completed',
-          progress: 100,
-          message: 'Benchmark completed!',
-          current_stage: 'Complete',
-          benchmark_id: data.benchmark_id,
-          timestamp: new Date().toISOString(),
-        })
-        refetchLatest()
-      } else {
-        setProgress({
-          status: 'error',
-          progress: 0,
-          message: 'Benchmark failed',
-          current_stage: 'Error',
-          benchmark_id: '',
-          timestamp: new Date().toISOString(),
-        })
+      // Dispatch only confirms the job started; the 'completed'/'error' SSE event
+      // drives the rest (see useBenchmarkRun's onFinished).
+      if (!data?.success) {
+        setIsRunning(false)
+        setErrorMsg('Failed to start benchmark')
       }
-      setIsRunning(false)
     },
     onError: (error) => {
-      setProgress({
-        status: 'error',
-        progress: 0,
-        message: error.message || 'Benchmark failed',
-        current_stage: 'Error',
-        benchmark_id: '',
-        timestamp: new Date().toISOString(),
-      })
       setIsRunning(false)
+      setErrorMsg(error.message || 'Failed to start benchmark')
     },
   })
 
@@ -194,6 +178,10 @@ export default function BenchmarkPage(props: {
     latestResult.ai_tokens_per_second > 0 &&
     !latestResult.submitted_to_repository
 
+  // How to present the headline score: partial (System/AI Only) runs are NOT the
+  // NOMAD Score and are relabelled + flagged so users don't mistake them for it.
+  const scoreInfo = latestResult ? getScoreDisplay(latestResult.benchmark_type) : null
+
   // Handle Full Benchmark click with pre-flight check
   const handleFullBenchmarkClick = () => {
     if (!aiInstalled) {
@@ -204,120 +192,6 @@ export default function BenchmarkPage(props: {
     runBenchmark.mutate('full')
   }
 
-  // Simulate progress during sync benchmark (since we don't get SSE updates)
-  useEffect(() => {
-    if (!isRunning || progress?.status === 'completed' || progress?.status === 'error') return
-
-    const stages: {
-      status: BenchmarkStatus
-      progress: number
-      message: string
-      label: string
-      duration: number
-    }[] = [
-      {
-        status: 'detecting_hardware',
-        progress: 10,
-        message: 'Detecting system hardware...',
-        label: 'Detecting Hardware',
-        duration: 2000,
-      },
-      {
-        status: 'running_cpu',
-        progress: 25,
-        message: 'Running CPU benchmark (30s)...',
-        label: 'CPU Benchmark',
-        duration: 32000,
-      },
-      {
-        status: 'running_memory',
-        progress: 40,
-        message: 'Running memory benchmark...',
-        label: 'Memory Benchmark',
-        duration: 8000,
-      },
-      {
-        status: 'running_disk_read',
-        progress: 55,
-        message: 'Running disk read benchmark (30s)...',
-        label: 'Disk Read Test',
-        duration: 35000,
-      },
-      {
-        status: 'running_disk_write',
-        progress: 70,
-        message: 'Running disk write benchmark (30s)...',
-        label: 'Disk Write Test',
-        duration: 35000,
-      },
-      {
-        status: 'downloading_ai_model',
-        progress: 80,
-        message: 'Downloading AI benchmark model (first run only)...',
-        label: 'Downloading AI Model',
-        duration: 5000,
-      },
-      {
-        status: 'running_ai',
-        progress: 85,
-        message: 'Running AI inference benchmark...',
-        label: 'AI Inference Test',
-        duration: 15000,
-      },
-      {
-        status: 'calculating_score',
-        progress: 95,
-        message: 'Calculating NOMAD score...',
-        label: 'Calculating Score',
-        duration: 2000,
-      },
-    ]
-
-    let currentStage = 0
-    const advanceStage = () => {
-      if (currentStage < stages.length && isRunning) {
-        const stage = stages[currentStage]
-        setProgress({
-          status: stage.status,
-          progress: stage.progress,
-          message: stage.message,
-          current_stage: stage.label,
-          benchmark_id: '',
-          timestamp: new Date().toISOString(),
-        })
-        currentStage++
-      }
-    }
-
-    // Start the first stage after a short delay
-    const timers: NodeJS.Timeout[] = []
-    let elapsed = 1000
-    stages.forEach((stage) => {
-      timers.push(setTimeout(() => advanceStage(), elapsed))
-      elapsed += stage.duration
-    })
-
-    return () => {
-      timers.forEach((t) => clearTimeout(t))
-    }
-  }, [isRunning])
-
-  // Listen for benchmark progress via SSE (backup for async mode)
-  useEffect(() => {
-    const unsubscribe = subscribe(BROADCAST_CHANNELS.BENCHMARK_PROGRESS, (data: BenchmarkProgressWithID) => {
-      setProgress(data)
-      if (data.status === 'completed' || data.status === 'error') {
-        setIsRunning(false)
-        refetchLatestRef.current?.()
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscribe])
-
   const formatBytes = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024)
     return `${gb.toFixed(1)} GB`
@@ -327,25 +201,6 @@ export default function BenchmarkPage(props: {
     if (score >= 70) return 'text-green-600'
     if (score >= 40) return 'text-yellow-600'
     return 'text-red-600'
-  }
-
-  const getProgressPercent = () => {
-    if (!progress) return 0
-    const stages: Record<BenchmarkStatus, number> = {
-      idle: 0,
-      starting: 5,
-      detecting_hardware: 10,
-      running_cpu: 25,
-      running_memory: 40,
-      running_disk_read: 55,
-      running_disk_write: 70,
-      downloading_ai_model: 80,
-      running_ai: 85,
-      calculating_score: 95,
-      completed: 100,
-      error: 0,
-    }
-    return stages[progress.status] || 0
   }
 
   // Calculate AI score from tokens per second (normalized to 0-100)
@@ -375,33 +230,36 @@ export default function BenchmarkPage(props: {
               Run Benchmark
             </h2>
 
-            <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
-              {isRunning ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin h-6 w-6 border-2 border-desert-green border-t-transparent rounded-full" />
-                    <span className="text-lg font-medium">
-                      {progress?.current_stage || 'Running benchmark...'}
-                    </span>
+            {isRunning ? (
+              <BenchmarkRunView run={run} />
+            ) : revealing ? (
+              // Reveal slot: wait for the refetched latest result to be the one
+              // from this run, then hand it to the score reveal.
+              (() => {
+                const ready =
+                  latestResult && latestResult.benchmark_id === run.progress?.benchmark_id
+                return ready ? (
+                  <ScoreReveal result={latestResult} onDone={() => setRevealing(false)} />
+                ) : (
+                  <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
+                    <div className="flex items-center justify-center gap-3 text-desert-green animate-pulse">
+                      <div className="animate-spin h-6 w-6 border-2 border-desert-green border-t-transparent rounded-full" />
+                      <span className="text-lg font-medium">Compiling report...</span>
+                    </div>
                   </div>
-                  <div className="w-full bg-desert-stone-lighter rounded-full h-4 overflow-hidden">
-                    <div
-                      className="bg-desert-green h-full transition-all duration-500"
-                      style={{ width: `${getProgressPercent()}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-desert-stone-dark">{progress?.message}</p>
-                </div>
-              ) : (
+                )
+              })()
+            ) : (
+              <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
                 <div className="space-y-6">
-                  {progress?.status === 'error' && (
+                  {errorMsg && (
                     <Alert
                       type="error"
                       title="Benchmark Failed"
-                      message={progress.message}
+                      message={errorMsg}
                       variant="bordered"
                       dismissible
-                      onDismiss={() => setProgress(null)}
+                      onDismiss={() => setErrorMsg(null)}
                     />
                   )}
                   {showAIRequiredAlert && (
@@ -423,7 +281,7 @@ export default function BenchmarkPage(props: {
                   )}
                   <p className="text-desert-stone-dark">
                     Run a benchmark to measure your system's CPU, memory, disk, and AI inference
-                    performance. The benchmark takes approximately 2-5 minutes to complete.
+                    performance. The benchmark takes approximately 3-6 minutes to complete.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <StyledButton
@@ -469,8 +327,8 @@ export default function BenchmarkPage(props: {
                     </p>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </section>
 
           {/* Results Section */}
@@ -479,7 +337,12 @@ export default function BenchmarkPage(props: {
               <section className="mb-12">
                 <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
                   <div className="w-1 h-6 bg-desert-green" />
-                  NOMAD Score
+                  {scoreInfo?.label ?? 'NOMAD Score'}
+                  {scoreInfo?.isPartial && (
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-desert-stone-light text-desert-stone-dark text-xs font-semibold uppercase tracking-wide">
+                      Partial
+                    </span>
+                  )}
                 </h2>
 
                 <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
@@ -487,22 +350,58 @@ export default function BenchmarkPage(props: {
                     <div className="shrink-0">
                       <CircularGauge
                         value={latestResult.nomad_score}
-                        label="NOMAD Score"
+                        label={latestResult.nomad_score_v2 != null ? 'Legacy Score' : 'NOMAD Score'}
                         size="lg"
                         variant="cpu"
                         subtext="out of 100"
+                        muted={scoreInfo?.isPartial}
                         icon={<IconChartBar className="w-8 h-8" />}
                       />
                     </div>
                     <div className="flex-1 space-y-4">
-                      <div
-                        className={`text-5xl font-bold ${getScoreColor(latestResult.nomad_score)}`}
-                      >
-                        {latestResult.nomad_score.toFixed(1)}
+                      {latestResult.nomad_score_v2 != null ? (
+                        <>
+                          <div className="flex items-baseline gap-3">
+                            <div className="text-5xl font-bold text-desert-green">
+                              {latestResult.nomad_score_v2.toFixed(1)}
+                            </div>
+                            <div className="text-sm text-desert-stone-dark flex items-center gap-1">
+                              NOMAD Score
+                              <InfoTooltip text="NOMAD Score v2 is an uncapped index versus the NOMAD Reference Build, which scores exactly 1000. Higher is better, and there is no ceiling." />
+                            </div>
+                          </div>
+                          <p className="text-sm text-desert-stone-dark">
+                            Reference Build = 1000.{' '}
+                            <span className="text-desert-stone">
+                              Legacy scale: {latestResult.nomad_score.toFixed(1)} / 100
+                            </span>
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-3">
+                        <div
+                              className={`text-5xl font-bold ${
+                            scoreInfo?.isPartial
+                              ? 'text-desert-stone-dark'
+                              : getScoreColor(latestResult.nomad_score)
+                          }`}
+                            >
+                              {latestResult.nomad_score.toFixed(1)}
+                            </div>
+                        {scoreInfo?.isPartial && (
+                          <span className="px-2 py-1 rounded-md bg-desert-stone-light text-desert-stone-dark text-xs font-semibold uppercase tracking-wide">
+                            Partial
+                          </span>
+                        )}
                       </div>
-                      <p className="text-desert-stone-dark">
-                        Your NOMAD Score is a weighted composite of all benchmark results.
-                      </p>
+                          <p className="text-desert-stone-dark">
+                            {scoreInfo?.isPartial
+                          ? scoreInfo.cta
+                          : 'Your NOMAD Score is a weighted composite of all benchmark results.'}
+                          </p>
+                        </>
+                      )}
 
                       {/* Share with Community - Only for full benchmarks with AI data */}
                       {canShareBenchmark && (
@@ -769,7 +668,7 @@ export default function BenchmarkPage(props: {
                       <div>
                         <div className="text-desert-stone-dark">NOMAD Score</div>
                         <div className="font-bold text-desert-green">
-                          {latestResult.nomad_score.toFixed(1)}
+                          {(latestResult.nomad_score_v2 ?? latestResult.nomad_score).toFixed(1)}
                         </div>
                       </div>
                     </div>
@@ -880,6 +779,101 @@ export default function BenchmarkPage(props: {
                           </div>
                         </div>
                       </div>
+
+                      {/* v2 raw measurements + run environment */}
+                      {latestResult.cpu_events_multi != null && (
+                        <div className="mt-6 pt-6 border-t border-desert-stone-light grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-semibold text-desert-green mb-3">
+                              Measured Performance (v2)
+                            </h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">CPU single-thread</span>
+                                <span className="font-mono">
+                                  {latestResult.cpu_events_single?.toFixed(1)} events/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  CPU multi-thread ({latestResult.cpu_benchmark_threads}T)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.cpu_events_multi?.toFixed(1)} events/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  Memory ({latestResult.memory_threads}T)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.memory_ops_per_sec?.toLocaleString()} ops/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  Disk read (O_DIRECT)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.disk_read_mb_per_sec?.toFixed(1)} MB/s
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">
+                                  Disk write (O_DIRECT)
+                                </span>
+                                <span className="font-mono">
+                                  {latestResult.disk_write_mb_per_sec?.toFixed(1)} MB/s
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-semibold text-desert-green mb-3">Environment</h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">Run environment</span>
+                                <span className="font-mono">
+                                  {latestResult.run_environment || 'Unknown'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">Storage backend</span>
+                                <span className="font-mono">
+                                  {latestResult.storage_path_type || 'Unknown'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-desert-stone-dark">GPU compute</span>
+                                <span className="font-mono">
+                                  {latestResult.gpu_compute_detected == null
+                                    ? 'Unknown'
+                                    : latestResult.gpu_compute_detected
+                                      ? 'Detected'
+                                      : 'Not detected'}
+                                </span>
+                              </div>
+                              {latestResult.sysbench_digest && (
+                                <div className="flex justify-between">
+                                  <span className="text-desert-stone-dark">sysbench</span>
+                                  <span className="font-mono text-xs">
+                                    {latestResult.sysbench_digest.replace('sha256:', '').slice(0, 12)}
+                                  </span>
+                                </div>
+                              )}
+                              {latestResult.ollama_version && (
+                                <div className="flex justify-between">
+                                  <span className="text-desert-stone-dark">Ollama</span>
+                                  <span className="font-mono text-xs">
+                                    {latestResult.ollama_version}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

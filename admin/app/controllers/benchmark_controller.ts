@@ -184,9 +184,22 @@ export default class BenchmarkController {
       // Pass through the status code from the service if available, otherwise default to 400
       const statusCode = (error as any).statusCode || 400
       logger.error({ err: error }, '[BenchmarkController] Benchmark submit failed')
+
+      // Surface a clear, actionable reason to the UI instead of a generic failure.
+      // The rate limiter (429) is the most common cause, so name it explicitly;
+      // otherwise pass through the underlying detail (repository error or a service
+      // validation message) and fall back to a safe generic only when we have none.
+      let errorMessage: string
+      if (statusCode === 429) {
+        errorMessage = 'You can only submit one benchmark per hour. Please wait a bit and try again.'
+      } else {
+        errorMessage =
+          (error as any).detail || (error as any).message || 'Failed to submit benchmark results.'
+      }
+
       return response.status(statusCode).send({
         success: false,
-        error: 'Failed to submit benchmark results.',
+        error: errorMessage,
       })
     }
   }
@@ -246,6 +259,13 @@ export default class BenchmarkController {
    */
   async status({}: HttpContext) {
     return this.benchmarkService.getStatus()
+  }
+
+  /**
+   * Whether to show the dashboard "re-run under Score v2" banner
+   */
+  async rerunBanner({}: HttpContext) {
+    return { show: await this.benchmarkService.shouldShowRerunBanner() }
   }
 
   /**

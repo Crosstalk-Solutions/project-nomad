@@ -61,6 +61,15 @@
               "description": "NIH's consumer health encyclopedia - diseases, conditions, drugs, supplements",
               "url": "https://download.kiwix.org/zim/zimit/medlineplus.gov_en_all_2025-01.zim",
               "size_mb": 1800
+            },
+            {
+              "id": "openfda-drug-labels",
+              "type": "dataset",
+              "version": "2025-01",
+              "title": "FDA Drug Reference",
+              "description": "Offline FDA drug labels - search by drug name",
+              "url": "https://api.fda.gov/download.json",
+              "size_mb": 1700
             }
           ]
         },
@@ -452,11 +461,11 @@
           "resources": [
             {
               "id": "lrnselfreliance_en_all",
-              "version": "2025-12",
+              "version": "2026-06",
               "title": "Learning Self-Reliance: Homesteading",
               "description": "Beekeeping, animal husbandry, and sustainable living practices",
-              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
-              "size_mb": 3970
+              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2026-06.zim",
+              "size_mb": 3790
             },
             {
               "id": "gutenberg_en_lcc-s",
@@ -501,26 +510,26 @@
             },
             {
               "id": "devdocs_en_javascript",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "JavaScript Documentation",
               "description": "MDN JavaScript reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-07.zim",
               "size_mb": 3
             },
             {
               "id": "devdocs_en_html",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "HTML Documentation",
               "description": "MDN HTML elements and attributes reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-07.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_css",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "CSS Documentation",
               "description": "MDN CSS properties and selectors reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-07.zim",
               "size_mb": 5
             }
           ]
@@ -565,11 +574,11 @@
             },
             {
               "id": "devdocs_en_git",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "Git Documentation",
               "description": "Git version control reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-01.zim",
-              "size_mb": 1
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-07.zim",
+              "size_mb": 2
             }
           ]
         },
@@ -597,10 +606,10 @@
             },
             {
               "id": "devdocs_en_docker",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "Docker Documentation",
               "description": "Docker container reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-07.zim",
               "size_mb": 2
             },
             {

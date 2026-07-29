@@ -9,6 +9,9 @@ export const specResourceValidator = vine.object({
   description: vine.string(),
   url: vine.string().url(),
   size_mb: vine.number().min(0).optional(),
+  // Resource-type discriminator (absent == 'zim'). Required here because VineJS
+  // strips unknown keys, which would silently drop the field on manifest fetch.
+  type: vine.enum(['zim', 'dataset']).optional(),
 })
 
 // ---- ZIM Categories spec (versioned) ----
@@ -64,6 +67,31 @@ export const wikipediaSpecSchema = vine.object({
       size_mb: vine.number().min(0),
       url: vine.string().url().nullable(),
       version: vine.string().nullable(),
+    })
+  ).minLength(1),
+})
+
+// ---- Creator Packs spec (versioned) ----
+//
+// Display metadata only — deliberately NO `url` field. The ZIM bytes are resolved
+// through the entitlement Worker at install time (CreatorPackService), never from
+// this public catalog. See project_content_creator_packs.
+export const creatorPacksSpecSchema = vine.object({
+  spec_version: vine.string(),
+  packs: vine.array(
+    vine.object({
+      id: vine.string(),
+      name: vine.string(),
+      creator: vine.string(),
+      description: vine.string(),
+      version: vine.string(),
+      resource_id: vine.string(),
+      video_count: vine.number().min(0),
+      size_mb: vine.number().min(0),
+      license_id: vine.string(),
+      banner_url: vine.string().url().optional(),
+      poster_url: vine.string().url().optional(),
+      logo_url: vine.string().url().optional(),
     })
   ).minLength(1),
 })

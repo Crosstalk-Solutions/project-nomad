@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Project NOMAD! Community contributions are what keep this project growing and improving. Please read this guide fully before getting started — it will save you (and the maintainers) a lot of time.
 
-> **Note:** Acceptance of contributions is not guaranteed. All pull requests are evaluated based on quality, relevance, and alignment with the project's goals. The maintainers of Project NOMAD ("NOMAD") reserve the right accept, deny, or modify any pull request at their sole discretion.
+> **Note:** Acceptance of contributions is not guaranteed. All pull requests are evaluated based on quality, relevance, and alignment with the project's goals. The maintainers of Project NOMAD ("NOMAD") reserve the right to accept, deny, or modify any pull request at their sole discretion.
 
 ---
 
@@ -53,7 +53,7 @@ When opening an issue:
 
 ### Prerequisites
 
-- A Debian-based OS (Ubuntu recommended)
+- A Debian-based OS (Ubuntu 26.04 LTS recommended)
 - `sudo`/root privileges
 - Docker installed and running
 - A stable internet connection (required for dependency downloads)

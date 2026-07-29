@@ -1,5 +1,6 @@
 import { ChatService } from '#services/chat_service'
 import { DockerService } from '#services/docker_service'
+import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
 import Service from '#models/service'
@@ -20,7 +21,8 @@ export default class OllamaController {
     private chatService: ChatService,
     private dockerService: DockerService,
     private ollamaService: OllamaService,
-    private ragService: RagService
+    private ragService: RagService,
+    private nomadMdService: NomadMdService
   ) { }
 
   async availableModels({ request }: HttpContext) {
@@ -71,16 +73,28 @@ export default class OllamaController {
         reqData.messages.unshift(systemPrompt)
       }
 
+      // Inject the user-managed NOMAD.md as its own leading system message so the
+      // user's persistent instructions take precedence, while the default
+      // formatting prompt and any RAG context below remain intact. A missing or
+      // blank file yields null and changes nothing.
+      const nomadPrompt = await this.nomadMdService.getSystemPrompt()
+      if (nomadPrompt) {
+        logger.debug('[OllamaController] Injecting NOMAD.md system prompt')
+        reqData.messages.unshift({ role: 'system' as const, content: nomadPrompt })
+      }
+
       // Query rewriting for better RAG retrieval with manageable context
       // Will return user's latest message if no rewriting is needed
       const rewrittenQuery = await this.rewriteQueryWithContext(reqData.messages, reqData.model)
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
       if (rewrittenQuery) {
+        const collectionFilter: string | null = request.input('collection', null)
         const relevantDocs = await this.ragService.searchSimilarDocuments(
           rewrittenQuery,
           5, // Top 5 most relevant chunks
-          0.3 // Minimum similarity score of 0.3
+          0.3, // Minimum similarity score of 0.3
+          collectionFilter ?? undefined
         )
 
         logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
@@ -144,13 +158,21 @@ export default class OllamaController {
         logger.debug(`[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`)
       }
 
-      // Check if the model supports "thinking" capability for enhanced response generation
+      // Check if the model supports "thinking" capability for enhanced response generation.
+      // Thinking is only enabled when the model supports it AND the user wants it: the explicit
+      // per-request preference wins, otherwise the global default (ai.autoThinking, default OFF).
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
-      const think: boolean | 'medium' = thinkingCapability ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+      let thinkingEnabled = false
+      if (thinkingCapability) {
+        thinkingEnabled = reqData.think ?? ((await KVStore.getValue('ai.autoThinking')) ?? false)
+      }
+      const think: boolean | 'medium' =
+        thinkingEnabled ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
 
-      // Separate sessionId from the Ollama request payload — Ollama rejects unknown fields
-      const { sessionId, ...ollamaRequest } = reqData
+      // Separate sessionId and the resolved thinking preference from the Ollama request payload —
+      // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
+      const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
 
       // Save user message to DB before streaming if sessionId provided
       let userContent: string | null = null
@@ -173,6 +195,7 @@ export default class OllamaController {
         const stream = await this.ollamaService.chatStream({
           ...ollamaRequest,
           think,
+          thinkingCapable: thinkingCapability,
           numCtx,
           signal: abortController.signal,
         })
@@ -207,7 +230,7 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think, numCtx })
+      const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
@@ -387,7 +410,14 @@ export default class OllamaController {
   }
 
   async installedModels({ }: HttpContext) {
-    return await this.ollamaService.getModels()
+    const models = await this.ollamaService.getModels()
+    // Enrich each model with its thinking capability so the chat picker knows which models
+    // to show the per-model thinking toggle for. checkModelHasThinking memoizes /api/show
+    // results, so this stays cheap on repeat loads. Best-effort per model.
+    const thinking = await Promise.all(
+      models.map((m) => this.ollamaService.checkModelHasThinking(m.name))
+    )
+    return models.map((m, i) => ({ ...m, thinking: thinking[i] }))
   }
 
   /**
@@ -474,3 +504,4 @@ export default class OllamaController {
     }
   }
 }
+

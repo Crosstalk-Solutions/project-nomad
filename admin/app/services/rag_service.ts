@@ -10,6 +10,7 @@ import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
 import JSZip from 'jszip'
 import * as cheerio from 'cheerio'
+import mammoth from 'mammoth'
 import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
@@ -44,6 +45,10 @@ export class RagService {
   private qdrantInitPromise: Promise<void> | null = null
   private embeddingModelVerified = false
   private resolvedEmbeddingModel: string | null = null
+  // Collections already verified this session (created + payload indexes in place).
+  // Skips the getCollections/createPayloadIndex round-trips that otherwise run on
+  // every embed call — ~45% of per-document Qdrant time on large ingestions (#1129)
+  private ensuredCollections = new Set<string>()
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
@@ -93,6 +98,8 @@ export class RagService {
     } catch {
       this.qdrant = null
       this.qdrantInitPromise = null
+      // Qdrant may have restarted (or been recreated) — re-verify collections on reconnect
+      this.ensuredCollections.clear()
       return {
         online: false,
         message: 'Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.',
@@ -112,6 +119,11 @@ export class RagService {
   ) {
     try {
       await this._ensureDependencies()
+
+      if (this.ensuredCollections.has(collectionName)) {
+        return
+      }
+
       const collections = await this.qdrant!.getCollections()
       const collectionExists = collections.collections.some((col) => col.name === collectionName)
 
@@ -133,6 +145,13 @@ export class RagService {
         field_name: 'content_type',
         field_schema: 'keyword',
       })
+      await this.qdrant!.createPayloadIndex(collectionName, {
+        field_name: 'collection',
+        field_schema: 'keyword',
+      })
+
+      // Only memoize after every step succeeded, so a partial failure is retried
+      this.ensuredCollections.add(collectionName)
     } catch (error) {
       logger.error('Error ensuring Qdrant collection:', error)
       throw error
@@ -612,6 +631,16 @@ export class RagService {
   }
 
   /**
+   * Extract text content from a DOCX file using mammoth. DOCX is a ZIP-based
+   * XML format, so raw-text extraction (extractTXTText) would return garbage —
+   * this parses the document XML properly and returns clean plain text.
+   */
+  private async processDocxFile(fileBuffer: Buffer): Promise<string> {
+    const { value: text } = await mammoth.extractRawText({ buffer: fileBuffer })
+    return text
+  }
+
+  /**
    * Extract text content from an EPUB file.
    * EPUBs are ZIP archives containing XHTML content files.
    * Reads the OPF manifest to determine reading order, then extracts
@@ -695,14 +724,16 @@ export class RagService {
     extractedText: string,
     filepath: string,
     deleteAfterEmbedding: boolean = false,
-    onProgress?: (percent: number) => Promise<void>
+    onProgress?: (percent: number) => Promise<void>,
+    collection?: string
   ): Promise<{ success: boolean; message: string; chunks?: number }> {
     if (!extractedText || extractedText.trim().length === 0) {
       return { success: false, message: 'Process completed succesfully, but no text was found to embed.' }
     }
 
     const embedResult = await this.embedAndStoreText(extractedText, {
-      source: filepath
+      source: filepath,
+      ...(collection ? { collection } : {})
     }, onProgress)
 
     if (!embedResult) {
@@ -732,7 +763,8 @@ export class RagService {
     filepath: string,
     deleteAfterEmbedding: boolean = false,
     batchOffset?: number,
-    onProgress?: (percent: number) => Promise<void>
+    onProgress?: (percent: number) => Promise<void>,
+    collection?: string
   ): Promise<ProcessAndEmbedFileResponse> {
     try {
       const fileType = determineFileType(filepath)
@@ -765,6 +797,9 @@ export class RagService {
         case 'pdf':
           extractedText = await this.processPDFFile(fileBuffer!)
           break
+        case 'docx':
+          extractedText = await this.processDocxFile(fileBuffer!)
+          break
         case 'epub':
           extractedText = await this.processEPUBFile(fileBuffer!)
           break
@@ -781,7 +816,7 @@ export class RagService {
         : undefined
 
       // Embed extracted text and cleanup
-      return await this.embedTextAndCleanup(extractedText, filepath, deleteAfterEmbedding, scaledProgress)
+      return await this.embedTextAndCleanup(extractedText, filepath, deleteAfterEmbedding, scaledProgress, collection)
     } catch (error) {
       logger.error('[RAG] Error processing and embedding file:', error)
       return { success: false, message: 'Error processing and embedding file.' }
@@ -800,7 +835,8 @@ export class RagService {
   public async searchSimilarDocuments(
     query: string,
     limit: number = 5,
-    scoreThreshold: number = 0.3 // Lower default threshold - was 0.7, now 0.3
+    scoreThreshold: number = 0.3, // Lower default threshold - was 0.7, now 0.3
+    collection?: string
   ): Promise<Array<{ text: string; score: number; metadata?: Record<string, any> }>> {
     try {
       logger.debug(`[RAG] Starting similarity search for query: "${query}"`)
@@ -875,14 +911,20 @@ export class RagService {
         await KbIngestState.query().where('active', false).select('file_path')
       ).map((row) => row.file_path)
 
+      const filter: Record<string, unknown> = {}
+      if (collection) {
+        filter.must = [{ key: 'collection', match: { value: collection } }]
+      }
+      if (inactiveSources.length > 0) {
+        filter.must_not = [{ key: 'source', match: { any: inactiveSources } }]
+      }
+      
       const searchResults = await this.qdrant!.search(RagService.CONTENT_COLLECTION_NAME, {
         vector: response.embeddings[0],
         limit: searchLimit,
         score_threshold: scoreThreshold,
         with_payload: true,
-        ...(inactiveSources.length > 0
-          ? { filter: { must_not: [{ key: 'source', match: { any: inactiveSources } }] } }
-          : {}),
+        ...(Object.keys(filter).length > 0 ? { filter } : {}),
       })
 
       logger.debug(`[RAG] Found ${searchResults.length} results above threshold ${scoreThreshold}`)
@@ -1131,14 +1173,15 @@ export class RagService {
       // in particular) have no row to attach to. The state machine is the
       // authoritative "what's on disk?" view; Qdrant is "what made it into
       // the vector store?". Both are needed to render the KB UI honestly.
-      const stateByPath = new Map<string, { state: KbIngestStateValue; chunks_embedded: number }>()
+      const stateByPath = new Map<string, { state: KbIngestStateValue; chunks_embedded: number; collection: string | null }>()
       try {
-        const stateRows = await KbIngestState.query().select('file_path', 'state', 'chunks_embedded')
+        const stateRows = await KbIngestState.query().select('file_path', 'state', 'chunks_embedded', 'collection')
         for (const row of stateRows) {
           sources.add(row.file_path)
           stateByPath.set(row.file_path, {
             state: row.state,
             chunks_embedded: row.chunks_embedded,
+            collection: row.collection,
           })
         }
       } catch (error) {
@@ -1165,12 +1208,121 @@ export class RagService {
             size: stats?.size ?? null,
             uploadedAt: stats?.modifiedTime.toISOString() ?? null,
             isUserUpload,
+            collection: row?.collection ?? null,
           }
         })
       )
     } catch (error) {
       logger.error('Error retrieving stored files:', error)
       return []
+    }
+  }
+
+  /**
+   * Enumerate distinct `collection` values currently in the knowledge base,
+   * for populating a subject-picker in the upload/chat UI. Mirrors the
+   * `source` facet pattern used elsewhere in this file (see getStoredFiles).
+   */
+  public async getKnowledgeCollections(): Promise<string[]> {
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+      key: 'collection',
+      limit: RagService.FACET_SOURCE_LIMIT,
+      exact: true,
+    })
+    const collections = new Set<string>()
+    for (const hit of facetResult.hits) {
+      if (typeof hit.value === 'string') collections.add(hit.value)
+    }
+    return Array.from(collections).sort()
+  }
+
+  /**
+   * Reassign a stored file's collection after the fact. Updates the `collection`
+   * payload field on every existing Qdrant point for this source in place (no
+   * re-chunking or re-embedding needed), then mirrors the change onto the
+   * KbIngestState row so getStoredFiles() reflects it immediately.
+   */
+  public async updateFileCollection(
+    source: string,
+    collection: string | null
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+        payload: { collection },
+        filter: { must: [{ key: 'source', match: { value: source } }] },
+      })
+
+      const row = await KbIngestState.query().where('file_path', source).first()
+      if (row) {
+        row.collection = collection
+        await row.save()
+      }
+
+      return { success: true, message: collection ? `Moved to "${collection}".` : 'Moved to Uncategorized.' }
+    } catch (error) {
+      logger.error('[RAG] Error updating file collection:', error)
+      return { success: false, message: 'Error updating file collection.' }
+    }
+  }
+
+  /**
+   * Rename a knowledge-base collection everywhere it's referenced: updates every
+   * Qdrant point tagged with the old name in place, and mirrors the change onto
+   * any matching KbIngestState rows so getStoredFiles() reflects it immediately.
+   */
+  public async renameKnowledgeCollection(
+    oldName: string,
+    newName: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!oldName || !newName || oldName === newName) {
+        return { success: false, message: 'Invalid collection names.' }
+      }
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+        payload: { collection: newName },
+        filter: { must: [{ key: 'collection', match: { value: oldName } }] },
+      })
+
+      await KbIngestState.query().where('collection', oldName).update({ collection: newName })
+
+      return { success: true, message: `Renamed "${oldName}" to "${newName}".` }
+    } catch (error) {
+      logger.error('[RAG] Error renaming knowledge collection:', error)
+      return { success: false, message: 'Error renaming collection.' }
+    }
+  }
+
+  /**
+   * Remove a collection by reassigning every file tagged with it back to
+   * Uncategorized (collection: null). Non-destructive — no files or embeddings
+   * are deleted, only the grouping label is cleared so items can be
+   * recategorized later.
+   */
+  public async deleteKnowledgeCollection(
+    name: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!name) {
+        return { success: false, message: 'Invalid collection name.' }
+      }
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+        payload: { collection: null },
+        filter: { must: [{ key: 'collection', match: { value: name } }] },
+      })
+
+      await KbIngestState.query().where('collection', name).update({ collection: null })
+
+      return { success: true, message: `"${name}" removed. Files moved to Uncategorized.` }
+    } catch (error) {
+      logger.error('[RAG] Error deleting knowledge collection:', error)
+      return { success: false, message: 'Error deleting collection.' }
     }
   }
 
@@ -1998,6 +2150,10 @@ export class RagService {
         // Collection may not exist yet on a fresh install — log and continue.
         logger.warn(`[RAG] deleteCollection failed (may not exist): ${(err as Error).message}`)
       }
+
+      // The collection is gone — drop it from the ensured cache so the
+      // _ensureCollection call below actually recreates it
+      this.ensuredCollections.delete(RagService.CONTENT_COLLECTION_NAME)
 
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,

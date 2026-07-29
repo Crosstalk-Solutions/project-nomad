@@ -1,0 +1,38 @@
+{
+  "spec_version": "1",
+  "packs": [
+    {
+      "id": "project-nomad",
+      "name": "Project NOMAD",
+      "creator": "Project NOMAD",
+      "description": "Official Project NOMAD videos, packaged for offline viewing on your NOMAD.",
+      "version": "2026-07",
+      "resource_id": "project-nomad",
+      "video_count": 5,
+      "size_mb": 178,
+      "license_id": "nomad-creator-pack-1.0"
+    },
+    {
+      "id": "crosstalk-solutions",
+      "name": "Crosstalk Solutions",
+      "creator": "Chris Sherwood",
+      "description": "Chris Sherwood's networking, UniFi & home lab videos, for offline NOMAD.",
+      "version": "2026-07",
+      "resource_id": "crosstalk-solutions",
+      "video_count": 30,
+      "size_mb": 2899,
+      "license_id": "nomad-creator-pack-1.0"
+    },
+    {
+      "id": "modern-rogue",
+      "name": "The Modern Rogue",
+      "creator": "Brian Brushwood",
+      "description": "Discovering the function and design of whatever makes life more interesting.",
+      "version": "2026-07",
+      "resource_id": "modern-rogue",
+      "video_count": 37,
+      "size_mb": 5177,
+      "license_id": "nomad-creator-pack-1.0"
+    }
+  ]
+}

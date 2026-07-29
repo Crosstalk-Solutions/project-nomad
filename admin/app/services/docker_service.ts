@@ -4,6 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
+import { mapGfxToHsaOverride } from '../utils/amd_hsa_override.js'
 import { join } from 'path'
 import os from 'node:os'
 import env from '#start/env'
@@ -513,6 +514,15 @@ export class DockerService {
    * Falls back to NOMAD_STORAGE_PATH / the production default if the admin
    * container or its storage mount can't be inspected.
    */
+  /**
+   * Public accessor for the resolved host path backing `/app/storage`. Used by the
+   * Debug Info bundle so support can see where content actually lives on the host
+   * (the #1050 class of "moved my data, admin doesn't see it" reports).
+   */
+  async getHostStorageRoot(): Promise<string> {
+    return this._resolveHostStorageRoot()
+  }
+
   private async _resolveHostStorageRoot(): Promise<string> {
     if (this._hostStorageRoot) return this._hostStorageRoot
     const fallback = env.get('NOMAD_STORAGE_PATH', DockerService.DEFAULT_HOST_STORAGE_ROOT)
@@ -1468,10 +1478,9 @@ export class DockerService {
    * gfx1030 (RX 6800/6700/etc.), gfx1100/1101/1102 (RX 7900/7800/7600) are on AMD's
    * official ROCm allowlist — forcing an override on these breaks GPU discovery.
    * gfx1035 / gfx1036 (RDNA 2 iGPUs like 680M) need 10.3.0 to coerce to gfx1030.
-   * gfx1103 / gfx1150 / gfx1151 (RDNA 3/3.5 iGPUs like 780M / 890M / Strix Halo) are
-   * natively supported by the ROCm 7.2 the current ollama:rocm image bundles, so they
-   * need NO override. Forcing 11.0.0 coerces them to gfx1100's kernels — unnecessary on
-   * the 890M and a source of faults on the 780M (gfx1100 WMMA instructions it lacks). See #1056.
+   * gfx1150 / gfx1151 (RDNA 3.5 iGPUs like 890M / Strix Halo) ARE on the bundled rocblas
+   * allowlist, so they need NO override. gfx1103 (Phoenix 780M/760M) is NOT — it must be
+   * coerced to 11.0.0 (gfx1100 kernels) or ollama drops it to CPU. See ../utils/amd_hsa_override.ts.
    *
    * Resolution order:
    *   1. KV `ai.amdHsaOverride` — manual user override; accepts 'none' (disable) or a semver-style value.
@@ -1527,27 +1536,18 @@ export class DockerService {
       // install_nomad.sh. Fall through to the default.
     }
 
-    logger.info('[DockerService] No AMD gfx marker; applying no HSA override (native ROCm discovery)')
+    logger.warn(
+      '[DockerService] AMD GPU configured but no gfx marker (/app/storage/.nomad-amd-gfx) and no ' +
+        'ai.amdHsaOverride KV; relying on native ROCm discovery. iGPUs not on the bundled rocblas ' +
+        'allowlist (e.g. 780M/gfx1103, 680M/gfx1035) will silently fall back to CPU. Set the ' +
+        'ai.amdHsaOverride KV (e.g. 11.0.0 for a 780M) and force-reinstall the AI service if so.'
+    )
     return null
   }
 
   private _mapGfxToHsaOverride(gfx: string): string | null {
-    // Officially supported by ROCm — no override needed
-    if (gfx === 'gfx1030' || gfx === 'gfx1100' || gfx === 'gfx1101' || gfx === 'gfx1102') {
-      return null
-    }
-    // RDNA 2 variants + iGPUs (gfx1031..gfx1036, e.g. Rembrandt 680M) — not natively
-    // supported, still need coercion to gfx1030.
-    if (/^gfx103[1-6]$/.test(gfx)) {
-      return '10.3.0'
-    }
-    // RDNA 3 / 3.5 mobile parts (Phoenix 780M = gfx1103, Strix 890M = gfx1150, Strix Halo =
-    // gfx1151) are native under ROCm 7.2 — no override (forcing 11.0.0 faults the 780M). See #1056.
-    if (gfx === 'gfx1103' || gfx === 'gfx1150' || gfx === 'gfx1151') {
-      return null
-    }
-    // Unknown/newer target: prefer native discovery over a coercion that's likely wrong.
-    return null
+    // Pure mapping lives in ../utils/amd_hsa_override.ts so it stays unit-testable.
+    return mapGfxToHsaOverride(gfx)
   }
 
   /**

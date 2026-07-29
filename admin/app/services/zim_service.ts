@@ -28,12 +28,16 @@ import InstalledResource from '#models/installed_resource'
 import KbIngestState from '#models/kb_ingest_state'
 import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
+import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
+import { DrugReferenceService } from './drug_reference_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
+import { KiwixCatalogService } from './kiwix_catalog_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
+import { resolveZimDownload } from '../utils/zim_download_resolution.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -279,40 +283,79 @@ export class ZimService {
 
     const allResources = CollectionManifestService.resolveTierResources(tier, category.tiers)
 
-    // Filter out already installed
-    const installed = await InstalledResource.query().where('resource_type', 'zim')
+    // Filter out already installed. Includes 'dataset' rows (the FDA drug labels)
+    // alongside 'zim' so an installed dataset is filtered out here — without it,
+    // a re-select of an installed Medicine tier would re-dispatch the ~1.7 GB drug
+    // download every time (the dataset branch's own getIngestStatus guard is a
+    // second line of defence, but this keeps the filter symmetric with the row-
+    // driven tier-status math).
+    const installed = await InstalledResource.query().whereIn('resource_type', ['zim', 'dataset'])
     const installedIds = new Set(installed.map((r) => r.resource_id))
     const toDownload = allResources.filter((r) => !installedIds.has(r.id))
 
     if (toDownload.length === 0) return null
 
+    const latestByResource = await new KiwixCatalogService().getLatestForResources(
+      toDownload.map((resource) => ({ resource_id: resource.id, resource_type: 'zim' }))
+    )
     const downloadFilenames: string[] = []
 
     for (const resource of toDownload) {
-      const existingJob = await RunDownloadJob.getActiveByUrl(resource.url)
-      if (existingJob) {
-        logger.warn(`[ZimService] Download already in progress for ${resource.url}, skipping.`)
+      // A `dataset` resource (e.g. the FDA drug labels) is DB-ingested, not a
+      // ZIM file — route it to the drug download+ingest pipeline instead of
+      // RunDownloadJob. The install-state row written on ingest 'ready' (below,
+      // via resourceMeta) is what the installed-filter above and the tier-status
+      // math key off; until that row exists the getIngestStatus guard prevents
+      // re-dispatching the ~1.7 GB download on every tier select.
+      if (resource.type === 'dataset') {
+        const drugReferenceService = new DrugReferenceService()
+        const status = await drugReferenceService.getIngestStatus()
+        if (status.phase === 'ready' || status.rowCount > 0) {
+          logger.info('[ZimService] Drug dataset already ingested, skipping dispatch.')
+          continue
+        }
+        // DownloadDrugDataJob.dispatch() is idempotent on its deterministic
+        // jobId — a concurrent in-flight download returns "already running"
+        // without re-adding, so this is safe to call repeatedly. The resourceMeta
+        // is threaded through download → ingest so the final ingest pass writes
+        // the `installed_resources` 'dataset' row, making the tier read installed.
+        await DownloadDrugDataJob.dispatch(true, {
+          resourceId: resource.id,
+          version: resource.version,
+          collectionRef: categorySlug,
+        })
+        logger.info('[ZimService] Dispatched drug data download for dataset resource.')
         continue
       }
 
-      const filename = resource.url.split('/').pop()
+      const resolved = resolveZimDownload(
+        resource,
+        latestByResource.get(`zim:${resource.id}`) ?? null
+      )
+      const existingJob = await RunDownloadJob.getActiveByUrl(resolved.url)
+      if (existingJob) {
+        logger.warn(`[ZimService] Download already in progress for ${resolved.url}, skipping.`)
+        continue
+      }
+
+      const filename = resolved.url.split('/').pop()
       if (!filename) continue
 
       downloadFilenames.push(filename)
       const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
 
       await RunDownloadJob.dispatch({
-        url: resource.url,
+        url: resolved.url,
         filepath,
         timeout: 30000,
         allowedMimeTypes: ZIM_MIME_TYPES,
         forceNew: true,
         filetype: 'zim',
         title: (resource as any).title || undefined,
-        totalBytes: (resource as any).size_mb ? (resource as any).size_mb * 1024 * 1024 : undefined,
+        totalBytes: resolved.sizeBytes,
         resourceMetadata: {
           resource_id: resource.id,
-          version: resource.version,
+          version: resolved.version,
           collection_ref: categorySlug,
         },
       })

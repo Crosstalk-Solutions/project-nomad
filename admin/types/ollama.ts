@@ -33,6 +33,9 @@ export type OllamaChatRequest = {
   messages: OllamaChatMessage[]
   stream?: boolean
   sessionId?: number
+  // Effective thinking preference for this request (per-model override or global default).
+  think?: boolean
+  collection?: string
 }
 
 export type OllamaChatResponse = {
@@ -50,6 +53,8 @@ export type NomadInstalledModel = {
   size: number
   digest?: string
   details?: Record<string, any>
+  // Whether the model supports "thinking" (set by the installed-models endpoint enrichment).
+  thinking?: boolean
 }
 
 export type NomadChatResponse = {
