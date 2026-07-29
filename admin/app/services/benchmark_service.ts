@@ -335,9 +335,14 @@ export class BenchmarkService {
       )
     } else if (remoteOllamaUrl) {
       throw new Error(
-        'This NOMAD is configured to use a remote AI host, so its AI results measure that machine rather than this one. ' +
-          'Leaderboard results must be measured entirely on the submitting hardware. ' +
-          'To share a result, install the local AI Assistant and run a Full Benchmark.'
+        // Name the setting and where it lives. The previous wording told the
+        // user to install the AI Assistant, but configuring a remote host
+        // already marks it installed — so it sent them looking for something
+        // they believe they have, and never mentioned the one thing that fixes
+        // it.
+        'This NOMAD is set to use a remote AI host, so the AI portion of this benchmark measured that machine, not this one. ' +
+          'Leaderboard results have to be measured entirely on the hardware being submitted. ' +
+          'To share a result, clear the remote host under Settings → Models so AI runs locally, then run a Full Benchmark.'
       )
     }
 
@@ -990,8 +995,17 @@ export class BenchmarkService {
       // load the model and warm the context here, then time the median-of-N below.
       // Best-effort — a warm-up hiccup must not fail the run (the timed loop will
       // surface any real inference error). See issue #1139.
+      // Log the swallowed failure. Silently discarding it makes a run whose
+      // reproducibility guarantee did not actually apply indistinguishable from
+      // a clean one after the fact. Matches _unloadResidentModels, the sibling
+      // best-effort helper, which already warns on every swallowed error.
       this._updateStatus('running_ai', 'Warming up AI model...')
-      await this._runSingleAIInference(ollamaAPIURL).catch(() => null)
+      await this._runSingleAIInference(ollamaAPIURL).catch((error) => {
+        logger.warn(
+          `[BenchmarkService] AI warm-up failed (${error?.message ?? error}); the first timed run may be cold.`
+        )
+        return null
+      })
 
       // Run inference AI_BENCHMARK_RUNS times and take the median run by tok/s (W7).
       // A single inference is noisy (scheduler, thermal, cache); the median damps
