@@ -139,7 +139,7 @@ get_local_ip() {
 }
 
 success_message() {
-  echo -e "${GREEN}#${RESET} Project N.O.M.A.D update completed successfully!\\n"
+  echo -e "${GREEN}#${RESET} Project NOMAD update completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
   echo -e "${GREEN}#${RESET} Project NOMAD's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${nomad_dir}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"

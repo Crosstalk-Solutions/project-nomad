@@ -11,6 +11,15 @@ No — that's the whole point. Once your content is downloaded, everything works
 - Update the software
 - Sync the latest versions of Wikipedia, maps, etc.
 
+### What operating system does NOMAD need?
+Debian-based Linux. **Ubuntu 26.04 LTS is what we recommend and test on** for new installs.
+
+Ubuntu 24.04 LTS and Debian 12 are also supported, so there is no need to reinstall if you are already on one of those. Windows users can follow the [WSL2 guide](https://www.projectnomad.us/install/wsl2), which is community-supported.
+
+macOS and non-Debian distributions like Fedora or Arch are not officially supported. NOMAD does not need a desktop environment, so Ubuntu Server is a fine choice if you are comfortable at the terminal.
+
+For a full walkthrough including the Ubuntu install itself, see the [Installation Guide](https://www.projectnomad.us/install).
+
 ### What hardware do I need?
 NOMAD is designed for capable hardware, especially if you want to use the AI features. Recommended:
 - Modern multi-core CPU (AMD Ryzen 7 with Radeon graphics is the community sweet spot)
