@@ -1,4 +1,4 @@
-import { BaseStylesFile, MapLayer } from '../../types/maps.js'
+import { BaseStylesFile, MapSourceDefinition, ParsedMapArchiveManifest } from '../../types/maps.js'
 import {
   DownloadRemoteSuccessCallback,
   FileEntry,
@@ -39,6 +39,13 @@ import { execFile } from 'child_process'
 import { createHash, randomBytes } from 'crypto'
 import { tmpdir } from 'os'
 import { promisify } from 'util'
+import {
+  buildMapSourceDefinitions,
+  composeMapStyle,
+  DEFAULT_VECTOR_MAP_ATTRIBUTION,
+  MAP_ARCHIVE_MANIFEST_FILENAME,
+  parseMapArchiveManifest,
+} from '../utils/map_styles.js'
 
 const execFileAsync = promisify(execFile)
 const DRY_RUN_TIMEOUT_MS = 60_000
@@ -63,8 +70,6 @@ const BASE_ASSETS_MIME_TYPES = [
   'application/octet-stream',
 ]
 
-const PMTILES_ATTRIBUTION =
-  '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>'
 const PMTILES_MIME_TYPES = ['application/vnd.pmtiles', 'application/octet-stream']
 
 interface IMapService {
@@ -358,6 +363,7 @@ export class MapService implements IMapService {
     const rawStyles = JSON.parse(baseStyle.toString()) as BaseStylesFile
 
     const regions = (await this.listRegions()).files
+    const archiveManifest = await this.loadMapArchiveManifest()
 
     /** If we have the host, use it to build public URLs, otherwise we'll fallback to defaults
     * This is mainly useful because we need to know what host the user is accessing from in order to
@@ -365,10 +371,31 @@ export class MapService implements IMapService {
     * e.g. user is accessing from "example.com", but we would by default generate "localhost:8080/..." so maps would
     * fail to load.
     */
-    const sources = this.generateSourcesArray(host, regions, protocol)
+    const pmtilesBaseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
+    const sources = buildMapSourceDefinitions(pmtilesBaseUrl, regions, archiveManifest)
+    if (this.worldBasemapReady) {
+      const worldSource: MapSourceDefinition = {
+        id: WORLD_BASEMAP_SOURCE_NAME,
+        source: {
+          type: 'vector',
+          attribution: DEFAULT_VECTOR_MAP_ATTRIBUTION,
+          url: `pmtiles://${urlJoin(pmtilesBaseUrl, WORLD_BASEMAP_FILENAME)}`,
+        },
+        archive: {
+          filename: WORLD_BASEMAP_FILENAME,
+          resourceId: WORLD_BASEMAP_SOURCE_NAME,
+          kind: 'vector',
+          role: 'street',
+          tileFormat: 'mvt',
+          attribution: DEFAULT_VECTOR_MAP_ATTRIBUTION,
+          maxzoom: WORLD_BASEMAP_MAX_ZOOM,
+        },
+      }
+      sources.unshift(worldSource)
+    }
     const baseUrl = this.getPublicFileBaseUrl(host, this.basemapsAssetsDir, protocol)
 
-    const styles = await this.generateStylesFile(
+    const styles = composeMapStyle(
       rawStyles,
       sources,
       urlJoin(baseUrl, 'sprites/v4/light'),
@@ -376,6 +403,28 @@ export class MapService implements IMapService {
     )
 
     return styles
+  }
+
+  private async loadMapArchiveManifest(): Promise<ParsedMapArchiveManifest> {
+    const manifestPath = resolve(join(this.baseDirPath, 'pmtiles', MAP_ARCHIVE_MANIFEST_FILENAME))
+    const pmtilesDirectory = resolve(join(this.baseDirPath, 'pmtiles'))
+    if (!manifestPath.startsWith(pmtilesDirectory + sep)) {
+      throw new Error('Invalid map archive manifest path')
+    }
+
+    const manifest = await getFile(manifestPath, 'string')
+    if (!manifest) return { archives: [], rejectedFilenames: [] }
+
+    try {
+      return parseMapArchiveManifest(JSON.parse(manifest.toString()))
+    } catch (error) {
+      logger.warn(
+        `[MapService] Ignoring malformed ${MAP_ARCHIVE_MANIFEST_FILENAME}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+      return { archives: [], rejectedFilenames: [] }
+    }
   }
 
   async listCuratedCollections(): Promise<CollectionWithStatus[]> {
@@ -517,111 +566,6 @@ export class MapService implements IMapService {
   private async listAllMapStorageItems(): Promise<FileEntry[]> {
     await ensureDirectoryExists(this.baseDirPath)
     return await listDirectoryContentsRecursive(this.baseDirPath)
-  }
-
-  /**
-   * Compare two map-file versions (YYYY-MM, or null for an undated legacy file). Returns >0 if
-   * `a` is newer than `b`, <0 if older, 0 if equal. A dated build is always newer than an undated
-   * legacy file; two dated builds compare lexicographically (correct for zero-padded YYYY-MM).
-   */
-  private static compareMapVersions(a: string | null, b: string | null): number {
-    if (a === b) return 0
-    if (a === null) return -1
-    if (b === null) return 1
-    return a < b ? -1 : 1
-  }
-
-  private generateSourcesArray(host: string | null, regions: FileEntry[], protocol: string = 'http'): BaseStylesFile['sources'][] {
-    const sources: BaseStylesFile['sources'][] = []
-    const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
-
-    // World basemap goes first so its layers render underneath regional extracts.
-    // Only emitted when ensureWorldBasemap() succeeded — otherwise the style would
-    // reference a file that doesn't exist and produce 404s on every tile request.
-    if (this.worldBasemapReady) {
-      const worldSource: BaseStylesFile['sources'] = {}
-      worldSource[WORLD_BASEMAP_SOURCE_NAME] = {
-        type: 'vector',
-        attribution: PMTILES_ATTRIBUTION,
-        url: `pmtiles://${urlJoin(baseUrl, WORLD_BASEMAP_FILENAME)}`,
-      }
-      sources.push(worldSource)
-    }
-
-    // Dedupe by region name, keeping only the newest file per region. The source name is the
-    // date-stripped region (e.g. both "washington.pmtiles" and "washington_2025-12.pmtiles" map
-    // to "washington"). Emitting both produces duplicate source keys and duplicate layer ids,
-    // which MapLibre rejects outright — blanking the ENTIRE map, not just that region. Old copies
-    // linger when a newer curated version installs (#634), so guard against it here so the style
-    // stays valid even if cleanup hasn't run. A dated build beats an undated legacy file; between
-    // two dated builds the later YYYY-MM wins (lexicographic compare is correct for that format).
-    const bestByRegion = new Map<string, { region: FileEntry; version: string | null }>()
-    for (const region of regions) {
-      if (region.type === 'file' && region.name.endsWith('.pmtiles')) {
-        const parsed = CollectionManifestService.parseMapFilename(region.name)
-        const regionName = parsed ? parsed.resource_id : region.name.replace('.pmtiles', '')
-        const version = parsed?.version ?? null
-        const existing = bestByRegion.get(regionName)
-        if (!existing || MapService.compareMapVersions(version, existing.version) > 0) {
-          if (existing) {
-            logger.warn(
-              `[MapService] Duplicate map region "${regionName}": using "${region.name}" over "${existing.region.name}" (keeping newest)`
-            )
-          }
-          bestByRegion.set(regionName, { region, version })
-        } else {
-          logger.warn(
-            `[MapService] Duplicate map region "${regionName}": skipping "${region.name}" in favor of "${existing.region.name}" (keeping newest)`
-          )
-        }
-      }
-    }
-
-    for (const [regionName, { region }] of bestByRegion) {
-      const source: BaseStylesFile['sources'] = {}
-      const sourceUrl = urlJoin(baseUrl, region.name)
-
-      source[regionName] = {
-        type: 'vector',
-        attribution: PMTILES_ATTRIBUTION,
-        url: `pmtiles://${sourceUrl}`,
-      }
-      sources.push(source)
-    }
-
-    return sources
-  }
-
-  private async generateStylesFile(
-    template: BaseStylesFile,
-    sources: BaseStylesFile['sources'][],
-    sprites: string,
-    glyphs: string
-  ): Promise<BaseStylesFile> {
-    const layersTemplates = template.layers.filter((layer) => layer.source)
-    const withoutSources = template.layers.filter((layer) => !layer.source)
-
-    template.sources = {} // Clear existing sources
-    template.layers = [...withoutSources] // Start with layers that don't depend on sources
-
-    for (const source of sources) {
-      for (const layerTemplate of layersTemplates) {
-        const layer: MapLayer = {
-          ...layerTemplate,
-          id: `${layerTemplate.id}-${Object.keys(source)[0]}`,
-          type: layerTemplate.type,
-          source: Object.keys(source)[0],
-        }
-        template.layers.push(layer)
-      }
-
-      template.sources = Object.assign(template.sources, source)
-    }
-
-    template.sprite = sprites
-    template.glyphs = glyphs
-
-    return template
   }
 
   async getGlobalMapInfo(): Promise<ProtomapsBuildInfo> {
