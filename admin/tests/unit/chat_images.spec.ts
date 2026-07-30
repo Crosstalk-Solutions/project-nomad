@@ -12,6 +12,8 @@ import {
 } from '../../app/utils/chat_images.js'
 import {
   capabilitiesFromOllamaShow,
+  installedModelsFromOpenAIResponse,
+  resolveModelCapabilities,
   visionCapabilityFromLlamaProps,
 } from '../../app/utils/model_capabilities.js'
 
@@ -104,4 +106,85 @@ test('detects vision capability from Ollama and llama.cpp metadata', () => {
   assert.equal(visionCapabilityFromLlamaProps({ modalities: { vision: false } }), 'unsupported')
   assert.equal(visionCapabilityFromLlamaProps({ modalities: ['text', 'image'] }), 'supported')
   assert.equal(visionCapabilityFromLlamaProps({ model: 'unknown' }), null)
+})
+
+test('resolves per-model capabilities advertised by a hybrid router', async () => {
+  let showProbeCalls = 0
+  let propsProbeCalls = 0
+  const probes = {
+    ollamaShow: async () => {
+      showProbeCalls += 1
+      return null
+    },
+    llamaProps: async () => {
+      propsProbeCalls += 1
+      return null
+    },
+  }
+
+  const visionModel = await resolveModelCapabilities(
+    { capabilities: ['completion', 'vision', 'tools', 'thinking'] },
+    probes
+  )
+  const textModel = await resolveModelCapabilities(
+    { capabilities: ['completion', 'tools', 'thinking'] },
+    probes
+  )
+
+  assert.deepEqual(visionModel, { thinking: true, vision: 'supported' })
+  assert.deepEqual(textModel, { thinking: true, vision: 'unsupported' })
+  assert.equal(showProbeCalls, 0)
+  assert.equal(propsProbeCalls, 0)
+})
+
+test('preserves per-model capabilities from an OpenAI-compatible model list', () => {
+  const models = installedModelsFromOpenAIResponse({
+    data: [
+      {
+        id: 'qwen3.6:35b-a3b-hauhau-aggressive',
+        capabilities: ['completion', 'vision', 'tools', 'thinking'],
+      },
+      {
+        id: 'qwopus3.6-coder-compat-mtp:27b',
+        capabilities: ['completion', 'tools', 'thinking'],
+      },
+    ],
+  })
+
+  assert.deepEqual(models, [
+    {
+      name: 'qwen3.6:35b-a3b-hauhau-aggressive',
+      size: 0,
+      capabilities: ['completion', 'vision', 'tools', 'thinking'],
+    },
+    {
+      name: 'qwopus3.6-coder-compat-mtp:27b',
+      size: 0,
+      capabilities: ['completion', 'tools', 'thinking'],
+    },
+  ])
+})
+
+test('falls back per model from Ollama metadata to llama.cpp properties', async () => {
+  let propsProbeCalls = 0
+  const ollamaModel = await resolveModelCapabilities(null, {
+    ollamaShow: async () => ({ capabilities: ['completion', 'vision'] }),
+    llamaProps: async () => {
+      propsProbeCalls += 1
+      return { modalities: { vision: false } }
+    },
+  })
+  const llamaModel = await resolveModelCapabilities(null, {
+    ollamaShow: async () => {
+      throw new Error('404')
+    },
+    llamaProps: async () => {
+      propsProbeCalls += 1
+      return { modalities: { vision: false } }
+    },
+  })
+
+  assert.deepEqual(ollamaModel, { thinking: false, vision: 'supported' })
+  assert.deepEqual(llamaModel, { thinking: false, vision: 'unsupported' })
+  assert.equal(propsProbeCalls, 1)
 })

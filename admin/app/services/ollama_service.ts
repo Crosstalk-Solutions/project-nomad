@@ -19,7 +19,8 @@ import KVStore from '#models/kv_store'
 import type { ModelCapabilities } from '../utils/model_capabilities.js'
 import {
   capabilitiesFromOllamaShow,
-  visionCapabilityFromLlamaProps,
+  installedModelsFromOpenAIResponse,
+  resolveModelCapabilities,
 } from '../utils/model_capabilities.js'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
@@ -31,6 +32,7 @@ export type NomadInstalledModel = {
   size: number
   digest?: string
   details?: Record<string, any>
+  capabilities?: string[]
 }
 
 export type NomadChatResponse = {
@@ -472,47 +474,50 @@ export class OllamaService {
     return normalize()
   }
 
-  public async getModelCapabilities(modelName: string): Promise<ModelCapabilities> {
+  public async getModelCapabilities(
+    modelName: string,
+    advertisedMetadata?: unknown
+  ): Promise<ModelCapabilities> {
     await this._ensureDependencies()
     if (!this.baseUrl) return { thinking: false, vision: 'unknown' }
+
+    // Composite OpenAI-compatible routers can advertise different capabilities for each model.
+    // Prefer that per-model metadata before probing backend-specific endpoints.
+    const advertised = capabilitiesFromOllamaShow(advertisedMetadata)
+    if (advertised) {
+      this.modelCapabilityCache.set(modelName, {
+        value: advertised,
+        expiresAt: Number.POSITIVE_INFINITY,
+      })
+      return advertised
+    }
 
     const cached = this.modelCapabilityCache.get(modelName)
     if (cached && cached.expiresAt > Date.now()) return cached.value
 
-    if (this.isOllamaNative !== false) {
-      try {
+    // Probe per model instead of relying on the backend-wide classification from getModels().
+    // Hybrid routers may expose /v1/models plus /api/show without exposing /api/tags.
+    const detected = await resolveModelCapabilities(null, {
+      ollamaShow: async () => {
         const response = await axios.post(
           `${this.baseUrl}/api/show`,
           { model: modelName },
           { timeout: 3000 }
         )
-        const capabilities = capabilitiesFromOllamaShow(response.data)
-        if (capabilities) {
-          this.isOllamaNative = true
-          this.modelCapabilityCache.set(modelName, {
-            value: capabilities,
-            expiresAt: Number.POSITIVE_INFINITY,
-          })
-          return capabilities
-        }
-      } catch {}
-    }
-
-    // A llama.cpp server hosts one model and reports its input modalities at /props.
-    if (this.isOllamaNative !== true) {
-      try {
+        return response.data
+      },
+      // A direct llama.cpp server reports the loaded model's input modalities at /props.
+      llamaProps: async () => {
         const response = await axios.get(`${this.baseUrl}/props`, { timeout: 3000 })
-        const vision = visionCapabilityFromLlamaProps(response.data)
-        if (vision) {
-          this.isOllamaNative = false
-          const capabilities = { thinking: false, vision }
-          this.modelCapabilityCache.set(modelName, {
-            value: capabilities,
-            expiresAt: Number.POSITIVE_INFINITY,
-          })
-          return capabilities
-        }
-      } catch {}
+        return response.data
+      },
+    })
+    if (detected) {
+      this.modelCapabilityCache.set(modelName, {
+        value: detected,
+        expiresAt: Number.POSITIVE_INFINITY,
+      })
+      return detected
     }
 
     const unknown: ModelCapabilities = { thinking: false, vision: 'unknown' }
@@ -808,7 +813,7 @@ export class OllamaService {
       logger.info('[OllamaService] /api/tags unavailable, falling back to /v1/models')
       try {
         const modelList = await this.openai!.models.list()
-        const models: NomadInstalledModel[] = modelList.data.map((m) => ({ name: m.id, size: 0 }))
+        const models: NomadInstalledModel[] = installedModelsFromOpenAIResponse(modelList)
         if (includeEmbeddings) return models
         return models.filter((m) => !m.name.includes('embed'))
       } catch (err) {

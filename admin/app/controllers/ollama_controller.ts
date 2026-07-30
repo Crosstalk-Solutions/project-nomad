@@ -486,11 +486,11 @@ export default class OllamaController {
     }
   }
 
-  async installedModels({ }: HttpContext) {
+  async installedModels({}: HttpContext) {
     const models = await this.ollamaService.getModels()
     // Enrich from backend-reported capabilities; never guess from model names.
     const capabilities = await Promise.all(
-      models.map((m) => this.ollamaService.getModelCapabilities(m.name))
+      models.map((m) => this.ollamaService.getModelCapabilities(m.name, m))
     )
     return models.map((m, i) => ({ ...m, ...capabilities[i] }))
   }
