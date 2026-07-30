@@ -1,7 +1,8 @@
-import { IconSend, IconWand } from '@tabler/icons-react'
+import { IconPhoto, IconSend, IconWand, IconX } from '@tabler/icons-react'
 import { useState, useRef, useEffect } from 'react'
 import classNames from '~/lib/classNames'
-import { ChatMessage } from '../../../types/chat'
+import { ChatImageAttachment, ChatMessage } from '../../../types/chat'
+import type { ModelVisionCapability } from '../../../types/ollama'
 import ChatMessageBubble from './ChatMessageBubble'
 import ChatAssistantAvatar from './ChatAssistantAvatar'
 import BouncingDots from '../BouncingDots'
@@ -10,10 +11,12 @@ import api from '~/lib/api'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useNotifications } from '~/context/NotificationContext'
 import { usePage } from '@inertiajs/react'
+import InfoTooltip from '../InfoTooltip'
 
 interface ChatInterfaceProps {
   messages: ChatMessage[]
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, images: ChatImageAttachment[]) => void
+  visionCapability: ModelVisionCapability
   isLoading?: boolean
   chatSuggestions?: string[]
   chatSuggestionsEnabled?: boolean
@@ -21,9 +24,14 @@ interface ChatInterfaceProps {
   rewriteModelAvailable?: boolean
 }
 
+const MAX_VISION_IMAGES = 4
+const MAX_VISION_IMAGE_BYTES = 8 * 1024 * 1024
+const SUPPORTED_VISION_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 export default function ChatInterface({
   messages,
   onSendMessage,
+  visionCapability,
   isLoading = false,
   chatSuggestions = [],
   chatSuggestionsEnabled = false,
@@ -33,10 +41,32 @@ export default function ChatInterface({
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
   const [input, setInput] = useState('')
+  const [images, setImages] = useState<ChatImageAttachment[]>([])
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const previewUrlsRef = useRef<Set<string>>(new Set())
+
+  useEffect(
+    () => () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+      previewUrlsRef.current.clear()
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (visionCapability !== 'unsupported') return
+    setImages((current) => {
+      current.forEach((image) => {
+        URL.revokeObjectURL(image.previewUrl)
+        previewUrlsRef.current.delete(image.previewUrl)
+      })
+      return []
+    })
+  }, [visionCapability])
 
   const handleDownloadModel = async () => {
     setIsDownloading(true)
@@ -61,13 +91,68 @@ export default function ChatInterface({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (input.trim() && !isLoading) {
-      onSendMessage(input.trim())
+    if ((input.trim() || images.length > 0) && !isLoading) {
+      onSendMessage(input.trim() || 'Describe the attached image.', images)
       setInput('')
+      setImages([])
+      if (imageInputRef.current) imageInputRef.current.value = ''
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
     }
+  }
+
+  const handleImageSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? [])
+    event.target.value = ''
+    if (selected.length === 0) return
+
+    const availableSlots = MAX_VISION_IMAGES - images.length
+    if (availableSlots <= 0) {
+      addNotification({ type: 'error', message: `You can attach up to ${MAX_VISION_IMAGES} images.` })
+      return
+    }
+
+    const attachments: ChatImageAttachment[] = []
+    for (const file of selected.slice(0, availableSlots)) {
+      if (!SUPPORTED_VISION_TYPES.has(file.type)) {
+        addNotification({
+          type: 'error',
+          message: `${file.name} is not supported. Use JPEG, PNG, or WebP.`,
+        })
+        continue
+      }
+      if (file.size > MAX_VISION_IMAGE_BYTES) {
+        addNotification({
+          type: 'error',
+          message: `${file.name} exceeds the 8 MB per-image limit.`,
+        })
+        continue
+      }
+
+      const previewUrl = URL.createObjectURL(file)
+      previewUrlsRef.current.add(previewUrl)
+      attachments.push({
+        id: crypto.randomUUID(),
+        name: file.name,
+        file,
+        previewUrl,
+      })
+    }
+
+    if (selected.length > availableSlots) {
+      addNotification({
+        type: 'error',
+        message: `Only the first ${availableSlots} selected image(s) were attached.`,
+      })
+    }
+    setImages((current) => [...current, ...attachments])
+  }
+
+  const removeImage = (image: ChatImageAttachment) => {
+    URL.revokeObjectURL(image.previewUrl)
+    previewUrlsRef.current.delete(image.previewUrl)
+    setImages((current) => current.filter((item) => item.id !== image.id))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -161,7 +246,69 @@ export default function ChatInterface({
         )}
       </div>
       <div className="border-t border-border-subtle bg-surface-primary px-6 py-4 flex-shrink-0 min-h-[90px]">
+        {images.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-3" aria-label="Attached images">
+            {images.map((image) => (
+              <div
+                key={image.id}
+                className="relative h-20 w-20 overflow-hidden rounded-lg border border-border-default bg-surface-secondary"
+              >
+                <img src={image.previewUrl} alt={image.name} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(image)}
+                  className="absolute right-1 top-1 rounded-full bg-surface-primary/90 p-1 text-text-primary hover:bg-surface-primary"
+                  aria-label={`Remove ${image.name}`}
+                  disabled={isLoading}
+                >
+                  <IconX className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            className="hidden"
+            onChange={handleImageSelection}
+          />
+          <div className="mb-2 flex items-center">
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={
+                isLoading ||
+                images.length >= MAX_VISION_IMAGES ||
+                visionCapability === 'unsupported'
+              }
+              className={classNames(
+                'p-3 rounded-lg transition-colors flex-shrink-0',
+                isLoading ||
+                  images.length >= MAX_VISION_IMAGES ||
+                  visionCapability === 'unsupported'
+                  ? 'bg-border-default text-text-muted cursor-not-allowed'
+                  : 'border border-border-default text-text-secondary hover:bg-surface-secondary'
+              )}
+              aria-label="Attach images"
+            >
+              <IconPhoto className="h-6 w-6" aria-hidden="true" />
+            </button>
+            {visionCapability !== 'supported' && (
+              <InfoTooltip
+                position="top"
+                align="right"
+                text={
+                  visionCapability === 'unsupported'
+                    ? 'The selected model reports that it cannot accept images.'
+                    : 'This AI backend does not report image capability. You can attach an image and try the request.'
+                }
+              />
+            )}
+          </div>
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
@@ -177,10 +324,10 @@ export default function ChatInterface({
           </div>
           <button
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && images.length === 0) || isLoading}
             className={classNames(
               'p-3 rounded-lg transition-all duration-200 flex-shrink-0 mb-2',
-              !input.trim() || isLoading
+              (!input.trim() && images.length === 0) || isLoading
                 ? 'bg-border-default text-text-muted cursor-not-allowed'
                 : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'
             )}
@@ -192,6 +339,11 @@ export default function ChatInterface({
             )}
           </button>
         </form>
+        {images.length > 0 && (
+          <p className="mt-2 text-xs text-text-muted">
+            Images are used for this request and are not saved in chat history.
+          </p>
+        )}
         {!rewriteModelAvailable && (
           <div className="text-sm text-text-muted mt-2">
             The {DEFAULT_QUERY_REWRITE_MODEL} model is not installed. Consider{' '}

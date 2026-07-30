@@ -16,6 +16,11 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 import KVStore from '#models/kv_store'
+import type { ModelCapabilities } from '../utils/model_capabilities.js'
+import {
+  capabilitiesFromOllamaShow,
+  visionCapabilityFromLlamaProps,
+} from '../utils/model_capabilities.js'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -41,7 +46,7 @@ export type NomadChatStreamChunk = {
 
 type ChatInput = {
   model: string
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  messages: ChatCompletionMessageParam[]
   think?: boolean | 'medium'
   // Whether the target model supports thinking. Lets chat()/chatStream() tell "capable but
   // disabled" (send reasoning_effort:'none') apart from "not capable" (send nothing).
@@ -60,9 +65,12 @@ export class OllamaService {
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
   private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
-  // Memoized `thinking` capability per model name (see checkModelHasThinking). Only successful
-  // /api/show lookups are cached; transient failures are left uncached so they can be retried.
-  private thinkingCapabilityCache: Map<string, boolean> = new Map()
+  // Definitive capabilities are stable for a loaded model. Cache unknown results briefly to
+  // avoid adding repeated endpoint probes to chat startup while still allowing backend reloads.
+  private modelCapabilityCache: Map<
+    string,
+    { value: ModelCapabilities; expiresAt: number }
+  > = new Map()
 
   constructor() {}
 
@@ -464,30 +472,59 @@ export class OllamaService {
     return normalize()
   }
 
-  public async checkModelHasThinking(modelName: string): Promise<boolean> {
+  public async getModelCapabilities(modelName: string): Promise<ModelCapabilities> {
     await this._ensureDependencies()
-    if (!this.baseUrl) return false
+    if (!this.baseUrl) return { thinking: false, vision: 'unknown' }
 
-    // A model's capabilities don't change at runtime, so memoize the /api/show result. Without
-    // this, loading the chat picker fires one /api/show per installed model and every chat send
-    // fires another — this collapses those to a single call per model per process.
-    const cached = this.thinkingCapabilityCache.get(modelName)
-    if (cached !== undefined) return cached
+    const cached = this.modelCapabilityCache.get(modelName)
+    if (cached && cached.expiresAt > Date.now()) return cached.value
 
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/api/show`,
-        { model: modelName },
-        { timeout: 5000 }
-      )
-      const hasThinking =
-        Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
-      this.thinkingCapabilityCache.set(modelName, hasThinking)
-      return hasThinking
-    } catch {
-      // Non-Ollama backends don't expose /api/show — assume no thinking support
-      return false
+    if (this.isOllamaNative !== false) {
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/api/show`,
+          { model: modelName },
+          { timeout: 3000 }
+        )
+        const capabilities = capabilitiesFromOllamaShow(response.data)
+        if (capabilities) {
+          this.isOllamaNative = true
+          this.modelCapabilityCache.set(modelName, {
+            value: capabilities,
+            expiresAt: Number.POSITIVE_INFINITY,
+          })
+          return capabilities
+        }
+      } catch {}
     }
+
+    // A llama.cpp server hosts one model and reports its input modalities at /props.
+    if (this.isOllamaNative !== true) {
+      try {
+        const response = await axios.get(`${this.baseUrl}/props`, { timeout: 3000 })
+        const vision = visionCapabilityFromLlamaProps(response.data)
+        if (vision) {
+          this.isOllamaNative = false
+          const capabilities = { thinking: false, vision }
+          this.modelCapabilityCache.set(modelName, {
+            value: capabilities,
+            expiresAt: Number.POSITIVE_INFINITY,
+          })
+          return capabilities
+        }
+      } catch {}
+    }
+
+    const unknown: ModelCapabilities = { thinking: false, vision: 'unknown' }
+    this.modelCapabilityCache.set(modelName, {
+      value: unknown,
+      expiresAt: Date.now() + 30_000,
+    })
+    return unknown
+  }
+
+  public async checkModelHasThinking(modelName: string): Promise<boolean> {
+    return (await this.getModelCapabilities(modelName)).thinking
   }
 
   public async deleteModel(modelName: string): Promise<{ success: boolean; message: string }> {

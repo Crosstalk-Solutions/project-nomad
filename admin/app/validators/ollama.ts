@@ -3,14 +3,18 @@ import vine from '@vinejs/vine'
 export const chatSchema = vine.compile(
   vine.object({
     model: vine.string().trim().minLength(1),
-    messages: vine.array(
-      vine.object({
-        role: vine.enum(['system', 'user', 'assistant'] as const),
-        content: vine.string(),
-      })
-    ),
+    messages: vine
+      .array(
+        vine.object({
+          role: vine.enum(['system', 'user', 'assistant'] as const),
+          content: vine.string(),
+        })
+      )
+      .minLength(1)
+      .maxLength(200),
     stream: vine.boolean().optional(),
     sessionId: vine.number().positive().optional(),
+    collection: vine.string().trim().maxLength(200).optional(),
     // Effective per-request thinking preference (per-model override or global default),
     // resolved client-side. Omitted -> server falls back to the ai.autoThinking KV default.
     think: vine.boolean().optional(),

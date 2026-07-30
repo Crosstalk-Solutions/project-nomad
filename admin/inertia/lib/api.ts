@@ -12,6 +12,26 @@ import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatReq
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
 
+type OllamaChatRequestWithImages = OllamaChatRequest & { images?: File[] }
+
+function serializeChatRequest(chatRequest: OllamaChatRequestWithImages): {
+  body: BodyInit
+  headers?: Record<string, string>
+} {
+  const { images = [], ...payload } = chatRequest
+  if (images.length === 0) {
+    return {
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+    }
+  }
+
+  const formData = new FormData()
+  formData.append('payload', JSON.stringify(payload))
+  images.forEach((image) => formData.append('images', image, image.name))
+  return { body: formData }
+}
+
 class API {
   private client: AxiosInstance
 
@@ -310,28 +330,44 @@ class API {
     })()
   }
 
-  async sendChatMessage(chatRequest: OllamaChatRequest) {
+  async sendChatMessage(chatRequest: OllamaChatRequestWithImages) {
     return catchInternal(async () => {
+      if (chatRequest.images?.length) {
+        const serialized = serializeChatRequest({ ...chatRequest, stream: false })
+        const response = await fetch('/api/ollama/chat', {
+          method: 'POST',
+          headers: serialized.headers,
+          body: serialized.body,
+        })
+        const responseBody = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(responseBody?.message ?? `HTTP error: ${response.status}`)
+        }
+        return responseBody as NomadChatResponse
+      }
+
       const response = await this.client.post<NomadChatResponse>('/ollama/chat', chatRequest)
       return response.data
     })()
   }
 
   async streamChatMessage(
-    chatRequest: OllamaChatRequest,
+    chatRequest: OllamaChatRequestWithImages,
     onChunk: (content: string, thinking: string, done: boolean) => void,
     signal?: AbortSignal
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
+    const serialized = serializeChatRequest({ ...chatRequest, stream: true })
     const response = await fetch('/api/ollama/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...chatRequest, stream: true }),
+      headers: serialized.headers,
+      body: serialized.body,
       signal,
     })
 
     if (!response.ok || !response.body) {
-      throw new Error(`HTTP error: ${response.status}`)
+      const errorBody = await response.json().catch(() => null)
+      throw new Error(errorBody?.message ?? `HTTP error: ${response.status}`)
     }
 
     const reader = response.body.getReader()
