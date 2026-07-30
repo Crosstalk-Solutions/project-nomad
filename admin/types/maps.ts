@@ -30,20 +30,10 @@ export type MapArchiveKind = Extract<MapSource['type'], 'vector' | 'raster'>
 export type MapArchiveRole = 'street' | 'aerial' | 'topographic'
 export type MapTileFormat = 'mvt' | 'jpeg' | 'png' | 'webp'
 
-/**
- * Explicit sidecar metadata for an installed PMTiles archive.
- *
- * Existing archives without an entry remain supported as legacy vector maps.
- * Raster archives must have a valid entry before style generation will activate
- * them.
- */
-export type MapArchiveMetadata = {
+type MapArchiveMetadataBase = {
   filename: string
   resourceId: string
-  kind: MapArchiveKind
-  role?: MapArchiveRole
   regionId?: string
-  tileFormat?: MapTileFormat
   tileSize?: number
   minzoom?: number
   maxzoom?: number
@@ -56,6 +46,38 @@ export type MapArchiveMetadata = {
   verifiedAt?: string
 }
 
+export type VectorMapArchiveMetadata = MapArchiveMetadataBase & {
+  kind: 'vector'
+  role: 'street'
+  tileFormat: 'mvt'
+}
+
+export type RasterMapArchiveMetadata = MapArchiveMetadataBase & {
+  kind: 'raster'
+  role: Extract<MapArchiveRole, 'aerial' | 'topographic'>
+  regionId: string
+  tileFormat: Extract<MapTileFormat, 'jpeg' | 'png' | 'webp'>
+  tileSize: number
+  minzoom: number
+  maxzoom: number
+  bounds: [number, number, number, number]
+  attribution: string
+  sourceUrl: string
+  sourceVersion: string
+  sha256: string
+  installedBytes: number
+  verifiedAt: string
+}
+
+/**
+ * Explicit sidecar metadata for an installed PMTiles archive.
+ *
+ * Existing archives without an entry remain supported as legacy vector maps.
+ * Raster archives must have a valid entry before style generation will activate
+ * them.
+ */
+export type MapArchiveMetadata = VectorMapArchiveMetadata | RasterMapArchiveMetadata
+
 export type MapArchiveManifest = {
   schemaVersion: 1
   generatedAt?: string
@@ -63,6 +85,7 @@ export type MapArchiveManifest = {
 }
 
 export type ParsedMapArchiveManifest = {
+  status: 'absent' | 'valid' | 'invalid'
   archives: MapArchiveMetadata[]
   /**
    * Files explicitly mentioned by a manifest but rejected during validation.

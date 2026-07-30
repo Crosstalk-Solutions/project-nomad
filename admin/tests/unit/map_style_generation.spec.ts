@@ -5,6 +5,7 @@ import {
   buildMapSourceDefinitions,
   composeMapStyle,
   parseMapArchiveManifest,
+  parseMapArchiveManifestJson,
 } from '../../app/utils/map_styles.js'
 import type { BaseStylesFile, MapArchiveMetadata, MapSourceDefinition } from '../../types/maps.js'
 import type { FileEntry } from '../../types/files.js'
@@ -64,6 +65,7 @@ test('uses explicit vector archive metadata instead of inferring the source type
     'http://nomad.test/maps/pmtiles',
     [file(metadata.filename)],
     {
+      status: 'valid',
       archives: [metadata],
       rejectedFilenames: [],
     }
@@ -74,6 +76,31 @@ test('uses explicit vector archive metadata instead of inferring the source type
   assert.equal(sources[0].source.type, 'vector')
   assert.equal(sources[0].source.attribution, 'OpenStreetMap')
   assert.equal(sources[0].source.maxzoom, 15)
+})
+
+test('rejects vector metadata with raster roles or tile formats', () => {
+  const baseVectorMetadata = {
+    filename: 'us_20260728_z15.pmtiles',
+    resourceId: 'street-us',
+    kind: 'vector',
+    role: 'street',
+    tileFormat: 'mvt',
+  }
+
+  for (const metadata of [
+    { ...baseVectorMetadata, role: 'aerial' },
+    { ...baseVectorMetadata, tileFormat: 'jpeg' },
+  ]) {
+    const parsed = parseMapArchiveManifest({
+      schemaVersion: 1,
+      archives: {
+        [metadata.filename]: metadata,
+      },
+    })
+
+    assert.deepEqual(parsed.archives, [])
+    assert.deepEqual(parsed.rejectedFilenames, [metadata.filename])
+  }
 })
 
 test('parses a filename-keyed manifest for an arbitrary region ID', () => {
@@ -87,6 +114,16 @@ test('parses a filename-keyed manifest for an arbitrary region ID', () => {
 
   assert.deepEqual(parsed.archives, [metadata])
   assert.deepEqual(parsed.rejectedFilenames, [])
+})
+
+test('rejects archive arrays because the manifest schema is filename-keyed', () => {
+  const parsed = parseMapArchiveManifest({
+    schemaVersion: 1,
+    archives: [rasterMetadata('us-ok')],
+  })
+
+  assert.equal(parsed.status, 'invalid')
+  assert.deepEqual(parsed.archives, [])
 })
 
 test('rejects invalid raster metadata and blocks legacy-vector fallback for that file', () => {
@@ -112,6 +149,18 @@ test('rejects invalid raster metadata and blocks legacy-vector fallback for that
     sources.map((source) => source.id),
     ['us_20260728_z15']
   )
+})
+
+test('blocks arbitrary PMTiles filenames from vector fallback when the manifest is malformed', () => {
+  const parsed = parseMapArchiveManifestJson('{not valid json')
+  const sources = buildMapSourceDefinitions(
+    'http://nomad.test/maps/pmtiles',
+    [file('provider-aerial-ok.pmtiles'), file('oklahoma.pmtiles')],
+    parsed
+  )
+
+  assert.equal(parsed.status, 'invalid')
+  assert.deepEqual(sources, [])
 })
 
 test('requires complete provenance and verification metadata for raster archives', () => {
@@ -152,7 +201,7 @@ test('creates non-colliding raster sources for multiple regions and roles', () =
   const sources = buildMapSourceDefinitions(
     'http://nomad.test/maps/pmtiles',
     metadata.map((archive) => file(archive.filename)),
-    { archives: metadata, rejectedFilenames: [] }
+    { status: 'valid', archives: metadata, rejectedFilenames: [] }
   )
 
   assert.deepEqual(
@@ -181,7 +230,7 @@ test('places hidden raster layers below cloned vector layers without mutating th
   const sources: MapSourceDefinition[] = buildMapSourceDefinitions(
     'http://nomad.test/maps/pmtiles',
     [file(vector.filename), file(raster.filename)],
-    { archives: [vector, raster], rejectedFilenames: [] }
+    { status: 'valid', archives: [vector, raster], rejectedFilenames: [] }
   )
   const template = vectorTemplate()
   const original = structuredClone(template)
