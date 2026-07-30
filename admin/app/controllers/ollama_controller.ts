@@ -22,6 +22,9 @@ import {
 } from '../utils/chat_images.js'
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
+const unknownVisionCompatibilityMessage = (model: string) =>
+  `NOMAD could not verify image support for "${model}", and the backend rejected the image request. Verify that this model supports vision and that its vision projector is loaded.`
+
 @inject()
 export default class OllamaController {
   constructor(
@@ -310,13 +313,20 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({
-        ...ollamaRequest,
-        messages: upstreamMessages,
-        think,
-        thinkingCapable: thinkingCapability,
-        numCtx,
-      })
+      let result
+      try {
+        result = await this.ollamaService.chat({
+          ...ollamaRequest,
+          messages: upstreamMessages,
+          think,
+          thinkingCapable: thinkingCapability,
+          numCtx,
+        })
+      } catch (err) {
+        unknownVisionUpstreamRejected =
+          normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
+        throw err
+      }
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
@@ -335,12 +345,17 @@ export default class OllamaController {
           unknownVisionUpstreamRejected
             ? {
                 error: true,
-                message: `NOMAD could not verify image support for "${reqData.model}", and the backend rejected the image request. Verify that this model supports vision and that its vision projector is loaded.`,
+                message: unknownVisionCompatibilityMessage(reqData.model),
               }
             : { error: true }
         response.response.write(`data: ${JSON.stringify(streamError)}\n\n`)
         response.response.end()
         return
+      }
+      if (unknownVisionUpstreamRejected) {
+        return response.status(422).send({
+          message: unknownVisionCompatibilityMessage(reqData.model),
+        })
       }
       throw error
     }

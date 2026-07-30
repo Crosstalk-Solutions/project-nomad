@@ -90,6 +90,79 @@ test('unknown backend image rejection returns actionable compatibility details o
   assert.match(event.message, /verify.*vision/i)
 })
 
+test('unknown backend image rejection returns actionable compatibility details without streaming', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'nomad-controller-image-'))
+  const imagePath = join(directory, 'sample.png')
+  const image = await sharp({
+    create: {
+      width: 4,
+      height: 4,
+      channels: 3,
+      background: '#556b2f',
+    },
+  })
+    .png()
+    .toBuffer()
+  await writeFile(imagePath, image)
+
+  const payload = {
+    model: 'openai-compatible-model',
+    messages: [{ role: 'user', content: 'What is shown?' }],
+    stream: false,
+  }
+  const request = {
+    files: () => [
+      {
+        tmpPath: imagePath,
+        size: image.byteLength,
+        clientName: 'sample.png',
+        isValid: true,
+      },
+    ],
+    input: (name: string, fallback?: unknown) =>
+      name === 'payload' ? JSON.stringify(payload) : fallback,
+  }
+  let statusCode: number | undefined
+  let responseBody: unknown
+  const response = {
+    response: new FakeSseResponse(),
+    status: (code: number) => {
+      statusCode = code
+      return response
+    },
+    send: (body: unknown) => {
+      responseBody = body
+      return body
+    },
+  }
+  const ollamaService = {
+    getModelCapabilities: async () => ({ thinking: false, vision: 'unknown' as const }),
+    chat: async () => {
+      throw new Error('The upstream backend rejected image_url content.')
+    },
+  }
+  const controller = new OllamaController(
+    {} as any,
+    {} as any,
+    ollamaService as any,
+    {
+      hasDocuments: async () => false,
+      searchSimilarDocuments: async () => [],
+    } as any,
+    { getSystemPrompt: async () => null } as any
+  )
+
+  try {
+    await controller.chat({ request, response } as any)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+
+  assert.equal(statusCode, 422)
+  assert.match((responseBody as { message: string }).message, /could not verify image support/i)
+  assert.match((responseBody as { message: string }).message, /verify.*vision/i)
+})
+
 test('unknown backend image requests do not mislabel preprocessing failures as incompatibility', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'nomad-controller-image-'))
   const imagePath = join(directory, 'sample.png')
