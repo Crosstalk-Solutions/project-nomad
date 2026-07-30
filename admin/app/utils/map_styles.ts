@@ -136,6 +136,10 @@ function isMapArchiveMetadata(value: unknown): value is MapArchiveMetadata {
     }
   }
 
+  if (archive.kind === 'vector' && (archive.role !== 'street' || archive.tileFormat !== 'mvt')) {
+    return false
+  }
+
   if (archive.kind === 'raster') {
     if (
       (archive.role !== 'aerial' && archive.role !== 'topographic') ||
@@ -171,16 +175,23 @@ function candidateFilename(value: unknown): string | null {
  * their filenames remain blocked from legacy-vector fallback.
  */
 export function parseMapArchiveManifest(value: unknown): ParsedMapArchiveManifest {
-  const empty = { archives: [], rejectedFilenames: [] }
-  if (!value || typeof value !== 'object') return empty
+  const invalid: ParsedMapArchiveManifest = {
+    status: 'invalid',
+    archives: [],
+    rejectedFilenames: [],
+  }
+  if (!value || typeof value !== 'object') return invalid
   const manifest = value as { schemaVersion?: unknown; archives?: unknown }
-  if (manifest.schemaVersion !== 1 || !manifest.archives || typeof manifest.archives !== 'object') {
-    return empty
+  if (
+    manifest.schemaVersion !== 1 ||
+    !manifest.archives ||
+    typeof manifest.archives !== 'object' ||
+    Array.isArray(manifest.archives)
+  ) {
+    return invalid
   }
 
-  const entries = Array.isArray(manifest.archives)
-    ? manifest.archives.map((candidate) => [candidateFilename(candidate), candidate] as const)
-    : Object.entries(manifest.archives)
+  const entries = Object.entries(manifest.archives)
   const archives: MapArchiveMetadata[] = []
   const rejectedFilenames = new Set<string>()
   const filenames = new Set<string>()
@@ -210,7 +221,15 @@ export function parseMapArchiveManifest(value: unknown): ParsedMapArchiveManifes
     archives.push({ ...candidate })
   }
 
-  return { archives, rejectedFilenames: [...rejectedFilenames] }
+  return { status: 'valid', archives, rejectedFilenames: [...rejectedFilenames] }
+}
+
+export function parseMapArchiveManifestJson(value: string): ParsedMapArchiveManifest {
+  try {
+    return parseMapArchiveManifest(JSON.parse(value))
+  } catch {
+    return { status: 'invalid', archives: [], rejectedFilenames: [] }
+  }
 }
 
 function compareMapArchiveVersions(a: string | null, b: string | null): number {
@@ -249,7 +268,11 @@ export function sourceFromArchive(baseUrl: string, archive: MapArchiveMetadata):
 export function buildMapSourceDefinitions(
   baseUrl: string,
   regions: FileEntry[],
-  parsedManifest: ParsedMapArchiveManifest = { archives: [], rejectedFilenames: [] }
+  parsedManifest: ParsedMapArchiveManifest = {
+    status: 'absent',
+    archives: [],
+    rejectedFilenames: [],
+  }
 ): MapSourceDefinition[] {
   const metadataByFilename = new Map(
     parsedManifest.archives.map((archive) => [archive.filename, archive])
@@ -275,7 +298,13 @@ export function buildMapSourceDefinitions(
       })
       continue
     }
-    if (rejectedFilenames.has(region.name) || RESERVED_RASTER_FILENAME.test(region.name)) continue
+    if (
+      parsedManifest.status === 'invalid' ||
+      rejectedFilenames.has(region.name) ||
+      RESERVED_RASTER_FILENAME.test(region.name)
+    ) {
+      continue
+    }
 
     const parsed = parseLegacyMapFilename(region.name)
     const regionName = parsed ? parsed.resourceId : region.name.replace('.pmtiles', '')
