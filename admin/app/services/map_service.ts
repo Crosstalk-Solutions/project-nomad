@@ -44,7 +44,7 @@ import {
   composeMapStyle,
   DEFAULT_VECTOR_MAP_ATTRIBUTION,
   MAP_ARCHIVE_MANIFEST_FILENAME,
-  parseMapArchiveManifest,
+  parseMapArchiveManifestJson,
 } from '../utils/map_styles.js'
 
 const execFileAsync = promisify(execFile)
@@ -413,18 +413,15 @@ export class MapService implements IMapService {
     }
 
     const manifest = await getFile(manifestPath, 'string')
-    if (!manifest) return { archives: [], rejectedFilenames: [] }
+    if (!manifest) return { status: 'absent', archives: [], rejectedFilenames: [] }
 
-    try {
-      return parseMapArchiveManifest(JSON.parse(manifest.toString()))
-    } catch (error) {
+    const parsed = parseMapArchiveManifestJson(manifest.toString())
+    if (parsed.status === 'invalid') {
       logger.warn(
-        `[MapService] Ignoring malformed ${MAP_ARCHIVE_MANIFEST_FILENAME}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        `[MapService] ${MAP_ARCHIVE_MANIFEST_FILENAME} is malformed; blocking unmanifested PMTiles archives`
       )
-      return { archives: [], rejectedFilenames: [] }
     }
+    return parsed
   }
 
   async listCuratedCollections(): Promise<CollectionWithStatus[]> {
