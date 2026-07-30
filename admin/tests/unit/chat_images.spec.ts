@@ -26,7 +26,7 @@ function uploadedFile(path: string, size: number, name = 'sample.png'): Multipar
   } as MultipartFile
 }
 
-test('normalizes a supported image to a bounded WebP data URL', async () => {
+test('normalizes a supported image to a bounded JPEG data URL', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'nomad-chat-image-'))
   const path = join(directory, 'sample.png')
   const input = await sharp({
@@ -44,10 +44,10 @@ test('normalizes a supported image to a bounded WebP data URL', async () => {
   try {
     const [image] = await normalizeChatImages([uploadedFile(path, input.byteLength)])
     assert.equal(image.name, 'sample.png')
-    assert.match(image.dataUrl, /^data:image\/webp;base64,/)
+    assert.match(image.dataUrl, /^data:image\/jpeg;base64,/)
     const decoded = Buffer.from(image.dataUrl.split(',')[1], 'base64')
     const metadata = await sharp(decoded).metadata()
-    assert.equal(metadata.format, 'webp')
+    assert.equal(metadata.format, 'jpeg')
     assert.equal(metadata.width, 32)
     assert.equal(metadata.height, 24)
   } finally {

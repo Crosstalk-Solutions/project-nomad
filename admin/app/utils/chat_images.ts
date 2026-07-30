@@ -74,7 +74,8 @@ async function normalizeChatImage(file: MultipartFile): Promise<NormalizedChatIm
         fit: 'inside',
         withoutEnlargement: true,
       })
-      .webp({ quality: 85 })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 85 })
       .toBuffer()
 
     if (normalized.byteLength > MAX_NORMALIZED_IMAGE_BYTES) {
@@ -86,7 +87,7 @@ async function normalizeChatImage(file: MultipartFile): Promise<NormalizedChatIm
 
     return {
       name: file.clientName,
-      dataUrl: `data:image/webp;base64,${normalized.toString('base64')}`,
+      dataUrl: `data:image/jpeg;base64,${normalized.toString('base64')}`,
     }
   } catch (error) {
     if (error instanceof ChatImageError) throw error
