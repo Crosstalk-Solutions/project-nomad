@@ -188,3 +188,56 @@ test('falls back per model from Ollama metadata to llama.cpp properties', async 
   assert.deepEqual(llamaModel, { thinking: false, vision: 'unsupported' })
   assert.equal(propsProbeCalls, 1)
 })
+
+test('classifies the four supported backend capability cases', async () => {
+  const backendCases = [
+    {
+      name: 'Ollama vision',
+      advertised: null,
+      ollamaShow: async () => ({ capabilities: ['completion', 'vision'] }),
+      llamaProps: async () => {
+        throw new Error('not used')
+      },
+      expected: { thinking: false, vision: 'supported' },
+    },
+    {
+      name: 'llama.cpp vision',
+      advertised: null,
+      ollamaShow: async () => {
+        throw new Error('404')
+      },
+      llamaProps: async () => ({ modalities: { vision: true } }),
+      expected: { thinking: false, vision: 'supported' },
+    },
+    {
+      name: 'known text-only',
+      advertised: { capabilities: ['completion', 'thinking'] },
+      ollamaShow: async () => {
+        throw new Error('not used')
+      },
+      llamaProps: async () => {
+        throw new Error('not used')
+      },
+      expected: { thinking: true, vision: 'unsupported' },
+    },
+    {
+      name: 'unknown OpenAI-compatible',
+      advertised: null,
+      ollamaShow: async () => {
+        throw new Error('404')
+      },
+      llamaProps: async () => {
+        throw new Error('404')
+      },
+      expected: null,
+    },
+  ] as const
+
+  for (const backend of backendCases) {
+    const actual = await resolveModelCapabilities(backend.advertised, {
+      ollamaShow: backend.ollamaShow,
+      llamaProps: backend.llamaProps,
+    })
+    assert.deepEqual(actual, backend.expected, backend.name)
+  }
+})

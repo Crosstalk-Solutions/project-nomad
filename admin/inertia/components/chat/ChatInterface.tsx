@@ -300,7 +300,7 @@ export default function ChatInterface({
             {visionCapability !== 'supported' && (
               <InfoTooltip
                 position="top"
-                align="right"
+                align="left"
                 text={
                   visionCapability === 'unsupported'
                     ? 'The selected model reports that it cannot accept images.'

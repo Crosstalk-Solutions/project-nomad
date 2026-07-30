@@ -11,6 +11,7 @@ import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
+import { chatStreamErrorMessage } from './chat_stream.js'
 
 type OllamaChatRequestWithImages = OllamaChatRequest & { images?: File[] }
 
@@ -390,7 +391,8 @@ class API {
             data = JSON.parse(line.slice(6))
           } catch { continue /* skip malformed chunks */ }
 
-          if (data.error) throw new Error('The model encountered an error. Please try again.')
+          const streamError = chatStreamErrorMessage(data)
+          if (streamError) throw new Error(streamError)
 
           onChunk(
             data.message?.content ?? '',

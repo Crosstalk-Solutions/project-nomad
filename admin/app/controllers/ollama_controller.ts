@@ -81,6 +81,13 @@ export default class OllamaController {
         return response.status(422).send({ message: 'The multipart chat payload is not valid JSON.' })
       }
     }
+    const collectionFilter =
+      uploadedImages.length > 0 &&
+      multipartPayload &&
+      typeof multipartPayload === 'object' &&
+      'collection' in multipartPayload
+        ? (multipartPayload as { collection?: unknown }).collection
+        : request.input('collection', null)
 
     let reqData: Awaited<ReturnType<typeof chatSchema.validate>>
     try {
@@ -155,12 +162,11 @@ export default class OllamaController {
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
       if (rewrittenQuery) {
-        const collectionFilter = reqData.collection
         const relevantDocs = await this.ragService.searchSimilarDocuments(
           rewrittenQuery,
           5, // Top 5 most relevant chunks
           0.3, // Minimum similarity score of 0.3
-          collectionFilter ?? undefined
+          typeof collectionFilter === 'string' ? collectionFilter : undefined
         )
 
         logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
@@ -238,7 +244,7 @@ export default class OllamaController {
 
       // Separate sessionId and the resolved thinking preference from the Ollama request payload —
       // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
-      const { sessionId, think: _thinkPref, collection: _collection, ...ollamaRequest } = reqData
+      const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
       const upstreamMessages = attachImagesToLatestUserMessage(
         ollamaRequest.messages,
         normalizedImages
@@ -322,7 +328,14 @@ export default class OllamaController {
       return result
     } catch (error) {
       if (reqData.stream) {
-        response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
+        const streamError =
+          normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
+            ? {
+                error: true,
+                message: `NOMAD could not verify image support for "${reqData.model}", and the backend rejected the image request. Verify that this model supports vision and that its vision projector is loaded.`,
+              }
+            : { error: true }
+        response.response.write(`data: ${JSON.stringify(streamError)}\n\n`)
         response.response.end()
         return
       }
