@@ -90,6 +90,80 @@ test('unknown backend image rejection returns actionable compatibility details o
   assert.match(event.message, /verify.*vision/i)
 })
 
+test('unknown backend image requests do not mislabel preprocessing failures as incompatibility', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'nomad-controller-image-'))
+  const imagePath = join(directory, 'sample.png')
+  const image = await sharp({
+    create: {
+      width: 4,
+      height: 4,
+      channels: 3,
+      background: '#556b2f',
+    },
+  })
+    .png()
+    .toBuffer()
+  await writeFile(imagePath, image)
+
+  const rawResponse = new FakeSseResponse()
+  const payload = {
+    model: 'openai-compatible-model',
+    messages: [{ role: 'user', content: 'What is shown?' }],
+    stream: true,
+  }
+  const request = {
+    files: () => [
+      {
+        tmpPath: imagePath,
+        size: image.byteLength,
+        clientName: 'sample.png',
+        isValid: true,
+      },
+    ],
+    input: (name: string, fallback?: unknown) =>
+      name === 'payload' ? JSON.stringify(payload) : fallback,
+  }
+  const response = {
+    response: rawResponse,
+    status: () => response,
+    send: () => undefined,
+  }
+  let inferenceCalled = false
+  const ollamaService = {
+    getModelCapabilities: async () => ({ thinking: false, vision: 'unknown' as const }),
+    chatStream: async () => {
+      inferenceCalled = true
+      throw new Error('Inference should not be reached')
+    },
+  }
+  const controller = new OllamaController(
+    {} as any,
+    {} as any,
+    ollamaService as any,
+    {
+      hasDocuments: async () => false,
+      searchSimilarDocuments: async () => [],
+    } as any,
+    {
+      getSystemPrompt: async () => {
+        throw new Error('NOMAD.md storage unavailable')
+      },
+    } as any
+  )
+
+  try {
+    await controller.chat({ request, response } as any)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+
+  assert.equal(inferenceCalled, false)
+  assert.equal(rawResponse.ended, true)
+  assert.equal(rawResponse.chunks.length, 1)
+  const event = JSON.parse(rawResponse.chunks[0].replace(/^data: /, '').trim())
+  assert.deepEqual(event, { error: true })
+})
+
 test('text-only JSON chat preserves long histories through the controller boundary', async () => {
   const messages = Array.from({ length: 201 }, (_, index) => ({
     role: 'user' as const,

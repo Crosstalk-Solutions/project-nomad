@@ -134,6 +134,7 @@ export default class OllamaController {
       response.response.flushHeaders()
     }
 
+    let unknownVisionUpstreamRejected = false
     try {
       // If there are no system messages in the chat inject system prompts
       const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
@@ -268,16 +269,16 @@ export default class OllamaController {
         // blocks every later chat/RAG request until the model is manually stopped (#1065).
         const abortController = new AbortController()
         response.response.on('close', () => abortController.abort())
-        const stream = await this.ollamaService.chatStream({
-          ...ollamaRequest,
-          messages: upstreamMessages,
-          think,
-          thinkingCapable: thinkingCapability,
-          numCtx,
-          signal: abortController.signal,
-        })
         let fullContent = ''
         try {
+          const stream = await this.ollamaService.chatStream({
+            ...ollamaRequest,
+            messages: upstreamMessages,
+            think,
+            thinkingCapable: thinkingCapability,
+            numCtx,
+            signal: abortController.signal,
+          })
           for await (const chunk of stream) {
             if (chunk.message?.content) {
               fullContent += chunk.message.content
@@ -289,6 +290,8 @@ export default class OllamaController {
             logger.debug('[OllamaController] Client disconnected; aborted upstream Ollama generation')
             return
           }
+          unknownVisionUpstreamRejected =
+            normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
           throw err
         }
         response.response.end()
@@ -329,7 +332,7 @@ export default class OllamaController {
     } catch (error) {
       if (reqData.stream) {
         const streamError =
-          normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
+          unknownVisionUpstreamRejected
             ? {
                 error: true,
                 message: `NOMAD could not verify image support for "${reqData.model}", and the backend rejected the image request. Verify that this model supports vision and that its vision projector is loaded.`,
