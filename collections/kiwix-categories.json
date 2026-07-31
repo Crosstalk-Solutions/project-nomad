@@ -156,7 +156,7 @@
         {
           "name": "Comprehensive",
           "slug": "survival-comprehensive",
-          "description": "Complete prepper library with food storage strategies and classic military strategy. Includes everything in Standard.",
+          "description": "Complete prepper library with food storage strategies, off-grid technical references, and classic military strategy. Includes everything in Standard.",
           "includesTier": "survival-standard",
           "resources": [
             {
@@ -174,6 +174,14 @@
               "description": "Classic military strategy, tactics, and field manuals",
               "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-u_2026-03.zim",
               "size_mb": 1200
+            },
+            {
+              "id": "cd3wdproject.org_en_all",
+              "version": "2025-11",
+              "title": "CD3WD: Appropriate Technology Library",
+              "description": "Practical guides to food production, water and sanitation, construction, and village-scale manufacturing without industrial supply chains",
+              "url": "https://download.kiwix.org/zim/zimit/cd3wdproject.org_en_all_2025-11.zim",
+              "size_mb": 581
             }
           ]
         }
