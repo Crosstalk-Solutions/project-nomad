@@ -55,6 +55,37 @@ test('normalizes a supported image to a bounded JPEG data URL', async () => {
   }
 })
 
+test('normalizes image bytes when the filename extension does not match the encoding', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'nomad-chat-image-'))
+  const path = join(directory, 'mislabeled.png')
+  const input = await sharp({
+    create: {
+      width: 32,
+      height: 24,
+      channels: 3,
+      background: '#556b2f',
+    },
+  })
+    .webp()
+    .toBuffer()
+  await writeFile(path, input)
+
+  try {
+    const [image] = await normalizeChatImages([
+      uploadedFile(path, input.byteLength, 'mislabeled.png'),
+    ])
+    assert.equal(image.name, 'mislabeled.png')
+    assert.match(image.dataUrl, /^data:image\/jpeg;base64,/)
+    const decoded = Buffer.from(image.dataUrl.split(',')[1], 'base64')
+    const metadata = await sharp(decoded).metadata()
+    assert.equal(metadata.format, 'jpeg')
+    assert.equal(metadata.width, 32)
+    assert.equal(metadata.height, 24)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('rejects payloads with more than four images', async () => {
   const files = Array.from({ length: 5 }, (_, index) =>
     uploadedFile(`/tmp/image-${index}.png`, 10, `image-${index}.png`)
