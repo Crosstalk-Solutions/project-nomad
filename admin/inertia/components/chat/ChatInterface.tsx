@@ -12,6 +12,7 @@ import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useNotifications } from '~/context/NotificationContext'
 import { usePage } from '@inertiajs/react'
 import InfoTooltip from '../InfoTooltip'
+import { visionAttachmentGuidance } from '../../lib/vision_guidance'
 
 interface ChatInterfaceProps {
   messages: ChatMessage[]
@@ -302,9 +303,7 @@ export default function ChatInterface({
                 position="top"
                 align="left"
                 text={
-                  visionCapability === 'unsupported'
-                    ? 'The selected model reports that it cannot accept images.'
-                    : 'This AI backend does not report image capability. You can attach an image and try the request.'
+                  visionAttachmentGuidance(visionCapability)
                 }
               />
             )}
@@ -339,11 +338,9 @@ export default function ChatInterface({
             )}
           </button>
         </form>
-        {images.length > 0 && (
-          <p className="mt-2 text-xs text-text-muted">
-            Images are used for this request and are not saved in chat history.
-          </p>
-        )}
+        <p className="mt-2 text-xs text-text-muted" aria-live="polite">
+          {visionAttachmentGuidance(visionCapability)}
+        </p>
         {!rewriteModelAvailable && (
           <div className="text-sm text-text-muted mt-2">
             The {DEFAULT_QUERY_REWRITE_MODEL} model is not installed. Consider{' '}

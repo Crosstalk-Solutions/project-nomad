@@ -1128,6 +1128,18 @@ export default function EasySetupWizard(props: {
                         Size: {model.tags[0].size}
                       </div>
                     )}
+                    {model.tags?.[0]?.input.toLowerCase().includes('image') && (
+                      <div
+                        className={classNames(
+                          'mt-1 text-xs font-medium',
+                          selectedAiModels.includes(model.name)
+                            ? 'text-green-100'
+                            : 'text-desert-green'
+                        )}
+                      >
+                        Supports images
+                      </div>
+                    )}
                   </div>
                   <div
                     className={classNames(

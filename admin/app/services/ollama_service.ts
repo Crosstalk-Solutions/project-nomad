@@ -4,6 +4,7 @@ import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/res
 import type { Stream } from 'openai/streaming.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
+import { selectRecommendedModels } from '../utils/model_recommendations.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import logger from '@adonisjs/core/services/logger'
@@ -866,14 +867,7 @@ export class OllamaService {
       }
 
       const sortedByPulls = sort === 'pulls' ? models : this.sortModels(models, 'pulls')
-      const firstThree = sortedByPulls.slice(0, 3)
-
-      const recommendedModels = firstThree.map((model) => {
-        return {
-          ...model,
-          tags: model.tags && model.tags.length > 0 ? [model.tags[0]] : [],
-        }
-      })
+      const recommendedModels = selectRecommendedModels(sortedByPulls, 3)
 
       if (query) {
         const filteredRecommendedModels = this.fuseSearchModels(recommendedModels, query)

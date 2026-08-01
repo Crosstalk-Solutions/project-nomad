@@ -86,8 +86,9 @@ test('unknown backend image rejection returns actionable compatibility details o
   assert.equal(rawResponse.chunks.length, 1)
   const event = JSON.parse(rawResponse.chunks[0].replace(/^data: /, '').trim())
   assert.equal(event.error, true)
-  assert.match(event.message, /could not verify image support/i)
-  assert.match(event.message, /verify.*vision/i)
+  assert.match(event.message, /cannot confirm/i)
+  assert.match(event.message, /supports images/i)
+  assert.doesNotMatch(event.message, /backend|metadata|projector/i)
 })
 
 test('unknown backend image rejection returns actionable compatibility details without streaming', async () => {
@@ -159,8 +160,12 @@ test('unknown backend image rejection returns actionable compatibility details w
   }
 
   assert.equal(statusCode, 422)
-  assert.match((responseBody as { message: string }).message, /could not verify image support/i)
-  assert.match((responseBody as { message: string }).message, /verify.*vision/i)
+  assert.match((responseBody as { message: string }).message, /cannot confirm/i)
+  assert.match((responseBody as { message: string }).message, /supports images/i)
+  assert.doesNotMatch(
+    (responseBody as { message: string }).message,
+    /backend|metadata|projector/i
+  )
 })
 
 test('unknown backend image requests do not mislabel preprocessing failures as incompatibility', async () => {

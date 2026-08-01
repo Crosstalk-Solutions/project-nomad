@@ -23,7 +23,7 @@ import {
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
 const unknownVisionCompatibilityMessage = (model: string) =>
-  `NOMAD could not verify image support for "${model}", and the backend rejected the image request. Verify that this model supports vision and that its vision projector is loaded.`
+  `NOMAD cannot confirm that "${model}" accepts images, and this image request failed. Choose a model marked "Supports images", or remove the image and try again.`
 
 @inject()
 export default class OllamaController {

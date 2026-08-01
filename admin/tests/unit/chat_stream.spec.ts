@@ -7,9 +7,9 @@ test('chat stream preserves an actionable server error message', () => {
     chatStreamErrorMessage({
       error: true,
       message:
-        'NOMAD could not verify image support for this model. Verify that its vision projector is loaded.',
+        'NOMAD cannot confirm that this model accepts images. Choose a model marked “Supports images”.',
     }),
-    'NOMAD could not verify image support for this model. Verify that its vision projector is loaded.'
+    'NOMAD cannot confirm that this model accepts images. Choose a model marked “Supports images”.'
   )
   assert.equal(
     chatStreamErrorMessage({ error: true }),

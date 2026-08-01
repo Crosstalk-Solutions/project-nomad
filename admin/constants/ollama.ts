@@ -43,20 +43,21 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
     ],
   },
   {
-    name: 'llama3.2',
-    description: "Meta's Llama 3.2 goes small with 1B and 3B models.",
-    estimated_pulls: '54.7M',
-    id: 'c9a1bc23-b290-4501-a913-f7c9bb39c3ad',
+    name: 'qwen3-vl',
+    description:
+      'Qwen3-VL supports offline text and image conversations, including diagrams, worksheets, and photos.',
+    estimated_pulls: '4.8M',
+    id: 'qwen3-vl-fallback',
     first_seen: '2026-01-28T23:37:31.000+00:00',
-    model_last_updated: '1 year ago',
+    model_last_updated: 'recently',
     tags: [
       {
-        name: 'llama3.2:1b-text-q2_K',
-        size: '581 MB',
-        context: '128k',
-        input: 'Text',
+        name: 'qwen3-vl:latest',
+        size: '6.1 GB',
+        context: '256K',
+        input: 'Text, Image',
         cloud: false,
-        thinking: false
+        thinking: true,
       },
     ],
   },
