@@ -117,9 +117,33 @@
         {
           "name": "Essential",
           "slug": "survival-essential",
-          "description": "Core survival concepts and winter preparedness videos. Start here for emergency basics.",
+          "description": "Water, food, and knot references plus core survival videos. Start here for emergency basics.",
           "recommended": true,
           "resources": [
+            {
+              "id": "zimgit-water_en",
+              "version": "2024-08",
+              "title": "Water Treatment Library",
+              "description": "Collecting, filtering, and purifying drinking water",
+              "url": "https://download.kiwix.org/zim/other/zimgit-water_en_2024-08.zim",
+              "size_mb": 20
+            },
+            {
+              "id": "zimgit-food-preparation_en",
+              "version": "2025-04",
+              "title": "Food for Preppers",
+              "description": "Recipes and techniques for preparing and preserving food",
+              "url": "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
+              "size_mb": 97
+            },
+            {
+              "id": "zimgit-knots_en",
+              "version": "2024-08",
+              "title": "A Library of Knots",
+              "description": "Illustrated guides to knots, lashings, ladders, and sutures",
+              "url": "https://download.kiwix.org/zim/other/zimgit-knots_en_2024-08.zim",
+              "size_mb": 27
+            },
             {
               "id": "canadian_prepper_winterprepping_en",
               "version": "2026-02",
@@ -141,9 +165,33 @@
         {
           "name": "Standard",
           "slug": "survival-standard",
-          "description": "Bug-out strategies and urban survival techniques. Includes everything in Essential.",
+          "description": "Official disaster planning, field skills, and radio communications, plus bug-out and urban survival techniques. Includes everything in Essential.",
           "includesTier": "survival-essential",
           "resources": [
+            {
+              "id": "www.ready.gov_en",
+              "version": "2024-12",
+              "title": "Ready.gov",
+              "description": "Official US disaster planning guidance - weather, fire, evacuation plans, and emergency kits",
+              "url": "https://download.kiwix.org/zim/zimit/www.ready.gov_en_2024-12.zim",
+              "size_mb": 2429
+            },
+            {
+              "id": "outdoors.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "The Great Outdoors Q&A",
+              "description": "Answered questions on hiking, camping, navigation, and wilderness skills",
+              "url": "https://download.kiwix.org/zim/stack_exchange/outdoors.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 142
+            },
+            {
+              "id": "ham.stackexchange.com_en_all",
+              "version": "2026-02",
+              "title": "Amateur Radio Q&A",
+              "description": "Answered questions on radio equipment, antennas, licensing, and emergency communications",
+              "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-02.zim",
+              "size_mb": 75
+            },
             {
               "id": "canadian_prepper_bugoutconcepts_en",
               "version": "2026-02",
@@ -165,16 +213,32 @@
         {
           "name": "Comprehensive",
           "slug": "survival-comprehensive",
-          "description": "Complete prepper library with food storage strategies and classic military strategy. Includes everything in Standard.",
+          "description": "Complete prepper library - post-disaster recovery, growing and storing food, off-grid technical references, and classic military strategy. Includes everything in Standard.",
           "includesTier": "survival-standard",
           "resources": [
             {
-              "id": "canadian_prepper_preppingfood_en",
-              "version": "2025-09",
+              "id": "canadian-prepper_en_preppingfood",
+              "version": "2026-07",
               "title": "Canadian Prepper: Prepping Food",
               "description": "Long-term food storage and survival meal preparation",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_preppingfood_2026-07.zim",
               "size_mb": 2160
+            },
+            {
+              "id": "zimgit-post-disaster_en",
+              "version": "2024-05",
+              "title": "Post Disaster Resource Library",
+              "description": "Shelter, sanitation, salvage, and recovery guidance for the aftermath of a disaster",
+              "url": "https://download.kiwix.org/zim/other/zimgit-post-disaster_en_2024-05.zim",
+              "size_mb": 644
+            },
+            {
+              "id": "100r.co_en_all",
+              "version": "2026-06",
+              "title": "Hundred Rabbits",
+              "description": "Field notes on low-tech living - solar power, water, food, and repair from a decade off-grid",
+              "url": "https://download.kiwix.org/zim/zimit/100r.co_en_all_2026-06.zim",
+              "size_mb": 172
             },
             {
               "id": "gutenberg_en_lcc-u",
@@ -183,6 +247,14 @@
               "description": "Classic military strategy, tactics, and field manuals",
               "url": "https://download.kiwix.org/zim/gutenberg/gutenberg_en_lcc-u_2026-03.zim",
               "size_mb": 1200
+            },
+            {
+              "id": "cd3wdproject.org_en_all",
+              "version": "2025-11",
+              "title": "CD3WD: Appropriate Technology Library",
+              "description": "Practical guides to food production, water and sanitation, construction, and village-scale manufacturing without industrial supply chains",
+              "url": "https://download.kiwix.org/zim/zimit/cd3wdproject.org_en_all_2025-11.zim",
+              "size_mb": 581
             }
           ]
         }
