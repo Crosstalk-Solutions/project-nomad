@@ -57,11 +57,28 @@ export async function doResumableDownload({
 
   // Get file info with HEAD request first. Gated sources (Creator Packs) require
   // the auth header on the HEAD too, or the probe 401s before the GET is reached.
-  const headResponse = await axios.head(url, {
-    signal,
-    timeout,
-    headers, 
-  })
+  let headResponse
+  try {
+    headResponse = await axios.head(url, {
+      signal,
+      timeout,
+      headers,
+    })
+  } catch (error: any) {
+    // A 401/403 from a gated source is not a network problem and the raw axios
+    // message ("Request failed with status code 401") reads like our server is
+    // broken. Translate it, because the actual cause is almost always a build
+    // without the entitlement key baked in — i.e. not an official release.
+    // failedReason is surfaced verbatim on the downloads UI.
+    const status = error?.response?.status
+    if (status === 401 || status === 403) {
+      throw new Error(
+        'This content is hosted by Project NOMAD and requires an official release build. ' +
+          `The download server rejected this install's credentials (HTTP ${status}).`
+      )
+    }
+    throw error
+  }
 
   // Some upstream hosts (notably download.kiwix.org for .zim files) don't set a
   // Content-Type header at all. Per RFC 7231 §3.1.1.5, "if no Content-Type is

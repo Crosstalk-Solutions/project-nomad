@@ -73,3 +73,55 @@ test('non-padded catalog months are compared numerically', () => {
   )
   assert.equal(resolved.version, '2026-10')
 })
+
+// ---- Gated, self-hosted content ----
+//
+// Resources we host behind the entitlement Worker are pinned to the manifest URL.
+// They are not in the openzim catalog, so a catalog match can only ever be a
+// resource-id collision, and following it would swap our content for a third
+// party's AND drop the Authorization header.
+
+const gatedResource = {
+  id: 'field-manuals',
+  version: '2026-07',
+  title: 'US Military Field Manuals',
+  description: 'Public-domain US military field manuals',
+  url: 'https://nomad-packs-worker.chris-556.workers.dev/content/field-manuals_2026-07.zim',
+  size_mb: 2_000,
+  auth: 'nomad_app_key' as const,
+}
+
+test('gated resource ignores a newer catalog result and stays on the manifest URL', () => {
+  const resolved = resolveZimDownload(gatedResource, {
+    version: '2026-12',
+    download_url: 'https://download.kiwix.org/zim/other/field-manuals_2026-12.zim',
+    size_bytes: 9_999_999,
+  })
+
+  assert.deepEqual(resolved, {
+    url: gatedResource.url,
+    version: gatedResource.version,
+    sizeBytes: gatedResource.size_mb * 1024 * 1024,
+  })
+})
+
+test('gated resource resolves normally with no catalog result', () => {
+  assert.deepEqual(resolveZimDownload(gatedResource, null), {
+    url: gatedResource.url,
+    version: gatedResource.version,
+    sizeBytes: gatedResource.size_mb * 1024 * 1024,
+  })
+})
+
+test('absent auth leaves catalog precedence untouched', () => {
+  const resolved = resolveZimDownload(manifestResource, {
+    version: '2026-06',
+    download_url: 'https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2026-06.zim',
+    size_bytes: 12_531_944_448,
+  })
+
+  assert.equal(
+    resolved.url,
+    'https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2026-06.zim'
+  )
+})
