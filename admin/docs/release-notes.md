@@ -14,6 +14,7 @@
 - **Benchmark**: end-of-run score reveal + NVIDIA GPU-util overlay (#1087). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: authoritative in-test sysbench numbers + results strip (#1085). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: live telemetry during benchmark runs (#1082) (#1084). Thanks @chriscrosstalk for the contribution!
+- **Collections**: support gated downloads for self-hosted curated content (#1172). Thanks @chriscrosstalk for the contribution!
 - **Creator Packs**: gated per-creator video packs, offline via Kiwix (#1106). Thanks @chriscrosstalk for the contribution!
 - **Dashboard**: add dismissable "What's new" banner for v1.34 (#1112). Thanks @chriscrosstalk for the contribution!
 - **Debug Info**: add storage, docker, GPU health, and auto-update diagnostics (#1102). Thanks @chriscrosstalk for the contribution!
@@ -33,18 +34,22 @@
 - **Benchmark**: surface a clear reason when leaderboard submission fails (#1138). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: warm the AI model before timed runs for reproducible scores (#1140). Thanks @chriscrosstalk for the contribution!
 - **Benchmark**: block leaderboard submission when AI runs on a remote host (#1157). Thanks @chriscrosstalk for the contribution!
+- **Benchmark**: don't block submission when the AI host is this machine (#1166). Thanks @chriscrosstalk for the contribution!
 - **Chat**: make conversation layout responsive (#1090). Thanks @Bortlesboat for the contribution!
+- **Chat**: open full chat in place instead of a new window (#1181). Thanks @chriscrosstalk for the contribution!
 - **Content**: resolve current ZIM URL before download (#1091). Thanks @NgoQuocViet2001 for the contribution!
 - **Content**: refresh installed ZIMs when a download completes to prune ghost entries (#1099). Thanks @chriscrosstalk for the contribution!
 - **Creator Packs**: add missing Modern Rogue banner asset (#1147). Thanks @chriscrosstalk for the contribution!
 - **Downloads**: send a descriptive User-Agent so Wikimedia mirrors don't 403 (#1114). Thanks @chriscrosstalk for the contribution!
 - **Downloads**: add retry button and resource download link for failed downloads (#1059). Thanks @jarvisxyz for the contribution!
+- **Downloads**: don't 500 the jobs endpoint on an orphaned BullMQ job (#1191). Thanks @chriscrosstalk for the contribution!
 - **Easy Setup**: streamline wizard + robust model recommendations (#1110). Thanks @chriscrosstalk for the contribution!
 - **Install**: define missing header_red + colors in uninstall/update scripts (#1098). Thanks @chriscrosstalk for the contribution!
 - **KVStore**: fix missing apps.homebox key. Thanks @jakeaturner for the contribution!
 - **Maps**: warn when world basemap missing instead of silent grey map (#1104). Thanks @not-knope for the contribution!
 - **RAG**: add proper .docx text extraction via mammoth (#1100). Thanks @just-jbc for the contribution!
 - **RAG**: stop re-creating payload indexes on every embedded document (#1135). Thanks @bragaus for the contribution!
+- **Content**: respect ingest policy when a ZIM is uploaded locally (#1184). Thanks @chriscrosstalk for the contribution!
 - **Supply Depot**: generate Homebox API key pepper so it stops crash-looping (#1077). Thanks @chriscrosstalk for the contribution!
 - **UI**: add API reference link to the Settings sidebar. Thanks @jakeaturner for the contribution!
 - **Updater**: prune superseded images after update to reclaim disk (#1101). Thanks @chriscrosstalk for the contribution!
@@ -57,6 +62,7 @@
 - **Catalog**: add The Modern Rogue creator pack (dev) (#1146). Thanks @chriscrosstalk for the contribution!
 - **CI**: fix collection URL validation. Thanks @jakeaturner for the contribution!
 - **Collections**: update stale URLs (#1148). Thanks @jakeaturner for the contribution!
+- **Collections**: fix four dead Wikipedia download URLs (#1189). Thanks @chriscrosstalk for the contribution!
 - **Content Manager**: filter non-content sections + render tables in ZIM extraction (#1044). Thanks @chriscrosstalk for the contribution!
 - **Dependencies**: bump tar, vite, and dockerode in admin. Thanks @jakeaturner for the contribution!
 - **Dependencies**: bump axios and systeminformation in admin. Thanks @jakeaturner for the contribution!
