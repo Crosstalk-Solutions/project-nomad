@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, hasMany, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
 import ChatMessage from './chat_message.js'
+import type { PersonaKey } from '../../constants/ollama.js'
 
 export default class ChatSession extends BaseModel {
   static namingStrategy = new SnakeCaseNamingStrategy()
@@ -14,6 +15,9 @@ export default class ChatSession extends BaseModel {
 
   @column()
   declare model: string | null
+
+  @column()
+  declare persona: PersonaKey
 
   @hasMany(() => ChatMessage, {
     foreignKey: 'session_id',

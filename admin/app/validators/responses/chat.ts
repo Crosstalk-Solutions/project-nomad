@@ -9,6 +9,7 @@
 |
 */
 import vine from '@vinejs/vine'
+import { PERSONA_KEYS } from '../../../constants/ollama.js'
 
 const chatMessage = vine.object({
   id: vine.number(),
@@ -23,6 +24,7 @@ const chatSession = vine.object({
   id: vine.number(),
   title: vine.string(),
   model: vine.string().nullable(),
+  persona: vine.enum(PERSONA_KEYS),
   created_at: vine.string(),
   updated_at: vine.string(),
   messages: vine.array(chatMessage).optional(),

@@ -7,6 +7,7 @@ import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
 import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, CreatorPackWithStatus, ResourceUpdateInfo } from '../../types/collections'
+import type { PersonaKey, PersonaSummary } from '../../types/chat'
 import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
@@ -395,6 +396,7 @@ class API {
         id: string
         title: string
         model: string | null
+        persona: PersonaKey
         timestamp: string
         lastMessage: string | null
       }>>('/chat/sessions')
@@ -408,6 +410,7 @@ class API {
         id: string
         title: string
         model: string | null
+        persona: PersonaKey
         timestamp: string
         messages: Array<{
           id: string
@@ -420,26 +423,66 @@ class API {
     })()
   }
 
-  async createChatSession(title: string, model?: string) {
+  async createChatSession(title: string, model?: string, persona?: PersonaKey) {
     return catchInternal(async () => {
       const response = await this.client.post<{
         id: string
         title: string
         model: string | null
+        persona: PersonaKey
         timestamp: string
-      }>('/chat/sessions', { title, model })
+      }>('/chat/sessions', { title, model, persona })
       return response.data
     })()
   }
 
-  async updateChatSession(sessionId: string, data: { title?: string; model?: string }) {
+  async updateChatSession(
+    sessionId: string,
+    data: { title?: string; model?: string; persona?: PersonaKey }
+  ) {
     return catchInternal(async () => {
       const response = await this.client.put<{
         id: string
         title: string
         model: string | null
+        persona: PersonaKey
         timestamp: string
       }>(`/chat/sessions/${sessionId}`, data)
+      return response.data
+    })()
+  }
+
+  async getPersonas() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ personas: PersonaSummary[]; default: PersonaKey }>('/chat/personas')
+      return response.data
+    })()
+  }
+
+  async listPersonasWithOverrides() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ personas: Array<PersonaSummary & { hasOverride: boolean }>; default: PersonaKey }>('/personas')
+      return response.data
+    })()
+  }
+
+  async getPersonaDetail(key: PersonaKey) {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ key: PersonaKey; label: string; description: string; systemPrompt: string; defaults: { label: string; description: string; systemPrompt: string }; hasOverride: boolean }>(`/personas/${key}`)
+      return response.data
+    })()
+  }
+
+  async updatePersonaOverride(key: PersonaKey, data: { label?: string | null; description?: string | null; systemPrompt?: string | null }) {
+    return catchInternal(async () => {
+      const response = await this.client.put<PersonaSummary>(`/personas/${key}`, data)
+      return response.data
+    })()
+  }
+
+  async resetPersonaOverride(key: PersonaKey) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<PersonaSummary>(`/personas/${key}/override`)
       return response.data
     })()
   }

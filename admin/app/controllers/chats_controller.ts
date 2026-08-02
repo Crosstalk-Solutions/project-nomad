@@ -1,26 +1,36 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { ChatService } from '#services/chat_service'
+import { PersonaService } from '#services/persona_service'
 import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#validators/chat'
 import KVStore from '#models/kv_store'
 import { SystemService } from '#services/system_service'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { DEFAULT_PERSONA } from '../../constants/ollama.js'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class ChatsController {
-  constructor(private chatService: ChatService, private systemService: SystemService) {}
+  constructor(
+    private chatService: ChatService,
+    private systemService: SystemService,
+    private personaService: PersonaService
+  ) {}
 
   async inertia({ inertia, response }: HttpContext) {
-    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(SERVICE_NAMES.OLLAMA)
+    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(
+      SERVICE_NAMES.OLLAMA
+    )
     if (!aiAssistantInstalled) {
       return response.status(404).json({ error: 'AI Assistant service not installed' })
     }
-    
+
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
+    const chatPersonasEnabled = (await KVStore.getValue('chat.personasEnabled')) ?? true
     return inertia.render('chat', {
       settings: {
         chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
+        chatPersonasEnabled,
       },
     })
   }
@@ -41,9 +51,9 @@ export default class ChatsController {
   }
 
   async store({ request, response }: HttpContext) {
+    const data = await request.validateUsing(createSessionSchema)
     try {
-      const data = await request.validateUsing(createSessionSchema)
-      const session = await this.chatService.createSession(data.title, data.model)
+      const session = await this.chatService.createSession(data.title, data.model, data.persona)
       return response.status(201).json(session)
     } catch (error) {
       logger.error({ err: error }, '[ChatsController] Failed to create session')
@@ -51,6 +61,21 @@ export default class ChatsController {
         error: 'Failed to create session',
       })
     }
+  }
+
+  async listPersonas({ response }: HttpContext) {
+    const enabled = (await KVStore.getValue('chat.personasEnabled')) ?? true
+    const merged = await this.personaService.listAllMerged()
+    const personas = merged.map((p) => ({
+      key: p.key,
+      label: p.label,
+      description: p.description,
+    }))
+    return response.status(200).json({
+      enabled,
+      personas,
+      default: DEFAULT_PERSONA,
+    })
   }
 
   async suggestions({ response }: HttpContext) {
@@ -66,9 +91,9 @@ export default class ChatsController {
   }
 
   async update({ params, request, response }: HttpContext) {
+    const sessionId = parseInt(params.id)
+    const data = await request.validateUsing(updateSessionSchema)
     try {
-      const sessionId = parseInt(params.id)
-      const data = await request.validateUsing(updateSessionSchema)
       const session = await this.chatService.updateSession(sessionId, data)
       return session
     } catch (error) {
