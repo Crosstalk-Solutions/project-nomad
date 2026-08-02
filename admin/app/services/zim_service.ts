@@ -37,6 +37,7 @@ import type { CategoryWithStatus } from '../../types/collections.js'
 import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
 import { resolveZimDownload } from '../utils/zim_download_resolution.js'
+import { getHostedContentHeaders } from '../utils/hosted_content_auth.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -334,6 +335,8 @@ export class ZimService {
         filetype: 'zim',
         title: (resource as any).title || undefined,
         totalBytes: resolved.sizeBytes,
+        // Undefined for every ungated resource, so the existing flow is untouched.
+        requestHeaders: getHostedContentHeaders(resource),
         resourceMetadata: {
           resource_id: resource.id,
           version: resolved.version,

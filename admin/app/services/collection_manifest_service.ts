@@ -9,6 +9,7 @@ import WikipediaSelection from '#models/wikipedia_selection'
 import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema, creatorPacksSpecSchema } from '#validators/curated_collections'
+import { isGatedResource } from '../utils/hosted_content.js'
 import {
   ensureDirectoryExists,
   listDirectoryContents,
@@ -312,6 +313,39 @@ export class CollectionManifestService {
       }
       return { ...pack, status: 'available' as const }
     })
+  }
+
+  /**
+   * Resource ids in the ZIM manifest that we host ourselves behind the
+   * entitlement Worker (`auth: 'nomad_app_key'`).
+   *
+   * Used to keep gated content out of the Kiwix-catalog update path. Those
+   * resources are not in the openzim catalog, so they can never legitimately
+   * match there — but a resource-id collision would otherwise let a third-party
+   * mirror present itself as a newer version and overwrite our content. Their
+   * versions come from the manifest instead.
+   *
+   * Reads the CACHED spec rather than refetching: this sits on the scheduled
+   * update-check path and does not need a network round-trip. A gated resource
+   * cannot be installed without the manifest having been fetched first, so the
+   * cache is always populated by the time it matters.
+   *
+   * Returns an empty set if the manifest has never been cached, which correctly
+   * degrades to current behaviour rather than skipping every update.
+   */
+  async getGatedZimResourceIds(): Promise<Set<string>> {
+    const ids = new Set<string>()
+    const spec = await this.getCachedSpec<ZimCategoriesSpec>('zim_categories')
+    if (!spec) return ids
+
+    for (const category of spec.categories) {
+      for (const tier of category.tiers) {
+        for (const resource of tier.resources) {
+          if (isGatedResource(resource)) ids.add(resource.id)
+        }
+      }
+    }
+    return ids
   }
 
   // ---- Tier resolution ----

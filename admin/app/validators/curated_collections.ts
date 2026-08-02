@@ -12,6 +12,11 @@ export const specResourceValidator = vine.object({
   // Resource-type discriminator (absent == 'zim'). Required here because VineJS
   // strips unknown keys, which would silently drop the field on manifest fetch.
   type: vine.enum(['zim', 'dataset']).optional(),
+  // Gated-download discriminator (absent == unauthenticated). Declared here for
+  // the same reason as `type`: VineJS strips unknown keys, so omitting it would
+  // silently drop the field on manifest fetch and every gated download would go
+  // out with no Authorization header and 401.
+  auth: vine.enum(['nomad_app_key']).optional(),
 })
 
 // ---- ZIM Categories spec (versioned) ----
