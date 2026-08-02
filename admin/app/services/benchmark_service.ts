@@ -151,6 +151,41 @@ const MEMORY_BENCHMARK_THREADS = 4
 // AI is measured as the median of N runs (W7) to damp per-run inference jitter.
 const AI_BENCHMARK_RUNS = 3
 
+/**
+ * Does `ai.remoteOllamaUrl` point back at the machine NOMAD itself runs on?
+ *
+ * The submission gate exists because a remote AI host makes the AI channel
+ * describe someone else's hardware. That reasoning does not apply when the
+ * "remote" host is this same box — the commonest case being Ollama installed
+ * natively on the host while NOMAD runs in Docker, which is how the AI
+ * assistant is expected to work on macOS.
+ *
+ * `host.docker.internal` is the meaningful entry: from inside the admin
+ * container it resolves to the host, and it is the form the setup flow accepts
+ * for a native host install. Loopback is included for completeness (it only
+ * reaches the container itself, so it is unlikely to have been saved, but it
+ * unambiguously is not another machine).
+ *
+ * A LAN address is DELIBERATELY NOT exempt. `192.168.1.50` is indistinguishable
+ * from another box on the same network, and wrongly exempting one would let a
+ * genuinely remote GPU's throughput be attributed to this hardware. False
+ * blocks are recoverable by clearing the setting; a false pass silently
+ * corrupts the leaderboard.
+ */
+function isSelfHostedOllamaUrl(rawUrl: string): boolean {
+  let host: string
+  try {
+    host = new URL(rawUrl.trim()).hostname.toLowerCase()
+  } catch {
+    return false
+  }
+  if (host === 'host.docker.internal' || host === 'gateway.docker.internal') return true
+  if (host === 'localhost' || host === '::1' || host === '[::1]') return true
+  // 127.0.0.0/8 — the whole loopback range, not just 127.0.0.1.
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true
+  return false
+}
+
 // Minimum free disk required before pulling the AI model on first run. llama3.1:8b
 // (Q4) is ~4.9 GB; this covers the model plus headroom for the transient sysbench
 // disk-test file and normal slack. Only enforced when the model isn't already cached.
@@ -289,8 +324,16 @@ export class BenchmarkService {
     //
     // Blocks submission only — running the benchmark locally is still useful to
     // the operator, it just isn't a result about this box.
+    // A "remote" host that points back at this same machine is not remote. The
+    // AI ran on the hardware being submitted, so blocking it is a false
+    // positive — see isSelfHostedOllamaUrl for which forms qualify and why a
+    // LAN address deliberately does not.
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
-    if (remoteOllamaUrl) {
+    if (remoteOllamaUrl && isSelfHostedOllamaUrl(remoteOllamaUrl)) {
+      logger.info(
+        `[BenchmarkService] ai.remoteOllamaUrl (${remoteOllamaUrl}) points at this machine; treating the AI result as local for submission purposes`
+      )
+    } else if (remoteOllamaUrl) {
       throw new Error(
         'This NOMAD is configured to use a remote AI host, so its AI results measure that machine rather than this one. ' +
           'Leaderboard results must be measured entirely on the submitting hardware. ' +
