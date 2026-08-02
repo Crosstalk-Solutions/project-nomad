@@ -600,14 +600,40 @@ export class ZimService {
 
     const ollamaUrl = await this.dockerService.getServiceURL('nomad_ollama')
     if (ollamaUrl) {
+      // Respect the global ingest policy, same as the post-download path (PR #919).
+      // This used to dispatch unconditionally, so a user who deliberately chose
+      // Manual still got sideloaded ZIMs embedded behind their back.
+      //
+      // Reuses decideScanAction rather than re-inlining the Always/Manual check,
+      // so an existing browse_only or pending_decision row is honored too instead
+      // of being overridden by the act of re-uploading the file.
+      const filePath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
       try {
-        const { EmbedFileJob } = await import('#jobs/embed_file_job')
-        await EmbedFileJob.dispatch({
-          fileName: filename,
-          filePath: join(process.cwd(), ZIM_STORAGE_PATH, filename),
-        })
+        const { default: KVStore } = await import('#models/kv_store')
+        const { default: KbIngestState } = await import('#models/kb_ingest_state')
+        const { decideScanAction } = await import('../utils/kb_ingest_decision.js')
+
+        // Unset is treated as Always, preserving legacy behavior — mirrors
+        // rag_service.ts and run_download_job.ts.
+        const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+        const policy = policyRaw === 'Manual' ? 'Manual' : 'Always'
+
+        const existing = await KbIngestState.findBy('file_path', filePath)
+        const action = decideScanAction(existing, false, policy)
+
+        if (action.kind === 'dispatch') {
+          const { EmbedFileJob } = await import('#jobs/embed_file_job')
+          await EmbedFileJob.dispatch({ fileName: filename, filePath })
+        } else if (action.kind === 'create_pending') {
+          // firstOrCreate so the KB panel surfaces the per-file Index affordance
+          // without demoting a row that already exists.
+          await KbIngestState.getOrCreate(filePath)
+        }
+        // 'skip' and 'backfill_indexed' need no action here: the file was just
+        // written to disk, so there is nothing to backfill and a settled state
+        // row means the user has already decided about this file.
       } catch (error) {
-        logger.error(`[ZimService] EmbedFileJob dispatch failed after local upload:`, error)
+        logger.error(`[ZimService] KB ingest decision failed after local upload:`, error)
       }
     }
 
