@@ -47,7 +47,12 @@ export class DownloadService {
       ...active.map((j) => ({ job: j, state: 'active' as const })),
       ...delayed.map((j) => ({ job: j, state: 'delayed' as const })),
       ...failed.map((j) => ({ job: j, state: 'failed' as const })),
-    ]
+      // A job id can outlive its payload hash — BullMQ still returns an entry for
+      // it, with `data` empty. One of those in the failed set used to throw on
+      // every poll of this endpoint (normalize(undefined)), and because failed
+      // jobs are never evicted the endpoint stayed broken until Redis was cleared
+      // by hand. Drop them: with no payload there is nothing to show anyway.
+    ].filter(({ job }) => job?.id != null && job.data != null)
   }
 
   async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
@@ -65,7 +70,7 @@ export class DownloadService {
         jobId: job.id!.toString(),
         url: job.data.url,
         progress: parsed.percent,
-        filepath: normalize(job.data.filepath),
+        filepath: job.data.filepath ? normalize(job.data.filepath) : '',
         filetype: job.data.filetype,
         title: job.data.title || undefined,
         downloadedBytes: parsed.downloadedBytes,
@@ -82,7 +87,7 @@ export class DownloadService {
         jobId: job.id!.toString(),
         url: job.data.sourceUrl,
         progress: parsed.percent,
-        filepath: normalize(job.data.outputFilepath),
+        filepath: job.data.outputFilepath ? normalize(job.data.outputFilepath) : '',
         filetype: job.data.filetype || 'map',
         title: job.data.title || undefined,
         downloadedBytes: parsed.downloadedBytes,
