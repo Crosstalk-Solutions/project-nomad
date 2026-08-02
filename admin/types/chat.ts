@@ -7,6 +7,7 @@ export interface ChatMessage {
   thinking?: string
   isThinking?: boolean
   thinkingDuration?: number
+  sources?: { title: string; date?: string; source?: string }[]
 }
 
 export interface ChatSession {

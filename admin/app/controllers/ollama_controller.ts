@@ -83,6 +83,10 @@ export default class OllamaController {
         reqData.messages.unshift({ role: 'system' as const, content: nomadPrompt })
       }
 
+      // Citation metadata (#1179) for whatever RAG context ends up injected below,
+      // if any -- populated inside the RAG block, read after the response streams.
+      const sources: { title: string; date?: string; source?: string }[] = []
+
       // Query rewriting for better RAG retrieval with manageable context
       // Will return user's latest message if no rewriting is needed
       const rewrittenQuery = await this.rewriteQueryWithContext(reqData.messages, reqData.model)
@@ -127,11 +131,30 @@ export default class OllamaController {
           // above for debugging.
           const contextText = trimmedDocs
             .map((doc, idx) => {
-              const title = doc.metadata?.full_title || doc.metadata?.article_title
-              const label = title ? `[Context ${idx + 1} — ${title}]` : `[Context ${idx + 1}]`
+              const title = doc.metadata?.archive_title || doc.metadata?.full_title || doc.metadata?.article_title
+              const date = doc.metadata?.archive_date
+              const label = title
+                ? `[Context ${idx + 1} — ${title}${date ? ` (${date})` : ''}]`
+                : `[Context ${idx + 1}]`
               return `${label}\n${doc.text}`
             })
             .join('\n\n')
+
+          // Deduplicated citation list (#1179) -- surfaced to the frontend as
+          // "Sources" under the answer, and persisted with the assistant message
+          // so reopening a past conversation still shows what backed it.
+          const seenSources = new Set<string>()
+          for (const doc of trimmedDocs) {
+            const citeTitle = doc.metadata?.archive_title || doc.metadata?.full_title || doc.metadata?.article_title
+            const key = doc.metadata?.source || citeTitle
+            if (!key || seenSources.has(key)) continue
+            seenSources.add(key)
+            sources.push({
+              title: citeTitle || doc.metadata?.source?.split('/').pop() || 'Unknown source',
+              date: doc.metadata?.archive_date,
+              source: doc.metadata?.source,
+            })
+          }
 
           const systemMessage = {
             role: 'system' as const,
@@ -214,11 +237,17 @@ export default class OllamaController {
           }
           throw err
         }
+
+        // Citation metadata (#1179) -- sent as a trailing event distinct from Ollama's
+        // own chunk shape (no `message` key) so the client can tell them apart.
+        if (sources.length > 0) {
+          response.response.write(`data: ${JSON.stringify({ sources })}\n\n`)
+        }
         response.response.end()
 
         // Save assistant message and optionally generate title
         if (sessionId && fullContent) {
-          await this.chatService.addMessage(sessionId, 'assistant', fullContent)
+          await this.chatService.addMessage(sessionId, 'assistant', fullContent, sources)
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
             this.chatService.generateTitle(sessionId, userContent, fullContent, reqData.model).catch((err) => {
@@ -233,7 +262,7 @@ export default class OllamaController {
       const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
 
       if (sessionId && result?.message?.content) {
-        await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
+        await this.chatService.addMessage(sessionId, 'assistant', result.message.content, sources)
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
           this.chatService.generateTitle(sessionId, userContent, result.message.content, reqData.model).catch((err) => {
@@ -242,7 +271,7 @@ export default class OllamaController {
         }
       }
 
-      return result
+      return { ...result, sources }
     } catch (error) {
       if (reqData.stream) {
         response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)

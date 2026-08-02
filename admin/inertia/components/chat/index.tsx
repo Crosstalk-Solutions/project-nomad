@@ -308,6 +308,7 @@ export default function Chat({
             role: m.role,
             content: m.content,
             timestamp: new Date(m.timestamp),
+            sources: m.sources,
           }))
         )
       } else {
@@ -436,7 +437,12 @@ export default function Chat({
               fullContent += chunkContent
               thinkingContent += chunkThinking
             },
-            abortController.signal
+            abortController.signal,
+            (sources) => {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantMsgId ? { ...m, sources } : m))
+              )
+            }
           )
         } catch (error: any) {
           if (error?.name !== 'AbortError') {
