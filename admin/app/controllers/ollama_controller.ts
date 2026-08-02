@@ -13,7 +13,17 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
+import { rm } from 'node:fs/promises'
+import {
+  attachImagesToLatestUserMessage,
+  ChatImageError,
+  normalizeChatImages,
+  type NormalizedChatImage,
+} from '../utils/chat_images.js'
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
+
+const unknownVisionCompatibilityMessage = (model: string) =>
+  `NOMAD cannot confirm that "${model}" accepts images, and this image request failed. Choose a model marked "Supports images", or remove the image and try again.`
 
 @inject()
 export default class OllamaController {
@@ -50,7 +60,73 @@ export default class OllamaController {
   }
 
   async chat({ request, response }: HttpContext) {
-    const reqData = await request.validateUsing(chatSchema)
+    const uploadedImages = request.files('images', {
+      size: '8mb',
+      extnames: ['jpg', 'jpeg', 'png', 'webp'],
+    })
+    const cleanupUploadedImages = () =>
+      Promise.all(
+        uploadedImages
+          .filter((file) => file.tmpPath)
+          .map((file) => rm(file.tmpPath!, { force: true }).catch(() => undefined))
+      )
+    let multipartPayload: unknown
+    if (uploadedImages.length > 0) {
+      const rawPayload = request.input('payload')
+      if (typeof rawPayload !== 'string') {
+        await cleanupUploadedImages()
+        return response.status(422).send({ message: 'Multipart chat requests require a JSON payload.' })
+      }
+      try {
+        multipartPayload = JSON.parse(rawPayload)
+      } catch {
+        await cleanupUploadedImages()
+        return response.status(422).send({ message: 'The multipart chat payload is not valid JSON.' })
+      }
+    }
+    const collectionFilter =
+      uploadedImages.length > 0 &&
+      multipartPayload &&
+      typeof multipartPayload === 'object' &&
+      'collection' in multipartPayload
+        ? (multipartPayload as { collection?: unknown }).collection
+        : request.input('collection', null)
+
+    let reqData: Awaited<ReturnType<typeof chatSchema.validate>>
+    try {
+      reqData =
+        uploadedImages.length > 0
+          ? await chatSchema.validate(multipartPayload)
+          : await request.validateUsing(chatSchema)
+    } catch (error) {
+      await cleanupUploadedImages()
+      throw error
+    }
+
+    let normalizedImages: NormalizedChatImage[]
+    try {
+      normalizedImages = await normalizeChatImages(uploadedImages)
+    } catch (error) {
+      if (error instanceof ChatImageError) {
+        return response.status(error.status).send({ message: error.message })
+      }
+      throw error
+    } finally {
+      await cleanupUploadedImages()
+    }
+
+    const modelCapabilities = await this.ollamaService.getModelCapabilities(reqData.model)
+    if (
+      normalizedImages.length > 0 &&
+      !reqData.messages.some((message) => message.role === 'user')
+    ) {
+      return response.status(422).send({ message: 'Images require a user message.' })
+    }
+    if (normalizedImages.length > 0 && modelCapabilities.vision === 'unsupported') {
+      return response.status(422).send({
+        message: `The selected model "${reqData.model}" does not support image input.`,
+      })
+    }
 
     // Flush SSE headers immediately so the client connection is open while
     // pre-processing (query rewriting, RAG lookup) runs in the background.
@@ -61,6 +137,7 @@ export default class OllamaController {
       response.response.flushHeaders()
     }
 
+    let unknownVisionUpstreamRejected = false
     try {
       // If there are no system messages in the chat inject system prompts
       const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
@@ -89,12 +166,11 @@ export default class OllamaController {
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
       if (rewrittenQuery) {
-        const collectionFilter: string | null = request.input('collection', null)
         const relevantDocs = await this.ragService.searchSimilarDocuments(
           rewrittenQuery,
           5, // Top 5 most relevant chunks
           0.3, // Minimum similarity score of 0.3
-          collectionFilter ?? undefined
+          typeof collectionFilter === 'string' ? collectionFilter : undefined
         )
 
         logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
@@ -162,7 +238,7 @@ export default class OllamaController {
       // Thinking is only enabled when the model supports it AND the user wants it: the explicit
       // per-request preference wins, otherwise the global default (ai.autoThinking, default OFF).
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
-      const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
+      const thinkingCapability = modelCapabilities.thinking
       let thinkingEnabled = false
       if (thinkingCapability) {
         thinkingEnabled = reqData.think ?? ((await KVStore.getValue('ai.autoThinking')) ?? false)
@@ -173,6 +249,10 @@ export default class OllamaController {
       // Separate sessionId and the resolved thinking preference from the Ollama request payload —
       // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
       const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
+      const upstreamMessages = attachImagesToLatestUserMessage(
+        ollamaRequest.messages,
+        normalizedImages
+      )
 
       // Save user message to DB before streaming if sessionId provided
       let userContent: string | null = null
@@ -192,15 +272,16 @@ export default class OllamaController {
         // blocks every later chat/RAG request until the model is manually stopped (#1065).
         const abortController = new AbortController()
         response.response.on('close', () => abortController.abort())
-        const stream = await this.ollamaService.chatStream({
-          ...ollamaRequest,
-          think,
-          thinkingCapable: thinkingCapability,
-          numCtx,
-          signal: abortController.signal,
-        })
         let fullContent = ''
         try {
+          const stream = await this.ollamaService.chatStream({
+            ...ollamaRequest,
+            messages: upstreamMessages,
+            think,
+            thinkingCapable: thinkingCapability,
+            numCtx,
+            signal: abortController.signal,
+          })
           for await (const chunk of stream) {
             if (chunk.message?.content) {
               fullContent += chunk.message.content
@@ -212,6 +293,8 @@ export default class OllamaController {
             logger.debug('[OllamaController] Client disconnected; aborted upstream Ollama generation')
             return
           }
+          unknownVisionUpstreamRejected =
+            normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
           throw err
         }
         response.response.end()
@@ -230,7 +313,20 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
+      let result
+      try {
+        result = await this.ollamaService.chat({
+          ...ollamaRequest,
+          messages: upstreamMessages,
+          think,
+          thinkingCapable: thinkingCapability,
+          numCtx,
+        })
+      } catch (err) {
+        unknownVisionUpstreamRejected =
+          normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
+        throw err
+      }
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
@@ -245,9 +341,21 @@ export default class OllamaController {
       return result
     } catch (error) {
       if (reqData.stream) {
-        response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
+        const streamError =
+          unknownVisionUpstreamRejected
+            ? {
+                error: true,
+                message: unknownVisionCompatibilityMessage(reqData.model),
+              }
+            : { error: true }
+        response.response.write(`data: ${JSON.stringify(streamError)}\n\n`)
         response.response.end()
         return
+      }
+      if (unknownVisionUpstreamRejected) {
+        return response.status(422).send({
+          message: unknownVisionCompatibilityMessage(reqData.model),
+        })
       }
       throw error
     }
@@ -409,15 +517,13 @@ export default class OllamaController {
     }
   }
 
-  async installedModels({ }: HttpContext) {
+  async installedModels({}: HttpContext) {
     const models = await this.ollamaService.getModels()
-    // Enrich each model with its thinking capability so the chat picker knows which models
-    // to show the per-model thinking toggle for. checkModelHasThinking memoizes /api/show
-    // results, so this stays cheap on repeat loads. Best-effort per model.
-    const thinking = await Promise.all(
-      models.map((m) => this.ollamaService.checkModelHasThinking(m.name))
+    // Enrich from backend-reported capabilities; never guess from model names.
+    const capabilities = await Promise.all(
+      models.map((m) => this.ollamaService.getModelCapabilities(m.name, m))
     )
-    return models.map((m, i) => ({ ...m, thinking: thinking[i] }))
+    return models.map((m, i) => ({ ...m, ...capabilities[i] }))
   }
 
   /**
@@ -504,4 +610,3 @@ export default class OllamaController {
     }
   }
 }
-
