@@ -67,6 +67,9 @@ export type StoredFileInfo = {
   isUserUpload: boolean
   /** Subject/category tag, or null if uncategorized. */
   collection: string | null
+  /** Whether this file's chunks are included in RAG search results. Toggling
+   * this never deletes or re-embeds vectors — see #1119. */
+  active: boolean
 }
 
 /**
