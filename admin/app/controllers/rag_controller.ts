@@ -94,6 +94,21 @@ export default class RagController {
     return response.status(200).json({ message: result.message })
   }
 
+  public async setFileActive({ request, response }: HttpContext) {
+    const source: string | null = request.input('source', null)
+    const active: boolean | null = request.input('active', null)
+
+    if (!source || typeof active !== 'boolean') {
+      return response.status(400).json({ error: 'source and active are required.' })
+    }
+
+    const result = await this.ragService.setFileActive(source, active)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
   public async renameKnowledgeCollection({ request, response }: HttpContext) {
     const oldName = sanitizeCollectionName(request.input('oldName', null))
     const newName = sanitizeCollectionName(request.input('newName', null))
