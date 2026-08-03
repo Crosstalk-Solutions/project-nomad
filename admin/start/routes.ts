@@ -504,6 +504,10 @@ router
       summary: "Update a file's knowledge collection",
       tags: ['rag'],
     })
+    documented(router.post('/files/active', [RagController, 'setFileActive']), {
+      summary: "Toggle a file's active (searchable) state",
+      tags: ['rag'],
+    })
     documented(router.post('/rename-collection', [RagController, 'renameKnowledgeCollection']), {
       summary: 'Rename a knowledge collection',
       tags: ['rag'],

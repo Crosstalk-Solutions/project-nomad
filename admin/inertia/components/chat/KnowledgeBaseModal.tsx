@@ -30,6 +30,7 @@ import { SERVICE_NAMES } from '../../../constants/service_names'
 import CollectionsManager from './CollectionsManager'
 import { KB_COLLECTIONS } from '../../../constants/kb_collections'
 import CollectionCombobox from './CollectionCombobox'
+import Switch from '~/components/inputs/Switch'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -245,6 +246,18 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     },
     onError: (error: any) => {
       addNotification({ type: 'error', message: error?.message || 'Failed to update collection.' })
+    },
+  })
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ source, active }: { source: string; active: boolean }) =>
+      api.setFileActive(source, active),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Active state updated.' })
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to update active state.' })
     },
   })
 
@@ -798,6 +811,25 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                         options={comboboxOptions}
                         disabled={isSaving}
                         className="w-40"
+                      />
+                    )
+                  },
+                },
+                {
+                  accessor: 'active',
+                  title: 'Active',
+                  render(record) {
+                    if (record.bucket === 'admin_docs') {
+                      return <span className="text-text-muted">—</span>
+                    }
+                    const isSaving =
+                      toggleActiveMutation.isPending &&
+                      toggleActiveMutation.variables?.source === record.source
+                    return (
+                      <Switch
+                        checked={record.active}
+                        onChange={(val) => toggleActiveMutation.mutate({ source: record.source, active: val })}
+                        disabled={isSaving}
                       />
                     )
                   },

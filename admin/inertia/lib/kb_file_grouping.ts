@@ -64,6 +64,9 @@ export interface KbFileGroup {
   /** Subject/category tag, or null if uncategorized. Always null for the
    * collapsed admin_docs group. */
   collection: string | null
+  /** Whether this file's chunks are included in RAG search results. Always
+   * true (non-toggleable) for the collapsed admin_docs group. */
+  active: boolean
 }
 
 const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'admin_docs', 'other']
@@ -140,6 +143,7 @@ export function groupAndSortKbFiles(
         uploadedAt: null,
         isUserUpload: false,
         collection: null,
+        active: true,
       })
       continue
     }
@@ -157,6 +161,7 @@ export function groupAndSortKbFiles(
         uploadedAt: file.uploadedAt,
         isUserUpload: file.isUserUpload,
         collection: file.collection,
+        active: file.active,
       })
     }
   }
