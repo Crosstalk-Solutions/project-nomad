@@ -109,6 +109,28 @@ export default class RagController {
     return response.status(200).json({ message: result.message })
   }
 
+  /** Bulk active/inactive toggle for every file tagged with a KB collection
+   * (the personal-upload `collection` field) -- distinct from the unrelated
+   * curated ZIM-pack "collections" feature. `collection: null` targets the
+   * "Uncategorized" bucket. */
+  public async setKnowledgeCollectionActive({ request, response }: HttpContext) {
+    const rawCollection = request.input('collection', undefined)
+    const collection = rawCollection === null ? null : sanitizeCollectionName(rawCollection)
+    const active: boolean | null = request.input('active', null)
+
+    if (rawCollection === undefined || typeof active !== 'boolean') {
+      return response.status(400).json({ error: 'collection and active are required.' })
+    }
+
+    const result = await this.ragService.setKnowledgeCollectionActive(collection, active)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response
+      .status(200)
+      .json({ message: result.message, affectedCount: result.affectedCount })
+  }
+
   public async renameKnowledgeCollection({ request, response }: HttpContext) {
     const oldName = sanitizeCollectionName(request.input('oldName', null))
     const newName = sanitizeCollectionName(request.input('newName', null))

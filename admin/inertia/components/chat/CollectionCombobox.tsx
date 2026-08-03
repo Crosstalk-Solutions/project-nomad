@@ -20,6 +20,12 @@ interface CollectionComboboxProps {
  * match something. Actual normalization (trim/lowercase/length cap) happens
  * server-side via sanitizeCollectionName; this just lowercases for the
  * match-check and display so duplicates-by-case don't look like real options.
+ *
+ * The option list is portaled to `document.body` and positioned via
+ * `getBoundingClientRect()` rather than living in normal flow. This is used
+ * inside table cells (e.g. the Stored Files panel), where any ancestor with
+ * non-`visible` overflow -- a `<td>`, or `StyledTable`'s own scroll wrapper --
+ * would otherwise clip the popover to that ancestor's box.
  */
 export default function CollectionCombobox({
   value,
@@ -32,6 +38,10 @@ export default function CollectionCombobox({
 }: CollectionComboboxProps) {
   const [query, setQuery] = useState(value)
   const [isOpen, setIsOpen] = useState(false)
+  // Whether the user has typed since the popover opened. The input is
+  // pre-filled with `value` on open, but that shouldn't filter the option
+  // list down to just the current value -- only actual typing should.
+  const [userTyped, setUserTyped] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ left: number; top: number; width: number } | null>(null)
@@ -50,6 +60,7 @@ export default function CollectionCombobox({
       if (!insideInput && !insideList) {
         setIsOpen(false)
         setQuery(value)
+        setUserTyped(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -95,16 +106,21 @@ export default function CollectionCombobox({
   }, [isOpen, reposition])
 
   const normalizedQuery = query.trim().toLowerCase()
-  const filtered = normalizedQuery
-    ? options.filter((o) => o.toLowerCase().includes(normalizedQuery))
+  // Filtering (and the "+ Create" row) only kick in once the user has typed
+  // -- otherwise the pre-filled current value would filter the list down to
+  // just itself the instant the popover opens.
+  const filterQuery = userTyped ? normalizedQuery : ''
+  const filtered = filterQuery
+    ? options.filter((o) => o.toLowerCase().includes(filterQuery))
     : options
   const exactMatch = options.find((o) => o.toLowerCase() === normalizedQuery)
-  const showCreateOption = normalizedQuery.length > 0 && !exactMatch
+  const showCreateOption = userTyped && normalizedQuery.length > 0 && !exactMatch
 
   const commit = (val: string) => {
     onChange(val)
     setQuery(val)
     setIsOpen(false)
+    setUserTyped(false)
   }
 
   return (
@@ -116,6 +132,7 @@ export default function CollectionCombobox({
         onChange={(e) => {
           setQuery(e.target.value)
           setIsOpen(true)
+          setUserTyped(true)
         }}
         onFocus={() => setIsOpen(true)}
         onKeyDown={(e) => {
@@ -130,6 +147,7 @@ export default function CollectionCombobox({
           } else if (e.key === 'Escape') {
             setIsOpen(false)
             setQuery(value)
+            setUserTyped(false)
           }
         }}
         placeholder={placeholder}

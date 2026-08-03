@@ -1093,6 +1093,16 @@ class API {
     })()
   }
 
+  async setKnowledgeCollectionActive(collection: string | null, active: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; affectedCount: number }>(
+        '/rag/collection-active',
+        { collection, active }
+      )
+      return response.data
+    })()
+  }
+
   async getSetting(key: string) {
     return catchInternal(async () => {
       const response = await this.client.get<{ key: string; value: any }>(
