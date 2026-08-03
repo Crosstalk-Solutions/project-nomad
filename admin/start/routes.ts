@@ -516,6 +516,10 @@ router
       summary: 'Delete a knowledge collection',
       tags: ['rag'],
     })
+    documented(router.post('/collection-active', [RagController, 'setKnowledgeCollectionActive']), {
+      summary: "Bulk-toggle every file in a knowledge collection's active (searchable) state",
+      tags: ['rag'],
+    })
   })
   .prefix('/api/rag')
 

@@ -7,6 +7,12 @@ interface SwitchProps {
   description?: string
   disabled?: boolean
   id?: string
+  /** Renders a third, visually distinct "mixed" state (e.g. a collection
+   * toggle whose member files aren't uniformly active/inactive) instead of
+   * the normal on/off look. Clicking a mixed switch always resolves to the
+   * less-destructive direction -- turning everything on -- regardless of
+   * `checked`. */
+  indeterminate?: boolean
 }
 
 export default function Switch({
@@ -16,6 +22,7 @@ export default function Switch({
   description,
   disabled = false,
   id,
+  indeterminate = false,
 }: SwitchProps) {
   const switchId = id || `switch-${label?.replace(/\s+/g, '-').toLowerCase()}`
 
@@ -39,13 +46,13 @@ export default function Switch({
           id={switchId}
           type="button"
           role="switch"
-          aria-checked={checked}
+          aria-checked={indeterminate ? 'mixed' : checked}
           disabled={disabled}
-          onClick={() => !disabled && onChange(!checked)}
+          onClick={() => !disabled && onChange(indeterminate ? true : !checked)}
           className={clsx(
             'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent',
             'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-desert-green focus:ring-offset-2',
-            checked ? 'bg-desert-green' : 'bg-border-default',
+            indeterminate ? 'bg-amber-400' : checked ? 'bg-desert-green' : 'bg-border-default',
             disabled ? 'opacity-50 cursor-not-allowed' : ''
           )}
         >
@@ -53,7 +60,7 @@ export default function Switch({
             className={clsx(
               'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0',
               'transition duration-200 ease-in-out',
-              checked ? 'translate-x-5' : 'translate-x-0'
+              indeterminate ? 'translate-x-2.5' : checked ? 'translate-x-5' : 'translate-x-0'
             )}
           />
         </button>

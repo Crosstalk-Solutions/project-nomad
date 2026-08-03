@@ -1141,6 +1141,16 @@ class API {
     })()
   }
 
+  async setKnowledgeCollectionActive(collection: string | null, active: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; affectedCount: number }>(
+        '/rag/collection-active',
+        { collection, active }
+      )
+      return response.data
+    })()
+  }
+
   async createLinkTile(data: {
     friendly_name: string
     url: string
