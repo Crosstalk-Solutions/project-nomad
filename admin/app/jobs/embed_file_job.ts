@@ -59,6 +59,15 @@ export class EmbedFileJob {
   async handle(job: Job) {
     const { filePath, fileName, batchOffset, totalArticles, collection } = job.data as EmbedFileJobParams
 
+    // Only the direct KB-upload controller passes `collection` on dispatch; the other
+    // six dispatch sites (download auto-index, scan/sync, re-embed, local ZIM upload,
+    // replaced-file reconcile, and this job's own ZIM batch continuation) do not. Fall
+    // back to whatever the file is already assigned to, so an assignment made *before*
+    // the file was indexed still reaches the vectors. Resolving it here rather than at
+    // each dispatch site keeps one source of truth and covers batch continuations too.
+    const effectiveCollection =
+      collection ?? (await KbIngestState.findBy('file_path', filePath))?.collection ?? undefined
+
     const isZimBatch = batchOffset !== undefined
     const batchInfo = isZimBatch ? ` (batch offset: ${batchOffset})` : ''
     logger.info(`[EmbedFileJob] Starting embedding process for: ${fileName}${batchInfo}`)
@@ -138,7 +147,7 @@ export class EmbedFileJob {
         allowDeletion,
         batchOffset,
         onProgress,
-        collection
+        effectiveCollection
       )
 
       if (!result.success) {
@@ -192,6 +201,9 @@ export class EmbedFileJob {
           totalArticles: totalArticles || result.totalArticles,
           isFinalBatch: false, // Explicitly not final
           chunksSoFar: chunksSoFarNext,
+          // Carry the collection across batches, otherwise only batch 1 of a ZIM
+          // would be tagged and the rest would land uncategorized.
+          ...(effectiveCollection ? { collection: effectiveCollection } : {}),
         })
 
         // Calculate progress based on articles processed.
@@ -244,7 +256,7 @@ export class EmbedFileJob {
       // BullMQ's :completed retention (50 jobs) ages out, so the state row is
       // the only durable record of "this file finished embedding".
       try {
-        await KbIngestState.markIndexed(filePath, totalChunks, collection)
+        await KbIngestState.markIndexed(filePath, totalChunks, effectiveCollection)
       } catch (stateErr) {
         logger.warn(
           `[EmbedFileJob] Failed to persist ingest state for ${fileName}: %s`,
