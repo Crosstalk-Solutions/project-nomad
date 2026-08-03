@@ -1064,6 +1064,16 @@ class API {
     })()
   }
 
+  async setFileActive(source: string, active: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/active', {
+        source,
+        active,
+      })
+      return response.data
+    })()
+  }
+
   async renameCollection(oldName: string, newName: string) {
     return catchInternal(async () => {
       const response = await this.client.post<{ message: string }>('/rag/rename-collection', {

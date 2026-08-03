@@ -165,6 +165,21 @@ export class RagService {
         field_name: 'collection',
         field_schema: 'keyword',
       })
+      await this.qdrant!.createPayloadIndex(collectionName, {
+        field_name: 'active',
+        field_schema: 'bool',
+      })
+
+      // Backfill: stamp `active: true` on any point that predates this field.
+      // `is_empty` (not a match-all filter) means this only ever touches points
+      // that have never been explicitly set, so re-running this on every boot
+      // can never clobber a user's explicit toggle-off. This is data hygiene
+      // only — search correctness never depends on it having run (see the
+      // must_not filter in searchSimilarDocuments).
+      await this.qdrant!.setPayload(collectionName, {
+        payload: { active: true },
+        filter: { must: [{ is_empty: { key: 'active' } }] },
+      })
 
       // Only memoize after every step succeeded, so a partial failure is retried
       this.ensuredCollections.add(collectionName)
@@ -412,6 +427,22 @@ export class RagService {
       }
 
       const timestamp = Date.now()
+
+      // Sanitize source metadata once up front — every chunk in this call shares
+      // the same source.
+      const sanitizedSource = typeof metadata.source === 'string'
+        ? this.sanitizeText(metadata.source)
+        : 'unknown'
+
+      // Preserve an existing file's active/inactive toggle across re-ingestion
+      // (retries, force re-embeds, replaced-content reindexing, etc.) instead of
+      // resetting it to active on every write. A genuinely new file (no row yet)
+      // still defaults to active.
+      const existingIngestState = await KbIngestState.query()
+        .where('file_path', sanitizedSource)
+        .first()
+      const active = existingIngestState ? existingIngestState.active : true
+
       const points = chunks.map((chunkText, index) => {
         // Sanitize text to prevent JSON encoding errors
         const sanitizedText = this.sanitizeText(chunkText)
@@ -435,11 +466,6 @@ export class RagService {
           logger.debug(`[RAG]   - Structural: [${structuralKeywords.join(', ')}], Content: [${contentKeywords.join(', ')}]`)
         }
 
-        // Sanitize source metadata as well
-        const sanitizedSource = typeof metadata.source === 'string'
-          ? this.sanitizeText(metadata.source)
-          : 'unknown'
-
         return {
           id: randomUUID(), // qdrant requires either uuid or unsigned int
           vector: embeddings[index],
@@ -451,7 +477,8 @@ export class RagService {
             keywords: allKeywords.join(' '), // store as space-separated string for text search
             char_count: sanitizedText.length,
             created_at: timestamp,
-            source: sanitizedSource
+            source: sanitizedSource,
+            active,
           },
         }
       })
@@ -946,7 +973,13 @@ export class RagService {
         limit: searchLimit,
         score_threshold: scoreThreshold,
         with_payload: true,
-        ...(collection ? { filter: { must: [{ key: 'collection', match: { value: collection } }] } } : {}),
+        filter: {
+          // Denylist, not allowlist: a point with no `active` field at all
+          // (not yet backfilled) must still be found by default. Search
+          // correctness must never depend on the backfill's timing.
+          must_not: [{ key: 'active', match: { value: false } }],
+          ...(collection ? { must: [{ key: 'collection', match: { value: collection } }] } : {}),
+        },
       })
 
       logger.debug(`[RAG] Found ${searchResults.length} results above threshold ${scoreThreshold}`)
@@ -1250,15 +1283,16 @@ export class RagService {
       // in particular) have no row to attach to. The state machine is the
       // authoritative "what's on disk?" view; Qdrant is "what made it into
       // the vector store?". Both are needed to render the KB UI honestly.
-      const stateByPath = new Map<string, { state: KbIngestStateValue; chunks_embedded: number; collection: string | null }>()
+      const stateByPath = new Map<string, { state: KbIngestStateValue; chunks_embedded: number; collection: string | null; active: boolean }>()
       try {
-        const stateRows = await KbIngestState.query().select('file_path', 'state', 'chunks_embedded', 'collection')
+        const stateRows = await KbIngestState.query().select('file_path', 'state', 'chunks_embedded', 'collection', 'active')
         for (const row of stateRows) {
           sources.add(row.file_path)
           stateByPath.set(row.file_path, {
             state: row.state,
             chunks_embedded: row.chunks_embedded,
             collection: row.collection,
+            active: row.active,
           })
         }
       } catch (error) {
@@ -1286,6 +1320,7 @@ export class RagService {
             uploadedAt: stats?.modifiedTime.toISOString() ?? null,
             isUserUpload,
             collection: row?.collection ?? null,
+            active: row?.active ?? true,
           }
         })
       )
@@ -1347,6 +1382,39 @@ export class RagService {
     } catch (error) {
       logger.error('[RAG] Error updating file collection:', error)
       return { success: false, message: 'Error updating file collection.' }
+    }
+  }
+
+  /**
+   * Toggle a file's active (searchable) state. Updates the `active` payload
+   * field on every existing Qdrant point for this source in place — no
+   * deletion or re-embedding, so this is instant in either direction — then
+   * mirrors the change onto the KbIngestState row so getStoredFiles() reflects
+   * it immediately. Vectors stay in Qdrant permanently either way; only
+   * `searchSimilarDocuments()`'s query-time filter is affected. See #1119.
+   */
+  public async setFileActive(
+    source: string,
+    active: boolean
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+        payload: { active },
+        filter: { must: [{ key: 'source', match: { value: source } }] },
+      })
+
+      const row = await KbIngestState.query().where('file_path', source).first()
+      if (row) {
+        row.active = active
+        await row.save()
+      }
+
+      return { success: true, message: active ? 'File is now active.' : 'File is now inactive.' }
+    } catch (error) {
+      logger.error('[RAG] Error updating file active state:', error)
+      return { success: false, message: 'Error updating file active state.' }
     }
   }
 
