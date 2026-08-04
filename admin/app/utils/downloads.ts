@@ -8,6 +8,7 @@ import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from 
 import { createWriteStream } from 'fs'
 import { rename } from 'fs/promises'
 import path from 'path'
+import logger from '@adonisjs/core/services/logger'
 
 // Some upstream mirrors reject requests with a missing or generic User-Agent.
 // Notably, download.kiwix.org routes the large Wikimedia-family ZIMs (Wikipedia,
@@ -116,6 +117,20 @@ export async function doResumableDownload({
 
   // If server doesn't support range requests and we have a partial .tmp file, delete it
   if (!supportsRangeRequests && startByte > 0) {
+    await deleteFileIfExists(tempPath)
+    startByte = 0
+    appendMode = false
+  }
+
+  // A .tmp bigger than the file now on the server cannot be a prefix of it — the
+  // publisher replaced the file under the same name (openZIM rolls builds forward,
+  // see #1189/#1187). Resuming would ask for a range past the end and get a 416 on
+  // every attempt, with nothing deleting the .tmp, so the download could never
+  // recover on its own. Discard and start clean.
+  if (startByte > totalBytes && totalBytes > 0) {
+    logger.warn(
+      `[Download] Discarding stale partial for ${filepath}: .tmp is ${startByte}B but the server reports ${totalBytes}B`
+    )
     await deleteFileIfExists(tempPath)
     startByte = 0
     appendMode = false

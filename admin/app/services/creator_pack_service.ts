@@ -117,7 +117,6 @@ export class CreatorPackService {
       filepath,
       timeout: 30000,
       allowedMimeTypes: ZIM_MIME_TYPES,
-      forceNew: true,
       filetype: 'zim',
       title: pack.name,
       totalBytes: pack.size_mb ? pack.size_mb * 1024 * 1024 : undefined,
