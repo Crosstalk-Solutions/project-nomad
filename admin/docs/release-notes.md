@@ -17,6 +17,7 @@
 - **Collections**: support gated downloads for self-hosted curated content (#1172). Thanks @chriscrosstalk for the contribution!
 - **Creator Packs**: gated per-creator video packs, offline via Kiwix (#1106). Thanks @chriscrosstalk for the contribution!
 - **Dashboard**: add dismissable "What's new" banner for v1.34 (#1112). Thanks @chriscrosstalk for the contribution!
+- **Dashboard**: round out the v1.34 What's new highlights (#1197). Thanks @chriscrosstalk for the contribution!
 - **Debug Info**: add storage, docker, GPU health, and auto-update diagnostics (#1102). Thanks @chriscrosstalk for the contribution!
 - **Drug Reference**: Add offline FDA drug reference (labels, interaction view, conditions, remedies) (#1040). Thanks @caweis for the contribution!
 - **Kiwix Library**: Expandable rows in Kiwix Library browser (#1060). Thanks @jarvisxyz for the contribution!
@@ -43,8 +44,12 @@
 - **Downloads**: send a descriptive User-Agent so Wikimedia mirrors don't 403 (#1114). Thanks @chriscrosstalk for the contribution!
 - **Downloads**: add retry button and resource download link for failed downloads (#1059). Thanks @jarvisxyz for the contribution!
 - **Downloads**: don't 500 the jobs endpoint on an orphaned BullMQ job (#1191). Thanks @chriscrosstalk for the contribution!
+- **Downloads**: don't retry a rejected entitlement for four hours (#1205). Thanks @chriscrosstalk for the contribution!
+- **Downloads**: let interrupted content downloads resume (#1202). Thanks @chriscrosstalk for the contribution!
 - **Easy Setup**: streamline wizard + robust model recommendations (#1110). Thanks @chriscrosstalk for the contribution!
 - **Install**: define missing header_red + colors in uninstall/update scripts (#1098). Thanks @chriscrosstalk for the contribution!
+- **KB**: stop the collection dropdown in from being clipped, widen the modal (#1198). Thanks @chriscrosstalk for the contribution!
+- **KB**: keep the collection when a file is indexed after assignment (#1200). Thanks @chriscrosstalk for the contribution!
 - **KVStore**: fix missing apps.homebox key. Thanks @jakeaturner for the contribution!
 - **Maps**: warn when world basemap missing instead of silent grey map (#1104). Thanks @not-knope for the contribution!
 - **RAG**: add proper .docx text extraction via mammoth (#1100). Thanks @just-jbc for the contribution!
