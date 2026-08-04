@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.34.0 - August 4, 2026
 
 ### Features
 - **AI**: nomad.md for custom instructions (#1127). Thanks @jakeaturner for the contribution!
