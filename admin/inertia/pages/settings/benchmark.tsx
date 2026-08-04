@@ -943,10 +943,34 @@ export default function BenchmarkPage(props: {
                                     ).toLocaleDateString()}
                                   </td>
                                   <td className="p-3 capitalize">{result.benchmark_type}</td>
+                                  {/*
+                                    Show the v2 score when the run has one.
+
+                                    This column rendered nomad_score for every
+                                    row, so a v2 run showed its legacy score
+                                    while the Benchmark Details card directly
+                                    above showed the v2 one. The same run read
+                                    as 65.0 here and 1036.1 there.
+
+                                    Rows predating v2 have no v2 score and can
+                                    only show the legacy number, so the two
+                                    scales end up in one column. They differ by
+                                    more than 10x, and without the scale on
+                                    screen a v2 run next to older runs reads as
+                                    a collapse rather than a rescale. The "/ 100"
+                                    suffix names the legacy scale in place,
+                                    matching the wording the details card
+                                    already uses.
+                                  */}
                                   <td className="p-3">
                                     <span className="font-bold text-desert-green">
-                                      {result.nomad_score.toFixed(1)}
+                                      {(result.nomad_score_v2 ?? result.nomad_score).toFixed(1)}
                                     </span>
+                                    {result.nomad_score_v2 == null && (
+                                      <span className="ml-1 text-xs text-desert-stone-dark">
+                                        / 100
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="p-3 font-mono text-xs">
                                     {result.builder_tag || '—'}
