@@ -10,6 +10,21 @@ import { rename } from 'fs/promises'
 import path from 'path'
 import logger from '@adonisjs/core/services/logger'
 
+/**
+ * A gated source rejected this install's credentials (401/403).
+ *
+ * Permanent by nature: whether the entitlement key is baked in is a property of
+ * the build, so no amount of retrying changes the answer. Declared here rather
+ * than thrown as an UnrecoverableError directly so this module stays free of a
+ * BullMQ dependency — RunDownloadJob translates it at the queue boundary.
+ */
+export class GatedContentAuthError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'GatedContentAuthError'
+  }
+}
+
 // Some upstream mirrors reject requests with a missing or generic User-Agent.
 // Notably, download.kiwix.org routes the large Wikimedia-family ZIMs (Wikipedia,
 // Wikiversity, Wikibooks — including the flagship full Wikipedia) to
@@ -73,7 +88,7 @@ export async function doResumableDownload({
     // failedReason is surfaced verbatim on the downloads UI.
     const status = error?.response?.status
     if (status === 401 || status === 403) {
-      throw new Error(
+      throw new GatedContentAuthError(
         'This content is hosted by Project NOMAD and requires an official release build. ' +
           `The download server rejected this install's credentials (HTTP ${status}).`
       )
