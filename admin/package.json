@@ -131,7 +131,7 @@
     "react-markdown": "10.1.0",
     "reflect-metadata": "0.2.2",
     "remark-gfm": "4.0.1",
-    "sharp": "0.34.5",
+    "sharp": "0.35.0",
     "stopword": "3.1.5",
     "stream-json": "1.9.1",
     "systeminformation": "5.31.7",
