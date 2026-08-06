@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - 'collections/**.json'
+  schedule:
+    - cron: '17 6 * * 1'
 
 jobs:
   validate-urls:
