@@ -16,6 +16,31 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.*
+!.env.example
+
+# Credentials and keys. Never commit these — the installer generates every
+# password and app key locally at install time, so nothing real belongs in the
+# repo. See SECURITY.md.
+*.pem
+*.key
+*.p12
+*.pfx
+*.ppk
+id_rsa
+id_ed25519
+.npmrc
+.netrc
+.htpasswd
+
+# Local copies of the deployed compose file, which contain the real generated
+# DB passwords and APP_KEY. The tracked install/management_compose.yaml template
+# is the only compose file that belongs in git.
+compose.yml
+compose.yaml
+docker-compose.yml
+docker-compose.yaml
+management_compose.local.yaml
 
 # Build / Dist
 dist
