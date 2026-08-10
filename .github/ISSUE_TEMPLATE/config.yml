@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: 🔒 Report a Security Vulnerability
+    url: https://github.com/Crosstalk-Solutions/project-nomad/security/advisories/new
+    about: Report a security issue privately. Please do not open a public issue for a vulnerability.
   - name: 💬 Discord Community
     url: https://discord.com/invite/crosstalksolutions
     about: Join our Discord community for general questions, support, and discussions
