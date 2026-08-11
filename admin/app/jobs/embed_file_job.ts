@@ -389,6 +389,33 @@ export class EmbedFileJob {
       jobOptions.jobId = initialJobId
     }
 
+    // Deterministic-jobId dispatches must clear a terminal record before adding.
+    // `queue.add` with an existing custom jobId returns that job instead of
+    // throwing, so a retained failed entry (held by `removeOnFail: { count: 20 }`)
+    // made re-indexing that file a silent no-op: the caller got 202 "Indexing
+    // queued" and nothing was enqueued. In-flight jobs are still returned as-is
+    // so a re-click during an active embed stays idempotent.
+    if (!isContinuation && !force) {
+      const existing = await queue.getJob(initialJobId)
+      if (existing) {
+        const state = await existing.getState()
+        if (state === 'active' || state === 'waiting' || state === 'delayed') {
+          logger.info(`[EmbedFileJob] Job already in progress for file: ${params.fileName}`)
+          return {
+            job: existing,
+            created: false,
+            jobId: initialJobId,
+            message: `Embedding job already exists for: ${params.fileName}`,
+          }
+        }
+        try {
+          await existing.remove()
+        } catch {
+          // May already be gone
+        }
+      }
+    }
+
     try {
       const job = await queue.add(this.key, params, jobOptions)
 

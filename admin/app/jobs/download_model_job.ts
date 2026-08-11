@@ -160,17 +160,49 @@ export class DownloadModelJob {
     return await queue.getJob(jobId)
   }
 
+  /**
+   * Returns the job for this model only when it is genuinely in flight.
+   *
+   * A terminal record (completed or failed) is removed instead, because the
+   * jobId is a hash of the model name and `queue.add` with an existing custom
+   * jobId returns the existing job rather than throwing. Leaving a terminal
+   * record in place therefore makes every later dispatch for that model a
+   * silent no-op. Mirrors RunDownloadJob.getActiveByUrl.
+   */
+  static async getActiveByModelName(modelName: string): Promise<Job | undefined> {
+    const job = await this.getByModelName(modelName)
+    if (!job) return undefined
+
+    const state = await job.getState()
+    if (state === 'active' || state === 'waiting' || state === 'delayed') {
+      return job
+    }
+
+    // Terminal state -- clean up so it doesn't block a re-download
+    try {
+      await job.remove()
+    } catch {
+      // May already be gone
+    }
+    return undefined
+  }
+
   static async dispatch(params: DownloadModelJobParams) {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.modelName)
 
-    // Clear any previous failed job so a fresh attempt can be dispatched
-    const existing = await queue.getJob(jobId)
-    if (existing) {
-      const state = await existing.getState()
-      if (state === 'failed') {
-        await existing.remove()
+    // Return an in-flight download as-is, and clear any terminal record so a
+    // fresh attempt can be dispatched. Previously this only cleared `failed`,
+    // so once a model had been downloaded successfully its retained completed
+    // job deduped every later request: the API still reported success and no
+    // worker ran, leaving the model uninstallable until Redis was flushed.
+    const inFlight = await this.getActiveByModelName(params.modelName)
+    if (inFlight) {
+      return {
+        job: inFlight,
+        created: false,
+        message: `Download already in progress for model ${params.modelName}`,
       }
     }
 
