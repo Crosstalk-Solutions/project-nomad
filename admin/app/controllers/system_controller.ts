@@ -13,6 +13,7 @@ import {
   checkLatestVersionValidator,
   customAppValidator,
   deleteCustomAppValidator,
+  existingAppValidator,
   installServiceValidator,
   preflightCustomValidator,
   preflightValidator,
@@ -448,6 +449,46 @@ export default class SystemController {
             return response.send({ success: true, message: result.message, service_name: serviceName })
         }
         return response.status(400).send({ success: false, message: result.message })
+    }
+
+    /** Register an existing Docker container in Supply Depot as a managed app entry. */
+    async createExistingApp({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(existingAppValidator)
+
+        const existing = await Service.query().where('service_name', payload.container_name).first()
+        if (existing) {
+            return response.status(409).send({
+                success: false,
+                message: `A service named "${payload.container_name}" already exists. Choose a different container name.`,
+            })
+        }
+
+        const inspect = await this.dockerService.inspectContainerByName(payload.container_name)
+        if (!inspect) {
+            return response.status(404).send({
+                success: false,
+                message: `Docker container ${payload.container_name} not found.`,
+            })
+        }
+
+        await Service.create({
+            service_name: payload.container_name,
+            friendly_name: payload.friendly_name,
+            container_image: inspect.Config?.Image || '',
+            container_config: null,
+            ui_location: payload.container_name,
+            icon: payload.icon || 'IconBrandDocker',
+            installed: true,
+            installation_status: 'idle',
+            is_dependency_service: false,
+            is_custom: true,
+            category: payload.category ?? 'custom',
+            depends_on: null,
+        })
+
+        this.dockerService.invalidateServicesStatusCache()
+
+        return response.send({ success: true, message: `Existing app ${payload.friendly_name} added.`, service_name: payload.container_name })
     }
 
     /** Delete a custom app: stop + remove its container, then delete the DB record. */

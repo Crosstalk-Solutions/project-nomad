@@ -95,6 +95,22 @@ export const customAppValidator = vine.compile(
   })
 )
 
+export const existingAppValidator = vine.compile(
+  vine.object({
+    container_name: vine
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_.-]+$/)
+      .minLength(1)
+      .maxLength(100),
+    friendly_name: vine.string().trim().minLength(1).maxLength(100),
+    category: vine
+      .enum(['productivity', 'media', 'security', 'networking', 'utility', 'ai', 'education', 'custom'])
+      .optional(),
+    icon: vine.string().trim().optional(),
+  })
+)
+
 // Set or clear an app's custom launch URL. A null/empty value clears the override; a non-empty
 // value is normalized + validated to a http(s) URL by normalizeCustomUrl in the controller.
 export const setServiceCustomUrlValidator = vine.compile(

@@ -64,6 +64,7 @@ import {
   setServiceAutoUpdateValidator,
   preflightCustomValidator,
   customAppValidator,
+  existingAppValidator,
   setServiceCustomUrlValidator,
   deleteCustomAppValidator,
   uninstallServiceValidator,
@@ -575,6 +576,11 @@ router
       summary: 'Create a custom app',
       tags: ['system'],
       request: customAppValidator,
+    })
+    documented(router.post('/services/existing', [SystemController, 'createExistingApp']), {
+      summary: 'Add an existing Docker container as an app',
+      tags: ['system'],
+      request: existingAppValidator,
     })
     documented(router.put('/services/custom', [SystemController, 'updateCustomApp']), {
       summary: 'Update a custom app',

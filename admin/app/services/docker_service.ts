@@ -165,9 +165,10 @@ export class DockerService {
   }
 
   /**
-   * Fetches the status of all Docker containers related to Nomad services. (those prefixed with 'nomad_')
-   * Results are cached for 5 seconds and concurrent callers share a single in-flight request,
-   * preventing Docker socket congestion during rapid page navigation.
+   * Fetches the status of all Docker containers on the host and stores their
+   * names so the system can detect existing app containers by name.
+   * Results are cached for 5 seconds and concurrent callers share a single
+   * in-flight request, preventing Docker socket congestion during rapid page navigation.
    */
   async getServicesStatus(): Promise<{ service_name: string; status: string }[]> {
     const now = Date.now()
@@ -201,9 +202,11 @@ export class DockerService {
       const containers = await this.docker.listContainers({ all: true })
       const containerMap = new Map<string, Docker.ContainerInfo>()
       containers.forEach((container) => {
-        const name = container.Names[0]?.replace('/', '')
-        if (name && name.startsWith('nomad_')) {
-          containerMap.set(name, container)
+        for (const rawName of container.Names ?? []) {
+          const name = rawName?.replace(/^\//, '')
+          if (name) {
+            containerMap.set(name, container)
+          }
         }
       })
 
@@ -2024,6 +2027,17 @@ export class DockerService {
   private async _findContainerByName(serviceName: string) {
     const containers = await this.docker.listContainers({ all: true })
     return containers.find((c) => c.Names.includes(`/${serviceName}`)) ?? null
+  }
+
+  async findContainerByName(serviceName: string) {
+    return this._findContainerByName(serviceName)
+  }
+
+  async inspectContainerByName(serviceName: string) {
+    const info = await this._findContainerByName(serviceName)
+    if (!info) return null
+    const container = this.docker.getContainer(info.Id)
+    return container.inspect()
   }
 
   /**

@@ -1175,6 +1175,22 @@ class API {
     })()
   }
 
+  async createExistingApp(payload: {
+    container_name: string
+    friendly_name: string
+    category?: string
+    icon?: string
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        message: string
+        service_name: string
+      }>('/system/services/existing', payload)
+      return response.data
+    })()
+  }
+
   async setServiceCustomUrl(service_name: string, custom_url: string | null) {
     return catchInternal(async () => {
       const response = await this.client.put<{ success: boolean; custom_url: string | null }>(

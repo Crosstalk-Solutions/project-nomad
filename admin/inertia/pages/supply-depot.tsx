@@ -28,6 +28,7 @@ import InstallActivityFeed from '~/components/InstallActivityFeed'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
 import CustomAppModal, { CustomAppInitial } from '~/components/CustomAppModal'
+import ExistingAppModal from '~/components/ExistingAppModal'
 import AppUrlModal from '~/components/AppUrlModal'
 import ServiceLogsModal from '~/components/ServiceLogsModal'
 import ServiceStatsModal from '~/components/ServiceStatsModal'
@@ -108,6 +109,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [customAppOpen, setCustomAppOpen] = useState(false)
+  const [existingAppOpen, setExistingAppOpen] = useState(false)
   const [editApp, setEditApp] = useState<CustomAppInitial | null>(null)
   // App whose custom launch URL is being configured (null while the modal is closed).
   const [urlApp, setUrlApp] = useState<ServiceSlim | null>(null)
@@ -324,6 +326,11 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     // Page will reload when installation completes via broadcast
   }
 
+  function handleExistingAppCreated() {
+    setExistingAppOpen(false)
+    window.location.reload()
+  }
+
   async function handleEdit(service: ServiceSlim) {
     setOpenDropdown(null)
     setLoading(true)
@@ -441,6 +448,13 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                 onClick={() => setCustomAppOpen(true)}
               >
                 Add Custom App
+              </StyledButton>
+              <StyledButton
+                icon="IconBrandDocker"
+                variant="outline"
+                onClick={() => setExistingAppOpen(true)}
+              >
+                Add Existing App
               </StyledButton>
             </div>
 
@@ -796,6 +810,13 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         open={customAppOpen}
         onClose={() => setCustomAppOpen(false)}
         onCreated={handleCustomAppCreated}
+        showError={showError}
+      />
+
+      <ExistingAppModal
+        open={existingAppOpen}
+        onClose={() => setExistingAppOpen(false)}
+        onCreated={handleExistingAppCreated}
         showError={showError}
       />
 
