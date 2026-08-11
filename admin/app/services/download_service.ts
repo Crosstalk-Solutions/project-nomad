@@ -191,8 +191,13 @@ export class DownloadService {
           if (!modelName) {
             return { success: false, message: 'Cannot retry: model name not found in job data' }
           }
-          await DownloadModelJob.dispatch({ modelName })
+          // Remove the old failed job first, then dispatch a fresh one. The
+          // model jobId is a hash of the model name, so dispatching first meant
+          // this remove() targeted the job we had just enqueued under that same
+          // id rather than the old record, deleting the retry we were creating.
+          // Matches the file-download branch below.
           await job.remove().catch(() => {})
+          await DownloadModelJob.dispatch({ modelName })
           return { success: true, message: `Retrying download for model ${modelName}` }
         }
 
