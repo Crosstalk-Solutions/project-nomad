@@ -19,6 +19,7 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
+import { decideOrphans } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
@@ -1714,10 +1715,23 @@ export class RagService {
     return outcome
   }
 
+  /**
+   * Root paths for Nomad's own bundled docs (README.md + docs/), embedded by
+   * discoverNomadDocs(). They live outside kb_uploads/zim storage, so
+   * _discoverKbFiles()'s scan never sees them — the orphan sweep in
+   * scanAndSyncStorage() uses this to exclude them rather than hardcoding
+   * the same two paths a second time.
+   */
+  private _nomadDocsRoots(): { readmePath: string; docsDir: string } {
+    return {
+      readmePath: join(process.cwd(), 'README.md'),
+      docsDir: join(process.cwd(), 'docs'),
+    }
+  }
+
   public async discoverNomadDocs(force?: boolean): Promise<{ success: boolean; message: string }> {
     try {
-      const README_PATH = join(process.cwd(), 'README.md')
-      const DOCS_DIR = join(process.cwd(), 'docs')
+      const { readmePath: README_PATH, docsDir: DOCS_DIR } = this._nomadDocsRoots()
 
       const alreadyEmbeddedRaw = await KVStore.getValue('rag.docsEmbedded')
       if (alreadyEmbeddedRaw && !force) {
@@ -1930,6 +1944,19 @@ export class RagService {
   }
 
   /**
+   * Purge a source's Qdrant points and its `KbIngestState` row without
+   * touching the file on disk. For callers where the file is already gone
+   * (or never existed as a knowledge-base upload) — `ZimService.delete()`
+   * (#1170) and the orphan sweep in `scanAndSyncStorage()` below. Does NOT
+   * attempt to delete a physical file; use `deleteFileBySource()` for the
+   * user-triggered "remove this file" action instead.
+   */
+  public async purgeIndexedSource(source: string): Promise<void> {
+    await this._deletePointsBySource(source)
+    await KbIngestState.remove(source)
+  }
+
+  /**
    * Returns true if the file-embeddings queue has any in-flight work
    * (waiting, active, delayed, or paused). Bulk re-embed actions use this
    * to refuse mid-flight to avoid racing with deletes/dispatches already
@@ -1998,6 +2025,41 @@ export class RagService {
         (filePath) => determineFileType(filePath) !== 'unknown'
       )
 
+      // Reverse sweep (#1170): sourcesInQdrant and embeddableFiles are both
+      // already known at this point — the forward loop below only ever asks
+      // "is this on-disk file already embedded?" This closes the other
+      // direction: a source in Qdrant with no corresponding file on disk is a
+      // leftover from ZimService.delete() (which never touched Qdrant) or
+      // from reconcileReplacedContentFile's qdrant_not_running no-op. Running
+      // this in sync (rather than only in the delete path) also self-heals
+      // installs already in this state. decideOrphans no-ops when
+      // embeddableFiles came back empty, so a filesystem hiccup can't be
+      // misread as "every file was deleted."
+      //
+      // Nomad's own bundled docs (README.md + docs/) are embedded by
+      // discoverNomadDocs() above, not by the kb_uploads/zim scan that built
+      // embeddableFiles — excluded here so they aren't misclassified as
+      // orphans and purged on every sync.
+      const { readmePath, docsDir } = this._nomadDocsRoots()
+      const docsDirPrefix = docsDir + sep
+      const orphanCandidates = [...sourcesInQdrant].filter(
+        (source) => source !== readmePath && !source.startsWith(docsDirPrefix)
+      )
+      const orphans = decideOrphans(orphanCandidates, embeddableFiles)
+      let orphansPurged = 0
+      if (orphans && orphans.length > 0) {
+        logger.info(`[RAG] Found ${orphans.length} orphaned source(s) with no corresponding file on disk`)
+        for (const orphan of orphans) {
+          try {
+            await this.purgeIndexedSource(orphan)
+            orphansPurged++
+          } catch (error) {
+            logger.error(`[RAG] Failed to purge orphaned source ${orphan}:`, error)
+          }
+        }
+        logger.info(`[RAG] Purged ${orphansPurged}/${orphans.length} orphaned source(s)`)
+      }
+
       // Read the global ingest policy. Unset is treated as 'Always' so legacy
       // installs keep their current behavior until the user explicitly opts
       // into Manual mode from the KB panel.
@@ -2058,10 +2120,12 @@ export class RagService {
         `[RAG] Scan results (policy=${policy}): ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${createdPending} waiting on user, ${skipped} skipped`
       )
 
+      const orphanNote = orphansPurged > 0 ? `; purged ${orphansPurged} orphaned source${orphansPurged !== 1 ? 's' : ''}` : ''
+
       if (filesToEmbed.length === 0) {
         return {
           success: true,
-          message: 'Knowledge base is already in sync',
+          message: `Knowledge base is already in sync${orphanNote}`,
           filesScanned: filesInStorage.length,
           filesQueued: 0,
         }
@@ -2071,7 +2135,7 @@ export class RagService {
       const dedupeNote = dedupedCount > 0 ? ` (${dedupedCount} already queued)` : ''
       return {
         success: true,
-        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding${dedupeNote}`,
+        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding${dedupeNote}${orphanNote}`,
         filesScanned: filesInStorage.length,
         filesQueued: queuedCount,
       }
