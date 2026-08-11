@@ -470,19 +470,23 @@ export default class SystemController {
                 message: `Docker container ${payload.container_name} not found.`,
             })
         }
+        const publishedHostPort = DockerService.getFirstPublishedHostPort(inspect)
 
         await Service.create({
             service_name: payload.container_name,
             friendly_name: payload.friendly_name,
             container_image: inspect.Config?.Image || '',
             container_config: null,
-            ui_location: payload.container_name,
+            // Published existing apps are launchable from the Command Center. Containers without
+            // a published host port remain manageable in Supply Depot but do not get a dead tile.
+            ui_location: publishedHostPort,
             icon: payload.icon || 'IconBrandDocker',
             installed: true,
             installation_status: 'idle',
             is_dependency_service: false,
             is_custom: true,
             category: payload.category ?? 'custom',
+            display_order: publishedHostPort ? 49 : null,
             depends_on: null,
         })
 

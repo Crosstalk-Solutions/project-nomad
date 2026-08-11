@@ -319,6 +319,7 @@ export class SystemService {
 
   async getServices({ installedOnly = true }: { installedOnly?: boolean }): Promise<ServiceSlim[]> {
     const statuses = await this._syncContainersWithDatabase() // Sync and reuse the fetched status list
+    await this._syncExistingPublishedAppLinks()
 
     const query = Service.query()
       .orderBy('display_order', 'asc')
@@ -386,6 +387,55 @@ export class SystemService {
     }
 
     return toReturn
+  }
+
+  /**
+   * Backfill launch metadata for existing Docker containers added before published ports were
+   * detected. A published existing app gets a Command Center link and a pre-system sort order;
+   * unpublished containers stay manageable in Supply Depot without a dead dashboard tile.
+   */
+  private async _syncExistingPublishedAppLinks(): Promise<void> {
+    try {
+      const existingApps = await Service.query()
+        .where('installed', true)
+        .where('is_custom', true)
+        .where('is_dependency_service', false)
+        .whereNull('container_config')
+
+      for (const service of existingApps) {
+        const inspect = await this.dockerService.inspectContainerByName(service.service_name)
+        if (!inspect) continue
+
+        const publishedHostPort = DockerService.getFirstPublishedHostPort(inspect)
+        let changed = false
+
+        if (publishedHostPort && service.ui_location !== publishedHostPort) {
+          service.ui_location = publishedHostPort
+          changed = true
+        }
+        if (
+          publishedHostPort &&
+          (service.display_order === null || service.display_order >= 50)
+        ) {
+          service.display_order = 49
+          changed = true
+        }
+        if (!publishedHostPort && service.ui_location === service.service_name) {
+          service.ui_location = null
+          changed = true
+        }
+
+        if (changed) {
+          await service.save()
+        }
+      }
+    } catch (error) {
+      logger.warn(
+        `[SystemService] Existing app launch metadata sync failed: ${
+          error instanceof Error ? error.message : error
+        }`
+      )
+    }
   }
 
   static getAppVersion(): string {

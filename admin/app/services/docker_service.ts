@@ -2041,6 +2041,26 @@ export class DockerService {
   }
 
   /**
+   * Return the first host port published by a Docker container inspect payload.
+   * Existing apps are already running, so their launch target comes from Docker's
+   * active port bindings rather than NOMAD's generated container config.
+   */
+  static getFirstPublishedHostPort(inspect: any): string | null {
+    const ports = inspect?.NetworkSettings?.Ports ?? {}
+    const bindings = Object.values(ports).flat() as Array<{
+      HostIp?: string
+      HostPort?: string
+    } | null>
+    const published = bindings
+      .filter((binding): binding is { HostIp?: string; HostPort: string } =>
+        Boolean(binding?.HostPort)
+      )
+      .sort((a, b) => Number.parseInt(a.HostPort, 10) - Number.parseInt(b.HostPort, 10))
+
+    return published[0]?.HostPort ?? null
+  }
+
+  /**
    * Decode the multiplexed stream Docker returns for non-TTY container logs. Each frame is an
    * 8-byte header ([streamType, 0,0,0, big-endian payloadSize]) followed by the payload.
    */

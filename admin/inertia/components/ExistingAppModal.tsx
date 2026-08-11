@@ -153,8 +153,8 @@ export default function ExistingAppModal({
         </div>
 
         <p className="text-xs text-text-muted">
-          Add an existing Docker container by its name so it appears in the Supply Depot and
-          on the home dashboard.
+          Add an existing Docker container by its name so it appears in the Supply Depot.
+          Published containers also appear on the home dashboard.
         </p>
       </div>
     </StyledModal>
