@@ -36,6 +36,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import Service from '#models/service'
 
+const CUSTOM_APP_HOME_DISPLAY_ORDER = 49
+
 @inject()
 export default class SystemController {
     constructor(
@@ -441,6 +443,7 @@ export default class SystemController {
             is_dependency_service: false,
             is_custom: true,
             category: payload.category ?? 'custom',
+            display_order: uiLocation ? CUSTOM_APP_HOME_DISPLAY_ORDER : null,
             depends_on: null,
         })
 
@@ -486,7 +489,7 @@ export default class SystemController {
             is_dependency_service: false,
             is_custom: true,
             category: payload.category ?? 'custom',
-            display_order: publishedHostPort ? 49 : null,
+            display_order: publishedHostPort ? CUSTOM_APP_HOME_DISPLAY_ORDER : null,
             depends_on: null,
         })
 
@@ -569,6 +572,19 @@ export default class SystemController {
         }
 
         service.custom_url = normalized
+        if (
+            normalized &&
+            (service.display_order === null || service.display_order >= 50)
+        ) {
+            service.display_order = CUSTOM_APP_HOME_DISPLAY_ORDER
+        }
+        if (
+            !normalized &&
+            !service.ui_location &&
+            service.display_order === CUSTOM_APP_HOME_DISPLAY_ORDER
+        ) {
+            service.display_order = null
+        }
         await service.save()
 
         return response.send({ success: true, custom_url: service.custom_url })
@@ -704,6 +720,19 @@ export default class SystemController {
             ? `${prevScheme}:${uiLocation}`
             : uiLocation
         service.category = payload.category ?? service.category ?? 'custom'
+        if (
+            (service.ui_location || service.custom_url) &&
+            (service.display_order === null || service.display_order >= 50)
+        ) {
+            service.display_order = CUSTOM_APP_HOME_DISPLAY_ORDER
+        }
+        if (
+            !service.ui_location &&
+            !service.custom_url &&
+            service.display_order === CUSTOM_APP_HOME_DISPLAY_ORDER
+        ) {
+            service.display_order = null
+        }
         if (payload.icon) service.icon = payload.icon
         // Flag as user-modified so the seeder stops overwriting this app's config on future runs.
         service.is_user_modified = true
