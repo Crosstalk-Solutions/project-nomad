@@ -56,7 +56,7 @@
     "@types/react-dom": "19.2.3",
     "@types/stopword": "2.0.3",
     "@types/stream-json": "1.7.7",
-    "@types/yauzl": "2.10.3",
+    "@types/yauzl": "3.4.0",
     "eslint": "9.39.2",
     "hot-hook": "0.4.0",
     "prettier": "3.8.1",
@@ -140,7 +140,7 @@
     "tesseract.js": "7.0.0",
     "url-join": "5.0.0",
     "yaml": "2.8.3",
-    "yauzl": "3.2.0"
+    "yauzl": "3.4.0"
   },
   "hotHook": {
     "boundaries": [
