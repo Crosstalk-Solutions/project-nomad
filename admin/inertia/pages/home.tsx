@@ -27,6 +27,8 @@ import StyledModal from '~/components/StyledModal'
 import WhatsNewBanner from '~/components/WhatsNewBanner'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
+const APP_FALLBACK_DISPLAY_ORDER = 49
+
 // Maps is a Core Capability (display_order: 4)
 const MAPS_ITEM = {
   label: 'Maps',
@@ -203,7 +205,8 @@ export default function Home(props: {
           <IconWifiOff size={48} />
         ),
         installed: service.installed,
-        displayOrder: service.display_order ?? 100,
+        // Launchable apps without an explicit order still belong before system tiles.
+        displayOrder: service.display_order ?? APP_FALLBACK_DISPLAY_ORDER,
         poweredBy: service.powered_by ?? null,
       })
     })

@@ -24,6 +24,8 @@ import { isNewerVersion } from '../utils/version.js'
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
 
+const CUSTOM_APP_HOME_DISPLAY_ORDER = 49
+
 @inject()
 export class SystemService {
   private static appVersion: string | null = null
@@ -319,7 +321,7 @@ export class SystemService {
 
   async getServices({ installedOnly = true }: { installedOnly?: boolean }): Promise<ServiceSlim[]> {
     const statuses = await this._syncContainersWithDatabase() // Sync and reuse the fetched status list
-    await this._syncExistingPublishedAppLinks()
+    await this._syncCustomAppHomeLinks()
 
     const query = Service.query()
       .orderBy('display_order', 'asc')
@@ -390,23 +392,21 @@ export class SystemService {
   }
 
   /**
-   * Backfill launch metadata for existing Docker containers added before published ports were
-   * detected. A published existing app gets a Command Center link and a pre-system sort order;
-   * unpublished containers stay manageable in Supply Depot without a dead dashboard tile.
+   * Backfill launch metadata for custom app records. Launchable apps get the same pre-system
+   * Command Center sort order whether they were created by NOMAD or registered from an existing
+   * Docker container.
    */
-  private async _syncExistingPublishedAppLinks(): Promise<void> {
+  private async _syncCustomAppHomeLinks(): Promise<void> {
     try {
-      const existingApps = await Service.query()
+      const customApps = await Service.query()
         .where('installed', true)
         .where('is_custom', true)
         .where('is_dependency_service', false)
-        .whereNull('container_config')
 
-      for (const service of existingApps) {
+      for (const service of customApps) {
         const inspect = await this.dockerService.inspectContainerByName(service.service_name)
-        if (!inspect) continue
+        const publishedHostPort = inspect ? DockerService.getFirstPublishedHostPort(inspect) : null
 
-        const publishedHostPort = DockerService.getFirstPublishedHostPort(inspect)
         let changed = false
 
         if (publishedHostPort && service.ui_location !== publishedHostPort) {
@@ -414,10 +414,10 @@ export class SystemService {
           changed = true
         }
         if (
-          publishedHostPort &&
+          (publishedHostPort || service.ui_location || service.custom_url) &&
           (service.display_order === null || service.display_order >= 50)
         ) {
-          service.display_order = 49
+          service.display_order = CUSTOM_APP_HOME_DISPLAY_ORDER
           changed = true
         }
         if (!publishedHostPort && service.ui_location === service.service_name) {
@@ -431,7 +431,7 @@ export class SystemService {
       }
     } catch (error) {
       logger.warn(
-        `[SystemService] Existing app launch metadata sync failed: ${
+        `[SystemService] Custom app launch metadata sync failed: ${
           error instanceof Error ? error.message : error
         }`
       )
