@@ -48,6 +48,12 @@ type ChatInput = {
   thinkingCapable?: boolean
   stream?: boolean
   numCtx?: number
+  // Sampling controls. Left unset for normal chat, which inherits the backend's
+  // defaults — the historical behaviour. The eval harness sets temperature 0 and
+  // a fixed seed so repeated runs are as close to comparable as llama.cpp allows
+  // (batching and GPU non-determinism still move outputs, hence --repeats).
+  temperature?: number
+  seed?: number
   // Aborts the upstream request when the client disconnects, so an abandoned generation
   // doesn't keep decoding server-side and block Ollama's single parallel slot (#1065).
   signal?: AbortSignal
@@ -350,6 +356,12 @@ export class OllamaService {
     if (chatRequest.numCtx) {
       params.num_ctx = chatRequest.numCtx
     }
+    if (chatRequest.temperature !== undefined) {
+      params.temperature = chatRequest.temperature
+    }
+    if (chatRequest.seed !== undefined) {
+      params.seed = chatRequest.seed
+    }
 
     const response = await this.openai.chat.completions.create(params, { signal: chatRequest.signal })
     const choice = response.choices[0]
@@ -391,6 +403,12 @@ export class OllamaService {
     }
     if (chatRequest.numCtx) {
       params.num_ctx = chatRequest.numCtx
+    }
+    if (chatRequest.temperature !== undefined) {
+      params.temperature = chatRequest.temperature
+    }
+    if (chatRequest.seed !== undefined) {
+      params.seed = chatRequest.seed
     }
 
     const stream = (await this.openai.chat.completions.create(params, {

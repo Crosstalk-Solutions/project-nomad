@@ -76,6 +76,15 @@ export const RAG_CONTEXT_LIMITS: { maxParams: number; maxResults: number; maxTok
   { maxParams: Infinity, maxResults: 5, maxTokens: 0 }, // 13B+ (no cap)
 ]
 
+/**
+ * Retrieval defaults for the chat pipeline. These were previously inline
+ * literals at the `searchSimilarDocuments` call site in OllamaController, which
+ * made them impossible to sweep or record in a report. They are named here so
+ * the pipeline and the eval harness read the same numbers.
+ */
+export const RAG_DEFAULT_TOP_K = 5
+export const RAG_DEFAULT_SCORE_THRESHOLD = 0.3
+
 export const SYSTEM_PROMPTS = {
   default: `
  Format all responses using markdown for better readability. Vanilla markdown or GitHub-flavored markdown is preferred.
