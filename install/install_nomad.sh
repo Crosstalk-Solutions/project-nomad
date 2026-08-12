@@ -420,6 +420,7 @@ download_management_compose_file() {
   local app_key=$(generateRandomPass)
   local db_root_password=$(generateRandomPass)
   local db_user_password=$(generateRandomPass)
+  admin_password=$(generateRandomPass)
 
   # If MySQL data directory exists from a previous install attempt, remove it.
   # MySQL only initializes credentials on first startup when the data dir is empty.
@@ -434,6 +435,7 @@ download_management_compose_file() {
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
   sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
   sed -i "s|APP_KEY=replaceme|APP_KEY=${app_key}|g" "$compose_file_path"
+  sed -i "s|ADMIN_PASS=replaceme|ADMIN_PASS=${admin_password}|g" "$compose_file_path"
   
   sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
   sed -i "s|MYSQL_ROOT_PASSWORD=replaceme|MYSQL_ROOT_PASSWORD=${db_root_password}|g" "$compose_file_path"
@@ -605,6 +607,8 @@ success_message() {
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
   echo -e "${GREEN}#${RESET} Project NOMAD's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
   echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
+  echo -e "${GREEN}#${RESET} Admin Login user: ${WHITE_R}admin${RESET}"
+  echo -e "${GREEN}#${RESET} Admin Login password: ${WHITE_R}${admin_password}${RESET}\\n"
   echo -e "${GREEN}#${RESET} Thank you for supporting Project NOMAD!\\n"
 }
 

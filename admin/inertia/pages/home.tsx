@@ -7,7 +7,8 @@ import {
   IconSettings,
   IconWifiOff,
 } from '@tabler/icons-react'
-import { Head, Link, router, usePage } from '@inertiajs/react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
@@ -21,6 +22,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import api from '~/lib/api'
 import Alert from '~/components/Alert'
+import Input from '~/components/inputs/Input'
+import StyledModal from '~/components/StyledModal'
 import WhatsNewBanner from '~/components/WhatsNewBanner'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
@@ -95,6 +98,8 @@ const SYSTEM_ITEMS = [
   },
 ]
 
+const ADMIN_ONLY_LABELS = new Set(['Easy Setup', 'Supply Depot', 'Settings'])
+
 interface DashboardItem {
   label: string
   to: string
@@ -119,7 +124,52 @@ export default function Home(props: {
   const updateInfo = useUpdateAvailable();
   const rerunBanner = useBenchmarkRerunBanner()
   const queryClient = useQueryClient()
-  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
+  const { admin, aiAssistantName } = usePage<{
+    admin: { isConfigured: boolean; isLoggedIn: boolean; user: string }
+    aiAssistantName: string
+  }>().props
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false)
+  const adminLoginRedirect = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    const redirectTo = params.get('redirect') || '/home'
+
+    if (!redirectTo.startsWith('/') || redirectTo.startsWith('//')) {
+      return '/home'
+    }
+
+    return redirectTo
+  }, [])
+  const adminLoginForm = useForm({
+    user: admin.user || 'admin',
+    password: '',
+    redirect: adminLoginRedirect,
+  })
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('adminLogin') === '1' && !admin.isLoggedIn) {
+      setAdminLoginOpen(true)
+    }
+  }, [admin.isLoggedIn])
+
+  const handleAdminLogin = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+    adminLoginForm.post('/admin/login', {
+      preserveScroll: true,
+      onSuccess: () => setAdminLoginOpen(false),
+      onFinish: () => adminLoginForm.reset('password'),
+    })
+  }
+
+  const openAdminLogin = () => {
+    adminLoginForm.clearErrors()
+    adminLoginForm.setData('redirect', '/home')
+    setAdminLoginOpen(true)
+  }
+
+  const handleAdminLogout = () => {
+    router.post('/admin/logout', {}, { preserveScroll: true })
+  }
 
   const handleDismissRerunBanner = async () => {
     await api.updateSetting('benchmark.rerunBannerDismissed', true)
@@ -168,8 +218,10 @@ export default function Home(props: {
     items.push(DRUG_REFERENCE_ITEM)
   }
 
-  // Add system items
-  items.push(...SYSTEM_ITEMS)
+  // Add system items, hiding admin-only controls until the admin logs in.
+  items.push(
+    ...SYSTEM_ITEMS.filter((item) => admin.isLoggedIn || !ADMIN_ONLY_LABELS.has(item.label))
+  )
 
   // Sort all items by display order
   items.sort((a, b) => a.displayOrder - b.displayOrder)
@@ -177,8 +229,72 @@ export default function Home(props: {
   return (
     <AppLayout>
       <Head title="Command Center" />
+      <div className="fixed left-4 top-4 z-40">
+        <button
+          type="button"
+          onClick={admin.isLoggedIn ? handleAdminLogout : openAdminLogin}
+          className="inline-flex h-12 items-center gap-2 rounded-md border-2 border-desert-green bg-surface-primary px-3 text-sm font-semibold text-desert-green shadow-sm transition-colors hover:bg-desert-green hover:text-white focus:outline-none focus:ring-2 focus:ring-desert-green-light focus:ring-offset-2 focus:ring-offset-desert-sand"
+        >
+          <span
+            aria-hidden="true"
+            className="h-6 w-6 bg-current"
+            style={{
+              maskImage: "url('/admin-profile.png')",
+              maskPosition: 'center',
+              maskRepeat: 'no-repeat',
+              maskSize: 'contain',
+              WebkitMaskImage: "url('/admin-profile.png')",
+              WebkitMaskPosition: 'center',
+              WebkitMaskRepeat: 'no-repeat',
+              WebkitMaskSize: 'contain',
+            }}
+          />
+          <span>{admin.isLoggedIn ? 'Admin Logout' : 'Admin Login'}</span>
+        </button>
+      </div>
+      <StyledModal
+        open={adminLoginOpen}
+        title="Admin Login"
+        cancelText="Cancel"
+        confirmText="Log In"
+        confirmIcon="IconShieldLock"
+        confirmLoading={adminLoginForm.processing}
+        confirmDisabled={!admin.isConfigured}
+        onCancel={() => setAdminLoginOpen(false)}
+        onClose={() => setAdminLoginOpen(false)}
+        onConfirm={() => handleAdminLogin()}
+      >
+        <form id="admin-login-form" className="space-y-4 text-left" onSubmit={handleAdminLogin}>
+          <Input
+            name="user"
+            label="User"
+            value={adminLoginForm.data.user}
+            onChange={(event) => adminLoginForm.setData('user', event.target.value)}
+            autoComplete="username"
+            required
+          />
+          <Input
+            name="password"
+            label="Password"
+            type="password"
+            value={adminLoginForm.data.password}
+            onChange={(event) => adminLoginForm.setData('password', event.target.value)}
+            autoComplete="current-password"
+            error={Boolean(adminLoginForm.errors.password)}
+            required
+          />
+          {adminLoginForm.errors.password && (
+            <p className="text-sm font-medium text-desert-red">{adminLoginForm.errors.password}</p>
+          )}
+          {!admin.isConfigured && !adminLoginForm.errors.password && (
+            <p className="text-sm font-medium text-desert-orange-dark">
+              Admin login is not configured.
+            </p>
+          )}
+        </form>
+      </StyledModal>
       {
-        updateInfo?.updateAvailable && (
+        admin.isLoggedIn && updateInfo?.updateAvailable && (
           <div className='flex justify-center items-center p-4 w-full'>
             <Alert
               title="An update is available for Project NOMAD!"
@@ -197,7 +313,7 @@ export default function Home(props: {
       }
       <WhatsNewBanner />
       {
-        rerunBanner?.show && (
+        admin.isLoggedIn && rerunBanner?.show && (
           <div className='flex justify-center items-center px-4 pt-4 w-full'>
             <Alert
               title="Your benchmark can be re-scored with Score v2"

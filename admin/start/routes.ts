@@ -7,6 +7,7 @@
 |
 */
 import BenchmarkController from '#controllers/benchmark_controller'
+import AdminAuthController from '#controllers/admin_auth_controller'
 import ChatsController from '#controllers/chats_controller'
 import ConditionsController from '#controllers/conditions_controller'
 import DocsController from '#controllers/docs_controller'
@@ -28,6 +29,7 @@ import ZimController from '#controllers/zim_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
 import { documented } from '#start/openapi/documented'
+import { middleware } from '#start/kernel'
 import {
   remoteDownloadValidator,
   remoteDownloadWithMetadataValidator,
@@ -101,22 +103,29 @@ router.get('/home', [HomeController, 'home'])
 router.on('/about').renderInertia('about')
 router.get('/chat', [ChatsController, 'inertia'])
 router.get('/maps', [MapsController, 'index'])
-router.get('/supply-depot', [SupplyDepotController, 'index'])
+router.post('/admin/login', [AdminAuthController, 'login'])
+router.post('/admin/logout', [AdminAuthController, 'logout'])
+router.get('/supply-depot', [SupplyDepotController, 'index']).use(middleware.admin())
 router.on('/knowledge-base').redirectToPath('/chat?knowledge_base=true') // redirect for legacy knowledge-base links
 
-router.get('/easy-setup', [EasySetupController, 'index'])
-router.get('/easy-setup/complete', [EasySetupController, 'complete'])
+router.get('/easy-setup', [EasySetupController, 'index']).use(middleware.admin())
+router.get('/easy-setup/complete', [EasySetupController, 'complete']).use(middleware.admin())
 documented(
-  router.get('/api/easy-setup/curated-categories', [EasySetupController, 'listCuratedCategories']),
+  router
+    .get('/api/easy-setup/curated-categories', [EasySetupController, 'listCuratedCategories'])
+    .use(middleware.admin()),
   {
     summary: 'List curated easy-setup categories',
     tags: ['easy-setup'],
   }
 )
-documented(router.post('/api/manifests/refresh', [EasySetupController, 'refreshManifests']), {
-  summary: 'Refresh content manifests',
-  tags: ['easy-setup'],
-})
+documented(
+  router.post('/api/manifests/refresh', [EasySetupController, 'refreshManifests']).use(middleware.admin()),
+  {
+    summary: 'Refresh content manifests',
+    tags: ['easy-setup'],
+  }
+)
 router
   .group(() => {
     documented(router.post('/check', [CollectionUpdatesController, 'checkForUpdates']), {
@@ -135,6 +144,7 @@ router
     })
   })
   .prefix('/api/content-updates')
+  .use(middleware.admin())
 
 router
   .group(() => {
@@ -152,6 +162,7 @@ router
     router.get('/advanced', [SettingsController, 'advanced'])
   })
   .prefix('/settings')
+  .use(middleware.admin())
 
 router
   .group(() => {
@@ -181,26 +192,26 @@ router
       summary: 'Fetch the latest map collections',
       tags: ['maps'],
     })
-    documented(router.post('/download-base-assets', [MapsController, 'downloadBaseAssets']), {
+    documented(router.post('/download-base-assets', [MapsController, 'downloadBaseAssets']).use(middleware.admin()), {
       summary: 'Download base map assets',
       tags: ['maps'],
       request: remoteDownloadValidatorOptional,
     })
-    documented(router.post('/setup-world-basemap', [MapsController, 'setupWorldBasemap']), {
+    documented(router.post('/setup-world-basemap', [MapsController, 'setupWorldBasemap']).use(middleware.admin()), {
       summary: 'Provision the world base map',
       tags: ['maps'],
     })
-    documented(router.post('/download-remote', [MapsController, 'downloadRemote']), {
+    documented(router.post('/download-remote', [MapsController, 'downloadRemote']).use(middleware.admin()), {
       summary: 'Queue a remote map download',
       tags: ['maps'],
       request: remoteDownloadValidator,
     })
-    documented(router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight']), {
+    documented(router.post('/download-remote-preflight', [MapsController, 'downloadRemotePreflight']).use(middleware.admin()), {
       summary: 'Preflight a remote map download',
       tags: ['maps'],
       request: remoteDownloadValidator,
     })
-    documented(router.post('/download-collection', [MapsController, 'downloadCollection']), {
+    documented(router.post('/download-collection', [MapsController, 'downloadCollection']).use(middleware.admin()), {
       summary: 'Download a map collection',
       tags: ['maps'],
       request: downloadCollectionValidator,
@@ -209,7 +220,7 @@ router
       summary: 'Get global map information',
       tags: ['maps'],
     })
-    documented(router.post('/download-global-map', [MapsController, 'downloadGlobalMap']), {
+    documented(router.post('/download-global-map', [MapsController, 'downloadGlobalMap']).use(middleware.admin()), {
       summary: 'Download the global map',
       tags: ['maps'],
     })
@@ -221,12 +232,12 @@ router
       summary: 'List country groups',
       tags: ['maps'],
     })
-    documented(router.post('/extract-preflight', [MapsController, 'extractPreflight']), {
+    documented(router.post('/extract-preflight', [MapsController, 'extractPreflight']).use(middleware.admin()), {
       summary: 'Preflight a map region extraction',
       tags: ['maps'],
       request: mapExtractPreflightValidator,
     })
-    documented(router.post('/extract', [MapsController, 'extractRegion']), {
+    documented(router.post('/extract', [MapsController, 'extractRegion']).use(middleware.admin()), {
       summary: 'Extract a map region',
       tags: ['maps'],
       request: mapExtractValidator,
@@ -247,7 +258,7 @@ router
       summary: 'Delete a map marker',
       tags: ['maps'],
     })
-    documented(router.delete('/:filename', [MapsController, 'delete']), {
+    documented(router.delete('/:filename', [MapsController, 'delete']).use(middleware.admin()), {
       summary: 'Delete a map file',
       tags: ['maps'],
       params: filenameParamValidator,
@@ -534,110 +545,110 @@ router
       summary: 'List services',
       tags: ['system'],
     })
-    documented(router.post('/services/affect', [SystemController, 'affectService']), {
+    documented(router.post('/services/affect', [SystemController, 'affectService']).use(middleware.admin()), {
       summary: 'Start, stop, or restart a service',
       tags: ['system'],
       request: affectServiceValidator,
     })
-    documented(router.post('/services/install', [SystemController, 'installService']), {
+    documented(router.post('/services/install', [SystemController, 'installService']).use(middleware.admin()), {
       summary: 'Install a service',
       tags: ['system'],
       request: installServiceValidator,
     })
-    documented(router.post('/services/force-reinstall', [SystemController, 'forceReinstallService']), {
+    documented(router.post('/services/force-reinstall', [SystemController, 'forceReinstallService']).use(middleware.admin()), {
       summary: 'Force reinstall a service',
       tags: ['system'],
       request: installServiceValidator,
     })
-    documented(router.post('/services/uninstall', [SystemController, 'uninstallService']), {
+    documented(router.post('/services/uninstall', [SystemController, 'uninstallService']).use(middleware.admin()), {
       summary: 'Uninstall a service',
       tags: ['system'],
       request: uninstallServiceValidator,
     })
-    documented(router.post('/services/check-updates', [SystemController, 'checkServiceUpdates']), {
+    documented(router.post('/services/check-updates', [SystemController, 'checkServiceUpdates']).use(middleware.admin()), {
       summary: 'Check for service updates',
       tags: ['system'],
     })
-    documented(router.get('/services/preflight', [SystemController, 'preflightCheck']), {
+    documented(router.get('/services/preflight', [SystemController, 'preflightCheck']).use(middleware.admin()), {
       summary: 'Preflight a service install',
       tags: ['system'],
       query: preflightValidator,
     })
-    documented(router.get('/services/suggest-port', [SystemController, 'suggestCustomPort']), {
+    documented(router.get('/services/suggest-port', [SystemController, 'suggestCustomPort']).use(middleware.admin()), {
       summary: 'Suggest an available custom port',
       tags: ['system'],
     })
-    documented(router.post('/services/preflight-custom', [SystemController, 'preflightCustomApp']), {
+    documented(router.post('/services/preflight-custom', [SystemController, 'preflightCustomApp']).use(middleware.admin()), {
       summary: 'Preflight a custom app install',
       tags: ['system'],
       request: preflightCustomValidator,
     })
-    documented(router.post('/services/custom', [SystemController, 'createCustomApp']), {
+    documented(router.post('/services/custom', [SystemController, 'createCustomApp']).use(middleware.admin()), {
       summary: 'Create a custom app',
       tags: ['system'],
       request: customAppValidator,
     })
-    documented(router.post('/services/existing', [SystemController, 'createExistingApp']), {
+    documented(router.post('/services/existing', [SystemController, 'createExistingApp']).use(middleware.admin()), {
       summary: 'Add an existing Docker container as an app',
       tags: ['system'],
       request: existingAppValidator,
     })
-    documented(router.put('/services/custom', [SystemController, 'updateCustomApp']), {
+    documented(router.put('/services/custom', [SystemController, 'updateCustomApp']).use(middleware.admin()), {
       summary: 'Update a custom app',
       tags: ['system'],
       request: updateCustomAppValidator,
     })
-    documented(router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest']), {
+    documented(router.post('/services/custom/update', [SystemController, 'updateCustomApp_pullLatest']).use(middleware.admin()), {
       summary: 'Pull the latest version of a custom app',
       tags: ['system'],
       request: installServiceValidator,
     })
-    documented(router.delete('/services/custom', [SystemController, 'deleteCustomApp']), {
+    documented(router.delete('/services/custom', [SystemController, 'deleteCustomApp']).use(middleware.admin()), {
       summary: 'Delete a custom app',
       tags: ['system'],
       request: deleteCustomAppValidator,
     })
-    documented(router.get('/services/custom/:name', [SystemController, 'getCustomApp']), {
+    documented(router.get('/services/custom/:name', [SystemController, 'getCustomApp']).use(middleware.admin()), {
       summary: 'Get a custom app',
       tags: ['system'],
     })
-    documented(router.put('/services/custom-url', [SystemController, 'setServiceCustomUrl']), {
+    documented(router.put('/services/custom-url', [SystemController, 'setServiceCustomUrl']).use(middleware.admin()), {
       summary: 'Set a service custom URL',
       tags: ['system'],
       request: setServiceCustomUrlValidator,
     })
-    documented(router.get('/services/:name/logs', [SystemController, 'getServiceLogs']), {
+    documented(router.get('/services/:name/logs', [SystemController, 'getServiceLogs']).use(middleware.admin()), {
       summary: 'Get service logs',
       tags: ['system'],
       query: serviceLogsValidator,
     })
-    documented(router.get('/services/:name/stats', [SystemController, 'getServiceStats']), {
+    documented(router.get('/services/:name/stats', [SystemController, 'getServiceStats']).use(middleware.admin()), {
       summary: 'Get service stats',
       tags: ['system'],
     })
-    documented(router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions']), {
+    documented(router.get('/services/:name/available-versions', [SystemController, 'getAvailableVersions']).use(middleware.admin()), {
       summary: 'List available service versions',
       tags: ['system'],
     })
-    documented(router.post('/services/update', [SystemController, 'updateService']), {
+    documented(router.post('/services/update', [SystemController, 'updateService']).use(middleware.admin()), {
       summary: 'Update a service',
       tags: ['system'],
       request: updateServiceValidator,
     })
-    documented(router.post('/services/auto-update', [SystemController, 'setServiceAutoUpdate']), {
+    documented(router.post('/services/auto-update', [SystemController, 'setServiceAutoUpdate']).use(middleware.admin()), {
       summary: 'Set service auto-update',
       tags: ['system'],
       request: setServiceAutoUpdateValidator,
     })
-    documented(router.get('/apps/auto-update/status', [SystemController, 'getAppAutoUpdateStatus']), {
+    documented(router.get('/apps/auto-update/status', [SystemController, 'getAppAutoUpdateStatus']).use(middleware.admin()), {
       summary: 'Get app auto-update status',
       tags: ['system'],
     })
-    documented(router.get('/content/auto-update/status', [SystemController, 'getContentAutoUpdateStatus']), {
+    documented(router.get('/content/auto-update/status', [SystemController, 'getContentAutoUpdateStatus']).use(middleware.admin()), {
       summary: 'Get content auto-update status',
       tags: ['system'],
     })
-    documented(router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes']), {
+    documented(router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes']).use(middleware.admin()), {
       summary: 'Subscribe to release notes',
       tags: ['system'],
       request: subscribeToReleaseNotesValidator,
@@ -647,19 +658,19 @@ router
       tags: ['system'],
       query: checkLatestVersionValidator,
     })
-    documented(router.post('/update', [SystemController, 'requestSystemUpdate']), {
+    documented(router.post('/update', [SystemController, 'requestSystemUpdate']).use(middleware.admin()), {
       summary: 'Request a system update',
       tags: ['system'],
     })
-    documented(router.get('/update/status', [SystemController, 'getSystemUpdateStatus']), {
+    documented(router.get('/update/status', [SystemController, 'getSystemUpdateStatus']).use(middleware.admin()), {
       summary: 'Get system update status',
       tags: ['system'],
     })
-    documented(router.get('/update/logs', [SystemController, 'getSystemUpdateLogs']), {
+    documented(router.get('/update/logs', [SystemController, 'getSystemUpdateLogs']).use(middleware.admin()), {
       summary: 'Get system update logs',
       tags: ['system'],
     })
-    documented(router.get('/auto-update/status', [SystemController, 'getAutoUpdateStatus']), {
+    documented(router.get('/auto-update/status', [SystemController, 'getAutoUpdateStatus']).use(middleware.admin()), {
       summary: 'Get system auto-update status',
       tags: ['system'],
     })
@@ -691,18 +702,18 @@ router
       summary: 'List curated ZIM categories',
       tags: ['zim'],
     })
-    documented(router.post('/download-remote', [ZimController, 'downloadRemote']), {
+    documented(router.post('/download-remote', [ZimController, 'downloadRemote']).use(middleware.admin()), {
       summary: 'Queue a remote ZIM download',
       tags: ['zim'],
       request: remoteDownloadWithMetadataValidator,
     })
-    documented(router.post('/download-category-tier', [ZimController, 'downloadCategoryTier']), {
+    documented(router.post('/download-category-tier', [ZimController, 'downloadCategoryTier']).use(middleware.admin()), {
       summary: 'Download a ZIM category tier',
       tags: ['zim'],
       request: downloadCategoryTierValidator,
     })
 
-    documented(router.post('/upload', [ZimController, 'upload']), {
+    documented(router.post('/upload', [ZimController, 'upload']).use(middleware.admin()), {
       summary: 'Upload a ZIM file',
       tags: ['zim'],
     })
@@ -710,7 +721,7 @@ router
       summary: 'Get Wikipedia ZIM state',
       tags: ['zim'],
     })
-    documented(router.post('/wikipedia/select', [ZimController, 'selectWikipedia']), {
+    documented(router.post('/wikipedia/select', [ZimController, 'selectWikipedia']).use(middleware.admin()), {
       summary: 'Select a Wikipedia ZIM edition',
       tags: ['zim'],
       request: selectWikipediaValidator,
@@ -720,12 +731,12 @@ router
       summary: 'List custom ZIM libraries',
       tags: ['zim'],
     })
-    documented(router.post('/custom-libraries', [ZimController, 'addCustomLibrary']), {
+    documented(router.post('/custom-libraries', [ZimController, 'addCustomLibrary']).use(middleware.admin()), {
       summary: 'Add a custom ZIM library',
       tags: ['zim'],
       request: addCustomLibraryValidator,
     })
-    documented(router.delete('/custom-libraries/:id', [ZimController, 'removeCustomLibrary']), {
+    documented(router.delete('/custom-libraries/:id', [ZimController, 'removeCustomLibrary']).use(middleware.admin()), {
       summary: 'Remove a custom ZIM library',
       tags: ['zim'],
       params: idParamValidator,
@@ -736,12 +747,12 @@ router
       query: browseLibraryValidator,
     })
 
-    documented(router.post('/rescan-library', [ZimController, 'rescanLibrary']), {
+    documented(router.post('/rescan-library', [ZimController, 'rescanLibrary']).use(middleware.admin()), {
       summary: 'Rescan the ZIM library',
       tags: ['zim'],
     })
 
-    documented(router.delete('/:filename', [ZimController, 'delete']), {
+    documented(router.delete('/:filename', [ZimController, 'delete']).use(middleware.admin()), {
       summary: 'Delete a ZIM file',
       tags: ['zim'],
       params: filenameParamValidator,
@@ -755,11 +766,11 @@ router
       summary: 'List creator packs',
       tags: ['creator-packs'],
     })
-    documented(router.post('/:id/install', [CreatorPacksController, 'install']), {
+    documented(router.post('/:id/install', [CreatorPacksController, 'install']).use(middleware.admin()), {
       summary: 'Install a creator pack',
       tags: ['creator-packs'],
     })
-    documented(router.delete('/:id', [CreatorPacksController, 'uninstall']), {
+    documented(router.delete('/:id', [CreatorPacksController, 'uninstall']).use(middleware.admin()), {
       summary: 'Uninstall a creator pack',
       tags: ['creator-packs'],
     })

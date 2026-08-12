@@ -10,6 +10,12 @@ import env from '#start/env'
 
 @inject()
 export default class SettingsController {
+  private static publicWritableSettings = new Set([
+    'chat.lastModel',
+    'rag.defaultIngestPolicy',
+    'ui.theme',
+  ])
+
   constructor(
     private systemService: SystemService,
     private mapService: MapService,
@@ -140,8 +146,15 @@ export default class SettingsController {
     return response.status(200).send({ key, value });
   }
 
-  async updateSetting({ request, response }: HttpContext) {
+  async updateSetting({ request, response, session }: HttpContext) {
     const reqData = await request.validateUsing(updateSettingSchema)
+    if (
+      !session.get('admin.isLoggedIn') &&
+      !SettingsController.publicWritableSettings.has(reqData.key)
+    ) {
+      return response.status(403).send({ success: false, message: 'Admin login is required.' })
+    }
+
     const valueError = validateSettingValue(reqData.key, reqData.value)
     if (valueError) {
       return response.status(422).send({ success: false, message: valueError })

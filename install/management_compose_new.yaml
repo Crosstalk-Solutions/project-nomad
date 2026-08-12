@@ -9,7 +9,7 @@
 name: project-nomad
 services:
   admin:
-    image: nomad:1.0
+    image: nomad:1.1
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:
@@ -33,6 +33,7 @@ services:
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
       - NODE_ENV=production
+      - SESSION_DRIVER=cookie
       # NOMAD_STORAGE_PATH should equal the host path of the /app/storage volume above. The admin
       # normally auto-detects that mount, so this is a fallback used only if the container can't be
       # inspected. Keep it in sync anyway so the fallback never sends child apps to the wrong place.
@@ -42,6 +43,9 @@ services:
       - LOG_LEVEL=info
       # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
       - APP_KEY=1q2w3e4r5t6y7u8i9o0p
+      # Admin Login credentials. Change ADMIN_PASS before exposing NOMAD beyond a trusted machine.
+      - ADMIN_USER=admin
+      - ADMIN_PASS=1q2w3e4r5t6y7u8i9o0p
       # # Leave HOST as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
       - HOST=0.0.0.0
       # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)

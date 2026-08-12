@@ -1,48 +1,42 @@
-// import env from '#start/env'
-// import app from '@adonisjs/core/services/app'
-// import { defineConfig, stores } from '@adonisjs/session'
+import env from '#start/env'
+import app from '@adonisjs/core/services/app'
+import { defineConfig, stores } from '@adonisjs/session'
 
-// const sessionConfig = defineConfig({
-//   enabled: false,
-//   cookieName: 'adonis-session',
+const sessionConfig = defineConfig({
+  enabled: true,
+  cookieName: 'nomad-admin-session',
 
-//   /**
-//    * When set to true, the session id cookie will be deleted
-//    * once the user closes the browser.
-//    */
-//   clearWithBrowser: false,
+  /**
+   * Keep the browser session available until it expires or the admin logs out.
+   */
+  clearWithBrowser: false,
 
-//   /**
-//    * Define how long to keep the session data alive without
-//    * any activity.
-//    */
-//   age: '2h',
+  /**
+   * Define how long to keep session data alive without activity.
+   */
+  age: '2h',
 
-//   /**
-//    * Configuration for session cookie and the
-//    * cookie store
-//    */
-//   cookie: {
-//     path: '/',
-//     httpOnly: true,
-//     secure: app.inProduction,
-//     sameSite: 'lax',
-//   },
+  /**
+   * HTTP-only cookies keep the admin session marker out of client JavaScript.
+   */
+  cookie: {
+    path: '/',
+    httpOnly: true,
+    secure: app.inProduction,
+    sameSite: 'lax',
+  },
 
-//   /**
-//    * The store to use. Make sure to validate the environment
-//    * variable in order to infer the store name without any
-//    * errors.
-//    */
-//   store: env.get('SESSION_DRIVER'),
+  /**
+   * Cookie storage avoids adding a users table for a single local admin gate.
+   */
+  store: env.get('SESSION_DRIVER', 'cookie'),
 
-//   /**
-//    * List of configured stores. Refer documentation to see
-//    * list of available stores and their config.
-//    */
-//   stores: {
-//     cookie: stores.cookie(),
-//   },
-// })
+  /**
+   * List of configured stores.
+   */
+  stores: {
+    cookie: stores.cookie(),
+  },
+})
 
-// export default sessionConfig
+export default sessionConfig

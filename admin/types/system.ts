@@ -24,6 +24,12 @@ export type SystemInformationResponse = {
 export type UsePageProps = {
   appVersion: string
   environment: string
+  admin: {
+    isConfigured: boolean
+    isLoggedIn: boolean
+    user: string
+  }
+  aiAssistantName: string
 }
 
 export type LSBlockDevice = {

@@ -1,6 +1,8 @@
 import KVStore from '#models/kv_store'
+import AdminAuthService from '#services/admin_auth_service'
 import { SystemService } from '#services/system_service'
 import { defineConfig } from '@adonisjs/inertia'
+import type { HttpContext } from '@adonisjs/core/http'
 import type { InferSharedProps } from '@adonisjs/inertia/types'
 
 let _assistantNameCache: { value: string; expiresAt: number } | null = null
@@ -21,6 +23,11 @@ const inertiaConfig = defineConfig({
   sharedData: {
     appVersion: () => SystemService.getAppVersion(),
     environment: process.env.NODE_ENV || 'production',
+    admin: ({ session }: HttpContext) => ({
+      isConfigured: AdminAuthService.isConfigured(),
+      isLoggedIn: Boolean(session?.get('admin.isLoggedIn')),
+      user: AdminAuthService.user(),
+    }),
     aiAssistantName: async () => {
       const now = Date.now()
       if (_assistantNameCache && now < _assistantNameCache.expiresAt) {
