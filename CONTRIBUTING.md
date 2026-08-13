@@ -95,7 +95,21 @@ Because NOMAD relies heavily on Docker, we actually recommend against installing
 
 3. **Make your changes.** Follow existing code style and conventions. Test your changes locally against a running NOMAD instance before submitting.
 
-4. **Add release notes** (see [Release Notes](#release-notes) below).
+4. **If you touched the AI Assistant or RAG, measure it.** Anything affecting
+   chunking, embedding, retrieval, reranking, thresholds, the system prompts, or
+   context assembly should be backed by numbers rather than a spot check —
+   "it seemed better in the chat window" is how a regression ships. From `admin/`:
+
+   ```bash
+   node ace eval:corpus --ingest        # once; safe, never touches your real knowledge base
+   node ace eval:retrieval --ablate     # seconds, deterministic, no chat model
+   node ace eval:generation --model=<your model> --all-modes
+   ```
+
+   Include the before/after numbers in your pull request. See
+   [`admin/tests/eval/README.md`](admin/tests/eval/README.md) for what the
+   metrics mean, how the three generation modes separate a code bug from a model
+   that is simply too small, and the harness's known limitations.
 
 5. **Commit your changes** using [Conventional Commits](#commit-messages).
 

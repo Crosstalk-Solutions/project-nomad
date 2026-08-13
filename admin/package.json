@@ -10,6 +10,8 @@
     "build": "node ace build",
     "dev": "node ace serve --hmr",
     "test": "node ace test",
+    "test:unit": "node --import ts-node-maintained/register/esm --test \"tests/unit/**/*.spec.ts\"",
+    "test:eval": "node --import ts-node-maintained/register/esm --test \"tests/unit/eval_*.spec.ts\" \"tests/unit/rag_pipeline_*.spec.ts\"",
     "lint": "eslint .",
     "format": "prettier --write .",
     "gen:curated-data": "node --experimental-strip-types scripts/generate_curated_data.ts && prettier --write app/data/conditions.ts app/data/natural_remedies.ts app/data/home_remedies.ts",
