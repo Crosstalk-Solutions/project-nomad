@@ -1,0 +1,4732 @@
+{
+  "meta": {
+    "kind": "retrieval",
+    "createdAt": "2026-08-12T19:11:55.528Z",
+    "corpusFingerprint": "51e642964facf251",
+    "gitSha": "0bd1c6f4f9888d577fe232de06ac144bb8337131",
+    "gitBranch": "dev",
+    "gitDirty": true,
+    "nomadVersion": "1.34.0",
+    "platform": {
+      "cpuArchitecture": "x64",
+      "osName": "Linux 7.0.0-28-generic",
+      "nodeVersion": "v24.15.0"
+    },
+    "params": {
+      "topK": 5,
+      "scoreThreshold": 0.3,
+      "kValues": [
+        1,
+        3,
+        5,
+        10
+      ],
+      "tag": null
+    }
+  },
+  "metrics": {
+    "recall@1": 0.9308510638297872,
+    "recall@3": 0.9875886524822695,
+    "recall@5": 0.9911347517730497,
+    "recall@10": 0.9911347517730497,
+    "hitRate@1": 0.9680851063829787,
+    "hitRate@3": 1,
+    "hitRate@5": 1,
+    "hitRate@10": 1,
+    "precision@1": 0.9680851063829787,
+    "precision@3": 0.3652482269503546,
+    "precision@5": 0.22127659574468053,
+    "precision@10": 0.22127659574468053,
+    "ndcg@1": 0.9680851063829787,
+    "ndcg@3": 0.979689461702366,
+    "ndcg@5": 0.9818395398566271,
+    "ndcg@10": 0.9818395398566271,
+    "mrr": 0.9840425531914894,
+    "emptyRateOnAnswerable": 0,
+    "nonEmptyRateOnRefusal": 1
+  },
+  "byTag": {
+    "acronym": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.19999999999999998,
+      "precision@10": 0.19999999999999998,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "acronym-control": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.2,
+      "precision@10": 0.2,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "adversarial": {
+      "recall@1": null,
+      "recall@3": null,
+      "recall@5": null,
+      "recall@10": null,
+      "hitRate@1": null,
+      "hitRate@3": null,
+      "hitRate@5": null,
+      "hitRate@10": null,
+      "precision@1": null,
+      "precision@3": null,
+      "precision@5": null,
+      "precision@10": null,
+      "ndcg@1": null,
+      "ndcg@3": null,
+      "ndcg@5": null,
+      "ndcg@10": null,
+      "mrr": null,
+      "emptyRateOnAnswerable": null,
+      "nonEmptyRateOnRefusal": 1
+    },
+    "chunk-boundary": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.5833333333333333,
+      "precision@5": 0.35,
+      "precision@10": 0.35,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "distractor": {
+      "recall@1": 0,
+      "recall@3": 0.3333333333333333,
+      "recall@5": 0.6666666666666666,
+      "recall@10": 0.6666666666666666,
+      "hitRate@1": 0,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 0,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.4,
+      "precision@10": 0.4,
+      "ndcg@1": 0,
+      "ndcg@3": 0.2960819109658652,
+      "ndcg@5": 0.49818925746641285,
+      "ndcg@10": 0.49818925746641285,
+      "mrr": 0.5,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "distractor-control": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.2,
+      "precision@10": 0.2,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "fictional": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.19999999999999998,
+      "precision@10": 0.19999999999999998,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "multi-hop": {
+      "recall@1": 0.5,
+      "recall@3": 0.9285714285714286,
+      "recall@5": 0.9285714285714286,
+      "recall@10": 0.9285714285714286,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.619047619047619,
+      "precision@5": 0.37142857142857144,
+      "precision@10": 0.37142857142857144,
+      "ndcg@1": 1,
+      "ndcg@3": 0.9332668545590923,
+      "ndcg@5": 0.9332668545590923,
+      "ndcg@10": 0.9332668545590923,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "multi-turn": {
+      "recall@1": 0.375,
+      "recall@3": 0.875,
+      "recall@5": 0.875,
+      "recall@10": 0.875,
+      "hitRate@1": 0.5,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 0.5,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.2,
+      "precision@10": 0.2,
+      "ndcg@1": 0.5,
+      "ndcg@3": 0.7187516749770934,
+      "ndcg@5": 0.7187516749770934,
+      "ndcg@10": 0.7187516749770934,
+      "mrr": 0.75,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "near-miss": {
+      "recall@1": 0.5,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.6666666666666666,
+      "precision@5": 0.4,
+      "precision@10": 0.4,
+      "ndcg@1": 1,
+      "ndcg@3": 0.9197207891481876,
+      "ndcg@5": 0.9197207891481876,
+      "ndcg@10": 0.9197207891481876,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "numeric": {
+      "recall@1": 0.9607843137254902,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.36601307189542487,
+      "precision@5": 0.21960784313725482,
+      "precision@10": 0.21960784313725482,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "out-of-corpus": {
+      "recall@1": null,
+      "recall@3": null,
+      "recall@5": null,
+      "recall@10": null,
+      "hitRate@1": null,
+      "hitRate@3": null,
+      "hitRate@5": null,
+      "hitRate@10": null,
+      "precision@1": null,
+      "precision@3": null,
+      "precision@5": null,
+      "precision@10": null,
+      "ndcg@1": null,
+      "ndcg@3": null,
+      "ndcg@5": null,
+      "ndcg@10": null,
+      "mrr": null,
+      "emptyRateOnAnswerable": null,
+      "nonEmptyRateOnRefusal": 1
+    },
+    "single-hop": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333334,
+      "precision@5": 0.1999999999999999,
+      "precision@10": 0.1999999999999999,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    }
+  },
+  "cases": [
+    {
+      "id": "water-boil-time-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-waterbath",
+        "water-chemical-treatment",
+        "water-storage",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-boil-altitude-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-boil-altitude-threshold-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "regions-elevation-table",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-boil-taste-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-waterbath",
+        "water-filtration",
+        "water-chemical-treatment",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-bleach-dose-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-storage",
+        "food-canning-waterbath",
+        "water-boiling",
+        "water-filtration"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-bleach-cloudy-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-boiling",
+        "food-canning-waterbath",
+        "water-storage",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-bleach-wait-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-boiling",
+        "water-storage",
+        "food-canning-waterbath",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-cldioxide-crypto-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-boiling",
+        "food-mylar-oxygen",
+        "food-canning-pressure",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-filter-pore-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-filtration"
+      ],
+      "retrievedDocIds": [
+        "water-filtration",
+        "food-mylar-oxygen",
+        "water-chemical-treatment",
+        "food-canning-pressure",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-filter-virus-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-filtration"
+      ],
+      "retrievedDocIds": [
+        "water-filtration",
+        "water-boiling",
+        "water-chemical-treatment",
+        "sanitation-waste",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-filter-freeze-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-filtration"
+      ],
+      "retrievedDocIds": [
+        "water-filtration",
+        "shelter-cold-layering",
+        "water-storage",
+        "sanitation-waste",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-storage-amount-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-storage"
+      ],
+      "retrievedDocIds": [
+        "water-storage",
+        "water-chemical-treatment",
+        "food-canning-waterbath",
+        "sanitation-waste",
+        "power-battery-chemistry"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-storage-rotation-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-storage"
+      ],
+      "retrievedDocIds": [
+        "water-storage",
+        "equipment-tr88-pump",
+        "water-boiling",
+        "food-canning-waterbath",
+        "food-storage-rotation"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "water-storage-containers-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-storage"
+      ],
+      "retrievedDocIds": [
+        "water-storage",
+        "sanitation-waste",
+        "food-canning-waterbath",
+        "food-storage-rotation",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-pressure-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "water-boiling",
+        "food-dehydrating",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-pressure-psi-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "regions-elevation-table",
+        "radio-antenna-basics",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-greenbeans-method-01",
+      "tags": [
+        "near-miss",
+        "multi-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure",
+        "food-canning-waterbath"
+      ],
+      "retrievedDocIds": [
+        "food-canning-waterbath",
+        "water-boiling",
+        "food-canning-pressure",
+        "water-chemical-treatment",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 0.9197207891481876,
+        "5": 0.9197207891481876,
+        "10": 0.9197207891481876
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-waterbath-ph-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-waterbath"
+      ],
+      "retrievedDocIds": [
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-boiling",
+        "water-chemical-treatment",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-tomato-acid-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-waterbath"
+      ],
+      "retrievedDocIds": [
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-storage",
+        "water-chemical-treatment",
+        "food-dehydrating"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-dehydrate-veg-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-dehydrating"
+      ],
+      "retrievedDocIds": [
+        "food-dehydrating",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "water-boiling",
+        "shelter-cold-layering"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-jerky-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-dehydrating"
+      ],
+      "retrievedDocIds": [
+        "food-dehydrating",
+        "food-canning-pressure",
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-conditioning-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-dehydrating"
+      ],
+      "retrievedDocIds": [
+        "food-dehydrating",
+        "food-storage-rotation",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-fifo-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "protocol-thornfield-cache",
+        "gear-bug-out-bag",
+        "food-canning-pressure",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-fifo-spelled-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "water-storage",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "gear-bug-out-bag"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-brownrice-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "water-storage",
+        "food-mylar-oxygen",
+        "food-dehydrating",
+        "protocol-thornfield-cache"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-wheat-shelflife-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "water-storage",
+        "food-dehydrating",
+        "food-mylar-oxygen",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-oxyabsorber-5gal-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "water-storage",
+        "food-canning-pressure",
+        "gear-bug-out-bag",
+        "food-storage-rotation"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-oxyabsorber-1gal-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "water-storage",
+        "food-canning-pressure",
+        "gear-bug-out-bag",
+        "food-storage-rotation"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-mylar-thickness-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "food-storage-rotation",
+        "water-storage",
+        "food-canning-pressure",
+        "gear-bug-out-bag"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "food-oxyabsorber-sugar-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "water-chemical-treatment",
+        "food-storage-rotation",
+        "water-storage",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-tq-placement-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-bleeding-control"
+      ],
+      "retrievedDocIds": [
+        "firstaid-bleeding-control",
+        "firstaid-ifak-contents",
+        "sanitation-waste",
+        "firstaid-burns",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-tq-time-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-bleeding-control"
+      ],
+      "retrievedDocIds": [
+        "firstaid-bleeding-control",
+        "firstaid-ifak-contents",
+        "sanitation-waste",
+        "shelter-cold-layering",
+        "navigation-map-compass"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-woundpack-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-bleeding-control"
+      ],
+      "retrievedDocIds": [
+        "firstaid-bleeding-control",
+        "food-canning-pressure",
+        "firstaid-burns",
+        "firstaid-ifak-contents",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-ifak-acronym-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag",
+        "power-emp-protection",
+        "food-mylar-oxygen",
+        "gear-edc"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-ifak-spelled-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag",
+        "firstaid-bleeding-control",
+        "gear-edc",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-ifak-carry-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag",
+        "gear-edc",
+        "firstaid-bleeding-control",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-hypothermia-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-hypothermia"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "food-dehydrating",
+        "food-canning-pressure",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-hypothermia-shivering-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-hypothermia"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "power-emp-protection",
+        "navigation-map-compass",
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-hypothermia-handling-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-hypothermia"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "power-emp-protection",
+        "food-canning-pressure",
+        "firstaid-bleeding-control"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-burn-cooling-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-burns"
+      ],
+      "retrievedDocIds": [
+        "firstaid-burns",
+        "water-boiling",
+        "shelter-cold-layering",
+        "water-chemical-treatment",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "firstaid-burn-ice-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-burns"
+      ],
+      "retrievedDocIds": [
+        "firstaid-burns",
+        "water-boiling",
+        "water-chemical-treatment",
+        "shelter-cold-layering",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-gmrs-license-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-ham-bands",
+        "radio-antenna-basics",
+        "navigation-map-compass",
+        "water-filtration"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-gmrs-term-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-ham-bands",
+        "radio-antenna-basics",
+        "equipment-tr88-pump",
+        "food-storage-rotation"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-frs-power-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-antenna-basics",
+        "radio-ham-bands",
+        "equipment-tr88-pump",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-gmrs-power-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-antenna-basics",
+        "radio-ham-bands",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-frs-license-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-ham-bands",
+        "radio-antenna-basics",
+        "food-storage-rotation"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-tech-questions-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-ham-bands"
+      ],
+      "retrievedDocIds": [
+        "radio-ham-bands",
+        "radio-gmrs-frs",
+        "radio-antenna-basics",
+        "power-emp-protection",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-extra-questions-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-ham-bands"
+      ],
+      "retrievedDocIds": [
+        "radio-ham-bands",
+        "radio-gmrs-frs",
+        "power-solar-sizing",
+        "radio-antenna-basics",
+        "firstaid-ifak-contents"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-morse-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-ham-bands"
+      ],
+      "retrievedDocIds": [
+        "radio-ham-bands",
+        "radio-gmrs-frs",
+        "radio-antenna-basics",
+        "power-emp-protection",
+        "navigation-map-compass"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-counterpoise-01",
+      "tags": [
+        "chunk-boundary",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "power-solar-sizing",
+        "equipment-tr88-pump",
+        "navigation-map-compass",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-swr-threshold-01",
+      "tags": [
+        "chunk-boundary",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "radio-gmrs-frs",
+        "firstaid-hypothermia",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-swr-meaning-01",
+      "tags": [
+        "chunk-boundary"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "radio-gmrs-frs",
+        "radio-ham-bands",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-wavelength-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "power-solar-sizing",
+        "radio-ham-bands",
+        "navigation-map-compass",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "radio-height-vs-power-01",
+      "tags": [
+        "chunk-boundary"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "radio-gmrs-frs",
+        "radio-ham-bands",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-leadacid-dod-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-solar-sizing",
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "power-emp-protection"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-lifepo4-dod-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-solar-sizing",
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "equipment-tr88-pump",
+        "food-canning-pressure",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-derate-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-solar-sizing"
+      ],
+      "retrievedDocIds": [
+        "power-solar-sizing",
+        "radio-antenna-basics",
+        "food-mylar-oxygen",
+        "power-battery-chemistry",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-mppt-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-solar-sizing"
+      ],
+      "retrievedDocIds": [
+        "power-solar-sizing",
+        "power-battery-chemistry",
+        "power-emp-protection",
+        "radio-antenna-basics",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-peaksun-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-solar-sizing"
+      ],
+      "retrievedDocIds": [
+        "power-solar-sizing",
+        "radio-antenna-basics",
+        "power-battery-chemistry",
+        "water-storage",
+        "firstaid-burns"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-lifepo4-cycles-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "water-storage",
+        "food-storage-rotation",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-agm-cycles-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "equipment-tr88-pump",
+        "radio-gmrs-frs",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-lifepo4-cold-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "food-canning-pressure",
+        "power-emp-protection",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-usable-capacity-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "equipment-tr88-pump",
+        "radio-antenna-basics",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-emp-acronym-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-emp-protection"
+      ],
+      "retrievedDocIds": [
+        "power-emp-protection",
+        "radio-antenna-basics",
+        "radio-ham-bands",
+        "radio-gmrs-frs",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-emp-spelled-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-emp-protection"
+      ],
+      "retrievedDocIds": [
+        "power-emp-protection",
+        "radio-antenna-basics",
+        "radio-ham-bands",
+        "food-mylar-oxygen",
+        "power-battery-chemistry"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "power-faraday-ground-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "power-emp-protection"
+      ],
+      "retrievedDocIds": [
+        "power-emp-protection",
+        "radio-antenna-basics",
+        "shelter-cold-layering",
+        "food-storage-rotation",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "gear-bob-acronym-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "gear-bug-out-bag"
+      ],
+      "retrievedDocIds": [
+        "gear-bug-out-bag",
+        "food-mylar-oxygen",
+        "water-storage",
+        "power-solar-sizing",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "gear-bob-spelled-01",
+      "tags": [
+        "acronym-control",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "gear-bug-out-bag"
+      ],
+      "retrievedDocIds": [
+        "gear-bug-out-bag",
+        "food-mylar-oxygen",
+        "water-storage",
+        "power-solar-sizing",
+        "firstaid-ifak-contents"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "gear-bob-weight-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "gear-bug-out-bag"
+      ],
+      "retrievedDocIds": [
+        "gear-bug-out-bag",
+        "food-mylar-oxygen",
+        "sanitation-waste",
+        "firstaid-ifak-contents",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "gear-edc-acronym-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "gear-edc"
+      ],
+      "retrievedDocIds": [
+        "gear-edc",
+        "power-emp-protection",
+        "gear-bug-out-bag",
+        "firstaid-ifak-contents",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "shelter-cotton-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "shelter-cold-layering"
+      ],
+      "retrievedDocIds": [
+        "shelter-cold-layering",
+        "firstaid-hypothermia",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "shelter-layers-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "shelter-cold-layering"
+      ],
+      "retrievedDocIds": [
+        "shelter-cold-layering",
+        "firstaid-hypothermia",
+        "power-emp-protection",
+        "gear-bug-out-bag",
+        "protocol-thornfield-cache"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "shelter-cold-hands-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "shelter-cold-layering"
+      ],
+      "retrievedDocIds": [
+        "shelter-cold-layering",
+        "firstaid-burns",
+        "firstaid-hypothermia",
+        "sanitation-waste",
+        "firstaid-bleeding-control"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "sanitation-latrine-distance-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "sanitation-waste"
+      ],
+      "retrievedDocIds": [
+        "sanitation-waste",
+        "water-boiling",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "sanitation-buckets-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "sanitation-waste"
+      ],
+      "retrievedDocIds": [
+        "sanitation-waste",
+        "food-mylar-oxygen",
+        "water-storage",
+        "water-filtration",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "nav-declination-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "navigation-map-compass"
+      ],
+      "retrievedDocIds": [
+        "navigation-map-compass",
+        "power-emp-protection",
+        "protocol-thornfield-cache",
+        "radio-antenna-basics",
+        "shelter-cold-layering"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "nav-pacecount-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "navigation-map-compass"
+      ],
+      "retrievedDocIds": [
+        "navigation-map-compass",
+        "radio-ham-bands",
+        "radio-antenna-basics",
+        "regions-elevation-table",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-thornfield-interval-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "food-storage-rotation",
+        "regions-elevation-table",
+        "water-storage",
+        "navigation-map-compass"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-thornfield-states-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table",
+        "sanitation-waste",
+        "radio-ham-bands",
+        "power-emp-protection"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-thornfield-marker-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table",
+        "sanitation-waste",
+        "radio-antenna-basics",
+        "power-emp-protection"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-thornfield-custody-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table",
+        "radio-ham-bands",
+        "radio-antenna-basics",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-tr88-flow-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "food-mylar-oxygen",
+        "water-filtration",
+        "radio-antenna-basics",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-tr88-diaphragm-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "power-battery-chemistry",
+        "radio-gmrs-frs",
+        "water-storage",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-tr88-maxtemp-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "food-canning-pressure",
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "food-dehydrating"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "fict-tr88-spares-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "power-battery-chemistry",
+        "gear-bug-out-bag",
+        "firstaid-ifak-contents",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "multihop-kestrel-boil-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "regions-elevation-table",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "multihop-ashmere-boil-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "regions-elevation-table",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "multihop-bellhollow-canning-01",
+      "tags": [
+        "multi-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "regions-elevation-table",
+        "firstaid-bleeding-control",
+        "food-canning-waterbath",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "distract-river-drink-01",
+      "tags": [
+        "distractor"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling",
+        "water-filtration",
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-river-song",
+        "water-boiling",
+        "water-storage",
+        "water-filtration",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.6666666666666666,
+        "10": 0.6666666666666666
+      },
+      "hitRate": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 0,
+        "3": 0.2960819109658652,
+        "5": 0.49818925746641285,
+        "10": 0.49818925746641285
+      },
+      "reciprocalRank": 0.5,
+      "empty": false
+    },
+    {
+      "id": "distract-river-legit-01",
+      "tags": [
+        "distractor-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-river-song"
+      ],
+      "retrievedDocIds": [
+        "water-river-song",
+        "sanitation-waste",
+        "shelter-cold-layering",
+        "water-boiling",
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "ooc-tire-pressure-01",
+      "tags": [
+        "out-of-corpus"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "radio-gmrs-frs",
+        "food-mylar-oxygen",
+        "equipment-tr88-pump",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false
+    },
+    {
+      "id": "ooc-bgp-01",
+      "tags": [
+        "out-of-corpus"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "navigation-map-compass",
+        "radio-antenna-basics",
+        "regions-elevation-table",
+        "radio-gmrs-frs",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false
+    },
+    {
+      "id": "ooc-thornfield-founded-01",
+      "tags": [
+        "out-of-corpus",
+        "adversarial"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table",
+        "firstaid-ifak-contents",
+        "equipment-tr88-pump",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false
+    },
+    {
+      "id": "ooc-tr88-warranty-01",
+      "tags": [
+        "out-of-corpus",
+        "adversarial"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "water-storage",
+        "food-storage-rotation",
+        "radio-gmrs-frs",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false
+    },
+    {
+      "id": "ooc-tr92-01",
+      "tags": [
+        "out-of-corpus",
+        "adversarial"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "radio-antenna-basics",
+        "food-mylar-oxygen",
+        "food-canning-pressure",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false
+    },
+    {
+      "id": "multiturn-canning-temp-01",
+      "tags": [
+        "multi-turn"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "food-canning-pressure",
+        "shelter-cold-layering",
+        "water-boiling",
+        "food-dehydrating"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 0,
+        "3": 0.6309297535714575,
+        "5": 0.6309297535714575,
+        "10": 0.6309297535714575
+      },
+      "reciprocalRank": 0.5,
+      "empty": false
+    },
+    {
+      "id": "multiturn-ifak-carry-01",
+      "tags": [
+        "multi-turn"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "gear-edc",
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag",
+        "radio-antenna-basics",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 0,
+        "3": 0.6309297535714575,
+        "5": 0.6309297535714575,
+        "10": 0.6309297535714575
+      },
+      "reciprocalRank": 0.5,
+      "empty": false
+    },
+    {
+      "id": "multiturn-tr88-diaphragm-01",
+      "tags": [
+        "multi-turn",
+        "fictional"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump",
+        "food-storage-rotation",
+        "water-storage",
+        "firstaid-hypothermia",
+        "food-dehydrating"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    },
+    {
+      "id": "multiturn-boil-altitude-01",
+      "tags": [
+        "multi-turn",
+        "multi-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "regions-elevation-table",
+        "radio-antenna-basics",
+        "gear-bug-out-bag",
+        "protocol-thornfield-cache",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 0.6131471927654584,
+        "5": 0.6131471927654584,
+        "10": 0.6131471927654584
+      },
+      "reciprocalRank": 1,
+      "empty": false
+    }
+  ]
+}

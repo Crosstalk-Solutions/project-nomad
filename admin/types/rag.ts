@@ -1,3 +1,5 @@
+import type { OllamaChatMessage } from './ollama.js'
+
 export type EmbedJobWithProgress = {
   jobId: string
   fileName: string
@@ -40,6 +42,74 @@ export type RAGResult = {
 
 export type RerankedRAGResult = Omit<RAGResult, 'keywords'> & {
   finalScore: number
+}
+
+/** One entry in a recorded retrieval stage: just enough to score a ranking. */
+export type StageEntry = { source?: string; score: number }
+
+/**
+ * The three ranked lists retrieval produces internally, captured so the eval
+ * harness can score each stage separately and show whether the heuristic
+ * reranker and the source-diversity penalty are earning their complexity.
+ *
+ * `dense` is the raw cosine ordering from Qdrant, `reranked` adds the
+ * keyword/heading boosts, `diversified` adds the same-document penalty.
+ */
+export type RetrievalStages = {
+  dense?: StageEntry[]
+  reranked?: StageEntry[]
+  diversified?: StageEntry[]
+}
+
+/**
+ * A chunk as returned by `RagService.searchSimilarDocuments` — the shape the
+ * chat pipeline consumes and the eval harness scores.
+ */
+export type RetrievedChunk = {
+  text: string
+  score: number
+  metadata?: Record<string, any>
+}
+
+/**
+ * Knobs on a single pipeline run. Everything is optional: the defaults
+ * reproduce production chat exactly. The non-default paths exist so the eval
+ * harness can ablate one stage at a time without a parallel implementation.
+ */
+export type PipelineOptions = {
+  topK?: number
+  scoreThreshold?: number
+  collection?: string
+  /** Skip the history-aware rewrite (which is an LLM call, and therefore
+   *  non-deterministic). Retrieval then runs on the raw last user message. */
+  skipQueryRewrite?: boolean
+  /** Bypass retrieval entirely and inject these chunks as the context. Used by
+   *  the `oracle` eval mode to isolate generation quality from retrieval. */
+  oracleContext?: RetrievedChunk[]
+  /** Ignore the user's NOMAD.md. Off in production; on in evals, where a
+   *  developer's personal instructions would silently skew every result. */
+  skipNomadMd?: boolean
+}
+
+/**
+ * Everything the pipeline decided on the way to a prompt. The controller uses
+ * only `messages` and `numCtx`; the eval harness scores the rest. Returning it
+ * unconditionally keeps one code path for both.
+ */
+export type PipelineTrace = {
+  /** null when retrieval was skipped entirely (empty KB, or no user message). */
+  rewrittenQuery: string | null
+  /** True when the rewrite LLM call actually ran (it is skipped on turn 1). */
+  didRewrite: boolean
+  /** Everything retrieval returned, pre-trim. */
+  retrieved: RetrievedChunk[]
+  /** What actually made it into the prompt, post model-size trim. */
+  injected: RetrievedChunk[]
+  /** The exact payload handed to Ollama. */
+  messages: OllamaChatMessage[]
+  numCtx: number | undefined
+  contextLimits: { maxResults: number; maxTokens: number }
+  timings: { rewriteMs: number; retrievalMs: number }
 }
 
 export type FileWarning =

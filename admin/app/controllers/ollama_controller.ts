@@ -1,7 +1,7 @@
 import { ChatService } from '#services/chat_service'
 import { DockerService } from '#services/docker_service'
-import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
+import { RagPipelineService } from '#services/rag_pipeline_service'
 import { RagService } from '#services/rag_service'
 import Service from '#models/service'
 import KVStore from '#models/kv_store'
@@ -10,10 +10,8 @@ import { chatSchema, getAvailableModelsSchema, unloadChatModelsSchema } from '#v
 import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
-type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
 @inject()
 export default class OllamaController {
@@ -21,8 +19,8 @@ export default class OllamaController {
     private chatService: ChatService,
     private dockerService: DockerService,
     private ollamaService: OllamaService,
-    private ragService: RagService,
-    private nomadMdService: NomadMdService
+    private ragPipelineService: RagPipelineService,
+    private ragService: RagService
   ) { }
 
   async availableModels({ request }: HttpContext) {
@@ -62,101 +60,15 @@ export default class OllamaController {
     }
 
     try {
-      // If there are no system messages in the chat inject system prompts
-      const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
-      if (!hasSystemMessage) {
-        const systemPrompt = {
-          role: 'system' as const,
-          content: SYSTEM_PROMPTS.default,
-        }
-        logger.debug('[OllamaController] Injecting system prompt')
-        reqData.messages.unshift(systemPrompt)
-      }
-
-      // Inject the user-managed NOMAD.md as its own leading system message so the
-      // user's persistent instructions take precedence, while the default
-      // formatting prompt and any RAG context below remain intact. A missing or
-      // blank file yields null and changes nothing.
-      const nomadPrompt = await this.nomadMdService.getSystemPrompt()
-      if (nomadPrompt) {
-        logger.debug('[OllamaController] Injecting NOMAD.md system prompt')
-        reqData.messages.unshift({ role: 'system' as const, content: nomadPrompt })
-      }
-
-      // Query rewriting for better RAG retrieval with manageable context
-      // Will return user's latest message if no rewriting is needed
-      const rewrittenQuery = await this.rewriteQueryWithContext(reqData.messages, reqData.model)
-
-      logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
-      if (rewrittenQuery) {
-        const collectionFilter: string | null = request.input('collection', null)
-        const relevantDocs = await this.ragService.searchSimilarDocuments(
-          rewrittenQuery,
-          5, // Top 5 most relevant chunks
-          0.3, // Minimum similarity score of 0.3
-          collectionFilter ?? undefined
-        )
-
-        logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
-
-        // If relevant context is found, inject as a system message with adaptive limits
-        if (relevantDocs.length > 0) {
-          // Determine context budget based on model size
-          const { maxResults, maxTokens } = this.getContextLimitsForModel(reqData.model)
-          let trimmedDocs = relevantDocs.slice(0, maxResults)
-
-          // Apply token cap if set (estimate ~3.5 chars per token)
-          // Always include the first (most relevant) result — the cap only gates subsequent results
-          if (maxTokens > 0) {
-            const charCap = maxTokens * 3.5
-            let totalChars = 0
-            trimmedDocs = trimmedDocs.filter((doc, idx) => {
-              totalChars += doc.text.length
-              return idx === 0 || totalChars <= charCap
-            })
-          }
-
-          logger.debug(
-            `[RAG] Injecting ${trimmedDocs.length}/${relevantDocs.length} results (model: ${reqData.model}, maxResults: ${maxResults}, maxTokens: ${maxTokens || 'unlimited'})`
-          )
-
-          // Label each context block with its source title when available (a neutral,
-          // honest provenance signal) but never the raw relevance score — nomic cosine
-          // scores for genuinely relevant passages sit ~0.4-0.6, and surfacing e.g.
-          // "42%" primes the model to distrust correct context. Scores stay in the logs
-          // above for debugging.
-          const contextText = trimmedDocs
-            .map((doc, idx) => {
-              const title = doc.metadata?.full_title || doc.metadata?.article_title
-              const label = title ? `[Context ${idx + 1} — ${title}]` : `[Context ${idx + 1}]`
-              return `${label}\n${doc.text}`
-            })
-            .join('\n\n')
-
-          const systemMessage = {
-            role: 'system' as const,
-            content: SYSTEM_PROMPTS.rag_context(contextText),
-          }
-
-          // Insert system message at the beginning (after any existing system messages)
-          const firstNonSystemIndex = reqData.messages.findIndex((msg) => msg.role !== 'system')
-          const insertIndex = firstNonSystemIndex === -1 ? 0 : firstNonSystemIndex
-          reqData.messages.splice(insertIndex, 0, systemMessage)
-        }
-      }
-
-      // If system messages are large (e.g. due to RAG context), request a context window big
-      // enough to fit them. Ollama respects num_ctx per-request; LM Studio ignores it gracefully.
-      const systemChars = reqData.messages
-        .filter((m) => m.role === 'system')
-        .reduce((sum, m) => sum + m.content.length, 0)
-      const estimatedSystemTokens = Math.ceil(systemChars / 3.5)
-      let numCtx: number | undefined
-      if (estimatedSystemTokens > 3000) {
-        const needed = estimatedSystemTokens + 2048 // leave room for conversation + response
-        numCtx = [8192, 16384, 32768, 65536].find((n) => n >= needed) ?? 65536
-        logger.debug(`[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`)
-      }
+      // Everything from system-prompt assembly through query rewriting,
+      // retrieval, context trimming and the num_ctx decision lives in
+      // RagPipelineService so the eval harness exercises this exact code path.
+      const collectionFilter: string | null = request.input('collection', null)
+      const trace = await this.ragPipelineService.buildPrompt(reqData.messages, reqData.model, {
+        collection: collectionFilter ?? undefined,
+      })
+      reqData.messages = trace.messages
+      const numCtx = trace.numCtx
 
       // Check if the model supports "thinking" capability for enhanced response generation.
       // Thinking is only enabled when the model supports it AND the user wants it: the explicit
@@ -420,88 +332,4 @@ export default class OllamaController {
     return models.map((m, i) => ({ ...m, thinking: thinking[i] }))
   }
 
-  /**
-   * Determines RAG context limits based on model size extracted from the model name.
-   * Parses size indicators like "1b", "3b", "8b", "70b" from model names/tags.
-   */
-  private getContextLimitsForModel(modelName: string): { maxResults: number; maxTokens: number } {
-    // Extract parameter count from model name (e.g., "llama3.2:3b", "qwen2.5:1.5b", "gemma:7b")
-    const sizeMatch = modelName.match(/(\d+\.?\d*)[bB]/)
-    const paramBillions = sizeMatch ? parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
-
-    for (const tier of RAG_CONTEXT_LIMITS) {
-      if (paramBillions <= tier.maxParams) {
-        return { maxResults: tier.maxResults, maxTokens: tier.maxTokens }
-      }
-    }
-
-    // Fallback: no limits
-    return { maxResults: 5, maxTokens: 0 }
-  }
-
-  private async rewriteQueryWithContext(
-    messages: Message[],
-    model: string
-  ): Promise<string | null> {
-    const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')
-
-    try {
-      // Skip the entire RAG pipeline if there are no documents to search
-      const hasDocuments = await this.ragService.hasDocuments()
-      if (!hasDocuments) {
-        return null
-      }
-
-      // Get recent conversation history (last 6 messages for 3 turns)
-      const recentMessages = messages.slice(-6)
-
-      // Skip rewriting on the very first turn — with only one user message
-      // there is no prior context to fold in, so the rewrite would just echo
-      // the message back at the cost of an extra LLM round-trip. From the
-      // first follow-up onward we need the rewrite so the RAG query carries
-      // entities and topics from earlier turns ("the bars" → "Hershey's bars
-      // chocolate poisoning dog"); without it, embeddings match nothing and
-      // the assistant loses the thread.
-      const userMessages = recentMessages.filter(msg => msg.role === 'user')
-      if (userMessages.length < 2) {
-        return lastUserMessage?.content || null
-      }
-
-      const conversationContext = recentMessages
-        .map(msg => {
-          const role = msg.role === 'user' ? 'User' : 'Assistant'
-          // Truncate assistant messages to first 200 chars to keep context manageable
-          const content = msg.role === 'assistant'
-            ? msg.content.slice(0, 200) + (msg.content.length > 200 ? '...' : '')
-            : msg.content
-          return `${role}: "${content}"`
-        })
-        .join('\n')
-
-      const response = await this.ollamaService.chat({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: SYSTEM_PROMPTS.query_rewrite,
-          },
-          {
-            role: 'user',
-            content: `Conversation:\n${conversationContext}\n\nRewritten Query:`,
-          },
-        ],
-      })
-
-      const rewrittenQuery = response.message.content.trim()
-      logger.info(`[RAG] Query rewritten: "${rewrittenQuery}"`)
-      return rewrittenQuery
-    } catch (error) {
-      logger.error(
-        `[RAG] Query rewriting failed: ${error instanceof Error ? error.message : error}`
-      )
-      // Fallback to last user message if rewriting fails
-      return lastUserMessage?.content || null
-    }
-  }
 }
-
