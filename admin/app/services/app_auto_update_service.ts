@@ -179,7 +179,10 @@ export class AppAutoUpdateService {
 
   /** Installed, opted-in apps that are eligible to update right now. */
   async getEligibleApps(config: AppAutoUpdateConfig, now: DateTime): Promise<AppUpdateTarget[]> {
-    const apps = await Service.query().where('installed', true).where('auto_update_enabled', true)
+    const apps = await Service.query()
+      .where('installed', true)
+      .where('auto_update_enabled', true)
+      .where('is_existing', false)
     const targets: AppUpdateTarget[] = []
     for (const service of apps) {
       const verdict = this.appEligibility(service, config.cooloffHours, now)
@@ -340,7 +343,10 @@ export class AppAutoUpdateService {
     const config = await this.getConfig()
     const now = DateTime.now()
 
-    const apps = await Service.query().where('installed', true).where('auto_update_enabled', true)
+    const apps = await Service.query()
+      .where('installed', true)
+      .where('auto_update_enabled', true)
+      .where('is_existing', false)
     const appStatuses: AppAutoUpdateAppStatus[] = apps.map((service) => {
       const verdict = this.appEligibility(service, config.cooloffHours, now)
       return {

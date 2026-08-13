@@ -342,6 +342,7 @@ export class SystemService {
         'available_update_version',
         'auto_update_enabled',
         'is_custom',
+        'is_existing',
         'is_user_modified',
         'is_deprecated',
         'category'
@@ -382,6 +383,7 @@ export class SystemService {
         available_update_version: service.available_update_version,
         auto_update_enabled: service.auto_update_enabled,
         is_custom: service.is_custom,
+        is_existing: service.is_existing,
         is_user_modified: service.is_user_modified,
         is_deprecated: service.is_deprecated,
         category: service.category,

@@ -703,7 +703,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       {/* Delete custom app modal */}
       {modal?.type === 'delete' && (
         <StyledModal
-          title={`Delete ${modal.service.friendly_name ?? modal.service.service_name}`}
+          title={`${modal.service.is_existing ? 'Remove' : 'Delete'} ${modal.service.friendly_name ?? modal.service.service_name}`}
           open
           onCancel={() => {
             if (loading) return
@@ -711,24 +711,33 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
             setModal(null)
           }}
           onConfirm={() => handleDelete(modal.service)}
-          confirmText="Delete"
+          confirmText={modal.service.is_existing ? 'Remove' : 'Delete'}
           confirmIcon="IconTrash"
           confirmVariant="danger"
           confirmLoading={loading}
           icon={<IconAlertTriangle className="text-desert-red" size={40} />}
         >
           <div className="space-y-3 text-sm text-text-muted">
-            <p className="font-semibold text-desert-red">This will permanently remove this custom app.</p>
-            <p>The container will be stopped and removed. Host volume data will remain on disk.</p>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={removeImage}
-                onChange={(e) => setRemoveImage(e.target.checked)}
-                className="accent-desert-red h-4 w-4 rounded"
-              />
-              <span className="text-text-muted text-xs">Also remove the Docker image to reclaim disk space</span>
-            </label>
+            {modal.service.is_existing ? (
+              <>
+                <p className="font-semibold text-desert-red">This will remove this existing app from Supply Depot.</p>
+                <p>The Docker container and image will not be stopped, removed, or changed.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-desert-red">This will permanently remove this custom app.</p>
+                <p>The container will be stopped and removed. Host volume data will remain on disk.</p>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={removeImage}
+                    onChange={(e) => setRemoveImage(e.target.checked)}
+                    className="accent-desert-red h-4 w-4 rounded"
+                  />
+                  <span className="text-text-muted text-xs">Also remove the Docker image to reclaim disk space</span>
+                </label>
+              </>
+            )}
           </div>
         </StyledModal>
       )}
@@ -898,6 +907,7 @@ function AppCard({
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
   const catColor = service.category ? CATEGORY_COLORS[service.category] ?? CATEGORY_COLORS.custom : CATEGORY_COLORS.custom
+  const customKindLabel = service.is_existing ? 'existing' : 'custom'
   const isDropdownOpen = openDropdown === service.service_name
   // Port pill: an ui_location may carry an explicit scheme ("https:8480") — show just the port,
   // with a lock when it's served over HTTPS, rather than the raw "https:8480" string.
@@ -994,7 +1004,7 @@ function AppCard({
         )}
         {service.is_custom ? (
           <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-surface-secondary text-text-muted border border-surface-secondary">
-            custom
+            {customKindLabel}
           </span>
         ) : null}
         {service.is_user_modified && !service.is_custom ? (
@@ -1132,12 +1142,19 @@ function AppCard({
                       onClick={onUpdateVersion}
                     />
                   ) : null}
-                  {service.is_custom ? (
+                  {service.is_custom && !service.is_existing ? (
                     <DropdownItem icon={<IconCloudDownload className="h-4 w-4" />} label="Update (pull latest)" onClick={onUpdate} />
                   ) : null}
-                  <DropdownItem icon={<IconRefresh className="h-4 w-4 text-desert-orange" />} label="Force Reinstall" onClick={onReinstall} danger />
+                  {!service.is_existing ? (
+                    <DropdownItem icon={<IconRefresh className="h-4 w-4 text-desert-orange" />} label="Force Reinstall" onClick={onReinstall} danger />
+                  ) : null}
                   {service.is_custom ? (
-                    <DropdownItem icon={<IconTrash className="h-4 w-4 text-desert-red" />} label="Delete" onClick={onDelete} danger />
+                    <DropdownItem
+                      icon={<IconTrash className="h-4 w-4 text-desert-red" />}
+                      label={service.is_existing ? 'Remove' : 'Delete'}
+                      onClick={onDelete}
+                      danger
+                    />
                   ) : (
                     <DropdownItem icon={<IconTrash className="h-4 w-4 text-desert-red" />} label="Uninstall" onClick={onUninstall} danger />
                   )}

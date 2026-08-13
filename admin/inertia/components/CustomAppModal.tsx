@@ -25,6 +25,7 @@ interface EnvVar {
 export interface CustomAppInitial {
   service_name: string
   friendly_name: string | null
+  is_existing?: boolean
   image: string
   category: string
   icon: string
@@ -84,6 +85,7 @@ export default function CustomAppModal({
   initial = null,
 }: CustomAppModalProps) {
   const isEdit = mode === 'edit'
+  const isExisting = isEdit && Boolean(initial?.is_existing)
   const [friendlyName, setFriendlyName] = useState('')
   const [image, setImage] = useState('')
   const [category, setCategory] = useState('custom')
@@ -132,6 +134,13 @@ export default function CustomAppModal({
   // conflicts, resource/guard warnings and hard blocks so the user gets feedback before submitting.
   useEffect(() => {
     if (!open) return
+    if (isExisting) {
+      setPortConflicts([])
+      setResourceWarnings([])
+      setBlocked([])
+      setCheckingPreflight(false)
+      return
+    }
     const validPorts = ports
       .map((p) => parseInt(p.host, 10))
       .filter((p) => !isNaN(p))
@@ -162,7 +171,7 @@ export default function CustomAppModal({
     }, 400)
 
     return () => clearTimeout(handle)
-  }, [open, ports, volumes, image])
+  }, [open, isExisting, ports, volumes, image])
 
   function resetForm() {
     setFriendlyName('')
@@ -226,7 +235,7 @@ export default function CustomAppModal({
       showError('Name and image are required.')
       return
     }
-    if (blocked.length > 0) {
+    if (!isExisting && blocked.length > 0) {
       showError('Resolve the blocked issues before installing.')
       return
     }
@@ -282,17 +291,19 @@ export default function CustomAppModal({
   const hasWarnings = portConflicts.length > 0 || resourceWarnings.length > 0
   const hasBlocks = blocked.length > 0
   const canSubmit =
-    friendlyName.trim() && image.trim() && !hasBlocks && (!hasWarnings || forceInstall)
+    friendlyName.trim() &&
+    image.trim() &&
+    (isExisting || (!hasBlocks && (!hasWarnings || forceInstall)))
 
   return (
     <StyledModal
-      title={isEdit ? 'Edit App' : 'Add Custom App'}
+      title={isExisting ? 'Edit Existing App' : isEdit ? 'Edit App' : 'Add Custom App'}
       open={open}
       onCancel={handleClose}
       cancelText="Cancel"
       onConfirm={handleSubmit}
       confirmVariant='primary'
-      confirmText={isEdit ? 'Save & Recreate' : 'Install'}
+      confirmText={isExisting ? 'Save' : isEdit ? 'Save & Recreate' : 'Install'}
       confirmIcon="IconBrandDocker"
       confirmLoading={submitting}
       confirmDisabled={!canSubmit}

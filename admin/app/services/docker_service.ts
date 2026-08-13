@@ -362,6 +362,12 @@ export class DockerService {
           message: `Service ${serviceName} not found`,
         }
       }
+      if (service.is_existing) {
+        return {
+          success: false,
+          message: `Existing app ${serviceName} is registered only and cannot be force reinstalled by NOMAD`,
+        }
+      }
 
       // Check if installation is already in progress
       if (this.activeInstallations.has(serviceName)) {
@@ -1587,6 +1593,12 @@ export class DockerService {
       }
       if (!service.installed) {
         return { success: false, message: `Service ${serviceName} is not installed` }
+      }
+      if (service.is_existing) {
+        return {
+          success: false,
+          message: `Existing app ${serviceName} is registered only and cannot be updated by NOMAD`,
+        }
       }
       if (this.activeInstallations.has(serviceName)) {
         return { success: false, message: `Service ${serviceName} already has an operation in progress` }

@@ -13,6 +13,7 @@ type ServiceSeedRecord = Omit<
   | 'available_update_version'
   | 'update_checked_at'
   | 'metadata'
+  | 'is_existing'
   | 'is_user_modified'
   | 'is_deprecated'
   | 'custom_url'

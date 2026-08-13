@@ -75,6 +75,15 @@ export default class Service extends BaseModel {
   })
   declare is_custom: boolean
 
+  // True for Docker containers the user registered after creating them outside NOMAD. These
+  // records are metadata-only: NOMAD may start/stop them, but must not recreate or delete them.
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_existing: boolean
+
   @column({
     serialize(value) {
       return Boolean(value)
