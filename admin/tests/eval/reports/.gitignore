@@ -1,0 +1,12 @@
+# Eval reports are run artifacts: they carry a timestamp, a host, and a git SHA,
+# and a new one is written every time someone runs the harness. Committing them
+# would add noise to every RAG pull request without making anything reproducible.
+#
+# Baselines are the opposite — those live in ../baselines/<corpus-fingerprint>/
+# and ARE committed, because the whole team needs to gate against the same
+# numbers. Promote a report with:
+#
+#   node ace eval:compare <report.json> --promote=<name>
+*.json
+*.md
+!.gitignore

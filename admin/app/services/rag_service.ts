@@ -22,7 +22,18 @@ import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
-import type { FileWarning, FileWarningsResult, StoredFileInfo } from '../../types/rag.js'
+import type { FileWarning, FileWarningsResult, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
+import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
+
+/**
+ * Qdrant filter that hides the developer eval corpus from every read path that
+ * enumerates the *user's* knowledge base. The fixtures share this collection
+ * (NOMAD collections are a payload tag), so without this they would show up as
+ * broken files in the KB UI and skew the ingest-health warnings.
+ */
+const EXCLUDE_EVAL_FILTER = {
+  must_not: [{ key: 'collection', match: { value: KB_EVAL_COLLECTION } }],
+}
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
@@ -59,6 +70,10 @@ export class RagService {
   public static MODEL_CONTEXT_LENGTH = 2048 // nomic-embed-text has 2K token context
   public static MAX_SAFE_TOKENS = 1600 // Leave buffer for prefix and tokenization variance
   public static TARGET_TOKENS_PER_CHUNK = 1500 // Target 1500 tokens per chunk for embedding
+  // Overlap between adjacent chunks. Was an inline literal at the chunker call
+  // site; named here because it shapes what lands in the vector store and so
+  // must be part of the eval corpus fingerprint.
+  public static CHUNK_OVERLAP_TOKENS = 150
   public static PREFIX_TOKEN_BUDGET = 10 // Reserve ~10 tokens for prefixes
   public static CHAR_TO_TOKEN_RATIO = 2 // Conservative chars-per-token estimate; technical docs
                                          // (numbers, symbols, abbreviations) tokenize denser
@@ -336,7 +351,7 @@ export class RagService {
       // We need to convert our embedding model's token counts to character counts
       // since nomic-embed-text tokenizer uses ~3 chars per token
       const targetCharsPerChunk = Math.floor(RagService.TARGET_TOKENS_PER_CHUNK * RagService.CHAR_TO_TOKEN_RATIO)
-      const overlapChars = Math.floor(150 * RagService.CHAR_TO_TOKEN_RATIO)
+      const overlapChars = Math.floor(RagService.CHUNK_OVERLAP_TOKENS * RagService.CHAR_TO_TOKEN_RATIO)
 
       const chunker = await TokenChunker.create({
         chunkSize: targetCharsPerChunk,
@@ -840,7 +855,15 @@ export class RagService {
     query: string,
     limit: number = 5,
     scoreThreshold: number = 0.3, // Lower default threshold - was 0.7, now 0.3
-    collection?: string
+    collection?: string,
+    /**
+     * Optional sink for the intermediate ranked lists. When supplied, the raw
+     * dense order, the post-rerank order, and the post-diversity order are all
+     * written here. Purely observational — nothing about the returned result
+     * changes — and it is what lets the eval harness answer "is the reranking
+     * heuristic actually helping?" without a second implementation of search.
+     */
+    stagesOut?: RetrievalStages
   ): Promise<Array<{ text: string; score: number; metadata?: Record<string, any> }>> {
     try {
       logger.debug(`[RAG] Starting similarity search for query: "${query}"`)
@@ -947,6 +970,21 @@ export class RagService {
       // Apply source diversity penalty to avoid all results from the same document
       const diverseResults = this.applySourceDiversity(rerankedResults)
 
+      // Record the three ranked lists for the eval harness's stage ablation.
+      // Sliced to `limit` so each stage is compared on the window that would
+      // actually have been injected, not on the wider rerank candidate pool.
+      if (stagesOut) {
+        const summarize = (rows: Array<{ text: string; score: number; source?: string }>) =>
+          rows.slice(0, limit).map((r) => ({ source: r.source, score: r.score }))
+        stagesOut.dense = summarize(resultsWithMetadata)
+        stagesOut.reranked = rerankedResults
+          .slice(0, limit)
+          .map((r) => ({ source: r.source, score: r.finalScore }))
+        stagesOut.diversified = diverseResults
+          .slice(0, limit)
+          .map((r) => ({ source: r.source, score: r.finalScore }))
+      }
+
       // Return top N results with enhanced metadata
       return diverseResults.slice(0, limit).map((result) => ({
         text: result.text,
@@ -955,6 +993,10 @@ export class RagService {
           chunk_index: result.chunk_index,
           created_at: result.created_at,
           semantic_score: result.score,
+          // The originating file/ZIM path. Stored on every point but previously
+          // dropped here, which made it impossible to map a retrieved chunk back
+          // to its document — needed for citations and for recall@k scoring.
+          source: result.source,
           // Enhanced ZIM metadata (likely be undefined for non-ZIM content)
           article_title: result.article_title,
           section_title: result.section_title,
@@ -1149,6 +1191,10 @@ export class RagService {
         key: 'source',
         limit: RagService.FACET_SOURCE_LIMIT,
         exact: true,
+        // Keep the developer eval corpus out of the user's Stored Files list.
+        // It shares this Qdrant collection but is not the user's content, and
+        // its fixture paths would render as broken/missing files in the KB UI.
+        filter: EXCLUDE_EVAL_FILTER,
       })
       for (const hit of facetResult.hits) {
         if (typeof hit.value === 'string') sources.add(hit.value)
@@ -1221,7 +1267,10 @@ export class RagService {
     })
     const collections = new Set<string>()
     for (const hit of facetResult.hits) {
-      if (typeof hit.value === 'string') collections.add(hit.value)
+      // The reserved eval tag is internal; never offer it in a subject picker.
+      if (typeof hit.value === 'string' && hit.value !== KB_EVAL_COLLECTION) {
+        collections.add(hit.value)
+      }
     }
     return Array.from(collections).sort()
   }
@@ -1315,6 +1364,43 @@ export class RagService {
       logger.error('[RAG] Error deleting knowledge collection:', error)
       return { success: false, message: 'Error deleting collection.' }
     }
+  }
+
+  /**
+   * Count the points carrying a given `collection` tag.
+   *
+   * Distinct from the facet-based counts above, which deliberately exclude
+   * internal collections. This answers "how many chunks are in exactly this
+   * collection", which is what the eval harness needs to confirm an ingest
+   * landed and what a future per-collection UI would want.
+   */
+  public async countChunksInCollection(collection: string): Promise<number> {
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    const result = await this.qdrant!.count(RagService.CONTENT_COLLECTION_NAME, {
+      filter: { must: [{ key: 'collection', match: { value: collection } }] },
+      exact: true,
+    })
+    return result.count
+  }
+
+  /**
+   * Hard-delete every point carrying a given `collection` tag.
+   *
+   * Note this is NOT what `deleteKnowledgeCollection` does — that one clears the
+   * tag and leaves the user's documents in place, because deleting a user's
+   * content because they renamed a folder would be indefensible. This one
+   * genuinely removes the points, and exists for the eval corpus, which is
+   * disposable by construction. Returns the number of points removed.
+   */
+  public async deleteCollectionPoints(collection: string): Promise<number> {
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    const before = await this.countChunksInCollection(collection)
+    if (before === 0) return 0
+    await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
+      wait: true,
+      filter: { must: [{ key: 'collection', match: { value: collection } }] },
+    })
+    return before
   }
 
   /**
@@ -1434,6 +1520,9 @@ export class RagService {
         key: 'source',
         limit: RagService.FACET_SOURCE_LIMIT,
         exact: true,
+        // Same exclusion as getStoredFiles: eval fixtures are not user files,
+        // and counting them here would raise bogus zero_chunks warnings.
+        filter: EXCLUDE_EVAL_FILTER,
       })
       for (const hit of facetResult.hits) {
         if (typeof hit.value === 'string') chunksBySource.set(hit.value, hit.count)
