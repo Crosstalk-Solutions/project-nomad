@@ -9,7 +9,7 @@
 name: project-nomad
 services:
   admin:
-    image: nomad:app-button
+    image: nomad:admin-user
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:

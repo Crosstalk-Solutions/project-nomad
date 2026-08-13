@@ -1,7 +1,7 @@
 import env from '#start/env'
-import app from '@adonisjs/core/services/app'
 import { Secret } from '@adonisjs/core/helpers'
 import { defineConfig } from '@adonisjs/core/http'
+import { shouldUseSecureCookies } from '../app/utils/cookie_security.js'
 
 /**
  * The app key is used for encrypting cookies, generating signed URLs,
@@ -11,6 +11,7 @@ import { defineConfig } from '@adonisjs/core/http'
  * changed. Therefore it is recommended to keep the app key secure.
  */
 export const appKey = new Secret(env.get('APP_KEY'))
+const secureCookies = shouldUseSecureCookies(env.get('URL'))
 
 /**
  * The configuration settings used by the HTTP server
@@ -34,7 +35,7 @@ export const http = defineConfig({
     path: '/',
     maxAge: '2h',
     httpOnly: true,
-    secure: app.inProduction,
+    secure: secureCookies,
     sameSite: 'lax',
   },
 })
