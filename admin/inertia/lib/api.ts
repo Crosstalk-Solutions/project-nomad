@@ -1165,14 +1165,26 @@ class API {
     cpus?: number
     force?: boolean
   }) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{
         success: boolean
         message: string
         service_name: string
       }>('/system/services/custom', payload)
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data) {
+        return error.response.data as {
+          success: false
+          message: string
+          warnings?: string[]
+          portConflicts?: Array<{ port: number; usedBy: string }>
+          blocked?: string[]
+        }
+      }
+      console.error('Error creating custom app:', error)
+      return undefined
+    }
   }
 
   async createExistingApp(payload: {
@@ -1181,14 +1193,20 @@ class API {
     category?: string
     icon?: string
   }) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post<{
         success: boolean
         message: string
         service_name: string
       }>('/system/services/existing', payload)
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data) {
+        return error.response.data as { success: false; message: string }
+      }
+      console.error('Error adding existing app:', error)
+      return undefined
+    }
   }
 
   async setServiceCustomUrl(service_name: string, custom_url: string | null) {
@@ -1264,6 +1282,7 @@ class API {
         app: {
           service_name: string
           friendly_name: string | null
+          is_existing: boolean
           image: string
           category: string
           icon: string
@@ -1291,14 +1310,26 @@ class API {
     cpus?: number
     force?: boolean
   }) {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.put<{
         success: boolean
         message: string
         service_name: string
       }>('/system/services/custom', payload)
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data) {
+        return error.response.data as {
+          success: false
+          message: string
+          warnings?: string[]
+          portConflicts?: Array<{ port: number; usedBy: string }>
+          blocked?: string[]
+        }
+      }
+      console.error('Error updating custom app:', error)
+      return undefined
+    }
   }
 }
 

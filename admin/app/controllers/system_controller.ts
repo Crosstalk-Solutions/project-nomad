@@ -488,6 +488,7 @@ export default class SystemController {
             installation_status: 'idle',
             is_dependency_service: false,
             is_custom: true,
+            is_existing: true,
             category: payload.category ?? 'custom',
             display_order: publishedHostPort ? CUSTOM_APP_HOME_DISPLAY_ORDER : null,
             depends_on: null,
@@ -498,7 +499,7 @@ export default class SystemController {
         return response.send({ success: true, message: `Existing app ${payload.friendly_name} added.`, service_name: payload.container_name })
     }
 
-    /** Delete a custom app: stop + remove its container, then delete the DB record. */
+    /** Delete a custom app, or unregister an existing app without touching its container. */
     async deleteCustomApp({ request, response }: HttpContext) {
         const payload = await request.validateUsing(deleteCustomAppValidator)
 
@@ -510,10 +511,13 @@ export default class SystemController {
             return response.status(403).send({ error: 'Only custom apps can be deleted.' })
         }
 
-        await this.dockerService.removeCustomAppContainer(payload.service_name, payload.remove_image ?? false)
+        if (!service.is_existing) {
+            await this.dockerService.removeCustomAppContainer(payload.service_name, payload.remove_image ?? false)
+        }
         await service.delete()
 
-        return response.send({ success: true, message: `Custom app ${payload.service_name} deleted` })
+        const action = service.is_existing ? 'removed from Supply Depot' : 'deleted'
+        return response.send({ success: true, message: `Custom app ${payload.service_name} ${action}` })
     }
 
     /** Uninstall a curated catalog app: stop + remove its container (optionally its image) and
@@ -601,6 +605,9 @@ export default class SystemController {
         if (!service.is_custom) {
             return response.status(403).send({ success: false, message: 'Only custom apps can be updated this way.' })
         }
+        if (service.is_existing) {
+            return response.status(403).send({ success: false, message: 'Existing apps are not recreated or updated by NOMAD.' })
+        }
 
         const result = await this.dockerService.recreateCustomAppContainer(payload.service_name, {
             forcePull: true,
@@ -667,6 +674,37 @@ export default class SystemController {
         // Custom and curated apps are both editable; hidden dependency services (e.g. Qdrant) are not.
         if (service.is_dependency_service) {
             return response.status(403).send({ success: false, message: 'This service cannot be edited.' })
+        }
+        if (service.is_existing) {
+            service.friendly_name = payload.friendly_name
+            service.container_image = payload.image
+            service.category = payload.category ?? service.category ?? 'custom'
+            if (payload.icon) service.icon = payload.icon
+
+            const inspect = await this.dockerService.inspectContainerByName(payload.service_name)
+            const publishedHostPort = inspect ? DockerService.getFirstPublishedHostPort(inspect) : null
+            service.ui_location = publishedHostPort
+            if (
+                (service.ui_location || service.custom_url) &&
+                (service.display_order === null || service.display_order >= 50)
+            ) {
+                service.display_order = CUSTOM_APP_HOME_DISPLAY_ORDER
+            }
+            if (
+                !service.ui_location &&
+                !service.custom_url &&
+                service.display_order === CUSTOM_APP_HOME_DISPLAY_ORDER
+            ) {
+                service.display_order = null
+            }
+            service.is_user_modified = true
+            await service.save()
+
+            return response.send({
+                success: true,
+                message: `Existing app ${payload.service_name} updated.`,
+                service_name: payload.service_name,
+            })
         }
 
         // Reject duplicate host ports within the request.
@@ -868,6 +906,7 @@ export default class SystemController {
         return {
             service_name: service.service_name,
             friendly_name: service.friendly_name,
+            is_existing: service.is_existing,
             image: service.container_image,
             category: service.category ?? 'custom',
             icon: service.icon ?? 'IconBrandDocker',

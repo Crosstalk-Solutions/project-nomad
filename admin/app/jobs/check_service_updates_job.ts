@@ -26,7 +26,9 @@ export class CheckServiceUpdatesJob {
     // Determine host architecture
     const hostArch = await this.getHostArch(dockerService)
 
-    const installedServices = await Service.query().where('installed', true)
+    const installedServices = await Service.query()
+      .where('installed', true)
+      .where('is_existing', false)
     let updatesFound = 0
 
     for (const service of installedServices) {
