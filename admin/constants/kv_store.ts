@@ -11,6 +11,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
     'ai.remoteOllamaUrl',
     'ai.ollamaFlashAttention',
     'ai.autoThinking',
+    'ai.tasksModel',
     'rag.defaultIngestPolicy',
     'autoUpdate.enabled',
     'autoUpdate.windowStart',
