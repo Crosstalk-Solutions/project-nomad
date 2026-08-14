@@ -14,7 +14,6 @@ interface ChatInterfaceProps {
   chatSuggestions?: string[]
   chatSuggestionsEnabled?: boolean
   chatSuggestionsLoading?: boolean
-  rewriteModelAvailable?: boolean
 }
 
 export default function ChatInterface({
