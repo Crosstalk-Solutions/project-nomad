@@ -36,6 +36,12 @@ server/temp
 .vscode
 .idea
 
+# Agent Files
+.agents
+.claude
+.codegraph
+.mcp.json
+
 # Frontend assets compiled code
 admin/public/assets
 

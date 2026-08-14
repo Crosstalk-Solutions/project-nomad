@@ -72,6 +72,7 @@ export default class SettingsController {
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const tasksModel = await KVStore.getValue('ai.tasksModel')
+    const ragEnabled = await KVStore.getValue('rag.enabled')
     return inertia.render('settings/models', {
       models: {
         availableModels: availableModels?.models || [],
@@ -83,6 +84,7 @@ export default class SettingsController {
           ollamaFlashAttention: ollamaFlashAttention ?? true,
           autoThinking: autoThinking ?? false,
           tasksModel: tasksModel ?? '',
+          ragEnabled: ragEnabled ?? true,
         },
       },
     })
