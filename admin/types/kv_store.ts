@@ -4,6 +4,11 @@ export const KV_STORE_SCHEMA = {
   'chat.lastModel':             'string',
   'rag.docsEmbedded':           'boolean',
   'rag.defaultIngestPolicy':    'string',
+  // Master switch for chat-time knowledge base retrieval. Unset/null means ON —
+  // the pre-existing behaviour. Turning it off skips the whole retrieval
+  // pipeline (hasDocuments, the query-rewrite LLM call, and the Qdrant search),
+  // which matters on small hardware and when the KB is small or empty.
+  'rag.enabled':                'boolean',
   'system.updateAvailable':     'boolean',
   'system.latestVersion':       'string',
   'system.earlyAccess':         'boolean',

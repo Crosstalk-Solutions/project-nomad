@@ -76,6 +76,33 @@ export default function Chat({
   const autoThinkingDefault =
     autoThinkingSetting?.value === true || autoThinkingSetting?.value === 'true'
 
+  // Knowledge base retrieval, shared with AI Assistant settings (same KV key).
+  // Unset means on, so coerce off the negative — an absent value must not read
+  // as false.
+  const { data: ragEnabledSetting } = useSystemSetting({ key: 'rag.enabled', enabled })
+  const ragEnabled = !(ragEnabledSetting?.value === false || ragEnabledSetting?.value === 'false')
+
+  const ragEnabledMutation = useMutation({
+    mutationFn: async (value: boolean) => await api.updateSetting('rag.enabled', value),
+    // Flip the switch immediately rather than after the round-trip, and roll
+    // back if the write fails.
+    onMutate: async (value: boolean) => {
+      await queryClient.cancelQueries({ queryKey: ['system-setting', 'rag.enabled'] })
+      const previous = queryClient.getQueryData(['system-setting', 'rag.enabled'])
+      queryClient.setQueryData(['system-setting', 'rag.enabled'], {
+        key: 'rag.enabled',
+        value,
+      })
+      return { previous }
+    },
+    onError: (_err, _value, context) => {
+      queryClient.setQueryData(['system-setting', 'rag.enabled'], context?.previous)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'rag.enabled'] })
+    },
+  })
+
   const { data: remoteStatus } = useQuery({
     queryKey: ['remoteOllamaStatus'],
     queryFn: () => api.getRemoteOllamaStatus(),
@@ -558,6 +585,7 @@ export default function Chat({
                   {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
                 </span>
               )}
+              {ragEnabled && (
               <div className="flex items-center gap-2">
               <label htmlFor="collection-select" className="text-sm text-text-secondary">
                 Search in:
@@ -574,6 +602,7 @@ export default function Chat({
                 ))}
               </select>
             </div>
+            )}
             <div className="flex items-center gap-2 min-w-0">
                 <label htmlFor="model-select" className="text-sm text-text-secondary">
                   Model:
@@ -597,6 +626,19 @@ export default function Chat({
                     ))}
                   </select>
                 )}
+              </div>
+              <div className="flex items-center">
+                <span className="text-sm text-text-secondary select-none">Knowledge Base:</span>
+                <InfoTooltip
+                  position="bottom"
+                  align="right"
+                  text="When on, the assistant searches your knowledge base for relevant documents before answering. Turning this off is faster and lighter on hardware, which helps when your knowledge base is small or empty. This is the same setting as in AI Assistant settings."
+                />
+                <Switch
+                  id="chat-rag-toggle"
+                  checked={ragEnabled}
+                  onChange={(v) => ragEnabledMutation.mutate(v)}
+                />
               </div>
               {selectedModelSupportsThinking && (
               <div className="flex items-center">

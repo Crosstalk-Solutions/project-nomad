@@ -15,7 +15,7 @@ import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
 import Select from '~/components/inputs/Select'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
 import { formatBytes } from '~/lib/util'
@@ -27,7 +27,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -36,6 +36,7 @@ export default function ModelsPage(props: {
   const { openModal, closeAllModals } = useModals()
   const { debounce } = useDebounce()
   const { data: systemInfo } = useSystemInfo({})
+  const queryClient = useQueryClient()
 
   const [gpuBannerDismissed, setGpuBannerDismissed] = useState(() => {
     try {
@@ -100,6 +101,7 @@ export default function ModelsPage(props: {
     props.models.settings.ollamaFlashAttention
   )
   const [autoThinking, setAutoThinking] = useState(props.models.settings.autoThinking)
+  const [ragEnabled, setRagEnabled] = useState(props.models.settings.ragEnabled)
   const [tasksModel, setTasksModel] = useState(props.models.settings.tasksModel)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
@@ -258,7 +260,11 @@ export default function ModelsPage(props: {
     mutationFn: async ({ key, value }: { key: string; value: boolean | string }) => {
       return await api.updateSetting(key, value)
     },
-    onSuccess: () => {
+    onSuccess: (_data, { key }) => {
+      // Anything reading this key through useSystemSetting (e.g. the chat
+      // window's own copy of the retrieval toggle) should pick the change up
+      // without a reload.
+      queryClient.invalidateQueries({ queryKey: ['system-setting', key] })
       addNotification({
         message: 'Setting updated successfully.',
         type: 'success',
@@ -342,6 +348,15 @@ export default function ModelsPage(props: {
                 }}
                 label="Use thinking automatically when a model supports it"
                 description="Sets the default for models that can think. You can still turn thinking on or off for an individual model in the chat window."
+              />
+              <Switch
+                checked={ragEnabled}
+                onChange={(newVal) => {
+                  setRagEnabled(newVal)
+                  updateSettingMutation.mutate({ key: 'rag.enabled', value: newVal })
+                }}
+                label="Knowledge Base Retrieval"
+                description="Search your knowledge base for relevant documents before answering. Turn this off to save memory and speed up replies when your knowledge base is small or empty. This is the same switch as the one in the chat window."
               />
               <Input
                 name="aiAssistantCustomName"

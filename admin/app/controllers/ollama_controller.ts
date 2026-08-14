@@ -63,9 +63,14 @@ export default class OllamaController {
       // Everything from system-prompt assembly through query rewriting,
       // retrieval, context trimming and the num_ctx decision lives in
       // RagPipelineService so the eval harness exercises this exact code path.
+      // Knowledge base retrieval is user-toggleable (chat header + AI Assistant
+      // settings, both writing rag.enabled). Unset means on, preserving the
+      // behaviour from before the toggle existed.
+      const ragEnabled = (await KVStore.getValue('rag.enabled')) ?? true
       const collectionFilter: string | null = request.input('collection', null)
       const trace = await this.ragPipelineService.buildPrompt(reqData.messages, reqData.model, {
         collection: collectionFilter ?? undefined,
+        skipRetrieval: !ragEnabled,
       })
       reqData.messages = trace.messages
       const numCtx = trace.numCtx
