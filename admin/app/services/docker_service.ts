@@ -21,7 +21,7 @@ import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
+import { readFile, mkdir, copyFile, chown, chmod, access, writeFile, readdir } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
@@ -949,6 +949,21 @@ export class DockerService {
     }
   }
 
+  /**
+   * ZIM files already sitting in storage, e.g. seeded from an offline artifact
+   * bundle or left by a previous install. Never throws — an unreadable or
+   * missing directory simply means "none present".
+   */
+  private async _listExistingZimFiles(): Promise<string[]> {
+    try {
+      const zimDir = join(process.cwd(), ZIM_STORAGE_PATH)
+      const entries = await readdir(zimDir)
+      return entries.filter((entry) => entry.toLowerCase().endsWith('.zim'))
+    } catch {
+      return []
+    }
+  }
+
   private async _runPreinstallActions__KiwixServe(): Promise<void> {
     /**
      * At least one .zim file must be available before we can start the kiwix container.
@@ -958,13 +973,36 @@ export class DockerService {
       'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/install/wikipedia_en_100_mini_2026-01.zim'
     const filename = 'wikipedia_en_100_mini_2026-01.zim'
     const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
-    logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
 
     this._broadcast(
       SERVICE_NAMES.KIWIX,
       'preinstall',
       `Running pre-install actions for Kiwix Serve...`
     )
+
+    // The requirement is "at least one ZIM present", so if storage already has
+    // one there is nothing to fetch. Checking here matters for offline installs:
+    // the downloader's own idempotency check sits behind a HEAD request, so
+    // without this an air-gapped host fails even with the ZIM already in place.
+    // Mirrors how Calibre-Web seeds its bundled library below.
+    const existingZims = await this._listExistingZimFiles()
+    if (existingZims.length > 0) {
+      logger.info(
+        `[DockerService] Kiwix Serve pre-install: ${existingZims.length} ZIM file(s) already present, skipping download`
+      )
+      this._broadcast(
+        SERVICE_NAMES.KIWIX,
+        'preinstall',
+        `Found ${existingZims.length} existing ZIM file(s); skipping download.`
+      )
+
+      const kiwixLibraryService = new KiwixLibraryService()
+      await kiwixLibraryService.rebuildFromDisk()
+      this._broadcast(SERVICE_NAMES.KIWIX, 'preinstall', 'Generated kiwix library XML.')
+      return
+    }
+
+    logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
     this._broadcast(
       SERVICE_NAMES.KIWIX,
       'preinstall',
