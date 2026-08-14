@@ -6,11 +6,63 @@ import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
-import { toTitleCase } from '../utils/misc.js'
+import { pickTasksModel, toTitleCase } from '../utils/misc.js'
 
 @inject()
 export class ChatService {
   constructor(private ollamaService: OllamaService) {}
+
+  /**
+   * The model to use for ancillary work — chat titles and chat suggestions.
+   *
+   * Prefers the user's `ai.tasksModel` setting so a 30B reasoning model isn't
+   * spending seconds "thinking" to produce a three-word sidebar title. Falls
+   * back to `fallback` when the setting is unset (the default, which preserves
+   * the previous behaviour) or when the configured model is no longer
+   * installed. `installed` is passed in by callers that already listed models,
+   * to avoid a second round-trip.
+   */
+  private async resolveTasksModel(
+    fallback: string | null,
+    installed?: { name: string }[]
+  ): Promise<string | null> {
+    let configured: string | null = null
+    try {
+      configured = await KVStore.getValue('ai.tasksModel')
+    } catch (error) {
+      logger.error(
+        `[ChatService] Failed to read ai.tasksModel: ${error instanceof Error ? error.message : error}`
+      )
+      return fallback
+    }
+    if (!configured?.trim()) {
+      return fallback
+    }
+
+    let models = installed
+    if (!models) {
+      try {
+        models = await this.ollamaService.getModels()
+      } catch (error) {
+        logger.error(
+          `[ChatService] Failed to list models while resolving the tasks model: ${error instanceof Error ? error.message : error}`
+        )
+        return fallback
+      }
+    }
+
+    const { model, staleConfigured } = pickTasksModel(
+      configured,
+      (models ?? []).map((m) => m.name),
+      fallback
+    )
+    if (staleConfigured) {
+      logger.warn(
+        `[ChatService] Configured tasks model "${staleConfigured}" is not installed; falling back to "${fallback ?? 'none'}"`
+      )
+    }
+    return model
+  }
 
   async getAllSessions() {
     try {
@@ -37,11 +89,12 @@ export class ChatService {
         return [] // If no models are available, return empty suggestions
       }
 
-      // Prefer the user's selected chat model. Fall back to the smallest
+      // The user's dedicated tasks model wins when set — suggestions are short
+      // aesthetic prompts that don't benefit from a flagship model. Otherwise
+      // prefer the user's selected chat model, and fall back to the smallest
       // installed model — picking the largest by file size is unsafe: if any
       // installed model exceeds available VRAM (e.g. llama3.1:405b on a 96 GB
       // GPU), Ollama spends minutes trying to load it and the request 500s.
-      // Suggestions are short prompts that don't benefit from a flagship model.
       const lastModel = await KVStore.getValue('chat.lastModel')
       const preferred = lastModel ? models.find((m) => m.name === lastModel) : undefined
       const chosen =
@@ -52,8 +105,10 @@ export class ChatService {
         return []
       }
 
+      const model = (await this.resolveTasksModel(chosen.name, models)) ?? chosen.name
+
       const response = await this.ollamaService.chat({
-        model: chosen.name,
+        model,
         messages: [
           {
             role: 'user',
@@ -243,8 +298,12 @@ export class ChatService {
     try {
       let title: string
 
+      // Titles are aesthetic work; route them to the tasks model when one is
+      // configured rather than the chat model that just answered.
+      const titleModel = (await this.resolveTasksModel(model)) ?? model
+
       const response = await this.ollamaService.chat({
-        model,
+        model: titleModel,
         messages: [
           { role: 'system', content: SYSTEM_PROMPTS.title_generation },
           { role: 'user', content: userMessage },

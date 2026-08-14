@@ -13,6 +13,7 @@ import StyledModal from '~/components/StyledModal'
 import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
+import Select from '~/components/inputs/Select'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
@@ -26,7 +27,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -99,6 +100,7 @@ export default function ModelsPage(props: {
     props.models.settings.ollamaFlashAttention
   )
   const [autoThinking, setAutoThinking] = useState(props.models.settings.autoThinking)
+  const [tasksModel, setTasksModel] = useState(props.models.settings.tasksModel)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
   )
@@ -241,6 +243,17 @@ export default function ModelsPage(props: {
     )
   }
 
+  // A model can be deleted after being picked here. Surface the stale name as a
+  // disabled option instead of letting the select silently render empty — the
+  // backend already falls back to the chat model at call time.
+  const tasksModelOptions = [
+    { value: '', label: 'Use the chat model' },
+    ...props.models.installedModels.map((model) => ({ value: model.name, label: model.name })),
+    ...(tasksModel && !props.models.installedModels.some((m) => m.name === tasksModel)
+      ? [{ value: tasksModel, label: `${tasksModel} (not installed)`, disabled: true }]
+      : []),
+  ]
+
   const updateSettingMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: boolean | string }) => {
       return await api.updateSetting(key, value)
@@ -343,6 +356,17 @@ export default function ModelsPage(props: {
                     value: aiAssistantCustomName,
                   })
                 }
+              />
+              <Select
+                name="tasksModel"
+                label="Tasks Model"
+                helpText="Small, fast model used for background work like chat titles and suggestions. Leave this set to the chat model to use whichever model the chat is using. Avoid reasoning models here — they are slow at short, aesthetic tasks."
+                value={tasksModel}
+                options={tasksModelOptions}
+                onChange={(newVal) => {
+                  setTasksModel(newVal)
+                  updateSettingMutation.mutate({ key: 'ai.tasksModel', value: newVal })
+                }}
               />
             </div>
           </div>

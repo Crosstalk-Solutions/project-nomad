@@ -39,6 +39,10 @@ export const KV_STORE_SCHEMA = {
   'ai.remoteOllamaUrl':         'string',
   'ai.ollamaFlashAttention':    'boolean',
   'ai.autoThinking':            'boolean',
+  // Model used for ancillary AI work (chat titles, chat suggestions) instead of
+  // whatever chat model the user last used. Unset/null keeps the previous
+  // behaviour: titles use the chat model, suggestions use chat.lastModel.
+  'ai.tasksModel':              'string',
   'ai.amdGpuAcceleration':      'boolean',
   'ai.amdHsaOverride':          'string',
   'ai.autoFixGpuPassthrough':   'boolean',
