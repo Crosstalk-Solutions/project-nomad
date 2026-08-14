@@ -1,0 +1,49 @@
+name: Install Scripts
+
+# Guards the installer and the offline artifact bundle tooling. These scripts
+# bootstrap machines that may have no internet access, so a syntax error or a
+# regression in artifact mode is expensive to discover in the field.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'install/**'
+      - '.github/workflows/install-scripts.yml'
+  pull_request:
+    paths:
+      - 'install/**'
+      - '.github/workflows/install-scripts.yml'
+
+jobs:
+  shell:
+    name: Syntax, lint and artifact-mode tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        run: |
+          status=0
+          while IFS= read -r script; do
+            echo "bash -n ${script}"
+            bash -n "${script}" || status=1
+          done < <(find install -type f -name '*.sh' | sort)
+          exit "${status}"
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          # Errors fail the build across all installer scripts. The offline
+          # bundle tooling is additionally held to the warning level.
+          find install -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=error
+          shellcheck --severity=warning \
+            install/build_offline_bundle.sh \
+            install/build_offline_bundle_docker.sh \
+            install/verify_offline_bundle.sh \
+            install/capture_installed_images.sh \
+            install/tests/offline_artifact_tests.sh
+
+      - name: Offline artifact mode regression tests
+        run: bash install/tests/offline_artifact_tests.sh
