@@ -44,7 +44,7 @@ export class ZIMExtractionService {
     async extractZIMContent(
         filePath: string,
         opts: ExtractZIMContentOptions = {}
-    ): Promise<{ chunks: ZIMContentChunk[]; totalArticles: number }> {
+    ): Promise<{ chunks: ZIMContentChunk[]; totalArticles: number; articlesProcessed: number }> {
         try {
             logger.info(`[ZIMExtractionService]: Processing ZIM file at path: ${filePath}`)
             
@@ -165,7 +165,7 @@ export class ZIMExtractionService {
                 textPreview: c.text.substring(0, 100)
             })))
             logger.debug("Total structured sections extracted:", toReturn.length)
-            return { chunks: toReturn, totalArticles: archive.articleCount }
+            return { chunks: toReturn, totalArticles: archive.articleCount, articlesProcessed }
         } catch (error) {
             logger.error('Error processing ZIM file:', error)
             throw error

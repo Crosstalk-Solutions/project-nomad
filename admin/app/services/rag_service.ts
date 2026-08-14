@@ -37,6 +37,7 @@ const EXCLUDE_EVAL_FILTER = {
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
+import { hasMoreArticleBatches } from '../utils/zim_batch_decision.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
 import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
 
@@ -556,10 +557,14 @@ export class RagService {
       `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
     )
 
-    const { chunks: zimChunks, totalArticles } = await zimExtractionService.extractZIMContent(
-      filepath,
-      { startOffset, batchSize: ZIM_BATCH_SIZE }
-    )
+    const {
+      chunks: zimChunks,
+      totalArticles,
+      articlesProcessed,
+    } = await zimExtractionService.extractZIMContent(filepath, {
+      startOffset,
+      batchSize: ZIM_BATCH_SIZE,
+    })
 
     logger.info(
       `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
@@ -610,15 +615,19 @@ export class RagService {
       }
     }
 
-    // Count unique articles processed in this batch. hasMoreBatches gates on the article
-    // count — zimChunks.length counts section-level chunks (multiple per article under the
-    // 'structured' strategy), so comparing it to ZIM_BATCH_SIZE (an article limit) caps
-    // processing at the first batch for any real archive.
-    const articlesInBatch = new Set(zimChunks.map((c) => c.documentId)).size
-    const hasMoreBatches = articlesInBatch >= ZIM_BATCH_SIZE
+    // Gate the continuation on articles the extractor CONSUMED, not on articles that
+    // produced chunks. Articles whose text is empty after cleaning (redirect stubs,
+    // category pages, media/PDF wrappers) contribute no documentIds, so a chunk-derived
+    // count reads a normal sparse batch as end-of-archive and silently abandons the rest
+    // of the file. See `zim_batch_decision.ts` for the full rationale.
+    const articlesWithContent = new Set(zimChunks.map((c) => c.documentId)).size
+    const hasMoreBatches = hasMoreArticleBatches({
+      articlesProcessed,
+      batchSize: ZIM_BATCH_SIZE,
+    })
 
     logger.info(
-      `[RAG] Successfully embedded ${totalChunks} total chunks from ${articlesInBatch} articles (hasMore: ${hasMoreBatches})`
+      `[RAG] Successfully embedded ${totalChunks} total chunks from ${articlesWithContent}/${articlesProcessed} articles (hasMore: ${hasMoreBatches})`
     )
 
     // Only delete the file when:
@@ -640,7 +649,11 @@ export class RagService {
         : 'ZIM file processed and embedded successfully with enhanced metadata.',
       chunks: totalChunks,
       hasMoreBatches,
-      articlesProcessed: articlesInBatch,
+      // MUST be the consumed count: EmbedFileJob advances the next batch offset by this
+      // value. Reporting the content-bearing count instead re-reads the overlap on every
+      // sparse batch, and a batch that yields no text at all would advance the offset by
+      // zero and re-run the same window forever.
+      articlesProcessed,
       totalArticles,
     }
   }
