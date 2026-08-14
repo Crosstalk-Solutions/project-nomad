@@ -56,11 +56,10 @@ export class DownloadService {
   }
 
   async listDownloadJobs(filetype?: string): Promise<DownloadJobWithProgress[]> {
-    const modelQueue = this.queueService.getQueue(DownloadModelJob.queue)
-    const [fileTagged, extractTagged, modelJobs, drugTagged] = await Promise.all([
+    const [fileTagged, extractTagged, modelTagged, drugTagged] = await Promise.all([
       this.fetchJobsWithStates(RunDownloadJob.queue),
       this.fetchJobsWithStates(RunExtractPmtilesJob.queue),
-      modelQueue.getJobs(['waiting', 'active', 'delayed', 'failed']),
+      this.fetchJobsWithStates(DownloadModelJob.queue),
       this.fetchJobsWithStates(DownloadDrugDataJob.queue),
     ])
 
@@ -98,7 +97,7 @@ export class DownloadService {
       }
     })
 
-    const modelDownloads = modelJobs.map((job) => ({
+    const modelDownloads = modelTagged.map(({ job }) => ({
       jobId: job.id!.toString(),
       url: job.data.modelName || 'Unknown Model',
       progress: parseInt(job.progress.toString(), 10),
