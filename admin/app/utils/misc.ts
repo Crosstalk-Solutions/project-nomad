@@ -12,6 +12,30 @@ export function toTitleCase(str: string): string {
     .join(' ')
 }
 
+/**
+ * Decide which model runs an ancillary AI task (chat titles, chat suggestions).
+ *
+ * `configured` is the user's `ai.tasksModel` setting. It only wins when the
+ * model is still installed — a model can be deleted from /settings/models long
+ * after it was picked here, and a request for a missing model 404s. In every
+ * other case the caller's existing `fallback` applies, so an unset setting
+ * leaves prior behaviour untouched.
+ */
+export function pickTasksModel(
+  configured: string | null | undefined,
+  installedNames: string[],
+  fallback: string | null
+): { model: string | null; staleConfigured: string | null } {
+  const trimmed = configured?.trim()
+  if (!trimmed) {
+    return { model: fallback, staleConfigured: null }
+  }
+  if (installedNames.includes(trimmed)) {
+    return { model: trimmed, staleConfigured: null }
+  }
+  return { model: fallback, staleConfigured: trimmed }
+}
+
 export function parseBoolean(value: any): boolean {
   if (typeof value === 'boolean') return value
   if (typeof value === 'string') {
