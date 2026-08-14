@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
 import ChatInterface from './ChatInterface'
@@ -10,7 +10,6 @@ import { useModals } from '~/context/ModalContext'
 import { ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconMenu2, IconX } from '@tabler/icons-react'
-import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
@@ -133,7 +132,7 @@ export default function Chat({
       try {
         const stored = localStorage.getItem(`nomad:thinking:${m.name}`)
         if (stored !== null) next[m.name] = stored === 'true'
-      } catch {}
+      } catch { }
     }
     setThinkingOverrides(next)
   }, [installedModels])
@@ -152,7 +151,7 @@ export default function Chat({
     setThinkingOverrides((prev) => ({ ...prev, [model]: value }))
     try {
       localStorage.setItem(`nomad:thinking:${model}`, String(value))
-    } catch {}
+    } catch { }
   }, [])
 
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
@@ -165,10 +164,6 @@ export default function Chat({
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
-
-  const rewriteModelAvailable = useMemo(() => {
-    return installedModels.some((model) => model.name === DEFAULT_QUERY_REWRITE_MODEL)
-  }, [installedModels])
 
   const deleteAllSessionsMutation = useMutation({
     mutationFn: () => api.deleteAllChatSessions(),
@@ -449,13 +444,13 @@ export default function Chat({
                   prev.map((m) =>
                     m.id === assistantMsgId
                       ? {
-                          ...m,
-                          content: m.content + chunkContent,
-                          thinking: (m.thinking ?? '') + chunkThinking,
-                          isStreaming: !done,
-                          isThinking: isThinkingPhase,
-                          thinkingDuration: thinkingDuration ?? undefined,
-                        }
+                        ...m,
+                        content: m.content + chunkContent,
+                        thinking: (m.thinking ?? '') + chunkThinking,
+                        isStreaming: !done,
+                        isThinking: isThinkingPhase,
+                        thinkingDuration: thinkingDuration ?? undefined,
+                      }
                       : m
                   )
                 )
@@ -586,24 +581,24 @@ export default function Chat({
                 </span>
               )}
               {ragEnabled && (
-              <div className="flex items-center gap-2">
-              <label htmlFor="collection-select" className="text-sm text-text-secondary">
-                Search in:
-              </label>
-              <select
-                id="collection-select"
-                value={collectionFilter}
-                onChange={(e) => setCollectionFilter(e.target.value)}
-                className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
-              >
-                <option value="">All</option>
-                {knownCollections.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            )}
-            <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="collection-select" className="text-sm text-text-secondary">
+                    Search in:
+                  </label>
+                  <select
+                    id="collection-select"
+                    value={collectionFilter}
+                    onChange={(e) => setCollectionFilter(e.target.value)}
+                    className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                  >
+                    <option value="">All</option>
+                    {knownCollections.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex items-center gap-2 min-w-0">
                 <label htmlFor="model-select" className="text-sm text-text-secondary">
                   Model:
                 </label>
@@ -641,21 +636,21 @@ export default function Chat({
                 />
               </div>
               {selectedModelSupportsThinking && (
-              <div className="flex items-center">
-                <span className="text-sm text-text-secondary select-none">Thinking:</span>
-                <InfoTooltip
-                  position="bottom"
-                  align="right"
-                  text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
-                />
-                <Switch
-                  id="chat-thinking-toggle"
-                  checked={effectiveThinking(selectedModel)}
-                  onChange={(v) => setModelThinking(selectedModel, v)}
-                />
-              </div>
-            )}
-            {isInModal && (
+                <div className="flex items-center">
+                  <span className="text-sm text-text-secondary select-none">Thinking:</span>
+                  <InfoTooltip
+                    position="bottom"
+                    align="right"
+                    text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
+                  />
+                  <Switch
+                    id="chat-thinking-toggle"
+                    checked={effectiveThinking(selectedModel)}
+                    onChange={(v) => setModelThinking(selectedModel, v)}
+                  />
+                </div>
+              )}
+              {isInModal && (
                 <button
                   type="button"
                   aria-label="Close chat"
@@ -678,7 +673,6 @@ export default function Chat({
             chatSuggestions={chatSuggestions}
             chatSuggestionsEnabled={suggestionsEnabled}
             chatSuggestionsLoading={chatSuggestionsLoading}
-            rewriteModelAvailable={rewriteModelAvailable}
           />
         </div>
       </div>
