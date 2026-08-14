@@ -13,6 +13,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
     'ai.autoThinking',
     'ai.tasksModel',
     'rag.defaultIngestPolicy',
+    'rag.enabled',
     'autoUpdate.enabled',
     'autoUpdate.windowStart',
     'autoUpdate.windowEnd',

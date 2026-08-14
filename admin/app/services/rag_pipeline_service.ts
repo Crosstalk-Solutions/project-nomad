@@ -88,6 +88,12 @@ export class RagPipelineService {
     if (opts.oracleContext) {
       relevantDocs = opts.oracleContext
       trace.retrieved = relevantDocs
+    } else if (opts.skipRetrieval) {
+      // Retrieval turned off by the user (rag.enabled). Bail before the
+      // hasDocuments check, the rewrite LLM call and the vector search — the
+      // whole point is to spend nothing here. relevantDocs stays empty, so no
+      // context block is injected below.
+      logger.debug('[RagPipeline] Retrieval disabled by setting, skipping')
     } else {
       const rewriteStart = Date.now()
       const { query, didRewrite } = await this.resolveRetrievalQuery(working, model, opts)
