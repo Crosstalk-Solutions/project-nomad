@@ -89,6 +89,11 @@ export type PipelineOptions = {
   /** Ignore the user's NOMAD.md. Off in production; on in evals, where a
    *  developer's personal instructions would silently skew every result. */
   skipNomadMd?: boolean
+  /** Skip the entire retrieval pipeline — the hasDocuments check, the
+   *  query-rewrite LLM call and the Qdrant search — leaving the prompt with
+   *  system prompts only. Set from the `rag.enabled` KV setting. Opt-out by
+   *  design: the eval harness omits it and therefore always retrieves. */
+  skipRetrieval?: boolean
 }
 
 /**
