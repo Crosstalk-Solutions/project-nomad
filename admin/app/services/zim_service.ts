@@ -21,8 +21,6 @@ import {
 } from '../utils/fs.js'
 import { join, resolve, sep } from 'path'
 import { WikipediaOption, WikipediaState } from '../../types/downloads.js'
-import vine from '@vinejs/vine'
-import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
 import CollectionManifest from '#models/collection_manifest'
@@ -33,14 +31,13 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { KiwixCatalogService } from './kiwix_catalog_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
-import type { CategoryWithStatus } from '../../types/collections.js'
+import type { CategoryWithStatus, WikipediaSpec } from '../../types/collections.js'
 import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
 import { resolveZimDownload } from '../utils/zim_download_resolution.js'
 import { getHostedContentHeaders } from '../utils/hosted_content_auth.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
 
 @inject()
 export class ZimService {
@@ -693,21 +690,28 @@ export class ZimService {
 
   // Wikipedia selector methods
 
+  /**
+   * The Wikipedia catalog, refreshed from the remote manifest when reachable and
+   * served from the cached copy when it isn't.
+   *
+   * This used to fetch the manifest directly and throw on any failure, which
+   * turned `GET /api/zim/wikipedia` into a 500 on an air-gapped host and put an
+   * "internal error" toast on the Easy Setup wizard. Routing through
+   * CollectionManifestService reuses the same cached-spec fallback the curated
+   * categories, maps and creator packs already rely on. An air-gapped host that
+   * has never cached the manifest gets an empty list — the wizard renders no
+   * Wikipedia selector rather than failing.
+   */
   async getWikipediaOptions(): Promise<WikipediaOption[]> {
-    try {
-      const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
-      const data = response.data
-
-      const validated = await vine.validate({
-        schema: wikipediaOptionsFileSchema,
-        data,
-      })
-
-      return validated.options
-    } catch (error) {
-      logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
-      throw new Error('Failed to fetch Wikipedia options')
+    const manifestService = new CollectionManifestService()
+    const spec = await manifestService.getSpecWithFallback<WikipediaSpec>('wikipedia')
+    if (!spec) {
+      logger.warn(
+        '[ZimService] No Wikipedia manifest available (remote unreachable and nothing cached)'
+      )
+      return []
     }
+    return spec.options
   }
 
   async getWikipediaSelection(): Promise<WikipediaSelection | null> {

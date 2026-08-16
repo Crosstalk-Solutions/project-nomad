@@ -33,6 +33,7 @@ behaves exactly as it always has.
 - [How artifact mode stays offline](#how-artifact-mode-stays-offline)
 - [GPU support](#gpu-support)
 - [Bundling Supply Depot apps](#bundling-supply-depot-apps)
+- [Easy Setup with no internet](#easy-setup-with-no-internet)
 - [Updating an air-gapped installation](#updating-an-air-gapped-installation)
 - [Optional images and pre-staged content](#optional-images-and-pre-staged-content)
 - [Known limitations](#known-limitations)
@@ -383,10 +384,45 @@ Most apps need nothing beyond their image. Two exceptions are worth knowing:
   separately from the Ollama registry at first use. Bundling the image does not
   make model downloads work offline.
 
+  On a host with an **AMD GPU** the installer switches Ollama to the ROCm image
+  (`ollama/ollama:rocm`), which `--with-apps` does not carry — it bundles the
+  catalog's pinned tag. An air-gapped AMD host therefore needs that tag added
+  explicitly with `--extra-image-list`, or AMD acceleration turned off (KV key
+  `ai.amdGpuAcceleration` set to `false`) so the bundled CPU image is used.
+
 Content that is fetched from remote catalogs at runtime — ZIM files beyond the
 bundled sample, maps, Kolibri channels, AI models — is not covered. Use
 `--content-dir` to pre-stage such files if you already have them in NOMAD's
 storage layout.
+
+## Easy Setup with no internet
+
+The Command Center's Easy Setup wizard is the first thing an operator sees after
+an install, and it works air-gapped — for the part of it that can.
+
+**Apps install offline when their image is already on the machine.** The wizard
+asks Docker which images are present and offers exactly those. An app whose
+image came from a `--with-apps` bundle is selectable and installs without
+touching a registry; one that would need a pull is shown greyed out with a
+*Needs internet* badge, so nothing fails halfway through.
+
+**Content downloads stay unavailable.** Map regions, curated content tiers,
+creator packs, AI models and Wikipedia all come from remote catalogs. Offline,
+those steps explain themselves and their cards can't be selected. You can walk
+through every step, skip them, and finish the wizard with just the apps.
+
+If the wizard is offline and *no* app images are on the machine, it says so
+plainly rather than offering a set of installs that would all fail. That is the
+signal to re-run the installer against a bundle built with `--with-apps`.
+
+Two consequences of a truly air-gapped first boot are worth knowing:
+
+- The wizard shows **no Wikipedia selector**. The catalog that populates it is
+  fetched from GitHub and cached; a machine that has never been online has no
+  cached copy, so the section is omitted. It appears on the Content step (and in
+  the ZIM manager) the first time the machine reaches the internet.
+- The Kiwix app still needs at least one ZIM to start. A bundle that includes
+  Kiwix pre-stages the small Wikipedia sample for exactly this reason.
 
 ## Updating an air-gapped installation
 
@@ -473,8 +509,12 @@ Be precise about what offline artifact mode does and does not claim:
 - **One bundle, one platform.** OS, version and architecture must match.
 - **x86_64 only**, matching the installer's supported architecture.
 - **The Command Center still probes for connectivity at runtime.** It shows
-  an offline status and falls back to bundled data rather than failing, but
-  those requests are attempted. This is existing behaviour, unchanged here.
+  an offline status and falls back to cached or bundled data rather than
+  failing, but those requests are attempted.
+- **Easy Setup offline installs apps, not content.** See
+  [Easy Setup with no internet](#easy-setup-with-no-internet). Only apps whose
+  images are already on the machine are offered; every download-backed step is
+  disabled with an explanation.
 
 ---
 

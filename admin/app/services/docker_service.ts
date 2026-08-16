@@ -2302,20 +2302,31 @@ export class DockerService {
   }
 
   /**
+   * Every image tag present in the local Docker daemon.
+   *
+   * Exposed so callers that need to test several images at once (the Easy Setup
+   * wizard asking which apps are installable with no internet) can do it with a
+   * single daemon round-trip instead of one per image. Returns an empty list if
+   * the daemon can't be reached, which callers read as "nothing is local" —
+   * the same fail-safe direction as `_checkImageExists`.
+   */
+  async listLocalImageTags(): Promise<string[]> {
+    try {
+      const images = await this.docker.listImages()
+      return images.flatMap((image) => image.RepoTags ?? [])
+    } catch (error: any) {
+      logger.warn(`Error listing local Docker images: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
    * Check if a Docker image exists locally.
    * @param imageName - The name and tag of the image (e.g., "nginx:latest")
    * @returns - True if the image exists locally, false otherwise
    */
   private async _checkImageExists(imageName: string): Promise<boolean> {
-    try {
-      const images = await this.docker.listImages()
-
-      // Check if any image has a RepoTag that matches the requested image
-      return images.some((image) => image.RepoTags && image.RepoTags.includes(imageName))
-    } catch (error: any) {
-      logger.warn(`Error checking if image exists: ${error.message}`)
-      // If run into an error, assume the image does not exist
-      return false
-    }
+    const tags = await this.listLocalImageTags()
+    return tags.includes(imageName)
   }
 }
