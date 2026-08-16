@@ -55,6 +55,16 @@ CONTENT_DIR=''
 WITH_APPS=''
 LIST_APPS='0'
 USE_LOCAL_IMAGES='0'
+BUILD_ADMIN='0'
+
+# The apps behind Easy Setup's three core capabilities — Information Library
+# (Kiwix), Education Platform (Kolibri) and the AI Assistant (Ollama, with Qdrant
+# for its knowledge base). Without these an air-gapped target can offer none of
+# them: the wizard only lets you select a capability whose image is already
+# present, so a bundle missing them greys out the very choices onboarding is
+# built around. Large — Ollama and Kolibri are multi-GB — which is why this is a
+# named set rather than part of the light default.
+CORE_APP_SET='kiwix,kolibri_gen2,ollama,qdrant'
 
 # Supply Depot apps whose images are worth carrying by default: broadly useful,
 # and modest in size compared with the AI/education stack.
@@ -104,10 +114,16 @@ Options:
   --output DIR                 Directory to create the bundle in (default: ./dist)
   --with-apps LIST             Also bundle Supply Depot app images so apps can
                                be installed on the offline target. LIST is a
-                               comma-separated set of app names, "default" for a
-                               useful starter set, or "all". Adds significant
-                               size — see --list-apps.
+                               comma-separated set of app names and/or the named
+                               sets "core" (the three Easy Setup capabilities),
+                               "default" (a light starter set) or "all". Sets
+                               combine: --with-apps core,default. Adds
+                               significant size — see --list-apps.
   --list-apps                  Print the installable app names and exit
+  --build-admin                Build the Command Center image from this checkout
+                               and bundle that instead of the published one, so
+                               the bundle carries the code you have rather than
+                               the last release. Implies --use-local-images.
   --use-local-images           Skip the registry pull for any image already
                                present in the local Docker daemon. Lets a bundle
                                carry an image built from this checkout (e.g. an
@@ -182,6 +198,10 @@ parse_args() {
         shift
         ;;
       --use-local-images)
+        USE_LOCAL_IMAGES='1'
+        ;;
+      --build-admin)
+        BUILD_ADMIN='1'
         USE_LOCAL_IMAGES='1'
         ;;
       --archive)
@@ -450,6 +470,31 @@ acquire_image() {
   docker pull --platform "linux/${TARGET_ARCH}" "${image}"
 }
 
+# Build the Command Center from this checkout, tagged as the reference
+# management_compose.yaml pins, so the rest of the build bundles it in place of
+# the published image.
+#
+# Without this a bundle always carries the last RELEASE, no matter what is in the
+# tree it was built from — which makes an admin-side change impossible to test on
+# an air-gapped target. The image reference is read from the compose file rather
+# than hardcoded so a fork's own tag is honoured.
+build_admin_image() {
+  [[ "${BUILD_ADMIN}" == '1' ]] || return 0
+
+  local compose_file="${REPO_ROOT}/install/management_compose.yaml"
+  local admin_image
+  admin_image="$(docker compose -f "${compose_file}" config --images |
+    grep -m1 'project-nomad:' || true)"
+  [[ -n "${admin_image}" ]] ||
+    die "Could not determine the Command Center image reference from ${compose_file}."
+
+  log "Building ${admin_image} from ${REPO_ROOT} (this takes a few minutes)..."
+  docker build --platform "linux/${TARGET_ARCH}" -t "${admin_image}" "${REPO_ROOT}" ||
+    die "Failed to build the Command Center image from ${REPO_ROOT}."
+
+  ok "Built ${admin_image} from this checkout."
+}
+
 discover_and_save_images() {
   local compose_file="${REPO_ROOT}/install/management_compose.yaml"
   local image_list="${BUNDLE_DIR}/images/core-images.txt"
@@ -535,17 +580,39 @@ list_apps() {
     printf '  %-16s %s\n' "${name}" "${image}"
   done < <(discover_app_images)
   echo ''
-  echo "Default set (--with-apps default): ${DEFAULT_APP_SET}"
-  echo 'Use "all" for every app, or a comma-separated list of names.'
+  echo "Named sets:"
+  echo "  core     ${CORE_APP_SET}"
+  echo "           (Easy Setup's three core capabilities — needed for the target"
+  echo "            to offer them offline)"
+  echo "  default  ${DEFAULT_APP_SET}"
+  echo "  all      every app listed above"
+  echo
+  echo 'Sets combine with each other and with individual names:'
+  echo '  --with-apps core,default'
 }
 
 # Resolves WITH_APPS into the image references to bundle.
 selected_app_images() {
   local requested="${WITH_APPS}"
-  [[ "${requested}" != 'default' ]] || requested="${DEFAULT_APP_SET}"
+
+  # Expand the named sets anywhere in the list, so "core,default" and
+  # "core,jellyfin" work rather than only a bare set name. Duplicates are
+  # harmless — the caller sorts -u before pulling.
+  local expanded='' part
+  IFS=',' read -ra parts <<< "${requested}"
+  for part in "${parts[@]}"; do
+    part="$(echo "${part}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    case "${part}" in
+      '')        continue ;;
+      core)      expanded="${expanded},${CORE_APP_SET}" ;;
+      default)   expanded="${expanded},${DEFAULT_APP_SET}" ;;
+      *)         expanded="${expanded},${part}" ;;
+    esac
+  done
+  requested="${expanded#,}"
 
   local name image
-  if [[ "${requested}" == 'all' ]]; then
+  if [[ ",${requested}," == *,all,* ]]; then
     while IFS="$(printf '\t')" read -r name image; do
       [[ -n "${image}" ]] || continue
       echo "${image}"
@@ -741,6 +808,7 @@ main() {
   mkdir -p "${BUNDLE_DIR}/packages/apt" "${BUNDLE_DIR}/images" "${BUNDLE_DIR}/payload/nomad"
 
   copy_installer_and_payload
+  build_admin_image
   build_local_apt_repo
   verify_local_apt_repo
   discover_and_save_images

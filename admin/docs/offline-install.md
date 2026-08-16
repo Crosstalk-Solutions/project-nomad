@@ -12,7 +12,7 @@ installer against it.
 
 ```bash
 # On a connected build machine, from a Project NOMAD checkout (needs only Docker):
-./install/build_offline_bundle_docker.sh --target ubuntu:26.04 --output /media/usb/NOMAD
+./install/build_offline_bundle_docker.sh --with-apps core,default --output /media/usb/NOMAD
 
 # On the disconnected target, from inside the bundle directory:
 sudo bash ./install_nomad.sh --artifacts .
@@ -393,14 +393,24 @@ to install anything without a network. `--with-apps` carries the app images too:
 ```bash
 ./install/build_offline_bundle_docker.sh \
   --target ubuntu:26.04 \
-  --with-apps default
+  --with-apps core,default
 ```
 
 | Value | Meaning |
 |---|---|
-| `default` | A useful starter set: Kiwix, CyberChef, IT-Tools, FlatNotes, Excalidraw, File Browser, Stirling PDF |
-| `all` | Every app in the catalog (large — includes Ollama, Kolibri, Jellyfin) |
+| `core` | The three Easy Setup capabilities: Kiwix, Kolibri, Ollama, plus Qdrant for the AI knowledge base |
+| `default` | A light starter set: Kiwix, CyberChef, IT-Tools, FlatNotes, Excalidraw, File Browser, Stirling PDF |
+| `all` | Every app in the catalog (large — includes Jellyfin) |
 | `kiwix,cyberchef,…` | An explicit comma-separated list |
+
+Sets combine with each other and with individual names, so `--with-apps
+core,default` is the usual choice and `--with-apps core,jellyfin` works too.
+
+**`default` alone is not enough for onboarding.** It omits Kolibri and Ollama,
+and Easy Setup only offers a capability whose image is already present — so a
+`default` bundle greys out Education and the AI Assistant on an air-gapped
+target. Use `core`, or `core,default`, whenever the target's users are expected
+to pick their own capabilities.
 
 Run `./install/build_offline_bundle.sh --list-apps` to see the available names.
 An unrecognised name fails the build rather than quietly producing a bundle
