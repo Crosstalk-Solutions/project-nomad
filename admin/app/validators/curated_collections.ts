@@ -101,16 +101,9 @@ export const creatorPacksSpecSchema = vine.object({
   ).minLength(1),
 })
 
-// ---- Wikipedia validators (used by ZimService) ----
-
-export const wikipediaOptionSchema = vine.object({
-  id: vine.string(),
-  name: vine.string(),
-  description: vine.string(),
-  size_mb: vine.number().min(0),
-  url: vine.string().url().nullable(),
-})
-
-export const wikipediaOptionsFileSchema = vine.object({
-  options: vine.array(wikipediaOptionSchema).minLength(1),
-})
+// The Wikipedia catalog had a second, laxer schema here that ZimService used to
+// validate its own direct fetch of collections/wikipedia.json. Having two
+// schemas for one remote file is what let the offline path diverge: that fetch
+// had no cache fallback, so an air-gapped host 500'd the Wikipedia endpoint.
+// ZimService now reads the manifest through CollectionManifestService like every
+// other catalog, and `wikipediaSpecSchema` above is the only schema for it.
