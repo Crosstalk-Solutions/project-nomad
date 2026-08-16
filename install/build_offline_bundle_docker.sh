@@ -91,6 +91,26 @@ check_docker_available() {
   docker info > /dev/null 2>&1 ||
     die "The Docker daemon is not reachable. Start Docker and try again."
 
+  # The build starts further containers, and their bind mounts are resolved by
+  # the host daemon — so the socket has to be mountable, not merely reachable.
+  #
+  # Under Git Bash / MSYS / Cygwin there is no Unix socket to mount: Docker
+  # Desktop is reached over a named pipe, and MSYS rewrites the Unix-looking
+  # paths in every -v argument on the way to the CLI. Relaxing this check alone
+  # does not make the build work there; it just moves the failure somewhere less
+  # obvious. Say so plainly instead.
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+      die "This wrapper cannot run under Git Bash / MSYS: Docker Desktop exposes a
+   named pipe rather than a mountable Unix socket, and MSYS rewrites the bind-mount
+   paths the build depends on.
+
+   Build from a WSL2 Linux distribution with Docker Desktop's WSL integration
+   enabled (where /var/run/docker.sock exists), or from a Linux or macOS machine.
+   The bundle produced is identical wherever it is built."
+      ;;
+  esac
+
   [[ -S "${DOCKER_SOCKET}" ]] ||
     die "No Docker socket at ${DOCKER_SOCKET}. Set NOMAD_DOCKER_SOCKET if yours lives elsewhere."
 }

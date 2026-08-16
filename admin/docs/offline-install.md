@@ -67,9 +67,16 @@ remote catalogs at runtime and is **not** covered; see
 The build machine needs **internet access and Docker** — that's the whole list.
 The entire build runs in containers, so no `git`, `bash` version, or GNU
 coreutils is required on the host, and the machine does not need to resemble the
-target: Linux, macOS and Windows build machines all produce the same bundle,
-because the package closure is resolved inside a container of the target
-distribution.
+target: the package closure is resolved inside a container of the target
+distribution, so any build machine produces the same bundle.
+
+**Build from Linux, macOS, or WSL2.** The builder mounts the Docker socket and
+the working directories into its container, which needs a real Unix socket and
+un-rewritten paths. Windows *native* shells — Git Bash, MSYS, Cygwin — cannot
+provide either: Docker Desktop is reached over a named pipe, and MSYS rewrites
+the Unix-looking paths in every `-v` argument. The wrapper detects this and says
+so rather than failing obscurely part-way through. On Windows, build from a WSL2
+distribution with Docker Desktop's WSL integration enabled.
 
 ```bash
 git clone https://github.com/Crosstalk-Solutions/project-nomad.git
