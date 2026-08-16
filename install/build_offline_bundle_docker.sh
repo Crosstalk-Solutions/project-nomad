@@ -37,6 +37,11 @@ GREEN='\033[1;32m'
 # Alpine image carrying the Docker CLI and Compose v2. Override for a mirror.
 BUILDER_IMAGE="${NOMAD_BUILDER_IMAGE:-docker:cli}"
 DOCKER_SOCKET="${NOMAD_DOCKER_SOCKET:-/var/run/docker.sock}"
+
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*) HOST_IS_WINDOWS='1' ;;
+  *)                    HOST_IS_WINDOWS='0' ;;
+esac
 NO_PROMPT="${NOMAD_NO_PROMPT:-0}"
 
 # A finished bundle is roughly 1 GB; the build needs headroom on top of that.
@@ -91,28 +96,72 @@ check_docker_available() {
   docker info > /dev/null 2>&1 ||
     die "The Docker daemon is not reachable. Start Docker and try again."
 
-  # The build starts further containers, and their bind mounts are resolved by
-  # the host daemon — so the socket has to be mountable, not merely reachable.
-  #
-  # Under Git Bash / MSYS / Cygwin there is no Unix socket to mount: Docker
-  # Desktop is reached over a named pipe, and MSYS rewrites the Unix-looking
-  # paths in every -v argument on the way to the CLI. Relaxing this check alone
-  # does not make the build work there; it just moves the failure somewhere less
-  # obvious. Say so plainly instead.
-  case "$(uname -s 2>/dev/null || echo unknown)" in
-    MINGW*|MSYS*|CYGWIN*)
-      die "This wrapper cannot run under Git Bash / MSYS: Docker Desktop exposes a
-   named pipe rather than a mountable Unix socket, and MSYS rewrites the bind-mount
-   paths the build depends on.
+  # Docker Desktop on Windows has no Unix socket to stat — it is reached over a
+  # named pipe, and the daemon resolves the literal string /var/run/docker.sock
+  # against its own Linux VM, where the socket does exist. So the filesystem test
+  # only means something where a socket file is what gets mounted.
+  if [[ "${HOST_IS_WINDOWS}" != '1' ]]; then
+    [[ -S "${DOCKER_SOCKET}" ]] ||
+      die "No Docker socket at ${DOCKER_SOCKET}. Set NOMAD_DOCKER_SOCKET if yours lives elsewhere."
+  fi
+}
 
-   Build from a WSL2 Linux distribution with Docker Desktop's WSL integration
-   enabled (where /var/run/docker.sock exists), or from a Linux or macOS machine.
-   The bundle produced is identical wherever it is built."
-      ;;
-  esac
+# Whether the daemon can actually see a host directory through a bind mount.
+#
+# Not a formality. Docker Desktop silently yields an EMPTY directory for a path
+# it does not share — removable and exFAT volumes among them — so a build whose
+# source or output lives there produces a hollow bundle that still passes its own
+# verification, because every check reads the same phantom directory. Detect it
+# up front by planting a marker and looking for it from inside a container.
+docker_can_mount() {
+  local dir="$1" marker=".nomad-mount-probe.$$" found=''
 
-  [[ -S "${DOCKER_SOCKET}" ]] ||
-    die "No Docker socket at ${DOCKER_SOCKET}. Set NOMAD_DOCKER_SOCKET if yours lives elsewhere."
+  : > "${dir}/${marker}" 2>/dev/null || return 1
+  found="$(MSYS_NO_PATHCONV=1 docker run --rm \
+    -v "$(host_mount_source "${dir}"):/probe:ro" \
+    "${BUILDER_IMAGE}" \
+    sh -c "[ -f '/probe/${marker}' ] && echo yes" 2>/dev/null || true)"
+  rm -f "${dir}/${marker}"
+
+  [[ "${found}" == 'yes' ]]
+}
+
+# The string the DAEMON needs in order to resolve a host directory. Under MSYS,
+# a POSIX path like /d/foo means nothing to Docker Desktop, so hand it the
+# Windows form; everywhere else the path is already what the daemon expects.
+host_mount_source() {
+  local dir="$1"
+  if [[ "${HOST_IS_WINDOWS}" == '1' ]]; then
+    cygpath -m "${dir}" 2>/dev/null || echo "${dir}"
+  else
+    echo "${dir}"
+  fi
+}
+
+# Where a host directory must live INSIDE the build container.
+#
+# The build starts further containers, and their bind mounts are resolved by the
+# host daemon — so a path has to mean the same thing in both places. On Linux
+# that is free: mount the host path at itself. On Windows it is not, because the
+# daemon speaks Windows paths and a Linux container cannot have a directory
+# called C:/Users. Docker Desktop bridges this by exposing host drives inside its
+# VM at /run/desktop/mnt/host/<drive>, and the daemon resolves that form too — so
+# mounting there makes the path identical from both sides.
+#
+# Without this the resolver container writes its .debs into a phantom directory
+# and the build fails with "no package index was produced", or worse, quietly
+# produces a bundle with nothing in it.
+daemon_identity_path() {
+  local dir="$1" win drive rest
+  if [[ "${HOST_IS_WINDOWS}" != '1' ]]; then
+    echo "${dir}"
+    return
+  fi
+
+  win="$(cygpath -m "${dir}" 2>/dev/null)" || { echo "${dir}"; return; }
+  drive="$(printf '%s' "${win:0:1}" | tr '[:upper:]' '[:lower:]')"
+  rest="${win:2}"
+  echo "/run/desktop/mnt/host/${drive}${rest}"
 }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -358,6 +407,84 @@ fi
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
+# A destination the daemon cannot mount is still a perfectly good place to PUT a
+# finished bundle — the host can write there even when Docker cannot read there.
+# Removable and exFAT volumes are the common case, and carrying the bundle away
+# on one is the entire point of this tool. So build somewhere mountable and copy
+# the result to where it was asked for, rather than refusing.
+STAGING_ROOT=''
+staged_output=''
+
+cleanup_staging() {
+  [[ -n "${STAGING_ROOT}" && -d "${STAGING_ROOT}" ]] && rm -rf "${STAGING_ROOT}"
+}
+trap cleanup_staging EXIT
+
+ensure_staging_root() {
+  [[ -z "${STAGING_ROOT}" ]] || return 0
+
+  STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nomad-bundle-staging.XXXXXX")" ||
+    die "Could not create a staging directory."
+
+  docker_can_mount "${STAGING_ROOT}" || die "\
+Docker cannot bind-mount the staging directory ${STAGING_ROOT} either.
+
+   Docker Desktop shares only fixed drives by default. Set TMPDIR to a directory
+   on a shared drive, or add this drive under Docker Desktop → Settings →
+   Resources → File sharing."
+}
+
+# The daemon cannot read a checkout on an unshared volume — the build container
+# would see an empty directory and produce a hollow bundle that still passes its
+# own verification, because every check reads the same phantom path. Copy the
+# source somewhere mountable and build from the copy. The working tree is copied
+# as-is, uncommitted changes and .git included, so the bundle records the right
+# commit and carries exactly what is checked out.
+if ! docker_can_mount "${REPO_ROOT}"; then
+  ensure_staging_root
+  log "Docker cannot mount ${REPO_ROOT} (removable or unshared drive)."
+  log "Copying the checkout to ${STAGING_ROOT}/src to build from..."
+
+  mkdir -p "${STAGING_ROOT}/src" || die "Could not create the source staging directory."
+  tar -cf - -C "${REPO_ROOT}" \
+    --exclude='./admin/node_modules' \
+    --exclude='./admin/node_modules_stale_delete_me' \
+    --exclude='./node_modules' \
+    --exclude='./dist' \
+    . | tar -xf - -C "${STAGING_ROOT}/src" ||
+    die "Could not copy the checkout to ${STAGING_ROOT}/src."
+
+  REPO_ROOT="${STAGING_ROOT}/src"
+  mount_paths[0]="${REPO_ROOT}"
+  # A --repo the caller passed explicitly pointed at the same unusable volume.
+  for i in "${!passthrough_args[@]}"; do
+    [[ "${passthrough_args[$i]}" == '--repo' ]] || continue
+    passthrough_args[$((i + 1))]="${REPO_ROOT}"
+    break
+  done
+fi
+
+# A destination the daemon cannot mount is still a perfectly good place to PUT a
+# finished bundle — the host can write there even when Docker cannot read there.
+# Removable volumes are the common case, and carrying the bundle away on one is
+# the entire point of this tool. So build somewhere mountable and copy across.
+if ! docker_can_mount "${output_dir}"; then
+  ensure_staging_root
+  log "Docker cannot mount ${output_dir} (removable or unshared drive)."
+  log "Building into staging, then copying the finished bundle across."
+
+  staged_output="${STAGING_ROOT}/out"
+  mkdir -p "${staged_output}" || die "Could not create the output staging directory."
+
+  # Replace the --output already queued for the inner script.
+  for i in "${!passthrough_args[@]}"; do
+    [[ "${passthrough_args[$i]}" == '--output' ]] || continue
+    passthrough_args[$((i + 1))]="${staged_output}"
+    break
+  done
+  mount_paths[${#mount_paths[@]} - 1]="${staged_output}"
+fi
+
 # Sort shortest-first so an ancestor is always seen before anything nested
 # inside it, then skip paths an existing mount already covers.
 mount_args=()
@@ -373,7 +500,10 @@ while IFS= read -r path; do
   done
   [[ "${covered}" == 'false' ]] || continue
   mounted+=("${path}")
-  mount_args+=(-v "${path}:${path}")
+  # Source is what the daemon must resolve; target is the path the build (and
+  # every container it starts) will use, chosen so the daemon resolves it to the
+  # same directory. On Linux both are the host path.
+  mount_args+=(-v "$(host_mount_source "${path}"):$(daemon_identity_path "${path}")")
 done < <(printf '%s\n' "${mount_paths[@]}" | awk '{ print length, $0 }' | sort -n | cut -d' ' -f2-)
 
 log "Building in ${BUILDER_IMAGE} (host needs only Docker)..."
@@ -381,10 +511,23 @@ log "Bundle will be written to ${output_dir}"
 
 # git safe.directory is set because the checkout is owned by the host user, not
 # by root inside the container.
-docker run --rm \
+# MSYS_NO_PATHCONV stops Git Bash rewriting the Unix-looking paths in -v and -w
+# into Windows ones. The mount SOURCES are converted deliberately above; the
+# targets, the socket path and the working directory must survive verbatim.
+# Every path the inner script receives has to be the in-container form, since
+# it both reads them directly and hands them to nested containers.
+for i in "${!passthrough_args[@]}"; do
+  case "${passthrough_args[$i]}" in
+    --output|--repo|--content-dir|--extra-image-list|--extra-image-archive)
+      passthrough_args[$((i + 1))]="$(daemon_identity_path "${passthrough_args[$((i + 1))]}")"
+      ;;
+  esac
+done
+
+MSYS_NO_PATHCONV=1 docker run --rm \
   -v "${DOCKER_SOCKET}:/var/run/docker.sock" \
   "${mount_args[@]}" \
-  -w "${REPO_ROOT}" \
+  -w "$(daemon_identity_path "${REPO_ROOT}")" \
   "${BUILDER_IMAGE}" \
   sh -c '
     set -e
@@ -392,6 +535,12 @@ docker run --rm \
     git config --global --add safe.directory "*"
     exec bash install/build_offline_bundle.sh "$@"
   ' sh "${passthrough_args[@]}"
+
+if [[ -n "${staged_output}" ]]; then
+  log "Copying the finished bundle to ${output_dir}..."
+  cp -R "${staged_output}"/. "${output_dir}/" ||
+    die "The bundle built successfully but could not be copied to ${output_dir}."
+fi
 
 echo ''
 echo -e "${GREEN}#${RESET} Done. The bundle is in ${output_dir}"

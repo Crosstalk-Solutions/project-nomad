@@ -70,13 +70,31 @@ coreutils is required on the host, and the machine does not need to resemble the
 target: the package closure is resolved inside a container of the target
 distribution, so any build machine produces the same bundle.
 
-**Build from Linux, macOS, or WSL2.** The builder mounts the Docker socket and
-the working directories into its container, which needs a real Unix socket and
-un-rewritten paths. Windows *native* shells — Git Bash, MSYS, Cygwin — cannot
-provide either: Docker Desktop is reached over a named pipe, and MSYS rewrites
-the Unix-looking paths in every `-v` argument. The wrapper detects this and says
-so rather than failing obscurely part-way through. On Windows, build from a WSL2
-distribution with Docker Desktop's WSL integration enabled.
+Linux, macOS, WSL2 and Windows Git Bash all work. On Windows the wrapper hands
+the daemon Windows-form mount sources and mounts them inside the build container
+at `/run/desktop/mnt/host/<drive>/…`, the path Docker Desktop's VM resolves to
+the same directory — the build starts further containers, and their bind mounts
+are resolved by the host daemon, so a path has to mean the same thing on both
+sides.
+
+### Building from, or onto, a drive Docker cannot share
+
+Docker Desktop shares fixed drives; removable and exFAT volumes usually read as
+an **empty** directory rather than failing, which would otherwise yield a bundle
+that builds, passes its own verification, and contains nothing.
+
+The builder probes each directory up front and works around what it finds:
+
+- **Checkout on an unshared drive** — the working tree is copied to a mountable
+  staging directory and built from there, `.git` and uncommitted changes
+  included, so the manifest still records the right commit.
+- **`--output` on an unshared drive** — the bundle is built in staging and then
+  copied across with ordinary file I/O, which removable media accepts perfectly
+  well. Writing a bundle straight to the USB stick it will travel on is the
+  normal case and is fully supported.
+- **Neither mountable** — one clear error naming the fix, before any work starts.
+
+Set `TMPDIR` if the default staging location is itself on an unshared volume.
 
 ```bash
 git clone https://github.com/Crosstalk-Solutions/project-nomad.git
