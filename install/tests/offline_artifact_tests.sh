@@ -610,7 +610,22 @@ if [[ -f "${DOCKER_WRAPPER}" ]]; then
 
   assert_contains "${wrapper_src}" '${DOCKER_SOCKET}:/var/run/docker.sock' \
     'wrapper mounts the Docker socket so nested builds reach the host daemon'
-  assert_contains "${wrapper_src}" '-v "${path}:${path}"' \
+  # The invariant is that a path means the same thing to the build container and
+  # to the host daemon, since the build starts further containers whose bind
+  # mounts the daemon resolves. On Linux that is literally the same string; on
+  # Docker Desktop the container side becomes /run/desktop/mnt/host/<drive>/…,
+  # which the daemon resolves to the same directory. Assert the behaviour of the
+  # two helpers rather than a fixed mount line, so the Windows support does not
+  # have to look like the Linux case to be correct.
+  assert_contains "${wrapper_src}" 'host_mount_source "${path}"):$(daemon_identity_path "${path}")' \
+    'wrapper builds mounts from the daemon-source and container-path helpers'
+
+  wrapper_helpers="$(sed -n '/^host_mount_source() {/,/^}/p;/^daemon_identity_path() {/,/^}/p' "${DOCKER_WRAPPER}")"
+  identity_probe="$(HOST_IS_WINDOWS='0' bash -c "
+    ${wrapper_helpers}
+    printf '%s|%s' \"\$(host_mount_source /srv/nomad)\" \"\$(daemon_identity_path /srv/nomad)\"
+  ")"
+  assert_eq "${identity_probe}" '/srv/nomad|/srv/nomad' \
     'wrapper mounts host paths at identical locations inside the container'
   assert_contains "${wrapper_src}" 'exec bash install/build_offline_bundle.sh "$@"' \
     'wrapper delegates to the real builder with arguments passed through'

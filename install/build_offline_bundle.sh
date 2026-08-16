@@ -478,6 +478,34 @@ acquire_image() {
 # tree it was built from — which makes an admin-side change impossible to test on
 # an air-gapped target. The image reference is read from the compose file rather
 # than hardcoded so a fork's own tag is honoured.
+# docker save straight into the bundle, then copy the finished archive in.
+#
+# The bundle directory is a bind mount of the host, and on Docker Desktop that is
+# virtiofs. Writing a multi-GB archive through it fails with "cannot allocate
+# memory" — the daemon buffers far more than the mount can absorb. Saving to the
+# VM's own disk first keeps that write local, and the copy afterwards streams in
+# ordinary chunks the mount handles fine. Matters most with --build-admin, where
+# a locally built Command Center is several times the size of the published one.
+save_images_archive() {
+  local dest="$1"
+  shift
+
+  local tmp
+  tmp="$(mktemp -d)" || die "Could not create a temporary directory for docker save."
+
+  if ! docker save -o "${tmp}/images.tar" "$@"; then
+    rm -rf "${tmp}"
+    die "docker save failed."
+  fi
+
+  if ! cp "${tmp}/images.tar" "${dest}"; then
+    rm -rf "${tmp}"
+    die "Could not copy the image archive into the bundle at ${dest}."
+  fi
+
+  rm -rf "${tmp}"
+}
+
 build_admin_image() {
   [[ "${BUILD_ADMIN}" == '1' ]] || return 0
 
@@ -525,8 +553,7 @@ discover_and_save_images() {
   done
 
   log "Saving ${#images[@]} image(s) to images/core-images.tar..."
-  docker save -o "${BUNDLE_DIR}/images/core-images.tar" "${images[@]}" ||
-    die "docker save failed."
+  save_images_archive "${BUNDLE_DIR}/images/core-images.tar" "${images[@]}"
 
   {
     printf 'IMAGE\tID\tREPO_DIGESTS\n'
@@ -655,8 +682,7 @@ bundle_app_images() {
   done
 
   printf '%s\n' "${images[@]}" > "${BUNDLE_DIR}/images/app-images.txt"
-  docker save -o "${BUNDLE_DIR}/images/app-images.tar" "${images[@]}" ||
-    die "Failed to save app images."
+  save_images_archive "${BUNDLE_DIR}/images/app-images.tar" "${images[@]}"
 
   ok "Saved ${#images[@]} app image(s)."
 
