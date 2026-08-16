@@ -54,6 +54,7 @@ EXTRA_IMAGE_ARCHIVE=''
 CONTENT_DIR=''
 WITH_APPS=''
 LIST_APPS='0'
+USE_LOCAL_IMAGES='0'
 
 # Supply Depot apps whose images are worth carrying by default: broadly useful,
 # and modest in size compared with the AI/education stack.
@@ -107,6 +108,12 @@ Options:
                                useful starter set, or "all". Adds significant
                                size — see --list-apps.
   --list-apps                  Print the installable app names and exit
+  --use-local-images           Skip the registry pull for any image already
+                               present in the local Docker daemon. Lets a bundle
+                               carry an image built from this checkout (e.g. an
+                               unreleased Command Center) instead of the
+                               published tag. Images that are NOT local are
+                               still pulled as usual.
   --without-nvidia-toolkit     Omit the NVIDIA Container Toolkit packages
   --extra-image-list FILE      Also pull and bundle the image references in FILE
   --extra-image-archive FILE   Copy an existing docker-save archive into the
@@ -173,6 +180,9 @@ parse_args() {
         [[ $# -ge 2 ]] || die "--content-dir requires a directory."
         CONTENT_DIR="$2"
         shift
+        ;;
+      --use-local-images)
+        USE_LOCAL_IMAGES='1'
         ;;
       --archive)
         CREATE_ARCHIVE='1'
@@ -415,6 +425,31 @@ CONTAINER_SCRIPT
   ok "Local APT repository resolves offline."
 }
 
+# Make an image available locally so `docker save` can write it into the bundle.
+#
+# Normally that means pulling the published tag. With --use-local-images, an
+# image already in the daemon is taken as-is: the point is to bundle a Command
+# Center built from this checkout rather than the released
+# ghcr.io/crosstalk-solutions/project-nomad:latest that management_compose.yaml
+# pins, so unreleased changes can be tested on an air-gapped target. Images that
+# are not present locally are still pulled, so the flag never silently produces
+# a bundle with something missing.
+#
+# Deliberately narrow: it does not verify the local image resembles the tag it
+# claims. A bundle built this way carries whatever you built, which is the whole
+# point — and the reason it is opt-in rather than the default.
+acquire_image() {
+  local image="$1"
+
+  if [[ "${USE_LOCAL_IMAGES}" == '1' ]] && docker image inspect "${image}" >/dev/null 2>&1; then
+    log "Using local ${image} (not pulling)."
+    return 0
+  fi
+
+  log "Pulling ${image}..."
+  docker pull --platform "linux/${TARGET_ARCH}" "${image}"
+}
+
 discover_and_save_images() {
   local compose_file="${REPO_ROOT}/install/management_compose.yaml"
   local image_list="${BUNDLE_DIR}/images/core-images.txt"
@@ -440,8 +475,7 @@ discover_and_save_images() {
   [[ ${#images[@]} -gt 0 ]] || die "No images were discovered from ${compose_file}."
 
   for image in "${images[@]}"; do
-    log "Pulling ${image}..."
-    docker pull --platform "linux/${TARGET_ARCH}" "${image}" ||
+    acquire_image "${image}" ||
       die "Failed to pull ${image}. The build machine needs internet access and registry availability."
   done
 
@@ -550,9 +584,7 @@ bundle_app_images() {
 
   log "Bundling ${#images[@]} Supply Depot app image(s)..."
   for image in "${images[@]}"; do
-    log "Pulling ${image}"
-    docker pull --platform "linux/${TARGET_ARCH}" "${image}" ||
-      die "Failed to pull ${image}."
+    acquire_image "${image}" || die "Failed to pull ${image}."
   done
 
   printf '%s\n' "${images[@]}" > "${BUNDLE_DIR}/images/app-images.txt"
@@ -637,6 +669,7 @@ TARGET_OS=${TARGET_OS}
 TARGET_VERSION=${TARGET_VERSION}
 TARGET_ARCH=${TARGET_ARCH}
 WITH_NVIDIA_TOOLKIT=${WITH_NVIDIA}
+USED_LOCAL_IMAGES=${USE_LOCAL_IMAGES}
 CREATED_AT_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -646,7 +679,11 @@ Project NOMAD Offline Artifact Bundle
 
 NOMAD commit : ${NOMAD_COMMIT}
 Target       : ${TARGET_OS} ${TARGET_VERSION} (${TARGET_ARCH})
-
+$(if [[ "${USE_LOCAL_IMAGES}" == '1' ]]; then
+  printf '\nNOTE: Built with --use-local-images. One or more images came from the\n'
+  printf 'build machine rather than a registry, so this bundle may carry\n'
+  printf 'unreleased code. Not for distribution.\n'
+fi)
 Install on a matching, disconnected target:
 
   sudo bash ./install_nomad.sh --artifacts .

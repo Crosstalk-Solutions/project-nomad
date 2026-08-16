@@ -112,6 +112,7 @@ handing you a bundle that breaks in the field.
 | `--extra-image-archive FILE` | Include an existing `docker save` archive |
 | `--with-apps LIST` | Bundle Supply Depot app images (`default`, `all`, or a list) |
 | `--list-apps` | Print the installable app names and exit |
+| `--use-local-images` | Bundle images already in the local Docker daemon instead of pulling them |
 | `--content-dir DIR` | Include pre-staged NOMAD storage content |
 | `--archive` | Also produce a `.tar.gz` of the finished bundle |
 
@@ -140,6 +141,29 @@ filesystems. These are OS metadata rather than bundle content, so the builder
 removes them and excludes them from `SHA256SUMS`, and the installer ignores them
 when loading image archives. Without that, a `._core-images.tar` sidecar would
 both break checksum verification and be handed to `docker load`.
+
+### Testing an unreleased Command Center
+
+`management_compose.yaml` pins the published
+`ghcr.io/crosstalk-solutions/project-nomad:latest`, and the builder pulls it. A
+bundle therefore carries the *released* Command Center, not whatever is in your
+checkout — so a change to the admin application cannot be tested air-gapped
+until it ships in an image.
+
+`--use-local-images` closes that loop. Build the image from your checkout, tag it
+as the reference the compose file uses, then build the bundle:
+
+```bash
+docker build -t ghcr.io/crosstalk-solutions/project-nomad:latest .
+./install/build_offline_bundle_docker.sh --target ubuntu:26.04 --use-local-images
+```
+
+Any image already present in the daemon is taken as-is; anything missing is still
+pulled, so the flag can never quietly produce a bundle with a gap in it.
+
+Bundles built this way record `USED_LOCAL_IMAGES=1` in the manifest and carry a
+note in `README.txt`, because they may contain unreleased code and should not be
+distributed.
 
 ### Bundles are specific
 
@@ -250,6 +274,7 @@ TARGET_OS=ubuntu
 TARGET_VERSION=26.04
 TARGET_ARCH=amd64
 WITH_NVIDIA_TOOLKIT=1
+USED_LOCAL_IMAGES=0
 CREATED_AT_UTC=2026-08-14T16:00:00Z
 ```
 
