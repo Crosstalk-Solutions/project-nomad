@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
 import type { Stream } from 'openai/streaming.js'
 import { Ollama } from 'ollama'
-import { ThinkTagSplitter } from '../utils/think_stream.js'
+import { ThinkTagSplitter, normalizeNonStreamed } from '../utils/think_stream.js'
 import { readContextLength, readModelfileNumCtx } from '../utils/context_window.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -511,15 +511,25 @@ export class OllamaService {
       model: chatRequest.model,
       messages: chatRequest.messages,
       stream: false,
-      ...(chatRequest.think ? { think: chatRequest.think } : {}),
+      // Definedness, not truthiness: `think: false` has to reach Ollama, which
+      // otherwise leaves thinking ON for a capable model. Unset still sends
+      // nothing, so non-thinking models and other backends are unaffected.
+      ...(chatRequest.think !== undefined ? { think: chatRequest.think } : {}),
       ...(chatRequest.keepAlive !== undefined ? { keep_alive: chatRequest.keepAlive } : {}),
       options: this._nativeOptions(chatRequest),
     })
 
+    // A model can report reasoning on the structured field and still emit literal
+    // <think> tags in content; the splitter is a no-op on text that has none.
+    const split = normalizeNonStreamed(
+      response.message?.content ?? '',
+      response.message?.thinking ?? ''
+    )
+
     return {
       message: {
-        content: response.message?.content ?? '',
-        thinking: response.message?.thinking ?? undefined,
+        content: split.content,
+        thinking: split.thinking || undefined,
       },
       done: true,
       model: response.model,
@@ -540,12 +550,18 @@ export class OllamaService {
     const response = await this.openai.chat.completions.create(params, { signal: chatRequest.signal })
     const choice = response.choices[0]
 
+    // Ollama's OpenAI-compat endpoint (/v1) emits thinking as `reasoning`; its native
+    // shape uses `thinking`. Read both so thinking is never silently dropped (#1065).
+    // Backends that emit tags inline instead (LM Studio, llama.cpp) are handled by the split.
+    const split = normalizeNonStreamed(
+      choice.message.content ?? '',
+      (choice.message as any).thinking ?? (choice.message as any).reasoning ?? ''
+    )
+
     return {
       message: {
-        content: choice.message.content ?? '',
-        // Ollama's OpenAI-compat endpoint (/v1) emits thinking as `reasoning`; its native
-        // shape uses `thinking`. Read both so thinking is never silently dropped (#1065).
-        thinking: (choice.message as any).thinking ?? (choice.message as any).reasoning ?? undefined,
+        content: split.content,
+        thinking: split.thinking || undefined,
       },
       done: true,
       model: response.model,
@@ -575,7 +591,9 @@ export class OllamaService {
       model: chatRequest.model,
       messages: chatRequest.messages,
       stream: true,
-      ...(chatRequest.think ? { think: chatRequest.think } : {}),
+      // See _chatNative: `think: false` must be sent explicitly, or a thinking-capable
+      // model keeps reasoning regardless of the user's ai.autoThinking preference.
+      ...(chatRequest.think !== undefined ? { think: chatRequest.think } : {}),
       ...(chatRequest.keepAlive !== undefined ? { keep_alive: chatRequest.keepAlive } : {}),
       options: this._nativeOptions(chatRequest),
     })

@@ -1,6 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ThinkTagSplitter, partialTagSuffix, splitThinkTags } from '../../app/utils/think_stream.js'
+import {
+  ThinkTagSplitter,
+  normalizeNonStreamed,
+  partialTagSuffix,
+  splitThinkTags,
+} from '../../app/utils/think_stream.js'
 
 /**
  * Characterization tests for the <think> tag splitter extracted out of
@@ -94,4 +99,56 @@ test('splitThinkTags handles the non-streaming case', () => {
     thinking: 'why',
   })
   assert.deepEqual(splitThinkTags('no tags here'), { content: 'no tags here', thinking: '' })
+})
+
+// --- normalizeNonStreamed ----------------------------------------------------
+//
+// The non-streaming path feeds every ancillary call: chat titles, suggestion
+// chips, and — the one that matters — the query that gets embedded and sent to
+// Qdrant. Reasoning reaching any of those is the bug this exists to close.
+
+test('normalizeNonStreamed: inline tags are split out of content', () => {
+  assert.deepEqual(normalizeNonStreamed('<think>weighing it up</think>Boiling Water'), {
+    content: 'Boiling Water',
+    thinking: 'weighing it up',
+  })
+})
+
+test('normalizeNonStreamed: a structured thinking field passes through untouched', () => {
+  assert.deepEqual(normalizeNonStreamed('Boiling Water', 'weighing it up'), {
+    content: 'Boiling Water',
+    thinking: 'weighing it up',
+  })
+})
+
+test('normalizeNonStreamed: structured and inline reasoning merge into one channel', () => {
+  // Ollama reports reasoning natively AND the model emits literal tags in content.
+  assert.deepEqual(normalizeNonStreamed('<think>then this</think>Answer', 'first this '), {
+    content: 'Answer',
+    thinking: 'first this then this',
+  })
+})
+
+test('normalizeNonStreamed: reasoning truncated mid-thought leaves no content', () => {
+  // What a reasoning model does under QUERY_REWRITE_MAX_TOKENS: it spends the whole
+  // budget thinking and never closes the tag. Callers must treat this as "no answer"
+  // rather than embedding the empty string.
+  assert.deepEqual(normalizeNonStreamed('<think>still working on it'), {
+    content: '',
+    thinking: 'still working on it',
+  })
+})
+
+test('normalizeNonStreamed: text with no tags is passed through exactly', () => {
+  assert.deepEqual(normalizeNonStreamed('  How do I purify water?  '), {
+    content: '  How do I purify water?  ',
+    thinking: '',
+  })
+})
+
+test('normalizeNonStreamed: tolerates a missing content field', () => {
+  assert.deepEqual(normalizeNonStreamed(undefined as unknown as string), {
+    content: '',
+    thinking: '',
+  })
 })
