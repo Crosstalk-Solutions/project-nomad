@@ -26,6 +26,7 @@ import { randomBytes } from 'node:crypto'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
+import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
 
 @inject()
 export class DockerService {
@@ -810,7 +811,18 @@ export class DockerService {
         const flashAttentionEnabled = await KVStore.getValue('ai.ollamaFlashAttention')
         if (flashAttentionEnabled !== false) {
           ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
+          // KV cache quantization requires flash attention. q8_0 roughly halves the
+          // memory a context window costs for a perplexity delta in the noise, which is
+          // what makes an 8-16k window affordable on modest hardware. Ollama silently
+          // falls back to f16 on architectures that don't support it, so this is treated
+          // as headroom — the context-window resolver still budgets against f16.
+          ollamaEnv.push('OLLAMA_KV_CACHE_TYPE=q8_0')
         }
+        // Floor for any request that doesn't carry its own num_ctx (the OpenAI-compatible
+        // path can't set one at all). Ollama's own default is 4096 on machines under 24GB
+        // VRAM, and anything past the window is silently truncated with no error — so a
+        // conversation that outgrows it just quietly loses its early turns.
+        ollamaEnv.push(`OLLAMA_CONTEXT_LENGTH=${DEFAULT_OLLAMA_CONTEXT_LENGTH}`)
         if (amdGpuConfigured) {
           // gfx-aware HSA override — only set for cards that actually need it. See
           // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.

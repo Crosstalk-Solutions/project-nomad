@@ -70,6 +70,10 @@ export class EvalReportService {
       thinkTagLeakRate: agg.thinkTagLeakRate,
       markdownRate: agg.markdownRate,
       groundedness: agg.groundedness?.mean ?? null,
+      historyElidedRate: agg.historyElidedRate,
+      chunksDroppedRate: agg.chunksDroppedRate,
+      promptTokenError: agg.promptTokenError?.mean ?? null,
+      meanPromptTokens: agg.meanPromptTokens,
     })
     return {
       meta,

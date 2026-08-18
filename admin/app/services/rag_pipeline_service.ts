@@ -1,22 +1,24 @@
+import { ContextWindowService } from '#services/context_window_service'
 import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
+import { TokenCalibrationService } from '#services/token_calibration_service'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import {
   RAG_CONTEXT_LIMITS,
   RAG_DEFAULT_SCORE_THRESHOLD,
   RAG_DEFAULT_TOP_K,
+  RAG_PLACEMENT,
+  QUERY_REWRITE_MAX_TOKENS,
   SYSTEM_PROMPTS,
 } from '../../constants/ollama.js'
 import type { OllamaChatMessage } from '../../types/ollama.js'
 import type { PipelineOptions, PipelineTrace, RetrievedChunk } from '../../types/rag.js'
-import {
-  buildContextBlock,
-  deriveNumCtx,
-  getContextLimitsForModel,
-  trimToContextBudget,
-} from '../utils/rag_prompt.js'
+import { planPrompt } from '../utils/context_budget.js'
+import { estimateMessagesTokens } from '../utils/token_estimate.js'
+import { resolveTasksModel } from '../utils/tasks_model.js'
+import { buildContextBlock, getContextLimitsForModel } from '../utils/rag_prompt.js'
 
 /**
  * Everything that happens between "a user sent a message" and "a payload goes
@@ -37,7 +39,9 @@ export class RagPipelineService {
   constructor(
     private ollamaService: OllamaService,
     private ragService: RagService,
-    private nomadMdService: NomadMdService
+    private nomadMdService: NomadMdService,
+    private contextWindowService: ContextWindowService,
+    private tokenCalibration: TokenCalibrationService
   ) {}
 
   /**
@@ -51,13 +55,18 @@ export class RagPipelineService {
     model: string,
     opts: PipelineOptions = {}
   ): Promise<PipelineTrace> {
-    const working: OllamaChatMessage[] = [...messages]
+    // Split the caller's conversation into the pieces the budget planner needs.
+    // Caller-supplied system messages are treated as stable prefix material and
+    // stay in front of everything, as before.
+    const callerSystem = messages.filter((msg) => msg.role === 'system')
+    const conversation = messages.filter((msg) => msg.role !== 'system')
+
+    const systemBlocks: OllamaChatMessage[] = [...callerSystem]
 
     // Default formatting prompt, only when the caller supplied no system message.
-    const hasSystemMessage = working.some((msg) => msg.role === 'system')
-    if (!hasSystemMessage) {
+    if (callerSystem.length === 0) {
       logger.debug('[RagPipeline] Injecting system prompt')
-      working.unshift({ role: 'system', content: SYSTEM_PROMPTS.default })
+      systemBlocks.push({ role: 'system', content: SYSTEM_PROMPTS.default })
     }
 
     // The user-managed NOMAD.md goes in front of the formatting prompt so the
@@ -67,9 +76,22 @@ export class RagPipelineService {
       const nomadPrompt = await this.nomadMdService.getSystemPrompt()
       if (nomadPrompt) {
         logger.debug('[RagPipeline] Injecting NOMAD.md system prompt')
-        working.unshift({ role: 'system', content: nomadPrompt })
+        systemBlocks.unshift({ role: 'system', content: nomadPrompt })
       }
     }
+
+    // The current question is the last user message; everything before it is
+    // history. A conversation with no user message at all still has to produce a
+    // valid payload, so fall back to an empty question.
+    const lastUserIndex = conversation.map((m) => m.role).lastIndexOf('user')
+    const query: OllamaChatMessage =
+      lastUserIndex >= 0 ? conversation[lastUserIndex] : { role: 'user', content: '' }
+    const history = lastUserIndex >= 0 ? conversation.slice(0, lastUserIndex) : conversation
+
+    // Retrieval reads the conversation as the user wrote it — system prompts are
+    // deliberately excluded. They used to be inside the rewrite window, where
+    // they were transcribed as "Assistant" turns and polluted the rewritten query.
+    const working: OllamaChatMessage[] = [...systemBlocks, ...conversation]
 
     const trace: PipelineTrace = {
       rewrittenQuery: null,
@@ -78,6 +100,7 @@ export class RagPipelineService {
       injected: [],
       messages: working,
       numCtx: undefined,
+      numPredict: undefined,
       contextLimits: { maxResults: RAG_DEFAULT_TOP_K, maxTokens: 0 },
       timings: { rewriteMs: 0, retrievalMs: 0 },
     }
@@ -96,15 +119,19 @@ export class RagPipelineService {
       logger.debug('[RagPipeline] Retrieval disabled by setting, skipping')
     } else {
       const rewriteStart = Date.now()
-      const { query, didRewrite } = await this.resolveRetrievalQuery(working, model, opts)
+      const { query: retrievalQuery, didRewrite } = await this.resolveRetrievalQuery(
+        conversation,
+        model,
+        opts
+      )
       trace.timings.rewriteMs = Date.now() - rewriteStart
-      trace.rewrittenQuery = query
+      trace.rewrittenQuery = retrievalQuery
       trace.didRewrite = didRewrite
 
-      if (query) {
+      if (retrievalQuery) {
         const retrievalStart = Date.now()
         relevantDocs = await this.ragService.searchSimilarDocuments(
-          query,
+          retrievalQuery,
           opts.topK ?? RAG_DEFAULT_TOP_K,
           opts.scoreThreshold ?? RAG_DEFAULT_SCORE_THRESHOLD,
           opts.collection
@@ -112,36 +139,52 @@ export class RagPipelineService {
         trace.timings.retrievalMs = Date.now() - retrievalStart
         trace.retrieved = relevantDocs
         logger.debug(
-          `[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${query}"`
+          `[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${retrievalQuery}"`
         )
       }
     }
 
-    // --- Context trimming + injection -------------------------------------
-    if (relevantDocs.length > 0) {
-      const limits = getContextLimitsForModel(model, RAG_CONTEXT_LIMITS)
-      trace.contextLimits = limits
-      const trimmedDocs = trimToContextBudget(relevantDocs, limits)
-      trace.injected = trimmedDocs
+    // --- Budgeted assembly -------------------------------------------------
+    //
+    // Everything above decided *what* is available; this decides what fits. The
+    // model-size tier still caps how many chunks a small model is asked to read
+    // (a 1B model does not get better answers from five chunks), and the budget
+    // planner then enforces the hard token limit on top of that.
+    const modelInfo = await this.ollamaService.getModelInfo(model).catch(() => undefined)
+    const limits = getContextLimitsForModel(model, RAG_CONTEXT_LIMITS, modelInfo?.parameterSize)
+    trace.contextLimits = limits
+    const candidateDocs = relevantDocs.slice(0, limits.maxResults)
 
-      logger.debug(
-        `[RAG] Injecting ${trimmedDocs.length}/${relevantDocs.length} results (model: ${model}, maxResults: ${limits.maxResults}, maxTokens: ${limits.maxTokens || 'unlimited'})`
+    const contextWindow = await this.contextWindowService.windowFor(model)
+    const ratio = await this.tokenCalibration.ratioFor(model)
+
+    const plan = planPrompt({
+      systemBlocks,
+      history,
+      query,
+      ragChunks: candidateDocs,
+      renderRagBlock: (chunks) =>
+        SYSTEM_PROMPTS.rag_context(buildContextBlock(chunks as RetrievedChunk[])),
+      contextWindow,
+      ratio,
+      ragPlacement: opts.ragPlacement ?? RAG_PLACEMENT,
+    })
+
+    trace.messages = plan.messages as OllamaChatMessage[]
+    trace.injected = candidateDocs.slice(0, plan.trace.chunksKept)
+    trace.budget = plan.trace
+    trace.numCtx = contextWindow
+    trace.numPredict = plan.numPredict
+    // Recorded uncalibrated so TokenCalibrationService can compare like with like;
+    // applying the ratio here and again there would make the EWMA chase itself.
+    trace.uncalibratedPromptTokens = estimateMessagesTokens(plan.messages, 1)
+
+    if (plan.trace.turnsDropped > 0 || plan.trace.chunksDropped > 0 || plan.trace.queryTruncated) {
+      logger.info(
+        `[RagPipeline] Budget for ${model}: ${plan.trace.estimatedPromptTokens}/${plan.trace.promptBudget} tokens ` +
+          `(window ${contextWindow}); dropped ${plan.trace.turnsDropped} turn(s), ` +
+          `${plan.trace.chunksDropped} chunk(s)${plan.trace.queryTruncated ? ', truncated the question' : ''}`
       )
-
-      const systemMessage: OllamaChatMessage = {
-        role: 'system',
-        content: SYSTEM_PROMPTS.rag_context(buildContextBlock(trimmedDocs)),
-      }
-
-      // After any existing system messages, before the first non-system message.
-      const firstNonSystemIndex = working.findIndex((msg) => msg.role !== 'system')
-      const insertIndex = firstNonSystemIndex === -1 ? 0 : firstNonSystemIndex
-      working.splice(insertIndex, 0, systemMessage)
-    }
-
-    trace.numCtx = deriveNumCtx(working)
-    if (trace.numCtx) {
-      logger.debug(`[RagPipeline] Large system prompt, requesting num_ctx: ${trace.numCtx}`)
     }
 
     return trace
@@ -173,10 +216,11 @@ export class RagPipelineService {
 
       // Last 6 messages ≈ 3 turns.
       //
-      // PRESERVED QUIRK: this slice is taken *after* system messages have been
-      // unshifted, so on short conversations the system prompts land inside the
-      // window and get labelled "Assistant" in the transcript below. Faithful
-      // to the original; a candidate fix once the harness can measure it.
+      // The caller now passes the conversation *without* system messages, so the
+      // window can no longer scoop up system prompts and transcribe them as
+      // "Assistant" turns — which is what the previous slice did on short
+      // conversations, feeding the rewriter the formatting rules as if the model
+      // had said them.
       const recentMessages = messages.slice(-6)
 
       // Skip rewriting on the very first turn — with only one user message there
@@ -202,8 +246,17 @@ export class RagPipelineService {
         })
         .join('\n')
 
+      // Route to the tasks model when one is configured. This is the ancillary
+      // call that actually costs something: it runs every turn, before the
+      // answer, and it sends a prompt that shares no prefix with the chat. On a
+      // single-slot Ollama (OLLAMA_NUM_PARALLEL=1, the default) running it on the
+      // chat model evicts that model's cached prefix, so the conversation is
+      // re-prefilled from scratch on every turn no matter how stable we keep the
+      // ordering. A small dedicated model keeps the chat model's cache intact.
+      const rewriteModel = (await resolveTasksModel(this.ollamaService, model, undefined, '[RAG]')) ?? model
+
       const response = await this.ollamaService.chat({
-        model,
+        model: rewriteModel,
         messages: [
           { role: 'system', content: SYSTEM_PROMPTS.query_rewrite },
           {
@@ -211,6 +264,11 @@ export class RagPipelineService {
             content: `Conversation:\n${conversationContext}\n\nRewritten Query:`,
           },
         ],
+        // A rewrite is a short, mechanical transformation. Cap it so a chatty
+        // small model can't spend a thousand tokens restating the question, and
+        // pin the sampler so the same conversation rewrites the same way.
+        numPredict: QUERY_REWRITE_MAX_TOKENS,
+        temperature: 0,
       })
 
       const rewrittenQuery = response.message.content.trim()

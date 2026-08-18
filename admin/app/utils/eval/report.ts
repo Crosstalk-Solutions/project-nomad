@@ -82,6 +82,16 @@ export const METRIC_DIRECTIONS: Record<string, MetricDirection> = {
   thinkTagLeakRate: 'lower-is-better',
   markdownRate: 'higher-is-better',
   groundedness: 'higher-is-better',
+  // context budgeting
+  //
+  // These are diagnostics as much as gates. A rise in historyElidedRate means
+  // conversations are being trimmed more often, which explains a correctness
+  // drop that would otherwise look like the model getting worse. promptTokenError
+  // gates the token estimator itself: every budget decision rests on it, so a
+  // regression there quietly degrades everything downstream.
+  historyElidedRate: 'lower-is-better',
+  chunksDroppedRate: 'lower-is-better',
+  promptTokenError: 'lower-is-better',
 }
 
 export type MetricDelta = {

@@ -27,7 +27,9 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string }
+    /** Effective window per installed model, as resolved by ContextWindowService. */
+    resolvedContextWindows?: Record<string, number>
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -103,6 +105,7 @@ export default function ModelsPage(props: {
   const [autoThinking, setAutoThinking] = useState(props.models.settings.autoThinking)
   const [ragEnabled, setRagEnabled] = useState(props.models.settings.ragEnabled)
   const [tasksModel, setTasksModel] = useState(props.models.settings.tasksModel)
+  const [contextWindow, setContextWindow] = useState(props.models.settings.contextWindow)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
   )
@@ -248,6 +251,23 @@ export default function ModelsPage(props: {
   // A model can be deleted after being picked here. Surface the stale name as a
   // disabled option instead of letting the select silently render empty — the
   // backend already falls back to the chat model at call time.
+  // "Auto" sizes each model's window from its own trained context and what the
+  // hardware can afford. An explicit choice is a cap, never a boost — asking for
+  // more than a model or a GPU can support just degrades or fails to load.
+  const contextWindowOptions = [
+    { value: 'auto', label: 'Auto (recommended)' },
+    { value: '4096', label: '4K tokens' },
+    { value: '8192', label: '8K tokens' },
+    { value: '16384', label: '16K tokens' },
+    { value: '32768', label: '32K tokens' },
+    { value: '65536', label: '64K tokens' },
+    { value: '131072', label: '128K tokens' },
+  ]
+
+  const resolvedWindows = props.models.resolvedContextWindows ?? {}
+  const formatWindow = (tokens: number) =>
+    tokens >= 1024 ? `${Math.round(tokens / 1024)}K` : String(tokens)
+
   const tasksModelOptions = [
     { value: '', label: 'Use the chat model' },
     ...props.models.installedModels.map((model) => ({ value: model.name, label: model.name })),
@@ -383,6 +403,26 @@ export default function ModelsPage(props: {
                   updateSettingMutation.mutate({ key: 'ai.tasksModel', value: newVal })
                 }}
               />
+              <Select
+                name="contextWindow"
+                label="Context Window"
+                helpText="How much conversation and knowledge-base context each reply can consider. Auto sizes this per model from its trained limit and your available memory. Choosing a value sets an upper limit — it can lower the window to save memory, but never raises it beyond what a model supports."
+                value={contextWindow}
+                options={contextWindowOptions}
+                onChange={(newVal) => {
+                  setContextWindow(newVal)
+                  updateSettingMutation.mutate({ key: 'ai.contextWindow', value: newVal })
+                }}
+              />
+              {Object.keys(resolvedWindows).length > 0 && (
+                <p className="text-xs text-text-muted">
+                  Currently in effect:{' '}
+                  {Object.entries(resolvedWindows)
+                    .map(([name, tokens]) => `${name} → ${formatWindow(tokens)}`)
+                    .join(', ')}
+                  . Changes take effect for new conversations.
+                </p>
+              )}
             </div>
           </div>
 

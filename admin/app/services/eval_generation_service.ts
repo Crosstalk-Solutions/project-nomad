@@ -1,5 +1,5 @@
 import { EvalCorpusService } from '#services/eval_corpus_service'
-import { OllamaService } from '#services/ollama_service'
+import { OllamaService, type NomadChatUsage } from '#services/ollama_service'
 import { RagPipelineService } from '#services/rag_pipeline_service'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
@@ -75,6 +75,27 @@ export type GenerationCaseResult = {
   groundedness: NumericSummary | null
   retrievedDocIds: string[]
   injectedChunks: number
+  /**
+   * What the budget planner did with the window on this case.
+   *
+   * Without this a low score is ambiguous: it could mean the model answered
+   * badly, or it could mean the model never saw the material because the
+   * relevant turns were evicted. These fields tell the two apart.
+   */
+  budget?: {
+    contextWindow: number
+    estimatedPromptTokens: number
+    promptBudget: number
+    turnsDropped: number
+    chunksDropped: number
+    historyElided: boolean
+    queryTruncated: boolean
+  }
+  /**
+   * Estimated vs. the backend's real prompt token count. The estimator is the
+   * foundation every budget decision rests on, so its error is worth gating on.
+   */
+  promptTokenError?: number
   /** Non-null only when something went wrong talking to the model. */
   error?: string
 }
@@ -91,6 +112,13 @@ export type GenerationAggregate = {
   markdownRate: number | null
   groundedness: NumericSummary | null
   meanAnswerLength: number | null
+  /** Share of cases where history had to be trimmed to fit the window. */
+  historyElidedRate: number | null
+  /** Share of cases where a retrieved chunk didn't fit the context budget. */
+  chunksDroppedRate: number | null
+  /** Mean absolute error of the token estimator against real prompt counts. */
+  promptTokenError: NumericSummary | null
+  meanPromptTokens: number | null
 }
 
 export type GenerationRunResult = {
@@ -228,6 +256,8 @@ export class EvalGenerationService {
     const scores: GenerationScores[] = []
     let retrievedDocIds: string[] = []
     let injectedChunks = 0
+    let budget: GenerationCaseResult['budget']
+    let promptTokenError: number | undefined
     let error: string | undefined
 
     for (let attempt = 0; attempt < repeats; attempt++) {
@@ -236,10 +266,31 @@ export class EvalGenerationService {
         retrievedDocIds = uniqueDocIds(trace.retrieved)
         injectedChunks = trace.injected.length
         const context = trace.injected.map((c) => c.text).join('\n\n')
+        if (trace.budget) {
+          budget = {
+            contextWindow: trace.budget.contextWindow,
+            estimatedPromptTokens: trace.budget.estimatedPromptTokens,
+            promptBudget: trace.budget.promptBudget,
+            turnsDropped: trace.budget.turnsDropped,
+            chunksDropped: trace.budget.chunksDropped,
+            historyElided: trace.budget.historyElided,
+            queryTruncated: trace.budget.queryTruncated,
+          }
+        }
 
-        const answer = isMock
-          ? mockAnswer(context)
-          : await this.generate(options.model, trace.messages, trace.numCtx)
+        const generated = isMock
+          ? { answer: mockAnswer(context), usage: undefined }
+          : await this.generate(options.model, trace.messages, trace.numCtx, trace.numPredict)
+        const answer = generated.answer
+
+        // The backend just reported the prompt's real token count. Comparing it
+        // to the estimate is the only way to know whether the budget above was
+        // built on a number worth trusting.
+        if (generated.usage?.promptTokens && trace.uncalibratedPromptTokens) {
+          promptTokenError =
+            Math.abs(generated.usage.promptTokens - trace.uncalibratedPromptTokens) /
+            generated.usage.promptTokens
+        }
 
         answers.push(answer)
         scores.push(
@@ -269,19 +320,27 @@ export class EvalGenerationService {
       groundedness: summarizeNumeric(scores.map((s) => s.numericGroundedness)),
       retrievedDocIds,
       injectedChunks,
+      budget,
+      promptTokenError,
       error,
     }
   }
 
-  private async generate(model: string, messages: OllamaChatMessage[], numCtx?: number): Promise<string> {
+  private async generate(
+    model: string,
+    messages: OllamaChatMessage[],
+    numCtx?: number,
+    numPredict?: number
+  ): Promise<{ answer: string; usage?: NomadChatUsage }> {
     const response = await this.ollamaService.chat({
       model,
       messages,
       numCtx,
+      numPredict,
       temperature: EVAL_TEMPERATURE,
       seed: EVAL_SEED,
     })
-    return response.message.content.trim()
+    return { answer: response.message.content.trim(), usage: response.usage }
   }
 }
 
@@ -333,6 +392,17 @@ export function aggregateGeneration(cases: GenerationCaseResult[]): GenerationAg
     markdownRate: rate(allScores.map((s) => s.markdownFormatted)),
     groundedness: summarizeNumeric(allScores.map((s) => s.numericGroundedness)),
     meanAnswerLength: allScores.length === 0 ? null : mean(allScores.map((s) => s.length)),
+    historyElidedRate: rate(cases.filter((c) => c.budget).map((c) => c.budget!.historyElided)),
+    chunksDroppedRate: rate(cases.filter((c) => c.budget).map((c) => c.budget!.chunksDropped > 0)),
+    promptTokenError: summarizeNumeric(
+      cases.map((c) => c.promptTokenError).filter((e): e is number => e !== undefined)
+    ),
+    meanPromptTokens: (() => {
+      const values = cases
+        .map((c) => c.budget?.estimatedPromptTokens)
+        .filter((v): v is number => v !== undefined)
+      return values.length === 0 ? null : mean(values)
+    })(),
   }
 }
 

@@ -1,4 +1,5 @@
 import type { OllamaChatMessage } from './ollama.js'
+import type { BudgetTrace, RagPlacement } from '../app/utils/context_budget.js'
 
 export type EmbedJobWithProgress = {
   jobId: string
@@ -94,6 +95,9 @@ export type PipelineOptions = {
    *  system prompts only. Set from the `rag.enabled` KV setting. Opt-out by
    *  design: the eval harness omits it and therefore always retrieves. */
   skipRetrieval?: boolean
+  /** Override where the retrieved-context block sits. Defaults to RAG_PLACEMENT;
+   *  the eval harness sets it explicitly to compare the two orderings. */
+  ragPlacement?: RagPlacement
 }
 
 /**
@@ -113,8 +117,18 @@ export type PipelineTrace = {
   /** The exact payload handed to Ollama. */
   messages: OllamaChatMessage[]
   numCtx: number | undefined
+  /** Generation cap, so the answer cannot run past the end of the window. */
+  numPredict: number | undefined
   contextLimits: { maxResults: number; maxTokens: number }
   timings: { rewriteMs: number; retrievalMs: number }
+  /**
+   * What the budget planner decided: how the window was spent and what was left
+   * out. Undefined only when planning was bypassed. The eval harness reads this
+   * to tell "the model answered badly" apart from "the model never saw it".
+   */
+  budget?: BudgetTrace
+  /** Uncalibrated prompt estimate, fed to TokenCalibrationService after the call. */
+  uncalibratedPromptTokens?: number
 }
 
 export type FileWarning =
