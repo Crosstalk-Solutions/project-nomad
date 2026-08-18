@@ -1,32 +1,20 @@
 /**
- * Pure prompt-budgeting helpers for the chat RAG pipeline.
+ * Pure helpers for shaping the retrieved-context block.
  *
  * These live here rather than in RagPipelineService so they can be exercised
  * under bare `node --experimental-strip-types` with no MySQL, Redis, Qdrant, or
  * Ollama — the same reason `kb_ratio_lookup.ts` is shaped this way. The service
  * supplies the config; everything below is a function of its arguments.
- */
-
-/**
- * Chars-per-token estimate used when budgeting the *prompt* (context trimming
- * and the num_ctx ladder).
  *
- * NOTE: RagService.CHAR_TO_TOKEN_RATIO is 2, not 3.5 — the two halves of the
- * system disagree about what a token costs, and RagService's own doc-comment
- * says 3. That divergence is real and known; reconciling it changes chunk size
- * and therefore retrieval results, so it is deliberately left alone here and
- * tracked as its own measured change rather than folded into a refactor.
+ * Token budgeting used to live here too, as a chars-per-token estimate feeding a
+ * `num_ctx` ladder. Both are gone: the estimate now comes from
+ * `token_estimate.ts` (calibrated against real token counts) and the allocation
+ * from `context_budget.ts`. The ladder in particular was dead code — it fed a
+ * `num_ctx` that the OpenAI-compatible endpoint silently discarded, so no chat
+ * ever ran at the window it computed.
  */
-export const PROMPT_CHARS_PER_TOKEN = 3.5
 
-/**
- * num_ctx is only requested once the system prompt is large enough to risk
- * overflowing Ollama's silent 2048 default. Below the trigger we send nothing
- * and inherit the server default.
- */
-export const NUM_CTX_TRIGGER_TOKENS = 3000
-export const NUM_CTX_RESPONSE_HEADROOM = 2048
-export const NUM_CTX_LADDER = [8192, 16384, 32768, 65536]
+import { parseParameterBillions } from './context_window.js'
 
 export type ContextLimits = { maxResults: number; maxTokens: number }
 export type ContextLimitTier = { maxParams: number; maxResults: number; maxTokens: number }
@@ -36,20 +24,21 @@ export type BudgetableChunk = { text: string; metadata?: Record<string, any> }
 export type BudgetableMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
 /**
- * Determine RAG context limits from the model size encoded in its name.
- * Parses size indicators like "1b", "3b", "8b", "70b".
+ * Determine RAG context limits from the model's parameter count.
  *
- * PRESERVED QUIRK: an unparseable model name is treated as 8B. That is a guess,
- * and for a name like "phi3" or a custom tag it can hand a small model far more
- * context than it can actually use. Faithful to the pre-extraction behaviour.
+ * `parameterSize` is Ollama's own `details.parameter_size` ("8.0B") and is the
+ * honest source. The model name is only a fallback: it used to be the *only*
+ * source, which meant a tag carrying no size — "phi3", "mistral-nemo", anything
+ * custom — was silently assumed to be 8B and handed far more context than a
+ * small model can actually use. When neither source knows, 8B remains the
+ * assumption, but now it is one made explicitly rather than by a failed regex.
  */
 export function getContextLimitsForModel(
   modelName: string,
-  tiers: readonly ContextLimitTier[]
+  tiers: readonly ContextLimitTier[],
+  parameterSize?: string
 ): ContextLimits {
-  // e.g. "llama3.2:3b", "qwen2.5:1.5b", "gemma:7b"
-  const sizeMatch = modelName.match(/(\d+\.?\d*)[bB]/)
-  const paramBillions = sizeMatch ? Number.parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
+  const paramBillions = parseParameterBillions(parameterSize, modelName) ?? 8
 
   for (const tier of tiers) {
     if (paramBillions <= tier.maxParams) {
@@ -58,29 +47,6 @@ export function getContextLimitsForModel(
   }
 
   return { maxResults: 5, maxTokens: 0 }
-}
-
-/**
- * Apply the model-size context budget: cap the result count, then cap total
- * characters.
- *
- * The first (most relevant) result is always kept — the token cap only gates
- * subsequent results, so a single oversized chunk never starves the model of
- * context entirely.
- */
-export function trimToContextBudget<T extends BudgetableChunk>(
-  docs: T[],
-  limits: ContextLimits
-): T[] {
-  const byCount = docs.slice(0, limits.maxResults)
-  if (limits.maxTokens <= 0) return byCount
-
-  const charCap = limits.maxTokens * PROMPT_CHARS_PER_TOKEN
-  let totalChars = 0
-  return byCount.filter((doc, idx) => {
-    totalChars += doc.text.length
-    return idx === 0 || totalChars <= charCap
-  })
 }
 
 /**
@@ -100,24 +66,4 @@ export function buildContextBlock(docs: BudgetableChunk[]): string {
       return `${label}\n${doc.text}`
     })
     .join('\n\n')
-}
-
-/**
- * Request a context window big enough to hold the system messages, but only
- * once they are large enough to be at risk.
- *
- * Ollama respects num_ctx per request; LM Studio ignores it gracefully. Below
- * the trigger we send nothing and inherit the server default — which for Ollama
- * is a silent 2048.
- */
-export function deriveNumCtx(messages: BudgetableMessage[]): number | undefined {
-  const systemChars = messages
-    .filter((m) => m.role === 'system')
-    .reduce((sum, m) => sum + m.content.length, 0)
-  const estimatedSystemTokens = Math.ceil(systemChars / PROMPT_CHARS_PER_TOKEN)
-
-  if (estimatedSystemTokens <= NUM_CTX_TRIGGER_TOKENS) return undefined
-
-  const needed = estimatedSystemTokens + NUM_CTX_RESPONSE_HEADROOM
-  return NUM_CTX_LADDER.find((n) => n >= needed) ?? NUM_CTX_LADDER[NUM_CTX_LADDER.length - 1]
 }

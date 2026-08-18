@@ -1,5 +1,6 @@
 import KVStore from '#models/kv_store'
 import { BenchmarkService } from '#services/benchmark_service'
+import { ContextWindowService } from '#services/context_window_service'
 import { MapService } from '#services/map_service'
 import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
@@ -14,7 +15,8 @@ export default class SettingsController {
     private systemService: SystemService,
     private mapService: MapService,
     private benchmarkService: BenchmarkService,
-    private ollamaService: OllamaService
+    private ollamaService: OllamaService,
+    private contextWindowService: ContextWindowService
   ) {}
 
   async system({ inertia }: HttpContext) {
@@ -73,6 +75,20 @@ export default class SettingsController {
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const tasksModel = await KVStore.getValue('ai.tasksModel')
     const ragEnabled = await KVStore.getValue('rag.enabled')
+    const contextWindow = await KVStore.getValue('ai.contextWindow')
+    // Resolved window per installed model, so the setting shows what "Auto"
+    // actually produced rather than leaving the user to guess. Best-effort:
+    // a model whose metadata can't be read simply doesn't get a badge.
+    const resolvedContextWindows: Record<string, number> = {}
+    await Promise.all(
+      (installedModels || []).map(async (model) => {
+        try {
+          resolvedContextWindows[model.name] = await this.contextWindowService.windowFor(model.name)
+        } catch {
+          /* leave unset */
+        }
+      })
+    )
     return inertia.render('settings/models', {
       models: {
         availableModels: availableModels?.models || [],
@@ -85,7 +101,9 @@ export default class SettingsController {
           autoThinking: autoThinking ?? false,
           tasksModel: tasksModel ?? '',
           ragEnabled: ragEnabled ?? true,
+          contextWindow: contextWindow ?? 'auto',
         },
+        resolvedContextWindows,
       },
     })
   }

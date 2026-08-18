@@ -1,6 +1,7 @@
 import { ChatService } from '#services/chat_service'
 import { DockerService } from '#services/docker_service'
-import { OllamaService } from '#services/ollama_service'
+import { OllamaService, type NomadChatUsage } from '#services/ollama_service'
+import { TokenCalibrationService } from '#services/token_calibration_service'
 import { RagPipelineService } from '#services/rag_pipeline_service'
 import { RagService } from '#services/rag_service'
 import Service from '#models/service'
@@ -11,6 +12,8 @@ import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { DEFAULT_KEEP_ALIVE } from '../../constants/ollama.js'
+import type { PipelineTrace } from '../../types/rag.js'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
@@ -20,7 +23,8 @@ export default class OllamaController {
     private dockerService: DockerService,
     private ollamaService: OllamaService,
     private ragPipelineService: RagPipelineService,
-    private ragService: RagService
+    private ragService: RagService,
+    private tokenCalibration: TokenCalibrationService
   ) { }
 
   async availableModels({ request }: HttpContext) {
@@ -74,6 +78,11 @@ export default class OllamaController {
       })
       reqData.messages = trace.messages
       const numCtx = trace.numCtx
+      const numPredict = trace.numPredict
+      // Keeping the model resident is what makes the KV cache worth building:
+      // Ollama's default evicts after 5 minutes, which is well inside the time a
+      // user spends reading an answer and typing the next question.
+      const keepAlive = (await KVStore.getValue('ai.keepAlive')) || DEFAULT_KEEP_ALIVE
 
       // Check if the model supports "thinking" capability for enhanced response generation.
       // Thinking is only enabled when the model supports it AND the user wants it: the explicit
@@ -114,6 +123,8 @@ export default class OllamaController {
           think,
           thinkingCapable: thinkingCapability,
           numCtx,
+          numPredict,
+          keepAlive,
           signal: abortController.signal,
         })
         let fullContent = ''
@@ -121,6 +132,9 @@ export default class OllamaController {
           for await (const chunk of stream) {
             if (chunk.message?.content) {
               fullContent += chunk.message.content
+            }
+            if (chunk.usage) {
+              this._recordUsage(reqData.model, trace, chunk.usage)
             }
             response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
           }
@@ -147,7 +161,17 @@ export default class OllamaController {
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
+      const result = await this.ollamaService.chat({
+        ...ollamaRequest,
+        think,
+        thinkingCapable: thinkingCapability,
+        numCtx,
+        numPredict,
+        keepAlive,
+      })
+      if (result?.usage) {
+        this._recordUsage(reqData.model, trace, result.usage)
+      }
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
@@ -167,6 +191,35 @@ export default class OllamaController {
         return
       }
       throw error
+    }
+  }
+
+  /**
+   * Close the loop on token accounting.
+   *
+   * The backend just told us exactly how many tokens the prompt really was.
+   * Comparing that against what we estimated is what lets the estimator correct
+   * itself per model — free ground truth that used to be discarded. Also logs
+   * the prefill rate, which is the practical prefix-cache-hit signal: a reused
+   * KV prefix means many prompt tokens for very little prefill time.
+   *
+   * Best-effort throughout; a calibration failure must never affect the reply.
+   */
+  private _recordUsage(model: string, trace: PipelineTrace, usage: NomadChatUsage): void {
+    if (trace.uncalibratedPromptTokens && usage.promptTokens) {
+      this.tokenCalibration
+        .record(model, trace.uncalibratedPromptTokens, usage.promptTokens)
+        .catch((err) => {
+          logger.debug(`[OllamaController] Token calibration failed: ${err?.message ?? err}`)
+        })
+
+      if (usage.promptEvalMs !== undefined && usage.promptEvalMs > 0) {
+        const tokensPerMs = usage.promptTokens / usage.promptEvalMs
+        logger.debug(
+          `[OllamaController] Prefill: ${usage.promptTokens} tokens in ${usage.promptEvalMs.toFixed(0)}ms ` +
+            `(${tokensPerMs.toFixed(1)} tok/ms; a high rate means the KV prefix was reused)`
+        )
+      }
     }
   }
 
