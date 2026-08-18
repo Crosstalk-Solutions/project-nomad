@@ -65,6 +65,23 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
 export const EMBEDDING_MODEL_NAME = 'nomic-embed-text:v1.5'
 
 /**
+ * Server-side context floor set as `OLLAMA_CONTEXT_LENGTH` on the nomad_ollama
+ * container.
+ *
+ * Ollama defaults to 4096 tokens on machines under 24GB VRAM and silently
+ * truncates anything longer — no error, no warning, the model simply never sees
+ * the start of the conversation. This raises the floor for every request that
+ * can't carry its own `num_ctx`, which notably includes the whole
+ * OpenAI-compatible path (that endpoint has no context-size field at all).
+ *
+ * Deliberately conservative rather than clever: it is allocated at model load on
+ * whatever hardware NOMAD happens to be running, so it has to be affordable on a
+ * small box. Per-model, hardware-aware sizing happens per request via
+ * ContextWindowResolver, which can go well above this.
+ */
+export const DEFAULT_OLLAMA_CONTEXT_LENGTH = 8192
+
+/**
  * Adaptive RAG context limits based on model size.
  * Smaller models get overwhelmed with too much context, so we cap it.
  */
@@ -82,6 +99,60 @@ export const RAG_CONTEXT_LIMITS: { maxParams: number; maxResults: number; maxTok
  */
 export const RAG_DEFAULT_TOP_K = 5
 export const RAG_DEFAULT_SCORE_THRESHOLD = 0.3
+
+/**
+ * Where the per-turn retrieved-context block sits in the prompt.
+ *
+ * `tail` places it immediately before the current question, so
+ * [system][history] stays byte-identical from turn to turn and the backend can
+ * reuse its KV cache for the whole conversation. `front` is the historical
+ * placement — a system message ahead of all history — which changes content
+ * every turn and therefore invalidates the cached prefix behind it, making
+ * follow-ups progressively slower as the conversation grows.
+ *
+ * Measured on llama3:8b over a 14-turn conversation (~400-token retrieved block
+ * per turn), prefill time for the same prompt:
+ *
+ *     turn  1    front  214 ms    tail  214 ms
+ *     turn  7    front  347 ms    tail  225 ms
+ *     turn 14    front  539 ms    tail  231 ms
+ *
+ * front grows about 25 ms per turn; tail grows about 1 ms. By turn 14 that is
+ * 2.3x the time-to-first-token, and the gap keeps widening — the familiar
+ * "first answer fast, follow-ups get slower" complaint.
+ *
+ * Caveat worth knowing before trusting this: the saving is proportional to how
+ * much of the prompt is *stable*. With a very large retrieved block and a short
+ * history the block dominates, must be reprocessed either way, and the two
+ * placements measure the same. Tail placement never loses, but it only clearly
+ * wins once a conversation has accumulated history — which is exactly when
+ * responsiveness starts to matter.
+ *
+ * Both are kept so `eval:generation` can measure the answer-quality difference
+ * rather than the choice resting on the cache argument alone. Flip to 'front'
+ * to reproduce pre-change behaviour.
+ */
+export const RAG_PLACEMENT: 'tail' | 'front' = 'tail'
+
+/**
+ * Token cap on the query-rewrite call. A rewrite is one short sentence; the
+ * prompt already asks for under 150 words. Without a cap a small model can
+ * ramble, and every one of those tokens is latency the user waits through
+ * before retrieval even starts.
+ */
+export const QUERY_REWRITE_MAX_TOKENS = 120
+
+/**
+ * How long Ollama keeps a chat model — and its KV cache — resident after a
+ * request.
+ *
+ * Ollama's default is 5 minutes, which is comfortably shorter than the time a
+ * user spends reading an answer and typing a follow-up. Evicting in that gap
+ * throws away the cached prefix and forces a cold reload plus a full re-prefill
+ * on the next message, which is the single most obvious "why is it slow again?"
+ * moment in a conversation. Overridable via the `ai.keepAlive` setting.
+ */
+export const DEFAULT_KEEP_ALIVE = '15m'
 
 export const SYSTEM_PROMPTS = {
   default: `
