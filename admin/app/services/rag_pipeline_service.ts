@@ -255,6 +255,13 @@ export class RagPipelineService {
       // ordering. A small dedicated model keeps the chat model's cache intact.
       const rewriteModel = (await resolveTasksModel(this.ollamaService, model, undefined, '[RAG]')) ?? model
 
+      // A rewrite is a mechanical transformation, and QUERY_REWRITE_MAX_TOKENS is far
+      // too small a budget for a reasoning model to think and then answer — it would
+      // spend the whole cap thinking and get truncated with no query at all. Suppress
+      // reasoning at the source; `thinkingCapable` is what lets the compat transport
+      // send reasoning_effort:'none' instead of nothing. Memoized per model name.
+      const thinkingCapable = await this.ollamaService.checkModelHasThinking(rewriteModel)
+
       const response = await this.ollamaService.chat({
         model: rewriteModel,
         messages: [
@@ -269,9 +276,21 @@ export class RagPipelineService {
         // pin the sampler so the same conversation rewrites the same way.
         numPredict: QUERY_REWRITE_MAX_TOKENS,
         temperature: 0,
+        think: false,
+        thinkingCapable,
       })
 
       const rewrittenQuery = response.message.content.trim()
+      // Empty means the response was reasoning and nothing else (or was truncated
+      // mid-thought). Embedding an empty string would search the corpus for nothing
+      // and quietly poison retrieval for the rest of the conversation, so fall back
+      // to the raw message — the same shape as the first-turn skip above.
+      if (!rewrittenQuery) {
+        logger.warn(
+          `[RAG] Model "${rewriteModel}" produced no query text; falling back to the user message`
+        )
+        return { query: lastUserMessage?.content ?? null, didRewrite: false }
+      }
       logger.info(`[RAG] Query rewritten: "${rewrittenQuery}"`)
       return { query: rewrittenQuery, didRewrite: true }
     } catch (error) {
