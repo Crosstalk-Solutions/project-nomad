@@ -24,6 +24,9 @@ server.errorHandler(() => import('#exceptions/handler'))
  */
 server.use([
   () => import('#middleware/container_bindings_middleware'),
+  // Must precede @adonisjs/cors: it ends unmatched-origin preflights (#endPreFlight)
+  // before this middleware would ever see them, since origin: ['*'] never matches.
+  () => import('#middleware/maps_cors_middleware'),
   () => import('@adonisjs/cors/cors_middleware'),
   () => import('@adonisjs/vite/vite_middleware'),
   () => import('@adonisjs/inertia/inertia_middleware'),
