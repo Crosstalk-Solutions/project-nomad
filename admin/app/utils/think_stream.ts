@@ -103,3 +103,20 @@ export function splitThinkTags(raw: string): ThinkSplit {
     thinking: streamed.thinking + tail.thinking,
   }
 }
+
+/**
+ * Non-streaming counterpart to the merge the streaming normalizers do inline.
+ *
+ * A backend may report reasoning structurally (native `message.thinking`, or
+ * `reasoning` on the /v1 shim), inline as `<think>` tags, or both at once —
+ * and the ancillary calls (title, suggestions, query rewrite) all go through
+ * the non-streaming path. Without this the tags reached the sidebar title and,
+ * worse, the string that gets embedded and sent to Qdrant.
+ */
+export function normalizeNonStreamed(rawContent: string, nativeThinking?: string): ThinkSplit {
+  const split = splitThinkTags(rawContent ?? '')
+  return {
+    content: split.content,
+    thinking: (nativeThinking ?? '') + split.thinking,
+  }
+}
