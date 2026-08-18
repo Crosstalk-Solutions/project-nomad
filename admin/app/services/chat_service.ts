@@ -73,6 +73,12 @@ export class ChatService {
 
       const model = (await this.resolveTasksModel(chosen.name, models)) ?? chosen.name
 
+      // Suggestions are a formatting task, not a reasoning one. A reasoning tasks model
+      // would spend the whole response thinking and leave nothing to parse, so suppress
+      // it at the source; `thinkingCapable` is what lets the compat transport pick
+      // reasoning_effort:'none' rather than sending nothing. Memoized per model name.
+      const thinkingCapable = await this.ollamaService.checkModelHasThinking(model)
+
       const response = await this.ollamaService.chat({
         model,
         messages: [
@@ -82,6 +88,8 @@ export class ChatService {
           }
         ],
         stream: false,
+        think: false,
+        thinkingCapable,
       })
 
       if (response && response.message && response.message.content) {
@@ -112,6 +120,9 @@ export class ChatService {
 
         return filtered.map((s) => toTitleCase(s))
       } else {
+        // Empty content after the <think> split means the model produced reasoning and
+        // nothing else. Log it rather than silently returning no chips.
+        logger.warn(`[ChatService] Model "${model}" returned no usable suggestion text`)
         return []
       }
     } catch (error) {
@@ -268,6 +279,9 @@ export class ChatService {
       // configured rather than the chat model that just answered.
       const titleModel = (await this.resolveTasksModel(model)) ?? model
 
+      // Naming a chat needs no reasoning; see the note in getChatSuggestions.
+      const thinkingCapable = await this.ollamaService.checkModelHasThinking(titleModel)
+
       const response = await this.ollamaService.chat({
         model: titleModel,
         messages: [
@@ -275,10 +289,16 @@ export class ChatService {
           { role: 'user', content: userMessage },
           { role: 'assistant', content: assistantMessage },
         ],
+        think: false,
+        thinkingCapable,
       })
 
       title = response?.message?.content?.trim()
       if (!title) {
+        // Nothing left once reasoning was split out — fall back to the user's own words.
+        logger.warn(
+          `[ChatService] Model "${titleModel}" returned no usable title text; using the user message`
+        )
         title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
       }
 
