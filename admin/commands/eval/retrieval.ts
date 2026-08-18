@@ -28,6 +28,13 @@ export default class EvalRetrieval extends BaseCommand {
   @flags.boolean({ description: 'Also score the raw dense, reranked, and diversified orderings' })
   declare ablate: boolean
 
+  @flags.string({
+    description:
+      'Comma-separated golden suites to run, by filename without .jsonl (default: core). ' +
+      'Extra suites are opt-in so they cannot move the numbers a baseline was recorded against.',
+  })
+  declare suite: string
+
   @flags.string({ description: 'Only run goldens carrying this tag' })
   declare tag: string
 
@@ -58,7 +65,7 @@ export default class EvalRetrieval extends BaseCommand {
     try {
       const chunks = await retrievalService.assertCorpusReady()
       const fingerprint = await corpusService.fingerprint()
-      let goldens = await corpusService.loadGoldens()
+      let goldens = await corpusService.loadGoldens(this.suite ? this.suite.split(',').map((s) => s.trim()) : undefined)
 
       if (this.tag) {
         goldens = goldens.filter((g) => g.tags.includes(this.tag))

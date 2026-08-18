@@ -40,6 +40,12 @@ function makeFakes(opts: { nomadMd?: string | null } = {}) {
       calls.chat++
       return { message: { content: 'rewritten query' } }
     },
+    async getModelInfo() {
+      return { hasThinking: false, parameterSize: '8.0B' }
+    },
+    async getModels() {
+      return []
+    },
   }
 
   const nomadMdService = {
@@ -48,10 +54,26 @@ function makeFakes(opts: { nomadMd?: string | null } = {}) {
     },
   }
 
+  // A fixed window keeps these tests about the toggle rather than about
+  // hardware detection; the budget planner is covered by context_budget.spec.ts.
+  const contextWindowService = {
+    async windowFor() {
+      return 8192
+    },
+  }
+
+  const tokenCalibration = {
+    async ratioFor() {
+      return 1
+    },
+  }
+
   const service = new RagPipelineService(
     ollamaService as any,
     ragService as any,
-    nomadMdService as any
+    nomadMdService as any,
+    contextWindowService as any,
+    tokenCalibration as any
   )
 
   return { service, calls }

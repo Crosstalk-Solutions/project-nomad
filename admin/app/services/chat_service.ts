@@ -6,7 +6,8 @@ import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
-import { pickTasksModel, toTitleCase } from '../utils/misc.js'
+import { toTitleCase } from '../utils/misc.js'
+import { resolveTasksModel } from '../utils/tasks_model.js'
 
 @inject()
 export class ChatService {
@@ -26,42 +27,7 @@ export class ChatService {
     fallback: string | null,
     installed?: { name: string }[]
   ): Promise<string | null> {
-    let configured: string | null = null
-    try {
-      configured = await KVStore.getValue('ai.tasksModel')
-    } catch (error) {
-      logger.error(
-        `[ChatService] Failed to read ai.tasksModel: ${error instanceof Error ? error.message : error}`
-      )
-      return fallback
-    }
-    if (!configured?.trim()) {
-      return fallback
-    }
-
-    let models = installed
-    if (!models) {
-      try {
-        models = await this.ollamaService.getModels()
-      } catch (error) {
-        logger.error(
-          `[ChatService] Failed to list models while resolving the tasks model: ${error instanceof Error ? error.message : error}`
-        )
-        return fallback
-      }
-    }
-
-    const { model, staleConfigured } = pickTasksModel(
-      configured,
-      (models ?? []).map((m) => m.name),
-      fallback
-    )
-    if (staleConfigured) {
-      logger.warn(
-        `[ChatService] Configured tasks model "${staleConfigured}" is not installed; falling back to "${fallback ?? 'none'}"`
-      )
-    }
-    return model
+    return resolveTasksModel(this.ollamaService, fallback, installed, '[ChatService]')
   }
 
   async getAllSessions() {

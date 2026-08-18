@@ -48,6 +48,19 @@ export const KV_STORE_SCHEMA = {
   // whatever chat model the user last used. Unset/null keeps the previous
   // behaviour: titles use the chat model, suggestions use chat.lastModel.
   'ai.tasksModel':              'string',
+  // Learned per-model token-estimator corrections, as a JSON object keyed by
+  // model name ({"llama3:8b":1.02,"qwen2.5:0.5b":1.26}). One row rather than a
+  // key per model, since KVStoreKey is a closed union. Written by
+  // TokenCalibrationService from the `prompt_eval_count` every chat response
+  // already reports; safe to delete, it just re-learns.
+  'ai.tokenRatios':             'string',
+  // User cap on the chat context window, in tokens ("4096".."131072"), or
+  // "auto"/unset to let ContextWindowResolver size it from the model and the
+  // hardware. A cap only ever lowers the resolved value.
+  'ai.contextWindow':           'string',
+  // How long Ollama keeps a chat model (and its KV cache) resident after a
+  // request, in Ollama's duration format ("10m"). Unset inherits Ollama's 5m.
+  'ai.keepAlive':               'string',
   'ai.amdGpuAcceleration':      'boolean',
   'ai.amdHsaOverride':          'string',
   'ai.autoFixGpuPassthrough':   'boolean',

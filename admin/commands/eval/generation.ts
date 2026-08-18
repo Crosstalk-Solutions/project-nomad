@@ -39,6 +39,13 @@ export default class EvalGeneration extends BaseCommand {
   @flags.string({ description: 'Repeats per question, for stability (default: 3)' })
   declare repeats: string
 
+  @flags.string({
+    description:
+      'Comma-separated golden suites to run, by filename without .jsonl (default: core). ' +
+      'Extra suites are opt-in so they cannot move the numbers a baseline was recorded against.',
+  })
+  declare suite: string
+
   @flags.string({ description: 'Only run goldens carrying this tag' })
   declare tag: string
 
@@ -82,7 +89,7 @@ export default class EvalGeneration extends BaseCommand {
         }
       }
 
-      let goldens = await corpusService.loadGoldens()
+      let goldens = await corpusService.loadGoldens(this.suite ? this.suite.split(',').map((s) => s.trim()) : undefined)
       if (this.tag) goldens = goldens.filter((g) => g.tags.includes(this.tag))
       if (this.limit) goldens = goldens.slice(0, Number.parseInt(this.limit, 10))
       if (goldens.length === 0) {
@@ -161,6 +168,29 @@ export default class EvalGeneration extends BaseCommand {
     this.logger.info(
       `  mean answer length ${agg.meanAnswerLength === null ? 'n/a' : Math.round(agg.meanAnswerLength)} chars`
     )
+    // Context budgeting. These explain *why* a correctness number moved: an
+    // answer the model never had the material for is a different failure from
+    // an answer it got wrong, and only these two lines tell them apart.
+    if (agg.meanPromptTokens !== null) {
+      this.logger.info(`  mean prompt tokens ${Math.round(agg.meanPromptTokens)}`)
+    }
+    if (agg.historyElidedRate !== null) {
+      this.logger.info(
+        `  history elided     ${fmt(agg.historyElidedRate)}  (share of cases needing a trim)`
+      )
+    }
+    if (agg.chunksDroppedRate !== null) {
+      this.logger.info(
+        `  context dropped    ${fmt(agg.chunksDroppedRate)}  (share of cases where a chunk didn't fit)`
+      )
+    }
+    if (agg.promptTokenError) {
+      // Every budget decision rests on the estimate; if this drifts, the trims
+      // above are being made against a number that is no longer true.
+      this.logger.info(
+        `  token estimate err ${(agg.promptTokenError.mean * 100).toFixed(1)}%  (vs the backend's real count)`
+      )
+    }
     if (agg.unstable > 0) {
       this.logger.warning(
         `  ${agg.unstable} question(s) flipped between repeats — excluded from gating, do not read them as a regression.`

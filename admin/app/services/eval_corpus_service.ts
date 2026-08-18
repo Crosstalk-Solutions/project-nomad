@@ -17,6 +17,13 @@ import { EVAL_CORPUS_DIR } from '../utils/eval/corpus_source.js'
 /** Where the golden question set lives, relative to the app root. */
 export const EVAL_GOLDENS_DIR = 'tests/eval/goldens'
 
+/**
+ * The suite that runs when none is named — i.e. `core.jsonl`. Every other
+ * `.jsonl` in the goldens directory is opt-in via `--suite`, so adding one
+ * cannot move the numbers an existing baseline was recorded against.
+ */
+export const DEFAULT_GOLDEN_SUITE = 'core'
+
 // EVAL_CORPUS_DIR and docIdFromSource live in app/utils/eval/corpus_source.ts:
 // they are pure path logic, and keeping them out of this service is what lets
 // the leak guard be unit-tested without booting AdonisJS.
@@ -72,11 +79,34 @@ export class EvalCorpusService {
     )
   }
 
-  /** Load and validate every golden file, cross-checked against the corpus. */
-  async loadGoldens(): Promise<Golden[]> {
+  /**
+   * Load and validate golden files, cross-checked against the corpus.
+   *
+   * Each `.jsonl` in the goldens directory is a *suite*, named after the file.
+   * Only `core` loads by default. That matters for comparability: aggregate
+   * metrics are means over whatever ran, so silently adding goldens to the
+   * default set would move recall@k and correctness for reasons unrelated to any
+   * change under test, and quietly invalidate every committed baseline. Opting
+   * in keeps a suite's numbers separate until someone asks for them.
+   */
+  async loadGoldens(suites: string[] = [DEFAULT_GOLDEN_SUITE]): Promise<Golden[]> {
     const dir = resolve(join(process.cwd(), EVAL_GOLDENS_DIR))
-    const files = (await readdir(dir)).filter((f) => f.endsWith('.jsonl')).sort()
-    if (files.length === 0) throw new Error(`No golden files found in ${dir}`)
+    const available = (await readdir(dir)).filter((f) => f.endsWith('.jsonl')).sort()
+    if (available.length === 0) throw new Error(`No golden files found in ${dir}`)
+
+    // '*' loads every suite. Used by `eval:corpus`, which validates the fixtures
+    // rather than measuring anything — a malformed golden should fail validation
+    // whether or not its suite is part of the default run.
+    const wanted = new Set(suites)
+    const files = wanted.has('*')
+      ? available
+      : available.filter((f) => wanted.has(basename(f, '.jsonl')))
+    if (files.length === 0) {
+      throw new Error(
+        `No golden suites matched [${suites.join(', ')}]. Available: ` +
+          available.map((f) => basename(f, '.jsonl')).join(', ')
+      )
+    }
 
     const goldens: Golden[] = []
     const seen = new Set<string>()

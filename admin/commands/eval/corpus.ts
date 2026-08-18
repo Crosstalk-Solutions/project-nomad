@@ -75,7 +75,7 @@ export default class EvalCorpus extends BaseCommand {
     const [fingerprint, chunks, goldens] = await Promise.all([
       service.fingerprint(),
       service.count(),
-      service.loadGoldens(),
+      service.loadGoldens(['*']),
     ])
     this.logger.info(`Fingerprint:   ${fingerprint}`)
     this.logger.info(`Chunks in KB:  ${chunks}`)
@@ -93,7 +93,7 @@ export default class EvalCorpus extends BaseCommand {
   private async runCheck(service: any) {
     try {
       const corpus = await service.loadCorpus()
-      const goldens = await service.loadGoldens()
+      const goldens = await service.loadGoldens(['*'])
       const fingerprint = await service.fingerprint()
 
       const tagCounts = new Map<string, number>()
@@ -131,7 +131,7 @@ export default class EvalCorpus extends BaseCommand {
     this.logger.info('Rebuilding the eval corpus (user content is never touched)...')
     // Validate before destroying anything — a typo in a golden should not cost
     // you the ingest you were about to run.
-    await service.loadGoldens()
+    await service.loadGoldens(['*'])
 
     const summary = await service.ingest((docId: string, index: number, total: number) => {
       this.logger.info(`  [${index}/${total}] ${docId}`)

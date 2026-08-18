@@ -20,7 +20,42 @@ runs in production.
 node ace eval:corpus --ingest                       # once, and after any corpus edit
 node ace eval:retrieval --ablate                    # seconds, no chat model, deterministic
 node ace eval:generation --model=<model> --all-modes  # minutes; answers "code or model?"
+node ace eval:generation --model=<model> --suite=long_context  # context budgeting
 ```
+
+---
+
+## Golden suites
+
+Each `.jsonl` under `tests/eval/goldens/` is a **suite**, named after the file.
+Only `core` runs by default; anything else is opt-in via `--suite`.
+
+That split exists for comparability. Aggregate metrics are means over whatever
+ran, so quietly adding goldens to the default set would move `recall@k` and
+`correctness` for reasons unrelated to the change under test — and silently
+invalidate every committed baseline.
+
+| Suite | What it is for |
+|---|---|
+| `core` | The default 99 questions. Retrieval and generation quality. |
+| `long_context` | Conversations long enough to exercise the budget planner. |
+
+`--suite a,b` runs several. `eval:corpus` always validates every suite, since a
+malformed fixture should fail validation whether or not it is in the default run.
+
+### The `long_context` suite
+
+Four conversations testing the two opposite ways context budgeting can fail:
+
+- **`history-retention`** — a fact stated early, then enough filler to look
+  worth trimming, but still inside the window. A failure means good context was
+  thrown away that would have fit.
+- **`eviction`** — far more history than the window holds, with the needed fact
+  in the *last* turn before the question. A failure means the model lost the
+  thread of what was just said, which is the more serious of the two.
+
+Both grade on a specific figure or arithmetic rather than prose, so a confident
+non-answer cannot pass.
 
 ---
 
@@ -272,6 +307,21 @@ implementation) — see `tests/unit/eval_retrieval_metrics.spec.ts`.
 | `leakageRate` | Narrating retrieval ("according to Context 1", "the knowledge base"), which `rag_context` rule 4 forbids. Pure regex, zero ambiguity, catches a bad prompt edit on the first run. |
 | `groundedness` | Fraction of the answer's numeric claims that appear in the injected context. |
 | `thinkTagLeakRate` | Reasoning tags reaching the user. Should always be 0. |
+| `historyElidedRate` | Share of cases where history had to be trimmed to fit the window. |
+| `chunksDroppedRate` | Share of cases where a retrieved chunk did not fit the context budget. |
+| `promptTokenError` | Mean error of the token estimator against the backend's real `prompt_eval_count`. |
+
+**Read the budgeting metrics before concluding the model got worse.** A drop in
+`correctness` alongside a rise in `historyElidedRate` is not the model answering
+badly — it is the model never being shown the material. Those are different
+bugs with different fixes, and before these metrics existed they were
+indistinguishable.
+
+`promptTokenError` gates the estimator that every one of those trims is decided
+against. NOMAD cannot tokenize exactly (no vocabulary offline, and Ollama exposes
+no tokenize endpoint), so it estimates and calibrates per model from the real
+counts the backend reports. If this drifts, the budget is being enforced against
+a number that is no longer true. Measured at ~4.6% on llama3:8b.
 
 **Groundedness only sees numbers, and only numbers above 10.** An answer that
 fabricates a procedure or a proper noun scores a perfect 1.0. It is a
@@ -338,14 +388,14 @@ Implementation:
   npm run test:unit    # every tests/unit spec
   ```
 
-  `test:unit` currently reports **6 pre-existing failures** unrelated to this
-  harness: `drug_interactions`, `drug_ingest_status`, and `drug_labels` are
-  written against `@japa/runner` rather than `node:test`, and
-  `app_auto_update`, `content_auto_update`, and `content_auto_update_backoff`
-  import services that need a booted application. Both groups belong in the Japa
-  suite (`node ace test`, which needs MySQL and Redis). They fail identically
-  before and after any change here — use `test:eval` when you want a signal you
-  can trust.
+  `test:unit` currently reports **7 pre-existing failures** unrelated to this
+  harness: `drug_interactions`, `drug_ingest_status`, `drug_labels`, and
+  `rag_retrieval_toggle` are written against `@japa/runner` rather than
+  `node:test`, and `app_auto_update`, `content_auto_update`, and
+  `content_auto_update_backoff` import services that need a booted application.
+  Both groups belong in the Japa suite (`node ace test`, which needs MySQL and
+  Redis). They fail identically before and after any change here — use
+  `test:eval` when you want a signal you can trust.
 - `app/services/eval_*_service.ts` — orchestration; these need Qdrant and Ollama.
 - `commands/eval/*` — the CLI.
 - `app/services/rag_pipeline_service.ts` — the prompt pipeline, shared with the
