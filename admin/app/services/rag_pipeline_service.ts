@@ -19,6 +19,7 @@ import { planPrompt } from '../utils/context_budget.js'
 import { estimateMessagesTokens } from '../utils/token_estimate.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
 import { buildContextBlock, getContextLimitsForModel } from '../utils/rag_prompt.js'
+import { QUERIES_SCHEMA, parseStructured, pickQueries } from '../utils/structured_output.js'
 
 /**
  * Everything that happens between "a user sent a message" and "a payload goes
@@ -278,9 +279,16 @@ export class RagPipelineService {
         temperature: 0,
         think: false,
         thinkingCapable,
+        // Grammar-constrained on the native transport. An array rather than a bare
+        // string because multi-query fusion then costs a prompt change and nothing
+        // else; only the first entry is used today.
+        format: QUERIES_SCHEMA,
       })
 
-      const rewrittenQuery = response.message.content.trim()
+      const raw = response.message.content.trim()
+      // Falls back to the raw text on any parse failure — on a non-native backend the
+      // grammar was never applied, so the old bare-string behaviour is still correct.
+      const rewrittenQuery = parseStructured(raw, pickQueries)?.[0] ?? raw
       // Empty means the response was reasoning and nothing else (or was truncated
       // mid-thought). Embedding an empty string would search the corpus for nothing
       // and quietly poison retrieval for the rest of the conversation, so fall back
