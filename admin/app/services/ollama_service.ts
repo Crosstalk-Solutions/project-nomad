@@ -112,6 +112,12 @@ type ChatInput = {
   // (batching and GPU non-determinism still move outputs, hence --repeats).
   temperature?: number
   seed?: number
+  // JSON Schema (or the string 'json') constraining the decoder, for the structured
+  // ancillary calls — title, suggestion chips, query rewrite. Native-only: it is a
+  // top-level field on /api/chat, not an `options` member, and the OpenAI-compat
+  // endpoint has no equivalent we can rely on across backends. Callers must keep a
+  // string-parsing fallback for exactly that reason.
+  format?: string | object
   // Aborts the upstream request when the client disconnects, so an abandoned generation
   // doesn't keep decoding server-side and block Ollama's single parallel slot (#1065).
   signal?: AbortSignal
@@ -516,6 +522,9 @@ export class OllamaService {
       // nothing, so non-thinking models and other backends are unaffected.
       ...(chatRequest.think !== undefined ? { think: chatRequest.think } : {}),
       ...(chatRequest.keepAlive !== undefined ? { keep_alive: chatRequest.keepAlive } : {}),
+      // Sibling of `options`, not a member of it — putting it in the options bag is
+      // silently ignored and the call decodes unconstrained.
+      ...(chatRequest.format !== undefined ? { format: chatRequest.format } : {}),
       options: this._nativeOptions(chatRequest),
     })
 

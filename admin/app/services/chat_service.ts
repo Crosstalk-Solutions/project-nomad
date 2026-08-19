@@ -8,6 +8,13 @@ import { OllamaService } from './ollama_service.js'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
+import {
+  SUGGESTIONS_SCHEMA,
+  TITLE_SCHEMA,
+  parseStructured,
+  pickSuggestions,
+  pickTitle,
+} from '../utils/structured_output.js'
 
 @inject()
 export class ChatService {
@@ -90,11 +97,25 @@ export class ChatService {
         stream: false,
         think: false,
         thinkingCapable,
+        // Grammar-constrained on the native transport, so the response is three
+        // strings in an array rather than whatever prose the model felt like.
+        format: SUGGESTIONS_SCHEMA,
+        // The default of 0.8 is actively hostile to format stability, and there is
+        // nothing creative about picking three canned opening questions.
+        temperature: 0,
       })
 
       if (response && response.message && response.message.content) {
         const content = response.message.content.trim()
-        
+
+        const structured = parseStructured(content, pickSuggestions)
+        if (structured) {
+          return structured.map((s) => toTitleCase(s))
+        }
+        logger.warn(
+          `[ChatService] Model "${model}" returned unparseable suggestion JSON; falling back to text parsing`
+        )
+
         // Handle both comma-separated and newline-separated formats
         let suggestions: string[] = []
         
@@ -273,8 +294,6 @@ export class ChatService {
 
   async generateTitle(sessionId: number, userMessage: string, assistantMessage: string, model: string) {
     try {
-      let title: string
-
       // Titles are aesthetic work; route them to the tasks model when one is
       // configured rather than the chat model that just answered.
       const titleModel = (await this.resolveTasksModel(model)) ?? model
@@ -291,9 +310,17 @@ export class ChatService {
         ],
         think: false,
         thinkingCapable,
+        format: TITLE_SCHEMA,
+        // See the note on suggestions: naming a chat is not a creative task, and
+        // the backend default of 0.8 makes the format wobble.
+        temperature: 0,
       })
 
-      title = response?.message?.content?.trim()
+      const content = response?.message?.content?.trim() ?? ''
+      // The schema path and the text path share the same truncation: "under 50
+      // characters" is a request the model can ignore either way.
+      let title = parseStructured(content, pickTitle) ?? content
+      title = title.slice(0, 57) + (title.length > 57 ? '...' : '')
       if (!title) {
         // Nothing left once reasoning was split out — fall back to the user's own words.
         logger.warn(
