@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Project NOMAD Installation Script
+# Project NOMAD Installation Script — Arch Linux Port
 
 ###################################################################################################################################################################################################
 
@@ -30,10 +30,10 @@ GREEN='\033[1;32m' # Light Green.
 
 WHIPTAIL_TITLE="Project NOMAD Installation"
 NOMAD_DIR="/opt/project-nomad"
-MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml"
-START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/start_nomad.sh"
-STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
-UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
+MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/JasonLMoffit/Arch-based-project-nomad/refs/heads/main/install/management_compose.yaml"
+START_SCRIPT_URL="https://raw.githubusercontent.com/JasonLMoffit/Arch-based-project-nomad/refs/heads/main/install/start_nomad.sh"
+STOP_SCRIPT_URL="https://raw.githubusercontent.com/JasonLMoffit/Arch-based-project-nomad/refs/heads/main/install/stop_nomad.sh"
+UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/JasonLMoffit/Arch-based-project-nomad/refs/heads/main/install/update_nomad.sh"
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
@@ -76,14 +76,17 @@ check_is_bash() {
     echo -e "${GREEN}#${RESET} This script is running in bash.\\n"
 }
 
-check_is_debian_based() {
-  if [[ ! -f /etc/debian_version ]]; then
+check_is_arch_based() {
+  if [[ ! -f /etc/arch-release ]]; then
     header_red
-    echo -e "${RED}#${RESET} This script is designed to run on Debian-based systems only.\\n"
-    echo -e "${RED}#${RESET} Please run this script on a Debian-based system and try again."
+    echo -e "${RED}#${RESET} This installer is designed for Arch Linux and Arch-based systems.
+"
+    echo -e "${RED}#${RESET} /etc/arch-release was not found. Installation cannot continue."
     exit 1
   fi
-    echo -e "${GREEN}#${RESET} This script is running on a Debian-based system.\\n"
+
+  echo -e "${GREEN}#${RESET} Arch Linux / Arch-based system detected.
+"
 }
 
 check_is_x86_64() {
@@ -102,39 +105,28 @@ check_is_x86_64() {
 }
 
 ensure_dependencies_installed() {
-  local missing_deps=()
+  local packages=("curl" "gnupg" "pciutils" "jq")
 
-  # Check for curl
-  if ! command -v curl &> /dev/null; then
-    missing_deps+=("curl")
+  echo -e "${YELLOW}#${RESET} Updating Arch packages and installing required dependencies...
+"
+
+  # Arch does not support partial upgrades. Bring the system current before
+  # installing packages required by the NOMAD installer.
+  if ! sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu --needed --noconfirm "${packages[@]}"; then
+    echo -e "${RED}#${RESET} Failed to install required Arch packages."
+    exit 1
   fi
 
-  # Check for gpg (required for NVIDIA container toolkit keyring)
-  if ! command -v gpg &> /dev/null; then
-    missing_deps+=("gpg")
-  fi
+  local required_commands=("curl" "gpg" "lspci" "jq")
+  for cmd in "${required_commands[@]}"; do
+    if ! command -v "$cmd" &> /dev/null; then
+      echo -e "${RED}#${RESET} Required command '$cmd' is unavailable after package installation."
+      exit 1
+    fi
+  done
 
-  # Check for whiptail (used for dialogs, though not currently active)
-  # if ! command -v whiptail &> /dev/null; then
-  #   missing_deps+=("whiptail")
-  # fi
-
-  if [[ ${#missing_deps[@]} -gt 0 ]]; then
-    echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
-    sudo apt-get update
-    sudo apt-get install -y "${missing_deps[@]}"
-
-    # Verify installation
-    for dep in "${missing_deps[@]}"; do
-      if ! command -v "$dep" &> /dev/null; then
-        echo -e "${RED}#${RESET} Failed to install $dep. Please install it manually and try again."
-        exit 1
-      fi
-    done
-    echo -e "${GREEN}#${RESET} Dependencies installed successfully.\\n"
-  else
-    echo -e "${GREEN}#${RESET} All required dependencies are already installed.\\n"
-  fi
+  echo -e "${GREEN}#${RESET} Required Arch dependencies are installed.
+"
 }
 
 check_is_debug_mode(){
@@ -157,64 +149,33 @@ generateRandomPass() {
 }
 
 ensure_docker_installed() {
-  if ! command -v docker &> /dev/null; then
-    echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
-    
-    # Update package database
-    sudo apt-get update
-    
-    # Install prerequisites
-    sudo apt-get install -y ca-certificates curl
-    
-    # Create directory for keyrings
-    # sudo install -m 0755 -d /etc/apt/keyrings
-    
-    # # Download Docker's official GPG key
-    # sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-    # sudo chmod a+r /etc/apt/keyrings/docker.asc
+  echo -e "${YELLOW}#${RESET} Installing Docker components from the Arch repositories...
+"
 
-    # # Add the repository to Apt sources
-    # echo \
-    #   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    #   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    #   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    # # Update the package database with the Docker packages from the newly added repo
-    # sudo apt-get update
-
-    # # Install Docker packages
-    # sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    # Download the Docker convenience script
-    curl -fsSL https://get.docker.com -o get-docker.sh
-
-    # Run the Docker installation script
-    sudo sh get-docker.sh
-
-    # Check if Docker was installed successfully
-    if ! command -v docker &> /dev/null; then
-      echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."
-      exit 1
-    fi
-    
-    echo -e "${GREEN}#${RESET} Docker installation completed.\\n"
-  else
-    echo -e "${GREEN}#${RESET} Docker is already installed.\\n"
-    
-    # Check if Docker service is running
-    if ! systemctl is-active --quiet docker; then
-      echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
-      sudo systemctl start docker
-      if ! systemctl is-active --quiet docker; then
-        echo -e "${RED}#${RESET} Failed to start Docker. Please check the Docker service status and try again."
-        exit 1
-      else
-        echo -e "${GREEN}#${RESET} Docker service started successfully.\\n"
-      fi
-    else
-      echo -e "${GREEN}#${RESET} Docker service is already running.\\n"
-    fi
+  if ! sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -S --needed --noconfirm docker docker-compose docker-buildx; then
+    echo -e "${RED}#${RESET} Docker package installation failed."
+    exit 1
   fi
+
+  if ! command -v docker &> /dev/null; then
+    echo -e "${RED}#${RESET} Docker is unavailable after package installation."
+    exit 1
+  fi
+
+  echo -e "${YELLOW}#${RESET} Enabling and starting Docker...
+"
+  if ! sudo systemctl enable --now docker; then
+    echo -e "${RED}#${RESET} Failed to enable/start Docker."
+    exit 1
+  fi
+
+  if ! systemctl is-active --quiet docker; then
+    echo -e "${RED}#${RESET} Docker service is not running."
+    exit 1
+  fi
+
+  echo -e "${GREEN}#${RESET} Docker is installed, enabled, and running.
+"
 }
 
 check_docker_compose() {
@@ -228,128 +189,64 @@ check_docker_compose() {
 }
 
 setup_nvidia_container_toolkit() {
-  # This function attempts to set up NVIDIA GPU support but is non-blocking
-  # Any failures will result in warnings but will NOT stop the installation process
-  
-  echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...\\n"
-  
-  # Safely detect NVIDIA GPU
+  echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...
+"
+
   local has_nvidia_gpu=false
-  if command -v lspci &> /dev/null; then
-    if lspci 2>/dev/null | grep -i nvidia &> /dev/null; then
-      has_nvidia_gpu=true
-      echo -e "${GREEN}#${RESET} NVIDIA GPU detected.\\n"
-    fi
+
+  if command -v lspci &> /dev/null && \
+     lspci 2>/dev/null | grep -iE "VGA|3D controller|Display" | grep -qi nvidia; then
+    has_nvidia_gpu=true
+    echo -e "${GREEN}#${RESET} NVIDIA GPU detected via lspci.
+"
+  elif command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+    has_nvidia_gpu=true
+    echo -e "${GREEN}#${RESET} NVIDIA GPU detected via nvidia-smi.
+"
   fi
-  
-  # Also check for nvidia-smi
-  if ! $has_nvidia_gpu && command -v nvidia-smi &> /dev/null; then
-    if nvidia-smi &> /dev/null; then
-      has_nvidia_gpu=true
-      echo -e "${GREEN}#${RESET} NVIDIA GPU detected via nvidia-smi.\\n"
-    fi
-  fi
-  
+
   if ! $has_nvidia_gpu; then
-    echo -e "${YELLOW}#${RESET} No NVIDIA GPU detected. Skipping NVIDIA container toolkit installation.\\n"
+    echo -e "${YELLOW}#${RESET} No NVIDIA GPU detected. Skipping NVIDIA container toolkit setup.
+"
     return 0
   fi
-  
-  # Check if nvidia-container-toolkit is already installed
-  if command -v nvidia-ctk &> /dev/null; then
-    echo -e "${GREEN}#${RESET} NVIDIA container toolkit is already installed.\\n"
-    return 0
-  fi
-  
-  echo -e "${YELLOW}#${RESET} Installing NVIDIA container toolkit...\\n"
-  
-  # Install dependencies per https://docs.ollama.com/docker - wrapped in error handling
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey 2>/dev/null | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit GPG key. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list 2>/dev/null \
-      | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-      | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to add NVIDIA container toolkit repository. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! sudo apt-get update 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to update package list. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  if ! sudo apt-get install -y nvidia-container-toolkit 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to install NVIDIA container toolkit. Continuing anyway...\\n"
-    return 0
-  fi
-  
-  echo -e "${GREEN}#${RESET} NVIDIA container toolkit installed successfully.\\n"
-  
-  # Configure Docker to use NVIDIA runtime
-  echo -e "${YELLOW}#${RESET} Configuring Docker to use NVIDIA runtime...\\n"
-  
-  if ! sudo nvidia-ctk runtime configure --runtime=docker 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} nvidia-ctk configure failed, attempting manual configuration...\\n"
-    
-    # Fallback: Manually configure daemon.json
-    local daemon_json="/etc/docker/daemon.json"
-    local config_success=false
-    
-    if [[ -f "$daemon_json" ]]; then
-      # Backup existing config (best effort)
-      sudo cp "$daemon_json" "${daemon_json}.backup" 2>/dev/null || true
-      
-      # Check if nvidia runtime already exists
-      if ! grep -q '"nvidia"' "$daemon_json" 2>/dev/null; then
-        # Add nvidia runtime to existing config using jq if available
-        if command -v jq &> /dev/null; then
-          if sudo jq '. + {"runtimes": {"nvidia": {"path": "nvidia-container-runtime", "runtimeArgs": []}}}' "$daemon_json" > /tmp/daemon.json.tmp 2>/dev/null; then
-            if sudo mv /tmp/daemon.json.tmp "$daemon_json" 2>/dev/null; then
-              config_success=true
-            fi
-          fi
-          # Clean up temp file if move failed
-          sudo rm -f /tmp/daemon.json.tmp 2>/dev/null || true
-        else
-          echo -e "${YELLOW}#${RESET} jq not available, skipping manual daemon.json configuration...\\n"
-        fi
-      else
-        config_success=true  # Already configured
-      fi
-    else
-      # Create new daemon.json with nvidia runtime (best effort)
-      if echo '{"runtimes":{"nvidia":{"path":"nvidia-container-runtime","runtimeArgs":[]}}}' | sudo tee "$daemon_json" > /dev/null 2>&1; then
-        config_success=true
-      fi
+
+  if ! command -v nvidia-ctk &> /dev/null; then
+    echo -e "${YELLOW}#${RESET} Installing NVIDIA Container Toolkit from the Arch repositories...
+"
+    if ! sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -S --needed --noconfirm nvidia-container-toolkit; then
+      echo -e "${YELLOW}#${RESET} Warning: Failed to install nvidia-container-toolkit. Continuing without NVIDIA container acceleration.
+"
+      return 0
     fi
-    
-    if ! $config_success; then
-      echo -e "${YELLOW}#${RESET} Manual daemon.json configuration unsuccessful. GPU support may require manual setup.\\n"
-    fi
-  fi
-  
-  # Restart Docker service
-  echo -e "${YELLOW}#${RESET} Restarting Docker service...\\n"
-  if ! sudo systemctl restart docker 2>/dev/null; then
-    echo -e "${YELLOW}#${RESET} Warning: Failed to restart Docker service. You may need to restart it manually.\\n"
-    return 0
-  fi
-  
-  # Verify NVIDIA runtime is available
-  echo -e "${YELLOW}#${RESET} Verifying NVIDIA runtime configuration...\\n"
-  sleep 2  # Give Docker a moment to fully restart
-  
-  if docker info 2>/dev/null | grep -q "nvidia"; then
-    echo -e "${GREEN}#${RESET} NVIDIA runtime successfully configured and verified.\\n"
   else
-    echo -e "${YELLOW}#${RESET} Warning: NVIDIA runtime not detected in Docker info. GPU acceleration may not work.\\n"
-    echo -e "${YELLOW}#${RESET} You may need to manually configure /etc/docker/daemon.json and restart Docker.\\n"
+    echo -e "${GREEN}#${RESET} NVIDIA Container Toolkit is already installed.
+"
   fi
-  
-  echo -e "${GREEN}#${RESET} NVIDIA container toolkit configuration completed.\\n"
+
+  echo -e "${YELLOW}#${RESET} Configuring NVIDIA runtime for Docker...
+"
+  if ! sudo nvidia-ctk runtime configure --runtime=docker; then
+    echo -e "${YELLOW}#${RESET} Warning: nvidia-ctk could not configure Docker. Continuing without verified NVIDIA acceleration.
+"
+    return 0
+  fi
+
+  if ! sudo systemctl restart docker; then
+    echo -e "${YELLOW}#${RESET} Warning: Docker could not be restarted after NVIDIA runtime configuration.
+"
+    return 0
+  fi
+
+  sleep 2
+
+  if docker info 2>/dev/null | grep -qi nvidia; then
+    echo -e "${GREEN}#${RESET} NVIDIA Docker runtime configured successfully.
+"
+  else
+    echo -e "${YELLOW}#${RESET} Warning: NVIDIA runtime was not reported by 'docker info'. GPU acceleration may require additional driver configuration.
+"
+  fi
 }
 
 get_install_confirmation(){
@@ -479,12 +376,28 @@ start_management_containers() {
 }
 
 get_local_ip() {
-  local_ip_address=$(hostname -I | awk '{print $1}')
+  if command -v ip &> /dev/null; then
+    local_ip_address=$(
+      ip -4 route get 1.1.1.1 2>/dev/null \
+        | awk '{for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}}'
+    )
+
+    if [[ -z "$local_ip_address" ]]; then
+      local_ip_address=$(
+        ip -o -4 addr show up scope global 2>/dev/null \
+          | awk '{split($4,a,"/"); print a[1]; exit}'
+      )
+    fi
+  fi
+
   if [[ -z "$local_ip_address" ]]; then
-    echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
+    echo -e "${RED}#${RESET} Unable to determine local IPv4 address. Please check your network configuration."
     exit 1
   fi
+
+  echo -e "${GREEN}#${RESET} Local IPv4 address detected: ${local_ip_address}\n"
 }
+
 verify_gpu_setup() {
   # This function only displays GPU setup status and is completely non-blocking
   # It never exits or returns error codes - purely informational
@@ -615,7 +528,7 @@ success_message() {
 ###################################################################################################################################################################################################
 
 # Pre-flight checks
-check_is_debian_based
+check_is_arch_based
 check_is_x86_64
 check_is_bash
 check_has_sudo
@@ -658,7 +571,7 @@ success_message
 #       esac
 #     done
 #     if [[ -n "$(command -v jq)" ]]; then
-#       if [[ "$(dpkg-query --showformat='${version}' --show jq 2> /dev/null | sed -e 's/.*://' -e 's/-.*//g' -e 's/[^0-9.]//g' -e 's/\.//g' | sort -V | tail -n1)" -ge "16" && -e "${eus_dir}/db/db.json" ]]; then
+# Debian-only dpkg package-version check removed in Arch port.
 #         jq '.scripts."'"${script_name}"'" += {"warnings": {"low-free-disk-space": {"response": "'"${free_space_check_response}"'", "detected-date": "'"${free_space_check_date}"'"}}}' "${eus_dir}/db/db.json" > "${eus_dir}/db/db.json.tmp" 2>> "${eus_dir}/logs/eus-database-management.log"
 #       else
 #         jq '.scripts."'"${script_name}"'" = (.scripts."'"${script_name}"'" | . + {"warnings": {"low-free-disk-space": {"response": "'"${free_space_check_response}"'", "detected-date": "'"${free_space_check_date}"'"}}})' "${eus_dir}/db/db.json" > "${eus_dir}/db/db.json.tmp" 2>> "${eus_dir}/logs/eus-database-management.log"
