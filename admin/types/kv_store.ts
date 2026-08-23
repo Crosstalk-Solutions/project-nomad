@@ -42,6 +42,7 @@ export const KV_STORE_SCHEMA = {
   'ai.assistantCustomName':     'string',
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',
+  'ai.remoteOllamaApiKey':      'string',
   'ai.ollamaFlashAttention':    'boolean',
   'ai.autoThinking':            'boolean',
   // Model used for ancillary AI work (chat titles, chat suggestions) instead of

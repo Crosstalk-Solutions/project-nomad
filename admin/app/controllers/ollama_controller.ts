@@ -225,13 +225,70 @@ export default class OllamaController {
 
   async remoteStatus() {
     const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    const apiKey = await KVStore.getValue('ai.remoteOllamaApiKey')
     if (!remoteUrl) {
       return { configured: false, connected: false }
     }
     try {
       const testResponse = await fetch(`${remoteUrl.replace(/\/$/, '')}/v1/models`, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
         signal: AbortSignal.timeout(3000),
       })
+      return { configured: true, connected: testResponse.ok, hasApiKey: !!apiKey }
+    } catch {
+      return { configured: true, connected: false, hasApiKey: !!apiKey }
+    }
+  }
+
+  /**
+   * Saves the API key for the remote OpenAI-compatible endpoint. Kept separate
+   * from configureRemote so an already-configured URL can stay in place while
+   * the key is changed (or cleared) without re-running the URL connectivity
+   * test. Null/empty clears the key.
+   */
+  async configureRemoteApiKey({ request }: HttpContext) {
+    const apiKey: string | null = request.input('apiKey', null)
+
+    if (!apiKey || apiKey.trim() === '') {
+      await KVStore.clearValue('ai.remoteOllamaApiKey')
+      return { success: true, message: 'Remote API key cleared.' }
+    }
+
+    // Trim but do not sanitize further — keys are opaque and can contain any
+    // characters except whitespace at the ends.
+    await KVStore.setValue('ai.remoteOllamaApiKey', apiKey.trim())
+    return { success: true, message: 'Remote API key saved.' }
+  }
+
+  /**
+   * Connectivity test for the stored API key alone. Sends a chat request with
+   * the key to the /v1/chat/completions endpoint, which is the path that
+   * actually requires it for authenticated backends (a bare /v1/models probe
+   * can 200 without any key). Reuses the same model the chat page would use.
+   */
+  async remoteStatusApiKey() {
+    const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    const apiKey = await KVStore.getValue('ai.remoteOllamaApiKey')
+    if (!remoteUrl || !apiKey) {
+      return { configured: false, connected: false }
+    }
+    try {
+      const testResponse = await fetch(
+        `${remoteUrl.replace(/\/$/, '')}/v1/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'ping' }],
+            max_tokens: 1,
+          }),
+          signal: AbortSignal.timeout(5000),
+        }
+      )
       return { configured: true, connected: testResponse.ok }
     } catch {
       return { configured: true, connected: false }
@@ -240,6 +297,7 @@ export default class OllamaController {
 
   async configureRemote({ request, response }: HttpContext) {
     const remoteUrl: string | null = request.input('remoteUrl', null)
+    const apiKey: string | null = request.input('apiKey', null)
 
     const ollamaService = await Service.query().where('service_name', SERVICE_NAMES.OLLAMA).first()
     if (!ollamaService) {
@@ -251,6 +309,7 @@ export default class OllamaController {
     // the service marked installed. Otherwise fall back to uninstalled.
     if (!remoteUrl || remoteUrl.trim() === '') {
       await KVStore.clearValue('ai.remoteOllamaUrl')
+      await KVStore.clearValue('ai.remoteOllamaApiKey')
       const hasLocalContainer = await this._startLocalOllamaContainerIfExists()
       ollamaService.installed = hasLocalContainer
       ollamaService.installation_status = 'idle'
@@ -275,6 +334,7 @@ export default class OllamaController {
     // Test connectivity via OpenAI-compatible /v1/models endpoint (works with Ollama, LM Studio, llama.cpp, etc.)
     try {
       const testResponse = await fetch(`${remoteUrl.replace(/\/$/, '')}/v1/models`, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey.trim()}` } : undefined,
         signal: AbortSignal.timeout(5000),
       })
       if (!testResponse.ok) {
@@ -292,6 +352,9 @@ export default class OllamaController {
 
     // Save remote URL and mark service as installed
     await KVStore.setValue('ai.remoteOllamaUrl', remoteUrl.trim())
+    if (apiKey && apiKey.trim()) {
+      await KVStore.setValue('ai.remoteOllamaApiKey', apiKey.trim())
+    }
     ollamaService.installed = true
     ollamaService.installation_status = 'idle'
     await ollamaService.save()

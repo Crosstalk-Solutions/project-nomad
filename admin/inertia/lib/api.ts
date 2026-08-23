@@ -58,11 +58,30 @@ class API {
     })()
   }
 
-  async configureRemoteOllama(remoteUrl: string | null): Promise<{ success: boolean; message: string }> {
+  async configureRemoteOllama(remoteUrl: string | null, apiKey?: string | null): Promise<{ success: boolean; message: string }> {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/ollama/configure-remote',
-        { remoteUrl }
+        { remoteUrl, apiKey }
+      )
+      return response.data
+    })()
+  }
+
+  async configureRemoteOllamaApiKey(apiKey: string | null): Promise<{ success: boolean; message: string }> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/ollama/configure-remote-api-key',
+        { apiKey }
+      )
+      return response.data
+    })()
+  }
+
+  async getRemoteOllamaApiKeyStatus(): Promise<{ configured: boolean; connected: boolean }> {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ configured: boolean; connected: boolean }>(
+        '/ollama/remote-status-api-key'
       )
       return response.data
     })()

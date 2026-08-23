@@ -150,8 +150,14 @@ export class OllamaService {
           this.baseUrl = ollamaUrl.trim().replace(/\/$/, '')
         }
 
+        // Some OpenAI-compatible backends (e.g. cloud gateways like OrcaRouter)
+        // require a real API key. Local backends (Ollama, LM Studio, llama.cpp)
+        // ignore it, so 'nomad' remains a harmless default there.
+        const apiKey =
+          ((await KVStore.getValue('ai.remoteOllamaApiKey')) as string | null) || 'nomad'
+
         this.openai = new OpenAI({
-          apiKey: 'nomad', // Required by SDK; not validated by Ollama/LM Studio/llama.cpp
+          apiKey,
           baseURL: `${this.baseUrl}/v1`,
         })
         // Native client for `/api/chat`. Only used when the backend is really Ollama

@@ -27,7 +27,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; remoteOllamaApiKeySet: boolean; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -112,12 +112,16 @@ export default function ModelsPage(props: {
   const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
   const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
+  const [remoteApiKey, setRemoteApiKey] = useState('')
+  const [remoteApiKeyError, setRemoteApiKeyError] = useState<string | null>(null)
+  const [remoteApiKeySaving, setRemoteApiKeySaving] = useState(false)
+  const remoteApiKeySet = props.models.settings.remoteOllamaApiKeySet
 
   async function handleSaveRemoteOllama() {
     setRemoteOllamaError(null)
     setRemoteOllamaSaving(true)
     try {
-      const res = await api.configureRemoteOllama(remoteOllamaUrl || null)
+      const res = await api.configureRemoteOllama(remoteOllamaUrl || null, remoteApiKey || null)
       if (res?.success) {
         addNotification({ message: res.message, type: 'success' })
         router.reload()
@@ -144,6 +148,41 @@ export default function ModelsPage(props: {
       setRemoteOllamaError(error?.message || 'Failed to clear remote Ollama.')
     } finally {
       setRemoteOllamaSaving(false)
+    }
+  }
+
+  async function handleSaveRemoteApiKey() {
+    setRemoteApiKeyError(null)
+    setRemoteApiKeySaving(true)
+    try {
+      const res = await api.configureRemoteOllamaApiKey(remoteApiKey || null)
+      if (res?.success) {
+        setRemoteApiKey('')
+        addNotification({ message: res.message, type: 'success' })
+        router.reload()
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to save remote API key.'
+      setRemoteApiKeyError(msg)
+    } finally {
+      setRemoteApiKeySaving(false)
+    }
+  }
+
+  async function handleClearRemoteApiKey() {
+    setRemoteApiKeyError(null)
+    setRemoteApiKeySaving(true)
+    try {
+      const res = await api.configureRemoteOllamaApiKey(null)
+      if (res?.success) {
+        setRemoteApiKey('')
+        addNotification({ message: 'Remote API key cleared.', type: 'success' })
+        router.reload()
+      }
+    } catch (error: any) {
+      setRemoteApiKeyError(error?.message || 'Failed to clear remote API key.')
+    } finally {
+      setRemoteApiKeySaving(false)
     }
   }
 
@@ -486,8 +525,10 @@ export default function ModelsPage(props: {
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <p className="text-sm text-text-secondary mb-4">
-              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
+              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, cloud gateways like{' '}
+              <a href="https://www.orcarouter.ai" target="_blank" rel="noreferrer" className="underline text-text-primary">OrcaRouter</a>, and others are all supported.
               For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+              Cloud gateways require an API key.
             </p>
             <div className="flex items-end gap-3">
               <div className="flex-1">
@@ -501,6 +542,23 @@ export default function ModelsPage(props: {
                     setRemoteOllamaError(null)
                   }}
                 />
+                <div className="mt-4">
+                  <Input
+                    name="remoteOllamaApiKey"
+                    label="API Key (optional)"
+                    helpText={remoteApiKeySet ? 'An API key is saved for this endpoint.' : 'Only required for cloud gateways that authenticate requests (e.g. OrcaRouter).'}
+                    type="password"
+                    placeholder={remoteApiKeySet ? '••••••••••••••••  (saved)' : 'sk-orca-…'}
+                    value={remoteApiKey}
+                    onChange={(e) => {
+                      setRemoteApiKey(e.target.value)
+                      setRemoteApiKeyError(null)
+                    }}
+                  />
+                  {remoteApiKeyError && (
+                    <p className="text-sm text-red-600 mt-1">{remoteApiKeyError}</p>
+                  )}
+                </div>
                 {remoteOllamaError && (
                   <p className="text-sm text-red-600 mt-1">{remoteOllamaError}</p>
                 )}
@@ -526,6 +584,33 @@ export default function ModelsPage(props: {
                 </StyledButton>
               )}
             </div>
+            {remoteApiKeySet && (
+              <div className="mt-4 flex items-end gap-3">
+                <div className="flex-1">
+                  <p className="text-sm text-text-secondary">
+                    Test the saved API key against chat completions.
+                  </p>
+                </div>
+                <StyledButton
+                  variant="secondary"
+                  onClick={handleSaveRemoteApiKey}
+                  loading={remoteApiKeySaving}
+                  disabled={remoteApiKeySaving}
+                  className="mb-0.5"
+                >
+                  Save Key
+                </StyledButton>
+                <StyledButton
+                  variant="danger"
+                  onClick={handleClearRemoteApiKey}
+                  loading={remoteApiKeySaving}
+                  disabled={remoteApiKeySaving}
+                  className="mb-0.5"
+                >
+                  Clear Key
+                </StyledButton>
+              </div>
+            )}
           </div>
 
           <ActiveModelDownloads withHeader />

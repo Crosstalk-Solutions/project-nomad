@@ -342,6 +342,14 @@ router
       summary: 'Get remote Ollama status',
       tags: ['ollama'],
     })
+    documented(router.post('/configure-remote-api-key', [OllamaController, 'configureRemoteApiKey']), {
+      summary: 'Save the API key for the remote OpenAI-compatible endpoint',
+      tags: ['ollama'],
+    })
+    documented(router.get('/remote-status-api-key', [OllamaController, 'remoteStatusApiKey']), {
+      summary: 'Test the stored remote API key against chat completions',
+      tags: ['ollama'],
+    })
   })
   .prefix('/api/ollama')
 

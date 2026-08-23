@@ -71,6 +71,8 @@ export default class SettingsController {
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    // Only expose whether a key is set, never the key itself.
+    const remoteOllamaApiKeySet = Boolean(await KVStore.getValue('ai.remoteOllamaApiKey'))
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const tasksModel = await KVStore.getValue('ai.tasksModel')
@@ -97,6 +99,7 @@ export default class SettingsController {
           chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
           aiAssistantCustomName: aiAssistantCustomName ?? '',
           remoteOllamaUrl: remoteOllamaUrl ?? '',
+          remoteOllamaApiKeySet,
           ollamaFlashAttention: ollamaFlashAttention ?? true,
           autoThinking: autoThinking ?? false,
           tasksModel: tasksModel ?? '',
