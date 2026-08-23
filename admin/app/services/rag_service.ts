@@ -1948,12 +1948,23 @@ export class RagService {
    * by reembedAll() where the file must remain so it can be re-ingested.
    */
   private async _deletePointsBySource(source: string): Promise<void> {
+    await this._deletePointsBySources([source])
+  }
+
+  /**
+   * Same as _deletePointsBySource(), but for many sources in one round trip
+   * via Qdrant's `match.any` filter — used by the orphan sweep below, where
+   * purging one-by-one would mean a separate delete call (plus a separate
+   * _ensureCollection check) per orphan.
+   */
+  private async _deletePointsBySources(sources: string[]): Promise<void> {
+    if (sources.length === 0) return
     await this._ensureCollection(
       RagService.CONTENT_COLLECTION_NAME,
       RagService.EMBEDDING_DIMENSION
     )
     await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
-      filter: { must: [{ key: 'source', match: { value: source } }] },
+      filter: { must: [{ key: 'source', match: { any: sources } }] },
     })
   }
 
@@ -1974,8 +1985,19 @@ export class RagService {
    * retry from either partial state is safe.
    */
   public async purgeIndexedSource(source: string): Promise<void> {
-    await KbIngestState.remove(source)
-    await this._deletePointsBySource(source)
+    await this.purgeIndexedSources([source])
+  }
+
+  /**
+   * Batched form of purgeIndexedSource() — one KbIngestState delete query
+   * and one Qdrant delete call for the whole list, instead of a per-source
+   * round trip to each. Used by the orphan sweep in scanAndSyncStorage(),
+   * which can otherwise find dozens of orphans after a bulk content change.
+   */
+  public async purgeIndexedSources(sources: string[]): Promise<void> {
+    if (sources.length === 0) return
+    await KbIngestState.query().whereIn('file_path', sources).delete()
+    await this._deletePointsBySources(sources)
   }
 
   /**
@@ -2076,13 +2098,11 @@ export class RagService {
       let orphansPurged = 0
       if (orphans && orphans.length > 0) {
         logger.info(`[RAG] Found ${orphans.length} orphaned source(s) with no corresponding file on disk`)
-        for (const orphan of orphans) {
-          try {
-            await this.purgeIndexedSource(orphan)
-            orphansPurged++
-          } catch (error) {
-            logger.error(`[RAG] Failed to purge orphaned source ${orphan}:`, error)
-          }
+        try {
+          await this.purgeIndexedSources(orphans)
+          orphansPurged = orphans.length
+        } catch (error) {
+          logger.error(`[RAG] Failed to purge orphaned sources:`, error)
         }
         logger.info(`[RAG] Purged ${orphansPurged}/${orphans.length} orphaned source(s)`)
       }
