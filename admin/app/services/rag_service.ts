@@ -1785,14 +1785,29 @@ export class RagService {
   }
 
   /**
+   * Absolute roots that _discoverKbFiles() scans. Shared with the orphan
+   * sweep in scanAndSyncStorage() so it can allowlist candidates to sources
+   * actually reachable by that scan, rather than denylisting every other
+   * known source root by hand — a source embedded under a future root
+   * outside kb_uploads/zim would otherwise be silently misclassified as
+   * orphaned and purged the first time it's added (see _nomadDocsRoots()
+   * for exactly that lesson learned with README.md/docs).
+   */
+  private _kbScanRoots(): { kbUploadsPath: string; zimPath: string } {
+    return {
+      kbUploadsPath: join(process.cwd(), RagService.UPLOADS_STORAGE_PATH),
+      zimPath: join(process.cwd(), ZIM_STORAGE_PATH),
+    }
+  }
+
+  /**
    * Walk kb_uploads and zim storage directories, returning the full path of
    * every embeddable file. Non-embeddable types (e.g. kiwix-library.xml) are
    * filtered out so they aren't dispatched only to fail with "Unsupported file
    * type" and retry on every sync.
    */
   private async _discoverKbFiles(): Promise<string[]> {
-    const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
-    const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
+    const { kbUploadsPath: KB_UPLOADS_PATH, zimPath: ZIM_PATH } = this._kbScanRoots()
     const filesInStorage: string[] = []
 
     for (const [label, dirPath] of [
@@ -1949,10 +1964,18 @@ export class RagService {
    * (#1170) and the orphan sweep in `scanAndSyncStorage()` below. Does NOT
    * attempt to delete a physical file; use `deleteFileBySource()` for the
    * user-triggered "remove this file" action instead.
+   *
+   * State row removed first, points second: orphan detection in
+   * scanAndSyncStorage() only looks at what's still in Qdrant, so if a
+   * failure lands between the two steps, leftover points stay visible to
+   * the next sync's reverse sweep and get retried there. Deleting the
+   * points first would instead risk an orphaned state row that nothing
+   * ever looks at again. Both steps are individually idempotent, so a
+   * retry from either partial state is safe.
    */
   public async purgeIndexedSource(source: string): Promise<void> {
-    await this._deletePointsBySource(source)
     await KbIngestState.remove(source)
+    await this._deletePointsBySource(source)
   }
 
   /**
@@ -2035,14 +2058,19 @@ export class RagService {
       // embeddableFiles came back empty, so a filesystem hiccup can't be
       // misread as "every file was deleted."
       //
-      // Nomad's own bundled docs (README.md + docs/) are embedded by
-      // discoverNomadDocs() above, not by the kb_uploads/zim scan that built
-      // embeddableFiles — excluded here so they aren't misclassified as
-      // orphans and purged on every sync.
-      const { readmePath, docsDir } = this._nomadDocsRoots()
-      const docsDirPrefix = docsDir + sep
+      // Allowlisted to sources under the same two roots _discoverKbFiles()
+      // just scanned to build embeddableFiles — the only roots this sweep
+      // can make an informed orphan/not-orphan call about. Nomad's own
+      // bundled docs (README.md + docs/) are embedded by discoverNomadDocs()
+      // above from outside those roots, so this naturally leaves them alone
+      // without needing to name them here. A denylist of "everything except
+      // README/docs" would instead default to purging any future source root
+      // added outside kb_uploads/zim the first time it appears.
+      const { kbUploadsPath, zimPath } = this._kbScanRoots()
+      const kbUploadsPrefix = kbUploadsPath + sep
+      const zimPrefix = zimPath + sep
       const orphanCandidates = [...sourcesInQdrant].filter(
-        (source) => source !== readmePath && !source.startsWith(docsDirPrefix)
+        (source) => source.startsWith(kbUploadsPrefix) || source.startsWith(zimPrefix)
       )
       const orphans = decideOrphans(orphanCandidates, embeddableFiles)
       let orphansPurged = 0
