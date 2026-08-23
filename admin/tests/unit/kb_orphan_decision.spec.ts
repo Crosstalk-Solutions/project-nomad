@@ -1,7 +1,9 @@
 import * as assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { decideOrphans } from '../../app/utils/kb_orphan_decision.js'
+import { decideOrphans, filterOrphanCandidates } from '../../app/utils/kb_orphan_decision.js'
+
+const SCAN_ROOTS = { kbUploadsPath: '/data/storage/kb_uploads', zimPath: '/data/storage/zim' }
 
 test('no sources in Qdrant → no orphans', () => {
   assert.deepEqual(decideOrphans([], ['/storage/zim/a.zim']), [])
@@ -30,4 +32,31 @@ test('every Qdrant source is orphaned when none remain on disk (but disk scan wa
 
 test('empty disk scan is treated as a transient failure, not "everything was deleted"', () => {
   assert.equal(decideOrphans(['/storage/zim/a.zim', '/storage/zim/b.zim'], []), null)
+})
+
+test('filterOrphanCandidates keeps sources under the kb_uploads or zim scan roots', () => {
+  assert.deepEqual(
+    filterOrphanCandidates(
+      ['/data/storage/kb_uploads/a.pdf', '/data/storage/zim/b.zim'],
+      SCAN_ROOTS
+    ),
+    ['/data/storage/kb_uploads/a.pdf', '/data/storage/zim/b.zim']
+  )
+})
+
+test('filterOrphanCandidates excludes sources outside the scanned roots (e.g. bundled docs)', () => {
+  assert.deepEqual(
+    filterOrphanCandidates(
+      ['/data/README.md', '/data/docs/guide.md', '/data/storage/zim/b.zim'],
+      SCAN_ROOTS
+    ),
+    ['/data/storage/zim/b.zim']
+  )
+})
+
+test('filterOrphanCandidates does not match a sibling directory that merely shares a root as a string prefix', () => {
+  // '/data/storage/zim-backup/...' must not pass just because it starts with
+  // the same characters as zimPath — the trailing separator is what makes
+  // this a real subpath check rather than a naive string prefix match.
+  assert.deepEqual(filterOrphanCandidates(['/data/storage/zim-backup/x.zim'], SCAN_ROOTS), [])
 })
