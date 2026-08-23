@@ -1706,8 +1706,7 @@ export class RagService {
       // Order matters: remove the stale points and state row BEFORE queueing the
       // new embed so a fresh index can't be conflated with the old one. Each step
       // targets only `oldFilePath` / `newFilePath` — never another resource.
-      await this._deletePointsBySource(oldFilePath)
-      await KbIngestState.remove(oldFilePath)
+      await this.purgeIndexedSource(oldFilePath)
       const { EmbedFileJob } = await import('#jobs/embed_file_job')
       await EmbedFileJob.dispatch({ fileName, filePath: newFilePath })
     }
