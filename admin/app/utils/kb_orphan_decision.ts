@@ -1,3 +1,5 @@
+import { sep } from 'node:path'
+
 /**
  * Decision for the reverse sweep in `RagService.scanAndSyncStorage`.
  *
@@ -22,4 +24,25 @@ export function decideOrphans(sourcesInQdrant: string[], embeddableFiles: string
 
   const onDisk = new Set(embeddableFiles)
   return sourcesInQdrant.filter((source) => !onDisk.has(source))
+}
+
+/**
+ * Narrows Qdrant sources down to the ones decideOrphans() can actually make
+ * an informed call about: sources under the same roots `_discoverKbFiles()`
+ * scanned to build `embeddableFiles` (kb_uploads, zim). Everything else —
+ * Nomad's own bundled docs (README.md + docs/), or any future embedding
+ * source root — is left alone here rather than denylisted by name, so a new
+ * source root added outside kb_uploads/zim doesn't get treated as an orphan
+ * and purged the first time it appears (see issue #1170's docs-collision
+ * near-miss for exactly that failure mode).
+ */
+export function filterOrphanCandidates(
+  sourcesInQdrant: string[],
+  scanRoots: { kbUploadsPath: string; zimPath: string }
+): string[] {
+  const kbUploadsPrefix = scanRoots.kbUploadsPath + sep
+  const zimPrefix = scanRoots.zimPath + sep
+  return sourcesInQdrant.filter(
+    (source) => source.startsWith(kbUploadsPrefix) || source.startsWith(zimPrefix)
+  )
 }
