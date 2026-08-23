@@ -19,7 +19,7 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
-import { decideOrphans } from '../utils/kb_orphan_decision.js'
+import { decideOrphans, filterOrphanCandidates } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
@@ -2080,24 +2080,19 @@ export class RagService {
       // embeddableFiles came back empty, so a filesystem hiccup can't be
       // misread as "every file was deleted."
       //
-      // Allowlisted to sources under the same two roots _discoverKbFiles()
-      // just scanned to build embeddableFiles — the only roots this sweep
-      // can make an informed orphan/not-orphan call about. Nomad's own
-      // bundled docs (README.md + docs/) are embedded by discoverNomadDocs()
-      // above from outside those roots, so this naturally leaves them alone
-      // without needing to name them here. A denylist of "everything except
-      // README/docs" would instead default to purging any future source root
-      // added outside kb_uploads/zim the first time it appears.
-      const { kbUploadsPath, zimPath } = this._kbScanRoots()
-      const kbUploadsPrefix = kbUploadsPath + sep
-      const zimPrefix = zimPath + sep
-      const orphanCandidates = [...sourcesInQdrant].filter(
-        (source) => source.startsWith(kbUploadsPrefix) || source.startsWith(zimPrefix)
-      )
+      // Allowlisted (via filterOrphanCandidates) to sources under the same
+      // two roots _discoverKbFiles() just scanned to build embeddableFiles —
+      // the only roots this sweep can make an informed orphan/not-orphan
+      // call about. Nomad's own bundled docs (README.md + docs/) are
+      // embedded by discoverNomadDocs() above from outside those roots, so
+      // this naturally leaves them alone without needing to name them here.
+      const orphanCandidates = filterOrphanCandidates([...sourcesInQdrant], this._kbScanRoots())
       const orphans = decideOrphans(orphanCandidates, embeddableFiles)
       let orphansPurged = 0
       if (orphans && orphans.length > 0) {
-        logger.info(`[RAG] Found ${orphans.length} orphaned source(s) with no corresponding file on disk`)
+        logger.info(
+          `[RAG] Found ${orphans.length} orphaned source(s) with no corresponding file on disk`
+        )
         try {
           await this.purgeIndexedSources(orphans)
           orphansPurged = orphans.length
@@ -2167,7 +2162,10 @@ export class RagService {
         `[RAG] Scan results (policy=${policy}): ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${createdPending} waiting on user, ${skipped} skipped`
       )
 
-      const orphanNote = orphansPurged > 0 ? `; purged ${orphansPurged} orphaned source${orphansPurged !== 1 ? 's' : ''}` : ''
+      const orphanNote =
+        orphansPurged > 0
+          ? `; purged ${orphansPurged} orphaned source${orphansPurged !== 1 ? 's' : ''}`
+          : ''
 
       if (filesToEmbed.length === 0) {
         return {
