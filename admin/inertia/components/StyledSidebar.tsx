@@ -5,7 +5,9 @@ import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import { Link, usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
 import { IconMenu2, IconX } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 import ThemeToggle from '~/components/ThemeToggle'
+import LanguageSwitcher from '~/components/LanguageSwitcher'
 import DebugInfoModal from './DebugInfoModal'
 
 type SidebarItem = {
@@ -22,6 +24,7 @@ interface StyledSidebarProps {
 }
 
 const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
+  const { t } = useTranslation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [debugModalOpen, setDebugModalOpen] = useState(false)
   const { appVersion } = usePage().props as unknown as UsePageProps
@@ -79,7 +82,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
                     className="flex flex-row items-center gap-x-3 text-desert-green text-sm font-semibold"
                   >
                     <IconArrowLeft aria-hidden="true" className="size-6 shrink-0" />
-                    Back to Home
+                    {t('layout.back_to_home')}
                   </Link>
                 </li>
               </ul>
@@ -87,15 +90,16 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
           </ul>
         </nav>
         <div className="mb-4 flex flex-col items-center gap-1 text-sm text-text-secondary text-center">
-          <p>Project NOMAD&trade; Command Center v{appVersion}</p>
+          <p>{t('footer.version', { version: appVersion })}</p>
           <button
             onClick={() => setDebugModalOpen(true)}
             className="text-gray-500 hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
           >
             <IconBug className="size-3.5" />
-            Debug Info
+            {t('layout.debug_info')}
           </button>
           <ThemeToggle />
+          <LanguageSwitcher />
         </div>
       </div>
     )
@@ -129,7 +133,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="-m-2.5 p-2.5"
                 >
-                  <span className="sr-only">Close sidebar</span>
+                  <span className="sr-only">{t('common.close')}</span>
                   <IconX aria-hidden="true" className="size-6 text-white" />
                 </button>
               </div>

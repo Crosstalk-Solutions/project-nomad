@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import useEmbedJobs from '~/hooks/useEmbedJobs'
 import HorizontalBarChart from './HorizontalBarChart'
 import StyledSectionHeader from './StyledSectionHeader'
@@ -13,6 +14,7 @@ interface ActiveEmbedJobsProps {
 }
 
 const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
+  const { t } = useTranslation()
   const { data: jobs } = useEmbedJobs()
 
   // Re-render every 5s to keep per-job "last activity Xs ago" timestamps fresh.
@@ -25,7 +27,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
   return (
     <>
       {withHeader && (
-        <StyledSectionHeader title="Processing Queue" className="mt-12 mb-4" />
+        <StyledSectionHeader title={t('common.processing_queue')} className="mt-12 mb-4" />
       )}
 
       <div className="space-y-4">
@@ -56,12 +58,12 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                   </span>
                   {lastActivityMs !== undefined && (
                     <span className="text-xs text-text-muted">
-                      · last activity {formatTimeAgo(lastActivityMs, tick)}
+                      · {t('common.last_activity', { time: formatTimeAgo(lastActivityMs, tick) })}
                     </span>
                   )}
                   {typeof job.chunks === 'number' && job.chunks > 0 && (
                     <span className="text-xs text-text-muted">
-                      · {job.chunks.toLocaleString()} chunks
+                      · {t('common.chunks_count', { count: job.chunks.toLocaleString() })}
                     </span>
                   )}
                 </div>
@@ -80,7 +82,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             )
           })
         ) : (
-          <p className="text-text-muted">No files are currently being processed</p>
+          <p className="text-text-muted">{t('common.no_files_processing')}</p>
         )}
       </div>
     </>

@@ -15,6 +15,7 @@ import {
   IconZoom
 } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
@@ -22,43 +23,42 @@ import useCreatorPacks from '~/hooks/useCreatorPacks'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const aiAssistantInstallStatus = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
-  // Only show the Creator Packs entry on builds that can actually install packs
-  // (release-injected key present) — a fork built from source has no key.
   const { configured: creatorPacksConfigured } = useCreatorPacks()
 
   const navigation = [
     ...(aiAssistantInstallStatus.isInstalled ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }] : []),
-    { name: 'Supply Depot', href: '/supply-depot', icon: IconBox, current: false },
-    { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
-    { name: 'Content Explorer', href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },
-    { name: 'Content Manager', href: '/settings/zim', icon: IconFolder, current: false },
-    ...(creatorPacksConfigured ? [{ name: 'Creator Packs', href: '/settings/creator-packs', icon: IconMovie, current: false }] : []),
-    { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
+    { name: t('settings.nav.supply_depot'), href: '/supply-depot', icon: IconBox, current: false },
+    { name: t('settings.nav.benchmark'), href: '/settings/benchmark', icon: IconChartBar, current: false },
+    { name: t('settings.nav.content_explorer'), href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },
+    { name: t('settings.nav.content_manager'), href: '/settings/zim', icon: IconFolder, current: false },
+    ...(creatorPacksConfigured ? [{ name: t('settings.nav.creator_packs'), href: '/settings/creator-packs', icon: IconMovie, current: false }] : []),
+    { name: t('settings.nav.maps_manager'), href: '/settings/maps', icon: IconMapRoute, current: false },
     {
-      name: 'Service Logs & Metrics',
+      name: t('settings.nav.service_logs'),
       href: getServiceLink('9999'),
       icon: IconDashboard,
       current: false,
       target: '_blank',
     },
     {
-      name: 'Check for Updates',
+      name: t('settings.nav.check_updates'),
       href: '/settings/update',
       icon: IconArrowBigUpLines,
       current: false,
     },
-    { name: 'System', href: '/settings/system', icon: IconSettings, current: false },
-    { name: 'Advanced', href: '/settings/advanced', icon: IconAdjustments, current: false },
-    { name: 'API Reference', href: '/reference', icon: IconCode, current: false },
-    { name: 'Support the Project', href: '/settings/support', icon: IconHeart, current: false },
-    { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
+    { name: t('settings.nav.system'), href: '/settings/system', icon: IconSettings, current: false },
+    { name: t('settings.nav.advanced'), href: '/settings/advanced', icon: IconAdjustments, current: false },
+    { name: t('settings.nav.api_reference'), href: '/reference', icon: IconCode, current: false },
+    { name: t('settings.nav.support'), href: '/settings/support', icon: IconHeart, current: false },
+    { name: t('settings.nav.legal'), href: '/settings/legal', icon: IconGavel, current: false },
   ]
 
   return (
     <div className="min-h-screen flex flex-row bg-surface-secondary/90">
-      <StyledSidebar title="Settings" items={navigation} />
+      <StyledSidebar title={t('settings.title')} items={navigation} />
       {children}
     </div>
   )

@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 import { formatBytes } from '~/lib/util'
 import StyledButton from './StyledButton'
 import type { GuardrailVerdict } from '~/lib/kb_guardrail'
@@ -25,6 +26,8 @@ export default function KbGuardrailModal({
   onConfirm,
   onCancel,
 }: KbGuardrailModalProps) {
+  const { t } = useTranslation()
+
   // The primary number to surface — every triggered reason carries the same
   // estimateBytes, so just grab the first one. `0` is a defensive fallback
   // for the (impossible-by-construction) "open with empty verdict" case.
@@ -62,7 +65,7 @@ export default function KbGuardrailModal({
                   <div className="flex items-start gap-3">
                     <IconAlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5" />
                     <Dialog.Title className="text-lg font-semibold text-text-primary">
-                      Confirm large AI indexing operation
+                      {t('common.kb_guardrail_modal.title')}
                     </Dialog.Title>
                   </div>
                   <button
@@ -76,27 +79,30 @@ export default function KbGuardrailModal({
 
                 <div className="px-6 py-5 space-y-3">
                   <p className="text-text-primary text-sm">
-                    Indexing this batch for the AI Assistant will use approximately{' '}
-                    <strong>{formatBytes(estimateBytes, 1)}</strong> of disk space for embeddings, on top of the raw downloads.
+                    {t('common.kb_guardrail_modal.disk_usage_warning', {
+                      size: formatBytes(estimateBytes, 1),
+                    })}
                   </p>
 
                   {freeReason && (
                     <p className="text-text-secondary text-sm">
-                      That's more than 10% of your remaining free disk space ({formatBytes(freeReason.freeBytes, 1)} free). Embedding can take several hours and is hard to interrupt cleanly once started.
+                      {t('common.kb_guardrail_modal.free_disk_warning', {
+                        free: formatBytes(freeReason.freeBytes, 1),
+                      })}
                     </p>
                   )}
 
                   <p className="text-text-secondary text-sm">
-                    If you'd rather review per-item before indexing, cancel here and switch your Auto-index setting to <strong>Manual</strong> from the Knowledge Base panel.
+                    {t('common.kb_guardrail_modal.manual_hint')}
                   </p>
                 </div>
 
                 <div className="bg-surface-secondary px-6 py-4 flex justify-end gap-3">
                   <StyledButton variant="outline" size="md" onClick={onCancel}>
-                    Cancel
+                    {t('common.cancel')}
                   </StyledButton>
                   <StyledButton variant="primary" size="md" onClick={onConfirm}>
-                    Proceed anyway
+                    {t('common.kb_guardrail_modal.proceed_anyway')}
                   </StyledButton>
                 </div>
               </Dialog.Panel>

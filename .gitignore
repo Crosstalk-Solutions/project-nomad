@@ -41,3 +41,8 @@ admin/public/assets
 
 # Admin specific development files
 admin/storage
+
+# Fichiers privés — NE PAS COMMITER
+collections/private/
+docker-compose.windows.yml
+data/

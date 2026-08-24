@@ -6,6 +6,7 @@ import { IconMessage } from '@tabler/icons-react'
 import { useState } from 'react'
 import KnowledgeBaseModal from './KnowledgeBaseModal'
 import NomadMdModal from './NomadMdModal'
+import { useTranslation } from 'react-i18next'
 
 interface ChatSidebarProps {
   sessions: ChatSession[]
@@ -28,6 +29,7 @@ export default function ChatSidebar({
   isMobileOpen = false,
   onMobileClose,
 }: ChatSidebarProps) {
+  const { t } = useTranslation()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(
     () => new URLSearchParams(window.location.search).get('knowledge_base') === 'true'
@@ -64,13 +66,13 @@ export default function ChatSidebar({
           variant="primary"
           fullWidth
         >
-          New Chat
+          {t('chat.sidebar.new_chat')}
         </StyledButton>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
-          <div className="p-4 text-center text-text-muted text-sm">No previous chats</div>
+          <div className="p-4 text-center text-text-muted text-sm">{t('chat.sidebar.no_previous_chats')}</div>
         ) : (
           <div className="p-2 space-y-1">
             {sessions.map((session) => (
@@ -127,7 +129,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          {isInModal ? 'Open Full Chat' : 'Back to Home'}
+          {isInModal ? t('chat.sidebar.open_full_chat') : t('chat.sidebar.back_to_home')}
         </StyledButton>
         <StyledButton
           onClick={() => {
@@ -138,7 +140,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          Models & Settings
+          {t('chat.sidebar.models_and_settings')}
         </StyledButton>
         <StyledButton
           onClick={() => {
@@ -149,7 +151,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          Knowledge Base
+          {t('chat.sidebar.knowledge_base')}
         </StyledButton>
         <StyledButton
           onClick={() => {
@@ -160,7 +162,7 @@ export default function ChatSidebar({
           size="sm"
           fullWidth
         >
-          NOMAD.md
+          {t('chat.sidebar.nomad_md')}
         </StyledButton>
         {sessions.length > 0 && (
           <StyledButton
@@ -170,7 +172,7 @@ export default function ChatSidebar({
             size="sm"
             fullWidth
           >
-            Clear History
+            {t('chat.sidebar.clear_history')}
           </StyledButton>
         )}
       </div>

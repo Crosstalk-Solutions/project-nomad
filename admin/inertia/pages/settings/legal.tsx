@@ -1,70 +1,66 @@
 import { Head } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import SettingsLayout from '~/layouts/SettingsLayout'
 
 export default function LegalPage() {
+  const { t } = useTranslation()
+
   return (
     <SettingsLayout>
-      <Head title="Legal Notices | Project NOMAD" />
+      <Head title={t('settings_legal.page_title')} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6 max-w-4xl">
-          <h1 className="text-4xl font-semibold mb-8">Legal Notices</h1>
+          <h1 className="text-4xl font-semibold mb-8">{t('settings_legal.heading')}</h1>
 
           {/* License Agreement */}
           <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">License Agreement</h2>
-            <p className="text-text-primary mb-3">Copyright 2024-2026 Crosstalk Solutions, LLC</p>
+            <h2 className="text-2xl font-semibold mb-4">{t('settings_legal.license.heading')}</h2>
+            <p className="text-text-primary mb-3">{t('settings_legal.license.copyright')}</p>
             <p className="text-text-primary mb-3">
-              Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
-              you may not use this file except in compliance with the License.
-              You may obtain a copy of the License at
+              {t('settings_legal.license.body1')}
             </p>
             <p className="text-text-primary mb-3">
               <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://www.apache.org/licenses/LICENSE-2.0</a>
             </p>
             <p className="text-text-primary">
-              Unless required by applicable law or agreed to in writing, software
-              distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
-              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-              See the License for the specific language governing permissions and
-              limitations under the License.
+              {t('settings_legal.license.body2')}
             </p>
           </section>
 
           {/* Third-Party Software */}
           <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">Third-Party Software Attribution</h2>
+            <h2 className="text-2xl font-semibold mb-4">{t('settings_legal.third_party.heading')}</h2>
             <p className="text-text-primary mb-4">
-              Project NOMAD&trade; integrates the following open source projects. We are grateful to
-              their developers and communities:
+              {t('settings_legal.third_party.intro')}
             </p>
             <ul className="space-y-3 text-text-primary">
               <li>
-                <strong>Kiwix</strong> - Offline Wikipedia and content reader (GPL-3.0 License)
+                <strong>Kiwix</strong> - {t('settings_legal.third_party.kiwix')}
                 <br />
                 <a href="https://kiwix.org" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://kiwix.org</a>
               </li>
               <li>
-                <strong>Kolibri</strong> - Offline learning platform by Learning Equality (MIT License)
+                <strong>Kolibri</strong> - {t('settings_legal.third_party.kolibri')}
                 <br />
                 <a href="https://learningequality.org/kolibri" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://learningequality.org/kolibri</a>
               </li>
               <li>
-                <strong>Ollama</strong> - Local large language model runtime (MIT License)
+                <strong>Ollama</strong> - {t('settings_legal.third_party.ollama')}
                 <br />
                 <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://ollama.com</a>
               </li>
               <li>
-                <strong>CyberChef</strong> - Data analysis and encoding toolkit by GCHQ (Apache 2.0 License)
+                <strong>CyberChef</strong> - {t('settings_legal.third_party.cyberchef')}
                 <br />
                 <a href="https://github.com/gchq/CyberChef" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://github.com/gchq/CyberChef</a>
               </li>
               <li>
-                <strong>FlatNotes</strong> - Self-hosted note-taking application (MIT License)
+                <strong>FlatNotes</strong> - {t('settings_legal.third_party.flatnotes')}
                 <br />
                 <a href="https://github.com/dullage/flatnotes" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://github.com/dullage/flatnotes</a>
               </li>
               <li>
-                <strong>Qdrant</strong> - Vector search engine for AI knowledge base (Apache 2.0 License)
+                <strong>Qdrant</strong> - {t('settings_legal.third_party.qdrant')}
                 <br />
                 <a href="https://github.com/qdrant/qdrant" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://github.com/qdrant/qdrant</a>
               </li>
@@ -73,70 +69,62 @@ export default function LegalPage() {
 
           {/* Privacy Statement */}
           <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">Privacy Statement</h2>
+            <h2 className="text-2xl font-semibold mb-4">{t('settings_legal.privacy.heading')}</h2>
             <p className="text-text-primary mb-3">
-              Project NOMAD is designed with privacy as a core principle:
+              {t('settings_legal.privacy.intro')}
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary">
-              <li><strong>Zero Telemetry:</strong> NOMAD does not collect, transmit, or store any usage data, analytics, or telemetry.</li>
-              <li><strong>Local-First:</strong> All your data, downloaded content, AI conversations, and notes remain on your device.</li>
-              <li><strong>No Accounts Required:</strong> NOMAD operates without user accounts or authentication by default.</li>
-              <li><strong>Network Optional:</strong> An internet connection is only required to download content or updates. All installed features work fully offline.</li>
+              <li><strong>{t('settings_legal.privacy.zero_telemetry_label')}</strong> {t('settings_legal.privacy.zero_telemetry')}</li>
+              <li><strong>{t('settings_legal.privacy.local_first_label')}</strong> {t('settings_legal.privacy.local_first')}</li>
+              <li><strong>{t('settings_legal.privacy.no_accounts_label')}</strong> {t('settings_legal.privacy.no_accounts')}</li>
+              <li><strong>{t('settings_legal.privacy.network_optional_label')}</strong> {t('settings_legal.privacy.network_optional')}</li>
             </ul>
           </section>
 
           {/* Content Disclaimer */}
           <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">Content Disclaimer</h2>
+            <h2 className="text-2xl font-semibold mb-4">{t('settings_legal.content_disclaimer.heading')}</h2>
             <p className="text-text-primary mb-3">
-              Project NOMAD provides tools to download and access content from third-party sources
-              including Wikipedia, Wikibooks, medical references, educational platforms, and other
-              publicly available resources.
+              {t('settings_legal.content_disclaimer.body1')}
             </p>
             <p className="text-text-primary mb-3">
-              Crosstalk Solutions, LLC does not create, control, verify, or guarantee the accuracy,
-              completeness, or reliability of any third-party content. The inclusion of any content
-              does not constitute an endorsement.
+              {t('settings_legal.content_disclaimer.body2')}
             </p>
             <p className="text-text-primary">
-              Users are responsible for evaluating the appropriateness and accuracy of any content
-              they download and use.
+              {t('settings_legal.content_disclaimer.body3')}
             </p>
           </section>
 
           {/* Medical Disclaimer */}
           <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">Medical and Emergency Information Disclaimer</h2>
+            <h2 className="text-2xl font-semibold mb-4">{t('settings_legal.medical_disclaimer.heading')}</h2>
             <p className="text-text-primary mb-3">
-              Some content available through NOMAD includes medical references, first aid guides,
-              and emergency preparedness information. This content is provided for general
-              informational purposes only.
+              {t('settings_legal.medical_disclaimer.body1')}
             </p>
             <p className="text-text-primary mb-3 font-semibold">
-              This information is NOT a substitute for professional medical advice, diagnosis, or treatment.
+              {t('settings_legal.medical_disclaimer.warning')}
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary mb-3">
-              <li>Always seek the advice of qualified health providers with questions about medical conditions.</li>
-              <li>Never disregard professional medical advice or delay seeking it because of something you read in offline content.</li>
-              <li>In a medical emergency, call emergency services immediately if available.</li>
-              <li>Medical information may become outdated. Verify critical information with current professional sources when possible.</li>
+              <li>{t('settings_legal.medical_disclaimer.item1')}</li>
+              <li>{t('settings_legal.medical_disclaimer.item2')}</li>
+              <li>{t('settings_legal.medical_disclaimer.item3')}</li>
+              <li>{t('settings_legal.medical_disclaimer.item4')}</li>
             </ul>
           </section>
 
           {/* Data Storage Notice */}
           <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">Data Storage</h2>
+            <h2 className="text-2xl font-semibold mb-4">{t('settings_legal.data_storage.heading')}</h2>
             <p className="text-text-primary mb-3">
-              All data associated with Project NOMAD is stored locally on your device:
+              {t('settings_legal.data_storage.intro')}
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary">
-              <li><strong>Installation Directory:</strong> /opt/project-nomad</li>
-              <li><strong>Downloaded Content:</strong> /opt/project-nomad/storage</li>
-              <li><strong>Application Data:</strong> Stored in Docker volumes on your local system</li>
+              <li><strong>{t('settings_legal.data_storage.install_dir_label')}</strong> /opt/project-nomad</li>
+              <li><strong>{t('settings_legal.data_storage.content_dir_label')}</strong> /opt/project-nomad/storage</li>
+              <li><strong>{t('settings_legal.data_storage.app_data_label')}</strong> {t('settings_legal.data_storage.app_data')}</li>
             </ul>
             <p className="text-text-primary mt-3">
-              You maintain full control over your data. Uninstalling NOMAD or deleting these
-              directories will permanently remove all associated data.
+              {t('settings_legal.data_storage.footer')}
             </p>
           </section>
 

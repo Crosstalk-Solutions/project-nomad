@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import StyledModal from '../StyledModal'
 import StyledButton from '~/components/StyledButton'
 import { useNotifications } from '~/context/NotificationContext'
@@ -10,6 +11,7 @@ interface CollectionsManagerProps {
 }
 
 export default function CollectionsManager({ onClose }: CollectionsManagerProps) {
+  const { t } = useTranslation()
   const { addNotification } = useNotifications()
   const queryClient = useQueryClient()
   const [editingName, setEditingName] = useState<string | null>(null)
@@ -31,46 +33,45 @@ export default function CollectionsManager({ onClose }: CollectionsManagerProps)
     mutationFn: ({ oldName, newName }: { oldName: string; newName: string }) =>
       api.renameCollection(oldName, newName),
     onSuccess: (data) => {
-      addNotification({ type: 'success', message: data?.message || 'Collection renamed.' })
+      addNotification({ type: 'success', message: data?.message || t('chat.collections_manager.renamed') })
       setEditingName(null)
       invalidateAll()
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to rename collection.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.collections_manager.rename_failed') })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (name: string) => api.deleteCollection(name),
     onSuccess: (data) => {
-      addNotification({ type: 'success', message: data?.message || 'Collection removed.' })
+      addNotification({ type: 'success', message: data?.message || t('chat.collections_manager.removed') })
       setConfirmDelete(null)
       invalidateAll()
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to remove collection.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.collections_manager.remove_failed') })
     },
   })
 
   return (
     <StyledModal
       open={true}
-      title="Manage Collections"
+      title={t('chat.collections_manager.title')}
       onClose={onClose}
-      cancelText="Close"
+      cancelText={t('chat.collections_manager.close')}
       onCancel={onClose}
       large
     >
       <div className="text-left">
         <p className="text-sm text-text-secondary mb-4">
-          Rename or remove collections. Removing a collection doesn't delete any files —
-          they're simply moved back to Uncategorized so you can re-sort them.
+          {t('chat.collections_manager.description')}
         </p>
 
-        {isLoading && <p className="text-sm text-text-muted">Loading…</p>}
+        {isLoading && <p className="text-sm text-text-muted">{t('chat.collections_manager.loading')}</p>}
         {!isLoading && collections.length === 0 && (
           <p className="text-sm text-text-muted">
-            No collections yet. Assign a file to a collection from the Knowledge Base table to create one.
+            {t('chat.collections_manager.empty')}
           </p>
         )}
 
@@ -94,16 +95,16 @@ export default function CollectionsManager({ onClose }: CollectionsManagerProps)
                       renameMutation.mutate({ oldName: name, newName: editValue.trim() })
                     }
                   >
-                    Save
+                    {t('chat.collections_manager.save')}
                   </StyledButton>
                   <StyledButton variant="outline" onClick={() => setEditingName(null)}>
-                    Cancel
+                    {t('chat.collections_manager.cancel')}
                   </StyledButton>
                 </>
               ) : confirmDelete === name ? (
                 <>
                   <span className="flex-1 text-sm text-text-primary">
-                    Remove "{name}"? Files move to Uncategorized.
+                    {t('chat.collections_manager.confirm_remove', { name })}
                   </span>
                   <StyledButton
                     variant="danger"
@@ -111,10 +112,10 @@ export default function CollectionsManager({ onClose }: CollectionsManagerProps)
                     loading={deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate(name)}
                   >
-                    Confirm
+                    {t('chat.collections_manager.confirm')}
                   </StyledButton>
                   <StyledButton variant="outline" onClick={() => setConfirmDelete(null)}>
-                    Cancel
+                    {t('chat.collections_manager.cancel')}
                   </StyledButton>
                 </>
               ) : (
@@ -128,14 +129,14 @@ export default function CollectionsManager({ onClose }: CollectionsManagerProps)
                       setEditValue(name)
                     }}
                   >
-                    Rename
+                    {t('chat.collections_manager.rename')}
                   </StyledButton>
                   <StyledButton
                     variant="danger"
                     icon="IconTrash"
                     onClick={() => setConfirmDelete(name)}
                   >
-                    Remove
+                    {t('chat.collections_manager.remove')}
                   </StyledButton>
                 </>
               )}

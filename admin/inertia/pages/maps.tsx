@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
 import { IconArrowLeft } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 
 import MapsLayout from '~/layouts/MapsLayout'
 import MapComponent from '~/components/maps/MapComponent'
@@ -12,20 +13,21 @@ import { FileEntry } from '../../types/files'
 export default function Maps(props: {
   maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
 }) {
+  const { t } = useTranslation()
   const [isHoveringUI, setIsHoveringUI] = useState(false)
   const [showMapCoordinates, setShowMapCoordinates] = useState(true)
 
   const alertMessage = !props.maps.baseAssetsExist
-    ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
+    ? t('maps.no_base_assets')
     : !props.maps.worldBasemapExists
-    ? 'The world base map has not been downloaded yet, so the map may appear blank outside downloaded regions. Connect this NOMAD to the internet and download it (~15 MB) from Map Settings.'
+    ? t('maps.no_world_basemap')
     : props.maps.regionFiles.length === 0
-    ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
+    ? t('maps.no_regions')
     : null
 
   return (
     <MapsLayout>
-      <Head title="Maps" />
+      <Head title={t('maps.title')} />
 
       <div className="relative w-full h-screen overflow-hidden">
         {/* Navbar */}
@@ -36,7 +38,7 @@ export default function Maps(props: {
         >
           <Link href="/home" className="flex items-center">
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <p className="text-lg text-text-secondary">{t('layout.back_to_home')}</p>
           </Link>
 
           <div className="flex items-center gap-3 mr-4">
@@ -45,12 +47,12 @@ export default function Maps(props: {
               onClick={() => setShowMapCoordinates((prev) => !prev)}
               className="rounded px-3 py-2 text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
             >
-              {showMapCoordinates ? 'Hide Coordinates' : 'Show Coordinates'}
+              {showMapCoordinates ? t('maps.hide_coordinates') : t('maps.show_coordinates')}
             </button>
 
             <Link href="/settings/maps">
               <StyledButton variant="primary" icon="IconSettings">
-                Manage Map Regions
+                {t('maps.manage_regions')}
               </StyledButton>
             </Link>
           </div>
@@ -70,7 +72,7 @@ export default function Maps(props: {
               className="w-full"
               buttonProps={{
                 variant: 'secondary',
-                children: 'Go to Map Settings',
+                children: t('maps.go_to_settings'),
                 icon: 'IconSettings',
                 onClick: () => router.visit('/settings/maps'),
               }}

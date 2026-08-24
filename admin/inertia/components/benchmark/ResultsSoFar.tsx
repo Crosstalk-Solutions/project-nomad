@@ -1,4 +1,5 @@
 import { IconCheck } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 import type { BenchmarkPartialResult } from '../../../types/benchmark'
 
 /**
@@ -6,12 +7,14 @@ import type { BenchmarkPartialResult } from '../../../types/benchmark'
  * complete during a live run. Renders nothing until the first result lands.
  */
 export default function ResultsSoFar({ partials }: { partials: BenchmarkPartialResult[] }) {
+  const { t } = useTranslation()
+
   if (partials.length === 0) return null
 
   return (
     <div className="bg-desert-white rounded-lg p-4 border border-desert-stone-light">
       <div className="text-xs font-semibold text-desert-stone-dark uppercase tracking-wide mb-3">
-        Results so far
+        {t('benchmark.results_so_far')}
       </div>
       <div className="flex flex-wrap gap-2">
         {partials.map((p) => (

@@ -1,0 +1,441 @@
+{
+  "version": "2026-08-23",
+  "langue": "fr",
+  "source": {
+    "name": "Compilation — Démarches de crise et services d'urgence (Belgique et France)",
+    "references": [
+      "Crisis.be — portail officiel de la gestion de crise belge",
+      "112.be — numéro d'urgence européen Belgique",
+      "gouvernement.fr — portail officiel des services de l'État français",
+      "interieur.gouv.fr — sécurité civile française"
+    ],
+    "license": "Compilation originale — licence Apache 2.0 (ce fork)"
+  },
+  "avertissement": "Ces informations sont fournies à titre informatif. En situation de crise, suivre les consignes officielles des autorités locales. Numéros vérifiés en août 2026 — vérifier les mises à jour officielles.",
+  "pays": {
+    "belgique": {
+      "numeros_urgence": [
+        {
+          "numero": "112",
+          "service": "Numéro d'urgence européen",
+          "description": "Urgences médicales, incendie, accident grave. Fonctionne dans toute l'UE. Opérateurs francophones et néerlandophones disponibles.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false,
+          "note": "Fonctionne même sans crédit téléphonique. En zone blanche, le téléphone tente toutes les fréquences disponibles."
+        },
+        {
+          "numero": "101",
+          "service": "Police — urgences",
+          "description": "Police locale et fédérale. Pour danger immédiat, crime en cours, accident avec victimes.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "100",
+          "service": "Aide médicale urgente (Wallonie) / Brandweer",
+          "description": "SAMU, ambulance, pompiers. Équivalent du 15 français. En Wallonie et Bruxelles pour l'aide médicale urgente.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "070 245 245",
+          "service": "Centre Antipoisons Belge",
+          "description": "Intoxications, empoisonnements, ingestion accidentelle de plante, médicament ou produit chimique. Conseils médicaux spécialisés.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "0800 14 689",
+          "service": "Croix-Rouge Belgique — ligne d'urgence sociale",
+          "description": "Aide sociale d'urgence, hébergement en cas de catastrophe.",
+          "disponibilite": "En cas de catastrophe déclarée",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "1722",
+          "service": "Pompiers — non urgent",
+          "description": "Intervention pompiers non urgente (arbre tombé, dégâts d'eau non urgents, etc.). Libère le 112 pour les vraies urgences.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "1712",
+          "service": "Aide en cas de violence, maltraitance ou abus",
+          "description": "Violence conjugale, maltraitance d'enfants, abus sexuels. Écoute et orientation.",
+          "disponibilite": "Lun–ven 9h–17h",
+          "fonctionne_sans_reseau": false
+        }
+      ],
+      "contacts_crise": [
+        {
+          "organisme": "Centre de Crise National (NCCN)",
+          "site": "crisis.be",
+          "role": "Coordination nationale des crises majeures, terrorisme, catastrophes naturelles",
+          "email": "info@nccn.fgov.be",
+          "telephone": "02 506 47 11"
+        },
+        {
+          "organisme": "Gouverneure de la Province de Liège",
+          "role": "Autorité provinciale de crise pour la Province de Liège",
+          "adresse": "Place Saint-Lambert 18A, 4000 Liège",
+          "telephone": "04 220 81 11"
+        },
+        {
+          "organisme": "Ville de Liège — Plan d'urgence",
+          "site": "liege.be",
+          "role": "Plan général d'urgence et d'intervention (PGUI) communal",
+          "telephone": "04 221 91 11"
+        },
+        {
+          "organisme": "Météo Belgique (IRM)",
+          "site": "meteo.be",
+          "role": "Alertes météo, tempêtes, inondations. Consulter les bulletins d'alerte couleur."
+        },
+        {
+          "organisme": "INES — Réseau national de mesure de la radioactivité",
+          "site": "fanc.fgov.be",
+          "role": "Agence fédérale de contrôle nucléaire — alertes radiologiques"
+        }
+      ],
+      "procedures_crise": [
+        {
+          "situation": "Alerte météo extrême (tempête, inondation)",
+          "etapes": [
+            "Consulter meteo.be et les alertes couleur (jaune/orange/rouge)",
+            "Écouter la radio locale (RTBF La Première — 100.2 FM à Liège) ou RTL-TVI",
+            "En cas de code rouge : rester à l'intérieur, ne pas prendre la voiture",
+            "Couper l'électricité et le gaz si inondation imminente du logement",
+            "Monter aux étages supérieurs — ne jamais descendre dans une cave ou sous-sol inondé",
+            "Appeler le 112 si danger immédiat pour des personnes"
+          ],
+          "radio_urgence": "RTBF La Première — 100.2 FM (Liège) | 88.9 FM (Bruxelles)"
+        },
+        {
+          "situation": "Panne électrique prolongée (>48h)",
+          "etapes": [
+            "Signaler à Ores (réseau Wallonie) : 078 78 78 00 ou ores.net",
+            "Débrancher les appareils électroménagers pour éviter les surtensions au retour",
+            "Conserver les aliments : frigo tient 4h, congélateur 48h porte fermée",
+            "Utiliser les bougies avec précaution — risque incendie",
+            "Chauffage de secours : ne jamais utiliser de barbecue ou réchaud à gaz à l'intérieur (monoxyde de carbone)",
+            "Se rendre dans un centre de chaleur communal si température <5°C"
+          ],
+          "contacts": [
+            {"service": "Ores (Wallonie)", "telephone": "078 78 78 00"},
+            {"service": "Sibelga (Bruxelles)", "telephone": "02 549 43 43"},
+            {"service": "Fluvius (Flandre)", "telephone": "078 35 35 34"}
+          ]
+        },
+        {
+          "situation": "Rupture d'approvisionnement en eau potable",
+          "etapes": [
+            "Contacter la SWDE (Wallonie) : 087 87 87 87 ou swde.be",
+            "Ne pas consommer l'eau du robinet si alerte de contamination officielle",
+            "Faire bouillir l'eau 3 minutes (détruit la quasi-totalité des pathogènes biologiques)",
+            "Utiliser des pastilles de purification (disponibles en pharmacie)",
+            "Points de distribution d'eau potable organisés par la commune en cas de crise majeure",
+            "Eau de pluie collectée : toujours filtrer et désinfecter avant consommation"
+          ],
+          "contacts": [
+            {"service": "SWDE (Wallonie)", "telephone": "087 87 87 87"},
+            {"service": "VIVAQUA (Bruxelles)", "telephone": "02 518 82 06"},
+            {"service": "De Watergroep (Flandre)", "telephone": "078 35 35 99"}
+          ]
+        },
+        {
+          "situation": "Accident nucléaire ou radiologique",
+          "etapes": [
+            "Écouter immédiatement la radio officielle (RTBF) et suivre les consignes officielles",
+            "Rentrer immédiatement dans un bâtiment solide (éviter les préfabriqués)",
+            "Fermer toutes les fenêtres, portes, boucher les fissures avec du ruban adhésif",
+            "Éteindre les systèmes de ventilation, climatisation",
+            "Ne pas sortir sans consigne officielle",
+            "Iode stable : distribué gratuitement en pharmacie si alerte officielle — ne prendre QUE sur consigne officielle"
+          ],
+          "note": "Belgique : 4 réacteurs nucléaires à Doel (Anvers) et 4 à Tihange (Liège). Les comprimés d'iode stable sont distribués gratuitement dans les communes dans un rayon de 100 km. Vérifier auprès de la pharmacie communale.",
+          "contacts": [
+            {"service": "FANC — Agence Nucléaire", "telephone": "02 289 21 11", "site": "fanc.fgov.be"}
+          ]
+        },
+        {
+          "situation": "Évacuation d'urgence du domicile",
+          "etapes": [
+            "Sac d'urgence : documents d'identité, médicaments, argent liquide, eau, nourriture 3 jours, vêtements chauds, radio à piles, lampe de poche",
+            "Couper gaz, électricité et eau avant de partir si le temps le permet",
+            "Prévenir un proche de votre destination",
+            "Suivre les itinéraires d'évacuation indiqués par les autorités",
+            "Se rendre au point de rassemblement communal indiqué",
+            "Ne pas revenir chercher des objets — attendre l'autorisation officielle"
+          ],
+          "sac_urgence_contenu": [
+            "Copies de documents (passeport, carte d'identité, assurances)",
+            "Médicaments pour 7 jours minimum",
+            "Argent liquide (les terminaux de paiement peuvent être hors service)",
+            "Eau : 1,5 L/personne/jour minimum pour 3 jours",
+            "Nourriture non périssable : barres énergétiques, conserves, fruits secs",
+            "Radio à piles ou manivelle",
+            "Lampe frontale + piles de rechange",
+            "Couverture de survie (feuille dorée)",
+            "Trousse de premiers secours",
+            "Téléphone chargé + chargeur + batterie externe",
+            "Vêtements chauds et imperméables",
+            "Chaussures de marche"
+          ]
+        }
+      ],
+      "ressources_locales_liege": [
+        {
+          "organisme": "CHU de Liège — Urgences",
+          "adresse": "Avenue de l'Hôpital 1, 4000 Sart-Tilman",
+          "telephone": "04 366 71 11",
+          "coordonnees_gps": "50.5833, 5.5667"
+        },
+        {
+          "organisme": "Clinique CHC MontLégia — Urgences",
+          "adresse": "Boulevard Patience et Beaujonc 2, 4000 Liège",
+          "telephone": "04 224 81 11",
+          "coordonnees_gps": "50.6280, 5.5747"
+        },
+        {
+          "organisme": "Zone de secours de Liège (pompiers)",
+          "telephone": "112 ou 04 237 41 11",
+          "note": "Zone de secours Liège couvrant Liège, Visé, Herstal et environs"
+        },
+        {
+          "organisme": "Croix-Rouge Liège",
+          "adresse": "Rue de Fragnée 2, 4000 Liège",
+          "telephone": "04 254 30 00"
+        },
+        {
+          "organisme": "Protection civile — Crisnée",
+          "adresse": "Rue de la Basse Campagne, 4367 Crisnée",
+          "telephone": "04 372 95 35",
+          "note": "Unité provinciale de protection civile pour Liège"
+        },
+        {
+          "organisme": "Gare de Liège-Guillemins (évacuation ferroviaire)",
+          "adresse": "Place des Guillemins 2, 4000 Liège",
+          "telephone": "02 528 28 28 (SNCB)",
+          "coordonnees_gps": "50.6246, 5.5669"
+        }
+      ]
+    },
+    "france": {
+      "numeros_urgence": [
+        {
+          "numero": "15",
+          "service": "SAMU — Aide médicale urgente",
+          "description": "Urgences médicales, arrêt cardiaque, accident grave avec blessés. Médecin régulateur disponible.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "17",
+          "service": "Police Nationale / Gendarmerie",
+          "description": "Urgences police, crime en cours, accident de la route, sécurité des personnes.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "18",
+          "service": "Pompiers — Sapeurs-Pompiers",
+          "description": "Incendie, accident de la route, secours à victimes, noyade.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "112",
+          "service": "Numéro d'urgence européen",
+          "description": "Regroupe les urgences dans toute l'UE. Redirige vers 15, 17 ou 18 selon la situation.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "115",
+          "service": "SAMU Social — sans-abri et urgence sociale",
+          "description": "Hébergement d'urgence, personnes à la rue, victimes de catastrophe sans logement.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "116 000",
+          "service": "Enfants disparus",
+          "description": "Signalement d'enfants disparus. Numéro européen harmonisé.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        },
+        {
+          "numero": "04 72 11 69 11",
+          "service": "Centre Antipoisons (CAPTV) — France",
+          "description": "Intoxications, empoisonnements, ingestion de plante, médicament ou produit chimique. Centre de Lyon couvrant toute la France.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false,
+          "note": "Ou contacter directement le 15 (SAMU) qui peut mettre en relation avec le CAPTV"
+        },
+        {
+          "numero": "3114",
+          "service": "Numéro national de prévention du suicide",
+          "description": "Écoute et orientation en cas de crise suicidaire.",
+          "disponibilite": "24h/24 — 7j/7",
+          "fonctionne_sans_reseau": false
+        }
+      ],
+      "contacts_crise": [
+        {
+          "organisme": "Préfecture — Gestion de crise",
+          "role": "Chaque département a sa préfecture avec un plan ORSEC (Organisation de la Réponse de Sécurité Civile). Chercher la préfecture du département concerné.",
+          "site": "prefectures-regions.gouv.fr"
+        },
+        {
+          "organisme": "Météo France",
+          "site": "meteofrance.fr",
+          "role": "Alertes météo (vigilance jaune/orange/rouge/violet). Vigilance rouge = danger extrême, rester chez soi."
+        },
+        {
+          "organisme": "Vigicrues",
+          "site": "vigicrues.gouv.fr",
+          "role": "Surveillance des crues et inondations en France. Consulter avant tout déplacement en zone inondable."
+        },
+        {
+          "organisme": "IRSN — Institut de Radioprotection et de Sûreté Nucléaire",
+          "site": "irsn.fr",
+          "role": "Alertes nucléaires et radiologiques en France. 58 réacteurs nucléaires en France."
+        },
+        {
+          "organisme": "Géorisques",
+          "site": "georisques.gouv.fr",
+          "role": "Cartographie des risques naturels et technologiques par commune (inondation, séisme, radon, cavités, etc.)"
+        },
+        {
+          "organisme": "FR-Alert",
+          "description": "Système national d'alerte par SMS cell broadcast. Envoi automatique d'alertes sur les téléphones à proximité d'une zone de danger sans abonnement ni inscription. Disponible depuis 2022 sur les téléphones compatibles 4G/5G.",
+          "note": "Fonctionne même en roaming pour les téléphones compatibles"
+        }
+      ],
+      "procedures_crise": [
+        {
+          "situation": "Alerte météo Météo France (vigilance rouge)",
+          "etapes": [
+            "Consulter meteofrance.fr et les vigilances départementales",
+            "Écouter les radios nationales : France Inter (87.8 FM), France Info (105.5 FM)",
+            "Vigilance rouge : ne pas sortir sauf nécessité absolue",
+            "Éviter les routes et sous-passages en zone inondable",
+            "Couper les équipements électriques si inondation",
+            "Ne pas aller chercher les enfants à l'école (ils y sont en sécurité avec le plan PPMS)"
+          ],
+          "radio_urgence": "France Inter — 87.8 FM | France Info — 105.5 FM"
+        },
+        {
+          "situation": "Plan ORSEC — Catastrophe naturelle ou technologique",
+          "etapes": [
+            "Le plan ORSEC est déclenché par le Préfet",
+            "Écouter les consignes officielles diffusées par les médias et FR-Alert",
+            "Se conformer aux zones d'évacuation délimitées par les autorités",
+            "Rejoindre les Points de Regroupement des Victimes (PRV) indiqués",
+            "Ne pas encombrer les lignes téléphoniques d'urgence"
+          ]
+        },
+        {
+          "situation": "Panne électrique prolongée",
+          "etapes": [
+            "Signaler à Enedis : 09 72 67 50 XX (XX = numéro du département)",
+            "Débrancher les appareils sensibles",
+            "Conserver les aliments : réfrigérateur 4h, congélateur 48h",
+            "Ne jamais utiliser de groupe électrogène ou barbecue à l'intérieur (CO)",
+            "En cas de grand froid : se rendre dans un centre de mise à l'abri communal"
+          ],
+          "contacts": [
+            {"service": "Enedis (réseau national)", "telephone": "09 72 67 50 + numéro du département"}
+          ]
+        },
+        {
+          "situation": "Accident nucléaire",
+          "etapes": [
+            "Écouter les médias officiels et FR-Alert",
+            "Confinement : rentrer immédiatement, fermer fenêtres et aérations",
+            "Ne sortir qu'avec l'autorisation des autorités",
+            "Iode stable : distribué gratuitement sur prescription officielle dans les zones à risque",
+            "Plan Particulier d'Intervention (PPI) : déclenché par le Préfet pour les communes autour des centrales"
+          ],
+          "contacts": [
+            {"service": "IRSN", "telephone": "01 58 35 88 88"},
+            {"service": "ASN — Autorité de Sûreté Nucléaire", "site": "asn.fr"}
+          ]
+        },
+        {
+          "situation": "Évacuation d'urgence",
+          "etapes": [
+            "Sac d'urgence prêt à saisir (voir liste dans section Belgique)",
+            "Couper gaz, eau, électricité si temps disponible",
+            "Fermer portes et fenêtres à clé",
+            "Suivre les itinéraires d'évacuation balisés (panneaux verts d'évacuation)",
+            "Se rendre au Point de Rassemblement communal",
+            "Informer un proche de votre destination"
+          ]
+        }
+      ],
+      "ressources_par_region": [
+        {
+          "region": "Grand Est (Alsace-Lorraine — frontalière Belgique)",
+          "prefectures": [
+            {"departement": "Moselle (57)", "chef_lieu": "Metz", "telephone_prefecture": "03 87 34 87 34"},
+            {"departement": "Meurthe-et-Moselle (54)", "chef_lieu": "Nancy", "telephone_prefecture": "03 83 34 25 25"},
+            {"departement": "Ardennes (08)", "chef_lieu": "Charleville-Mézières", "telephone_prefecture": "03 24 59 50 00"},
+            {"departement": "Bas-Rhin (67)", "chef_lieu": "Strasbourg", "telephone_prefecture": "03 88 21 67 67"}
+          ]
+        },
+        {
+          "region": "Hauts-de-France (frontalière Belgique)",
+          "prefectures": [
+            {"departement": "Nord (59)", "chef_lieu": "Lille", "telephone_prefecture": "03 20 30 59 59"},
+            {"departement": "Pas-de-Calais (62)", "chef_lieu": "Arras", "telephone_prefecture": "03 21 21 20 20"},
+            {"departement": "Aisne (02)", "chef_lieu": "Laon", "telephone_prefecture": "03 23 21 80 00"}
+          ]
+        }
+      ],
+      "gestes_premiers_secours": {
+        "note": "Formation PSC1 recommandée — Prévention et Secours Civiques de niveau 1. Disponible gratuitement dans de nombreuses associations.",
+        "gestes_urgence": [
+          {
+            "situation": "Arrêt cardiaque",
+            "procedure": [
+              "Appeler le 15 ou le 112 immédiatement",
+              "Allonger la victime sur une surface dure",
+              "30 compressions thoraciques (dépression 5–6 cm, rythme 100–120/min)",
+              "2 insufflations (si formé) — sinon continuer les compressions seules",
+              "Continuer jusqu'à l'arrivée des secours ou le réveil de la victime",
+              "Utiliser un défibrillateur (DAE) dès qu'il est disponible"
+            ]
+          },
+          {
+            "situation": "Hémorragie grave",
+            "procedure": [
+              "Appeler le 15",
+              "Comprimer FORT et DIRECTEMENT sur la plaie avec un tissu propre",
+              "Ne pas enlever le tissu même s'il est imbibé — en rajouter par-dessus",
+              "Maintenir la compression jusqu'à l'arrivée des secours",
+              "Garrot en dernier recours sur les membres si compression impossible"
+            ]
+          },
+          {
+            "situation": "Brûlure",
+            "procedure": [
+              "Refroidir à l'eau fraîche (15°C) pendant 15 minutes minimum",
+              "Ne pas percer les cloques",
+              "Ne pas appliquer de corps gras, dentifrice ou glace",
+              "Appeler le 15 si brûlure étendue, profonde, au visage, aux mains ou aux voies respiratoires"
+            ]
+          },
+          {
+            "situation": "Personne inconsciente qui respire",
+            "procedure": [
+              "PLS — Position Latérale de Sécurité",
+              "Appeler le 15",
+              "Surveiller la respiration jusqu'à l'arrivée des secours"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

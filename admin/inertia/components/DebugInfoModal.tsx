@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconBug, IconCopy, IconCheck } from '@tabler/icons-react'
 import StyledModal from './StyledModal'
 import api from '~/lib/api'
@@ -9,6 +10,7 @@ interface DebugInfoModalProps {
 }
 
 export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
+  const { t } = useTranslation()
   const [debugText, setDebugText] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -24,11 +26,11 @@ export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
         const browserLine = `Browser: ${navigator.userAgent}`
         setDebugText(text + '\n' + browserLine)
       } else {
-        setDebugText('Failed to load debug info. Please try again.')
+        setDebugText(t('common.debug_info_load_error'))
       }
       setLoading(false)
     }).catch(() => {
-      setDebugText('Failed to load debug info. Please try again.')
+      setDebugText(t('common.debug_info_load_error'))
       setLoading(false)
     })
   }, [open])
@@ -52,20 +54,19 @@ export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
     <StyledModal
       open={open}
       onClose={onClose}
-      title="Debug Info"
+      title={t('common.debug_info_title')}
       icon={<IconBug className="size-8 text-desert-green" />}
-      cancelText="Close"
+      cancelText={t('common.close')}
       onCancel={onClose}
     >
       <p className="text-sm text-gray-500 mb-3 text-left">
-        This is non-sensitive system info you can share when reporting issues.
-        No passwords, IPs, or API keys are included.
+        {t('common.debug_info_description')}
       </p>
 
       <textarea
         id="debug-info-text"
         readOnly
-        value={loading ? 'Loading...' : debugText}
+        value={loading ? t('common.loading') : debugText}
         rows={18}
         className="w-full font-mono text-xs text-black bg-gray-50 border border-gray-200 rounded-md p-3 resize-none focus:outline-none text-left"
       />
@@ -79,12 +80,12 @@ export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
           {copied ? (
             <>
               <IconCheck className="size-4" />
-              Copied!
+              {t('common.copied')}
             </>
           ) : (
             <>
               <IconCopy className="size-4" />
-              Copy to Clipboard
+              {t('common.copy_to_clipboard')}
             </>
           )}
         </button>
@@ -95,7 +96,7 @@ export default function DebugInfoModal({ open, onClose }: DebugInfoModalProps) {
           rel="noopener noreferrer"
           className="text-sm text-desert-green hover:underline"
         >
-          Open a GitHub Issue
+          {t('common.open_github_issue')}
         </a>
       </div>
     </StyledModal>

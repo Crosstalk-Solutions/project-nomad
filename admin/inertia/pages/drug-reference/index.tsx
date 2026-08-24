@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/react'
+import { useTranslation } from 'react-i18next'
 import AppLayout from '~/layouts/AppLayout'
 import StyledButton from '~/components/StyledButton'
 import DrugResultRow from '~/components/drug-reference/DrugResultRow'
@@ -55,21 +56,6 @@ const ROUTE_OPTIONS = [
   'TRANSDERMAL',
   'DENTAL',
 ] as const
-
-/** Friendly "form" label for a route value (how you take it), plainer than the raw route. */
-const ROUTE_FRIENDLY: Record<string, string> = {
-  ORAL: 'Oral (pill, liquid)',
-  TOPICAL: 'Topical (cream, gel)',
-  OPHTHALMIC: 'Eye drops',
-  OTIC: 'Ear drops',
-  NASAL: 'Nasal spray',
-  INHALATION: 'Inhaler',
-  SUBLINGUAL: 'Under the tongue',
-  RECTAL: 'Rectal',
-  VAGINAL: 'Vaginal',
-  TRANSDERMAL: 'Skin patch',
-  DENTAL: 'Dental',
-}
 
 const DEBOUNCE_MS = 350
 const LIMIT = 50
@@ -165,6 +151,23 @@ export default function DrugReferenceIndex({
   conditions,
   remediesEnabled = false,
 }: PageProps) {
+  const { t } = useTranslation()
+
+  /** Friendly "form" label for a route value (how you take it), plainer than the raw route. */
+  const ROUTE_FRIENDLY: Record<string, string> = {
+    ORAL: t('drug_reference.route.oral'),
+    TOPICAL: t('drug_reference.route.topical'),
+    OPHTHALMIC: t('drug_reference.route.ophthalmic'),
+    OTIC: t('drug_reference.route.otic'),
+    NASAL: t('drug_reference.route.nasal'),
+    INHALATION: t('drug_reference.route.inhalation'),
+    SUBLINGUAL: t('drug_reference.route.sublingual'),
+    RECTAL: t('drug_reference.route.rectal'),
+    VAGINAL: t('drug_reference.route.vaginal'),
+    TRANSDERMAL: t('drug_reference.route.transdermal'),
+    DENTAL: t('drug_reference.route.dental'),
+  }
+
   // ── Tab 1: drug-name search ────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [productType, setProductType] = useState<string | null>(null)
@@ -417,10 +420,7 @@ export default function DrugReferenceIndex({
   const handleResetIngest = async () => {
     if (resetting) return
     if (
-      !window.confirm(
-        'Restart the ingest? This clears the current (possibly stuck) ingest job and ' +
-          're-runs it from the already-downloaded files.'
-      )
+      !window.confirm(t('drug_reference.ingest.confirm_restart'))
     ) {
       return
     }
@@ -456,34 +456,33 @@ export default function DrugReferenceIndex({
   if (isEmpty) {
     return (
       <AppLayout compact>
-        <Head title="Drug Reference" />
+        <Head title={t('drug_reference.page_title')} />
         <div className="p-4 max-w-4xl mx-auto">
           <PageHeader rowCount={rowCount} />
           <DrugDisclaimerModal open={showDisclaimer} onAcknowledge={() => setShowDisclaimer(false)} />
           <div className="border-2 border-dashed border-desert-stone-lighter rounded-2xl p-8 text-center bg-desert-white">
-            <p className="text-lg font-semibold mb-2 text-desert-green-darker">No FDA drug data yet</p>
+            <p className="text-lg font-semibold mb-2 text-desert-green-darker">{t('drug_reference.empty.title')}</p>
             <p className="mb-6 opacity-70">
-              Download the openFDA drug-label dataset to enable offline search. Requires ~1.7 GB
-              compressed download (~8–10 GB after ingestion).
+              {t('drug_reference.empty.description')}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <StyledButton variant="primary" onClick={handleTriggerDownload} disabled={triggering || busy}>
                 {phase === 'downloading'
-                  ? 'Downloading…'
+                  ? t('drug_reference.ingest.downloading')
                   : phase === 'ingesting'
-                    ? 'Indexing…'
+                    ? t('drug_reference.ingest.indexing')
                     : triggering
-                      ? 'Starting…'
-                      : 'Download FDA drug data'}
+                      ? t('drug_reference.ingest.starting')
+                      : t('drug_reference.ingest.download_fda_data')}
               </StyledButton>
               {canIngestFromDisk && (
                 <StyledButton variant="secondary" onClick={handleIngestFromDisk} disabled={ingesting || busy}>
-                  {ingesting ? 'Starting…' : 'Ingest into search'}
+                  {ingesting ? t('drug_reference.ingest.starting') : t('drug_reference.ingest.ingest_into_search')}
                 </StyledButton>
               )}
               {phase === 'ingesting' && (
                 <StyledButton variant="outline" onClick={handleResetIngest} disabled={resetting}>
-                  {resetting ? 'Restarting…' : 'Restart ingest'}
+                  {resetting ? t('drug_reference.ingest.restarting') : t('drug_reference.ingest.restart_ingest')}
                 </StyledButton>
               )}
             </div>
@@ -508,7 +507,7 @@ export default function DrugReferenceIndex({
 
   return (
     <AppLayout compact>
-      <Head title="Drug Reference" />
+      <Head title={t('drug_reference.page_title')} />
       <div className="p-4 max-w-4xl mx-auto">
         <PageHeader rowCount={rowCount} />
         <DrugDisclaimerModal open={showDisclaimer} onAcknowledge={() => setShowDisclaimer(false)} />
@@ -516,13 +515,13 @@ export default function DrugReferenceIndex({
         <TabGroup selectedIndex={tabIndex} onChange={setTabIndex}>
           <TabList className="mb-5 flex gap-1 border-b border-desert-stone-lighter/50">
             <Tab className={tabClass}>
-              <IconSearch size={16} /> Search by drug
+              <IconSearch size={16} /> {t('drug_reference.tab.search_by_drug')}
             </Tab>
             <Tab className={tabClass}>
-              <IconFirstAidKit size={16} /> By situation
+              <IconFirstAidKit size={16} /> {t('drug_reference.tab.by_situation')}
             </Tab>
             <Tab className={tabClass}>
-              <IconDatabase size={16} /> FDA data
+              <IconDatabase size={16} /> {t('drug_reference.tab.fda_data')}
             </Tab>
           </TabList>
 
@@ -546,7 +545,7 @@ export default function DrugReferenceIndex({
                   value={query}
                   onChange={handleQueryChange}
                   autoFocus
-                  placeholder="Search a medicine by name — ibuprofen, Benadryl, loratadine…"
+                  placeholder={t('drug_reference.search.placeholder')}
                   className="w-full rounded-lg border border-desert-stone-lighter bg-surface-primary py-2.5 pl-10 pr-4 text-sm text-desert-green-darker transition focus:border-desert-green focus:outline-none focus:ring-2 focus:ring-desert-green/20"
                 />
               </div>
@@ -555,21 +554,21 @@ export default function DrugReferenceIndex({
               <div className="mb-6">
                 <div className="flex items-center gap-2">
                   <FilterPill active={productType === null} onClick={() => handleFilterChange(null)}>
-                    All
+                    {t('drug_reference.filter.all')}
                   </FilterPill>
                   <FilterPill
                     active={productType === PRODUCT_TYPES.OTC}
                     tone="olive"
                     onClick={() => handleFilterChange(PRODUCT_TYPES.OTC)}
                   >
-                    Over-the-counter
+                    {t('drug_reference.filter.otc')}
                   </FilterPill>
                   <FilterPill
                     active={productType === PRODUCT_TYPES.RX}
                     tone="orange"
                     onClick={() => handleFilterChange(PRODUCT_TYPES.RX)}
                   >
-                    Prescription
+                    {t('drug_reference.filter.prescription')}
                   </FilterPill>
                   <button
                     type="button"
@@ -577,20 +576,20 @@ export default function DrugReferenceIndex({
                     className="ml-auto flex items-center gap-1 rounded-full border border-desert-stone-lighter bg-surface-primary px-3 py-1 text-xs text-desert-green-darker hover:border-desert-green"
                   >
                     <IconAdjustmentsHorizontal size={14} />
-                    {route ? ROUTE_FRIENDLY[route] : 'Form'} · {sort === 'name' ? 'A–Z' : 'Best match'}
+                    {route ? ROUTE_FRIENDLY[route] : t('drug_reference.filter.form')} · {sort === 'name' ? t('drug_reference.sort.az') : t('drug_reference.sort.best_match')}
                     <IconChevronDown size={14} className={filtersOpen ? 'rotate-180 transition' : 'transition'} />
                   </button>
                 </div>
                 {filtersOpen && (
                   <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-desert-stone-lighter/60 bg-desert-sand/20 p-3">
                     <label className="flex items-center gap-2 text-xs text-desert-green-darker">
-                      Form (how you take it)
+                      {t('drug_reference.filter.form_label')}
                       <select
                         value={route ?? ''}
                         onChange={(e) => handleRouteChange(e.target.value || null)}
                         className="rounded-lg border border-desert-stone-lighter bg-surface-primary px-2 py-1 text-xs text-desert-green-darker focus:border-desert-green focus:outline-none"
                       >
-                        <option value="">Any form</option>
+                        <option value="">{t('drug_reference.filter.any_form')}</option>
                         {ROUTE_OPTIONS.map((r) => (
                           <option key={r} value={r}>
                             {ROUTE_FRIENDLY[r]}
@@ -599,14 +598,14 @@ export default function DrugReferenceIndex({
                       </select>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-desert-green-darker">
-                      Sort
+                      {t('drug_reference.filter.sort_label')}
                       <select
                         value={sort}
                         onChange={(e) => handleSortChange(e.target.value as 'relevance' | 'name')}
                         className="rounded-lg border border-desert-stone-lighter bg-surface-primary px-2 py-1 text-xs text-desert-green-darker focus:border-desert-green focus:outline-none"
                       >
-                        <option value="relevance">Best match</option>
-                        <option value="name">A–Z</option>
+                        <option value="relevance">{t('drug_reference.sort.best_match')}</option>
+                        <option value="name">{t('drug_reference.sort.az')}</option>
                       </select>
                     </label>
                   </div>
@@ -614,18 +613,18 @@ export default function DrugReferenceIndex({
               </div>
 
               {drugLoading && drugResults.length === 0 && (
-                <div className="text-center py-8 opacity-60">Searching…</div>
+                <div className="text-center py-8 opacity-60">{t('drug_reference.search.searching')}</div>
               )}
 
               {!drugSearched && (
                 <div className="rounded-2xl border border-dashed border-desert-stone-lighter/70 p-8 text-center text-sm text-desert-stone">
-                  Type a medicine name above to search {rowCount.toLocaleString()} FDA drug labels.
+                  {t('drug_reference.search.prompt', { count: rowCount.toLocaleString() })}
                   <br />
-                  Looking for something to treat a symptom instead? Try the{' '}
+                  {t('drug_reference.search.try_situation_prefix')}{' '}
                   <button className="font-semibold text-desert-green underline" onClick={() => setTabIndex(1)}>
-                    By situation
+                    {t('drug_reference.tab.by_situation')}
                   </button>{' '}
-                  tab.
+                  {t('drug_reference.search.try_situation_suffix')}
                 </div>
               )}
 
@@ -636,10 +635,10 @@ export default function DrugReferenceIndex({
                       <IconPill size={18} />
                     </span>
                     <h2 className="text-sm font-bold text-desert-green-darker">
-                      {ingredientGroups.length} ingredient{ingredientGroups.length !== 1 ? 's' : ''}
+                      {t('drug_reference.results.ingredients_count', { count: ingredientGroups.length })}
                     </h2>
                     <span className="ml-auto text-xs text-desert-stone">
-                      {drugResults.length} product{drugResults.length !== 1 ? 's' : ''}
+                      {t('drug_reference.results.products_count', { count: drugResults.length })}
                     </span>
                   </div>
                   <div className="divide-y divide-desert-stone-lighter/40">
@@ -650,7 +649,7 @@ export default function DrugReferenceIndex({
                   {hasMore && (
                     <div className="flex justify-center border-t border-desert-stone-lighter/40 p-3">
                       <StyledButton variant="secondary" onClick={handleLoadMore} disabled={drugLoading}>
-                        {drugLoading ? 'Loading…' : 'Load more products'}
+                        {drugLoading ? t('drug_reference.search.loading') : t('drug_reference.search.load_more')}
                       </StyledButton>
                     </div>
                   )}
@@ -659,7 +658,7 @@ export default function DrugReferenceIndex({
 
               {drugNothing && (
                 <div className="text-center py-8 opacity-60">
-                  No medicines match &ldquo;{query}&rdquo;.
+                  {t('drug_reference.search.no_results', { query })}
                 </div>
               )}
             </TabPanel>
@@ -672,7 +671,7 @@ export default function DrugReferenceIndex({
               <div className="my-4">
                 {anySituationSelected && (
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-desert-stone">Selected:</span>
+                    <span className="text-xs font-semibold text-desert-stone">{t('drug_reference.situation.selected_label')}</span>
                     {selectedSlugs.map((slug) => {
                       const c = conditions.find((x) => x.slug === slug)
                       if (!c) return null
@@ -696,7 +695,7 @@ export default function DrugReferenceIndex({
                       }}
                       className="text-xs text-desert-stone underline hover:text-desert-green-darker"
                     >
-                      Clear
+                      {t('drug_reference.situation.clear')}
                     </button>
                   </div>
                 )}
@@ -707,7 +706,7 @@ export default function DrugReferenceIndex({
                   className="flex items-center gap-1 rounded-full border border-desert-stone-lighter bg-surface-primary px-3 py-1 text-xs text-desert-green-darker hover:border-desert-olive"
                 >
                   <IconFirstAidKit size={14} />
-                  {anySituationSelected ? 'Add another situation' : 'Pick one or more situations'}
+                  {anySituationSelected ? t('drug_reference.situation.add_another') : t('drug_reference.situation.pick_one_or_more')}
                   <IconChevronDown size={14} className={browseOpen ? 'rotate-180 transition' : 'transition'} />
                 </button>
 
@@ -745,12 +744,12 @@ export default function DrugReferenceIndex({
 
               {!anySituationSelected && (
                 <div className="rounded-2xl border border-dashed border-desert-stone-lighter/70 p-8 text-center text-sm text-desert-stone">
-                  Pick a situation (or a few) above to see the over-the-counter drugs whose FDA labels list it.
+                  {t('drug_reference.situation.empty_prompt')}
                 </div>
               )}
 
               {situationLoading && (
-                <div className="text-center py-6 opacity-60">Finding options…</div>
+                <div className="text-center py-6 opacity-60">{t('drug_reference.situation.finding_options')}</div>
               )}
 
               {/* Intersection — treats ALL selected situations */}
@@ -761,9 +760,9 @@ export default function DrugReferenceIndex({
                       <IconFirstAidKit size={18} />
                     </span>
                     <h2 className="text-sm font-bold text-desert-olive-dark">
-                      Treats all {selectedSlugs.length} selected
+                      {t('drug_reference.situation.treats_all', { count: selectedSlugs.length })}
                     </h2>
-                    <span className="ml-auto text-xs text-desert-stone">{intersection.length} OTC</span>
+                    <span className="ml-auto text-xs text-desert-stone">{t('drug_reference.situation.otc_count', { count: intersection.length })}</span>
                   </div>
                   <div className="divide-y divide-desert-stone-lighter/40">
                     {intersection.map((d) => (
@@ -777,8 +776,7 @@ export default function DrugReferenceIndex({
                   ALL selected (intersection empty), or for a single situation. */}
               {!situationLoading && intersection.length === 0 && selectedSlugs.length >= 2 && (
                 <p className="mb-3 text-sm text-desert-stone">
-                  No single option treats all {selectedSlugs.length} of these — here are options for each
-                  situation.
+                  {t('drug_reference.situation.no_single_option', { count: selectedSlugs.length })}
                 </p>
               )}
               {!situationLoading &&
@@ -792,7 +790,7 @@ export default function DrugReferenceIndex({
                 if (allDrugs.length === 0 && remediesShown.length === 0) {
                   return (
                     <p key={slug} className="mb-4 text-sm text-desert-stone">
-                      No additional OTC options found for <strong>{r.label}</strong>.
+                      {t('drug_reference.situation.no_additional_otc', { label: r.label })}
                     </p>
                   )
                 }
@@ -803,11 +801,12 @@ export default function DrugReferenceIndex({
                         <IconFirstAidKit size={18} />
                       </span>
                       <h2 className="text-sm font-bold text-desert-green-darker">
-                        For <span className="text-desert-olive-dark">&ldquo;{r.label}&rdquo;</span>
+                        {t('drug_reference.situation.for_label_prefix')}{' '}
+                        <span className="text-desert-olive-dark">&ldquo;{r.label}&rdquo;</span>
                       </h2>
                       <span className="ml-auto text-xs text-desert-stone">
-                        {allDrugs.length} OTC
-                        {allDrugs.length > PER_SITUATION_DISPLAY ? ` · top ${PER_SITUATION_DISPLAY}` : ''}
+                        {t('drug_reference.situation.otc_count', { count: allDrugs.length })}
+                        {allDrugs.length > PER_SITUATION_DISPLAY ? ` · ${t('drug_reference.situation.top_n', { n: PER_SITUATION_DISPLAY })}` : ''}
                       </span>
                     </div>
                     {drugs.length > 0 && (
@@ -822,7 +821,7 @@ export default function DrugReferenceIndex({
                         <div className="flex items-center gap-2 px-4 py-2 border-b border-desert-tan-lighter/30">
                           <IconLeaf size={14} className="text-desert-tan-dark" />
                           <span className="text-xs font-semibold uppercase tracking-wide text-desert-tan-dark">
-                            Natural remedies
+                            {t('drug_reference.situation.natural_remedies')}
                           </span>
                         </div>
                         <div className="border-b border-desert-tan-lighter/20 p-3">
@@ -844,25 +843,24 @@ export default function DrugReferenceIndex({
             <TabPanel>
               <div className={`${CARD_SURFACE} p-5`}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-sm font-bold text-desert-green-darker">FDA drug data</h2>
+                  <h2 className="text-sm font-bold text-desert-green-darker">{t('drug_reference.fda_tab.title')}</h2>
                   <div className="flex flex-wrap items-center gap-2">
                     {canIngestFromDisk && (
                       <StyledButton variant="outline" size="sm" onClick={handleIngestFromDisk} disabled={ingesting || busy}>
-                        {ingesting ? 'Starting…' : 'Ingest into search'}
+                        {ingesting ? t('drug_reference.ingest.starting') : t('drug_reference.ingest.ingest_into_search')}
                       </StyledButton>
                     )}
                     <StyledButton variant="secondary" size="sm" onClick={handleTriggerDownload} disabled={triggering || busy}>
                       {phase === 'downloading'
-                        ? 'Downloading…'
+                        ? t('drug_reference.ingest.downloading')
                         : phase === 'ingesting'
-                          ? 'Indexing…'
-                          : 'Update FDA data'}
+                          ? t('drug_reference.ingest.indexing')
+                          : t('drug_reference.fda_tab.update_fda_data')}
                     </StyledButton>
                   </div>
                 </div>
                 <p className="mb-4 text-xs text-desert-stone">
-                  {rowCount.toLocaleString()} drug labels installed. Updating re-checks openFDA for a newer
-                  dataset and refreshes the offline copy.
+                  {t('drug_reference.fda_tab.installed_description', { count: rowCount.toLocaleString() })}
                 </p>
                 {status && <IngestStatus status={status} onRefresh={handleStatusRefresh} />}
               </div>
@@ -879,21 +877,21 @@ export default function DrugReferenceIndex({
 // ─── Page header ──────────────────────────────────────────────────────────────
 
 function PageHeader({ rowCount }: { rowCount: number }) {
+  const { t } = useTranslation()
   return (
     <div className="mb-4">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
-        <h1 className="text-2xl font-bold text-desert-green-darker">Drug Reference</h1>
+        <h1 className="text-2xl font-bold text-desert-green-darker">{t('drug_reference.page_title')}</h1>
         {rowCount > 0 && (
           <Link href="/drug-reference/interactions">
             <StyledButton variant="outline" size="sm" onClick={() => {}}>
-              Compare label warnings
+              {t('drug_reference.header.compare_warnings')}
             </StyledButton>
           </Link>
         )}
       </div>
       <p className="text-sm opacity-70">
-        Look up a medicine by name, or start from a symptom to find over-the-counter options — all from
-        offline FDA drug labels.
+        {t('drug_reference.header.subtitle')}
       </p>
     </div>
   )
@@ -902,11 +900,10 @@ function PageHeader({ rowCount }: { rowCount: number }) {
 // ─── Source citation ──────────────────────────────────────────────────────────
 
 function SourceFooter() {
+  const { t } = useTranslation()
   return (
     <footer className="mt-8 pt-4 border-t border-desert-stone-lighter/40 text-xs text-desert-stone">
-      <strong>Source:</strong> U.S. Food &amp; Drug Administration drug labeling, via{' '}
-      <strong>openFDA</strong> — public domain (CC0 1.0). NOMAD is not affiliated with or endorsed by the
-      FDA. Label data and situation matches are label-text only; do not rely on them for medical decisions.
+      <strong>{t('drug_reference.footer.source_label')}</strong> {t('drug_reference.footer.source_text')}
     </footer>
   )
 }
@@ -914,6 +911,7 @@ function SourceFooter() {
 // ─── Situation remedy row ─────────────────────────────────────────────────────
 
 function SituationRemedyRow({ remedy }: { remedy: NaturalRemedy }) {
+  const { t } = useTranslation()
   return (
     <div className="px-4 py-3">
       <div className="flex items-start justify-between gap-2">
@@ -921,7 +919,7 @@ function SituationRemedyRow({ remedy }: { remedy: NaturalRemedy }) {
           <p className="text-sm font-semibold text-desert-tan-dark">
             {remedy.name}
             <span className="ml-2 inline-block rounded-full bg-desert-tan/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-desert-tan-dark align-middle">
-              {remedy.kind === 'self-care' ? 'Self-care' : 'Herb'}
+              {remedy.kind === 'self-care' ? t('drug_reference.remedy.kind_self_care') : t('drug_reference.remedy.kind_herb')}
             </span>
           </p>
           {remedy.commonNames.length > 0 && (
@@ -929,18 +927,18 @@ function SituationRemedyRow({ remedy }: { remedy: NaturalRemedy }) {
           )}
         </div>
         <span className="flex-shrink-0 text-xs text-desert-stone mt-0.5">
-          Source: {remedySourceName(remedy)}
+          {t('drug_reference.remedy.source_prefix')} {remedySourceName(remedy)}
         </span>
       </div>
       <p className="mt-1.5 text-xs text-desert-green-darker">{remedy.uses}</p>
       {remedy.how && (
         <p className="mt-1 text-xs text-desert-green-darker">
-          <strong>How:</strong> {remedy.how}
+          <strong>{t('drug_reference.remedy.how_label')}</strong> {remedy.how}
         </p>
       )}
       {remedy.cautions && (
         <p className="mt-1 text-xs text-desert-red-dark">
-          <strong>Cautions:</strong> {remedy.cautions}
+          <strong>{t('drug_reference.remedy.cautions_label')}</strong> {remedy.cautions}
         </p>
       )}
     </div>

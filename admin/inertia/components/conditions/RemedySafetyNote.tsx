@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { IconAlertTriangle } from '@tabler/icons-react'
 
 /**
@@ -12,6 +13,8 @@ import { IconAlertTriangle } from '@tabler/icons-react'
  * past. Same amber alert language as SafetyBanner so the two read as one system.
  */
 export default function RemedySafetyNote() {
+  const { t } = useTranslation()
+
   return (
     <div
       role="alert"
@@ -23,15 +26,13 @@ export default function RemedySafetyNote() {
         aria-hidden="true"
       />
       <div className="space-y-1">
-        <p className="font-bold">Informational only — not medical advice.</p>
+        <p className="font-bold">{t('conditions.remedy_safety_note.title')}</p>
         <p className="text-amber-800">
-          These remedies have limited or mixed evidence, are not FDA-evaluated, and are not a
-          substitute for professional care. Check with a clinician before using any of them, and
-          before combining one with a medication you already take.
+          {t('conditions.remedy_safety_note.body')}
         </p>
         <p className="text-amber-800">
-          In an emergency, or if symptoms are severe or worsening,{' '}
-          <strong>seek real medical care — call emergency services</strong>.
+          {t('conditions.remedy_safety_note.emergency_prefix')}{' '}
+          <strong>{t('conditions.remedy_safety_note.emergency_action')}</strong>.
         </p>
       </div>
     </div>

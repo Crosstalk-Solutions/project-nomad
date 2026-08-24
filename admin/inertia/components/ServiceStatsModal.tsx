@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import StyledModal from './StyledModal'
 import { formatBytes } from '~/lib/util'
 import api from '~/lib/api'
@@ -44,6 +45,7 @@ export default function ServiceStatsModal({
   open,
   onClose,
 }: ServiceStatsModalProps) {
+  const { t } = useTranslation()
   const [stats, setStats] = useState<Stats | null>(null)
   const [running, setRunning] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -71,29 +73,29 @@ export default function ServiceStatsModal({
 
   return (
     <StyledModal
-      title={`Stats — ${friendlyName}`}
+      title={t('common.serviceStatsModal.title', { name: friendlyName })}
       open={open}
       onCancel={onClose}
-      cancelText="Close"
+      cancelText={t('common.serviceStatsModal.close')}
     >
       <div className="space-y-4 text-sm">
         {!running ? (
           <p className="text-text-muted text-center py-6">
-            This app is not running. Start it to see live resource usage.
+            {t('common.serviceStatsModal.notRunning')}
           </p>
         ) : !stats ? (
           <p className="text-text-muted text-center py-6">
-            {loading ? 'Loading…' : 'No stats available.'}
+            {loading ? t('common.serviceStatsModal.loading') : t('common.serviceStatsModal.noStats')}
           </p>
         ) : (
           <>
-            <Bar label="CPU" percent={stats.cpuPercent} value={`${stats.cpuPercent.toFixed(1)}%`} />
+            <Bar label={t('common.serviceStatsModal.cpu')} percent={stats.cpuPercent} value={`${stats.cpuPercent.toFixed(1)}%`} />
             <Bar
-              label="Memory"
+              label={t('common.serviceStatsModal.memory')}
               percent={stats.memPercent}
               value={`${formatBytes(stats.memUsageBytes)} / ${formatBytes(stats.memLimitBytes)} (${stats.memPercent.toFixed(1)}%)`}
             />
-            <p className="text-xs text-text-muted">Updates every 2 seconds.</p>
+            <p className="text-xs text-text-muted">{t('common.serviceStatsModal.updateInterval')}</p>
           </>
         )}
       </div>

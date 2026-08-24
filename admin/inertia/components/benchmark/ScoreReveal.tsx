@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconChartBar, IconCpu, IconDatabase, IconRobot, IconServer } from '@tabler/icons-react'
 import CircularGauge from '~/components/systeminfo/CircularGauge'
 import StyledButton from '~/components/StyledButton'
@@ -52,6 +53,7 @@ export default function ScoreReveal({
   scoreScale = { max: 100, caption: 'out of 100' },
   onDone,
 }: ScoreRevealProps) {
+  const { t } = useTranslation()
   const displayScore = useCountUp(result.nomad_score)
   // A partial (System/AI Only) run is not the NOMAD Score -- relabel + flag it.
   const scoreInfo = getScoreDisplay(result.benchmark_type)
@@ -63,14 +65,14 @@ export default function ScoreReveal({
     variant: 'cpu' | 'memory' | 'disk'
     icon: React.ReactNode
   }[] = [
-    { label: 'CPU', value: result.cpu_score * 100, variant: 'cpu', icon: <IconCpu className="w-6 h-6" /> },
-    { label: 'Memory', value: result.memory_score * 100, variant: 'memory', icon: <IconDatabase className="w-6 h-6" /> },
-    { label: 'Disk Read', value: result.disk_read_score * 100, variant: 'disk', icon: <IconServer className="w-6 h-6" /> },
-    { label: 'Disk Write', value: result.disk_write_score * 100, variant: 'disk', icon: <IconServer className="w-6 h-6" /> },
+    { label: t('benchmark.score_reveal.gauge_cpu'), value: result.cpu_score * 100, variant: 'cpu', icon: <IconCpu className="w-6 h-6" /> },
+    { label: t('benchmark.score_reveal.gauge_memory'), value: result.memory_score * 100, variant: 'memory', icon: <IconDatabase className="w-6 h-6" /> },
+    { label: t('benchmark.score_reveal.gauge_disk_read'), value: result.disk_read_score * 100, variant: 'disk', icon: <IconServer className="w-6 h-6" /> },
+    { label: t('benchmark.score_reveal.gauge_disk_write'), value: result.disk_write_score * 100, variant: 'disk', icon: <IconServer className="w-6 h-6" /> },
   ]
   if (result.ai_tokens_per_second) {
     gauges.push({
-      label: 'AI Score',
+      label: t('benchmark.score_reveal.gauge_ai_score'),
       value: getAIScore(result.ai_tokens_per_second),
       variant: 'cpu',
       icon: <IconRobot className="w-6 h-6" />,
@@ -106,10 +108,10 @@ export default function ScoreReveal({
       <div className="bg-desert-white rounded-lg border border-desert-stone-light overflow-hidden">
         <div className="bg-desert-olive px-6 py-2 flex items-center gap-2">
           <div className="w-1 h-4 bg-desert-green" />
-          <span className="text-xs font-semibold text-white uppercase tracking-wide">Report</span>
+          <span className="text-xs font-semibold text-white uppercase tracking-wide">{t('benchmark.score_reveal.header')}</span>
           {scoreInfo.isPartial && (
             <span className="ml-auto px-2 py-0.5 rounded-full bg-desert-white/20 text-white text-xs font-semibold uppercase tracking-wide">
-              Partial
+              {t('benchmark.score_reveal.partial_badge')}
             </span>
           )}
         </div>
@@ -138,7 +140,7 @@ export default function ScoreReveal({
               <p className="text-desert-stone-dark">
                 {scoreInfo.isPartial
                   ? scoreInfo.cta
-                  : 'Your NOMAD Score is a weighted composite of all benchmark results.'}
+                  : t('benchmark.score_reveal.nomad_score_description')}
               </p>
             </div>
           </div>
@@ -156,7 +158,7 @@ export default function ScoreReveal({
 
           <div className="mt-8 flex justify-end">
             <StyledButton onClick={fireDone} icon="IconArrowRight">
-              Continue
+              {t('benchmark.score_reveal.continue_button')}
             </StyledButton>
           </div>
         </div>

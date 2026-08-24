@@ -1,4 +1,5 @@
 import { IconAlertTriangle } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * "When to use what" — top-of-page safety banner.
@@ -9,6 +10,8 @@ import { IconAlertTriangle } from '@tabler/icons-react'
  * It leads the page (not a footnote) so the caveat is read before any result.
  */
 export default function SafetyBanner() {
+  const { t } = useTranslation()
+
   return (
     <div role="alert" className="mb-6 rounded-lg border-2 border-amber-400 bg-amber-50 p-4">
       <div className="flex items-start gap-3">
@@ -18,19 +21,22 @@ export default function SafetyBanner() {
           aria-hidden="true"
         />
         <div className="text-sm text-amber-900">
-          <p className="font-bold mb-1">Informational reference only — not medical advice.</p>
+          <p className="font-bold mb-1">{t('conditions.safety_banner.title')}</p>
           <ul className="list-disc pl-5 space-y-0.5 text-amber-800">
             <li>
-              These results match FDA drug-label indications to a situation. They are{' '}
-              <strong>not a recommendation</strong> and <strong>not an FDA endorsement</strong>.
+              {t('conditions.safety_banner.fda_match_prefix')}{' '}
+              <strong>{t('conditions.safety_banner.not_a_recommendation')}</strong>{' '}
+              {t('conditions.safety_banner.and')}{' '}
+              <strong>{t('conditions.safety_banner.not_fda_endorsement')}</strong>.
             </li>
             <li>
-              This is <strong>not a drug-interaction checker</strong>. Read each label&rsquo;s full
-              warnings, and check with a pharmacist or clinician before combining medicines.
+              {t('conditions.safety_banner.not_interaction_checker_prefix')}{' '}
+              <strong>{t('conditions.safety_banner.not_interaction_checker')}</strong>.{' '}
+              {t('conditions.safety_banner.check_with_pharmacist')}
             </li>
             <li>
-              In an emergency, or if symptoms are severe or worsening,{' '}
-              <strong>contact a medical professional or call emergency services</strong>.
+              {t('conditions.safety_banner.emergency_prefix')}{' '}
+              <strong>{t('conditions.safety_banner.contact_medical')}</strong>.
             </li>
           </ul>
         </div>

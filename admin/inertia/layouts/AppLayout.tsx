@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Footer from '~/components/Footer'
 import ChatButton from '~/components/chat/ChatButton'
 import ChatModal from '~/components/chat/ChatModal'
+import LanguageSwitcher from '~/components/LanguageSwitcher'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../constants/service_names'
 import { Link, router } from '@inertiajs/react'
@@ -13,13 +15,9 @@ export default function AppLayout({
   compact = false,
 }: {
   children: React.ReactNode
-  /**
-   * Compact header for focused tool pages (e.g. Drug Reference): a small inline
-   * logo + title instead of the full-height branding block, so the tool's own
-   * controls sit near the top of the viewport instead of ~230px down.
-   */
   compact?: boolean
 }) {
+  const { t } = useTranslation()
   const [isChatOpen, setIsChatOpen] = useState(false)
   const aiAssistantInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
@@ -35,9 +33,12 @@ export default function AppLayout({
             )}
           >
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <p className="text-lg text-text-secondary">{t('layout.back_to_home')}</p>
           </Link>
         )}
+      <div className="absolute top-3 right-4">
+        <LanguageSwitcher />
+      </div>
       <div
         className={classNames(
           'flex cursor-pointer items-center justify-center',
@@ -56,7 +57,7 @@ export default function AppLayout({
             compact ? 'text-2xl' : 'text-5xl'
           )}
         >
-          Command Center
+          {t('layout.command_center')}
         </h1>
       </div>
       <hr className={

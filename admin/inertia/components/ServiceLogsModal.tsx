@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import StyledModal from './StyledModal'
 import api from '~/lib/api'
 
@@ -16,13 +17,14 @@ export default function ServiceLogsModal({
   open,
   onClose,
 }: ServiceLogsModalProps) {
+  const { t } = useTranslation()
   const [logs, setLogs] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function load() {
     setLoading(true)
     const res = await api.getServiceLogs(serviceName, 500)
-    setLogs(res?.success ? res.logs || '' : 'Unable to load logs for this container.')
+    setLogs(res?.success ? res.logs || '' : t('common.service_logs_modal.error_load'))
     setLoading(false)
   }
 
@@ -33,19 +35,19 @@ export default function ServiceLogsModal({
 
   return (
     <StyledModal
-      title={`Logs — ${friendlyName}`}
+      title={t('common.service_logs_modal.title', { name: friendlyName })}
       open={open}
       onCancel={onClose}
-      cancelText="Close"
+      cancelText={t('common.service_logs_modal.close')}
       onConfirm={load}
-      confirmText="Refresh"
+      confirmText={t('common.service_logs_modal.refresh')}
       confirmIcon="IconRefresh"
       confirmVariant="outline"
       confirmLoading={loading}
       large
     >
       <pre className="text-xs font-mono whitespace-pre-wrap break-all max-h-[60vh] overflow-auto bg-surface-secondary rounded-md p-3 text-text-primary text-left">
-        {logs || (loading ? 'Loading…' : 'No log output.')}
+        {logs || (loading ? t('common.service_logs_modal.loading') : t('common.service_logs_modal.no_output'))}
       </pre>
     </StyledModal>
   )

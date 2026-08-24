@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatBytes } from '~/lib/util'
 import type { CreatorPackWithStatus } from '../../types/collections'
 import classNames from 'classnames'
@@ -20,6 +21,7 @@ export interface CreatorPackCardProps {
 }
 
 const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onClick, onUninstall }) => {
+  const { t } = useTranslation()
   const isInstalled = pack.status === 'installed'
   const isDownloading = pack.status === 'downloading'
   const hasUpdate = !!pack.available_update_version
@@ -38,21 +40,21 @@ const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onCli
   const statusBadge = selected ? (
     <span className="flex items-center text-lime-600 dark:text-lime-400 text-sm font-medium">
       <IconCircleCheck className="w-5 h-5 mr-1" />
-      Selected
+      {t('creator_pack.status.selected')}
     </span>
   ) : isDownloading ? (
     <span className="flex items-center text-lime-600 dark:text-lime-400 text-sm font-medium">
       <IconLoader2 className="w-5 h-5 mr-1 animate-spin" />
-      Downloading
+      {t('creator_pack.status.downloading')}
     </span>
   ) : isInstalled ? (
     <span className="flex items-center text-lime-600 dark:text-lime-400 text-sm font-medium">
       <IconCircleCheck className="w-5 h-5 mr-1" />
-      Installed
+      {t('creator_pack.status.installed')}
     </span>
   ) : (
     <span className="flex items-center text-text-muted text-sm font-medium">
-      Install
+      {t('creator_pack.status.install')}
       <IconChevronRight className="w-5 h-5 ml-1" />
     </span>
   )
@@ -86,11 +88,11 @@ const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onCli
       <div className="flex items-center justify-between gap-3 px-5 py-3">
         <div className="min-w-0">
           <p className="text-sm text-text-secondary truncate">
-            {pack.video_count} videos &middot; {formatBytes(sizeBytes, 0)}
+            {t('creator_pack.video_count', { count: pack.video_count })} &middot; {formatBytes(sizeBytes, 0)}
           </p>
           {hasUpdate && (
             <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-lime-500/20 text-lime-700 dark:text-lime-300">
-              Update available
+              {t('creator_pack.update_available')}
             </span>
           )}
         </div>
@@ -99,8 +101,8 @@ const CreatorPackCard: React.FC<CreatorPackCardProps> = ({ pack, selected, onCli
           {onUninstall && isInstalled && (
             <button
               type="button"
-              title="Uninstall pack"
-              aria-label="Uninstall pack"
+              title={t('creator_pack.uninstall_title')}
+              aria-label={t('creator_pack.uninstall_title')}
               className="p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
               onClick={(e) => {
                 e.stopPropagation()
