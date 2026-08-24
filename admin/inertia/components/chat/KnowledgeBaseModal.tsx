@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
 import type { DynamicIconName } from '~/lib/icons'
@@ -79,7 +80,7 @@ function renderSortHeader(
  * surfacing the absent-row detail. Admin-docs group has no pill (the "Managed
  * by NOMAD" message in the action column carries the same signal).
  */
-function renderStatePill(record: KbFileGroup): React.ReactNode {
+function renderStatePill(record: KbFileGroup, t: (key: string) => string): React.ReactNode {
   if (record.bucket === 'admin_docs') return null
   const effective: KbIngestStateValue = record.state ?? 'indexed'
 
@@ -88,26 +89,26 @@ function renderStatePill(record: KbFileGroup): React.ReactNode {
     case 'indexed':
       return (
         <span className={`${base} text-green-700 bg-green-50 border-green-200 dark:text-green-300 dark:bg-green-950/40 dark:border-green-800`}>
-          Indexed
+          {t('chat.knowledge_base.state.indexed')}
         </span>
       )
     case 'pending_decision':
     case 'browse_only':
       return (
         <span className={`${base} text-text-secondary bg-surface-secondary border-border-subtle`}>
-          Not Indexed
+          {t('chat.knowledge_base.state.not_indexed')}
         </span>
       )
     case 'failed':
       return (
         <span className={`${base} text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-800`}>
-          Failed
+          {t('chat.knowledge_base.state.failed')}
         </span>
       )
     case 'stalled':
       return (
         <span className={`${base} text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800`}>
-          Stalled
+          {t('chat.knowledge_base.state.stalled')}
         </span>
       )
   }
@@ -124,25 +125,26 @@ type RowAction =
  * surface a Re-embed affordance specifically when a file *looks* indexed but
  * has zero chunks or a stalled-mid-ingestion warning attached.
  */
-function pickRowAction(record: KbFileGroup, hasWarnings: boolean): RowAction | null {
+function pickRowAction(record: KbFileGroup, hasWarnings: boolean, t: (key: string) => string): RowAction | null {
   if (record.bucket === 'admin_docs') return null
   const effective: KbIngestStateValue = record.state ?? 'indexed'
   switch (effective) {
     case 'indexed':
       return hasWarnings
-        ? { kind: 'reembed', label: 'Re-embed', force: true, variant: 'secondary', icon: 'IconRefreshAlert' }
+        ? { kind: 'reembed', label: t('chat.knowledge_base.actions.reembed'), force: true, variant: 'secondary', icon: 'IconRefreshAlert' }
         : null
     case 'pending_decision':
-      return { kind: 'index', label: 'Index', force: false, variant: 'primary', icon: 'IconDownload' }
+      return { kind: 'index', label: t('chat.knowledge_base.actions.index'), force: false, variant: 'primary', icon: 'IconDownload' }
     case 'browse_only':
-      return { kind: 'index', label: 'Index', force: true, variant: 'primary', icon: 'IconDownload' }
+      return { kind: 'index', label: t('chat.knowledge_base.actions.index'), force: true, variant: 'primary', icon: 'IconDownload' }
     case 'failed':
     case 'stalled':
-      return { kind: 'index', label: 'Retry', force: true, variant: 'primary', icon: 'IconRefresh' }
+      return { kind: 'index', label: t('chat.knowledge_base.actions.retry'), force: true, variant: 'primary', icon: 'IconRefresh' }
   }
 }
 
 export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", onClose }: KnowledgeBaseModalProps) {
+  const { t } = useTranslation()
   const { addNotification } = useNotifications()
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
@@ -219,14 +221,14 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         type: 'success',
         message:
           policy === 'Always'
-            ? 'New content will be auto-indexed for AI.'
-            : 'New content will wait for you to opt in.',
+            ? t('chat.knowledge_base.notifications.auto_index_enabled')
+            : t('chat.knowledge_base.notifications.auto_index_disabled'),
       })
     },
     onError: (error: any) => {
       addNotification({
         type: 'error',
-        message: error?.message || 'Failed to update indexing policy.',
+        message: error?.message || t('chat.knowledge_base.notifications.update_policy_failed'),
       })
     },
   })
@@ -239,24 +241,24 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     mutationFn: ({ source, collection }: { source: string; collection: string }) =>
       api.updateFileCollection(source, collection || null),
     onSuccess: (data) => {
-      addNotification({ type: 'success', message: data?.message || 'Collection updated.' })
+      addNotification({ type: 'success', message: data?.message || t('chat.knowledge_base.notifications.collection_updated') })
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
       queryClient.invalidateQueries({ queryKey: ['kbCollections'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to update collection.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.knowledge_base.notifications.update_collection_failed') })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (source: string) => api.deleteRAGFile(source),
     onSuccess: () => {
-      addNotification({ type: 'success', message: 'File removed from knowledge base.' })
+      addNotification({ type: 'success', message: t('chat.knowledge_base.notifications.file_removed') })
       setConfirmDeleteSource(null)
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to delete file.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.knowledge_base.notifications.delete_failed') })
       setConfirmDeleteSource(null)
     },
   })
@@ -267,7 +269,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onSuccess: (data) => {
       addNotification({
         type: 'success',
-        message: data?.message || 'File queued for embedding.',
+        message: data?.message || t('chat.knowledge_base.notifications.file_queued'),
       })
       setConfirmReembed(null)
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
@@ -275,7 +277,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
       queryClient.invalidateQueries({ queryKey: ['kbFileWarnings'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to queue file.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.knowledge_base.notifications.queue_failed') })
       setConfirmReembed(null)
     },
   })
@@ -283,25 +285,25 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const cleanupFailedMutation = useMutation({
     mutationFn: () => api.cleanupFailedEmbedJobs(),
     onSuccess: (data) => {
-      addNotification({ type: 'success', message: data?.message || 'Failed jobs cleaned up.' })
+      addNotification({ type: 'success', message: data?.message || t('chat.knowledge_base.notifications.failed_jobs_cleaned') })
       queryClient.invalidateQueries({ queryKey: ['failedEmbedJobs'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to clean up jobs.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.knowledge_base.notifications.cleanup_failed') })
     },
   })
 
   const cancelAllMutation = useMutation({
     mutationFn: () => api.cancelAllEmbedJobs(),
     onSuccess: (data) => {
-      addNotification({ type: 'success', message: data?.message || 'All embedding jobs cancelled.' })
+      addNotification({ type: 'success', message: data?.message || t('chat.knowledge_base.notifications.jobs_cancelled') })
       queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
       queryClient.invalidateQueries({ queryKey: ['failedEmbedJobs'] })
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
       queryClient.invalidateQueries({ queryKey: ['kbFileWarnings'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to cancel jobs.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.knowledge_base.notifications.cancel_jobs_failed') })
     },
   })
 
@@ -312,7 +314,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
       queryClient.invalidateQueries({ queryKey: ['qdrantHealth'] })
     },
     onError: (error: any) => {
-      addNotification({ type: 'error', message: error?.message || 'Failed to start Qdrant.' })
+      addNotification({ type: 'error', message: error?.message || t('chat.knowledge_base.notifications.start_qdrant_failed') })
     },
   })
 
@@ -321,13 +323,13 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onSuccess: (data) => {
       addNotification({
         type: 'success',
-        message: data?.message || 'Storage synced successfully. If new files were found, they have been queued for processing.',
+        message: data?.message || t('chat.knowledge_base.notifications.sync_success'),
       })
     },
     onError: (error: any) => {
       addNotification({
         type: 'error',
-        message: error?.message || 'Failed to sync storage',
+        message: error?.message || t('chat.knowledge_base.notifications.sync_failed'),
       })
     },
   })
@@ -337,7 +339,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onSuccess: (data) => {
       addNotification({
         type: data?.success ? 'success' : 'error',
-        message: data?.message || 'Re-embed completed.',
+        message: data?.message || t('chat.knowledge_base.notifications.reembed_complete'),
       })
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
       queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
@@ -345,7 +347,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
       setResetTyped('')
     },
     onError: () => {
-      addNotification({ type: 'error', message: 'Failed to re-embed knowledge base.' })
+      addNotification({ type: 'error', message: t('chat.knowledge_base.notifications.reembed_failed') })
       setBulkMode(null)
     },
   })
@@ -355,7 +357,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onSuccess: (data) => {
       addNotification({
         type: data?.success ? 'success' : 'error',
-        message: data?.message || 'Reset complete.',
+        message: data?.message || t('chat.knowledge_base.notifications.reset_complete'),
       })
       queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
       queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
@@ -363,7 +365,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
       setResetTyped('')
     },
     onError: () => {
-      addNotification({ type: 'error', message: 'Failed to reset knowledge base.' })
+      addNotification({ type: 'error', message: t('chat.knowledge_base.notifications.reset_failed') })
       setBulkMode(null)
     },
   })
@@ -393,33 +395,30 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     if (successCount > 0) {
       addNotification({
         type: 'success',
-        message: `${successCount} file${successCount > 1 ? 's' : ''} queued for processing.`,
+        message: t('chat.knowledge_base.notifications.files_queued', { count: successCount }),
       })
     }
     for (const name of failedNames) {
-      addNotification({ type: 'error', message: `Failed to upload: ${name}` })
+      addNotification({ type: 'error', message: t('chat.knowledge_base.notifications.upload_failed', { name }) })
     }
   }
 
   const handleConfirmCancelAll = () => {
     openModal(
       <StyledModal
-        title='Cancel All Embedding Jobs?'
+        title={t('chat.knowledge_base.cancel_all_modal.title')}
         onConfirm={() => {
           cancelAllMutation.mutate()
           closeModal('confirm-cancel-all-modal')
         }}
         onCancel={() => closeModal('confirm-cancel-all-modal')}
         open={true}
-        confirmText='Cancel All Jobs'
-        cancelText='Keep Jobs'
+        confirmText={t('chat.knowledge_base.cancel_all_modal.confirm')}
+        cancelText={t('chat.knowledge_base.cancel_all_modal.cancel')}
         confirmVariant='danger'
       >
         <p className='text-text-primary'>
-          This stops <strong>every</strong> embedding job — including ones still in progress or
-          stuck — and clears the processing queue. The uploaded source files for those jobs are
-          deleted, so you'll need to re-upload anything you still want indexed. Stored files that
-          already finished embedding are not affected. Are you sure you want to proceed?
+          {t('chat.knowledge_base.cancel_all_modal.body')}
         </p>
       </StyledModal>,
       'confirm-cancel-all-modal'
@@ -429,22 +428,19 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
   const handleConfirmSync = () => {
     openModal(
       <StyledModal
-        title='Confirm Sync?'
+        title={t('chat.knowledge_base.sync_modal.title')}
         onConfirm={() => {
           syncMutation.mutate()
-          closeModal(
-            "confirm-sync-modal"
-          )
+          closeModal("confirm-sync-modal")
         }}
         onCancel={() => closeModal("confirm-sync-modal")}
         open={true}
-        confirmText='Confirm Sync'
-        cancelText='Cancel'
+        confirmText={t('chat.knowledge_base.sync_modal.confirm')}
+        cancelText={t('chat.knowledge_base.sync_modal.cancel')}
         confirmVariant='primary'
       >
         <p className='text-text-primary'>
-          This will scan the NOMAD's storage directories for any new files and queue them for processing. This is useful if you've manually added files to the storage or want to ensure everything is up to date.
-          This may cause a temporary increase in resource usage if new files are found and being processed. Are you sure you want to proceed?
+          {t('chat.knowledge_base.sync_modal.body')}
         </p>
       </StyledModal>,
       "confirm-sync-modal"
@@ -455,7 +451,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity">
       <div className="bg-surface-primary rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-border-subtle shrink-0">
-          <h2 className="text-2xl font-semibold text-text-primary">Knowledge Base</h2>
+          <h2 className="text-2xl font-semibold text-text-primary">{t('chat.knowledge_base.title')}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-surface-secondary rounded-lg transition-colors"
@@ -467,7 +463,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           {qdrantOffline && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950 dark:border-red-800 dark:text-red-300 flex items-center justify-between gap-4">
               <span>
-                <strong>Knowledge Base unavailable:</strong> The Qdrant vector database is offline.
+                <strong>{t('chat.knowledge_base.qdrant_offline.label')}</strong> {t('chat.knowledge_base.qdrant_offline.message')}
               </span>
               <StyledButton
                 variant="danger"
@@ -476,7 +472,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 loading={startQdrantMutation.isPending || isStartingQdrant}
                 disabled={startQdrantMutation.isPending || isStartingQdrant}
               >
-                {isStartingQdrant ? 'Starting…' : 'Start Qdrant'}
+                {isStartingQdrant ? t('chat.knowledge_base.qdrant_offline.starting') : t('chat.knowledge_base.qdrant_offline.start_button')}
               </StyledButton>
             </div>
           )}
@@ -492,7 +488,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               />
               <div className="flex justify-center items-center gap-4 my-6">
                 <label className="flex items-center gap-2 text-sm text-text-secondary">
-                  Collection:
+                  {t('chat.knowledge_base.upload.collection_label')}
                   <CollectionCombobox
                     value={uploadCollection}
                     onChange={setUploadCollection}
@@ -508,13 +504,13 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   disabled={files.length === 0 || isUploading || qdrantOffline}
                   loading={isUploading}
                 >
-                  Upload
+                  {t('chat.knowledge_base.upload.button')}
                 </StyledButton>
               </div>
             </div>
             <div className="border-t bg-surface-primary p-6">
               <h3 className="text-lg font-semibold text-desert-green mb-4">
-                Why upload documents to your Knowledge Base?
+                {t('chat.knowledge_base.why_upload.title')}
               </h3>
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
@@ -523,14 +519,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      {aiAssistantName} Knowledge Base Integration
+                      {t('chat.knowledge_base.why_upload.item1_title', { aiAssistantName })}
                     </p>
                     <p className="text-sm text-desert-stone">
-                      When you upload documents to your Knowledge Base, NOMAD processes and embeds
-                      the content, making it directly accessible to {aiAssistantName}. This allows{' '}
-                      {aiAssistantName} to reference your specific documents during conversations,
-                      providing more accurate and personalized responses based on your uploaded
-                      data.
+                      {t('chat.knowledge_base.why_upload.item1_body', { aiAssistantName })}
                     </p>
                   </div>
                 </div>
@@ -540,13 +532,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      Enhanced Document Processing with OCR
+                      {t('chat.knowledge_base.why_upload.item2_title')}
                     </p>
                     <p className="text-sm text-desert-stone">
-                      NOMAD includes built-in Optical Character Recognition (OCR) capabilities,
-                      allowing it to extract text from image-based documents such as scanned PDFs or
-                      photos. This means that even if your documents are not in a standard text
-                      format, NOMAD can still process and embed their content for AI access.
+                      {t('chat.knowledge_base.why_upload.item2_body')}
                     </p>
                   </div>
                 </div>
@@ -556,11 +545,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   </div>
                   <div>
                     <p className="font-medium text-desert-stone-dark">
-                      Information Library Integration
+                      {t('chat.knowledge_base.why_upload.item3_title')}
                     </p>
                     <p className="text-sm text-desert-stone">
-                      NOMAD will automatically discover and extract any content you save to your
-                      Information Library (if installed), making it instantly available to {aiAssistantName} without any extra steps.
+                      {t('chat.knowledge_base.why_upload.item3_body', { aiAssistantName })}
                     </p>
                   </div>
                 </div>
@@ -571,11 +559,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex-1 min-w-[14rem]">
                 <p className="text-sm font-medium text-text-primary">
-                  Auto-index new content for AI?
+                  {t('chat.knowledge_base.auto_index.label')}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Indexed content typically uses 5–10× the original file size on disk.
-                  Changes apply to new content added after this setting changes.
+                  {t('chat.knowledge_base.auto_index.description')}
                 </p>
               </div>
               <div
@@ -601,7 +588,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                           : 'bg-surface-primary text-text-secondary hover:bg-surface-tertiary'
                       } ${updateIngestPolicyMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      {option}
+                      {option === 'Always' ? t('chat.knowledge_base.auto_index.always') : t('chat.knowledge_base.auto_index.manual')}
                     </button>
                   )
                 })}
@@ -611,7 +598,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
           <div className="my-8">
             <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-              <StyledSectionHeader title="Processing Queue" className="!mb-0" />
+              <StyledSectionHeader title={t('chat.knowledge_base.processing_queue.title')} className="!mb-0" />
               <div className="flex items-center gap-2 flex-wrap">
                 <StyledButton
                   variant="danger"
@@ -621,7 +608,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   loading={cleanupFailedMutation.isPending}
                   disabled={cleanupFailedMutation.isPending || qdrantOffline}
                 >
-                  Clean Up Failed
+                  {t('chat.knowledge_base.processing_queue.clean_up_failed')}
                 </StyledButton>
                 <StyledButton
                   variant="danger"
@@ -630,9 +617,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={handleConfirmCancelAll}
                   loading={cancelAllMutation.isPending}
                   disabled={cancelAllMutation.isPending}
-                  title="Stop and clear every embedding job regardless of state, including stuck or in-progress ones. Deletes the uploaded source files for those jobs."
+                  title={t('chat.knowledge_base.processing_queue.cancel_all_title')}
                 >
-                  Cancel All Jobs
+                  {t('chat.knowledge_base.processing_queue.cancel_all')}
                 </StyledButton>
               </div>
             </div>
@@ -641,16 +628,16 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
           <div className="my-12">
             <div className='flex items-center justify-between mb-6 gap-2 flex-wrap'>
-              <StyledSectionHeader title="Stored Knowledge Base Files" className='!mb-0' />
+              <StyledSectionHeader title={t('chat.knowledge_base.stored_files.title')} className='!mb-0' />
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="flex items-center gap-2 text-sm text-text-secondary">
-                  Search in:
+                  {t('chat.knowledge_base.stored_files.search_in')}
                   <select
                     value={collectionFilter}
                     onChange={(e) => setCollectionFilter(e.target.value)}
                     className="rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary"
                   >
-                    <option value="All">All</option>
+                    <option value="All">{t('chat.knowledge_base.stored_files.all_collections')}</option>
                     {knownCollections.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -662,7 +649,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   icon="IconSettings"
                   onClick={() => setManageCollectionsOpen(true)}
                 >
-                  Manage Collections
+                  {t('chat.knowledge_base.stored_files.manage_collections')}
                 </StyledButton>
                 <StyledButton
                   variant="danger"
@@ -671,9 +658,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={() => { setResetTyped(''); setBulkMode('reset') }}
                   disabled={isUploading || qdrantOffline || bulkBusy}
                   loading={resetMutation.isPending}
-                  title="Drop the entire embeddings collection and re-embed everything from scratch. Permanently removes vectors for files no longer on disk. Destructive: requires typing RESET to confirm."
+                  title={t('chat.knowledge_base.stored_files.reset_title')}
                 >
-                  Reset & Rebuild
+                  {t('chat.knowledge_base.stored_files.reset_rebuild')}
                 </StyledButton>
                 <StyledButton
                   variant="secondary"
@@ -682,9 +669,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={() => setBulkMode('reembed')}
                   disabled={isUploading || qdrantOffline || bulkBusy || storedFiles.length === 0}
                   loading={reembedMutation.isPending}
-                  title="Re-embed every file on disk, replacing existing vectors file-by-file. Vectors for files no longer on disk are preserved. Use this if the chunker or embedding model has changed."
+                  title={t('chat.knowledge_base.stored_files.reembed_all_title')}
                 >
-                  Re-embed All
+                  {t('chat.knowledge_base.stored_files.reembed_all')}
                 </StyledButton>
                 <StyledButton
                   variant="secondary"
@@ -693,9 +680,9 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   onClick={handleConfirmSync}
                   disabled={syncMutation.isPending || isUploading || qdrantOffline || bulkBusy}
                   loading={syncMutation.isPending || isUploading}
-                  title="Scan storage for new files and queue any that haven't been embedded yet. Safe to run anytime; won't touch already-embedded content."
+                  title={t('chat.knowledge_base.stored_files.sync_title')}
                 >
-                  Sync Storage
+                  {t('chat.knowledge_base.stored_files.sync_storage')}
                 </StyledButton>
 
               </div>
@@ -704,7 +691,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               <div className="mb-4 inline-flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
                 <span aria-hidden="true">⚠</span>
                 <span>
-                  File warnings unavailable — couldn't read storage state. Retrying…
+                  {t('chat.knowledge_base.warnings_unavailable')}
                 </span>
               </div>
             )}
@@ -714,10 +701,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
               columns={[
                 {
                   accessor: 'source',
-                  title: renderSortHeader('File Name', 'name', sort, setSort),
+                  title: renderSortHeader(t('chat.knowledge_base.table.file_name'), 'name', sort, setSort),
                   render(record) {
                     const warnings = fileWarnings[record.source] ?? []
-                    const pill = renderStatePill(record)
+                    const pill = renderStatePill(record, t)
                     return (
                       <div className="flex flex-col gap-1.5">
                         <span className="text-text-primary">
@@ -734,15 +721,15 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                                 <span aria-hidden="true">⚠</span>
                                 {w.kind === 'zero_chunks' && (
                                   <span>
-                                    Embedded 0 chunks — this file has no text content.
-                                    AI Assistant cannot reference it.
+                                    {t('chat.knowledge_base.warnings.zero_chunks')}
                                   </span>
                                 )}
                                 {w.kind === 'partial_stall' && (
                                   <span>
-                                    Only {w.chunksEmbedded.toLocaleString()} of est.{' '}
-                                    {w.chunksExpected.toLocaleString()} chunks embedded —
-                                    ingestion may have stalled.
+                                    {t('chat.knowledge_base.warnings.partial_stall', {
+                                      chunksEmbedded: w.chunksEmbedded.toLocaleString(),
+                                      chunksExpected: w.chunksExpected.toLocaleString(),
+                                    })}
                                   </span>
                                 )}
                               </span>
@@ -755,7 +742,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 },
                 {
                   accessor: 'size',
-                  title: renderSortHeader('Size', 'size', sort, setSort),
+                  title: renderSortHeader(t('chat.knowledge_base.table.size'), 'size', sort, setSort),
                   className: 'whitespace-nowrap',
                   render(record) {
                     if (record.bucket === 'admin_docs' || record.size === null) {
@@ -766,7 +753,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 },
                 {
                   accessor: 'uploadedAt',
-                  title: renderSortHeader('Uploaded', 'uploadedAt', sort, setSort),
+                  title: renderSortHeader(t('chat.knowledge_base.table.uploaded'), 'uploadedAt', sort, setSort),
                   className: 'whitespace-nowrap',
                   render(record) {
                     if (record.bucket === 'admin_docs' || !record.uploadedAt) {
@@ -782,7 +769,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 },
                 {
                   accessor: 'collection',
-                  title: 'Collection',
+                  title: t('chat.knowledge_base.table.collection'),
                   className: 'whitespace-nowrap',
                   render(record) {
                     if (record.bucket === 'admin_docs') {
@@ -810,7 +797,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       return (
                         <div className="flex justify-end">
                           <span className="text-sm text-text-muted italic">
-                            Managed by NOMAD
+                            {t('chat.knowledge_base.table.managed_by_nomad')}
                           </span>
                         </div>
                       )
@@ -821,14 +808,14 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                     if (isConfirming) {
                       return (
                         <div className="flex items-center gap-2 justify-end">
-                          <span className="text-sm text-text-secondary">Remove from knowledge base?</span>
+                          <span className="text-sm text-text-secondary">{t('chat.knowledge_base.table.confirm_remove')}</span>
                           <StyledButton
                             variant='danger'
                             size='sm'
                             onClick={() => deleteMutation.mutate(record.source)}
                             disabled={isDeleting}
                           >
-                            {isDeleting ? 'Deleting…' : 'Confirm'}
+                            {isDeleting ? t('chat.knowledge_base.table.deleting') : t('chat.knowledge_base.table.confirm')}
                           </StyledButton>
                           <StyledButton
                             variant='ghost'
@@ -836,14 +823,14 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                             onClick={() => setConfirmDeleteSource(null)}
                             disabled={isDeleting}
                           >
-                            Cancel
+                            {t('chat.knowledge_base.table.cancel')}
                           </StyledButton>
                         </div>
                       )
                     }
 
                     const warnings = fileWarnings[record.source] ?? []
-                    const action = pickRowAction(record, warnings.length > 0)
+                    const action = pickRowAction(record, warnings.length > 0, t)
                     const actionPendingForThisRow =
                       embedMutation.isPending && embedMutation.variables?.source === record.source
 
@@ -876,7 +863,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                             size="sm"
                             icon="IconEye"
                             onClick={() => setViewerSource(record.source)}
-                          >View</StyledButton>
+                          >{t('chat.knowledge_base.table.view')}</StyledButton>
                         )}
                         {canDownload && (
                           <StyledButton
@@ -886,7 +873,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                             onClick={() => {
                               window.location.href = `/api/rag/files/download?source=${encodeURIComponent(record.source)}`
                             }}
-                          >Download</StyledButton>
+                          >{t('chat.knowledge_base.table.download')}</StyledButton>
                         )}
                         <StyledButton
                           variant="danger"
@@ -895,7 +882,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                           onClick={() => setConfirmDeleteSource(record.source)}
                           disabled={deleteMutation.isPending || embedMutation.isPending}
                           loading={deleteMutation.isPending && confirmDeleteSource === record.source}
-                        >Delete</StyledButton>
+                        >{t('chat.knowledge_base.table.delete')}</StyledButton>
                       </div>
                     )
                   },
@@ -915,10 +902,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
       {bulkMode === 'reembed' && (
         <StyledModal
-          title='Re-embed All Documents?'
+          title={t('chat.knowledge_base.reembed_modal.title')}
           open={true}
-          confirmText={reembedMutation.isPending ? 'Re-embedding…' : 'Re-embed All'}
-          cancelText='Cancel'
+          confirmText={reembedMutation.isPending ? t('chat.knowledge_base.reembed_modal.confirming') : t('chat.knowledge_base.reembed_modal.confirm')}
+          cancelText={t('chat.knowledge_base.reembed_modal.cancel')}
           confirmVariant='primary'
           confirmLoading={reembedMutation.isPending}
           onConfirm={() => reembedMutation.mutate()}
@@ -926,27 +913,21 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         >
           <div className='text-text-primary text-sm space-y-3 text-left'>
             <p>
-              This will re-process every document currently in your knowledge base — about
-              <strong> {storedFiles.length} file{storedFiles.length === 1 ? '' : 's'}</strong>.
-              For each file, NOMAD will delete the existing embeddings from Qdrant and queue a fresh
-              embedding job using the current chunking and embedding model.
+              {t('chat.knowledge_base.reembed_modal.body', { count: storedFiles.length })}
             </p>
             <div className='rounded border border-border-subtle bg-surface-secondary p-3'>
-              <p className='font-semibold mb-1'>What this is for</p>
+              <p className='font-semibold mb-1'>{t('chat.knowledge_base.reembed_modal.what_for_title')}</p>
               <p className='text-text-secondary'>
-                Use this when the embedding model or chunking logic has changed, or when you suspect
-                stored vectors are stale. Files on disk are <em>not</em> deleted, and any orphan
-                points whose source file is no longer present will be preserved untouched (see
-                <em> Reset &amp; Rebuild </em>if you want a fully clean slate).
+                {t('chat.knowledge_base.reembed_modal.what_for_body')}
               </p>
             </div>
             <div className='rounded border border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 p-3 text-amber-900 dark:text-amber-200'>
-              <p className='font-semibold mb-1'>Heads up</p>
+              <p className='font-semibold mb-1'>{t('chat.knowledge_base.reembed_modal.heads_up_title')}</p>
               <ul className='list-disc pl-5 space-y-1'>
-                <li>Embedding {storedFiles.length} file{storedFiles.length === 1 ? '' : 's'} may take a long time, especially for large PDFs or ZIM archives.</li>
-                <li>On systems without GPU acceleration, expect sustained high CPU usage for the duration.</li>
-                <li>Knowledge Base search results may be incomplete until every file finishes re-embedding.</li>
-                <li>If embed jobs are already in progress, this action will be refused — wait for the queue to drain first.</li>
+                <li>{t('chat.knowledge_base.reembed_modal.warning1', { count: storedFiles.length })}</li>
+                <li>{t('chat.knowledge_base.reembed_modal.warning2')}</li>
+                <li>{t('chat.knowledge_base.reembed_modal.warning3')}</li>
+                <li>{t('chat.knowledge_base.reembed_modal.warning4')}</li>
               </ul>
             </div>
           </div>
@@ -955,10 +936,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
       {bulkMode === 'reset' && (
         <StyledModal
-          title='Reset & Rebuild Knowledge Base?'
+          title={t('chat.knowledge_base.reset_modal.title')}
           open={true}
-          confirmText={resetMutation.isPending ? 'Resetting…' : 'Wipe & Rebuild'}
-          cancelText='Cancel'
+          confirmText={resetMutation.isPending ? t('chat.knowledge_base.reset_modal.confirming') : t('chat.knowledge_base.reset_modal.confirm')}
+          cancelText={t('chat.knowledge_base.reset_modal.cancel')}
           confirmVariant='danger'
           confirmLoading={resetMutation.isPending}
           onConfirm={() => {
@@ -968,29 +949,26 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         >
           <div className='text-text-primary text-sm space-y-3 text-left'>
             <p>
-              This will <strong>permanently delete every point</strong> in the
-              <code> nomad_knowledge_base </code>Qdrant collection and rebuild from the
-              <strong> {storedFiles.length} file{storedFiles.length === 1 ? '' : 's'}</strong> currently
-              on disk. The collection is dropped, recreated, and every file is re-queued for embedding.
+              {t('chat.knowledge_base.reset_modal.body', { count: storedFiles.length })}
             </p>
             <div className='rounded border border-border-subtle bg-surface-secondary p-3'>
-              <p className='font-semibold mb-1'>How this differs from Re-embed All</p>
+              <p className='font-semibold mb-1'>{t('chat.knowledge_base.reset_modal.diff_title')}</p>
               <ul className='list-disc pl-5 space-y-1 text-text-secondary'>
-                <li><strong>Re-embed All</strong> replaces vectors file-by-file. Any orphan points (vectors whose source file was deleted from disk at some point) are preserved.</li>
-                <li><strong>Reset &amp; Rebuild</strong> drops the entire collection. Orphan points are <strong>gone forever</strong>. Only files currently on disk will exist in Qdrant afterwards.</li>
+                <li>{t('chat.knowledge_base.reset_modal.diff_reembed')}</li>
+                <li>{t('chat.knowledge_base.reset_modal.diff_reset')}</li>
               </ul>
             </div>
             <div className='rounded border border-red-300 bg-red-50 dark:bg-red-950 dark:border-red-800 p-3 text-red-900 dark:text-red-200'>
-              <p className='font-semibold mb-1'>This action is destructive and cannot be undone</p>
+              <p className='font-semibold mb-1'>{t('chat.knowledge_base.reset_modal.destructive_title')}</p>
               <ul className='list-disc pl-5 space-y-1'>
-                <li>Knowledge Base search will be empty until embedding finishes (potentially hours on CPU-only systems).</li>
-                <li>For a few seconds during the reset, the Qdrant collection does not exist — any chat-with-RAG queries in that window may return a "collection not found" error. Avoid using chat until the rebuild has begun.</li>
-                <li>If embed jobs are already in progress, this action will be refused — wait for the queue to drain first.</li>
+                <li>{t('chat.knowledge_base.reset_modal.warning1')}</li>
+                <li>{t('chat.knowledge_base.reset_modal.warning2')}</li>
+                <li>{t('chat.knowledge_base.reset_modal.warning3')}</li>
               </ul>
             </div>
             <div>
               <label className='block text-sm font-semibold mb-1'>
-                Type <code>RESET</code> to confirm:
+                {t('chat.knowledge_base.reset_modal.type_to_confirm')}
               </label>
               <input
                 type='text'
@@ -1001,7 +979,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                 className='w-full rounded border border-border-subtle bg-surface-primary px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-red-500'
               />
               {resetTyped.length > 0 && resetTyped !== 'RESET' && (
-                <p className='text-xs text-red-600 mt-1'>Type RESET exactly (uppercase, no spaces) to enable the confirm button.</p>
+                <p className='text-xs text-red-600 mt-1'>{t('chat.knowledge_base.reset_modal.type_error')}</p>
               )}
             </div>
           </div>
@@ -1010,10 +988,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 
       {confirmReembed && (
         <StyledModal
-          title='Re-embed this file?'
+          title={t('chat.knowledge_base.reembed_file_modal.title')}
           open={true}
-          confirmText={embedMutation.isPending ? 'Queuing…' : 'Re-embed'}
-          cancelText='Cancel'
+          confirmText={embedMutation.isPending ? t('chat.knowledge_base.reembed_file_modal.confirming') : t('chat.knowledge_base.reembed_file_modal.confirm')}
+          cancelText={t('chat.knowledge_base.reembed_file_modal.cancel')}
           confirmVariant='primary'
           confirmLoading={embedMutation.isPending}
           onConfirm={() =>
@@ -1023,16 +1001,14 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         >
           <div className='text-text-primary text-sm space-y-3 text-left'>
             <p>
-              This will delete the existing embeddings for{' '}
-              <strong>{confirmReembed.displayName}</strong> and queue
-              a fresh embedding job. The file on disk is not touched.
+              {t('chat.knowledge_base.reembed_file_modal.body', { fileName: confirmReembed.displayName })}
             </p>
             <div className='rounded border border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 p-3 text-amber-900 dark:text-amber-200'>
-              <p className='font-semibold mb-1'>Heads up</p>
+              <p className='font-semibold mb-1'>{t('chat.knowledge_base.reembed_file_modal.heads_up_title')}</p>
               <ul className='list-disc pl-5 space-y-1'>
-                <li>For large ZIM archives this can take a long time, especially on CPU-only systems.</li>
-                <li>Search results that referenced this file will be incomplete until the new embedding finishes.</li>
-                <li>If a job for this file is already running, the re-embed will be refused — wait for it to finish first.</li>
+                <li>{t('chat.knowledge_base.reembed_file_modal.warning1')}</li>
+                <li>{t('chat.knowledge_base.reembed_file_modal.warning2')}</li>
+                <li>{t('chat.knowledge_base.reembed_file_modal.warning3')}</li>
               </ul>
             </div>
           </div>
@@ -1054,6 +1030,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
 }
 
 function FileViewerModal({ source, onClose }: { source: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const { data, isLoading, isFetched } = useQuery({
     queryKey: ['rag', 'file-content', source],
     queryFn: () => api.getFileContent(source),
@@ -1075,16 +1052,16 @@ function FileViewerModal({ source, onClose }: { source: string; onClose: () => v
       open={true}
       onClose={onClose}
       onCancel={onClose}
-      cancelText="Close"
+      cancelText={t('chat.knowledge_base.file_viewer.close')}
       large
     >
       <div className="text-left text-sm">
         {isLoading && (
-          <div className="text-text-secondary">Loading…</div>
+          <div className="text-text-secondary">{t('chat.knowledge_base.file_viewer.loading')}</div>
         )}
         {showError && (
           <div className="text-amber-700 dark:text-amber-300">
-            Couldn't load file. It may have been moved or its type isn't viewable.
+            {t('chat.knowledge_base.file_viewer.error')}
           </div>
         )}
         {data && (

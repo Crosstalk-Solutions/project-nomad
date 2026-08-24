@@ -12,6 +12,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { Protocol } from 'pmtiles'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { PinColorId } from '~/hooks/useMapMarkers'
@@ -64,6 +65,7 @@ export default function MapComponent({
   isHoveringUI,
   showCoordinatesEnabled,
 }: MapComponentProps) {
+  const { t } = useTranslation()
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
 
@@ -317,7 +319,7 @@ export default function MapComponent({
                 <input
                   autoFocus
                   type="text"
-                  placeholder="Name this location"
+                  placeholder={t('maps.marker_name_placeholder')}
                   value={markerName}
                   onChange={(e) => setMarkerName(e.target.value)}
                   onKeyDown={(e) => {
@@ -328,7 +330,7 @@ export default function MapComponent({
                 />
 
                 <textarea
-                  placeholder="Notes (optional)"
+                  placeholder={t('maps.marker_notes_placeholder')}
                   value={markerNotes}
                   onChange={(e) => setMarkerNotes(e.target.value)}
                   onKeyDown={(e) => {
@@ -363,7 +365,7 @@ export default function MapComponent({
                     onClick={() => setPlacingMarker(null)}
                     className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
                   >
-                    Cancel
+                    {t('maps.cancel')}
                   </button>
 
                   <button
@@ -372,7 +374,7 @@ export default function MapComponent({
                     disabled={!markerName.trim()}
                     className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
                   >
-                    Save
+                    {t('maps.save')}
                   </button>
                 </div>
               </div>

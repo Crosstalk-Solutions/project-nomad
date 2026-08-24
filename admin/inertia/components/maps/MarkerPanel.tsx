@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconMapPinFilled, IconTrash, IconMapPin, IconX } from '@tabler/icons-react'
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { MapMarker } from '~/hooks/useMapMarkers'
@@ -18,6 +19,7 @@ export default function MarkerPanel({
   onSelect,
   selectedMarkerId,
 }: MarkerPanelProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   if (!open) {
@@ -25,10 +27,10 @@ export default function MarkerPanel({
       <button
         onClick={() => setOpen(true)}
         className="absolute left-4 top-[72px] z-40 flex items-center gap-1.5 rounded-lg bg-surface-primary/95 px-3 py-2 shadow-lg border border-border-subtle backdrop-blur-sm hover:bg-surface-secondary transition-colors"
-        title="Show saved locations"
+        title={t('maps.marker_panel.show_saved_locations')}
       >
         <IconMapPin size={18} className="text-desert-orange" />
-        <span className="text-sm font-medium text-text-primary">Pins</span>
+        <span className="text-sm font-medium text-text-primary">{t('maps.marker_panel.pins')}</span>
         {markers.length > 0 && (
           <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-desert-orange text-[11px] font-bold text-white px-1">
             {markers.length}
@@ -45,7 +47,7 @@ export default function MarkerPanel({
         <div className="flex items-center gap-2">
           <IconMapPin size={18} className="text-desert-orange" />
           <span className="text-sm font-semibold text-text-primary">
-            Saved Locations
+            {t('maps.marker_panel.saved_locations')}
           </span>
           {markers.length > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-desert-orange text-[11px] font-bold text-white px-1">
@@ -56,7 +58,7 @@ export default function MarkerPanel({
         <button
           onClick={() => setOpen(false)}
           className="rounded p-0.5 text-text-muted hover:text-text-primary hover:bg-surface-secondary transition-colors"
-          title="Close panel"
+          title={t('maps.marker_panel.close_panel')}
         >
           <IconX size={16} />
         </button>
@@ -68,7 +70,7 @@ export default function MarkerPanel({
           <div className="px-3 py-6 text-center">
             <IconMapPinFilled size={24} className="mx-auto mb-2 text-text-muted" />
             <p className="text-sm text-text-muted">
-              Click anywhere on the map to drop a pin
+              {t('maps.marker_panel.empty_hint')}
             </p>
           </div>
         ) : (
@@ -102,7 +104,7 @@ export default function MarkerPanel({
                 <button
                   onClick={() => onDelete(marker.id)}
                   className="shrink-0 rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-desert-red hover:bg-surface-secondary transition-all"
-                  title="Delete pin"
+                  title={t('maps.marker_panel.delete_pin')}
                 >
                   <IconTrash size={14} />
                 </button>

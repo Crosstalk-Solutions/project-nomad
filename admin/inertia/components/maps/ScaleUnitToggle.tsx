@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 type ScaleUnit = 'imperial' | 'metric'
 
 type ScaleUnitToggleProps = {
@@ -11,6 +13,8 @@ export default function ScaleUnitToggle({
   onChange,
   onMouseEnter,
 }: ScaleUnitToggleProps) {
+  const { t } = useTranslation()
+
   return (
     <div
       className="absolute bottom-[30px] left-[10px] z-[2]"
@@ -26,7 +30,7 @@ export default function ScaleUnitToggle({
             color: scaleUnit === 'metric' ? 'white' : '#666',
           }}
         >
-          Metric
+          {t('maps.scale_unit.metric')}
         </button>
 
         <button
@@ -38,7 +42,7 @@ export default function ScaleUnitToggle({
             color: scaleUnit === 'imperial' ? 'white' : '#666',
           }}
         >
-          Imperial
+          {t('maps.scale_unit.imperial')}
         </button>
       </div>
     </div>

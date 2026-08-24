@@ -4,8 +4,10 @@ import api from '~/lib/api'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNotifications } from '~/context/NotificationContext'
 import { useAppAutoUpdateStatus } from '~/hooks/useAppAutoUpdateStatus'
+import { useTranslation } from 'react-i18next'
 
 export default function AppAutoUpdateSection() {
+  const { t } = useTranslation()
   const { addNotification } = useNotifications()
   const queryClient = useQueryClient()
   const { data: status, isLoading } = useAppAutoUpdateStatus()
@@ -18,37 +20,41 @@ export default function AppAutoUpdateSection() {
       queryClient.invalidateQueries({ queryKey: ['app-auto-update-status'] })
       addNotification({
         type: 'success',
-        message: value ? 'App automatic updates enabled.' : 'App automatic updates disabled.',
+        message: value
+          ? t('update.auto_update_enabled')
+          : t('update.auto_update_disabled'),
       })
     },
     onError: () => {
-      addNotification({ type: 'error', message: 'Failed to update app auto-update setting.' })
+      addNotification({ type: 'error', message: t('update.auto_update_setting_error') })
     },
   })
 
   return (
     <>
-      <StyledSectionHeader title="Automatic App Updates" className="mt-8" />
+      <StyledSectionHeader title={t('update.auto_updates_title')} className="mt-8" />
       <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden mt-6 p-6">
         <Switch
           checked={enabled}
           onChange={(value) => toggleMutation.mutate(value)}
           disabled={toggleMutation.isPending || isLoading}
-          label="Enable Automatic App Updates"
-          description="Automatically install minor and patch updates for apps you've opted in (toggle each app in Supply Depot). Major versions always require a manual update. Uses the same update window and cool-off period as the core schedule above."
+          label={t('update.auto_updates_label')}
+          description={t('update.auto_updates_description')}
         />
 
         {enabled && status && (
           <div className="mt-6 pt-4 border-t border-desert-stone-light text-sm">
             <p className="text-desert-stone mb-3">
-              <span className="font-medium">Update window: </span>
+              <span className="font-medium">{t('update.update_window_label')} </span>
               {status.windowStart}–{status.windowEnd} (
-              {status.withinWindow ? 'currently inside' : 'currently outside'}); cool-off{' '}
-              {status.cooloffHours}h.
+              {status.withinWindow
+                ? t('update.window_currently_inside')
+                : t('update.window_currently_outside')}
+              ); {t('update.cooloff_label')} {status.cooloffHours}h.
               {status.lastResult && (
                 <>
                   {' '}
-                  <span className="font-medium">Last run: </span>
+                  <span className="font-medium">{t('update.last_run_label')} </span>
                   {status.lastResult}
                   {status.lastAttemptAt
                     ? ` (${new Date(status.lastAttemptAt).toLocaleString()})`
@@ -59,7 +65,7 @@ export default function AppAutoUpdateSection() {
 
             {status.apps.length === 0 ? (
               <p className="text-desert-stone-dark">
-                No apps are opted in yet. Enable auto-update on individual apps from the Supply Depot.
+                {t('update.no_apps_opted_in')}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -76,7 +82,7 @@ export default function AppAutoUpdateSection() {
                         {app.current_version}
                         {app.available_update_version
                           ? ` → ${app.available_update_version}`
-                          : ' (up to date)'}
+                          : ` (${t('update.up_to_date')})`}
                       </p>
                       {app.auto_disabled_reason && (
                         <p className="text-desert-red mt-0.5">{app.auto_disabled_reason}</p>

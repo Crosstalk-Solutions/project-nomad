@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react'
+import { useTranslation } from 'react-i18next'
 import type { DrugSearchResult } from '../../../types/drug_reference'
 import { PRODUCT_TYPES } from '../../../types/drug_reference'
 
@@ -24,6 +25,7 @@ function titleCase(s: string): string {
  * default (drug-first), or the brand when rendered inside an ingredient group.
  */
 export default function DrugResultRow({ result, brandFirst = false }: Props) {
+  const { t } = useTranslation()
   const isRx = result.product_type === PRODUCT_TYPES.RX
   const isOtc = result.product_type === PRODUCT_TYPES.OTC
 
@@ -32,8 +34,8 @@ export default function DrugResultRow({ result, brandFirst = false }: Props) {
 
   // Headline vs sub-line depending on context.
   const headline = brandFirst
-    ? (brand ?? ingredient ?? 'Unknown')
-    : (ingredient ?? brand ?? 'Unknown')
+    ? (brand ?? ingredient ?? t('drug_reference.unknown'))
+    : (ingredient ?? brand ?? t('drug_reference.unknown'))
   const subParts: string[] = []
   if (brandFirst) {
     if (result.manufacturer) subParts.push(result.manufacturer)
@@ -68,7 +70,7 @@ export default function DrugResultRow({ result, brandFirst = false }: Props) {
 
           {result.labelCount > 1 && (
             <span className="px-1.5 py-0.5 rounded text-xs bg-surface-secondary text-text-secondary flex-shrink-0">
-              {result.labelCount} labels
+              {t('drug_reference.label_count', { count: result.labelCount })}
             </span>
           )}
         </div>

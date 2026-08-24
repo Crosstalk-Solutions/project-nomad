@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconChevronDown } from '@tabler/icons-react'
 import DrugResultRow from './DrugResultRow'
 import type { DrugSearchResult } from '../../../types/drug_reference'
@@ -26,6 +27,7 @@ export default function IngredientGroup({
   /** Expand this group on first render (used for the top/first result group). */
   defaultOpen?: boolean
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(defaultOpen)
 
   if (group.products.length === 1) {
@@ -58,7 +60,7 @@ export default function IngredientGroup({
           </span>
         )}
         <span className="ml-auto text-xs text-desert-stone flex-shrink-0">
-          {group.products.length} products
+          {t('drug_reference.ingredient_group.product_count', { count: group.products.length })}
         </span>
       </button>
       {open && (
