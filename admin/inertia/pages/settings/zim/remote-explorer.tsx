@@ -42,6 +42,7 @@ import ActiveDownloads from '~/components/ActiveDownloads'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 import { ZimFileWithMetadata } from '../../../../types/zim'
 import { useTranslation } from 'react-i18next'
+import { getLanguage } from '~/i18n'
 
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
@@ -101,10 +102,12 @@ export default function ZimRemoteExplorer() {
     refetchOnWindowFocus: false,
   })
 
+  const userLang = getLanguage()
+
   // Fetch Wikipedia options and state
   const { data: wikipediaState, isLoading: isLoadingWikipedia } = useQuery({
-    queryKey: [WIKIPEDIA_STATE_KEY],
-    queryFn: () => api.getWikipediaState(),
+    queryKey: [WIKIPEDIA_STATE_KEY, userLang],
+    queryFn: () => api.getWikipediaState(userLang),
     refetchOnWindowFocus: false,
   })
 
@@ -144,13 +147,13 @@ export default function ZimRemoteExplorer() {
 
   const { data, fetchNextPage, isFetching, isLoading } =
     useInfiniteQuery<ListRemoteZimFilesResponse>({
-      queryKey: ['remote-zim-files', query],
+      queryKey: ['remote-zim-files', query, userLang],
       queryFn: async ({ pageParam = 0 }) => {
         // pageParam is an opaque Kiwix offset returned by the backend as `next_start`.
         // The backend accumulates across multiple upstream pages when needed (#731), so the
         // frontend can't derive the next offset from a 12-item page assumption.
         const start = typeof pageParam === 'number' ? pageParam : 0
-        const res = await api.listRemoteZimFiles({ start, count: 12, query: query || undefined })
+        const res = await api.listRemoteZimFiles({ start, count: 12, query: query || undefined, lang: userLang })
         if (!res) {
           throw new Error('Failed to fetch remote ZIM files.')
         }

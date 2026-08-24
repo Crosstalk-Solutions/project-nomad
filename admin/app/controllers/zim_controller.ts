@@ -25,8 +25,8 @@ export default class ZimController {
 
   async listRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(listRemoteZimValidator)
-    const { start = 0, count = 12, query } = payload
-    return await this.zimService.listRemote({ start, count, query })
+    const { start = 0, count = 12, query, lang } = payload
+    return await this.zimService.listRemote({ start, count, query, lang })
   }
 
   async downloadRemote({ request }: HttpContext) {
@@ -171,8 +171,9 @@ export default class ZimController {
 
   // Wikipedia selector endpoints
 
-  async getWikipediaState({}: HttpContext) {
-    return this.zimService.getWikipediaState()
+  async getWikipediaState({ request }: HttpContext) {
+    const lang = request.qs().lang as string | undefined
+    return this.zimService.getWikipediaState(lang)
   }
 
   async selectWikipedia({ request }: HttpContext) {

@@ -76,10 +76,12 @@ export class ZimService {
     start,
     count,
     query,
+    lang,
   }: {
     start: number
     count: number
     query?: string
+    lang?: string
   }): Promise<ListRemoteZimFilesResponse> {
     const LIBRARY_BASE_URL = 'https://browse.library.kiwix.org/catalog/v2/entries'
     // Kiwix returns pages of content unaware of what the user has installed locally. When
@@ -111,7 +113,7 @@ export class ZimService {
         params: {
           start: currentStart,
           count: KIWIX_PAGE_SIZE,
-          lang: 'eng',
+          lang: lang === 'fr' ? 'fra' : 'eng',
           ...(query ? { q: query } : {}),
         },
         responseType: 'text',
@@ -693,7 +695,7 @@ export class ZimService {
 
   // Wikipedia selector methods
 
-  async getWikipediaOptions(): Promise<WikipediaOption[]> {
+  async getWikipediaOptions(lang?: string): Promise<WikipediaOption[]> {
     try {
       const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
       const data = response.data
@@ -703,7 +705,13 @@ export class ZimService {
         data,
       })
 
-      return validated.options
+      const allOptions = validated.options as Array<WikipediaOption & { lang?: string | null }>
+
+      if (!lang) return allOptions
+
+      return allOptions.filter(
+        (opt) => opt.lang == null || opt.lang === lang
+      )
     } catch (error) {
       logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
       throw new Error('Failed to fetch Wikipedia options')
@@ -715,8 +723,8 @@ export class ZimService {
     return WikipediaSelection.query().first()
   }
 
-  async getWikipediaState(): Promise<WikipediaState> {
-    const options = await this.getWikipediaOptions()
+  async getWikipediaState(lang?: string): Promise<WikipediaState> {
+    const options = await this.getWikipediaOptions(lang)
     const selection = await this.getWikipediaSelection()
 
     return {

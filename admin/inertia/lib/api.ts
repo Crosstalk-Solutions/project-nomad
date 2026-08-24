@@ -784,10 +784,12 @@ class API {
     start = 0,
     count = 12,
     query,
+    lang,
   }: {
     start?: number
     count?: number
     query?: string
+    lang?: string
   }) {
     return catchInternal(async () => {
       return await this.client.get<ListRemoteZimFilesResponse>('/zim/list-remote', {
@@ -795,6 +797,7 @@ class API {
           start,
           count,
           query,
+          lang,
         },
       })
     })()
@@ -999,9 +1002,11 @@ class API {
 
   // Wikipedia selector methods
 
-  async getWikipediaState(): Promise<WikipediaState | undefined> {
+  async getWikipediaState(lang?: string): Promise<WikipediaState | undefined> {
     return catchInternal(async () => {
-      const response = await this.client.get<WikipediaState>('/zim/wikipedia')
+      const response = await this.client.get<WikipediaState>('/zim/wikipedia', {
+        params: lang ? { lang } : undefined,
+      })
       return response.data
     })()
   }

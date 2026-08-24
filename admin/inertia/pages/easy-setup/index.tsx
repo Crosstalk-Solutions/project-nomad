@@ -1,5 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react'
 import { useTranslation } from 'react-i18next'
+import { getLanguage } from '~/i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, useMemo } from 'react'
 import AppLayout from '~/layouts/AppLayout'
@@ -178,10 +179,12 @@ export default function EasySetupWizard(props: {
     refetchOnWindowFocus: false,
   })
 
+  const userLang = getLanguage()
+
   // Fetch Wikipedia options and current state
   const { data: wikipediaState, isLoading: isLoadingWikipedia } = useQuery({
-    queryKey: [WIKIPEDIA_STATE_KEY],
-    queryFn: () => api.getWikipediaState(),
+    queryKey: [WIKIPEDIA_STATE_KEY, userLang],
+    queryFn: () => api.getWikipediaState(userLang),
     refetchOnWindowFocus: false,
   })
 
