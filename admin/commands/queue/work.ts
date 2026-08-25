@@ -14,6 +14,7 @@ import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
 import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
 import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
 import { IngestDrugDataJob } from '#jobs/ingest_drug_data_job'
+import { stallOptionsForQueue, type StallOptions } from '../../app/utils/queue_stall_options.js'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -68,11 +69,10 @@ export default class QueueWork extends BaseCommand {
         {
           connection: queueConfig.connection,
           concurrency: this.getConcurrencyForQueue(queueName),
-          // lockDuration/maxStalledCount are per-queue. Non-drug queues keep
-          // the existing default (300000, BullMQ's default maxStalledCount).
-          // The drug download/ingest queues are NEW per-queue overrides
-          // (1_800_000 / 3) — see getStallOptionsForQueue — not a change to
-          // the default applied to every other queue.
+          // lockDuration/maxStalledCount are per-queue — see
+          // getStallOptionsForQueue for which queues override the default
+          // (300000, BullMQ's default maxStalledCount) and why. Queues without
+          // an entry there are unaffected.
           lockDuration: stall.lockDuration,
           ...(stall.maxStalledCount !== undefined
             ? { maxStalledCount: stall.maxStalledCount }
@@ -203,26 +203,17 @@ export default class QueueWork extends BaseCommand {
   }
 
   /**
-   * Per-queue BullMQ stall-recovery options.
-   *
-   * Every queue except the two drug queues keeps the branch default
-   * (lockDuration 300000, and BullMQ's default maxStalledCount of 1 — left
-   * unset). The drug download/ingest queues are the ONLY per-queue override:
-   * each part is a long single stream (a ~150 MB resumable HTTP pull, then an
-   * unzip + JSON-stream ingest at concurrency 1), so a longer lock plus a
-   * higher stalled tolerance keeps a transient lock-renewal miss from killing
-   * the continuation chain ("job stalled more than allowable limit").
+   * Per-queue BullMQ stall-recovery options. See `queue_stall_options.ts` for
+   * the reasoning behind each queue's entry; the decision itself is kept pure
+   * and unit-tested there.
    */
-  private getStallOptionsForQueue(
-    queueName: string
-  ): { lockDuration: number; maxStalledCount?: number } {
-    if (
-      queueName === DownloadDrugDataJob.queue ||
-      queueName === IngestDrugDataJob.queue
-    ) {
-      return { lockDuration: 1_800_000, maxStalledCount: 3 }
-    }
-    return { lockDuration: 300000 }
+  private getStallOptionsForQueue(queueName: string): StallOptions {
+    return stallOptionsForQueue(queueName, {
+      embedFile: EmbedFileJob.queue,
+      download: RunDownloadJob.queue,
+      drugDownload: DownloadDrugDataJob.queue,
+      drugIngest: IngestDrugDataJob.queue,
+    })
   }
 
   /**
