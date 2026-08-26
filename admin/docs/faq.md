@@ -30,7 +30,13 @@ NOMAD is designed for capable hardware, especially if you want to use the AI fea
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 
 ### How much storage do I need?
-It depends on what you download:
+
+**To install NOMAD itself: about 5GB, so leave 10GB free.** That covers the
+Command Center and its database, before any content. Adding the AI Assistant
+brings the total to roughly 25GB, because Ollama and a general-purpose model are
+both large.
+
+After that it depends entirely on what you download:
 - Full Wikipedia: ~95GB
 - Khan Academy courses: ~50GB
 - Medical references: ~500MB

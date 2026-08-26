@@ -17,6 +17,8 @@ Project NOMAD is a self-contained, offline-first knowledge and education server 
 ## Installation & Quickstart
 Project NOMAD can be installed on any Debian-based operating system (we recommend Ubuntu 26.04 LTS; 24.04 LTS and Debian 12 are also supported). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup NOMAD as a "server" and access it through other clients.
 
+**Disk space:** NOMAD itself needs about **5 GB**, so plan for **10 GB free** to install comfortably. Adding the AI Assistant needs roughly **25 GB** in total, since Ollama and a general-purpose model are large. Offline content is downloaded separately and is what actually fills a drive: a full Wikipedia or a regional map set runs to tens or hundreds of gigabytes, so an SSD of 500 GB or more is the practical recommendation once you start adding libraries. See the [FAQ](https://www.projectnomad.us/docs/faq) for content sizes.
+
 *Note: sudo/root privileges are required to run the install script*
 
 ### Quick Install (Debian-based OS Only)
