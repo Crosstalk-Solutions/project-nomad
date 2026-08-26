@@ -321,6 +321,20 @@ export class OllamaService {
             if (!line.trim()) continue
             try {
               const parsed = JSON.parse(line)
+              // Ollama reports pull failures IN-BAND: the HTTP request returns 200 and the
+              // failure arrives as a line in the NDJSON body, e.g.
+              //   {"error":"pull model manifest: file does not exist"}
+              // The 'error' event below only fires for transport failures (a destroyed
+              // socket), so without this the line is dropped, the stream ends cleanly, and
+              // a pull that transferred nothing is reported to the user as a success.
+              if (parsed.error) {
+                const message =
+                  typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error)
+                const err: any = new Error(message)
+                err.code = 'ERR_OLLAMA_PULL'
+                pullResponse.data.destroy(err)
+                return
+              }
               if (parsed.completed && parsed.total && parsed.digest) {
                 // Update this digest's progress — take the max seen value so transient
                 // out-of-order updates don't make the aggregate jump backwards.
@@ -374,6 +388,22 @@ export class OllamaService {
         })
       })
 
+      // A clean stream end is not proof the model landed. Ollama can end the stream without
+      // an error line, and historically any such case was reported to the user as a
+      // successful download. Confirm against the installed list before claiming success.
+      //
+      // includeEmbeddings must be true: getModels() filters out anything with "embed" in the
+      // name by default, so nomic-embed-text would otherwise fail verification after a
+      // perfectly good pull. Names are normalised because Ollama resolves a bare name to
+      // ":latest", so a pull of "llama3.1" comes back as "llama3.1:latest".
+      const tag = (n: string) => (n.includes(':') ? n : `${n}:latest`)
+      const installedAfter = await this.getModels(true)
+      if (!installedAfter.some((m) => tag(m.name) === tag(model))) {
+        throw new Error(
+          'Ollama reported no error but the model is not installed. The download did not complete.'
+        )
+      }
+
       logger.info(`[OllamaService] Model "${model}" downloaded successfully.`)
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
@@ -396,14 +426,28 @@ export class OllamaService {
 
       // Check for version mismatch (Ollama 412 response)
       const isVersionMismatch = errorMessage.includes('newer version of Ollama')
+
+      // An in-band pull error that says the model does not exist is permanent. Retrying it
+      // ten times on an exponential backoff just leaves the user watching a "delayed" job
+      // for hours instead of showing them the real reason, which is a bad model name.
+      const isPermanentPullError =
+        (error as any)?.code === 'ERR_OLLAMA_PULL' &&
+        /manifest|not found|does not exist|unauthorized|no such/i.test(errorMessage)
+
       const userMessage = isVersionMismatch
         ? 'This model requires a newer version of Ollama. Please update AI Assistant from the Apps page.'
-        : `Failed to download model: ${errorMessage}`
+        : isPermanentPullError
+          ? `Ollama could not find this model: ${errorMessage}`
+          : `Failed to download model: ${errorMessage}`
 
       // Broadcast failure to connected clients so UI can show the error
       this.broadcastDownloadError(model, userMessage)
 
-      return { success: false, message: userMessage, retryable: !isVersionMismatch }
+      return {
+        success: false,
+        message: userMessage,
+        retryable: !isVersionMismatch && !isPermanentPullError,
+      }
     }
   }
 
