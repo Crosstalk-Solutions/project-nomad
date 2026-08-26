@@ -203,6 +203,16 @@ function isUnresolvedGpuModel(model: string): boolean {
   if (s === '') return true
   if (/^device\s+[0-9a-f]{4}$/i.test(s)) return true
   if (/^unknown$/i.test(s)) return true
+  // WSL2 exposes the GPU through /dev/dxg rather than the real adapter, so
+  // si.graphics() reports Microsoft's generic placeholder even while CUDA work
+  // is running on a physical card. Left unhandled, an RTX 3090 reaches the
+  // public leaderboard labelled "Microsoft Basic Render Driver", which is worse
+  // than no label: it is wrong, and it fragments per-hardware grouping (#1218).
+  //
+  // These are Microsoft's own placeholder adapter names and appear nowhere
+  // outside a Windows/WSL graphics stack, so this cannot reject a real product
+  // name on a native Linux host.
+  if (/^microsoft basic (render driver|display adapter)$/i.test(s)) return true
   return false
 }
 
