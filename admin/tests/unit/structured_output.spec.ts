@@ -20,6 +20,7 @@ import {
   pickQueries,
   pickSuggestions,
   pickTitle,
+  resolveStructured,
 } from '../../app/utils/structured_output.js'
 
 // --- parseStructured: extraction ---------------------------------------------
@@ -142,6 +143,77 @@ test('queries: a leading blank is dropped so [0] is never empty', () => {
 
 test('queries: an empty array is null so the raw message is used', () => {
   assert.equal(parseStructured('{"queries": []}', pickQueries), null)
+})
+
+// --- resolveStructured -------------------------------------------------------
+//
+// The reason is what each caller branches on, and the two failure reasons lead to
+// opposite behaviour: one runs the legacy prose parser, the other refuses to. A
+// wrong reason is the bug Copilot found on #1259, so both directions are pinned.
+
+test('resolve: a parsed value carries no reason', () => {
+  assert.deepEqual(resolveStructured('{"title": "Water Purification"}', pickTitle, true), {
+    ok: true,
+    value: 'Water Purification',
+  })
+})
+
+test('resolve: constrained + malformed JSON is the model breaking its own grammar', () => {
+  // Truncated mid-object by a token cap. The caller must NOT parse this as prose.
+  assert.deepEqual(resolveStructured('{"title": "unterminated', pickTitle, true), {
+    ok: false,
+    reason: 'constrained-parse-failed',
+  })
+})
+
+test('resolve: unconstrained + malformed JSON leaves the legacy parser in charge', () => {
+  assert.deepEqual(resolveStructured('{"title": "unterminated', pickTitle, false), {
+    ok: false,
+    reason: 'unconstrained',
+  })
+})
+
+test('resolve: unconstrained + plain prose is the normal compat-backend response', () => {
+  assert.deepEqual(resolveStructured('Water Purification Basics', pickTitle, false), {
+    ok: false,
+    reason: 'unconstrained',
+  })
+})
+
+test('resolve: constrained + a picker rejection is still a grammar failure', () => {
+  // `{"suggestions": []}` is valid JSON and valid against nothing useful — minItems
+  // was supposed to prevent it. Parsing the braces as prose would still be wrong.
+  assert.deepEqual(resolveStructured('{"suggestions": []}', pickSuggestions, true), {
+    ok: false,
+    reason: 'constrained-parse-failed',
+  })
+})
+
+test('resolve: constrained + an empty response fails rather than returning a value', () => {
+  assert.deepEqual(resolveStructured('', pickQueries, true), {
+    ok: false,
+    reason: 'constrained-parse-failed',
+  })
+})
+
+test('resolve: a throwing picker is a failed parse, not an exception', () => {
+  // Same critical-path guarantee as parseStructured — the rewrite runs every turn.
+  assert.deepEqual(
+    resolveStructured(
+      '{"title": "x"}',
+      () => {
+        throw new Error('boom')
+      },
+      true
+    ),
+    { ok: false, reason: 'constrained-parse-failed' }
+  )
+})
+
+test('resolve: queries keeps the whole array so [0] is the retrieval query', () => {
+  const result = resolveStructured('{"queries": ["a", "b"]}', pickQueries, true)
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.ok && result.value, ['a', 'b'])
 })
 
 // --- schemas -----------------------------------------------------------------

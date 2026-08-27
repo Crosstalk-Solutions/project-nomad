@@ -81,6 +81,17 @@ export type NomadChatResponse = {
   done: boolean
   model: string
   usage?: NomadChatUsage
+  /**
+   * Whether the decoder was grammar-constrained for this request — `format` was
+   * requested AND the request went out over the native transport that honours it.
+   *
+   * This is what lets a caller tell its two failure modes apart. False means the
+   * model was free to answer in prose and a string parser is the right recovery;
+   * true means unparseable output is the model breaking its own grammar (a
+   * truncated object, in practice) and the caller must take its safe path rather
+   * than feed a JSON fragment to a parser written for prose.
+   */
+  structured?: boolean
 }
 
 export type NomadChatStreamChunk = {
@@ -542,6 +553,9 @@ export class OllamaService {
       },
       done: true,
       model: response.model,
+      // The grammar reached the model only if a caller asked for one; this is the
+      // native transport, so requesting it is the same as applying it.
+      structured: chatRequest.format !== undefined,
       usage: {
         promptTokens: response.prompt_eval_count,
         completionTokens: response.eval_count,
@@ -574,6 +588,10 @@ export class OllamaService {
       },
       done: true,
       model: response.model,
+      // `format` is dropped on this transport whether or not the caller sent one,
+      // so the response is unconstrained prose and the caller's string parser is
+      // still the correct way to recover it.
+      structured: false,
       usage: {
         promptTokens: response.usage?.prompt_tokens,
         completionTokens: response.usage?.completion_tokens,

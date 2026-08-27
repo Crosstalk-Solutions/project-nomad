@@ -94,6 +94,43 @@ export function parseStructured<T>(raw: string, pick: (value: any) => T | null):
   }
 }
 
+/**
+ * The two ways a structured call can fail to yield a value.
+ *
+ * `unconstrained` — no grammar reached the model (a non-native backend, or a call
+ * that never asked for one). The response is prose by design and the caller's
+ * legacy string parser is the correct recovery.
+ *
+ * `constrained-parse-failed` — the grammar *was* applied and the output still did
+ * not yield a value. In practice that means a truncated object: the model hit its
+ * token cap mid-JSON. Feeding that to a parser written for prose is what produces
+ * `{"title": ...` in the sidebar or a JSON blob in the embedded query, so the
+ * caller must take its safe path instead.
+ */
+export type StructuredResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; reason: 'constrained-parse-failed' | 'unconstrained' }
+
+/**
+ * `parseStructured` plus the reason it failed, so callers branch on what actually
+ * happened rather than sniffing the raw text for braces.
+ *
+ * `constrained` is `NomadChatResponse.structured` — whether the decoder was really
+ * grammar-constrained for the request, which only the transport knows.
+ *
+ * Total, like `parseStructured`: a picker that throws is a failed parse, not an
+ * exception on the chat critical path.
+ */
+export function resolveStructured<T>(
+  raw: string,
+  pick: (value: any) => T | null,
+  constrained: boolean
+): StructuredResult<T> {
+  const value = parseStructured(raw, pick)
+  if (value !== null) return { ok: true, value }
+  return { ok: false, reason: constrained ? 'constrained-parse-failed' : 'unconstrained' }
+}
+
 /** Non-empty trimmed string, or null. */
 function cleanString(value: unknown): string | null {
   if (typeof value !== 'string') return null
