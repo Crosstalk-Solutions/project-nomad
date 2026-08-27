@@ -22,6 +22,7 @@ import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
+import { invalidateMinRelevanceCache } from '../utils/rag_relevance.js'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
 
 @inject()
@@ -919,6 +920,9 @@ export class SystemService {
     }
     if (key === 'ai.assistantCustomName') {
       invalidateAssistantNameCache()
+    }
+    if (key === 'rag.minRelevance') {
+      invalidateMinRelevanceCache()
     }
     // Re-enabling auto-update after a backoff-driven auto-disable clears the
     // failure state so it gets a fresh start instead of immediately re-tripping.

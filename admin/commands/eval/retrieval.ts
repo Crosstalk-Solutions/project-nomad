@@ -11,9 +11,10 @@ import type { RetrievalAggregate } from '../../app/utils/eval/retrieval_metrics.
  * thresholds, or reranking.
  *
  *   node ace eval:retrieval
- *   node ace eval:retrieval --ablate            # is the reranker helping?
- *   node ace eval:retrieval --threshold=0.5     # sweep the cutoff
- *   node ace eval:retrieval --tag=multi-hop     # one slice only
+ *   node ace eval:retrieval --ablate                 # is the reranker helping?
+ *   node ace eval:retrieval --threshold=0.5          # sweep the Qdrant cutoff
+ *   node ace eval:retrieval --min-final-score=0.6    # sweep the post-rerank floor
+ *   node ace eval:retrieval --tag=multi-hop          # one slice only
  */
 export default class EvalRetrieval extends BaseCommand {
   static commandName = 'eval:retrieval'
@@ -24,6 +25,13 @@ export default class EvalRetrieval extends BaseCommand {
 
   @flags.string({ description: 'Minimum similarity score (default: the production value)' })
   declare threshold: string
+
+  @flags.string({
+    description:
+      'Post-rerank relevance floor; chunks below it are dropped (default: the production value). ' +
+      'Reads RAG_MIN_FINAL_SCORE, never the rag.minRelevance setting — see EvalRetrievalService.',
+  })
+  declare minFinalScore: string
 
   @flags.boolean({ description: 'Also score the raw dense, reranked, and diversified orderings' })
   declare ablate: boolean
@@ -83,12 +91,14 @@ export default class EvalRetrieval extends BaseCommand {
       const result = await retrievalService.run(goldens, {
         topK: this.topK ? Number.parseInt(this.topK, 10) : undefined,
         scoreThreshold: this.threshold ? Number.parseFloat(this.threshold) : undefined,
+        minFinalScore: this.minFinalScore ? Number.parseFloat(this.minFinalScore) : undefined,
         ablate: this.ablate,
       })
       const elapsed = ((Date.now() - started) / 1000).toFixed(1)
 
       this.logger.info(
-        `Params: topK=${result.params.topK} threshold=${result.params.scoreThreshold}  (${elapsed}s)`
+        `Params: topK=${result.params.topK} threshold=${result.params.scoreThreshold} ` +
+          `minFinalScore=${result.params.minFinalScore}  (${elapsed}s)`
       )
       this.logger.info('')
       this.printAggregate('OVERALL', result.overall, result.params.kValues)
@@ -181,36 +191,25 @@ export default class EvalRetrieval extends BaseCommand {
    * Turn the score distributions into an actual recommendation. The raw
    * percentiles are the evidence; this is the reading of them, which is what
    * the threshold constants have never had.
+   *
+   * Printed per axis, because the two cutoffs filter different numbers:
+   * `--threshold` is applied by Qdrant to the raw cosine score, and
+   * `--min-final-score` is applied after reranking. Reading one off the other's
+   * percentiles is wrong by the reranker's boost factor.
    */
   private printThresholdGuidance(agg: RetrievalAggregate) {
-    const rel = agg.relevantScores
-    const irr = agg.irrelevantScores
     this.logger.info('')
-    this.logger.info('=== Score separation (how to calibrate the threshold) ===')
-    if (rel) {
-      this.logger.info(
-        `  relevant chunks    n=${rel.count} min=${rel.min.toFixed(3)} p10=${rel.p10.toFixed(3)} median=${rel.median.toFixed(3)} p90=${rel.p90.toFixed(3)}`
-      )
-    }
-    if (irr) {
-      this.logger.info(
-        `  irrelevant chunks  n=${irr.count} min=${irr.min.toFixed(3)} p10=${irr.p10.toFixed(3)} median=${irr.median.toFixed(3)} p90=${irr.p90.toFixed(3)}`
-      )
-    }
-    if (rel && irr) {
-      if (rel.p10 > irr.p90) {
-        this.logger.success(
-          `  Clean separation: a threshold between ${irr.p90.toFixed(3)} and ${rel.p10.toFixed(3)} splits them.`
-        )
-      } else {
-        this.logger.warning(
-          `  Overlapping: relevant p10 (${rel.p10.toFixed(3)}) sits below irrelevant p90 (${irr.p90.toFixed(3)}).`
-        )
-        this.logger.warning(
-          '  No cutoff separates these cleanly — the retriever needs work, not the threshold.'
-        )
-      }
-    }
+    this.logger.info('=== Score separation (how to calibrate the cutoffs) ===')
+    this.printAxis(
+      'semantic, pre-rerank  — calibrates --threshold',
+      agg.relevantScores,
+      agg.irrelevantScores
+    )
+    this.printAxis(
+      'final, post-rerank    — calibrates --min-final-score',
+      agg.relevantFinalScores,
+      agg.irrelevantFinalScores
+    )
     if (agg.emptyRateOnAnswerable !== null && agg.emptyRateOnAnswerable > 0) {
       this.logger.warning(
         `  ${pct(agg.emptyRateOnAnswerable)} of answerable questions retrieved nothing — threshold may be too high.`
@@ -220,6 +219,34 @@ export default class EvalRetrieval extends BaseCommand {
       this.logger.warning(
         `  ${pct(agg.nonEmptyRateOnRefusal)} of out-of-corpus questions retrieved something anyway — that context is what produces confident wrong answers.`
       )
+    }
+  }
+
+  /** One axis of the separation table, plus the reading of it. */
+  private printAxis(
+    label: string,
+    rel: RetrievalAggregate['relevantScores'],
+    irr: RetrievalAggregate['irrelevantScores']
+  ) {
+    if (!rel && !irr) return
+    this.logger.info(`  ${label}`)
+    const row = (name: string, d: NonNullable<typeof rel>) =>
+      this.logger.info(
+        `    ${name.padEnd(18)} n=${d.count} min=${d.min.toFixed(3)} p10=${d.p10.toFixed(3)} median=${d.median.toFixed(3)} p90=${d.p90.toFixed(3)}`
+      )
+    if (rel) row('relevant chunks', rel)
+    if (irr) row('irrelevant chunks', irr)
+    if (rel && irr) {
+      if (rel.p10 > irr.p90) {
+        this.logger.success(
+          `    Clean separation: a cutoff between ${irr.p90.toFixed(3)} and ${rel.p10.toFixed(3)} splits them.`
+        )
+      } else {
+        this.logger.warning(
+          `    Overlapping: relevant p10 (${rel.p10.toFixed(3)}) sits below irrelevant p90 (${irr.p90.toFixed(3)}); ` +
+            `a cutoff near ${rel.min.toFixed(3)} keeps every relevant chunk seen here.`
+        )
+      }
     }
   }
 
@@ -253,7 +280,9 @@ function renderRetrievalMarkdown(doc: any, result: any, misses: any[]): string {
   lines.push(`- corpus: \`${doc.meta.corpusFingerprint}\``)
   lines.push(`- commit: \`${doc.meta.gitSha ?? 'unknown'}\`${doc.meta.gitDirty ? ' (dirty tree)' : ''}`)
   lines.push(`- when: ${doc.meta.createdAt}`)
-  lines.push(`- params: topK=${result.params.topK} threshold=${result.params.scoreThreshold}`)
+  lines.push(
+    `- params: topK=${result.params.topK} threshold=${result.params.scoreThreshold} minFinalScore=${result.params.minFinalScore}`
+  )
   lines.push('')
   lines.push('## Metrics', '')
   lines.push('| metric | value |', '|---|---:|')

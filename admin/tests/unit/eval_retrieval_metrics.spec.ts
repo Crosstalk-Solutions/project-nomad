@@ -262,3 +262,46 @@ test('per-tag aggregation slices the same cases without recomputing them wrong',
   close(byTag['multi-hop'].recall[5], 0.5)
   assert.equal(byTag['single-hop'].cases, 1)
 })
+
+test('aggregate reports the semantic and final axes separately', () => {
+  // A chunk carries two scores, and the two cutoffs filter different ones:
+  // Qdrant's score_threshold sees the semantic score, RAG_MIN_FINAL_SCORE sees
+  // the post-rerank score. Collapsing them would make one cutoff calibrate
+  // against the other's percentiles, off by the reranker's boost factor.
+  const cases: RetrievalCase[] = [
+    {
+      id: 'c1',
+      tags: [],
+      relevantDocIds: ['doc-a'],
+      expectRefusal: false,
+      retrieved: [
+        { docId: 'doc-a', score: 0.9, semanticScore: 0.7 },
+        { docId: 'doc-b', score: 0.5, semanticScore: 0.4 },
+      ],
+    },
+  ]
+  const agg = aggregate(cases, cases.map((c) => scoreCase(c)))
+
+  assert.equal(agg.relevantScores!.median, 0.7)
+  assert.equal(agg.irrelevantScores!.median, 0.4)
+  assert.equal(agg.relevantFinalScores!.median, 0.9)
+  assert.equal(agg.irrelevantFinalScores!.median, 0.5)
+})
+
+test('aggregate falls back to the final score when no semantic score was recorded', () => {
+  // The ablation stages record only one number per row, so the semantic axis
+  // has to degrade to it rather than reporting an empty distribution.
+  const cases: RetrievalCase[] = [
+    {
+      id: 'c1',
+      tags: [],
+      relevantDocIds: ['doc-a'],
+      expectRefusal: false,
+      retrieved: [{ docId: 'doc-a', score: 0.8 }],
+    },
+  ]
+  const agg = aggregate(cases, cases.map((c) => scoreCase(c)))
+
+  assert.equal(agg.relevantScores!.median, 0.8)
+  assert.equal(agg.relevantFinalScores!.median, 0.8)
+})

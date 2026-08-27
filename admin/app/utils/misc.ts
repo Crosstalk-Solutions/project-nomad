@@ -47,3 +47,47 @@ export function parseBoolean(value: any): boolean {
   }
   return false
 }
+
+/**
+ * Interpret a stored `rag.minRelevance` value as a retrieval relevance floor.
+ *
+ * Pure, and separate from the cached KV read in rag_relevance.ts, for the same
+ * reason pickTasksModel is separate from resolveTasksModel: every interesting
+ * case here is a bad or absent value, and none of them need a database.
+ *
+ * Unset, empty, 'auto' and unparseable all mean "use the recommended default" —
+ * a corrupt row must not silently disable filtering. An explicit 0 is different:
+ * it is a real choice, and it turns the floor off.
+ */
+export function parseMinRelevance(raw: string | null | undefined, fallback: number): number {
+  if (raw === null || raw === undefined) return fallback
+  const trimmed = String(raw).trim()
+  if (trimmed === '' || trimmed === 'auto') return fallback
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(1, Math.max(0, parsed))
+}
+
+/**
+ * Apply the retrieval relevance floor to a reranked candidate list.
+ *
+ * Pure, and called from RagService.searchSimilarDocuments between reranking and
+ * the source-diversity penalty. The ordering is the interesting part: the floor
+ * is a judgement about *relevance*, and the reranked score is where that
+ * judgement is best informed. Diversity is about *redundancy* — it multiplies by
+ * 0.85^n per repeated source — so flooring afterwards would drop the fourth
+ * chunk of the one document that actually answers the question and blame a knob
+ * labelled "relevance" for it.
+ *
+ * An empty result is a real answer, not a failure: it means nothing retrieved
+ * was relevant enough, and the caller should inject no context block at all
+ * rather than hand the model passages it has to be talked out of using.
+ */
+export function applyRelevanceFloor<T extends { finalScore: number }>(
+  results: T[],
+  minFinalScore: number
+): { survivors: T[]; belowFloor: number } {
+  if (!(minFinalScore > 0)) return { survivors: results, belowFloor: 0 }
+  const survivors = results.filter((r) => r.finalScore >= minFinalScore)
+  return { survivors, belowFloor: results.length - survivors.length }
+}

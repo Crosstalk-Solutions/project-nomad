@@ -4,6 +4,7 @@ import { RagPipelineService } from '#services/rag_pipeline_service'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
+import { RAG_MIN_FINAL_SCORE } from '../../constants/ollama.js'
 import type { OllamaChatMessage } from '../../types/ollama.js'
 import type { PipelineOptions, RetrievedChunk } from '../../types/rag.js'
 import { docIdFromSource } from '../utils/eval/corpus_source.js'
@@ -57,6 +58,8 @@ export type GenerationRunOptions = {
   repeats?: number
   topK?: number
   scoreThreshold?: number
+  /** Post-rerank relevance floor. Defaults to the constant, never to the setting. */
+  minFinalScore?: number
   /** Skip the history-aware rewrite even on multi-turn goldens. */
   skipQueryRewrite?: boolean
   onProgress?: (id: string, index: number, total: number) => void
@@ -130,6 +133,7 @@ export type GenerationRunResult = {
     seed: number
     topK?: number
     scoreThreshold?: number
+    minFinalScore: number
   }
   overall: GenerationAggregate
   byTag: Record<string, GenerationAggregate>
@@ -170,6 +174,7 @@ export class EvalGenerationService {
         seed: EVAL_SEED,
         topK: options.topK,
         scoreThreshold: options.scoreThreshold,
+        minFinalScore: options.minFinalScore ?? RAG_MIN_FINAL_SCORE,
       },
       overall: aggregateGeneration(cases),
       byTag: aggregateGenerationByTag(cases),
@@ -228,6 +233,11 @@ export class EvalGenerationService {
       collection: KB_EVAL_COLLECTION,
       topK: options.topK,
       scoreThreshold: options.scoreThreshold,
+      // Pinned to the constant, not left to fall through to resolveMinFinalScore()
+      // — otherwise a `rag.minRelevance` slider set on one developer's machine
+      // would silently move every generation score. Same reasoning as the
+      // retrieval tier; see EvalRetrievalService.run.
+      minFinalScore: options.minFinalScore ?? RAG_MIN_FINAL_SCORE,
       // The mock run must not touch Ollama at all — that is what makes it
       // usable with no models installed. The rewrite is a chat-model call, so
       // it is always skipped there (it would 404 and silently fall back, which

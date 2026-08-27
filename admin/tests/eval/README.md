@@ -153,12 +153,26 @@ benefit that the payload filter already delivers.
 
 ```bash
 node ace eval:retrieval
-node ace eval:retrieval --ablate         # is the reranker earning its complexity?
-node ace eval:retrieval --threshold=0.5  # sweep the cutoff
+node ace eval:retrieval --ablate              # is the reranker earning its complexity?
+node ace eval:retrieval --threshold=0.5       # sweep the Qdrant cutoff
+node ace eval:retrieval --min-final-score=0.7 # sweep the post-rerank relevance floor
 node ace eval:retrieval --tag=multi-hop
-node ace eval:retrieval --verbose        # show every miss and what it retrieved
-node ace eval:retrieval --report         # write JSON + Markdown to reports/
+node ace eval:retrieval --verbose             # show every miss and what it retrieved
+node ace eval:retrieval --report              # write JSON + Markdown to reports/
 ```
+
+**There are two cutoffs, on two different scores, and they do not interchange.**
+`--threshold` is what Qdrant applies to the raw cosine score, before reranking;
+`--min-final-score` (`RAG_MIN_FINAL_SCORE`) is the relevance floor applied to
+the reranked score, and it is the one that decides whether a chunk is injected
+at all. Reranking's boosts are score-scaled, so the same number means different
+things on the two axes — the score-separation table prints both, labelled by
+which flag each one calibrates. Read the right row.
+
+Both tiers pin the floor to `RAG_MIN_FINAL_SCORE` and deliberately ignore the
+user's `rag.minRelevance` setting, for the same reason the harness never sets
+`skipRetrieval`: a slider position on one machine must not move the numbers a
+baseline was recorded against.
 
 Embedding is the only model call, and its output is stable, so **this tier is
 deterministic and hardware-independent**. Two runs produce byte-identical

@@ -159,6 +159,20 @@ export function ndcgAtK(retrieved: ScoredChunk[], relevantDocIds: string[], k: n
  * intuition. If the relevant p10 sits below the irrelevant p90, no threshold
  * can cleanly separate them and the honest conclusion is that the *retriever*
  * needs work, not the cutoff.
+ *
+ * ## Two axes, because there are two cutoffs
+ *
+ * A chunk carries two scores and they are not interchangeable:
+ *
+ * - the **semantic** score is raw cosine, and it is what Qdrant's
+ *   `score_threshold` filters on — before reranking ever runs;
+ * - the **final** score is what reranking and source diversity produced, and it
+ *   is what `RAG_MIN_FINAL_SCORE` filters on.
+ *
+ * Reranking's boosts are score-scaled and additive (up to ~1.275x), so the two
+ * distributions sit at different heights. Calibrating one cutoff against the
+ * other axis' percentiles is off by exactly that factor, which is why both are
+ * reported separately rather than collapsed into one number.
  */
 export type ScoreDistribution = {
   count: number
@@ -234,8 +248,12 @@ export type RetrievalAggregate = {
    * confident, wrong reply.
    */
   nonEmptyRateOnRefusal: number | null
+  /** Semantic (raw cosine) scores — the axis Qdrant's score_threshold filters on. */
   relevantScores: ScoreDistribution | null
   irrelevantScores: ScoreDistribution | null
+  /** Post-rerank scores — the axis RAG_MIN_FINAL_SCORE filters on. */
+  relevantFinalScores: ScoreDistribution | null
+  irrelevantFinalScores: ScoreDistribution | null
 }
 
 export const DEFAULT_K_VALUES = [1, 3, 5, 10]
@@ -277,11 +295,14 @@ export function aggregate(
   // threshold needs to exclude.
   const relevantScores: number[] = []
   const irrelevantScores: number[] = []
+  const relevantFinalScores: number[] = []
+  const irrelevantFinalScores: number[] = []
   for (const c of cases) {
     const relevant = new Set(c.relevantDocIds)
     for (const chunk of c.retrieved) {
-      const bucket = chunk.docId && relevant.has(chunk.docId) ? relevantScores : irrelevantScores
-      bucket.push(chunk.semanticScore ?? chunk.score)
+      const isRelevant = Boolean(chunk.docId && relevant.has(chunk.docId))
+      ;(isRelevant ? relevantScores : irrelevantScores).push(chunk.semanticScore ?? chunk.score)
+      ;(isRelevant ? relevantFinalScores : irrelevantFinalScores).push(chunk.score)
     }
   }
 
@@ -299,6 +320,8 @@ export function aggregate(
       refusals.length === 0 ? null : refusals.filter((r) => !r.empty).length / refusals.length,
     relevantScores: describeScores(relevantScores),
     irrelevantScores: describeScores(irrelevantScores),
+    relevantFinalScores: describeScores(relevantFinalScores),
+    irrelevantFinalScores: describeScores(irrelevantFinalScores),
   }
 }
 
