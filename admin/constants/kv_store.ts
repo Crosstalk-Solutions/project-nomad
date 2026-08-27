@@ -16,6 +16,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
     'ai.keepAlive',
     'rag.defaultIngestPolicy',
     'rag.enabled',
+    'rag.minRelevance',
     'autoUpdate.enabled',
     'autoUpdate.windowStart',
     'autoUpdate.windowEnd',

@@ -63,6 +63,19 @@ export type RetrievalStages = {
 }
 
 /**
+ * Counts from the relevance floor, for callers that want to say *why* nothing
+ * came back. Written whether or not stage ablation is on — it is two integers,
+ * and "we searched and found nothing relevant enough" is worth being able to
+ * say out loud.
+ */
+export type RetrievalFloorStats = {
+  /** Candidates the floor was applied to (post-rerank, pre-diversity). */
+  candidates: number
+  /** How many of those fell below it. */
+  belowFloor: number
+}
+
+/**
  * A chunk as returned by `RagService.searchSimilarDocuments` — the shape the
  * chat pipeline consumes and the eval harness scores.
  */
@@ -98,6 +111,10 @@ export type PipelineOptions = {
   /** Override where the retrieved-context block sits. Defaults to RAG_PLACEMENT;
    *  the eval harness sets it explicitly to compare the two orderings. */
   ragPlacement?: RagPlacement
+  /** Post-rerank relevance floor. Unset resolves the user's `rag.minRelevance`
+   *  setting; the eval harness passes an explicit value so its numbers cannot
+   *  depend on how one machine's slider happens to be set. */
+  minFinalScore?: number
 }
 
 /**
@@ -121,6 +138,14 @@ export type PipelineTrace = {
   numPredict: number | undefined
   contextLimits: { maxResults: number; maxTokens: number }
   timings: { rewriteMs: number; retrievalMs: number }
+  /**
+   * The relevance floor this turn was retrieved under, and how many candidates
+   * fell below it. `chunksBelowFloor > 0` with `retrieved.length === 0` is the
+   * "we searched and nothing was relevant enough" case — which is the honest
+   * thing to tell the user, and the data the retrieval-status UX needs to say it.
+   */
+  minFinalScore: number
+  chunksBelowFloor: number
   /**
    * What the budget planner decided: how the window was spent and what was left
    * out. Undefined only when planning was bypassed. The eval harness reads this

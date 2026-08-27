@@ -22,7 +22,8 @@ import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
-import type { FileWarning, FileWarningsResult, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
+import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
+import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
 
 /**
@@ -849,6 +850,7 @@ export class RagService {
    * @param query - The search query text
    * @param limit - Maximum number of results to return (default: 5)
    * @param scoreThreshold - Minimum similarity score threshold (default: 0.3, much lower than before)
+   * @param minFinalScore - Post-rerank relevance floor; below it a chunk is dropped
    * @returns Array of relevant text chunks with their scores
    */
   public async searchSimilarDocuments(
@@ -863,7 +865,15 @@ export class RagService {
      * changes — and it is what lets the eval harness answer "is the reranking
      * heuristic actually helping?" without a second implementation of search.
      */
-    stagesOut?: RetrievalStages
+    stagesOut?: RetrievalStages,
+    /**
+     * Relevance floor on the post-rerank score. Defaults to 0 so the parameter
+     * is purely additive for callers that predate it; the chat pipeline and the
+     * eval harness both pass a real value.
+     */
+    minFinalScore: number = 0,
+    /** Optional sink for the floor's counts; see RetrievalFloorStats. */
+    floorOut?: RetrievalFloorStats
   ): Promise<Array<{ text: string; score: number; metadata?: Record<string, any> }>> {
     try {
       logger.debug(`[RAG] Starting similarity search for query: "${query}"`)
@@ -967,12 +977,44 @@ export class RagService {
         )
       })
 
+      // Relevance floor, applied here — after reranking, before diversity.
+      //
+      // The ordering is deliberate. The floor is a judgement about relevance,
+      // and the reranked score is where that judgement is best informed. The
+      // diversity penalty that follows is about redundancy, not relevance: it
+      // multiplies by 0.85^n, so flooring afterwards would drop the fourth chunk
+      // of the one document that actually answers the question and blame a knob
+      // labelled "relevance" for it.
+      const { survivors, belowFloor } = applyRelevanceFloor(rerankedResults, minFinalScore)
+      if (floorOut) {
+        floorOut.candidates = rerankedResults.length
+        floorOut.belowFloor = belowFloor
+      }
+      if (belowFloor > 0) {
+        logger.debug(
+          `[RAG] Relevance floor ${minFinalScore}: dropped ${belowFloor} of ${rerankedResults.length} chunk(s)`
+        )
+      }
+      if (survivors.length === 0 && rerankedResults.length > 0) {
+        // Nothing cleared the bar. Returning empty is the point: the pipeline
+        // then injects no context block at all, rather than handing the model
+        // passages it has to be talked out of using.
+        logger.debug(
+          `[RAG] Nothing cleared the relevance floor (best was ${rerankedResults[0].finalScore.toFixed(4)}) — injecting no context`
+        )
+      }
+
       // Apply source diversity penalty to avoid all results from the same document
-      const diverseResults = this.applySourceDiversity(rerankedResults)
+      const diverseResults = this.applySourceDiversity(survivors)
 
       // Record the three ranked lists for the eval harness's stage ablation.
       // Sliced to `limit` so each stage is compared on the window that would
       // actually have been injected, not on the wider rerank candidate pool.
+      //
+      // `reranked` is recorded pre-floor on purpose: the ablation asks whether
+      // each heuristic *orders* better, and a filter applied to two of the three
+      // lists would answer a different question. The floor's own effect is
+      // measured by sweeping --min-final-score against the headline metrics.
       if (stagesOut) {
         const summarize = (rows: Array<{ text: string; score: number; source?: string }>) =>
           rows.slice(0, limit).map((r) => ({ source: r.source, score: r.score }))

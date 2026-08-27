@@ -19,19 +19,38 @@ import { test } from '@japa/runner'
 import { RagPipelineService } from '#services/rag_pipeline_service'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import type { OllamaChatMessage } from '../../types/ollama.js'
+import type { RetrievedChunk } from '../../types/rag.js'
 
 /** Records every call so the tests can assert on what was *not* run. */
-function makeFakes(opts: { nomadMd?: string | null } = {}) {
+function makeFakes(opts: { nomadMd?: string | null; searchResults?: RetrievedChunk[] } = {}) {
   const calls = { hasDocuments: 0, search: 0, chat: 0 }
+  const args = { minFinalScore: undefined as number | undefined }
 
   const ragService = {
     async hasDocuments() {
       calls.hasDocuments++
       return true
     },
-    async searchSimilarDocuments() {
+    async searchSimilarDocuments(
+      _query: string,
+      _limit: number,
+      _scoreThreshold: number,
+      _collection: string | undefined,
+      _stagesOut: unknown,
+      minFinalScore: number,
+      floorOut?: { candidates: number; belowFloor: number }
+    ) {
       calls.search++
-      return [{ text: 'retrieved body', score: 0.9, metadata: { full_title: 'A Doc' } }]
+      args.minFinalScore = minFinalScore
+      const results =
+        opts.searchResults ?? [{ text: 'retrieved body', score: 0.9, metadata: { full_title: 'A Doc' } }]
+      // Stand in for the real floor: whatever the fake was told to return is
+      // what survived, and anything it was told to withhold is what did not.
+      if (floorOut) {
+        floorOut.candidates = 3
+        floorOut.belowFloor = 3 - results.length
+      }
+      return results
     },
   }
 
@@ -76,7 +95,7 @@ function makeFakes(opts: { nomadMd?: string | null } = {}) {
     tokenCalibration as any
   )
 
-  return { service, calls }
+  return { service, calls, args }
 }
 
 const userTurn: OllamaChatMessage[] = [{ role: 'user', content: 'how do I purify water?' }]
@@ -143,5 +162,47 @@ test.group('buildPrompt | skipRetrieval', () => {
     assert.equal(calls.search, 0)
     assert.deepEqual(trace.retrieved, oracle)
     assert.lengthOf(trace.injected, 1)
+  })
+})
+
+test.group('buildPrompt | relevance floor', () => {
+  test('injects no context block when nothing clears the floor', async ({ assert }) => {
+    // The point of the floor. Retrieval ran, found candidates, and declined them
+    // all — so the model must be handed nothing rather than the best of a bad
+    // set, which is what the rag_context prompt used to have to talk it out of.
+    const { service, calls } = makeFakes({ searchResults: [] })
+
+    const trace = await service.buildPrompt(userTurn, 'llama3.1:8b', { minFinalScore: 0.62 })
+
+    assert.equal(calls.search, 1)
+    assert.deepEqual(trace.retrieved, [])
+    assert.deepEqual(trace.injected, [])
+    assert.isFalse(systemContents(trace.messages).some((c) => c.includes('[Context 1')))
+    // ...and the default system prompt is untouched: declining to retrieve is
+    // not the same as turning the assistant off.
+    assert.include(systemContents(trace.messages), SYSTEM_PROMPTS.default)
+  })
+
+  test('records the floor and the drop count on the trace', async ({ assert }) => {
+    // "The knowledge base had no match at all" and "everything found was judged
+    // irrelevant" are different things to tell a user, so the trace has to keep
+    // them apart rather than both collapsing to an empty retrieved list.
+    const { service } = makeFakes({ searchResults: [] })
+
+    const trace = await service.buildPrompt(userTurn, 'llama3.1:8b', { minFinalScore: 0.62 })
+
+    assert.equal(trace.minFinalScore, 0.62)
+    assert.equal(trace.chunksBelowFloor, 3)
+  })
+
+  test('an explicit option overrides the rag.minRelevance setting', async ({ assert }) => {
+    // What keeps the eval harness reproducible: it always passes a value, so a
+    // slider set on one machine cannot move the numbers a baseline was recorded
+    // against.
+    const { service, args } = makeFakes()
+
+    await service.buildPrompt(userTurn, 'llama3.1:8b', { minFinalScore: 0.9 })
+
+    assert.equal(args.minFinalScore, 0.9)
   })
 })

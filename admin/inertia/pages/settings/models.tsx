@@ -12,6 +12,7 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import { RAG_MIN_RELEVANCE_PRESETS } from '../../../constants/ollama'
 import Switch from '~/components/inputs/Switch'
 import Select from '~/components/inputs/Select'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -27,7 +28,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -106,6 +107,7 @@ export default function ModelsPage(props: {
   const [ragEnabled, setRagEnabled] = useState(props.models.settings.ragEnabled)
   const [tasksModel, setTasksModel] = useState(props.models.settings.tasksModel)
   const [contextWindow, setContextWindow] = useState(props.models.settings.contextWindow)
+  const [minRelevance, setMinRelevance] = useState(String(props.models.settings.minRelevance))
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
   )
@@ -264,6 +266,24 @@ export default function ModelsPage(props: {
     { value: '131072', label: '128K tokens' },
   ]
 
+  // Presets rather than a raw 0-1 number: the value is a cosine-similarity
+  // floor, which is not a thing anyone can reason about directly. The stored
+  // setting is still the number, so retuning these labels later cannot orphan a
+  // saved value.
+  const minRelevanceOptions = [
+    ...RAG_MIN_RELEVANCE_PRESETS.map((preset) => ({
+      value: String(preset.value),
+      label: preset.label,
+    })),
+    // The setting is API-writable to any value in [0,1], so a value off the
+    // preset ladder is reachable. Surface it as a disabled option rather than
+    // letting the select render empty — same treatment the tasks model gets when
+    // the chosen model has since been deleted.
+    ...(RAG_MIN_RELEVANCE_PRESETS.some((p) => String(p.value) === minRelevance)
+      ? []
+      : [{ value: minRelevance, label: `Custom (${minRelevance})`, disabled: true }]),
+  ]
+
   const resolvedWindows = props.models.resolvedContextWindows ?? {}
   const formatWindow = (tokens: number) =>
     tokens >= 1024 ? `${Math.round(tokens / 1024)}K` : String(tokens)
@@ -401,6 +421,18 @@ export default function ModelsPage(props: {
                 onChange={(newVal) => {
                   setTasksModel(newVal)
                   updateSettingMutation.mutate({ key: 'ai.tasksModel', value: newVal })
+                }}
+              />
+              <Select
+                name="minRelevance"
+                label="Knowledge Base Relevance"
+                helpText="How closely a knowledge-base passage has to match your question before it is used in an answer. Stricter settings keep unrelated passages out; too strict and genuinely useful ones get dropped too. When nothing clears the bar, the assistant answers from its own knowledge instead."
+                value={minRelevance}
+                options={minRelevanceOptions}
+                disabled={!ragEnabled}
+                onChange={(newVal) => {
+                  setMinRelevance(newVal)
+                  updateSettingMutation.mutate({ key: 'rag.minRelevance', value: newVal })
                 }}
               />
               <Select

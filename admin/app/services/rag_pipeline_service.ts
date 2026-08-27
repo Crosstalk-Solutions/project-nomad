@@ -14,9 +14,10 @@ import {
   SYSTEM_PROMPTS,
 } from '../../constants/ollama.js'
 import type { OllamaChatMessage } from '../../types/ollama.js'
-import type { PipelineOptions, PipelineTrace, RetrievedChunk } from '../../types/rag.js'
+import type { PipelineOptions, PipelineTrace, RetrievalFloorStats, RetrievedChunk } from '../../types/rag.js'
 import { planPrompt } from '../utils/context_budget.js'
 import { estimateMessagesTokens } from '../utils/token_estimate.js'
+import { resolveMinFinalScore } from '../utils/rag_relevance.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
 import { buildContextBlock, getContextLimitsForModel } from '../utils/rag_prompt.js'
 import { QUERIES_SCHEMA, pickQueries, resolveStructured } from '../utils/structured_output.js'
@@ -104,6 +105,8 @@ export class RagPipelineService {
       numPredict: undefined,
       contextLimits: { maxResults: RAG_DEFAULT_TOP_K, maxTokens: 0 },
       timings: { rewriteMs: 0, retrievalMs: 0 },
+      minFinalScore: 0,
+      chunksBelowFloor: 0,
     }
 
     // --- Retrieval -------------------------------------------------------
@@ -131,16 +134,28 @@ export class RagPipelineService {
 
       if (retrievalQuery) {
         const retrievalStart = Date.now()
+        // An explicit option always wins, so the eval harness never inherits
+        // whatever this machine's `rag.minRelevance` slider happens to be set to.
+        const minFinalScore = opts.minFinalScore ?? (await resolveMinFinalScore())
+        const floor: RetrievalFloorStats = { candidates: 0, belowFloor: 0 }
         relevantDocs = await this.ragService.searchSimilarDocuments(
           retrievalQuery,
           opts.topK ?? RAG_DEFAULT_TOP_K,
           opts.scoreThreshold ?? RAG_DEFAULT_SCORE_THRESHOLD,
-          opts.collection
+          opts.collection,
+          undefined,
+          minFinalScore,
+          floor
         )
         trace.timings.retrievalMs = Date.now() - retrievalStart
         trace.retrieved = relevantDocs
+        trace.minFinalScore = minFinalScore
+        trace.chunksBelowFloor = floor.belowFloor
         logger.debug(
-          `[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${retrievalQuery}"`
+          `[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${retrievalQuery}"` +
+            (floor.belowFloor > 0
+              ? ` (${floor.belowFloor} of ${floor.candidates} dropped below the ${minFinalScore} relevance floor)`
+              : '')
         )
       }
     }

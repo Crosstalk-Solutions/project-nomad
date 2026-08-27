@@ -9,6 +9,11 @@ export const KV_STORE_SCHEMA = {
   // pipeline (hasDocuments, the query-rewrite LLM call, and the Qdrant search),
   // which matters on small hardware and when the KB is small or empty.
   'rag.enabled':                'boolean',
+  // Relevance floor for retrieved chunks, as a stringified number in [0,1]
+  // ("0.6"). Unset means "use RAG_MIN_FINAL_SCORE"; "0" explicitly means off.
+  // Stored as the number rather than a preset name so retuning the presets in
+  // Settings > Models cannot invalidate a value someone already saved.
+  'rag.minRelevance':           'string',
   'system.updateAvailable':     'boolean',
   'system.latestVersion':       'string',
   'system.earlyAccess':         'boolean',
