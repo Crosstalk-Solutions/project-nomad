@@ -77,6 +77,23 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'rag.minRelevance': {
+            // Empty/'auto' clears the setting and reverts to RAG_MIN_FINAL_SCORE.
+            // An explicit 0 is a real choice — it turns the floor off — so it is
+            // deliberately not treated as "unset".
+            // Trimmed first so the accepted set matches parseMinRelevance's:
+            // Number('  ') is 0, which would otherwise validate as "floor off"
+            // for a value the parser reads as unset.
+            const raw = typeof value === 'string' ? value.trim() : value
+            if (raw === '' || raw === 'auto' || raw === undefined || raw === null) {
+                return null
+            }
+            const num = Number(raw)
+            if (!Number.isFinite(num) || num < 0 || num > 1) {
+                return 'Relevance threshold must be a number between 0 and 1, or empty to use the recommended default.'
+            }
+            return null
+        }
         case 'ai.keepAlive': {
             // Ollama duration format: "10m", "1h", "30s", "-1" (forever), "0" (evict).
             if (value === '' || value === undefined || value === null) {
