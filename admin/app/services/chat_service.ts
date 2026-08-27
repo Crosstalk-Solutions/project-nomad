@@ -11,10 +11,17 @@ import { resolveTasksModel } from '../utils/tasks_model.js'
 import {
   SUGGESTIONS_SCHEMA,
   TITLE_SCHEMA,
-  parseStructured,
   pickSuggestions,
   pickTitle,
+  resolveStructured,
 } from '../utils/structured_output.js'
+
+/** Sidebar width, near enough. Applied once, to whichever candidate title won. */
+const TITLE_MAX_LENGTH = 57
+
+function truncateTitle(value: string): string {
+  return value.length > TITLE_MAX_LENGTH ? value.slice(0, TITLE_MAX_LENGTH) + '...' : value
+}
 
 @inject()
 export class ChatService {
@@ -108,12 +115,22 @@ export class ChatService {
       if (response && response.message && response.message.content) {
         const content = response.message.content.trim()
 
-        const structured = parseStructured(content, pickSuggestions)
-        if (structured) {
-          return structured.map((s) => toTitleCase(s))
+        const structured = resolveStructured(content, pickSuggestions, response.structured === true)
+        if (structured.ok) {
+          return structured.value.map((s) => toTitleCase(s))
+        }
+        if (structured.reason === 'constrained-parse-failed') {
+          // The grammar was applied and the model broke it anyway, so what came back
+          // is a broken JSON object rather than prose. Splitting that on commas would
+          // surface `{"suggestions": ["How Do I` as a chip. No chips is the better
+          // failure — they are decorative, and the empty state is already designed.
+          logger.warn(
+            `[ChatService] Model "${model}" broke the suggestion grammar; returning no suggestions`
+          )
+          return []
         }
         logger.warn(
-          `[ChatService] Model "${model}" returned unparseable suggestion JSON; falling back to text parsing`
+          `[ChatService] Model "${model}" returned no suggestion JSON; falling back to text parsing`
         )
 
         // Handle both comma-separated and newline-separated formats
@@ -317,17 +334,42 @@ export class ChatService {
       })
 
       const content = response?.message?.content?.trim() ?? ''
-      // The schema path and the text path share the same truncation: "under 50
-      // characters" is a request the model can ignore either way.
-      let title = parseStructured(content, pickTitle) ?? content
-      title = title.slice(0, 57) + (title.length > 57 ? '...' : '')
-      if (!title) {
-        // Nothing left once reasoning was split out — fall back to the user's own words.
+      const structured = resolveStructured(content, pickTitle, response?.structured === true)
+
+      let title: string
+      if (!content) {
+        // Nothing left once reasoning was split out. Checked before the grammar branch
+        // so the log says what actually happened rather than blaming the schema.
         logger.warn(
           `[ChatService] Model "${titleModel}" returned no usable title text; using the user message`
         )
-        title = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
+        title = userMessage
+      } else if (structured.ok) {
+        title = structured.value
+      } else if (structured.reason === 'constrained-parse-failed') {
+        // A truncated object would otherwise be stored verbatim, leaving `{"title": ...`
+        // in the sidebar. The user's own words are a worse title than the model's but a
+        // far better one than a JSON fragment.
+        logger.warn(
+          `[ChatService] Model "${titleModel}" broke the title grammar; using the user message`
+        )
+        title = userMessage
+      } else {
+        // Unconstrained backend: the response is meant to be the bare title.
+        title = content
       }
+
+      if (!title) {
+        // An unconstrained response that was pure punctuation or whitespace.
+        logger.warn(
+          `[ChatService] Model "${titleModel}" returned no usable title text; using the user message`
+        )
+        title = userMessage
+      }
+
+      // Applied once, to whichever string won: "under 50 characters" is a request the
+      // model can ignore on the schema path and the text path alike.
+      title = truncateTitle(title)
 
       await this.updateSession(sessionId, { title })
       logger.info(`[ChatService] Generated title for session ${sessionId}: "${title}"`)
@@ -337,8 +379,7 @@ export class ChatService {
       )
       // Fall back to truncated user message
       try {
-        const fallbackTitle = userMessage.slice(0, 57) + (userMessage.length > 57 ? '...' : '')
-        await this.updateSession(sessionId, { title: fallbackTitle })
+        await this.updateSession(sessionId, { title: truncateTitle(userMessage) })
       } catch {
         // Silently fail - session keeps "New Chat" title
       }
