@@ -19,7 +19,7 @@ import { planPrompt } from '../utils/context_budget.js'
 import { estimateMessagesTokens } from '../utils/token_estimate.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
 import { buildContextBlock, getContextLimitsForModel } from '../utils/rag_prompt.js'
-import { QUERIES_SCHEMA, parseStructured, pickQueries } from '../utils/structured_output.js'
+import { QUERIES_SCHEMA, pickQueries, resolveStructured } from '../utils/structured_output.js'
 
 /**
  * Everything that happens between "a user sent a message" and "a payload goes
@@ -286,9 +286,21 @@ export class RagPipelineService {
       })
 
       const raw = response.message.content.trim()
-      // Falls back to the raw text on any parse failure — on a non-native backend the
-      // grammar was never applied, so the old bare-string behaviour is still correct.
-      const rewrittenQuery = parseStructured(raw, pickQueries)?.[0] ?? raw
+      const structured = resolveStructured(raw, pickQueries, response.structured === true)
+      if (!structured.ok && structured.reason === 'constrained-parse-failed') {
+        // The grammar was applied and the output still didn't parse, which here means a
+        // rewrite truncated mid-object by QUERY_REWRITE_MAX_TOKENS. `raw` is a JSON
+        // fragment: embedding it would send the brace and the schema key to Qdrant as
+        // if they were the question. Losing the rewrite for this turn is the cheaper
+        // failure, so take the same path as a rewrite that produced nothing at all.
+        logger.warn(
+          `[RAG] Model "${rewriteModel}" broke the query grammar; falling back to the user message`
+        )
+        return { query: lastUserMessage?.content ?? null, didRewrite: false }
+      }
+      // Unconstrained backends never had the grammar applied, so the raw text is the
+      // rewrite and the old bare-string behaviour is still correct.
+      const rewrittenQuery = structured.ok ? structured.value[0] : raw
       // Empty means the response was reasoning and nothing else (or was truncated
       // mid-thought). Embedding an empty string would search the corpus for nothing
       // and quietly poison retrieval for the rest of the conversation, so fall back
