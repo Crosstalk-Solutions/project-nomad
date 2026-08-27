@@ -2,7 +2,11 @@ import { EvalCorpusService } from '#services/eval_corpus_service'
 import { RagService } from '#services/rag_service'
 import { inject } from '@adonisjs/core'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
-import { RAG_DEFAULT_SCORE_THRESHOLD, RAG_DEFAULT_TOP_K } from '../../constants/ollama.js'
+import {
+  RAG_DEFAULT_SCORE_THRESHOLD,
+  RAG_DEFAULT_TOP_K,
+  RAG_MIN_FINAL_SCORE,
+} from '../../constants/ollama.js'
 import type { RetrievalStages } from '../../types/rag.js'
 import { docIdFromSource } from '../utils/eval/corpus_source.js'
 import type { Golden } from '../utils/eval/golden_set.js'
@@ -20,6 +24,8 @@ import {
 export type RetrievalRunOptions = {
   topK?: number
   scoreThreshold?: number
+  /** Post-rerank relevance floor. Defaults to the constant, never to the setting. */
+  minFinalScore?: number
   kValues?: number[]
   /** Score the raw dense / reranked / diversified orderings separately. */
   ablate?: boolean
@@ -32,7 +38,7 @@ export type StageAblation = {
 }
 
 export type RetrievalRunResult = {
-  params: { topK: number; scoreThreshold: number; kValues: number[] }
+  params: { topK: number; scoreThreshold: number; minFinalScore: number; kValues: number[] }
   overall: RetrievalAggregate
   byTag: Record<string, RetrievalAggregate>
   cases: RetrievalCaseResult[]
@@ -69,6 +75,12 @@ export class EvalRetrievalService {
   async run(goldens: Golden[], options: RetrievalRunOptions = {}): Promise<RetrievalRunResult> {
     const topK = options.topK ?? RAG_DEFAULT_TOP_K
     const scoreThreshold = options.scoreThreshold ?? RAG_DEFAULT_SCORE_THRESHOLD
+    // RAG_MIN_FINAL_SCORE, deliberately — NOT resolveMinFinalScore(). The chat
+    // path reads the user's `rag.minRelevance` setting; this tier must not, or a
+    // slider position on one developer's machine would silently move the numbers
+    // and the committed baseline would stop being reproducible anywhere else.
+    // Same reasoning as the harness omitting `skipRetrieval`.
+    const minFinalScore = options.minFinalScore ?? RAG_MIN_FINAL_SCORE
     const kValues = options.kValues ?? DEFAULT_K_VALUES
 
     const cases: RetrievalCase[] = []
@@ -84,7 +96,8 @@ export class EvalRetrievalService {
         topK,
         scoreThreshold,
         KB_EVAL_COLLECTION,
-        options.ablate ? stages : undefined
+        options.ablate ? stages : undefined,
+        minFinalScore
       )
 
       const retrieved: ScoredChunk[] = docs.map((d) => {
@@ -108,7 +121,7 @@ export class EvalRetrievalService {
       aggregate(stageCases, stageCases.map((c) => scoreCase(c, kValues)), kValues)
 
     return {
-      params: { topK, scoreThreshold, kValues },
+      params: { topK, scoreThreshold, minFinalScore, kValues },
       overall: aggregate(cases, results, kValues),
       byTag: aggregateByTag(cases, results, kValues),
       cases: results,
