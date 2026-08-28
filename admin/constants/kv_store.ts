@@ -14,6 +14,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
     'ai.tasksModel',
     'ai.contextWindow',
     'ai.keepAlive',
+    'ai.responseStyle',
     'rag.defaultIngestPolicy',
     'rag.enabled',
     'rag.minRelevance',
