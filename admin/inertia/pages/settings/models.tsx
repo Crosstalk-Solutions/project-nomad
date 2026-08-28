@@ -12,7 +12,7 @@ import { useModals } from '~/context/ModalContext'
 import StyledModal from '~/components/StyledModal'
 import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
-import { RAG_MIN_RELEVANCE_PRESETS } from '../../../constants/ollama'
+import { RAG_MIN_RELEVANCE_PRESETS, RESPONSE_STYLE_PRESETS } from '../../../constants/ollama'
 import Switch from '~/components/inputs/Switch'
 import Select from '~/components/inputs/Select'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
@@ -28,7 +28,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; responseStyle: string }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -108,6 +108,7 @@ export default function ModelsPage(props: {
   const [tasksModel, setTasksModel] = useState(props.models.settings.tasksModel)
   const [contextWindow, setContextWindow] = useState(props.models.settings.contextWindow)
   const [minRelevance, setMinRelevance] = useState(String(props.models.settings.minRelevance))
+  const [responseStyle, setResponseStyle] = useState(props.models.settings.responseStyle)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
   )
@@ -284,6 +285,11 @@ export default function ModelsPage(props: {
       : [{ value: minRelevance, label: `Custom (${minRelevance})`, disabled: true }]),
   ]
 
+  const responseStyleOptions = RESPONSE_STYLE_PRESETS.map((preset) => ({
+    value: preset.value,
+    label: preset.label,
+  }))
+
   const resolvedWindows = props.models.resolvedContextWindows ?? {}
   const formatWindow = (tokens: number) =>
     tokens >= 1024 ? `${Math.round(tokens / 1024)}K` : String(tokens)
@@ -433,6 +439,17 @@ export default function ModelsPage(props: {
                 onChange={(newVal) => {
                   setMinRelevance(newVal)
                   updateSettingMutation.mutate({ key: 'rag.minRelevance', value: newVal })
+                }}
+              />
+              <Select
+                name="responseStyle"
+                label="Response Style"
+                helpText="How adventurous the assistant is when picking its next word. Auto follows whatever the model's author recommended and fills in the rest, and suits most people. Focused gives shorter, steadier, more repeatable answers and is the better choice for looking things up. Creative varies its wording more, at some cost to accuracy."
+                value={responseStyle}
+                options={responseStyleOptions}
+                onChange={(newVal) => {
+                  setResponseStyle(newVal)
+                  updateSettingMutation.mutate({ key: 'ai.responseStyle', value: newVal })
                 }}
               />
               <Select

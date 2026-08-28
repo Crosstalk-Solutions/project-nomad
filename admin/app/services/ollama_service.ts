@@ -5,7 +5,8 @@ import type { Stream } from 'openai/streaming.js'
 import { Ollama } from 'ollama'
 import { ThinkTagSplitter, normalizeNonStreamed } from '../utils/think_stream.js'
 import { readContextLength, readModelfileNumCtx } from '../utils/context_window.js'
-import { NomadOllamaModel } from '../../types/ollama.js'
+import { compatSamplerParams, nativeSamplerOptions, readModelfileSamplers } from '../utils/sampler.js'
+import { NomadOllamaModel, SamplerProfile } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -43,6 +44,12 @@ export type NomadModelInfo = {
   quantizationLevel?: string
   /** num_ctx baked into the modelfile, if the author set one. */
   modelfileNumCtx?: number
+  /**
+   * Sampler values baked into the modelfile, if the author set any. Under the
+   * `auto` response style these beat NOMAD's own preset key by key, so a model
+   * tuned by its author keeps its tuning and only gains the settings it lacked.
+   */
+  modelfileSamplers?: SamplerProfile
   /**
    * The raw `model_info` blob. Carries the GGUF architecture keys
    * (block_count, attention.head_count_kv, embedding_length) that make an exact
@@ -123,6 +130,14 @@ type ChatInput = {
   // (batching and GPU non-determinism still move outputs, hence --repeats).
   temperature?: number
   seed?: number
+  // Resolved sampler settings for this request: top_p, top_k, min_p and
+  // repeat_penalty. Set from the user's Response Style on the chat path only.
+  // The ancillary structured calls deliberately leave it unset — they pin
+  // temperature to 0 and want a grammar honoured, not a style applied.
+  //
+  // `temperature` above still wins over `sampler.temperature`, so a caller that
+  // asks for determinism gets it whatever style the user has chosen.
+  sampler?: SamplerProfile
   // JSON Schema (or the string 'json') constraining the decoder, for the structured
   // ancillary calls — title, suggestion chips, query rewrite. Native-only: it is a
   // top-level field on /api/chat, not an `options` member, and the OpenAI-compat
@@ -461,6 +476,11 @@ export class OllamaService {
     const options: Record<string, number> = {}
     if (chatRequest.numCtx) options.num_ctx = chatRequest.numCtx
     if (chatRequest.numPredict) options.num_predict = chatRequest.numPredict
+    // Spread first so an explicit temperature below overrides the style's.
+    Object.assign(options, nativeSamplerOptions(chatRequest.sampler))
+    if (chatRequest.sampler?.temperature !== undefined) {
+      options.temperature = chatRequest.sampler.temperature
+    }
     if (chatRequest.temperature !== undefined) options.temperature = chatRequest.temperature
     if (chatRequest.seed !== undefined) options.seed = chatRequest.seed
     return options
@@ -496,6 +516,12 @@ export class OllamaService {
     }
     if (chatRequest.numPredict) {
       params.max_tokens = chatRequest.numPredict
+    }
+    // min_p, top_k and repeat_penalty have no equivalent here, so the style
+    // reaches this transport as temperature plus a nucleus value and nothing else.
+    Object.assign(params, compatSamplerParams(chatRequest.sampler))
+    if (chatRequest.sampler?.temperature !== undefined) {
+      params.temperature = chatRequest.sampler.temperature
     }
     if (chatRequest.temperature !== undefined) {
       params.temperature = chatRequest.temperature
@@ -761,6 +787,7 @@ export class OllamaService {
         parameterSize: data.details?.parameter_size,
         quantizationLevel: data.details?.quantization_level,
         modelfileNumCtx: readModelfileNumCtx(data.parameters),
+        modelfileSamplers: readModelfileSamplers(data.parameters),
         rawModelInfo: data.model_info,
       }
       this.modelInfoCache.set(modelName, info)

@@ -5,7 +5,8 @@ import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
 import { RAG_MIN_FINAL_SCORE } from '../../constants/ollama.js'
-import type { OllamaChatMessage } from '../../types/ollama.js'
+import { resolveSamplerProfile } from '../utils/sampler.js'
+import type { OllamaChatMessage, ResponseStyle, SamplerProfile } from '../../types/ollama.js'
 import type { PipelineOptions, RetrievedChunk } from '../../types/rag.js'
 import { docIdFromSource } from '../utils/eval/corpus_source.js'
 import type { Golden } from '../utils/eval/golden_set.js'
@@ -48,9 +49,36 @@ export type GenerationMode = 'oracle' | 'e2e' | 'noretrieval'
  */
 export const MOCK_MODEL = 'mock'
 
-/** Fixed sampling for eval runs. Never used by production chat. */
+/**
+ * Fixed sampling for eval runs. Never used by production chat.
+ *
+ * Temperature 0 is the default because a repeatable number is worth more than a
+ * realistic one for most of what this harness gates. But greedy decoding makes
+ * top_p, top_k and min_p inert — the highest-probability token wins whatever
+ * they say — so a run left at 0 cannot see a Response Style change at all. That
+ * is what `--style` is for: it sets `samplerStyle`, which replaces this
+ * temperature with the style's and sends the real truncation settings, so the
+ * chat path can actually be measured. The seed stays fixed either way, which
+ * makes a sampled run approximately rather than exactly reproducible; `--repeats`
+ * and the `unstable` counter are how that gets accounted for.
+ */
 export const EVAL_TEMPERATURE = 0
 export const EVAL_SEED = 42
+
+/**
+ * What a run sends to the decoder: a fixed temperature, a sampler profile, or
+ * neither. Exactly one of the three, which is why it is a shape rather than two
+ * loose optional arguments threaded through runCase.
+ */
+type EvalSampling = { temperature?: number; sampler?: SamplerProfile }
+
+function resolveEvalSampling(style: ResponseStyle | undefined): EvalSampling {
+  if (!style) return { temperature: EVAL_TEMPERATURE }
+  const sampler = resolveSamplerProfile(style)
+  // `off` resolves to no profile, and sends no temperature either — that is the
+  // pre-setting behaviour this harness needs to be able to reproduce.
+  return sampler ? { sampler } : {}
+}
 
 export type GenerationRunOptions = {
   mode: GenerationMode
@@ -62,6 +90,23 @@ export type GenerationRunOptions = {
   minFinalScore?: number
   /** Skip the history-aware rewrite even on multi-turn goldens. */
   skipQueryRewrite?: boolean
+  /**
+   * Sample the way real chat does, under this Response Style, instead of at
+   * temperature 0.
+   *
+   * Three states, not two. Unset is the deterministic default and the right
+   * choice for anything being gated on. A style is the chat path as a user
+   * experiences it. `off` sends no sampler settings *and* no temperature, which
+   * is the pre-setting behaviour and therefore the honest control to compare a
+   * style against: `--style=auto` against `--style=off` measures the change,
+   * where `--style=auto` against a temperature-0 run measures the change plus
+   * the difference between greedy and sampled decoding.
+   *
+   * Model-declared samplers are deliberately not merged in even under `auto`:
+   * the harness scores a style, and a number that moved because one machine's
+   * model shipped a different modelfile is not a number worth committing.
+   */
+  samplerStyle?: ResponseStyle
   onProgress?: (id: string, index: number, total: number) => void
 }
 
@@ -129,8 +174,11 @@ export type GenerationRunResult = {
     mode: GenerationMode
     model: string
     repeats: number
-    temperature: number
+    /** Null when the run sent no temperature at all, under `--style=off`. */
+    temperature: number | null
     seed: number
+    /** The Response Style sampled under; null for the deterministic default. */
+    samplerStyle: ResponseStyle | null
     topK?: number
     scoreThreshold?: number
     minFinalScore: number
@@ -153,6 +201,7 @@ export class EvalGenerationService {
     const repeats = Math.max(1, options.repeats ?? 3)
     const started = Date.now()
     const isMock = options.model === MOCK_MODEL
+    const sampling = resolveEvalSampling(options.samplerStyle)
 
     // Oracle mode needs the corpus text on hand to synthesize perfect context.
     const corpusText = options.mode === 'oracle' ? await this.loadCorpusText() : null
@@ -162,7 +211,7 @@ export class EvalGenerationService {
     const cases: GenerationCaseResult[] = []
     for (const [index, golden] of goldens.entries()) {
       options.onProgress?.(golden.id, index + 1, goldens.length)
-      cases.push(await this.runCase(golden, options, repeats, corpusText, isMock))
+      cases.push(await this.runCase(golden, options, repeats, corpusText, isMock, sampling))
     }
 
     return {
@@ -170,8 +219,9 @@ export class EvalGenerationService {
         mode: options.mode,
         model: options.model,
         repeats,
-        temperature: EVAL_TEMPERATURE,
+        temperature: sampling.sampler?.temperature ?? sampling.temperature ?? null,
         seed: EVAL_SEED,
+        samplerStyle: options.samplerStyle ?? null,
         topK: options.topK,
         scoreThreshold: options.scoreThreshold,
         minFinalScore: options.minFinalScore ?? RAG_MIN_FINAL_SCORE,
@@ -222,7 +272,8 @@ export class EvalGenerationService {
     options: GenerationRunOptions,
     repeats: number,
     corpusText: Map<string, { text: string; path: string }> | null,
-    isMock: boolean
+    isMock: boolean,
+    sampling: EvalSampling
   ): Promise<GenerationCaseResult> {
     const messages: OllamaChatMessage[] = [
       ...golden.turns.map((t) => ({ role: t.role, content: t.content })),
@@ -290,7 +341,7 @@ export class EvalGenerationService {
 
         const generated = isMock
           ? { answer: mockAnswer(context), usage: undefined }
-          : await this.generate(options.model, trace.messages, trace.numCtx, trace.numPredict)
+          : await this.generate(options.model, trace.messages, trace.numCtx, trace.numPredict, sampling)
         const answer = generated.answer
 
         // The backend just reported the prompt's real token count. Comparing it
@@ -340,14 +391,19 @@ export class EvalGenerationService {
     model: string,
     messages: OllamaChatMessage[],
     numCtx?: number,
-    numPredict?: number
+    numPredict?: number,
+    sampling: EvalSampling = { temperature: EVAL_TEMPERATURE }
   ): Promise<{ answer: string; usage?: NomadChatUsage }> {
     const response = await this.ollamaService.chat({
       model,
       messages,
       numCtx,
       numPredict,
-      temperature: EVAL_TEMPERATURE,
+      // Spread rather than passed as fields: an explicit temperature outranks a
+      // profile's inside OllamaService, so under a style it has to be absent
+      // entirely or the run would carry the style's truncation settings at
+      // temperature 0 and measure a decoder nobody uses.
+      ...sampling,
       seed: EVAL_SEED,
     })
     return { answer: response.message.content.trim(), usage: response.usage }

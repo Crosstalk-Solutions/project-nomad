@@ -13,6 +13,8 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { DEFAULT_KEEP_ALIVE } from '../../constants/ollama.js'
+import { resolveResponseStyle } from '../utils/response_style.js'
+import { resolveSamplerProfile } from '../utils/sampler.js'
 import type { PipelineTrace } from '../../types/rag.js'
 import logger from '@adonisjs/core/services/logger'
 
@@ -88,13 +90,26 @@ export default class OllamaController {
       // Thinking is only enabled when the model supports it AND the user wants it: the explicit
       // per-request preference wins, otherwise the global default (ai.autoThinking, default OFF).
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
-      const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
+      // One /api/show read, memoized per model, for two decisions: whether the
+      // model can think, and what sampler values its author baked in.
+      const modelInfo = await this.ollamaService.getModelInfo(reqData.model)
+      const thinkingCapability = modelInfo.hasThinking
       let thinkingEnabled = false
       if (thinkingCapability) {
         thinkingEnabled = reqData.think ?? ((await KVStore.getValue('ai.autoThinking')) ?? false)
       }
       const think: boolean | 'medium' =
         thinkingEnabled ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+
+      // Sampler settings for this turn. Chat used to send none of these and
+      // inherit the backend's defaults, which on a heavily quantized small model
+      // is the wandering, repetitive output people read as "the local model is
+      // bad". Resolved here rather than in OllamaService so the ancillary
+      // structured calls, which want temperature 0 and a grammar, stay untouched.
+      const sampler = resolveSamplerProfile(
+        await resolveResponseStyle(),
+        modelInfo.modelfileSamplers
+      )
 
       // Separate sessionId and the resolved thinking preference from the Ollama request payload —
       // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
@@ -125,6 +140,7 @@ export default class OllamaController {
           numCtx,
           numPredict,
           keepAlive,
+          sampler,
           signal: abortController.signal,
         })
         let fullContent = ''
@@ -168,6 +184,7 @@ export default class OllamaController {
         numCtx,
         numPredict,
         keepAlive,
+        sampler,
       })
       if (result?.usage) {
         this._recordUsage(reqData.model, trace, result.usage)
