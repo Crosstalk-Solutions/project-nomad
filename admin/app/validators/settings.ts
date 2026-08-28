@@ -2,6 +2,7 @@ import vine from "@vinejs/vine";
 import { SETTINGS_KEYS } from "../../constants/kv_store.js";
 import type { KVStoreKey } from "../../types/kv_store.js";
 import { CONTEXT_LADDER } from "../utils/context_window.js";
+import { RESPONSE_STYLE_PRESETS } from "../../constants/ollama.js";
 
 export const getSettingSchema = vine.compile(vine.object({
     key: vine.enum(SETTINGS_KEYS),
@@ -91,6 +92,19 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             const num = Number(raw)
             if (!Number.isFinite(num) || num < 0 || num > 1) {
                 return 'Relevance threshold must be a number between 0 and 1, or empty to use the recommended default.'
+            }
+            return null
+        }
+        case 'ai.responseStyle': {
+            // Empty/unset means 'auto'. Anything else has to be a style we know,
+            // since an unrecognised value silently resolves back to the default
+            // and would leave the select showing a choice nothing honours.
+            if (value === '' || value === undefined || value === null) {
+                return null
+            }
+            const styles = RESPONSE_STYLE_PRESETS.map((preset) => preset.value)
+            if (typeof value !== 'string' || !styles.includes(value as (typeof styles)[number])) {
+                return `Response style must be one of: ${styles.join(', ')}.`
             }
             return null
         }
