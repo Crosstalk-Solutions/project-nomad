@@ -9,6 +9,7 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import env from '#start/env'
 import { parseMinRelevance } from '../utils/misc.js'
+import { parseResponseStyle } from '../utils/sampler.js'
 import { RAG_MIN_FINAL_SCORE } from '../../constants/ollama.js'
 
 @inject()
@@ -79,6 +80,7 @@ export default class SettingsController {
     const ragEnabled = await KVStore.getValue('rag.enabled')
     const contextWindow = await KVStore.getValue('ai.contextWindow')
     const minRelevance = await KVStore.getValue('rag.minRelevance')
+    const responseStyle = await KVStore.getValue('ai.responseStyle')
     // Resolved window per installed model, so the setting shows what "Auto"
     // actually produced rather than leaving the user to guess. Best-effort:
     // a model whose metadata can't be read simply doesn't get a badge.
@@ -108,6 +110,9 @@ export default class SettingsController {
           // Sent as the resolved number so the select can match an option
           // without duplicating the "unset means the default" rule in the UI.
           minRelevance: parseMinRelevance(minRelevance, RAG_MIN_FINAL_SCORE),
+          // Resolved rather than raw, for the same reason: unset means 'auto',
+          // and the select shouldn't have to know that.
+          responseStyle: parseResponseStyle(responseStyle),
         },
         resolvedContextWindows,
       },

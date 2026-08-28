@@ -1,4 +1,4 @@
-import { NomadOllamaModel } from '../types/ollama.js'
+import { NomadOllamaModel, ResponseStyle, SamplerProfile } from '../types/ollama.js'
 
 /**
  * Fallback basic recommended Ollama models in case fetching from the service fails.
@@ -222,6 +222,71 @@ export const QUERY_REWRITE_MAX_TOKENS = 160
  * moment in a conversation. Overridable via the `ai.keepAlive` setting.
  */
 export const DEFAULT_KEEP_ALIVE = '15m'
+
+/**
+ * Sampler settings per Response Style.
+ *
+ * Chat used to send none of these, so every turn ran at whatever the backend
+ * picked: temperature 0.8, top_p 0.9, top_k 40 and no min_p on a bare Ollama
+ * model. On a heavily quantized 1-3B model, which is NOMAD's realistic target,
+ * those defaults are what produces the wandering, repetitive output that reads
+ * as "the local model is bad".
+ *
+ * Three things are worth knowing before retuning these numbers.
+ *
+ * min_p is the actual missing lever, not temperature. It is a floor relative to
+ * the top token's probability, so it truncates hard when the model is confident
+ * and barely at all when it isn't. top_p can't do that: a fixed nucleus keeps
+ * the same share of mass either way, which is why a flat distribution at the end
+ * of a long generation is where small models start to wander. With min_p doing
+ * the work, top_p is left at 1.0 rather than stacked on top of it, and a higher
+ * temperature stays safe.
+ *
+ * repeat_penalty moves with the style instead of sitting at Ollama's 1.1. The
+ * penalty applies over the last 64 tokens with no idea what a token means, and
+ * a grounded answer out of this corpus legitimately repeats a part number, a
+ * band designator or a drug name inside that window. So the factual style
+ * relaxes it and the creative style, which is where genuine loops happen,
+ * tightens it.
+ *
+ * `off` is not a preset, it is the absence of one: no options are sent and the
+ * backend decides, exactly as it did before this setting existed.
+ */
+export const SAMPLER_PRESETS: Record<Exclude<ResponseStyle, 'off'>, SamplerProfile> = {
+  auto: { temperature: 0.6, topP: 1.0, topK: 40, minP: 0.05, repeatPenalty: 1.1, compatTopP: 0.9 },
+  focused: {
+    temperature: 0.2,
+    topP: 1.0,
+    topK: 40,
+    minP: 0.1,
+    repeatPenalty: 1.05,
+    compatTopP: 0.85,
+  },
+  creative: {
+    temperature: 1.0,
+    topP: 1.0,
+    topK: 100,
+    minP: 0.03,
+    repeatPenalty: 1.15,
+    compatTopP: 0.95,
+  },
+}
+
+/** Unset `ai.responseStyle` resolves to this; see app/utils/response_style.ts. */
+export const DEFAULT_RESPONSE_STYLE: ResponseStyle = 'auto'
+
+/**
+ * The Response Style options offered in Settings > Models, and their labels.
+ *
+ * Ordered least to most adventurous, with the default first, matching how the
+ * Context Window and Knowledge Base Relevance selects above it are ordered.
+ */
+export const RESPONSE_STYLE_PRESETS: { value: ResponseStyle; label: string }[] = [
+  { value: 'auto', label: 'Auto (recommended)' },
+  { value: 'focused', label: 'Focused (factual, repeatable)' },
+  { value: 'creative', label: 'Creative (varied, exploratory)' },
+  { value: 'off', label: 'Backend defaults (send nothing)' },
+]
 
 export const SYSTEM_PROMPTS = {
   default: `

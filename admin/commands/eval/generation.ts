@@ -4,8 +4,10 @@ import type {
   GenerationAggregate,
   GenerationMode,
 } from '../../app/services/eval_generation_service.js'
+import type { ResponseStyle } from '../../types/ollama.js'
 
 const MODES: GenerationMode[] = ['oracle', 'e2e', 'noretrieval']
+const STYLES: ResponseStyle[] = ['auto', 'focused', 'creative', 'off']
 
 /**
  * Score generated answers against the golden set.
@@ -45,6 +47,16 @@ export default class EvalGeneration extends BaseCommand {
       'Extra suites are opt-in so they cannot move the numbers a baseline was recorded against.',
   })
   declare suite: string
+
+  @flags.string({
+    description:
+      `Sample the way real chat does, under one of: ${STYLES.join(', ')}. ` +
+      'Omit for the deterministic temperature-0 default. Greedy decoding makes ' +
+      'min_p, top_p and top_k inert, so a Response Style is only visible with ' +
+      'this flag set, and "off" (no samplers, no temperature) is the control to ' +
+      'compare a style against.',
+  })
+  declare style: string
 
   @flags.string({ description: 'Only run goldens carrying this tag' })
   declare tag: string
@@ -89,6 +101,13 @@ export default class EvalGeneration extends BaseCommand {
         }
       }
 
+      if (this.style && !STYLES.includes(this.style as ResponseStyle)) {
+        this.logger.error(`Unknown style "${this.style}". Expected one of: ${STYLES.join(', ')}`)
+        this.exitCode = 1
+        return
+      }
+      const samplerStyle = this.style ? (this.style as ResponseStyle) : undefined
+
       let goldens = await corpusService.loadGoldens(this.suite ? this.suite.split(',').map((s) => s.trim()) : undefined)
       if (this.tag) goldens = goldens.filter((g) => g.tags.includes(this.tag))
       if (this.limit) goldens = goldens.slice(0, Number.parseInt(this.limit, 10))
@@ -110,8 +129,14 @@ export default class EvalGeneration extends BaseCommand {
       const fingerprint = await corpusService.fingerprint()
       const repeats = this.repeats ? Number.parseInt(this.repeats, 10) : 3
       this.logger.info(
-        `Corpus ${fingerprint} · ${goldens.length} goldens · model=${this.model} · repeats=${repeats}`
+        `Corpus ${fingerprint} · ${goldens.length} goldens · model=${this.model} · repeats=${repeats}` +
+          (samplerStyle ? ` · style=${samplerStyle}` : ' · style=deterministic (temp 0)')
       )
+      if (samplerStyle) {
+        this.logger.info(
+          'Sampling is on: the seed is fixed but the run is only approximately reproducible. Watch the unstable count.'
+        )
+      }
       if (this.model === MOCK_MODEL) {
         this.logger.info(
           'Mock model: answers are the injected context verbatim — this is the extractive ceiling for the current retrieval, not a real model.'
@@ -126,6 +151,7 @@ export default class EvalGeneration extends BaseCommand {
           mode,
           model: this.model,
           repeats,
+          samplerStyle,
           onProgress: (id, index, total) => {
             if (this.verbose) this.logger.info(`  [${index}/${total}] ${mode}: ${id}`)
           },

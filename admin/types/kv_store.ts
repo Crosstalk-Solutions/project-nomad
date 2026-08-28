@@ -66,6 +66,11 @@ export const KV_STORE_SCHEMA = {
   // How long Ollama keeps a chat model (and its KV cache) resident after a
   // request, in Ollama's duration format ("10m"). Unset inherits Ollama's 5m.
   'ai.keepAlive':               'string',
+  // Sampler profile for chat replies: 'auto' | 'focused' | 'creative' | 'off'.
+  // Unset resolves to 'auto', which is NOMAD's baseline with any sampler values
+  // the model's author baked into their modelfile layered over it. 'off' sends
+  // no sampler settings at all, the behaviour from before the setting existed.
+  'ai.responseStyle':           'string',
   'ai.amdGpuAcceleration':      'boolean',
   'ai.amdHsaOverride':          'string',
   'ai.autoFixGpuPassthrough':   'boolean',
