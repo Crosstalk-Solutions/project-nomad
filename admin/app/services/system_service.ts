@@ -24,6 +24,7 @@ import { isNewerVersion } from '../utils/version.js'
 import { isUnresolvedGpuModel } from '../utils/gpu_model.js'
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
 import { invalidateMinRelevanceCache } from '../utils/rag_relevance.js'
+import { invalidateResponseStyleCache } from '../utils/response_style.js'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
 
 @inject()
@@ -947,6 +948,9 @@ export class SystemService {
     }
     if (key === 'rag.minRelevance') {
       invalidateMinRelevanceCache()
+    }
+    if (key === 'ai.responseStyle') {
+      invalidateResponseStyleCache()
     }
     // Re-enabling auto-update after a backoff-driven auto-disable clears the
     // failure state so it gets a fresh start instead of immediately re-tripping.
