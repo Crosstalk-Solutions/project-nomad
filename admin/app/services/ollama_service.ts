@@ -923,56 +923,75 @@ export class OllamaService {
   }
 
   /**
-   * Single embed attempt: native /api/embed first, then the OpenAI-compat /v1/embeddings fallback.
-   * Both paths request num_ctx/truncate (Ollama's OpenAI-compat shim forwards them). A context-length
-   * error from the native path is re-thrown rather than falling back, because the fallback has a
-   * smaller effective context and would only fail the same way — the caller (embed) retries it
-   * truncated instead.
+   * Single embed attempt: native /api/embed when the backend speaks it, otherwise (or on
+   * failure) the OpenAI-compat /v1/embeddings fallback. Both paths request num_ctx/truncate
+   * (Ollama's OpenAI-compat shim forwards them). A context-length error from the native path
+   * is re-thrown rather than falling back, because the fallback has a smaller effective
+   * context and would only fail the same way — the caller (embed) retries it truncated
+   * instead.
+   *
+   * The native attempt is gated on `_isNativeBackend()` (#1279). Against a backend that only
+   * speaks the OpenAI embeddings API, trying `/api/embed` unconditionally means a
+   * guaranteed-failing round trip plus a warn line before *every* batch. That is invisible on
+   * a handful of documents and expensive on a bulk `file-embeddings` job, where it doubles
+   * request volume against the embedding host for the lifetime of the ingest.
+   *
+   * Gated on the probe rather than on the `isOllamaNative` field directly: the field is null
+   * until something populates it, and an embed job can easily be the first thing to touch the
+   * service after a restart, in which case reading the raw field would skip the optimization
+   * exactly when it matters most. The probe memoizes for the process lifetime, so this costs
+   * one request overall, not one per batch.
    */
   private async _embedWithFallback(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
-    try {
-      // Pass num_ctx explicitly so we don't depend on the embedding model's modelfile defaults.
-      // Some installs ship nomic-embed-text:v1.5 with num_ctx=2048; 8192 matches its RoPE-extrapolated
-      // max. truncate:true is a server-side net for any chunk that still overshoots.
-      const response = await axios.post(
-        `${this.baseUrl}/api/embed`,
-        {
-          model,
-          input,
-          truncate: true,
-          options: { num_ctx: 8192 },
-        },
-        { timeout: 60000 }
-      )
-      // Some backends (e.g. LM Studio) return HTTP 200 for unknown endpoints with an incompatible
-      // body — validate explicitly before accepting the result.
-      if (!Array.isArray(response.data?.embeddings)) {
-        throw new Error('Invalid /api/embed response — missing embeddings array')
+    if (await this._isNativeBackend()) {
+      try {
+        // Pass num_ctx explicitly so we don't depend on the embedding model's modelfile defaults.
+        // Some installs ship nomic-embed-text:v1.5 with num_ctx=2048; 8192 matches its RoPE-extrapolated
+        // max. truncate:true is a server-side net for any chunk that still overshoots.
+        const response = await axios.post(
+          `${this.baseUrl}/api/embed`,
+          {
+            model,
+            input,
+            truncate: true,
+            options: { num_ctx: 8192 },
+          },
+          { timeout: 60000 }
+        )
+        // Some backends (e.g. LM Studio) return HTTP 200 for unknown endpoints with an incompatible
+        // body — validate explicitly before accepting the result. Kept even though the probe now
+        // gates this path: the probe establishes that /api/tags answered like Ollama, which is not
+        // a promise that /api/embed will.
+        if (!Array.isArray(response.data?.embeddings)) {
+          throw new Error('Invalid /api/embed response — missing embeddings array')
+        }
+        return { embeddings: response.data.embeddings }
+      } catch (err) {
+        // Let context-length errors bubble so embed() can retry with a smaller cap; the fallback
+        // endpoint (smaller effective context, no num_ctx honored on older Ollama) can't help here.
+        if (OllamaService.isContextLengthError(err)) throw err
+        // Log the original error so we know *why* we fell back. Earlier bare catches here masked
+        // recurring failures for months (#369, #670, #881).
+        logger.warn(
+          '[OllamaService] /api/embed failed, falling back to /v1/embeddings: %s',
+          err instanceof Error ? err.message : String(err)
+        )
       }
-      return { embeddings: response.data.embeddings }
-    } catch (err) {
-      // Let context-length errors bubble so embed() can retry with a smaller cap; the fallback
-      // endpoint (smaller effective context, no num_ctx honored on older Ollama) can't help here.
-      if (OllamaService.isContextLengthError(err)) throw err
-      // Log the original error so we know *why* we fell back. Earlier bare catches here masked
-      // recurring failures for months (#369, #670, #881).
-      logger.warn(
-        '[OllamaService] /api/embed failed, falling back to /v1/embeddings: %s',
-        err instanceof Error ? err.message : String(err)
-      )
-      // Fall back to OpenAI-compatible /v1/embeddings. Explicitly request float format — some
-      // backends (e.g. LM Studio) don't reliably implement the base64 the OpenAI SDK defaults to.
-      // truncate/num_ctx are forwarded by Ollama's OpenAI-compat shim; the SDK types omit them,
-      // hence the cast. We only ever talk to a local Ollama here, not real OpenAI.
-      const results = await this.openai!.embeddings.create({
-        model,
-        input,
-        encoding_format: 'float',
-        truncate: true,
-        options: { num_ctx: 8192 },
-      } as any)
-      return { embeddings: results.data.map((e) => e.embedding as number[]) }
     }
+
+    // OpenAI-compatible /v1/embeddings. Reached either because the backend isn't Ollama-native
+    // or because the native attempt above failed for a non-context reason. Explicitly request
+    // float format — some backends (e.g. LM Studio) don't reliably implement the base64 the
+    // OpenAI SDK defaults to. truncate/num_ctx are forwarded by Ollama's OpenAI-compat shim;
+    // the SDK types omit them, hence the cast.
+    const results = await this.openai!.embeddings.create({
+      model,
+      input,
+      encoding_format: 'float',
+      truncate: true,
+      options: { num_ctx: 8192 },
+    } as any)
+    return { embeddings: results.data.map((e) => e.embedding as number[]) }
   }
 
   /**
