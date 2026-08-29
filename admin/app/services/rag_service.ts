@@ -1807,8 +1807,35 @@ export class RagService {
    * type" and retry on every sync.
    */
   private async _discoverKbFiles(): Promise<string[]> {
+    return (await this._discoverKbFilesWithRoots()).files
+  }
+
+  /**
+   * As _discoverKbFiles(), but also reports which roots were actually walked.
+   *
+   * A root that isn't there is skipped rather than fatal, because a fresh
+   * install legitimately has no kb_uploads until the first upload. That makes
+   * an absent root indistinguishable from a present-but-empty one by looking
+   * at the file list alone — and the orphan sweep in scanAndSyncStorage()
+   * cannot afford to confuse the two. "This root scanned clean and had no
+   * files" means everything indexed under it is an orphan; "this root wasn't
+   * there" means we know nothing about it and must not touch it.
+   *
+   * That distinction is the whole reason this variant exists. If the zim root
+   * is missing, renamed, or not yet mounted (see #1050 — relocating the data
+   * path is easy to get subtly wrong), the scan still returns a non-empty
+   * list from kb_uploads. A guard that only checks "did the scan come back
+   * empty" therefore passes, and every ZIM in the index gets purged in one
+   * batch. Reporting the roots lets the sweep confine itself to ground it
+   * actually stood on.
+   */
+  private async _discoverKbFilesWithRoots(): Promise<{
+    files: string[]
+    scannedRoots: string[]
+  }> {
     const { kbUploadsPath: KB_UPLOADS_PATH, zimPath: ZIM_PATH } = this._kbScanRoots()
     const filesInStorage: string[] = []
+    const scannedRoots: string[] = []
 
     for (const [label, dirPath] of [
       [RagService.UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH] as const,
@@ -1819,6 +1846,7 @@ export class RagService {
         contents.forEach((entry) => {
           if (entry.type === 'file') filesInStorage.push(entry.key)
         })
+        scannedRoots.push(dirPath)
         logger.debug(`[RAG] Found ${contents.length} files in ${label}`)
       } catch (error) {
         if (error.code === 'ENOENT') {
@@ -1829,7 +1857,10 @@ export class RagService {
       }
     }
 
-    return filesInStorage.filter((f) => determineFileType(f) !== 'unknown')
+    return {
+      files: filesInStorage.filter((f) => determineFileType(f) !== 'unknown'),
+      scannedRoots,
+    }
   }
 
   /**
@@ -2032,7 +2063,7 @@ export class RagService {
         logger.error('[RAG] Error during Nomad docs discovery in sync process:', error)
       })
 
-      const filesInStorage = await this._discoverKbFiles()
+      const { files: filesInStorage, scannedRoots } = await this._discoverKbFilesWithRoots()
       logger.info(`[RAG] Found ${filesInStorage.length} embeddable files in storage`)
 
       await this._ensureCollection(
@@ -2080,13 +2111,17 @@ export class RagService {
       // embeddableFiles came back empty, so a filesystem hiccup can't be
       // misread as "every file was deleted."
       //
-      // Allowlisted (via filterOrphanCandidates) to sources under the same
-      // two roots _discoverKbFiles() just scanned to build embeddableFiles —
-      // the only roots this sweep can make an informed orphan/not-orphan
-      // call about. Nomad's own bundled docs (README.md + docs/) are
-      // embedded by discoverNomadDocs() above from outside those roots, so
-      // this naturally leaves them alone without needing to name them here.
-      const orphanCandidates = filterOrphanCandidates([...sourcesInQdrant], this._kbScanRoots())
+      // Allowlisted (via filterOrphanCandidates) to `scannedRoots` — the roots
+      // the scan above actually walked, not the roots it meant to walk. Two
+      // separate things are excluded by that one rule. Nomad's own bundled
+      // docs (README.md + docs/) are embedded by discoverNomadDocs() from
+      // outside these roots, so they're left alone without being named here.
+      // And a root that wasn't present at scan time contributes no candidates
+      // at all, because a missing root is skipped rather than fatal: without
+      // this, a relocated or unmounted zim directory (#1050) would leave the
+      // scan non-empty via kb_uploads, sail past decideOrphans' empty-scan
+      // guard, and purge every ZIM in the index in a single batch.
+      const orphanCandidates = filterOrphanCandidates([...sourcesInQdrant], scannedRoots)
       const orphans = decideOrphans(orphanCandidates, embeddableFiles)
       let orphansPurged = 0
       if (orphans && orphans.length > 0) {
