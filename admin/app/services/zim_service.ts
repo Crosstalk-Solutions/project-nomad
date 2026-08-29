@@ -33,6 +33,8 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { KiwixCatalogService } from './kiwix_catalog_service.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
+import { RagService } from './rag_service.js'
+import { OllamaService } from './ollama_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
@@ -658,6 +660,25 @@ export class ZimService {
     }
 
     await deleteFileIfExists(fullPath)
+
+    // Purge this file's Qdrant points and KbIngestState row directly so a
+    // deleted ZIM stops surfacing as a stale search citation immediately,
+    // rather than waiting for the next scanAndSyncStorage reverse sweep to
+    // catch it (#1170). Never touched Qdrant here before — the file's points
+    // and state row would otherwise linger indefinitely.
+    //
+    // Guarded on the AI Assistant being installed at all — otherwise every
+    // delete on an install without it hits _initializeQdrantClient()'s
+    // "offline" throw and logs a misleading error for the common no-AI case.
+    const qdrantInstalled = !!(await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT))
+    if (qdrantInstalled) {
+      try {
+        const ragService = new RagService(this.dockerService, new OllamaService())
+        await ragService.purgeIndexedSource(fullPath)
+      } catch (err) {
+        logger.error(`[ZimService] Failed to purge knowledge-base entries for ${fullPath}:`, err)
+      }
+    }
 
     // Remove from kiwix library XML so --monitorLibrary stops serving the deleted file
     const kiwixLibraryService = new KiwixLibraryService()

@@ -19,6 +19,7 @@ import { join, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
+import { decideOrphans, filterOrphanCandidates } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
@@ -1747,8 +1748,7 @@ export class RagService {
       // Order matters: remove the stale points and state row BEFORE queueing the
       // new embed so a fresh index can't be conflated with the old one. Each step
       // targets only `oldFilePath` / `newFilePath` — never another resource.
-      await this._deletePointsBySource(oldFilePath)
-      await KbIngestState.remove(oldFilePath)
+      await this.purgeIndexedSource(oldFilePath)
       const { EmbedFileJob } = await import('#jobs/embed_file_job')
       await EmbedFileJob.dispatch({ fileName, filePath: newFilePath })
     }
@@ -1756,10 +1756,23 @@ export class RagService {
     return outcome
   }
 
+  /**
+   * Root paths for Nomad's own bundled docs (README.md + docs/), embedded by
+   * discoverNomadDocs(). They live outside kb_uploads/zim storage, so
+   * _discoverKbFiles()'s scan never sees them — the orphan sweep in
+   * scanAndSyncStorage() uses this to exclude them rather than hardcoding
+   * the same two paths a second time.
+   */
+  private _nomadDocsRoots(): { readmePath: string; docsDir: string } {
+    return {
+      readmePath: join(process.cwd(), 'README.md'),
+      docsDir: join(process.cwd(), 'docs'),
+    }
+  }
+
   public async discoverNomadDocs(force?: boolean): Promise<{ success: boolean; message: string }> {
     try {
-      const README_PATH = join(process.cwd(), 'README.md')
-      const DOCS_DIR = join(process.cwd(), 'docs')
+      const { readmePath: README_PATH, docsDir: DOCS_DIR } = this._nomadDocsRoots()
 
       const alreadyEmbeddedRaw = await KVStore.getValue('rag.docsEmbedded')
       if (alreadyEmbeddedRaw && !force) {
@@ -1814,15 +1827,57 @@ export class RagService {
   }
 
   /**
+   * Absolute roots that _discoverKbFiles() scans. Shared with the orphan
+   * sweep in scanAndSyncStorage() so it can allowlist candidates to sources
+   * actually reachable by that scan, rather than denylisting every other
+   * known source root by hand — a source embedded under a future root
+   * outside kb_uploads/zim would otherwise be silently misclassified as
+   * orphaned and purged the first time it's added (see _nomadDocsRoots()
+   * for exactly that lesson learned with README.md/docs).
+   */
+  private _kbScanRoots(): { kbUploadsPath: string; zimPath: string } {
+    return {
+      kbUploadsPath: join(process.cwd(), RagService.UPLOADS_STORAGE_PATH),
+      zimPath: join(process.cwd(), ZIM_STORAGE_PATH),
+    }
+  }
+
+  /**
    * Walk kb_uploads and zim storage directories, returning the full path of
    * every embeddable file. Non-embeddable types (e.g. kiwix-library.xml) are
    * filtered out so they aren't dispatched only to fail with "Unsupported file
    * type" and retry on every sync.
    */
   private async _discoverKbFiles(): Promise<string[]> {
-    const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
-    const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
+    return (await this._discoverKbFilesWithRoots()).files
+  }
+
+  /**
+   * As _discoverKbFiles(), but also reports which roots were actually walked.
+   *
+   * A root that isn't there is skipped rather than fatal, because a fresh
+   * install legitimately has no kb_uploads until the first upload. That makes
+   * an absent root indistinguishable from a present-but-empty one by looking
+   * at the file list alone — and the orphan sweep in scanAndSyncStorage()
+   * cannot afford to confuse the two. "This root scanned clean and had no
+   * files" means everything indexed under it is an orphan; "this root wasn't
+   * there" means we know nothing about it and must not touch it.
+   *
+   * That distinction is the whole reason this variant exists. If the zim root
+   * is missing, renamed, or not yet mounted (see #1050 — relocating the data
+   * path is easy to get subtly wrong), the scan still returns a non-empty
+   * list from kb_uploads. A guard that only checks "did the scan come back
+   * empty" therefore passes, and every ZIM in the index gets purged in one
+   * batch. Reporting the roots lets the sweep confine itself to ground it
+   * actually stood on.
+   */
+  private async _discoverKbFilesWithRoots(): Promise<{
+    files: string[]
+    scannedRoots: string[]
+  }> {
+    const { kbUploadsPath: KB_UPLOADS_PATH, zimPath: ZIM_PATH } = this._kbScanRoots()
     const filesInStorage: string[] = []
+    const scannedRoots: string[] = []
 
     for (const [label, dirPath] of [
       [RagService.UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH] as const,
@@ -1833,6 +1888,7 @@ export class RagService {
         contents.forEach((entry) => {
           if (entry.type === 'file') filesInStorage.push(entry.key)
         })
+        scannedRoots.push(dirPath)
         logger.debug(`[RAG] Found ${contents.length} files in ${label}`)
       } catch (error) {
         if (error.code === 'ENOENT') {
@@ -1843,7 +1899,10 @@ export class RagService {
       }
     }
 
-    return filesInStorage.filter((f) => determineFileType(f) !== 'unknown')
+    return {
+      files: filesInStorage.filter((f) => determineFileType(f) !== 'unknown'),
+      scannedRoots,
+    }
   }
 
   /**
@@ -1962,13 +2021,56 @@ export class RagService {
    * by reembedAll() where the file must remain so it can be re-ingested.
    */
   private async _deletePointsBySource(source: string): Promise<void> {
+    await this._deletePointsBySources([source])
+  }
+
+  /**
+   * Same as _deletePointsBySource(), but for many sources in one round trip
+   * via Qdrant's `match.any` filter — used by the orphan sweep below, where
+   * purging one-by-one would mean a separate delete call (plus a separate
+   * _ensureCollection check) per orphan.
+   */
+  private async _deletePointsBySources(sources: string[]): Promise<void> {
+    if (sources.length === 0) return
     await this._ensureCollection(
       RagService.CONTENT_COLLECTION_NAME,
       RagService.EMBEDDING_DIMENSION
     )
     await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
-      filter: { must: [{ key: 'source', match: { value: source } }] },
+      filter: { must: [{ key: 'source', match: { any: sources } }] },
     })
+  }
+
+  /**
+   * Purge a source's Qdrant points and its `KbIngestState` row without
+   * touching the file on disk. For callers where the file is already gone
+   * (or never existed as a knowledge-base upload) — `ZimService.delete()`
+   * (#1170) and the orphan sweep in `scanAndSyncStorage()` below. Does NOT
+   * attempt to delete a physical file; use `deleteFileBySource()` for the
+   * user-triggered "remove this file" action instead.
+   *
+   * State row removed first, points second: orphan detection in
+   * scanAndSyncStorage() only looks at what's still in Qdrant, so if a
+   * failure lands between the two steps, leftover points stay visible to
+   * the next sync's reverse sweep and get retried there. Deleting the
+   * points first would instead risk an orphaned state row that nothing
+   * ever looks at again. Both steps are individually idempotent, so a
+   * retry from either partial state is safe.
+   */
+  public async purgeIndexedSource(source: string): Promise<void> {
+    await this.purgeIndexedSources([source])
+  }
+
+  /**
+   * Batched form of purgeIndexedSource() — one KbIngestState delete query
+   * and one Qdrant delete call for the whole list, instead of a per-source
+   * round trip to each. Used by the orphan sweep in scanAndSyncStorage(),
+   * which can otherwise find dozens of orphans after a bulk content change.
+   */
+  public async purgeIndexedSources(sources: string[]): Promise<void> {
+    if (sources.length === 0) return
+    await KbIngestState.query().whereIn('file_path', sources).delete()
+    await this._deletePointsBySources(sources)
   }
 
   /**
@@ -2003,7 +2105,7 @@ export class RagService {
         logger.error('[RAG] Error during Nomad docs discovery in sync process:', error)
       })
 
-      const filesInStorage = await this._discoverKbFiles()
+      const { files: filesInStorage, scannedRoots } = await this._discoverKbFilesWithRoots()
       logger.info(`[RAG] Found ${filesInStorage.length} embeddable files in storage`)
 
       await this._ensureCollection(
@@ -2039,6 +2141,43 @@ export class RagService {
       const embeddableFiles = filesInStorage.filter(
         (filePath) => determineFileType(filePath) !== 'unknown'
       )
+
+      // Reverse sweep (#1170): sourcesInQdrant and embeddableFiles are both
+      // already known at this point — the forward loop below only ever asks
+      // "is this on-disk file already embedded?" This closes the other
+      // direction: a source in Qdrant with no corresponding file on disk is a
+      // leftover from ZimService.delete() (which never touched Qdrant) or
+      // from reconcileReplacedContentFile's qdrant_not_running no-op. Running
+      // this in sync (rather than only in the delete path) also self-heals
+      // installs already in this state. decideOrphans no-ops when
+      // embeddableFiles came back empty, so a filesystem hiccup can't be
+      // misread as "every file was deleted."
+      //
+      // Allowlisted (via filterOrphanCandidates) to `scannedRoots` — the roots
+      // the scan above actually walked, not the roots it meant to walk. Two
+      // separate things are excluded by that one rule. Nomad's own bundled
+      // docs (README.md + docs/) are embedded by discoverNomadDocs() from
+      // outside these roots, so they're left alone without being named here.
+      // And a root that wasn't present at scan time contributes no candidates
+      // at all, because a missing root is skipped rather than fatal: without
+      // this, a relocated or unmounted zim directory (#1050) would leave the
+      // scan non-empty via kb_uploads, sail past decideOrphans' empty-scan
+      // guard, and purge every ZIM in the index in a single batch.
+      const orphanCandidates = filterOrphanCandidates([...sourcesInQdrant], scannedRoots)
+      const orphans = decideOrphans(orphanCandidates, embeddableFiles)
+      let orphansPurged = 0
+      if (orphans && orphans.length > 0) {
+        logger.info(
+          `[RAG] Found ${orphans.length} orphaned source(s) with no corresponding file on disk`
+        )
+        try {
+          await this.purgeIndexedSources(orphans)
+          orphansPurged = orphans.length
+        } catch (error) {
+          logger.error(`[RAG] Failed to purge orphaned sources:`, error)
+        }
+        logger.info(`[RAG] Purged ${orphansPurged}/${orphans.length} orphaned source(s)`)
+      }
 
       // Read the global ingest policy. Unset is treated as 'Always' so legacy
       // installs keep their current behavior until the user explicitly opts
@@ -2100,10 +2239,15 @@ export class RagService {
         `[RAG] Scan results (policy=${policy}): ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${createdPending} waiting on user, ${skipped} skipped`
       )
 
+      const orphanNote =
+        orphansPurged > 0
+          ? `; purged ${orphansPurged} orphaned source${orphansPurged !== 1 ? 's' : ''}`
+          : ''
+
       if (filesToEmbed.length === 0) {
         return {
           success: true,
-          message: 'Knowledge base is already in sync',
+          message: `Knowledge base is already in sync${orphanNote}`,
           filesScanned: filesInStorage.length,
           filesQueued: 0,
         }
@@ -2113,7 +2257,7 @@ export class RagService {
       const dedupeNote = dedupedCount > 0 ? ` (${dedupedCount} already queued)` : ''
       return {
         success: true,
-        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding${dedupeNote}`,
+        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding${dedupeNote}${orphanNote}`,
         filesScanned: filesInStorage.length,
         filesQueued: queuedCount,
       }
