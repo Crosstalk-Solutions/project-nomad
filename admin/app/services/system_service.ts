@@ -21,6 +21,7 @@ import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
+import { isUnresolvedGpuModel } from '../utils/gpu_model.js'
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
 import { invalidateMinRelevanceCache } from '../utils/rag_relevance.js'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
@@ -501,12 +502,31 @@ export class SystemService {
           }
         }
 
-        // Run the probes when controllers are empty (common inside Docker) or
-        // when lspci gave us bogus discrete-GPU BAR0 values that need replacing.
+        // The same pci.ids staleness that produces bogus VRAM also produces a
+        // placeholder model name — a card newer than the container's pci.ids is
+        // reported as its raw id, e.g. "Device 2d05" for an RTX 5060 (#1165).
+        //
+        // These are independent symptoms, not one. lspci can hand back a
+        // perfectly plausible BAR0 reading alongside an unresolved name, and in
+        // that case nothing above fires, no probe runs, and Settings > System
+        // renders the raw PCI id as the GPU model (#1196). NVIDIA usually hides
+        // this because the nvidia-smi path tends to be reached for other
+        // reasons; AMD has no equivalent, so it shows the raw id.
+        //
+        // The probes below resolve a real name from Ollama's own startup log,
+        // so trigger them on an unresolved name too rather than only on VRAM.
+        const hasUnresolvedGpuName = (graphics.controllers || []).some((c) =>
+          isUnresolvedGpuModel(c.model || '')
+        )
+
+        // Run the probes when controllers are empty (common inside Docker),
+        // when lspci gave us bogus discrete-GPU BAR0 values that need replacing,
+        // or when it named a card it couldn't resolve.
         if (
           !graphics.controllers ||
           graphics.controllers.length === 0 ||
-          hasLspciBogusDgpuVram
+          hasLspciBogusDgpuVram ||
+          hasUnresolvedGpuName
         ) {
           const runtimes = dockerInfo.Runtimes || {}
           gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
