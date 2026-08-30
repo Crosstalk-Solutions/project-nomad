@@ -38,6 +38,8 @@ export type OllamaChatRequest = {
   collection?: string
 }
 
+export type ModelVisionCapability = 'supported' | 'unsupported' | 'unknown'
+
 export type OllamaChatResponse = {
   model: string
   created_at: string
@@ -55,6 +57,9 @@ export type NomadInstalledModel = {
   details?: Record<string, any>
   // Whether the model supports "thinking" (set by the installed-models endpoint enrichment).
   thinking?: boolean
+  // Capability detection is authoritative for Ollama and llama.cpp. Other OpenAI-compatible
+  // backends report "unknown" so the user can still try an image-capable model.
+  vision?: ModelVisionCapability
 }
 
 export type NomadChatResponse = {

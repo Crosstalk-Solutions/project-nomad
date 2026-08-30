@@ -15,6 +15,18 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         message.role === 'user' ? 'bg-desert-green text-white' : 'bg-surface-secondary text-text-primary'
       )}
     >
+      {message.images && message.images.length > 0 && (
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {message.images.map((image) => (
+            <img
+              key={image.id}
+              src={image.previewUrl}
+              alt={image.name}
+              className="max-h-64 w-full rounded-md bg-surface-primary/20 object-contain"
+            />
+          ))}
+        </div>
+      )}
       {message.isThinking && message.thinking && (
         <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
           <div className="mb-1 flex items-center gap-1.5 font-medium text-amber-700">
