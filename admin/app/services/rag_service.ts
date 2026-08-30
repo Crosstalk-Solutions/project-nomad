@@ -979,6 +979,11 @@ export class RagService {
         document_id: result.payload?.document_id as string | undefined,
         content_type: result.payload?.content_type as string | undefined,
         source: result.payload?.source as string | undefined,
+        // Citation metadata (#1179) -- date/title of the archive a chunk was
+        // extracted from, when known. Undefined for non-ZIM content, which
+        // carries no equivalent embedded metadata.
+        archive_title: result.payload?.archive_title as string | undefined,
+        archive_date: result.payload?.archive_date as string | undefined,
       }))
 
       const rerankedResults = this.rerankResults(resultsWithMetadata, keywords, query)
@@ -1059,6 +1064,9 @@ export class RagService {
           hierarchy: result.hierarchy,
           document_id: result.document_id,
           content_type: result.content_type,
+          // Citation metadata (#1179)
+          archive_title: result.archive_title,
+          archive_date: result.archive_date,
         },
       }))
     } catch (error) {
