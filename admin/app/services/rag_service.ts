@@ -1342,7 +1342,11 @@ export class RagService {
             state: row.state,
             chunks_embedded: row.chunks_embedded,
             collection: row.collection,
-            active: row.active,
+            // MySQL hands back tinyint(1) as 0/1, not a boolean. Coerce here so
+            // every consumer sees a real boolean -- the raw 1 reached the DOM as
+            // aria-checked="1", which is not a valid ARIA value and leaves screen
+            // readers with no idea whether the toggle is on.
+            active: Boolean(row.active),
           })
         }
       } catch (error) {
@@ -1370,7 +1374,7 @@ export class RagService {
             uploadedAt: stats?.modifiedTime.toISOString() ?? null,
             isUserUpload,
             collection: row?.collection ?? null,
-            active: row?.active ?? true,
+            active: row ? Boolean(row.active) : true,
           }
         })
       )
