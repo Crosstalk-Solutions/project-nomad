@@ -1,8 +1,6 @@
+import { resolveMarkerIcon } from './marker_icons'
 import { IconCircleFilled } from '@tabler/icons-react'
-import * as TablerIcons from '@tabler/icons-react'
 import type { IconProps } from '@tabler/icons-react'
-import type { IconType } from 'react-icons'
-import * as FontAwesomeIcons from 'react-icons/fa'
 import type { ComponentType } from 'react'
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
@@ -44,31 +42,6 @@ const getContrastingIconColor = (backgroundColor: string) => {
   return luminance > 0.55 ? '#111827' : '#ffffff'
 }
 
-type MarkerIconComponent =
-  | ComponentType<IconProps>
-  | IconType
-
-const resolveIcon = (icon?: string | null): MarkerIconComponent => {
-  if (!icon) return IconCircleFilled
-
-  if (icon.startsWith('fa:')) {
-    const iconName = icon.replace('fa:', '')
-    const Icon = (FontAwesomeIcons as Record<string, unknown>)[iconName]
-    return Icon ? (Icon as IconType) : IconCircleFilled
-  }
-
-  if (icon.startsWith('tabler:')) {
-    const iconName = icon.replace('tabler:', '')
-    const Icon = (TablerIcons as Record<string, unknown>)[iconName]
-    return Icon ? (Icon as ComponentType<IconProps>) : IconCircleFilled
-  }
-
-  const Icon =
-    (TablerIcons as Record<string, unknown>)[icon] ??
-    (FontAwesomeIcons as Record<string, unknown>)[icon]
-
-  return Icon ? (Icon as MarkerIconComponent) : IconCircleFilled
-}
 
 export default function MarkerPin({
                                     color = 'orange',
@@ -82,7 +55,8 @@ export default function MarkerPin({
 
   const resolvedColor = resolvePinColor(color, customColor)
   const resolvedIconColor = iconColor ?? getContrastingIconColor(resolvedColor)
-  const Icon = resolveIcon(icon)
+  // A pin's inner glyph defaults to a filled circle, not a map pin.
+  const Icon = resolveMarkerIcon(icon, IconCircleFilled)
 
   const width = active ? 42 : 36
   const height = active ? 52 : 46
