@@ -20,12 +20,12 @@ export default function IconSelectorPopover({
 }: IconSelectorPopoverProps) {
   return (
     <div
-      className="absolute left-0 top-7 z-50 rounded-md border border-border-subtle bg-surface-primary p-2 shadow-lg"
+      className="absolute left-0 top-7 z-50 w-72 rounded-md border border-border-subtle bg-surface-primary p-2 shadow-lg"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div className="grid grid-cols-6 gap-1">
+      <div className="grid grid-cols-6 justify-items-center gap-1">
         {MARKER_ICONS.map(({ name, label, Icon }) => (
           <button
             key={name}
@@ -36,7 +36,7 @@ export default function IconSelectorPopover({
               onSelect(name)
               onClose()
             }}
-            className={`flex h-8 w-8 items-center justify-center rounded transition-colors hover:bg-surface-secondary ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded transition-colors hover:bg-surface-secondary ${
               selectedIcon === name ? 'bg-desert-green text-white' : 'text-text-secondary'
             }`}
           >
