@@ -1,9 +1,17 @@
+/**
+ * Controller-level vision behaviour (#1176).
+ *
+ * A Japa spec, not a plain `node:test` file: it constructs OllamaController,
+ * which imports '@adonisjs/core/services/logger' at module scope and therefore
+ * needs a booted app. Run with `node ace test unit`, not `npm run test:unit` --
+ * the latter is the plain-runner path used by the pure-function specs.
+ */
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import test from 'node:test'
+import { test } from '@japa/runner'
 import sharp from 'sharp'
 import OllamaController from '../../app/controllers/ollama_controller.js'
 
