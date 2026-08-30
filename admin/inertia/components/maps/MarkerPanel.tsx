@@ -1,3 +1,4 @@
+import { resolveMarkerIcon } from './marker_icons'
 import { useMemo, useState } from 'react'
 import {
   IconEye,
@@ -9,9 +10,6 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react'
-import * as FontAwesomeIcons from 'react-icons/fa'
-import type { IconType } from 'react-icons'
-import * as TablerIcons from '@tabler/icons-react'
 import type { IconProps } from '@tabler/icons-react'
 import type { ComponentType } from 'react'
 
@@ -29,7 +27,6 @@ interface MarkerPanelProps {
 
 type SortField = 'name' | 'color' | 'visibility' | 'icon'
 type SortDirection = 'asc' | 'desc'
-type ViewMode = 'list' | 'tree'
 
 type ColorSortValue = {
   bucket: number
@@ -115,58 +112,6 @@ const getReadableIconName = (icon?: string | null) => {
     .replace(/^Fa/, '')
     .replace(/^Icon/, '')
 }
-const resolveMarkerIcon = (
-  icon?: string | null
-): ComponentType<IconProps> | IconType => {
-  if (!icon) return IconMapPinFilled
-
-  // Font Awesome
-  if (icon.startsWith('fa:')) {
-    const iconName = icon.replace('fa:', '')
-    const Icon = (FontAwesomeIcons as Record<string, unknown>)[iconName]
-    return Icon ? (Icon as IconType) : IconMapPinFilled
-  }
-
-  // Tabler
-  if (icon.startsWith('tabler:')) {
-    const iconName = icon.replace('tabler:', '')
-    const Icon = (TablerIcons as Record<string, unknown>)[iconName]
-    return Icon ? (Icon as ComponentType<IconProps>) : IconMapPinFilled
-  }
-
-  // Backward compatibility
-  const Icon =
-    (TablerIcons as Record<string, unknown>)[icon] ??
-    (FontAwesomeIcons as Record<string, unknown>)[icon]
-
-  return Icon ? (Icon as ComponentType<IconProps> | IconType) : IconMapPinFilled
-}
-
-const getMarkerGroup = (marker: MapMarker, sortField: SortField) => {
-  if (sortField === 'name') {
-    const firstLetter = marker.name.trim().charAt(0).toUpperCase()
-
-    if (!firstLetter || !/[A-Z]/.test(firstLetter)) {
-      return { key: '#', label: '#' }
-    }
-
-    return { key: firstLetter, label: firstLetter }
-  }
-
-  if (sortField === 'color') {
-    const label = getHueGroupLabel(getColorSortValue(marker.color, marker.customColor))
-    return { key: label, label }
-  }
-
-  if (sortField === 'icon') {
-    const label = getReadableIconName(marker.icon)
-    return { key: label, label }
-  }
-
-  return marker.visible
-    ? { key: 'visible', label: 'Visible' }
-    : { key: 'hidden', label: 'Hidden' }
-}
 
 export default function MarkerPanel({
                                       markers,
@@ -180,8 +125,6 @@ export default function MarkerPanel({
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   const sortDirectionLabel =
     sortField === 'name'
@@ -232,65 +175,9 @@ export default function MarkerPanel({
       })
   }, [markers, searchQuery, sortField, sortDirection])
 
-  const markerGroups = useMemo(() => {
-    const groups = new Map<string, MarkerGroup>()
-
-    filteredAndSortedMarkers.forEach((marker) => {
-      const group = getMarkerGroup(marker, sortField)
-
-      if (!groups.has(group.key)) {
-        groups.set(group.key, {
-          key: group.key,
-          label: group.label,
-          markers: [],
-        })
-      }
-
-      groups.get(group.key)?.markers.push(marker)
-    })
-
-    return Array.from(groups.values()).sort((a, b) => {
-      const result = a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
-      return sortDirection === 'asc' ? result : -result
-    })
-  }, [filteredAndSortedMarkers, sortField, sortDirection])
-
-  const allGroupsCollapsed =
-    markerGroups.length > 0 && markerGroups.every((group) => collapsedGroups.has(group.key))
-
   const allFilteredMarkersVisible =
     filteredAndSortedMarkers.length > 0 &&
     filteredAndSortedMarkers.every((marker) => marker.visible)
-
-  const toggleGroupCollapsed = (groupKey: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev)
-
-      if (next.has(groupKey)) {
-        next.delete(groupKey)
-      } else {
-        next.add(groupKey)
-      }
-
-      return next
-    })
-  }
-
-  const collapseAllGroups = () => {
-    setCollapsedGroups(new Set(markerGroups.map((group) => group.key)))
-  }
-
-  const expandAllGroups = () => {
-    setCollapsedGroups(new Set())
-  }
-
-  const setGroupVisibility = (group: MarkerGroup, visible: boolean) => {
-    group.markers.forEach((marker) => {
-      if (marker.visible !== visible) {
-        onToggleVisibility(marker.id, visible)
-      }
-    })
-  }
 
   const setAllMarkerVisibility = (visible: boolean) => {
     filteredAndSortedMarkers.forEach((marker) => {
@@ -377,7 +264,23 @@ export default function MarkerPanel({
 
   return (
     <div className="absolute left-4 top-[72px] z-40 w-72 rounded-lg border border-border-subtle bg-surface-primary/95 shadow-lg backdrop-blur-sm">
-      <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2.5">
+      {/* The whole title bar closes the panel, mirroring the "Pins" button that
+          opens it -- clicking the title to open but having to find the X to
+          close is the kind of asymmetry that makes a panel feel fiddly. The X
+          stays as the visible affordance. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setOpen(false)
+          }
+        }}
+        title="Close panel"
+        className="flex cursor-pointer items-center justify-between border-b border-border-subtle px-3 py-2.5 transition-colors hover:bg-surface-secondary"
+      >
         <div className="flex items-center gap-2">
           <IconMapPin size={18} className="text-desert-orange" />
 
@@ -390,14 +293,12 @@ export default function MarkerPanel({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded p-0.5 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary"
-          title="Close panel"
+        <span
+          aria-hidden="true"
+          className="rounded p-0.5 text-text-muted transition-colors"
         >
           <IconX size={16} />
-        </button>
+        </span>
       </div>
 
       <div className="space-y-2 border-b border-border-subtle px-3 py-2">
@@ -408,56 +309,6 @@ export default function MarkerPanel({
           onChange={(e) => setSearchQuery(e.target.value)}
           className="block w-full rounded border border-border-default bg-surface-primary px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:border-desert-green focus:outline-none"
         />
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode('list')}
-            title="List view"
-            className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-              viewMode === 'list'
-                ? 'bg-[#424420] text-white'
-                : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
-            }`}
-          >
-            <IconList size={14} />
-            List
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode('tree')}
-            title="Tree view"
-            className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-              viewMode === 'tree'
-                ? 'bg-[#424420] text-white'
-                : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
-            }`}
-          >
-            <IconSitemap size={14} />
-            Tree
-          </button>
-        </div>
-
-        {viewMode === 'tree' && (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={allGroupsCollapsed ? expandAllGroups : collapseAllGroups}
-              className="flex-1 rounded bg-[#424420] px-2 py-1 text-xs text-white hover:bg-[#525530]"
-            >
-              {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAllMarkerVisibility(!allFilteredMarkersVisible)}
-              className="flex-1 rounded bg-[#424420] px-2 py-1 text-xs text-white hover:bg-[#525530]"
-            >
-              {allFilteredMarkersVisible ? 'Hide all' : 'Show all'}
-            </button>
-          </div>
-        )}
 
         <div className="flex gap-2">
           <select
@@ -482,9 +333,22 @@ export default function MarkerPanel({
             {sortDirectionLabel}
           </button>
         </div>
+
+        {/* Hide all lived inside the tree view before it was removed; it is the
+            one bulk control worth keeping, so it moved up here where it applies
+            to whatever the list currently shows. */}
+        {filteredAndSortedMarkers.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setAllMarkerVisibility(!allFilteredMarkersVisible)}
+            className="w-full rounded bg-[#424420] px-2 py-1 text-xs text-white transition-colors hover:bg-[#525530]"
+          >
+            {allFilteredMarkersVisible ? 'Hide all' : 'Show all'}
+          </button>
+        )}
       </div>
 
-      <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-244px)] overflow-y-auto">
         {markers.length === 0 ? (
           <div className="px-3 py-6 text-center">
             <IconMapPinFilled size={24} className="mx-auto mb-2 text-text-muted" />
@@ -494,45 +358,8 @@ export default function MarkerPanel({
           <div className="px-3 py-6 text-center">
             <p className="text-sm text-text-muted">No pins match your search.</p>
           </div>
-        ) : viewMode === 'list' ? (
-          <ul>{filteredAndSortedMarkers.map(renderMarkerRow)}</ul>
         ) : (
-          <div>
-            {markerGroups.map((group) => {
-              const isCollapsed = collapsedGroups.has(group.key)
-              const allVisible = group.markers.every((marker) => marker.visible)
-              const someVisible = group.markers.some((marker) => marker.visible)
-
-              return (
-                <div key={group.key} className="border-b border-border-subtle last:border-b-0">
-                  <div className="flex items-center gap-2 bg-surface-secondary/70 px-3 py-1.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleGroupCollapsed(group.key)}
-                      className="min-w-0 flex-1 text-left text-xs font-semibold text-text-primary"
-                      title={group.label}
-                    >
-                      <span className="truncate">
-                        {isCollapsed ? '▸' : '▾'} {group.label} ({group.markers.length})
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setGroupVisibility(group, !allVisible)}
-                      className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-surface-primary hover:text-text-primary"
-                      title={allVisible ? 'Hide all pins in group' : 'Show all pins in group'}
-                      aria-label={allVisible ? 'Hide all pins in group' : 'Show all pins in group'}
-                    >
-                      {allVisible || someVisible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
-                    </button>
-                  </div>
-
-                  {!isCollapsed && <ul>{group.markers.map(renderMarkerRow)}</ul>}
-                </div>
-              )
-            })}
-          </div>
+          <ul>{filteredAndSortedMarkers.map(renderMarkerRow)}</ul>
         )}
       </div>
     </div>
