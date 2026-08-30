@@ -102,6 +102,19 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
         )}
       </div>
+      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+        <div className="mt-3 border-t border-border-subtle pt-2 text-xs text-text-primary">
+          <div className="mb-1 font-medium">Sources</div>
+          <ul className="space-y-0.5">
+            {message.sources.map((src, idx) => (
+              <li key={idx}>
+                {src.title}
+                {src.date && <span className="text-text-secondary"> ({src.date})</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div
         className={classNames(
           'text-xs mt-2',

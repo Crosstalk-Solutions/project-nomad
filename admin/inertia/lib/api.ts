@@ -11,6 +11,7 @@ import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
+import type { ChatSource } from '../../types/chat'
 
 class API {
   private client: AxiosInstance
@@ -320,7 +321,8 @@ class API {
   async streamChatMessage(
     chatRequest: OllamaChatRequest,
     onChunk: (content: string, thinking: string, done: boolean) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onSources?: (sources: ChatSource[]) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
     const response = await fetch('/api/ollama/chat', {
@@ -355,6 +357,13 @@ class API {
           } catch { continue /* skip malformed chunks */ }
 
           if (data.error) throw new Error('The model encountered an error. Please try again.')
+
+          // Citation metadata (#1179) arrives as a distinct trailing event with no
+          // `message` key -- route it separately rather than through onChunk.
+          if (data.sources) {
+            onSources?.(data.sources)
+            continue
+          }
 
           onChunk(
             data.message?.content ?? '',
