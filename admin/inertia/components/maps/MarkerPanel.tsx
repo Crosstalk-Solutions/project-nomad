@@ -1,5 +1,5 @@
 import { resolveMarkerIcon } from './marker_icons'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   IconEye,
   IconEyeOff,
@@ -123,6 +123,9 @@ export default function MarkerPanel({
                                     }: MarkerPanelProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  // The pin whose delete is armed. Deleting a place is not undoable and the
+  // names are short and similar, so the trash icon arms rather than deletes.
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
@@ -187,8 +190,27 @@ export default function MarkerPanel({
     })
   }
 
+  useEffect(() => {
+    if (pendingDeleteId === null) return
+
+    const stillListed = markers.some((marker) => marker.id === pendingDeleteId)
+    if (!stillListed) setPendingDeleteId(null)
+  }, [markers, pendingDeleteId])
+
+  useEffect(() => {
+    if (pendingDeleteId === null) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPendingDeleteId(null)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [pendingDeleteId])
+
   const renderMarkerRow = (marker: MapMarker) => {
     const MarkerIcon = resolveMarkerIcon(marker.icon)
+    const confirmingDelete = pendingDeleteId === marker.id
 
     return (
       <li
@@ -230,14 +252,44 @@ export default function MarkerPanel({
           {marker.visible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
         </button>
 
-        <button
-          type="button"
-          onClick={() => onDelete(marker.id)}
-          className="shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:bg-surface-secondary hover:text-desert-red group-hover:opacity-100"
-          title="Delete pin"
-        >
-          <IconTrash size={14} />
-        </button>
+        {confirmingDelete ? (
+          <span className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(marker.id)
+                setPendingDeleteId(null)
+              }}
+              className="rounded bg-desert-red px-1.5 py-0.5 text-[11px] font-medium text-white transition-colors hover:brightness-110"
+            >
+              Delete
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPendingDeleteId(null)}
+              className="rounded border border-border-default px-1.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:bg-surface-secondary"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              // Show the user what they are about to lose before asking. A pin
+              // is a place, and its name alone ("Well", "Cache") is not enough
+              // to tell two apart -- so fly to it and select it, then confirm.
+              setPendingDeleteId(marker.id)
+              onSelect(marker.id)
+              onFlyTo(marker.longitude, marker.latitude)
+            }}
+            className="shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:bg-surface-secondary hover:text-desert-red group-hover:opacity-100"
+            title="Delete pin"
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
       </li>
     )
   }
