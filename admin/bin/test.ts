@@ -12,6 +12,27 @@
 
 process.env.NODE_ENV = 'test'
 
+// Keep a clean checkout able to boot the test runner without requiring a
+// developer's database/Redis credentials. A checked-in .env.test still wins
+// through Adonis' normal environment loading; these values only fill gaps.
+const testDefaults: Record<string, string> = {
+  PORT: '3333',
+  APP_KEY: 'test-only-app-key-not-for-production',
+  HOST: '127.0.0.1',
+  URL: 'http://127.0.0.1:3333',
+  LOG_LEVEL: 'error',
+  DB_HOST: '127.0.0.1',
+  DB_PORT: '3306',
+  DB_USER: 'root',
+  DB_DATABASE: 'nomad_test',
+  REDIS_HOST: '127.0.0.1',
+  REDIS_PORT: '6379',
+}
+
+for (const [key, value] of Object.entries(testDefaults)) {
+  process.env[key] ??= value
+}
+
 import 'reflect-metadata'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'
 import { configure, processCLIArgs, run } from '@japa/runner'

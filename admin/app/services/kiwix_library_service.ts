@@ -1,8 +1,12 @@
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
-import { readFile, writeFile, rename, readdir } from 'fs/promises'
-import { join } from 'path'
-import { Archive } from '@openzim/libzim'
-import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists, isValidZimFile } from '../utils/fs.js'
+import { readFile, writeFile, rename, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import {
+  KIWIX_LIBRARY_XML_PATH,
+  ZIM_STORAGE_PATH,
+  ensureDirectoryExists,
+  isValidZimFile,
+} from '../utils/fs.js'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 
@@ -60,6 +64,7 @@ export class KiwixLibraryService {
         logger.warn(`[KiwixLibraryService] Skipping invalid/corrupted ZIM file: ${zimFilePath}`)
         return null
       }
+      const { Archive } = await import('@openzim/libzim')
       const archive = new Archive(zimFilePath)
 
       const getMeta = (key: string): string | undefined => {
@@ -179,8 +184,7 @@ export class KiwixLibraryService {
         faviconMimeType: b['@_faviconMimeType'],
         favicon: b['@_favicon'],
         date: b['@_date'],
-        articleCount:
-          b['@_articleCount'] !== undefined ? Number(b['@_articleCount']) : undefined,
+        articleCount: b['@_articleCount'] !== undefined ? Number(b['@_articleCount']) : undefined,
         mediaCount: b['@_mediaCount'] !== undefined ? Number(b['@_mediaCount']) : undefined,
         size: b['@_size'] !== undefined ? Number(b['@_size']) : undefined,
       }))
