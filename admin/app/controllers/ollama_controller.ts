@@ -14,6 +14,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { DEFAULT_KEEP_ALIVE } from '../../constants/ollama.js'
 import type { PipelineTrace } from '../../types/rag.js'
+import { buildCitations } from '../utils/rag_prompt.js'
 import logger from '@adonisjs/core/services/logger'
 
 @inject()
@@ -79,6 +80,11 @@ export default class OllamaController {
       reqData.messages = trace.messages
       const numCtx = trace.numCtx
       const numPredict = trace.numPredict
+      // Provenance for the answer about to be generated (#1179). Built from
+      // trace.injected -- what the model actually read -- and surfaced under the
+      // answer as "Sources". Empty whenever retrieval was skipped or declined,
+      // which is the honest result: no context, no citations.
+      const sources = buildCitations(trace.injected)
       // Keeping the model resident is what makes the KV cache worth building:
       // Ollama's default evicts after 5 minutes, which is well inside the time a
       // user spends reading an answer and typing the next question.
@@ -145,11 +151,18 @@ export default class OllamaController {
           }
           throw err
         }
+        // Trailing citation event, written before end(). It carries no `message`
+        // key, which is how the client tells it apart from Ollama's own chunks.
+        if (sources.length > 0) {
+          response.response.write(`data: ${JSON.stringify({ sources })}
+
+`)
+        }
         response.response.end()
 
         // Save assistant message and optionally generate title
         if (sessionId && fullContent) {
-          await this.chatService.addMessage(sessionId, 'assistant', fullContent)
+          await this.chatService.addMessage(sessionId, 'assistant', fullContent, sources)
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
             this.chatService.generateTitle(sessionId, userContent, fullContent, reqData.model).catch((err) => {
@@ -174,7 +187,7 @@ export default class OllamaController {
       }
 
       if (sessionId && result?.message?.content) {
-        await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
+        await this.chatService.addMessage(sessionId, 'assistant', result.message.content, sources)
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
           this.chatService.generateTitle(sessionId, userContent, result.message.content, reqData.model).catch((err) => {
@@ -183,7 +196,7 @@ export default class OllamaController {
         }
       }
 
-      return result
+      return { ...result, sources }
     } catch (error) {
       if (reqData.stream) {
         response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
