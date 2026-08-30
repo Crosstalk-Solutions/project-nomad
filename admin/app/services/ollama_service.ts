@@ -19,6 +19,12 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 import KVStore from '#models/kv_store'
+import type { ModelCapabilities } from '../utils/model_capabilities.js'
+import {
+  capabilitiesFromOllamaShow,
+  installedModelsFromOpenAIResponse,
+  resolveModelCapabilities,
+} from '../utils/model_capabilities.js'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -57,6 +63,7 @@ export type NomadInstalledModel = {
   size: number
   digest?: string
   details?: Record<string, any>
+  capabilities?: string[]
 }
 
 /**
@@ -103,7 +110,7 @@ export type NomadChatStreamChunk = {
 
 type ChatInput = {
   model: string
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  messages: ChatCompletionMessageParam[]
   think?: boolean | 'medium'
   // Whether the target model supports thinking. Lets chat()/chatStream() tell "capable but
   // disabled" (send reasoning_effort:'none') apart from "not capable" (send nothing).
@@ -134,6 +141,43 @@ type ChatInput = {
   signal?: AbortSignal
 }
 
+/**
+ * Ollama's native /api/chat does not take OpenAI content parts. It carries images
+ * as a sibling `images` array of bare base64 (no `data:` prefix) on the message,
+ * with `content` staying a plain string. The OpenAI-compat path takes the parts
+ * as-is, so the conversion only belongs on the native side.
+ */
+function toNativeMessages(messages: ChatInput['messages']): Array<{
+  role: string
+  content: string
+  images?: string[]
+}> {
+  return messages.map((message) => {
+    const content = (message as { content?: unknown }).content
+    if (!Array.isArray(content)) {
+      return { role: message.role as string, content: (content as string) ?? '' }
+    }
+
+    const text: string[] = []
+    const images: string[] = []
+    for (const part of content as Array<Record<string, any>>) {
+      if (part?.type === 'text' && typeof part.text === 'string') {
+        text.push(part.text)
+      } else if (part?.type === 'image_url' && typeof part.image_url?.url === 'string') {
+        // Strip the data URL wrapper; Ollama wants the payload only.
+        images.push(part.image_url.url.replace(/^data:[^;]+;base64,/, ''))
+      }
+    }
+
+    const out: { role: string; content: string; images?: string[] } = {
+      role: message.role as string,
+      content: text.join('\n'),
+    }
+    if (images.length > 0) out.images = images
+    return out
+  })
+}
+
 @inject()
 export class OllamaService {
   private openai: OpenAI | null = null
@@ -147,6 +191,12 @@ export class OllamaService {
   // trained context length don't change at runtime. Only successful lookups are cached;
   // transient failures are left uncached so they can be retried.
   private modelInfoCache: Map<string, NomadModelInfo> = new Map()
+  // Definitive capabilities are stable for a loaded model. Cache unknown results briefly to
+  // avoid adding repeated endpoint probes to chat startup while still allowing backend reloads.
+  private modelCapabilityCache: Map<
+    string,
+    { value: ModelCapabilities; expiresAt: number }
+  > = new Map()
 
   constructor() {}
 
@@ -526,7 +576,7 @@ export class OllamaService {
 
     const response = await this.ollama.chat({
       model: chatRequest.model,
-      messages: chatRequest.messages,
+      messages: toNativeMessages(chatRequest.messages) as any,
       stream: false,
       // Definedness, not truthiness: `think: false` has to reach Ollama, which
       // otherwise leaves thinking ON for a capable model. Unset still sends
@@ -616,7 +666,7 @@ export class OllamaService {
 
     const iterator = await this.ollama.chat({
       model: chatRequest.model,
-      messages: chatRequest.messages,
+      messages: toNativeMessages(chatRequest.messages) as any,
       stream: true,
       // See _chatNative: `think: false` must be sent explicitly, or a thinking-capable
       // model keeps reasoning regardless of the user's ai.autoThinking preference.
@@ -770,6 +820,60 @@ export class OllamaService {
       // failure can be retried rather than poisoning the process.
       return { hasThinking: false }
     }
+  }
+
+  public async getModelCapabilities(
+    modelName: string,
+    advertisedMetadata?: unknown
+  ): Promise<ModelCapabilities> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return { thinking: false, vision: 'unknown' }
+
+    // Composite OpenAI-compatible routers can advertise different capabilities for each model.
+    // Prefer that per-model metadata before probing backend-specific endpoints.
+    const advertised = capabilitiesFromOllamaShow(advertisedMetadata)
+    if (advertised) {
+      this.modelCapabilityCache.set(modelName, {
+        value: advertised,
+        expiresAt: Number.POSITIVE_INFINITY,
+      })
+      return advertised
+    }
+
+    const cached = this.modelCapabilityCache.get(modelName)
+    if (cached && cached.expiresAt > Date.now()) return cached.value
+
+    // Probe per model instead of relying on the backend-wide classification from getModels().
+    // Hybrid routers may expose /v1/models plus /api/show without exposing /api/tags.
+    const detected = await resolveModelCapabilities(null, {
+      ollamaShow: async () => {
+        const response = await axios.post(
+          `${this.baseUrl}/api/show`,
+          { model: modelName },
+          { timeout: 3000 }
+        )
+        return response.data
+      },
+      // A direct llama.cpp server reports the loaded model's input modalities at /props.
+      llamaProps: async () => {
+        const response = await axios.get(`${this.baseUrl}/props`, { timeout: 3000 })
+        return response.data
+      },
+    })
+    if (detected) {
+      this.modelCapabilityCache.set(modelName, {
+        value: detected,
+        expiresAt: Number.POSITIVE_INFINITY,
+      })
+      return detected
+    }
+
+    const unknown: ModelCapabilities = { thinking: false, vision: 'unknown' }
+    this.modelCapabilityCache.set(modelName, {
+      value: unknown,
+      expiresAt: Date.now() + 30_000,
+    })
+    return unknown
   }
 
   public async checkModelHasThinking(modelName: string): Promise<boolean> {
@@ -1071,7 +1175,7 @@ export class OllamaService {
       logger.info('[OllamaService] /api/tags unavailable, falling back to /v1/models')
       try {
         const modelList = await this.openai!.models.list()
-        const models: NomadInstalledModel[] = modelList.data.map((m) => ({ name: m.id, size: 0 }))
+        const models: NomadInstalledModel[] = installedModelsFromOpenAIResponse(modelList)
         if (includeEmbeddings) return models
         return models.filter((m) => !m.name.includes('embed'))
       } catch (err) {
