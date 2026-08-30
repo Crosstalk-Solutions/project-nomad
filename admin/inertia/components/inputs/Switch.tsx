@@ -46,7 +46,7 @@ export default function Switch({
           id={switchId}
           type="button"
           role="switch"
-          aria-checked={indeterminate ? 'mixed' : checked}
+          aria-checked={indeterminate ? 'mixed' : !!checked}
           disabled={disabled}
           onClick={() => !disabled && onChange(indeterminate ? true : !checked)}
           className={clsx(

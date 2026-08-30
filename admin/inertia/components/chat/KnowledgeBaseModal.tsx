@@ -559,7 +559,11 @@ export default function KnowledgeBaseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity">
-      <div className="bg-surface-primary rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      {/* 6xl, not 5xl: the Active column added ~57px and put the table back over the
+          modal width, which is the exact defect #1198 fixed (the Delete button falls
+          off the right edge at every viewport). Measured on NOMAD3: table 1018px
+          against 961px of usable width at 5xl. */}
+      <div className="bg-surface-primary rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-border-subtle shrink-0">
           <h2 className="text-2xl font-semibold text-text-primary">Knowledge Base</h2>
           <button
