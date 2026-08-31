@@ -1,5 +1,9 @@
 import axios, { AxiosError, AxiosInstance } from 'axios'
-import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
+import {
+  ListCatalogLanguagesResponse,
+  ListRemoteZimFilesResponse,
+  ListZimFilesResponse,
+} from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, ContentAutoUpdateStatus, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
@@ -784,10 +788,12 @@ class API {
     start = 0,
     count = 12,
     query,
+    language,
   }: {
     start?: number
     count?: number
     query?: string
+    language?: string
   }) {
     return catchInternal(async () => {
       return await this.client.get<ListRemoteZimFilesResponse>('/zim/list-remote', {
@@ -795,8 +801,17 @@ class API {
           start,
           count,
           query,
+          language,
         },
       })
+    })()
+  }
+
+  async listCatalogLanguages() {
+    return catchInternal(async () => {
+      const response =
+        await this.client.get<ListCatalogLanguagesResponse>('/zim/catalog-languages')
+      return response.data.languages
     })()
   }
 
