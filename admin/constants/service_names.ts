@@ -18,4 +18,5 @@ export const SERVICE_NAMES = {
   HOMEBOX: 'nomad_homebox',
   VAULTWARDEN: 'nomad_vaultwarden',
   JELLYFIN: 'nomad_jellyfin',
+  TRANSLATE: 'nomad_translate',
 }

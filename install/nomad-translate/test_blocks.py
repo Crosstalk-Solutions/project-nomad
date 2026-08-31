@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""Tests for the block planner.
+
+Pure functions only, no Bergamot and no network, so this runs anywhere:
+
+    python3 install/nomad-translate/test_blocks.py
+
+Each case here is a failure the prototype actually hit. HTML mode raises
+"Not all tags were closed" rather than degrading, so anything that gets the
+balance check wrong takes the whole article down.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+import blocks  # noqa: E402
+
+failures: list[str] = []
+
+
+def check(name: str, got, want):
+    if got != want:
+        failures.append(f"{name}\n    expected: {want!r}\n    got:      {got!r}")
+
+
+def check_true(name: str, got):
+    check(name, bool(got), True)
+
+
+def check_false(name: str, got):
+    check(name, bool(got), False)
+
+
+# --- balance check -----------------------------------------------------------
+
+check_true("balanced: plain text", blocks.balanced("just words"))
+check_true("balanced: matched inline tags", blocks.balanced('<a href="X">water</a>'))
+check_true("balanced: nested inline tags", blocks.balanced("<b><i>x</i></b>"))
+check_true("balanced: void tag needs no close", blocks.balanced("a<br>b"))
+check_true("balanced: self-closing", blocks.balanced('<img src="x"/>'))
+check_false("balanced: unclosed tag", blocks.balanced("<b>x"))
+check_false("balanced: stray close", blocks.balanced("x</b>"))
+check_false("balanced: crossed tags", blocks.balanced("<b><i>x</b></i>"))
+
+# --- block finding -----------------------------------------------------------
+
+# The nesting case regex cannot handle: a non-greedy <li>...</li> stops at the
+# INNER list's closing tag, silently truncating the block.
+NESTED = "<ul><li>outer <ul><li>inner</li></ul> tail</li></ul>"
+jobs, kinds, spans = blocks.plan(NESTED)
+check("nested li: one outermost block claimed", len(jobs), 1)
+check_true("nested li: keeps the whole outer li", "tail" in jobs[0])
+check_true("nested li: contains the inner list", "inner" in jobs[0])
+
+# Opaque elements must never be descended into.
+check("script is opaque", blocks.plan("<script><p>var x</p></script>")[0], [])
+check("style is opaque", blocks.plan("<style><p>a{}</p></style>")[0], [])
+check("pre is opaque", blocks.plan("<pre><p>code</p></pre>")[0], [])
+# Tables are excluded wholesale to dodge the nesting problem, which is why
+# infobox rows stay in the source language.
+check("table is opaque", blocks.plan("<table><tr><td>cell text</td></tr></table>")[0], [])
+
+# Blocks with no real text are not worth a round trip.
+check("digits only are skipped", blocks.plan("<p>12345</p>")[0], [])
+check("punctuation only is skipped", blocks.plan("<p>--- .</p>")[0], [])
+check("single letter is skipped", blocks.plan("<p>a</p>")[0], [])
+check("two letters count as text", blocks.plan("<p>ok</p>")[0], ["ok"])
+
+# Crossed inline markup inside a block that DOES close: the span is found, the
+# balance check rejects it, and it falls back to plain text. Losing the inline
+# tags is the price of not having Bergamot raise on the whole article.
+jobs, kinds, _ = blocks.plan("<p><b><i>hello</b></i></p>")
+check("crossed inline markup falls back to text", kinds, ["text"])
+check("fallback strips the tags", jobs, ["hello"])
+
+# A block whose own closing tag is unreachable because an inner tag was never
+# closed is DROPPED, not translated. handle_endtag sees the wrong depth, so no
+# span is ever claimed and the balance check is never consulted.
+#
+# This is safe (the reader gets the original) but silent: that paragraph simply
+# stays in the source language with nothing to indicate why. Worth knowing when
+# a page comes back partly translated.
+check("block with an unclosed inner tag is dropped", blocks.plan("<p>see <b>this</p>")[0], [])
+
+# Balanced markup goes through HTML mode so the aligner can place inline tags.
+jobs, kinds, _ = blocks.plan('<p>drink <a href="Water">water</a></p>')
+check("balanced block uses html mode", kinds, ["html"])
+check_true("html mode keeps the anchor", "<a href=" in jobs[0])
+
+# --- splice ------------------------------------------------------------------
+
+body = "<p>one</p><p>two</p>"
+jobs, kinds, spans = blocks.plan(body)
+check("two paragraphs found", jobs, ["one", "two"])
+# Back-to-front application is what keeps the earlier offsets valid.
+check(
+    "splice replaces both, longer than the source",
+    blocks.splice(body, spans, ["un ONE", "deux TWO"]),
+    "<p>un ONE</p><p>deux TWO</p>",
+)
+
+# --- plain -------------------------------------------------------------------
+
+check("plain strips tags", blocks.plain("<b>hi</b> there"), "hi there")
+check("plain decodes entities", blocks.plain("caf&eacute;"), "café")
+
+# --- malformed input ---------------------------------------------------------
+
+# A page that will not parse must yield no work rather than raising: the reader
+# gets the untranslated article instead of an error.
+check("garbage yields no blocks", blocks.plan("<<<>>><p")[0], [])
+check("empty document yields no blocks", blocks.plan("")[0], [])
+
+
+
+
+# --- leaf-div claiming -------------------------------------------------------
+#
+# Real prose lives in a bare <div> often enough that excluding them lost whole
+# pages: sotoki StackExchange ZIMs put every question excerpt in one, so the
+# titles translated while the descriptions under them did not.
+
+check(
+    "leaf div is claimed",
+    blocks.plan('<div class="excerpt">Why do people still use Morse code?</div>')[0],
+    ["Why do people still use Morse code?"],
+)
+
+# A wrapper must yield to the blocks inside it rather than swallowing the page.
+check(
+    "layout div yields to its children",
+    blocks.plan('<div class="wrap"><p>First para.</p><p>Second para.</p></div>')[0],
+    ["First para.", "Second para."],
+)
+
+check(
+    "nested divs claim the innermost text",
+    blocks.plan('<div><div><div class="excerpt">Inner text.</div></div></div>')[0],
+    ["Inner text."],
+)
+
+# Inline tags stay inside the job so the aligner can re-place them.
+check(
+    "leaf div keeps inline markup",
+    blocks.plan('<div>See <a href="X">the antenna</a> guide.</div>')[0],
+    ['See <a href="X">the antenna</a> guide.'],
+)
+
+check(
+    "div inside an opaque table is still skipped",
+    blocks.plan("<table><tr><td><div>Cell text.</div></td></tr></table>")[0],
+    [],
+)
+
+check(
+    "textless div is dropped",
+    blocks.plan('<div class="spacer">   </div><div>42</div>')[0],
+    [],
+)
+
+
+
+
+# --- numeric character references --------------------------------------------
+#
+# Bergamot decodes named entities but not numeric ones: it treats `&#x27;` as
+# literal text and escapes the ampersand on output, so an apostrophe came back
+# as the visible string `&#x27;`. Reported against the ham radio ZIM.
+
+check(
+    "hex charref is decoded before translation",
+    blocks.plan("<p>If I&#x27;m here</p>")[0],
+    ["If I'm here"],
+)
+
+check(
+    "decimal charref is decoded before translation",
+    blocks.plan("<p>If I&#39;m here</p>")[0],
+    ["If I'm here"],
+)
+
+check(
+    "non-ascii charref is decoded",
+    blocks.plan("<p>caf&#233; here</p>")[0],
+    ["café here"],
+)
+
+# Decoding these would inject real markup and break the balance check that gates
+# HTML mode, dropping the block to plain text and losing its links.
+check(
+    "markup-significant charrefs stay encoded",
+    blocks.plan("<p>Compare &#60;dipole&#62; designs &#38; feeds</p>")[0],
+    ["Compare &#60;dipole&#62; designs &#38; feeds"],
+)
+
+check(
+    "named entities are left alone",
+    blocks.plan("<p>Tom &amp; Jerry &lt;tag&gt;</p>")[0],
+    ["Tom &amp; Jerry &lt;tag&gt;"],
+)
+
+check(
+    "malformed charrefs are left untouched",
+    blocks.decode_numeric_refs("bare &# and &#xZZ; and &#99999999999; here"),
+    "bare &# and &#xZZ; and &#99999999999; here",
+)
+
+check(
+    "helper decodes hex and decimal, leaves markup chars",
+    blocks.decode_numeric_refs("&#x27; &#39; &#233; &#60; &#38;"),
+    "' ' é &#60; &#38;",
+)
+
+if failures:
+    print(f"FAIL: {len(failures)} of the checks above did not hold\n")
+    for failure in failures:
+        print(f"  {failure}\n")
+    sys.exit(1)
+
+print("ok: all block planner checks passed")

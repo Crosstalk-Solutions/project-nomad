@@ -536,6 +536,51 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
       metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 20480 }),
     },
+    {
+      service_name: SERVICE_NAMES.TRANSLATE,
+      friendly_name: 'Translated Library',
+      powered_by: 'Bergamot',
+      display_order: 28,
+      description:
+        'Read the Information Library in another language. Machine translation that works offline, on CPU',
+      icon: 'IconWorld',
+      container_image: 'ghcr.io/crosstalk-solutions/project-nomad-translate:0.1.0',
+      source_repo: 'https://github.com/browsermt/bergamot-translator',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8391/tcp': [{ HostPort: '8460' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/translate/models:/models`],
+        },
+        ExposedPorts: { '8391/tcp': {} },
+        // TRANSLATE_LANGS is the language set fetched on first start, about
+        // 74 MB per language for the pair in both directions. Editable via
+        // Manage > Edit; the container re-checks on restart and only fetches
+        // what is missing.
+        Env: [
+          // Reached by container name on the shared NOMAD network, which
+          // DockerService attaches every managed container to. Using the name
+          // rather than a host port means this survives the library being
+          // remapped.
+          'KIWIX=http://nomad_kiwix_server:8080',
+          'TRANSLATE_LANGS=fr,es,de',
+          'WORKERS=8',
+        ],
+      }),
+      ui_location: '8460',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'education',
+      // Translating an article it cannot fetch is meaningless, so the library
+      // has to be there first.
+      depends_on: SERVICE_NAMES.KIWIX,
+      // Peak RSS measured at 729 MB with three language pairs resident; models
+      // are about 74 MB per language on disk.
+      metadata: JSON.stringify({ minMemoryMB: 1536, minDiskMB: 1024 }),
+    },
   ]
 
   async run() {
