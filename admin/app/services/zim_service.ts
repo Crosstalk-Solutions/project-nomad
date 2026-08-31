@@ -1,4 +1,5 @@
 import {
+  CatalogLanguage,
   ListRemoteZimFilesResponse,
   RawRemoteZimFileEntry,
   RemoteZimFileEntry,
@@ -76,10 +77,18 @@ export class ZimService {
     start,
     count,
     query,
+    language = 'eng',
   }: {
     start: number
     count: number
     query?: string
+    /**
+     * ISO-639-3 code to filter the catalog by, or `all` for no filter. Defaults to
+     * English, which is what this browser has always shown -- but it is now a default
+     * the user can change, not a hardcode. English is ~1,300 of the catalog's ~10,900
+     * books, so the filter was hiding the large majority of the library.
+     */
+    language?: string
   }): Promise<ListRemoteZimFilesResponse> {
     // The machine-facing OPDS host. NOT `browse.library.kiwix.org`, which since 2026-08-29
     // serves an anti-crawler confirmation page (HTTP 200 + HTML) that fails
@@ -114,7 +123,8 @@ export class ZimService {
         params: {
           start: currentStart,
           count: KIWIX_PAGE_SIZE,
-          lang: 'eng',
+          // `all` means "no filter", which the catalog expresses by omitting `lang`.
+          ...(language && language !== 'all' ? { lang: language } : {}),
           ...(query ? { q: query } : {}),
         },
         responseType: 'text',
@@ -191,6 +201,62 @@ export class ZimService {
       has_more: currentStart < totalResults,
       total_count: totalResults,
       next_start: currentStart,
+    }
+  }
+
+  /**
+   * The languages the Kiwix catalog actually holds books in, newest count first.
+   *
+   * Sourced live from the catalog rather than a bundled ISO list, so the options are
+   * always exactly what can be browsed, and each carries a real book count. Titles are
+   * the catalog's own endonyms ("français", "中文"), which is what a reader scanning for
+   * their own language recognises.
+   *
+   * Requires internet, like the rest of this browser. Failures return an empty list
+   * rather than throwing: a missing language filter should degrade to "English only",
+   * never take down the page that lists the books.
+   */
+  async listCatalogLanguages(): Promise<CatalogLanguage[]> {
+    const LANGUAGES_URL = 'https://opds.library.kiwix.org/catalog/v2/languages'
+    try {
+      const res = await axios.get(LANGUAGES_URL, { responseType: 'text', timeout: 15000 })
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: '',
+        textNodeName: '#text',
+      })
+      const parsed = parser.parse(res.data)
+      const rawEntries = parsed?.feed?.entry
+        ? Array.isArray(parsed.feed.entry)
+          ? parsed.feed.entry
+          : [parsed.feed.entry]
+        : []
+
+      const languages: CatalogLanguage[] = []
+      for (const raw of rawEntries) {
+        if (!raw || typeof raw !== 'object') continue
+        // `dc:language` is the ISO-639-3 code; `thr:count` is how many books carry it.
+        const code = raw['dc:language']
+        const label = raw.title
+        const bookCount = Number(raw['thr:count'])
+        if (typeof code !== 'string' || !code.trim()) continue
+        if (!Number.isFinite(bookCount) || bookCount <= 0) continue
+        languages.push({
+          code: code.trim(),
+          label: typeof label === 'string' && label.trim() ? label.trim() : code.trim(),
+          book_count: bookCount,
+        })
+      }
+
+      languages.sort((a, b) => b.book_count - a.book_count)
+      return languages
+    } catch (error) {
+      logger.warn(
+        `[ZimService] Catalog language list unavailable: ${
+          error instanceof Error ? error.message : error
+        }`
+      )
+      return []
     }
   }
 

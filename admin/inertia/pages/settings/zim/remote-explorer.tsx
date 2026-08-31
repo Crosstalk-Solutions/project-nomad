@@ -45,6 +45,7 @@ import { ZimFileWithMetadata } from '../../../../types/zim'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 const CUSTOM_LIBRARIES_KEY = 'custom-libraries'
+const CATALOG_LANGUAGES_KEY = 'catalog-languages'
 const ZIM_FILES_KEY = 'zim-files'
 
 type CustomLibrary = { id: number; name: string; base_url: string; is_default: boolean }
@@ -81,6 +82,15 @@ export default function ZimRemoteExplorer() {
       if (saved && saved !== 'default') return parseInt(saved, 10)
     } catch {}
     return 'default'
+  })
+  // Catalog language filter - also persisted, since someone browsing in their own
+  // language wants that on every visit, not once per session.
+  const [language, setLanguage] = useState<string>(() => {
+    try {
+      return localStorage.getItem('nomad:zim-library-language') || 'eng'
+    } catch {
+      return 'eng'
+    }
   })
   const [browseUrl, setBrowseUrl] = useState<string | null>(null)
   const [breadcrumbs, setBreadcrumbs] = useState<{ name: string; url: string }[]>([])
@@ -140,15 +150,31 @@ export default function ZimRemoteExplorer() {
     retry: false,
   })
 
+  // The catalog's own language list, so the options are exactly what can be browsed and
+  // each carries a real book count. Returns [] when offline; the selector hides itself.
+  const { data: catalogLanguages } = useQuery({
+    queryKey: [CATALOG_LANGUAGES_KEY],
+    queryFn: () => api.listCatalogLanguages(),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 60,
+  })
+
   const { data, fetchNextPage, isFetching, isLoading } =
     useInfiniteQuery<ListRemoteZimFilesResponse>({
-      queryKey: ['remote-zim-files', query],
+      // `language` is part of the key, so changing it resets pagination rather than
+      // appending a second language's pages onto the first one's.
+      queryKey: ['remote-zim-files', query, language],
       queryFn: async ({ pageParam = 0 }) => {
         // pageParam is an opaque Kiwix offset returned by the backend as `next_start`.
         // The backend accumulates across multiple upstream pages when needed (#731), so the
         // frontend can't derive the next offset from a 12-item page assumption.
         const start = typeof pageParam === 'number' ? pageParam : 0
-        const res = await api.listRemoteZimFiles({ start, count: 12, query: query || undefined })
+        const res = await api.listRemoteZimFiles({
+          start,
+          count: 12,
+          query: query || undefined,
+          language,
+        })
         if (!res) {
           throw new Error('Failed to fetch remote ZIM files.')
         }
@@ -232,6 +258,15 @@ export default function ZimRemoteExplorer() {
   }, [customLibraries, selectedSource])
 
   // When selecting a custom library, navigate to its root
+  const handleLanguageChange = (value: string) => {
+    // localStorage can throw (private mode, blocked site data) -- the filter itself must
+    // still work, it just won't be remembered next visit.
+    try {
+      localStorage.setItem('nomad:zim-library-language', value)
+    } catch {}
+    setLanguage(value)
+  }
+
   const handleSourceChange = (value: string) => {
     localStorage.setItem('nomad:zim-library-source', value)
     if (value === 'default') {
@@ -592,7 +627,7 @@ export default function ZimRemoteExplorer() {
           {/* Default Kiwix library browser */}
           {selectedSource === 'default' && (
             <>
-              <div className="flex justify-start mt-4">
+              <div className="flex flex-wrap items-center justify-start gap-3 mt-4">
                 <Input
                   name="search"
                   label=""
@@ -605,6 +640,31 @@ export default function ZimRemoteExplorer() {
                   className="w-1/3"
                   leftIcon={<IconSearch className="w-5 h-5 text-text-muted" />}
                 />
+                {/* Hidden entirely when the catalog list is unavailable (offline), rather
+                    than shown as an empty dropdown the user cannot act on. */}
+                {catalogLanguages && catalogLanguages.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="zim-language"
+                      className="text-sm font-medium text-text-secondary"
+                    >
+                      Language:
+                    </label>
+                    <select
+                      id="zim-language"
+                      value={language}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
+                      className="rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green"
+                    >
+                      <option value="all">All languages</option>
+                      {catalogLanguages.map((lang) => (
+                        <option key={lang.code} value={lang.code}>
+                          {lang.label} ({lang.book_count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               <StyledTable<RemoteZimFileEntry & { actions?: any }>
                 data={flatData}
