@@ -249,9 +249,10 @@ class Handler(BaseHTTPRequestHandler):
             and len(data) <= MAX_TRANSLATE_BYTES
         )
 
+        lang = self._lang() if translatable else ""
         if translatable:
             try:
-                data = rewrite(data.decode("utf-8", "ignore"), self._lang()).encode("utf-8")
+                data = rewrite(data.decode("utf-8", "ignore"), lang).encode("utf-8")
             except Exception as exc:
                 # Never take the page down over a translation failure. The
                 # reader gets the original article and a comment explaining why.
@@ -261,7 +262,17 @@ class Handler(BaseHTTPRequestHandler):
         for key, value in headers.items():
             if key.lower() in HOP:
                 continue
+            # A translated page varies by the language cookie, so Kiwix's
+            # validators cannot be forwarded unchanged. Without this the browser
+            # caches the English article for an hour and serves it straight back
+            # when the reader picks a language, which looks exactly like the
+            # feature not working. The ETag is namespaced by language so
+            # revalidation still works per language rather than being disabled.
+            if translatable and key.lower() == "etag":
+                value = f'{value.rstrip()}-nomadlang-{lang or "orig"}'
             self.send_header(key, value)
+        if translatable:
+            self.send_header("Vary", "Cookie")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         if not body_only:
