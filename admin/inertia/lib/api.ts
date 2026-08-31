@@ -1137,6 +1137,7 @@ class API {
     description?: string | null
     icon?: string | null
     display_order?: number
+    link_color?: string
   }) {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; service_name: string }>(
@@ -1154,6 +1155,7 @@ class API {
     description?: string | null
     icon?: string | null
     display_order?: number
+    link_color?: string
   }) {
     return catchInternal(async () => {
       const response = await this.client.put<{ success: boolean }>('/system/services/links', data)

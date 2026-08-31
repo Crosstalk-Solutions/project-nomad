@@ -94,6 +94,9 @@ export default class Service extends BaseModel {
   declare is_link_tile: boolean
 
   @column()
+  declare link_color: string | null
+
+  @column()
   declare category: string | null
 
   // When true the service is sunset: hidden from the install catalog unless it is already

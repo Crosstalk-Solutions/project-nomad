@@ -344,6 +344,7 @@ export class SystemService {
         'is_user_modified',
         'is_deprecated',
         'is_link_tile',
+        'link_color',
         'category'
       )
       .where('is_dependency_service', false)
@@ -385,6 +386,7 @@ export class SystemService {
         is_user_modified: service.is_user_modified,
         is_deprecated: service.is_deprecated,
         is_link_tile: service.is_link_tile,
+        link_color: service.link_color,
         category: service.category,
       })
     }

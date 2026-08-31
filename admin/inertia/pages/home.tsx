@@ -26,6 +26,7 @@ import { SERVICE_NAMES } from '../../constants/service_names'
 import LinkTileModal from '~/components/LinkTileModal'
 import { IconPlus, IconPencil, IconTrash, IconExternalLink } from '@tabler/icons-react'
 import { useState } from 'react'
+import { linkTileColor } from '../../constants/link_tile_colors'
 
 // Maps is a Core Capability (display_order: 4)
 const MAPS_ITEM = {
@@ -271,6 +272,9 @@ export default function Home(props: {
           const shouldHighlight = isEasySetup && shouldHighlightEasySetup
 
           const isLinkTile = Boolean(item.linkTile)
+          // A flat surface colour read as a stark white card next to the filled
+          // app tiles. Tint from the brand palette instead, user-chosen.
+          const tileColor = linkTileColor(item.linkTile?.link_color)
 
           // Link tiles are deliberately not styled like managed apps: outlined
           // rather than filled, with an external-link marker. If they looked the
@@ -280,13 +284,13 @@ export default function Home(props: {
             <div
               className={
                 isLinkTile
-                  ? 'relative rounded border-2 border-dashed border-desert-green/70 bg-surface-primary text-text-primary hover:bg-surface-secondary transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4'
+                  ? `relative rounded border-2 border-dashed ${tileColor.border} ${tileColor.bg} text-text-primary hover:bg-surface-secondary transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4`
                   : 'relative rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-text-primary text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4'
               }
             >
               {isLinkTile && (
                 <span
-                  className="absolute top-2 left-2 text-text-muted"
+                  className={`absolute top-2 left-2 ${tileColor.marker}`}
                   title="A shortcut you added. NOMAD does not manage this."
                 >
                   <IconExternalLink size={16} />
