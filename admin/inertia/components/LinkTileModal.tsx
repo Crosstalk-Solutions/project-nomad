@@ -117,7 +117,7 @@ export default function LinkTileModal({
         <div>
           <Input
             name="linkUrl"
-            label="Address"
+            label="URL"
             placeholder="192.168.1.50:8080"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -125,11 +125,11 @@ export default function LinkTileModal({
           />
           {urlInvalid ? (
             <p className="mt-1.5 text-xs text-red-500">
-              Enter a valid http(s) address, for example 192.168.1.50:8080 or https://nas.local.
+              Enter a valid URL, for example 192.168.1.50:8080 or https://nas.local.
             </p>
           ) : (
             <p className="mt-1.5 text-xs text-text-muted">
-              No scheme? We'll default to <span className="font-mono">http://</span>. Opens as:{' '}
+              Opens as:{' '}
               <span className="font-mono break-all text-text-primary">
                 {normalized || 'not set yet'}
               </span>
