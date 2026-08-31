@@ -19,5 +19,6 @@ export type ServiceSlim = Pick<
   | 'is_custom'
   | 'is_user_modified'
   | 'is_deprecated'
+  | 'is_link_tile'
   | 'category'
 > & { status?: string }
