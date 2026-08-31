@@ -167,8 +167,10 @@ export default function LinkTileModal({
                 aria-label={option.label}
                 aria-pressed={color === option.id}
                 onClick={() => setColor(option.id)}
-                className={`h-7 w-7 rounded border-2 border-dashed transition-transform ${option.border} ${option.bg} ${
-                  color === option.id ? 'scale-110 ring-2 ring-offset-1 ring-desert-green' : ''
+                className={`h-7 w-7 rounded transition-transform ${option.swatch} ${
+                  color === option.id
+                    ? 'scale-110 ring-2 ring-offset-2 ring-text-primary'
+                    : 'opacity-70 hover:opacity-100'
                 }`}
               />
             ))}
