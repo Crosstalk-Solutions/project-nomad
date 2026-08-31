@@ -542,7 +542,7 @@ export default class ServiceSeeder extends BaseSeeder {
       powered_by: 'Bergamot',
       display_order: 28,
       description:
-        'Read the Information Library in another language — machine translation that works offline, on CPU',
+        'Read the Information Library in another language. Machine translation that works offline, on CPU',
       icon: 'IconWorld',
       container_image: 'ghcr.io/crosstalk-solutions/project-nomad-translate:0.1.0',
       source_repo: 'https://github.com/browsermt/bergamot-translator',
@@ -550,7 +550,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '8391/tcp': [{ HostPort: '8480' }] },
+          PortBindings: { '8391/tcp': [{ HostPort: '8460' }] },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/translate/models:/models`],
         },
         ExposedPorts: { '8391/tcp': {} },
@@ -568,7 +568,7 @@ export default class ServiceSeeder extends BaseSeeder {
           'WORKERS=8',
         ],
       }),
-      ui_location: '8480',
+      ui_location: '8460',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
