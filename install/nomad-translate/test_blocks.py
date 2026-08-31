@@ -114,6 +114,54 @@ check("garbage yields no blocks", blocks.plan("<<<>>><p")[0], [])
 check("empty document yields no blocks", blocks.plan("")[0], [])
 
 
+
+
+# --- leaf-div claiming -------------------------------------------------------
+#
+# Real prose lives in a bare <div> often enough that excluding them lost whole
+# pages: sotoki StackExchange ZIMs put every question excerpt in one, so the
+# titles translated while the descriptions under them did not.
+
+check(
+    "leaf div is claimed",
+    blocks.plan('<div class="excerpt">Why do people still use Morse code?</div>')[0],
+    ["Why do people still use Morse code?"],
+)
+
+# A wrapper must yield to the blocks inside it rather than swallowing the page.
+check(
+    "layout div yields to its children",
+    blocks.plan('<div class="wrap"><p>First para.</p><p>Second para.</p></div>')[0],
+    ["First para.", "Second para."],
+)
+
+check(
+    "nested divs claim the innermost text",
+    blocks.plan('<div><div><div class="excerpt">Inner text.</div></div></div>')[0],
+    ["Inner text."],
+)
+
+# Inline tags stay inside the job so the aligner can re-place them.
+check(
+    "leaf div keeps inline markup",
+    blocks.plan('<div>See <a href="X">the antenna</a> guide.</div>')[0],
+    ['See <a href="X">the antenna</a> guide.'],
+)
+
+check(
+    "div inside an opaque table is still skipped",
+    blocks.plan("<table><tr><td><div>Cell text.</div></td></tr></table>")[0],
+    [],
+)
+
+check(
+    "textless div is dropped",
+    blocks.plan('<div class="spacer">   </div><div>42</div>')[0],
+    [],
+)
+
+
+
 if failures:
     print(f"FAIL: {len(failures)} of the checks above did not hold\n")
     for failure in failures:

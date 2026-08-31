@@ -28,6 +28,13 @@ BLOCK_TAGS = {
 # balance check in the prototype, which is why infobox rows stay untranslated.
 OPAQUE = {"script", "style", "code", "pre", "math", "svg", "table"}
 
+# `div` is not a semantic text element, but real prose lives in one often enough
+# that leaving it out loses whole pages. Sotoki-generated StackExchange ZIMs put
+# every question excerpt in `<div class="...excerpt">`, so the titles translated
+# and the descriptions underneath them did not. Claimed only as a leaf: see
+# BlockFinder.handle_starttag.
+CLAIMABLE = BLOCK_TAGS | {"div"}
+
 VOID = {
     "area", "base", "br", "col", "embed", "hr", "img", "input",
     "link", "meta", "param", "source", "track", "wbr",
@@ -74,7 +81,17 @@ class BlockFinder(HTMLParser):
         if tag in OPAQUE:
             self.opaque += 1
         self.depth += 1
-        if self.claim is None and not self.opaque and tag in BLOCK_TAGS:
+
+        # A `div` is claimable only when it turns out to be a text leaf. Claim it
+        # speculatively, then abandon that claim the moment anything block-level
+        # opens inside it, so the inner block is translated rather than the
+        # layout wrapper that happens to contain it. Without this, `div` could
+        # not be in the set at all: the outermost-block rule would claim a
+        # top-level wrapper and swallow the whole page in one job.
+        if self.claim and self.claim[0] == "div" and tag in CLAIMABLE:
+            self.claim = None
+
+        if self.claim is None and not self.opaque and tag in CLAIMABLE:
             end = self.src.find(">", self._off())
             self.claim = (tag, self.depth, end + 1)
 
