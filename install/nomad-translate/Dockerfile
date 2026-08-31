@@ -4,8 +4,12 @@
 # x86 specific and there is no aarch64 wheel. ARM would need marian's `ruy`
 # path. The build workflow pins linux/amd64 so this fails loudly at build time
 # rather than pulling cleanly on ARM and dying at start.
-FROM python:3.12-slim
+FROM python:3.10-slim
 
+# Pinned to python 3.10 because that is what bergamot 0.4.5 publishes wheels
+# for. On 3.12 pip resolves no further than 0.1.2 and the build fails outright.
+# Moving off this pin means moving off the wheel, see below.
+#
 # bergamot 0.4.5 is the PyPI wheel, uploaded 2022-06-21. It works, and it is
 # what the spike proved, but it is old: browsermt/bergamot-translator's last
 # real commit was 2024-05 and the maintained successor is mozilla/translations
