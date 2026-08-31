@@ -9,6 +9,11 @@
  * dashed border and the external-link marker are what carry that, not the hue.
  * The tint is deliberately light so the distinction survives every option.
  *
+ * `bg` is the tile tint and `swatch` is the same color at full strength. They
+ * differ on purpose: a 10% tint reads well across a 190px card but makes six
+ * 28px picker swatches indistinguishable from each other, so the picker shows
+ * the color solid while the tile stays subtle.
+ *
  * Class names are written out in full and never interpolated. Tailwind scans
  * source text for literal class strings, so a computed name like
  * `bg-desert-${id}/10` would be silently dropped from the build.
@@ -16,6 +21,7 @@
 export const LINK_TILE_COLORS = [
   {
     id: 'green',
+    swatch: 'bg-desert-green',
     label: 'Green',
     border: 'border-desert-green/70',
     bg: 'bg-desert-green/10',
@@ -23,6 +29,7 @@ export const LINK_TILE_COLORS = [
   },
   {
     id: 'olive',
+    swatch: 'bg-desert-olive',
     label: 'Olive',
     border: 'border-desert-olive/70',
     bg: 'bg-desert-olive/10',
@@ -30,6 +37,7 @@ export const LINK_TILE_COLORS = [
   },
   {
     id: 'orange',
+    swatch: 'bg-desert-orange',
     label: 'Orange',
     border: 'border-desert-orange/70',
     bg: 'bg-desert-orange/10',
@@ -37,6 +45,7 @@ export const LINK_TILE_COLORS = [
   },
   {
     id: 'red',
+    swatch: 'bg-desert-red',
     label: 'Red',
     border: 'border-desert-red/70',
     bg: 'bg-desert-red/10',
@@ -44,6 +53,7 @@ export const LINK_TILE_COLORS = [
   },
   {
     id: 'sand',
+    swatch: 'bg-desert-sand',
     label: 'Sand',
     border: 'border-desert-sand/70',
     bg: 'bg-desert-sand/20',
@@ -51,6 +61,7 @@ export const LINK_TILE_COLORS = [
   },
   {
     id: 'stone',
+    swatch: 'bg-desert-stone',
     label: 'Stone',
     border: 'border-desert-stone/70',
     bg: 'bg-desert-stone/10',

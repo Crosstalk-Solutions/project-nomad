@@ -122,7 +122,14 @@ test('every link tile color ships complete, literal Tailwind classes', () => {
     assert.ok(option.border.startsWith('border-desert-'), option.id)
     assert.ok(option.bg.startsWith('bg-desert-'), option.id)
     assert.ok(option.marker.startsWith('text-desert-'), option.id)
-    assert.ok(!`${option.border}${option.bg}${option.marker}`.includes('${'), option.id)
+    // The swatch is the same color solid; a tint that works on a card is
+    // indistinguishable at 28px.
+    assert.ok(option.swatch.startsWith('bg-desert-'), option.id)
+    assert.ok(!option.swatch.includes('/'), `${option.id} swatch must be solid`)
+    assert.ok(
+      !`${option.border}${option.bg}${option.marker}${option.swatch}`.includes('${'),
+      option.id
+    )
   }
 })
 
