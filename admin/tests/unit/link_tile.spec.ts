@@ -108,14 +108,14 @@ test('the default icon is part of the offered set', () => {
   assert.ok((LINK_TILE_ICONS as readonly string[]).includes(DEFAULT_LINK_TILE_ICON))
 })
 
-test('link tile colours resolve from the brand palette', () => {
+test('link tile colors resolve from the brand palette', () => {
   // Unknown, null and empty all fall back rather than rendering an untinted card.
   assert.equal(linkTileColor('orange').id, 'orange')
   assert.equal(linkTileColor(null).id, DEFAULT_LINK_TILE_COLOR)
   assert.equal(linkTileColor('chartreuse').id, DEFAULT_LINK_TILE_COLOR)
 })
 
-test('every link tile colour ships complete, literal Tailwind classes', () => {
+test('every link tile color ships complete, literal Tailwind classes', () => {
   // Tailwind scans for literal class strings, so an interpolated name would be
   // dropped from the build and the tile would render untinted.
   for (const option of LINK_TILE_COLORS) {
@@ -126,6 +126,6 @@ test('every link tile colour ships complete, literal Tailwind classes', () => {
   }
 })
 
-test('the default colour is one of the offered options', () => {
+test('the default color is one of the offered options', () => {
   assert.ok(LINK_TILE_COLOR_IDS.includes(DEFAULT_LINK_TILE_COLOR))
 })

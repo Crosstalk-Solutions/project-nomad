@@ -272,7 +272,7 @@ export default function Home(props: {
           const shouldHighlight = isEasySetup && shouldHighlightEasySetup
 
           const isLinkTile = Boolean(item.linkTile)
-          // A flat surface colour read as a stark white card next to the filled
+          // A flat surface color read as a stark white card next to the filled
           // app tiles. Tint from the brand palette instead, user-chosen.
           const tileColor = linkTileColor(item.linkTile?.link_color)
 
