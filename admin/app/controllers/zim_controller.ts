@@ -25,8 +25,12 @@ export default class ZimController {
 
   async listRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(listRemoteZimValidator)
-    const { start = 0, count = 12, query } = payload
-    return await this.zimService.listRemote({ start, count, query })
+    const { start = 0, count = 12, query, language } = payload
+    return await this.zimService.listRemote({ start, count, query, language })
+  }
+
+  async listCatalogLanguages({}: HttpContext) {
+    return { languages: await this.zimService.listCatalogLanguages() }
   }
 
   async downloadRemote({ request }: HttpContext) {
