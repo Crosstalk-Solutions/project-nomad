@@ -36,9 +36,6 @@ const GITHUB_PMTILES_URL =
   'https://api.github.com/repos/Crosstalk-Solutions/project-nomad-maps/contents/pmtiles'
 
 const CATALOG_TIMEOUT_MS = 15000
-/** Bounded paginated fallback scan when the exact `name=` lookup comes up empty. */
-const KIWIX_PAGE_SIZE = 60
-const MAX_KIWIX_FETCHES = 5
 /** Concurrent ZIM catalog lookups — keep small to avoid hammering the mirror. */
 const ZIM_CHECK_CONCURRENCY = 4
 
@@ -120,14 +117,46 @@ export class KiwixCatalogService {
   async getLatestZim(resourceId: string): Promise<CatalogResult | null> {
     const pattern = new RegExp(`^${escapeRegex(resourceId)}_(\\d{4}-\\d{2})\\.zim$`)
 
-    // 1. Exact-name lookup (the robust path).
+    // 1. Exact-name lookup (the robust path). Resolves most books, whose OPDS `<name>`
+    //    is the full filename base: devdocs_en_python, zimgit-water_en,
+    //    freecodecamp_en_all, nhs.uk_en_medicines ...
     const named = await this.fetchZimEntries({ name: resourceId, count: 50, start: 0 })
     const exact = this.pickNewestZim(named, pattern)
     if (exact) return exact
 
-    // 2. Fallback: bounded keyword scan in case the catalog ignored `name=` or
-    //    indexes the book under a slightly different name.
-    return this.scanZimByQuery(resourceId, pattern)
+    // 2. Flavoured books index under the base WITHOUT the flavour, which the catalog
+    //    carries in a separate `<flavour>` element: `wikibooks_en_all_nopic_2026-04.zim`
+    //    is `<name>wikibooks_en_all</name><flavour>nopic</flavour>`. Our resource ids are
+    //    filename bases, so `name=wikibooks_en_all_nopic` matched nothing and every
+    //    maxi/mini/nopic book -- including every Wikipedia -- was unresolvable.
+    //    Retry against the base; `pattern` still decides, so a broader query is safe.
+    const base = this.stripFlavourSuffix(resourceId)
+    if (base) {
+      const byBase = await this.fetchZimEntries({ name: base, count: 50, start: 0 })
+      const flavoured = this.pickNewestZim(byBase, pattern)
+      if (flavoured) return flavoured
+    }
+
+    // Nothing in the catalog matches this id. There used to be a third step here: a
+    // bounded `q=` keyword scan, up to 5 paged requests per unresolved book on every
+    // check. It was removed because `q=` searches an entry's title and summary, never
+    // its filename, so it cannot match a resource id -- across every id tested it
+    // resolved nothing while the two `name=` lookups above resolved everything that
+    // was resolvable. It was pure repeat traffic aimed at a mirror that has just had
+    // to deploy anti-crawler measures.
+    return null
+  }
+
+  /**
+   * Drop the trailing `_<flavour>` segment from a resource id, or null when there is
+   * nothing to drop. Deliberately not matched against a flavour allowlist: openZIM adds
+   * flavours over time, and a wrong guess costs one extra catalog request because the
+   * authoritative filename check still gates every result.
+   */
+  private stripFlavourSuffix(resourceId: string): string | null {
+    const cut = resourceId.lastIndexOf('_')
+    if (cut <= 0) return null
+    return resourceId.slice(0, cut)
   }
 
   /** Newest catalog version of a single PMTiles map, or null if none/older. */
@@ -151,36 +180,8 @@ export class KiwixCatalogService {
     return latest
   }
 
-  private async scanZimByQuery(
-    resourceId: string,
-    pattern: RegExp
-  ): Promise<CatalogResult | null> {
-    let start = 0
-    let total = 0
-    let latest: CatalogResult | null = null
-
-    for (let i = 0; i < MAX_KIWIX_FETCHES; i++) {
-      const { entries, totalResults } = await this.fetchZimEntriesPage({
-        q: resourceId,
-        count: KIWIX_PAGE_SIZE,
-        start,
-      })
-      total = totalResults
-      if (entries.length === 0) break
-      start += entries.length
-
-      const candidate = this.pickNewestZim(entries, pattern)
-      if (candidate && (!latest || candidate.version > latest.version)) {
-        latest = candidate
-      }
-      if (start >= total) break
-    }
-    return latest
-  }
-
   private async fetchZimEntries(params: {
     name?: string
-    q?: string
     count: number
     start: number
   }): Promise<CatalogZimEntry[]> {
@@ -190,7 +191,6 @@ export class KiwixCatalogService {
 
   private async fetchZimEntriesPage(params: {
     name?: string
-    q?: string
     count: number
     start: number
   }): Promise<{ entries: CatalogZimEntry[]; totalResults: number }> {
@@ -198,9 +198,11 @@ export class KiwixCatalogService {
       params: {
         start: params.start,
         count: params.count,
-        lang: 'eng',
+        // No `lang` filter. This is a freshness check for an ALREADY-INSTALLED book, so
+        // the language is whatever the user installed; `lang: 'eng'` made every
+        // non-English ZIM permanently unresolvable here. The authoritative
+        // `^<id>_YYYY-MM.zim$` filename check is what resolves the right book.
         ...(params.name ? { name: params.name } : {}),
-        ...(params.q ? { q: params.q } : {}),
       },
       responseType: 'text',
       timeout: CATALOG_TIMEOUT_MS,
