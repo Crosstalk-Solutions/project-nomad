@@ -120,14 +120,43 @@ export class KiwixCatalogService {
   async getLatestZim(resourceId: string): Promise<CatalogResult | null> {
     const pattern = new RegExp(`^${escapeRegex(resourceId)}_(\\d{4}-\\d{2})\\.zim$`)
 
-    // 1. Exact-name lookup (the robust path).
+    // 1. Exact-name lookup (the robust path). Resolves most books, whose OPDS `<name>`
+    //    is the full filename base: devdocs_en_python, zimgit-water_en,
+    //    freecodecamp_en_all, nhs.uk_en_medicines ...
     const named = await this.fetchZimEntries({ name: resourceId, count: 50, start: 0 })
     const exact = this.pickNewestZim(named, pattern)
     if (exact) return exact
 
-    // 2. Fallback: bounded keyword scan in case the catalog ignored `name=` or
-    //    indexes the book under a slightly different name.
+    // 2. Flavoured books index under the base WITHOUT the flavour, which the catalog
+    //    carries in a separate `<flavour>` element: `wikibooks_en_all_nopic_2026-04.zim`
+    //    is `<name>wikibooks_en_all</name><flavour>nopic</flavour>`. Our resource ids are
+    //    filename bases, so `name=wikibooks_en_all_nopic` matched nothing and every
+    //    maxi/mini/nopic book -- including every Wikipedia -- was unresolvable.
+    //    Retry against the base; `pattern` still decides, so a broader query is safe.
+    const base = this.stripFlavourSuffix(resourceId)
+    if (base) {
+      const byBase = await this.fetchZimEntries({ name: base, count: 50, start: 0 })
+      const flavoured = this.pickNewestZim(byBase, pattern)
+      if (flavoured) return flavoured
+    }
+
+    // 3. Fallback: bounded keyword scan in case the catalog ignored `name=` or indexes
+    //    the book under a slightly different name. Note `q=` searches title and summary,
+    //    not the filename, so it has not been observed to resolve a resource id on its
+    //    own -- it is a safety net, not a working second path.
     return this.scanZimByQuery(resourceId, pattern)
+  }
+
+  /**
+   * Drop the trailing `_<flavour>` segment from a resource id, or null when there is
+   * nothing to drop. Deliberately not matched against a flavour allowlist: openZIM adds
+   * flavours over time, and a wrong guess costs one extra catalog request because the
+   * authoritative filename check still gates every result.
+   */
+  private stripFlavourSuffix(resourceId: string): string | null {
+    const cut = resourceId.lastIndexOf('_')
+    if (cut <= 0) return null
+    return resourceId.slice(0, cut)
   }
 
   /** Newest catalog version of a single PMTiles map, or null if none/older. */
@@ -198,7 +227,10 @@ export class KiwixCatalogService {
       params: {
         start: params.start,
         count: params.count,
-        lang: 'eng',
+        // No `lang` filter. This is a freshness check for an ALREADY-INSTALLED book, so
+        // the language is whatever the user installed; `lang: 'eng'` made every
+        // non-English ZIM permanently unresolvable here. The authoritative
+        // `^<id>_YYYY-MM.zim$` filename check is what resolves the right book.
         ...(params.name ? { name: params.name } : {}),
         ...(params.q ? { q: params.q } : {}),
       },
