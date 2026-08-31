@@ -190,7 +190,7 @@ export default class MapsController {
           icon: vine.string().trim().maxLength(50).nullable().optional(),
           icon_color: vine.string().trim().maxLength(7).nullable().optional(),
           visible: vine.boolean().optional(),
-          notes: vine.string().trim().nullable().optional(),
+          notes: vine.string().trim().maxLength(500).nullable().optional(),
           marker_type: vine.string().trim().maxLength(20).optional(),
         })
       )
@@ -231,7 +231,7 @@ export default class MapsController {
           visible: vine.boolean().optional(),
           longitude: vine.number().min(-180).max(180).optional(),
           latitude: vine.number().min(-90).max(90).optional(),
-          notes: vine.string().trim().nullable().optional(),
+          notes: vine.string().trim().maxLength(500).nullable().optional(),
           marker_type: vine.string().trim().maxLength(20).optional(),
         })
       )
