@@ -162,6 +162,57 @@ check(
 
 
 
+
+# --- numeric character references --------------------------------------------
+#
+# Bergamot decodes named entities but not numeric ones: it treats `&#x27;` as
+# literal text and escapes the ampersand on output, so an apostrophe came back
+# as the visible string `&#x27;`. Reported against the ham radio ZIM.
+
+check(
+    "hex charref is decoded before translation",
+    blocks.plan("<p>If I&#x27;m here</p>")[0],
+    ["If I'm here"],
+)
+
+check(
+    "decimal charref is decoded before translation",
+    blocks.plan("<p>If I&#39;m here</p>")[0],
+    ["If I'm here"],
+)
+
+check(
+    "non-ascii charref is decoded",
+    blocks.plan("<p>caf&#233; here</p>")[0],
+    ["café here"],
+)
+
+# Decoding these would inject real markup and break the balance check that gates
+# HTML mode, dropping the block to plain text and losing its links.
+check(
+    "markup-significant charrefs stay encoded",
+    blocks.plan("<p>Compare &#60;dipole&#62; designs &#38; feeds</p>")[0],
+    ["Compare &#60;dipole&#62; designs &#38; feeds"],
+)
+
+check(
+    "named entities are left alone",
+    blocks.plan("<p>Tom &amp; Jerry &lt;tag&gt;</p>")[0],
+    ["Tom &amp; Jerry &lt;tag&gt;"],
+)
+
+check(
+    "malformed charrefs are left untouched",
+    blocks.decode_numeric_refs("bare &# and &#xZZ; and &#99999999999; here"),
+    "bare &# and &#xZZ; and &#99999999999; here",
+)
+
+check(
+    "helper decodes hex and decimal, leaves markup chars",
+    blocks.decode_numeric_refs("&#x27; &#39; &#233; &#60; &#38;"),
+    "' ' é &#60; &#38;",
+)
+
 if failures:
     print(f"FAIL: {len(failures)} of the checks above did not hold\n")
     for failure in failures:
