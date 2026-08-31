@@ -5,6 +5,7 @@ import LinkTileIconPicker from './LinkTileIconPicker'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import { normalizeCustomUrl } from '~/lib/navigation'
 import { DEFAULT_LINK_TILE_ICON } from '../../constants/link_tile_icons'
+import { DEFAULT_LINK_TILE_COLOR, LINK_TILE_COLORS } from '../../constants/link_tile_colors'
 import { ServiceSlim } from '../../types/services'
 import api from '~/lib/api'
 
@@ -35,6 +36,7 @@ export default function LinkTileModal({
   const [url, setUrl] = useState('')
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState<string>(DEFAULT_LINK_TILE_ICON)
+  const [color, setColor] = useState<string>(DEFAULT_LINK_TILE_COLOR)
   const [submitting, setSubmitting] = useState(false)
 
   const isEdit = Boolean(tile)
@@ -45,6 +47,7 @@ export default function LinkTileModal({
     setUrl(tile?.custom_url ?? '')
     setDescription(tile?.description ?? '')
     setIcon(tile?.icon ?? DEFAULT_LINK_TILE_ICON)
+    setColor(tile?.link_color ?? DEFAULT_LINK_TILE_COLOR)
   }, [open, tile])
 
   const trimmedName = name.trim()
@@ -62,6 +65,7 @@ export default function LinkTileModal({
       url: trimmedUrl,
       description: description.trim() ? description.trim() : null,
       icon,
+      link_color: color,
     }
 
     const result = isEdit
@@ -150,6 +154,29 @@ export default function LinkTileModal({
             </span>
           </p>
           <LinkTileIconPicker value={icon} onChange={setIcon} />
+        </div>
+
+        <div>
+          <p className="mb-1.5 font-medium text-text-primary">Colour</p>
+          <div className="flex items-center gap-2">
+            {LINK_TILE_COLORS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                title={option.label}
+                aria-label={option.label}
+                aria-pressed={color === option.id}
+                onClick={() => setColor(option.id)}
+                className={`h-7 w-7 rounded border-2 border-dashed transition-transform ${option.border} ${option.bg} ${
+                  color === option.id ? 'scale-110 ring-2 ring-offset-1 ring-desert-green' : ''
+                }`}
+              />
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-text-muted">
+            Links stay outlined rather than filled whichever colour you pick, so they
+            are still tellable apart from apps NOMAD manages.
+          </p>
         </div>
       </div>
     </StyledModal>
