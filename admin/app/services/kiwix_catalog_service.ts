@@ -36,9 +36,6 @@ const GITHUB_PMTILES_URL =
   'https://api.github.com/repos/Crosstalk-Solutions/project-nomad-maps/contents/pmtiles'
 
 const CATALOG_TIMEOUT_MS = 15000
-/** Bounded paginated fallback scan when the exact `name=` lookup comes up empty. */
-const KIWIX_PAGE_SIZE = 60
-const MAX_KIWIX_FETCHES = 5
 /** Concurrent ZIM catalog lookups — keep small to avoid hammering the mirror. */
 const ZIM_CHECK_CONCURRENCY = 4
 
@@ -140,11 +137,14 @@ export class KiwixCatalogService {
       if (flavoured) return flavoured
     }
 
-    // 3. Fallback: bounded keyword scan in case the catalog ignored `name=` or indexes
-    //    the book under a slightly different name. Note `q=` searches title and summary,
-    //    not the filename, so it has not been observed to resolve a resource id on its
-    //    own -- it is a safety net, not a working second path.
-    return this.scanZimByQuery(resourceId, pattern)
+    // Nothing in the catalog matches this id. There used to be a third step here: a
+    // bounded `q=` keyword scan, up to 5 paged requests per unresolved book on every
+    // check. It was removed because `q=` searches an entry's title and summary, never
+    // its filename, so it cannot match a resource id -- across every id tested it
+    // resolved nothing while the two `name=` lookups above resolved everything that
+    // was resolvable. It was pure repeat traffic aimed at a mirror that has just had
+    // to deploy anti-crawler measures.
+    return null
   }
 
   /**
@@ -180,36 +180,8 @@ export class KiwixCatalogService {
     return latest
   }
 
-  private async scanZimByQuery(
-    resourceId: string,
-    pattern: RegExp
-  ): Promise<CatalogResult | null> {
-    let start = 0
-    let total = 0
-    let latest: CatalogResult | null = null
-
-    for (let i = 0; i < MAX_KIWIX_FETCHES; i++) {
-      const { entries, totalResults } = await this.fetchZimEntriesPage({
-        q: resourceId,
-        count: KIWIX_PAGE_SIZE,
-        start,
-      })
-      total = totalResults
-      if (entries.length === 0) break
-      start += entries.length
-
-      const candidate = this.pickNewestZim(entries, pattern)
-      if (candidate && (!latest || candidate.version > latest.version)) {
-        latest = candidate
-      }
-      if (start >= total) break
-    }
-    return latest
-  }
-
   private async fetchZimEntries(params: {
     name?: string
-    q?: string
     count: number
     start: number
   }): Promise<CatalogZimEntry[]> {
@@ -219,7 +191,6 @@ export class KiwixCatalogService {
 
   private async fetchZimEntriesPage(params: {
     name?: string
-    q?: string
     count: number
     start: number
   }): Promise<{ entries: CatalogZimEntry[]; totalResults: number }> {
@@ -232,7 +203,6 @@ export class KiwixCatalogService {
         // non-English ZIM permanently unresolvable here. The authoritative
         // `^<id>_YYYY-MM.zim$` filename check is what resolves the right book.
         ...(params.name ? { name: params.name } : {}),
-        ...(params.q ? { q: params.q } : {}),
       },
       responseType: 'text',
       timeout: CATALOG_TIMEOUT_MS,
