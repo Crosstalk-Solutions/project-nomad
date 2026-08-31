@@ -550,7 +550,7 @@ export default class SystemController {
         if (!normalized) {
             return response.status(422).send({
                 success: false,
-                message: 'Enter a valid http(s) address, for example 192.168.1.50:8080 or https://nas.local.',
+                message: 'Enter a valid URL, for example 192.168.1.50:8080 or https://nas.local.',
             })
         }
 
@@ -617,7 +617,7 @@ export default class SystemController {
         if (!normalized) {
             return response.status(422).send({
                 success: false,
-                message: 'Enter a valid http(s) address, for example 192.168.1.50:8080 or https://nas.local.',
+                message: 'Enter a valid URL, for example 192.168.1.50:8080 or https://nas.local.',
             })
         }
 
