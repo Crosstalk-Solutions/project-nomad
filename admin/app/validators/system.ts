@@ -123,6 +123,41 @@ export function normalizeCustomUrl(input: string | null | undefined): string | n
   }
 }
 
+/**
+ * Dashboard link tile: a shortcut to something the user already runs, with no
+ * container behind it. One `url` field rather than separate host/port/path,
+ * because people paste URLs and it gets https and sub-paths for free. The URL is
+ * normalized and http(s)-restricted by normalizeCustomUrl in the controller,
+ * which is what keeps javascript:/data: out of an href.
+ */
+export const createLinkTileValidator = vine.compile(
+  vine.object({
+    friendly_name: vine.string().trim().minLength(1).maxLength(60),
+    url: vine.string().trim().minLength(1).maxLength(2048),
+    description: vine.string().trim().maxLength(200).nullable().optional(),
+    icon: vine.string().trim().maxLength(60).nullable().optional(),
+    display_order: vine.number().min(0).max(999).optional(),
+  })
+)
+
+/** Reconfigure an existing link tile. Identified by service_name, which is immutable. */
+export const updateLinkTileValidator = vine.compile(
+  vine.object({
+    service_name: vine.string().trim(),
+    friendly_name: vine.string().trim().minLength(1).maxLength(60),
+    url: vine.string().trim().minLength(1).maxLength(2048),
+    description: vine.string().trim().maxLength(200).nullable().optional(),
+    icon: vine.string().trim().maxLength(60).nullable().optional(),
+    display_order: vine.number().min(0).max(999).optional(),
+  })
+)
+
+export const deleteLinkTileValidator = vine.compile(
+  vine.object({
+    service_name: vine.string().trim(),
+  })
+)
+
 export const deleteCustomAppValidator = vine.compile(
   vine.object({
     service_name: vine.string().trim(),

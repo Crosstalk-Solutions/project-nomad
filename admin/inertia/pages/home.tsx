@@ -23,6 +23,9 @@ import api from '~/lib/api'
 import Alert from '~/components/Alert'
 import WhatsNewBanner from '~/components/WhatsNewBanner'
 import { SERVICE_NAMES } from '../../constants/service_names'
+import LinkTileModal from '~/components/LinkTileModal'
+import { IconPlus, IconPencil, IconTrash, IconExternalLink } from '@tabler/icons-react'
+import { useState } from 'react'
 
 // Maps is a Core Capability (display_order: 4)
 const MAPS_ITEM = {
@@ -104,6 +107,8 @@ interface DashboardItem {
   installed: boolean
   displayOrder: number
   poweredBy: string | null
+  /** Set only for user-added link tiles, which render differently and can be edited. */
+  linkTile?: ServiceSlim
 }
 
 export default function Home(props: {
@@ -121,6 +126,27 @@ export default function Home(props: {
   const queryClient = useQueryClient()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
 
+  // Link tile management. `editingTile` null with the modal open means "create".
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
+  const [editingTile, setEditingTile] = useState<ServiceSlim | null>(null)
+  // Deleting a tile is not undoable and the tiles are user-entered, so the trash
+  // icon arms a confirm rather than deleting on the first click.
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  const refreshServices = () => router.reload({ only: ['system'] })
+
+  const handleDeleteTile = async (serviceName: string) => {
+    const result = await api.deleteLinkTile(serviceName)
+    setPendingDelete(null)
+    if (!result?.success) {
+      setLinkError('Failed to remove this link.')
+      return
+    }
+    refreshServices()
+  }
+
+
   const handleDismissRerunBanner = async () => {
     await api.updateSetting('benchmark.rerunBannerDismissed', true)
     queryClient.invalidateQueries({ queryKey: BENCHMARK_RERUN_BANNER_QUERY_KEY })
@@ -132,9 +158,14 @@ export default function Home(props: {
   })
   const shouldHighlightEasySetup = easySetupVisited?.value ? String(easySetupVisited.value) !== 'true' : false
 
-  // Add installed services (non-dependency services only)
+  // Add installed services (non-dependency services only). Link tiles are user-added
+  // shortcuts with no container behind them, so they are collected separately below
+  // and rendered with their own treatment.
   props.system.services
-    .filter((service) => service.installed && (service.ui_location || service.custom_url))
+    .filter(
+      (service) =>
+        service.installed && (service.ui_location || service.custom_url) && !service.is_link_tile
+    )
     .forEach((service) => {
       items.push({
         // Inject custom AI Assistant name if this is the chat service
@@ -155,6 +186,23 @@ export default function Home(props: {
         installed: service.installed,
         displayOrder: service.display_order ?? 100,
         poweredBy: service.powered_by ?? null,
+      })
+    })
+
+  // User-added link tiles: shortcuts to things NOMAD does not manage.
+  props.system.services
+    .filter((service) => service.is_link_tile && service.custom_url)
+    .forEach((service) => {
+      items.push({
+        label: service.friendly_name || service.service_name,
+        to: getServiceLink('', service.custom_url),
+        target: '_blank',
+        description: service.description || 'Opens in a new tab',
+        icon: <DynamicIcon icon={service.icon as DynamicIconName} className="!size-12" />,
+        installed: true,
+        displayOrder: service.display_order ?? 90,
+        poweredBy: null,
+        linkTile: service,
       })
     })
 
@@ -222,8 +270,28 @@ export default function Home(props: {
           const isEasySetup = item.label === 'Easy Setup'
           const shouldHighlight = isEasySetup && shouldHighlightEasySetup
 
+          const isLinkTile = Boolean(item.linkTile)
+
+          // Link tiles are deliberately not styled like managed apps: outlined
+          // rather than filled, with an external-link marker. If they looked the
+          // same, users would expect Start/Stop/Update and file bugs when those
+          // controls are not there.
           const tileContent = (
-            <div className="relative rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-text-primary text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4">
+            <div
+              className={
+                isLinkTile
+                  ? 'relative rounded border-2 border-dashed border-desert-green/70 bg-surface-primary text-text-primary hover:bg-surface-secondary transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4'
+                  : 'relative rounded border-desert-green border-2 bg-desert-green hover:bg-transparent hover:text-text-primary text-white transition-colors shadow-sm h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4'
+              }
+            >
+              {isLinkTile && (
+                <span
+                  className="absolute top-2 left-2 text-text-muted"
+                  title="A shortcut you added. NOMAD does not manage this."
+                >
+                  <IconExternalLink size={16} />
+                </span>
+              )}
               {shouldHighlight && (
                 <span className="absolute top-2 right-2 flex items-center justify-center">
                   <span
@@ -242,6 +310,62 @@ export default function Home(props: {
             </div>
           )
 
+          if (isLinkTile) {
+            const tile = item.linkTile!
+            const confirming = pendingDelete === tile.service_name
+
+            return (
+              <div key={item.label} className="group relative">
+                <a href={item.to} target="_blank" rel="noopener noreferrer">
+                  {tileContent}
+                </a>
+
+                {confirming ? (
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTile(tile.service_name)}
+                      className="rounded bg-desert-red px-2 py-1 text-xs font-medium text-white hover:brightness-110"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(null)}
+                      className="rounded border border-border-default bg-surface-primary px-2 py-1 text-xs text-text-secondary hover:bg-surface-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTile(tile)
+                        setLinkModalOpen(true)
+                      }}
+                      title="Edit this link"
+                      aria-label="Edit this link"
+                      className="rounded p-1 text-text-muted hover:bg-surface-secondary hover:text-text-primary"
+                    >
+                      <IconPencil size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(tile.service_name)}
+                      title="Remove this link"
+                      aria-label="Remove this link"
+                      className="rounded p-1 text-text-muted hover:bg-surface-secondary hover:text-desert-red"
+                    >
+                      <IconTrash size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          }
+
           return item.target === '_blank' ? (
             <a key={item.label} href={item.to} target="_blank" rel="noopener noreferrer">
               {tileContent}
@@ -252,7 +376,38 @@ export default function Home(props: {
             </Link>
           )
         })}
+
+        {/* Add-a-link affordance, last in the grid so it never displaces an app. */}
+        <button
+          type="button"
+          onClick={() => {
+            setEditingTile(null)
+            setLinkModalOpen(true)
+          }}
+          className="rounded border-2 border-dashed border-border-default bg-transparent text-text-muted hover:border-desert-green hover:text-text-primary transition-colors h-48 flex flex-col items-center justify-center cursor-pointer text-center px-4"
+        >
+          <IconPlus size={40} />
+          <h3 className="font-bold text-xl mt-2">Add a Link</h3>
+          <p className="text-sm mt-1">A shortcut to something else on your network</p>
+        </button>
       </div>
+
+      {linkError && (
+        <div className="px-4 pb-4">
+          <Alert title={linkError} type="error" variant="solid" className="w-full" />
+        </div>
+      )}
+
+      <LinkTileModal
+        open={linkModalOpen}
+        tile={editingTile}
+        onClose={() => setLinkModalOpen(false)}
+        onSaved={() => {
+          setLinkModalOpen(false)
+          refreshServices()
+        }}
+        showError={(msg) => setLinkError(msg)}
+      />
     </AppLayout>
   )
 }
