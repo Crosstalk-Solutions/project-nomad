@@ -1,11 +1,11 @@
 /**
- * The colours a user can give a dashboard link tile.
+ * The colors a user can give a dashboard link tile.
  *
  * Drawn from the brand palette rather than arbitrary hex, so a tile always sits
  * on-theme next to the managed app cards. The default white-on-green contrast
  * read as jarring on the dashboard, which is why this exists.
  *
- * Tiles stay visually distinct from managed apps regardless of colour: the
+ * Tiles stay visually distinct from managed apps regardless of color: the
  * dashed border and the external-link marker are what carry that, not the hue.
  * The tint is deliberately light so the distinction survives every option.
  *

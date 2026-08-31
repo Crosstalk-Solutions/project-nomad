@@ -157,7 +157,7 @@ export default function LinkTileModal({
         </div>
 
         <div>
-          <p className="mb-1.5 font-medium text-text-primary">Colour</p>
+          <p className="mb-1.5 font-medium text-text-primary">Color</p>
           <div className="flex items-center gap-2">
             {LINK_TILE_COLORS.map((option) => (
               <button
@@ -174,8 +174,8 @@ export default function LinkTileModal({
             ))}
           </div>
           <p className="mt-1.5 text-xs text-text-muted">
-            Links stay outlined rather than filled whichever colour you pick, so they
-            are still tellable apart from apps NOMAD manages.
+            Links stay outlined rather than filled whichever color you pick, so they
+            are distinguishable from apps NOMAD manages.
           </p>
         </div>
       </div>
