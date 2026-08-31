@@ -115,12 +115,26 @@ export default class RagController {
    * "Uncategorized" bucket. */
   public async setKnowledgeCollectionActive({ request, response }: HttpContext) {
     const rawCollection = request.input('collection', undefined)
-    const collection = rawCollection === null ? null : sanitizeCollectionName(rawCollection)
     const active: boolean | null = request.input('active', null)
 
+    // Validate before sanitising. Form-encoded input can yield an array
+    // (`collection[]=a&collection[]=b`), and sanitizeCollectionName would then
+    // throw on `.trim()` and surface as an uncaught 500.
+    //
+    // Requiring `active` to be a real boolean is also load-bearing beyond input
+    // hygiene: a cross-site HTML form can only send the string "true", so this
+    // check is what keeps a bulk Qdrant write across every point in the index
+    // out of reach of a form POST from another origin. Do not "helpfully"
+    // coerce it.
     if (rawCollection === undefined || typeof active !== 'boolean') {
       return response.status(400).json({ error: 'collection and active are required.' })
     }
+
+    if (rawCollection !== null && typeof rawCollection !== 'string') {
+      return response.status(400).json({ error: 'collection must be a string or null.' })
+    }
+
+    const collection = rawCollection === null ? null : sanitizeCollectionName(rawCollection)
 
     const result = await this.ragService.setKnowledgeCollectionActive(collection, active)
     if (!result.success) {
