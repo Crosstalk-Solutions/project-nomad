@@ -595,6 +595,18 @@ router
       summary: 'Get a custom app',
       tags: ['system'],
     })
+    documented(router.post('/services/links', [SystemController, 'createLinkTile']), {
+      summary: 'Create a dashboard link tile',
+      tags: ['system'],
+    })
+    documented(router.put('/services/links', [SystemController, 'updateLinkTile']), {
+      summary: 'Update a dashboard link tile',
+      tags: ['system'],
+    })
+    documented(router.delete('/services/links', [SystemController, 'deleteLinkTile']), {
+      summary: 'Delete a dashboard link tile',
+      tags: ['system'],
+    })
     documented(router.put('/services/custom-url', [SystemController, 'setServiceCustomUrl']), {
       summary: 'Set a service custom URL',
       tags: ['system'],

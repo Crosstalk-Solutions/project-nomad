@@ -15,6 +15,7 @@ type ServiceSeedRecord = Omit<
   | 'metadata'
   | 'is_user_modified'
   | 'is_deprecated'
+  | 'is_link_tile'
   | 'custom_url'
   | 'auto_update_enabled'
   | 'available_update_first_seen_at'
