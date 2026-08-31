@@ -49,6 +49,34 @@ TAGS = re.compile(r"(?is)<[^>]+>")
 # or whitespace, which are not worth a translation round trip.
 HAS_TEXT = re.compile(r"[A-Za-z]{2}")
 
+# Bergamot's HTML mode decodes NAMED entities (`&amp;` arrives as "&") but not
+# numeric character references: it treats `&#x27;` as literal text and escapes
+# the ampersand on the way out, so `I&#x27;m` comes back as `I&amp;#x27;m` and
+# renders as visible markup instead of an apostrophe. Decode them before the
+# round trip.
+#
+# `&`, `<` and `>` are deliberately left encoded. Decoding those would inject
+# real markup into the fragment and break the balance check that gates HTML
+# mode, turning a translated block into a plain-text one that loses its links.
+NUMERIC_REF = re.compile(r"&#(?:[xX]([0-9a-fA-F]+)|([0-9]+));")
+MARKUP_CHARS = {0x26, 0x3C, 0x3E}  # & < >
+
+
+def decode_numeric_refs(frag: str) -> str:
+    """Turn numeric character references into characters Bergamot can carry."""
+
+    def one(match: "re.Match[str]") -> str:
+        hex_digits, dec_digits = match.group(1), match.group(2)
+        try:
+            codepoint = int(hex_digits, 16) if hex_digits else int(dec_digits)
+        except ValueError:
+            return match.group(0)
+        if codepoint in MARKUP_CHARS or not 0 < codepoint <= 0x10FFFF:
+            return match.group(0)
+        return chr(codepoint)
+
+    return NUMERIC_REF.sub(one, frag)
+
 
 class BlockFinder(HTMLParser):
     """Yield (inner_start, inner_end) offsets for the outermost balanced blocks.
@@ -159,7 +187,7 @@ def plan(body: str) -> tuple[list[str], list[str], list[tuple[int, int]]]:
         if not HAS_TEXT.search(plain(frag)):
             continue
         if balanced(frag):
-            jobs.append(frag)
+            jobs.append(decode_numeric_refs(frag))
             kinds.append("html")
         else:
             text = plain(frag).strip()
