@@ -43,7 +43,7 @@ const DRUG_REFERENCE_ITEM = {
   label: 'Drug Reference',
   to: '/drug-reference',
   target: '',
-  description: 'Offline FDA drug labels — search by drug name, or by situation (burn, fever, diarrhea)',
+  description: 'Offline FDA drug labels. Search by drug name or by symptom',
   icon: <IconPill size={48} />,
   installed: true,
   displayOrder: 5,
