@@ -18,6 +18,12 @@ import {
   LINK_TILE_ICONS,
   isLinkTileIcon,
 } from '../../constants/link_tile_icons.js'
+import {
+  DEFAULT_LINK_TILE_COLOR,
+  LINK_TILE_COLORS,
+  LINK_TILE_COLOR_IDS,
+  linkTileColor,
+} from '../../constants/link_tile_colors.js'
 
 test('a bare host:port gains http, which is what most LAN devices need', () => {
   assert.equal(normalizeCustomUrl('192.168.1.50:8080'), 'http://192.168.1.50:8080/')
@@ -100,4 +106,26 @@ test('isLinkTileIcon accepts only names in the set', () => {
 
 test('the default icon is part of the offered set', () => {
   assert.ok((LINK_TILE_ICONS as readonly string[]).includes(DEFAULT_LINK_TILE_ICON))
+})
+
+test('link tile colours resolve from the brand palette', () => {
+  // Unknown, null and empty all fall back rather than rendering an untinted card.
+  assert.equal(linkTileColor('orange').id, 'orange')
+  assert.equal(linkTileColor(null).id, DEFAULT_LINK_TILE_COLOR)
+  assert.equal(linkTileColor('chartreuse').id, DEFAULT_LINK_TILE_COLOR)
+})
+
+test('every link tile colour ships complete, literal Tailwind classes', () => {
+  // Tailwind scans for literal class strings, so an interpolated name would be
+  // dropped from the build and the tile would render untinted.
+  for (const option of LINK_TILE_COLORS) {
+    assert.ok(option.border.startsWith('border-desert-'), option.id)
+    assert.ok(option.bg.startsWith('bg-desert-'), option.id)
+    assert.ok(option.marker.startsWith('text-desert-'), option.id)
+    assert.ok(!`${option.border}${option.bg}${option.marker}`.includes('${'), option.id)
+  }
+})
+
+test('the default colour is one of the offered options', () => {
+  assert.ok(LINK_TILE_COLOR_IDS.includes(DEFAULT_LINK_TILE_COLOR))
 })

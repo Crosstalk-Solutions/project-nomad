@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { LINK_TILE_COLOR_IDS } from '../../constants/link_tile_colors.js'
 
 export const installServiceValidator = vine.compile(
   vine.object({
@@ -137,6 +138,7 @@ export const createLinkTileValidator = vine.compile(
     description: vine.string().trim().maxLength(200).nullable().optional(),
     icon: vine.string().trim().maxLength(60).nullable().optional(),
     display_order: vine.number().min(0).max(999).optional(),
+    link_color: vine.enum(LINK_TILE_COLOR_IDS).optional(),
   })
 )
 
@@ -149,6 +151,7 @@ export const updateLinkTileValidator = vine.compile(
     description: vine.string().trim().maxLength(200).nullable().optional(),
     icon: vine.string().trim().maxLength(60).nullable().optional(),
     display_order: vine.number().min(0).max(999).optional(),
+    link_color: vine.enum(LINK_TILE_COLOR_IDS).optional(),
   })
 )
 

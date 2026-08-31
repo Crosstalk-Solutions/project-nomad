@@ -38,6 +38,7 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import Service from '#models/service'
+import { DEFAULT_LINK_TILE_COLOR } from '../../constants/link_tile_colors.js'
 
 @inject()
 export default class SystemController {
@@ -593,6 +594,7 @@ export default class SystemController {
             is_custom: false,
             is_user_modified: true,
             is_link_tile: true,
+            link_color: payload.link_color ?? DEFAULT_LINK_TILE_COLOR,
             category: 'Links',
         })
 
@@ -628,6 +630,7 @@ export default class SystemController {
         service.icon = payload.icon || DEFAULT_LINK_TILE_ICON
         service.display_order = payload.display_order ?? service.display_order ?? 90
         service.custom_url = normalized
+        service.link_color = payload.link_color ?? service.link_color ?? DEFAULT_LINK_TILE_COLOR
         await service.save()
 
         return response.send({ success: true })
