@@ -82,6 +82,20 @@ export default class Service extends BaseModel {
   })
   declare is_user_modified: boolean
 
+  // True when this row is only a dashboard shortcut: a name, icon and URL with no
+  // container behind it. Distinct from is_custom, which is still a real container
+  // NOMAD installs and manages. A link tile has no lifecycle, so no Start/Stop/
+  // Update/Uninstall may be offered for one.
+  @column({
+    serialize(value) {
+      return Boolean(value)
+    },
+  })
+  declare is_link_tile: boolean
+
+  @column()
+  declare link_color: string | null
+
   @column()
   declare category: string | null
 

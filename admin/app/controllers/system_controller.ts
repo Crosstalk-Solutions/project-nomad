@@ -23,6 +23,9 @@ import {
   updateServiceValidator,
   setServiceAutoUpdateValidator,
   setServiceCustomUrlValidator,
+  createLinkTileValidator,
+  updateLinkTileValidator,
+  deleteLinkTileValidator,
   normalizeCustomUrl,
 } from '#validators/system'
 import {
@@ -30,10 +33,12 @@ import {
   DEFAULT_MEMORY_MB,
   evaluateCustomApp,
 } from '#services/custom_app_guard'
+import { DEFAULT_LINK_TILE_ICON, isLinkTileIcon } from '../../constants/link_tile_icons.js'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import Service from '#models/service'
+import { DEFAULT_LINK_TILE_COLOR } from '../../constants/link_tile_colors.js'
 
 @inject()
 export default class SystemController {
@@ -527,6 +532,125 @@ export default class SystemController {
         await service.save()
 
         return response.send({ success: true, custom_url: service.custom_url })
+    }
+
+    /**
+     * Create a dashboard link tile: a shortcut to something the user already runs.
+     *
+     * Stored as a service row with no container behind it. `installed` is true so
+     * the dashboard renders it, `custom_url` carries the destination (getServiceLink
+     * already prefers custom_url over a computed link), and `is_link_tile` marks it
+     * so the UI never offers Start/Stop/Update/Uninstall for something with no
+     * lifecycle. `is_custom` stays false: that flag means a container NOMAD installs.
+     */
+    async createLinkTile({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(createLinkTileValidator)
+
+        const normalized = normalizeCustomUrl(payload.url)
+        if (!normalized) {
+            return response.status(422).send({
+                success: false,
+                message: 'Enter a valid URL, for example 192.168.1.50:8080 or https://nas.local.',
+            })
+        }
+
+        if (payload.icon && !isLinkTileIcon(payload.icon)) {
+            return response.status(422).send({ success: false, message: 'Unknown icon.' })
+        }
+
+        // Namespaced so a tile can never collide with a curated catalog entry. The
+        // seeder only ever touches names in its own DEFAULT_SERVICES list, so a
+        // `nomad_link_` row is invisible to a reseed.
+        const slug = payload.friendly_name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+        if (!slug) {
+            return response.status(422).send({ success: false, message: 'Enter a name using letters or numbers.' })
+        }
+        const serviceName = `nomad_link_${slug}`
+
+        const existing = await Service.query().where('service_name', serviceName).first()
+        if (existing) {
+            return response.status(409).send({
+                success: false,
+                message: `A link named "${payload.friendly_name}" already exists. Choose a different name.`,
+            })
+        }
+
+        const service = await Service.create({
+            service_name: serviceName,
+            container_image: '',
+            container_config: null,
+            friendly_name: payload.friendly_name,
+            description: payload.description ?? null,
+            icon: payload.icon || DEFAULT_LINK_TILE_ICON,
+            display_order: payload.display_order ?? 90,
+            installed: true,
+            installation_status: 'idle',
+            is_dependency_service: false,
+            ui_location: null,
+            custom_url: normalized,
+            is_custom: false,
+            is_user_modified: true,
+            is_link_tile: true,
+            link_color: payload.link_color ?? DEFAULT_LINK_TILE_COLOR,
+            category: 'Links',
+        })
+
+        return response.status(201).send({ success: true, service_name: service.service_name })
+    }
+
+    /** Reconfigure an existing link tile. service_name is immutable so the tile keeps its identity. */
+    async updateLinkTile({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(updateLinkTileValidator)
+
+        const service = await Service.query().where('service_name', payload.service_name).first()
+        if (!service) {
+            return response.status(404).send({ success: false, message: 'Link not found' })
+        }
+        if (!service.is_link_tile) {
+            return response.status(403).send({ success: false, message: 'That app is not a link.' })
+        }
+
+        const normalized = normalizeCustomUrl(payload.url)
+        if (!normalized) {
+            return response.status(422).send({
+                success: false,
+                message: 'Enter a valid URL, for example 192.168.1.50:8080 or https://nas.local.',
+            })
+        }
+
+        if (payload.icon && !isLinkTileIcon(payload.icon)) {
+            return response.status(422).send({ success: false, message: 'Unknown icon.' })
+        }
+
+        service.friendly_name = payload.friendly_name
+        service.description = payload.description ?? null
+        service.icon = payload.icon || DEFAULT_LINK_TILE_ICON
+        service.display_order = payload.display_order ?? service.display_order ?? 90
+        service.custom_url = normalized
+        service.link_color = payload.link_color ?? service.link_color ?? DEFAULT_LINK_TILE_COLOR
+        await service.save()
+
+        return response.send({ success: true })
+    }
+
+    /** Remove a link tile. Nothing to uninstall: there is no container, image or volume. */
+    async deleteLinkTile({ request, response }: HttpContext) {
+        const payload = await request.validateUsing(deleteLinkTileValidator)
+
+        const service = await Service.query().where('service_name', payload.service_name).first()
+        if (!service) {
+            return response.status(404).send({ success: false, message: 'Link not found' })
+        }
+        if (!service.is_link_tile) {
+            return response.status(403).send({ success: false, message: 'That app is not a link.' })
+        }
+
+        await service.delete()
+
+        return response.send({ success: true })
     }
 
     /** Re-pull a custom app's image and recreate its container in place (preserving volumes). */

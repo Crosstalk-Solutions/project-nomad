@@ -1083,6 +1083,47 @@ class API {
     })()
   }
 
+  async createLinkTile(data: {
+    friendly_name: string
+    url: string
+    description?: string | null
+    icon?: string | null
+    display_order?: number
+    link_color?: string
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; service_name: string }>(
+        '/system/services/links',
+        data
+      )
+      return response.data
+    })()
+  }
+
+  async updateLinkTile(data: {
+    service_name: string
+    friendly_name: string
+    url: string
+    description?: string | null
+    icon?: string | null
+    display_order?: number
+    link_color?: string
+  }) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{ success: boolean }>('/system/services/links', data)
+      return response.data
+    })()
+  }
+
+  async deleteLinkTile(service_name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean }>('/system/services/links', {
+        data: { service_name },
+      })
+      return response.data
+    })()
+  }
+
   async getSetting(key: string) {
     return catchInternal(async () => {
       const response = await this.client.get<{ key: string; value: any }>(

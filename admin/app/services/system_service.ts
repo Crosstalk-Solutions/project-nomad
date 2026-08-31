@@ -342,6 +342,8 @@ export class SystemService {
         'is_custom',
         'is_user_modified',
         'is_deprecated',
+        'is_link_tile',
+        'link_color',
         'category'
       )
       .where('is_dependency_service', false)
@@ -382,6 +384,8 @@ export class SystemService {
         is_custom: service.is_custom,
         is_user_modified: service.is_user_modified,
         is_deprecated: service.is_deprecated,
+        is_link_tile: service.is_link_tile,
+        link_color: service.link_color,
         category: service.category,
       })
     }
@@ -964,6 +968,12 @@ export class SystemService {
       const serviceStatusList = await this.dockerService.getServicesStatus()
 
       for (const service of allServices) {
+        // Link tiles are shortcuts with no container behind them, so container
+        // reconciliation does not apply: they are always "installed" in the only
+        // sense that matters, which is that the dashboard should show them.
+        // Without this they are marked not-installed on the next sync and vanish.
+        if (service.is_link_tile) continue
+
         const containerExists = serviceStatusList.find(
           (s) => s.service_name === service.service_name
         )
