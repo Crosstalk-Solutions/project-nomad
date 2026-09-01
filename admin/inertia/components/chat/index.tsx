@@ -359,19 +359,9 @@ export default function Chat({
     async (content: string) => {
       let sessionId = activeSessionId
 
-      // Create a new session if none exists
-      if (!sessionId) {
-        const newSession = await api.createChatSession('New Chat', selectedModel)
-        if (newSession) {
-          sessionId = newSession.id
-          setActiveSessionId(sessionId)
-          queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
-        } else {
-          return
-        }
-      }
-
-      // Add user message to UI
+      // Render the user's message before anything can await (#1211). Creating the
+      // session used to come first, so on a slow or stalled request the message the
+      // user just sent simply did not appear, with no spinner and nothing to retry.
       const userMessage: ChatMessage = {
         id: `msg-${Date.now()}`,
         role: 'user',
@@ -380,6 +370,36 @@ export default function Chat({
       }
 
       setMessages((prev) => [...prev, userMessage])
+
+      // Create a new session if none exists
+      if (!sessionId) {
+        let newSession: Awaited<ReturnType<typeof api.createChatSession>> | undefined
+        try {
+          newSession = await api.createChatSession('New Chat', selectedModel)
+        } catch {
+          newSession = undefined
+        }
+
+        if (!newSession) {
+          // Previously a bare `return`: the message was never rendered and no error
+          // was shown either, so a failed session creation looked like the app
+          // ignoring the user. Surface it the same way a failed response is surfaced.
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${Date.now()}-error`,
+              role: 'assistant',
+              content: 'Sorry, there was an error starting this chat. Please try again.',
+              timestamp: new Date(),
+            },
+          ])
+          return
+        }
+
+        sessionId = newSession.id
+        setActiveSessionId(sessionId)
+        queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      }
 
       const chatMessages = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
