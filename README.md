@@ -77,7 +77,7 @@ At its core, however, NOMAD is still very lightweight. For a barebones installat
 
 #### Minimum Specs
 - Processor: 2 GHz dual-core processor or better
-- RAM: 4GB system memory
+- RAM: 4GB system memory (the whole stack without AI runs in under 1 GB)
 - Storage: At least 5 GB free disk space
 - OS: Debian-based (Ubuntu 26.04 LTS recommended)
 - Stable internet connection (required during install only)
