@@ -13,6 +13,7 @@ import { IconMenu2, IconX } from '@tabler/icons-react'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
+import { abortActiveStream, clearStreamIfCurrent } from './stream_abort'
 
 interface ChatProps {
   enabled: boolean
@@ -40,6 +41,19 @@ export default function Chat({
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
+
+  const abortCurrentStream = useCallback(() => {
+    abortActiveStream(streamAbortRef)
+  }, [])
+
+  useEffect(() => () => abortCurrentStream(), [abortCurrentStream])
+
+  useEffect(() => {
+    if (!enabled) {
+      abortCurrentStream()
+      setIsStreamingResponse(false)
+    }
+  }, [enabled, abortCurrentStream])
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -168,6 +182,8 @@ export default function Chat({
   const deleteAllSessionsMutation = useMutation({
     mutationFn: () => api.deleteAllChatSessions(),
     onSuccess: () => {
+      abortCurrentStream()
+      setIsStreamingResponse(false)
       queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
       setActiveSessionId(null)
       setMessages([])
@@ -276,6 +292,8 @@ export default function Chat({
     api.unloadChatModels(newModel).catch((err) => {
       console.warn('Failed to unload previous chat model:', err)
     })
+    abortCurrentStream()
+    setIsStreamingResponse(false)
     setSelectedModel(newModel)
     setPendingModelSwitch(null)
     // Clear the active session and messages — the next user message will
@@ -283,7 +301,7 @@ export default function Chat({
     // which already calls api.createChatSession with `selectedModel`.
     setActiveSessionId(null)
     setMessages([])
-  }, [pendingModelSwitch])
+  }, [pendingModelSwitch, abortCurrentStream])
 
   const handleCancelModelSwitch = useCallback(() => {
     setPendingModelSwitch(null)
@@ -291,9 +309,11 @@ export default function Chat({
 
   const handleNewChat = useCallback(() => {
     // Just clear the active session and messages - don't create a session yet
+    abortCurrentStream()
+    setIsStreamingResponse(false)
     setActiveSessionId(null)
     setMessages([])
-  }, [])
+  }, [abortCurrentStream])
 
   const handleClearHistory = useCallback(() => {
     openModal(
@@ -319,6 +339,8 @@ export default function Chat({
     async (sessionId: string) => {
       // Cancel any ongoing suggestions fetch
       queryClient.cancelQueries({ queryKey: ['chatSuggestions'] })
+      abortCurrentStream()
+      setIsStreamingResponse(false)
 
       setActiveSessionId(sessionId)
       // Load messages for this session
@@ -353,7 +375,7 @@ export default function Chat({
         console.warn('Failed to unload non-target chat models on session switch:', err)
       })
     },
-    [installedModels, queryClient, selectedModel]
+    [installedModels, queryClient, selectedModel, abortCurrentStream]
   )
 
   const handleSendMessage = useCallback(
@@ -386,6 +408,8 @@ export default function Chat({
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: 'user' as const, content },
       ]
+
+      abortCurrentStream()
 
       if (streamingEnabled !== false) {
         // Streaming path
@@ -485,8 +509,9 @@ export default function Chat({
             })
           }
         } finally {
-          setIsStreamingResponse(false)
-          streamAbortRef.current = null
+          if (clearStreamIfCurrent(streamAbortRef, abortController)) {
+            setIsStreamingResponse(false)
+          }
         }
 
         if (fullContent && sessionId) {
@@ -510,7 +535,7 @@ export default function Chat({
         })
       }
     },
-    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
+    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking, abortCurrentStream]
   )
 
   return (
