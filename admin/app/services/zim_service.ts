@@ -38,7 +38,6 @@ import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
 import { resolveZimDownload } from '../utils/zim_download_resolution.js'
 import { getHostedContentHeaders } from '../utils/hosted_content_auth.js'
-import { KIWIX_CATALOG_BASE_URL } from '../../constants/kiwix.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -82,6 +81,10 @@ export class ZimService {
     count: number
     query?: string
   }): Promise<ListRemoteZimFilesResponse> {
+    // The machine-facing OPDS host. NOT `browse.library.kiwix.org`, which since 2026-08-29
+    // serves an anti-crawler confirmation page (HTTP 200 + HTML) that fails
+    // `isRawListRemoteZimFilesResponse` and 500s this endpoint. See kiwix_catalog_service.
+    const LIBRARY_BASE_URL = 'https://opds.library.kiwix.org/catalog/v2/entries'
     // Kiwix returns pages of content unaware of what the user has installed locally. When
     // the installed set is large, a single 12-item Kiwix page can come back with everything
     // already installed → 0 post-filter items → frontend deadlock (#731). Accumulate across
@@ -107,7 +110,7 @@ export class ZimService {
     let totalResults = 0
 
     for (let i = 0; i < MAX_KIWIX_FETCHES; i++) {
-      const res = await axios.get(KIWIX_CATALOG_BASE_URL, {
+      const res = await axios.get(LIBRARY_BASE_URL, {
         params: {
           start: currentStart,
           count: KIWIX_PAGE_SIZE,
