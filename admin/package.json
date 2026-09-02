@@ -65,12 +65,12 @@
     "vite": "6.4.3"
   },
   "dependencies": {
-    "@adonisjs/auth": "9.6.0",
+    "@adonisjs/auth": "10.1.0",
     "@adonisjs/core": "6.19.3",
     "@adonisjs/cors": "2.2.1",
     "@adonisjs/inertia": "3.1.1",
-    "@adonisjs/lucid": "21.8.2",
-    "@adonisjs/session": "7.7.1",
+    "@adonisjs/lucid": "22.4.2",
+    "@adonisjs/session": "8.1.0",
     "@adonisjs/shield": "8.2.0",
     "@adonisjs/static": "1.1.1",
     "@adonisjs/transmit": "2.0.2",
