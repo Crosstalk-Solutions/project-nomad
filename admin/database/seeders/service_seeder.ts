@@ -4,6 +4,10 @@ import { ModelAttributes } from '@adonisjs/lucid/types/model'
 import env from '#start/env'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
+import {
+  mergeContainerConfigPreservingHostPorts,
+  mergeUiLocationPreservingHostPort,
+} from '../../app/utils/service_catalog_merge.js'
 
 type ServiceSeedRecord = Omit<
   ModelAttributes<Service>,
@@ -543,6 +547,10 @@ export default class ServiceSeeder extends BaseSeeder {
       'service_name',
       'is_custom',
       'is_user_modified',
+      // Needed to keep an installed app's published host port across catalog sync.
+      'installed',
+      'container_config',
+      'ui_location',
     ])
     const existingServiceMap = new Map(existingServices.map((s) => [s.service_name, s]))
 
@@ -562,12 +570,32 @@ export default class ServiceSeeder extends BaseSeeder {
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
       if (existing && !existing.is_custom && !existing.is_user_modified) {
+        // An installed app's published host port belongs to the machine, not the
+        // catalog: it diverges because the default was already taken on that host.
+        // Overwriting it desyncs the row from the running container, which breaks
+        // the Open link now and collides on the next recreate (#1005). Keep the
+        // live host ports and apply every other catalog change. Not-yet-installed
+        // rows take the catalog verbatim, since nothing is running to conflict.
+        const containerConfig = existing.installed
+          ? mergeContainerConfigPreservingHostPorts(
+              service.container_config,
+              existing.container_config
+            )
+          : service.container_config
+        const uiLocation = existing.installed
+          ? mergeUiLocationPreservingHostPort(
+              service.ui_location,
+              existing.ui_location,
+              existing.container_config
+            )
+          : service.ui_location
+
         await Service.query().where('service_name', service.service_name).update({
-          container_config: service.container_config,
+          container_config: containerConfig,
           container_command: service.container_command ?? null,
           metadata: (service as any).metadata ?? null,
           category: service.category,
-          ui_location: service.ui_location,
+          ui_location: uiLocation,
         })
       }
     }
