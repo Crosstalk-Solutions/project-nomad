@@ -54,6 +54,22 @@ header_red() {
   echo -e "${RED}#########################################################################${RESET}\\n"
 }
 
+banner() {
+  echo ""
+  echo -e "${GREEN}"
+  cat <<'NOMAD_ART'
+                             P R O J E C T
+                    _   _  ___  __  __    _    ____
+                   | \ | |/ _ \|  \/  |  / \  |  _ \
+                   |  \| | | | | |\/| | / _ \ | | | |
+                   | |\  | |_| | |  | |/ ___ \| |_| |
+                   |_| \_|\___/|_|  |_/_/   \_\____/
+NOMAD_ART
+  echo -e "${RESET}"
+  echo -e "${WHITE_R}                 Offline knowledge and education server${RESET}\n"
+  echo -e "${GREEN}#########################################################################${RESET}\n"
+}
+
 check_has_sudo() {
   if sudo -n true 2>/dev/null; then
     echo -e "${GREEN}#${RESET} User has sudo permissions.\\n"
@@ -623,6 +639,7 @@ ensure_dependencies_installed
 check_is_debug_mode
 
 # Main install
+banner
 get_install_confirmation
 accept_terms
 ensure_docker_installed
