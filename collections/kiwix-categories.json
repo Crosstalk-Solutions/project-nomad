@@ -45,6 +45,15 @@
               "description": "Disease prevention, travel health, and outbreak information",
               "url": "https://download.kiwix.org/zim/zimit/wwwnc.cdc.gov_en_all_2024-11.zim",
               "size_mb": 170
+            },
+            {
+              "id": "nomad-medicine-library-essential",
+              "version": "2026-09",
+              "title": "NOMAD Medicine Library (Essential)",
+              "description": "Curated first aid and field medicine PDF references, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-medicine-library-essential_2026-09.zim",
+              "size_mb": 42.2,
+              "auth": "nomad_app_key"
             }
           ]
         },
@@ -70,6 +79,15 @@
               "description": "Offline FDA drug labels - search by drug name",
               "url": "https://api.fda.gov/download.json",
               "size_mb": 1700
+            },
+            {
+              "id": "nomad-medicine-library-standard",
+              "version": "2026-09",
+              "title": "NOMAD Medicine Library (Standard)",
+              "description": "Expanded offline medical PDF reference collection, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-medicine-library-standard_2026-09.zim",
+              "size_mb": 27.6,
+              "auth": "nomad_app_key"
             }
           ]
         },
@@ -151,6 +169,15 @@
               "description": "Essential gear selection for your bug-out bag",
               "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim",
               "size_mb": 975
+            },
+            {
+              "id": "nomad-survival-library-essential",
+              "version": "2026-09",
+              "title": "NOMAD Survival Library (Essential)",
+              "description": "Core survival and preparedness PDF references, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-survival-library-essential_2026-09.zim",
+              "size_mb": 49.8,
+              "auth": "nomad_app_key"
             }
           ]
         },
@@ -191,6 +218,15 @@
               "description": "Comprehensive urban emergency preparedness video series",
               "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2026-08.zim",
               "size_mb": 2245
+            },
+            {
+              "id": "nomad-survival-library-standard",
+              "version": "2026-09",
+              "title": "NOMAD Survival Library (Standard)",
+              "description": "Expanded survival, preparedness, and field manual PDF collection, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-survival-library-standard_2026-09.zim",
+              "size_mb": 262.2,
+              "auth": "nomad_app_key"
             }
           ]
         },
@@ -320,6 +356,15 @@
               "description": "Biology courses and textbooks",
               "url": "https://download.kiwix.org/zim/libretexts/libretexts.org_en_bio_2025-01.zim",
               "size_mb": 2240
+            },
+            {
+              "id": "nomad-education-library-standard",
+              "version": "2026-09",
+              "title": "NOMAD Education Library (Standard)",
+              "description": "Homesteading and general reference PDF reading, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-education-library-standard_2026-09.zim",
+              "size_mb": 41.1,
+              "auth": "nomad_app_key"
             }
           ]
         },
@@ -425,6 +470,15 @@
               "description": "Stack Exchange Q&A for home repairs, electrical, plumbing, and construction",
               "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 1900
+            },
+            {
+              "id": "nomad-diy-library-standard",
+              "version": "2026-09",
+              "title": "NOMAD DIY Library (Standard)",
+              "description": "Construction, repair, and practical skills PDF references, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-diy-library-standard_2026-09.zim",
+              "size_mb": 62.6,
+              "auth": "nomad_app_key"
             }
           ]
         },
@@ -506,6 +560,15 @@
               "description": "Recipes and techniques for food preservation and long-term storage",
               "url": "https://download.kiwix.org/zim/other/zimgit-food-preparation_en_2025-04.zim",
               "size_mb": 98
+            },
+            {
+              "id": "nomad-agriculture-library-standard",
+              "version": "2026-09",
+              "title": "NOMAD Agriculture Library (Standard)",
+              "description": "Food preservation, foraging, and growing PDF references, hosted by Project NOMAD",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/nomad-agriculture-library-standard_2026-09.zim",
+              "size_mb": 27.7,
+              "auth": "nomad_app_key"
             }
           ]
         },
