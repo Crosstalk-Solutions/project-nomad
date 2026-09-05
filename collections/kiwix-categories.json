@@ -145,14 +145,6 @@
               "size_mb": 27
             },
             {
-              "id": "canadian_prepper_winterprepping_en",
-              "version": "2026-02",
-              "title": "Canadian Prepper: Winter Prepping",
-              "description": "Video guides for winter survival and cold weather emergencies",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_winterprepping_en_2026-02.zim",
-              "size_mb": 1340
-            },
-            {
               "id": "canadian_prepper_bugoutroll_en",
               "version": "2025-08",
               "title": "Canadian Prepper: Bug Out Roll",
@@ -193,20 +185,12 @@
               "size_mb": 75
             },
             {
-              "id": "canadian_prepper_bugoutconcepts_en",
-              "version": "2026-02",
-              "title": "Canadian Prepper: Bug Out Concepts",
-              "description": "Strategies and planning for emergency evacuation",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutconcepts_en_2026-02.zim",
-              "size_mb": 2890
-            },
-            {
               "id": "urban-prepper_en_all",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Urban Prepper",
               "description": "Comprehensive urban emergency preparedness video series",
-              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2026-02.zim",
-              "size_mb": 2240
+              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2026-08.zim",
+              "size_mb": 2245
             }
           ]
         },
@@ -485,11 +469,11 @@
             },
             {
               "id": "based.cooking_en_all",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Based.Cooking",
               "description": "Simple, practical recipes from the community",
-              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2026-02.zim",
-              "size_mb": 16
+              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2026-08.zim",
+              "size_mb": 15.8
             }
           ]
         },
@@ -566,19 +550,19 @@
           "resources": [
             {
               "id": "freecodecamp_en_all",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "freeCodeCamp",
               "description": "Interactive programming tutorials - JavaScript, algorithms, and data structures",
-              "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2026-02.zim",
-              "size_mb": 8
+              "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2026-08.zim",
+              "size_mb": 7.9
             },
             {
               "id": "devdocs_en_python",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Python Documentation",
               "description": "Complete Python language reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-02.zim",
-              "size_mb": 4
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-08.zim",
+              "size_mb": 4.4
             },
             {
               "id": "devdocs_en_javascript",
@@ -630,11 +614,11 @@
             },
             {
               "id": "devdocs_en_node",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Node.js Documentation",
               "description": "Node.js API reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_node_2026-02.zim",
-              "size_mb": 1
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_node_2026-08.zim",
+              "size_mb": 1.4
             },
             {
               "id": "devdocs_en_react",
