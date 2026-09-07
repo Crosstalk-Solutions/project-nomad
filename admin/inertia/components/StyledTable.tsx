@@ -17,6 +17,11 @@ export type StyledTableProps<T extends { [key: string]: any }> = {
     title?: React.ReactNode
     render?: (record: T, index: number) => React.ReactNode
     className?: string
+    /** Opt out of the default single-line truncation/`overflow: hidden` on
+     * this column's cells. Needed for columns whose render() opens a
+     * floating popover (e.g. a combobox) -- otherwise the cell clips the
+     * popover to its own row height instead of letting it float. */
+    noTruncate?: boolean
   }[]
   className?: string
   rowLines?: boolean
@@ -160,7 +165,8 @@ function StyledTable<T extends { [key: string]: any }>({
                       <td
                         key={index}
                         className={classNames(
-                          'relative text-sm whitespace-nowrap max-w-72 truncate break-words text-left',
+                          'relative text-sm max-w-72 break-words text-left',
+                          column.noTruncate ? '' : 'whitespace-nowrap truncate',
                           column.className || '',
                           compact ? `${leftPadding} py-2` : `${leftPadding} py-4 pr-3`
                         )}
