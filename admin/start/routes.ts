@@ -681,6 +681,10 @@ router
       tags: ['zim'],
       query: listRemoteZimValidator,
     })
+    documented(router.get('/catalog-languages', [ZimController, 'listCatalogLanguages']), {
+      summary: 'List the languages the Kiwix catalog holds books in',
+      tags: ['zim'],
+    })
     documented(router.get('/curated-categories', [ZimController, 'listCuratedCategories']), {
       summary: 'List curated ZIM categories',
       tags: ['zim'],
