@@ -255,6 +255,15 @@
               "description": "Practical guides to food production, water and sanitation, construction, and village-scale manufacturing without industrial supply chains",
               "url": "https://download.kiwix.org/zim/zimit/cd3wdproject.org_en_all_2025-11.zim",
               "size_mb": 581
+            },
+            {
+              "id": "field-manuals",
+              "version": "2026-07",
+              "title": "US Military Field Manuals",
+              "description": "Around 180 public-domain US Army, USMC, Navy and Joint field manuals. Built and maintained by community member jrsphoto (github.com/jrsphoto/ZIM-military-field-manuals).",
+              "url": "https://nomad-packs-worker.chris-556.workers.dev/content/field-manuals_2026-07.zim",
+              "size_mb": 2124,
+              "auth": "nomad_app_key"
             }
           ]
         }
