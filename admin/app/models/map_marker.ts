@@ -44,7 +44,11 @@ export default class MapMarker extends BaseModel {
   @column()
   declare icon_color: string | null
 
-  @column()
+  @column({
+    // MySQL stores this as tinyint(1) and mysql2 hands back 1/0, not true/false.
+    // Without this, strict comparisons (visible === false) silently never match.
+    consume: (value: number | boolean) => Boolean(value),
+  })
   declare visible: boolean
 
   @column.dateTime({ autoCreate: true })
