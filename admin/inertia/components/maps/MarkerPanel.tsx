@@ -3,15 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   IconEye,
   IconEyeOff,
-  IconList,
   IconMapPin,
   IconMapPinFilled,
-  IconSitemap,
   IconTrash,
   IconX,
 } from '@tabler/icons-react'
-import type { IconProps } from '@tabler/icons-react'
-import type { ComponentType } from 'react'
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { MapMarker } from '~/hooks/useMapMarkers'
@@ -32,12 +28,6 @@ type ColorSortValue = {
   bucket: number
   hue: number
   lightness: number
-}
-
-type MarkerGroup = {
-  key: string
-  label: string
-  markers: MapMarker[]
 }
 
 const normalizeColorHex = (color: string, customColor?: string | null) => {
@@ -82,35 +72,6 @@ const getColorSortValue = (color: string, customColor?: string | null): ColorSor
     hue: Math.round(hue * 60 + 360) % 360,
     lightness,
   }
-}
-
-const getHueGroupLabel = ({ bucket, hue, lightness }: ColorSortValue) => {
-  if (bucket === 0) {
-    return lightness < 0.34
-      ? 'Grayscale — Dark'
-      : lightness < 0.67
-        ? 'Grayscale — Mid'
-        : 'Grayscale — Light'
-  }
-
-  if (bucket === 2) return 'Other colors'
-
-  if (hue < 30 || hue >= 330) return 'Red'
-  if (hue < 60) return 'Orange'
-  if (hue < 90) return 'Yellow'
-  if (hue < 150) return 'Green'
-  if (hue < 210) return 'Cyan'
-  if (hue < 270) return 'Blue'
-  return 'Purple'
-}
-const getReadableIconName = (icon?: string | null) => {
-  if (!icon) return 'Default pin'
-
-  return icon
-    .replace(/^fa:/, '')
-    .replace(/^tabler:/, '')
-    .replace(/^Fa/, '')
-    .replace(/^Icon/, '')
 }
 
 export default function MarkerPanel({
@@ -365,10 +326,7 @@ export default function MarkerPanel({
         <div className="flex gap-2">
           <select
             value={sortField}
-            onChange={(e) => {
-              setSortField(e.target.value as SortField)
-              setCollapsedGroups(new Set())
-            }}
+            onChange={(e) => setSortField(e.target.value as SortField)}
             className="flex-1 rounded border border-border-default bg-surface-primary px-2 py-1 text-xs text-text-primary focus:border-desert-green focus:outline-none"
           >
             <option value="name">Sort by name</option>

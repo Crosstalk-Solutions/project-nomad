@@ -50,11 +50,21 @@ type SavedMapView = { longitude: number; latitude: number; zoom: number }
 const getMapLocationParams = (): MapLocationParams | null => {
   const params = new URLSearchParams(window.location.search)
 
-  const lat = Number(params.get('lat'))
+  const latParam = params.get('lat')
   const lngParam = params.get('lng')
   const longParam = params.get('long')
-  const lng = Number(lngParam ?? longParam)
-  const zoom = Number(params.get('zoom') ?? 12)
+  const rawLng = lngParam ?? longParam
+
+  // Both coordinates must actually be present. Coercing a missing param instead
+  // yields Number(null) === 0, which passes every bounds check below and flies
+  // the map to 0,0 on a plain visit to /maps -- overriding the restored view and
+  // then persisting Null Island back over it via onMoveEnd.
+  if (!latParam || !rawLng) return null
+
+  const lat = Number(latParam)
+  const lng = Number(rawLng)
+  const zoomParam = params.get('zoom')
+  const zoom = zoomParam ? Number(zoomParam) : 12
 
   if (
     !Number.isFinite(lat) ||
@@ -461,8 +471,8 @@ export default function MapComponent({
               latitude={placingMarker.lat}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ name, notes, color, customColor, icon   }) => {
-                await addMarker({
+              onSave={async ({ name, notes, color, customColor, icon }) => {
+                const saved = await addMarker({
                   name,
                   longitude: placingMarker.lng,
                   latitude: placingMarker.lat,
@@ -471,6 +481,11 @@ export default function MapComponent({
                   icon,
                   notes: notes || null,
                 })
+
+                // Leave the popup open on failure. api.ts already surfaces the
+                // error toast, but closing here would throw away what was typed
+                // with nothing to retry against.
+                if (!saved) return
 
                 setPlacingMarker(null)
                 setHasUnsavedMarkerChanges(false)
@@ -503,16 +518,18 @@ export default function MapComponent({
               initialMarker={selectedMarker}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ id, name, notes, color, customColor, icon  }) => {
+              onSave={async ({ id, name, notes, color, customColor, icon }) => {
                 if (!id) return
 
-                await updateMarker(id, {
+                const saved = await updateMarker(id, {
                   name,
                   notes: notes || null,
                   color,
                   customColor,
                   icon,
                 })
+
+                if (!saved) return
 
                 setEditingMarkerId(null)
                 setHasUnsavedMarkerChanges(false)

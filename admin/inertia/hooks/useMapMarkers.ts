@@ -123,7 +123,11 @@ export function useMapMarkers() {
       setMarkers((prev) =>
         prev.map((existingMarker) => (existingMarker.id === id ? marker : existingMarker))
       )
+
+      return marker
     }
+
+    return null
   }, [])
 
   const deleteMarker = useCallback(async (id: number) => {
