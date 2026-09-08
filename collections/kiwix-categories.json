@@ -163,12 +163,20 @@
               "size_mb": 27
             },
             {
-              "id": "canadian_prepper_bugoutroll_en",
-              "version": "2025-08",
+              "id": "canadian-prepper_en_winterprepping",
+              "version": "2026-08",
+              "title": "Canadian Prepper: Winter Prepping",
+              "description": "Video guides for winter survival and cold weather emergencies",
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_winterprepping_2026-08.zim",
+              "size_mb": 1342
+            },
+            {
+              "id": "canadian-prepper_en_bugoutroll",
+              "version": "2026-07",
               "title": "Canadian Prepper: Bug Out Roll",
               "description": "Essential gear selection for your bug-out bag",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim",
-              "size_mb": 975
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_bugoutroll_2026-07.zim",
+              "size_mb": 879
             },
             {
               "id": "nomad-survival-library-essential",
@@ -210,6 +218,14 @@
               "description": "Answered questions on radio equipment, antennas, licensing, and emergency communications",
               "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-02.zim",
               "size_mb": 75
+            },
+            {
+              "id": "canadian-prepper_en_bugoutconcepts",
+              "version": "2026-08",
+              "title": "Canadian Prepper: Bug Out Concepts",
+              "description": "Strategies and planning for emergency evacuation",
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_bugoutconcepts_2026-08.zim",
+              "size_mb": 2886
             },
             {
               "id": "urban-prepper_en_all",
