@@ -1,7 +1,5 @@
 import { resolveMarkerIcon } from './marker_icons'
 import { IconCircleFilled } from '@tabler/icons-react'
-import type { IconProps } from '@tabler/icons-react'
-import type { ComponentType } from 'react'
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { PinColorId } from '~/hooks/useMapMarkers'
