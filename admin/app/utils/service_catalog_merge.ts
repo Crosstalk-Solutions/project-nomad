@@ -108,14 +108,19 @@ export function mergeContainerConfigPreservingHostPorts<T extends string | null>
  * scheme is always taken, so a catalog change like Vaultwarden moving to `https:`
  * still reaches an install running on an alternate port.
  *
- * The live port is only honoured when it matches a host port the install actually
- * publishes. That keeps a stale or hand-edited `ui_location` from pinning the link
- * to a port nothing is listening on.
+ * `mergedConfig` must be the container_config this sync is about to WRITE, meaning
+ * the output of `mergeContainerConfigPreservingHostPorts`, not the live row. The
+ * live port is only honoured when that config actually publishes it, which does
+ * two things: it keeps a stale or hand-edited `ui_location` from pinning the link
+ * to a port nothing is listening on, and it keeps the link in step with the config
+ * in the one case the catalog wins outright. When the catalog moves the
+ * container-side port, no live host port is preserved, so the link takes the
+ * catalog port rather than pointing at a port the recreate will not bind.
  */
 export function mergeUiLocationPreservingHostPort(
   catalogUiLocation: string | null,
   liveUiLocation: string | null | undefined,
-  liveConfig: SerializedConfig
+  mergedConfig: SerializedConfig
 ): string | null {
   if (!catalogUiLocation || !liveUiLocation) return catalogUiLocation
 
@@ -126,7 +131,7 @@ export function mergeUiLocationPreservingHostPort(
   const livePort = liveMatch[2]
   if (livePort === catalogMatch[2]) return catalogUiLocation
 
-  const bindings = readPortBindings(liveConfig)
+  const bindings = readPortBindings(mergedConfig)
   const publishedPorts = new Set(
     bindings
       ? Object.values(bindings)

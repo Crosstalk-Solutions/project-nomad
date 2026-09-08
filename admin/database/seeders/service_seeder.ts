@@ -584,11 +584,15 @@ export default class ServiceSeeder extends BaseSeeder {
               existing.container_config
             )
           : service.container_config
+        // Derive the link from the config we are about to WRITE, not the live one. When a
+        // catalog change to the container-side port means the live host port was not
+        // preserved above, the link has to follow the catalog too, or the row ships a
+        // container bound to one port and an Open button pointing at another.
         const uiLocation = existing.installed
           ? mergeUiLocationPreservingHostPort(
               service.ui_location,
               existing.ui_location,
-              existing.container_config
+              containerConfig
             )
           : service.ui_location
 

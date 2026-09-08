@@ -113,6 +113,27 @@ test('a path ui_location is never rewritten', () => {
   assert.equal(mergeUiLocationPreservingHostPort('/chat', '9999', config({ '80/tcp': '9999' })), '/chat')
 })
 
+// The third argument is the config the sync is about to WRITE, not the live row.
+// When the catalog moves the container-side port, the port merge keeps nothing, so
+// the link has to take the catalog port too. Feeding the live config here instead
+// writes a row whose container binds 8090 while its Open button points at 9999.
+test('follows the catalog when a container-side port change wins', () => {
+  const catalogConfig = config({ '3000/tcp': '8090' })
+  const liveConfig = config({ '8080/tcp': '9999' })
+  const mergedConfig = mergeContainerConfigPreservingHostPorts(catalogConfig, liveConfig)
+
+  assert.equal(firstPublishedHostPort(mergedConfig), '8090')
+  assert.equal(mergeUiLocationPreservingHostPort('8090', '9999', mergedConfig), '8090')
+})
+
+test('a preserved host port still reaches ui_location through the merged config', () => {
+  const mergedConfig = mergeContainerConfigPreservingHostPorts(
+    config({ '8080/tcp': '8090' }),
+    config({ '8080/tcp': '9999' })
+  )
+  assert.equal(mergeUiLocationPreservingHostPort('8090', '9999', mergedConfig), '9999')
+})
+
 test('ignores a live port the install does not actually publish', () => {
   // Stale or hand-edited ui_location: pinning the link to it would point the
   // Open button at a port with nothing behind it.
