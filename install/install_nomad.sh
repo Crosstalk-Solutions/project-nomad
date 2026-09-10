@@ -37,12 +37,232 @@ UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
+has_lan_address='false'
+
+# Offline artifact mode. When an artifact bundle is selected (--artifacts or
+# NOMAD_ARTIFACT_PATH) every dependency — host packages, Docker images, helper
+# scripts and the management compose file — is taken from that bundle, and the
+# installer never falls back to the network. See admin/docs/offline-install.md.
+SUPPORTED_BUNDLE_FORMAT_VERSION='1'
+NOMAD_ARTIFACT_PATH="${NOMAD_ARTIFACT_PATH:-}"
+artifact_mode='false'
+existing_install='false'
+existing_app_key=''
+existing_db_password=''
+existing_db_root_password=''
+existing_url=''
+artifact_manifest_file=''
+artifact_apt_repo_dir=''
+artifact_image_dir=''
+artifact_payload_dir=''
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
 #                                                                                           Functions                                                                                             #
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
+
+usage() {
+  cat <<EOF
+Project NOMAD Installation Script
+
+Usage:
+  sudo bash $(basename "$0") [options]
+
+Options:
+  --artifacts PATH   Install from a local offline artifact bundle instead of
+                     downloading dependencies from the internet. Bundles are
+                     produced on a connected machine by
+                     install/build_offline_bundle.sh and are specific to one
+                     OS / version / architecture.
+  -h, --help         Show this help text and exit.
+
+Environment:
+  NOMAD_ARTIFACT_PATH   Equivalent to --artifacts. The command line option wins
+                        when both are supplied.
+
+With no artifact path the installer behaves exactly as before and downloads its
+dependencies from the internet.
+EOF
+}
+
+parse_installer_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --artifacts)
+        if [[ $# -lt 2 || -z "$2" ]]; then
+          echo -e "${RED}#${RESET} --artifacts requires the path to an offline artifact bundle."
+          exit 1
+        fi
+        NOMAD_ARTIFACT_PATH="$2"
+        shift
+        ;;
+      --artifacts=*)
+        NOMAD_ARTIFACT_PATH="${1#*=}"
+        if [[ -z "${NOMAD_ARTIFACT_PATH}" ]]; then
+          echo -e "${RED}#${RESET} --artifacts requires the path to an offline artifact bundle."
+          exit 1
+        fi
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo -e "${RED}#${RESET} Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+    shift
+  done
+
+  if [[ -n "${NOMAD_ARTIFACT_PATH}" ]]; then
+    local resolved_path
+    if ! resolved_path="$(cd -- "${NOMAD_ARTIFACT_PATH}" 2>/dev/null && pwd)"; then
+      echo -e "${RED}#${RESET} Offline artifact bundle directory not found: ${NOMAD_ARTIFACT_PATH}"
+      exit 1
+    fi
+    NOMAD_ARTIFACT_PATH="${resolved_path}"
+    artifact_mode='true'
+    artifact_manifest_file="${NOMAD_ARTIFACT_PATH}/manifest"
+    artifact_apt_repo_dir="${NOMAD_ARTIFACT_PATH}/packages/apt"
+    artifact_image_dir="${NOMAD_ARTIFACT_PATH}/images"
+    artifact_payload_dir="${NOMAD_ARTIFACT_PATH}/payload/nomad"
+  fi
+}
+
+artifact_mode_enabled() {
+  [[ "${artifact_mode}" == 'true' ]]
+}
+
+artifact_manifest_get() {
+  # The manifest is data, not shell. Read individual keys instead of sourcing it
+  # so a malformed or hostile bundle cannot execute code on the target.
+  local key="$1"
+  awk -F= -v wanted="${key}" '$1 == wanted { sub(/^[^=]*=/, "", $0); print; exit }' "${artifact_manifest_file}"
+}
+
+normalize_arch() {
+  case "$1" in
+    x86_64|amd64) echo 'amd64' ;;
+    aarch64|arm64) echo 'arm64' ;;
+    *) echo "$1" ;;
+  esac
+}
+
+os_release_get() {
+  local key="$1"
+  [[ -r /etc/os-release ]] || return 0
+  awk -F= -v wanted="${key}" '$1 == wanted { gsub(/^"|"$/, "", $2); print $2; exit }' /etc/os-release
+}
+
+validate_artifact_bundle() {
+  echo -e "${YELLOW}#${RESET} Offline artifact mode selected: ${NOMAD_ARTIFACT_PATH}\\n"
+
+  if ! command -v sha256sum &> /dev/null; then
+    header_red
+    echo -e "${RED}#${RESET} sha256sum is required to verify an offline artifact bundle but was not found."
+    exit 1
+  fi
+
+  # Distinguish "not a bundle at all" from "a damaged bundle". Pointing
+  # --artifacts at a source checkout instead of a built bundle is an easy
+  # mistake to make, and deserves a better answer than a missing-file list.
+  if [[ ! -f "${artifact_manifest_file}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} ${NOMAD_ARTIFACT_PATH} is not an offline artifact bundle (it has no 'manifest' file).\\n"
+    echo -e "${RED}#${RESET} --artifacts must point at a bundle directory, not at a Project NOMAD source"
+    echo -e "${RED}#${RESET} checkout. Bundles are named project-nomad-offline-<os>-<version>-<arch>-<commit>"
+    echo -e "${RED}#${RESET} and contain a manifest, SHA256SUMS, packages/, images/ and payload/.\\n"
+    echo -e "${RED}#${RESET} Build one on an internet-connected machine:"
+    echo -e "${RED}#${RESET}   ./install/build_offline_bundle.sh --target ubuntu:26.04 --output <output-dir>\\n"
+    echo -e "${RED}#${RESET} Then copy the resulting directory to this machine, cd into it, and run:"
+    echo -e "${RED}#${RESET}   sudo bash ./install_nomad.sh --artifacts ."
+    exit 1
+  fi
+
+  # Every one of these is required for a complete offline install. A bundle that
+  # is missing any of them must fail here rather than part-way through, because
+  # artifact mode has no network fallback to fill the gap.
+  local required_files=(
+    "${NOMAD_ARTIFACT_PATH}/SHA256SUMS"
+    "${artifact_apt_repo_dir}/Packages"
+    "${artifact_apt_repo_dir}/Packages.gz"
+    "${artifact_image_dir}/core-images.txt"
+    "${artifact_image_dir}/core-images.tar"
+    "${artifact_payload_dir}/management_compose.yaml"
+    "${artifact_payload_dir}/compose.artifact.yml"
+    "${artifact_payload_dir}/start_nomad.sh"
+    "${artifact_payload_dir}/stop_nomad.sh"
+    "${artifact_payload_dir}/update_nomad.sh"
+  )
+  local required_file
+  for required_file in "${required_files[@]}"; do
+    if [[ ! -f "${required_file}" ]]; then
+      header_red
+      echo -e "${RED}#${RESET} The offline artifact bundle is incomplete. Missing: ${required_file}"
+      echo -e "${RED}#${RESET} Rebuild the bundle with install/build_offline_bundle.sh on a connected machine and try again."
+      exit 1
+    fi
+  done
+
+  # Transfer integrity only. These checksums prove the bundle arrived intact;
+  # they are not a publisher signature and do not prove who produced it.
+  echo -e "${YELLOW}#${RESET} Verifying artifact bundle checksums...\\n"
+  if ! (cd "${NOMAD_ARTIFACT_PATH}" && sha256sum -c SHA256SUMS > /dev/null); then
+    header_red
+    echo -e "${RED}#${RESET} The offline artifact bundle failed checksum verification."
+    echo -e "${RED}#${RESET} It is corrupt or incomplete — copy it again from the build machine and retry."
+    exit 1
+  fi
+
+  local bundle_format target_os target_version target_arch
+  bundle_format="$(artifact_manifest_get BUNDLE_FORMAT_VERSION)"
+  target_os="$(artifact_manifest_get TARGET_OS)"
+  target_version="$(artifact_manifest_get TARGET_VERSION)"
+  target_arch="$(artifact_manifest_get TARGET_ARCH)"
+
+  if [[ "${bundle_format}" != "${SUPPORTED_BUNDLE_FORMAT_VERSION}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} Unsupported artifact bundle format '${bundle_format:-unknown}'."
+    echo -e "${RED}#${RESET} This installer supports bundle format ${SUPPORTED_BUNDLE_FORMAT_VERSION}."
+    exit 1
+  fi
+
+  if [[ -z "${target_os}" || -z "${target_version}" || -z "${target_arch}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} The artifact manifest is incomplete — TARGET_OS, TARGET_VERSION and TARGET_ARCH are all required."
+    exit 1
+  fi
+
+  # Bundles carry a dependency closure resolved for one exact distribution and
+  # architecture, so a mismatch is an error rather than a warning.
+  local host_os host_version host_arch
+  host_os="$(os_release_get ID)"
+  host_version="$(os_release_get VERSION_ID)"
+  host_arch="$(normalize_arch "$(dpkg --print-architecture 2>/dev/null || uname -m)")"
+
+  if [[ "${host_os}" != "${target_os}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} This bundle targets ${target_os}, but this host is ${host_os:-unknown}."
+    echo -e "${RED}#${RESET} Build a bundle for ${host_os:-this host} and try again."
+    exit 1
+  fi
+  if [[ "${host_version}" != "${target_version}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} This bundle targets ${target_os} ${target_version}, but this host runs ${host_version:-unknown}."
+    echo -e "${RED}#${RESET} Bundles are specific to one OS version because they carry a resolved package set."
+    exit 1
+  fi
+  if [[ "${host_arch}" != "${target_arch}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} This bundle targets ${target_arch}, but this host is ${host_arch:-unknown}."
+    exit 1
+  fi
+
+  echo -e "${GREEN}#${RESET} Artifact bundle validated (NOMAD commit $(artifact_manifest_get NOMAD_COMMIT), built $(artifact_manifest_get CREATED_AT_UTC)).\\n"
+}
 
 header() {
   if [[ "${script_option_debug}" != 'true' ]]; then clear; clear; fi
@@ -217,6 +437,98 @@ ensure_docker_installed() {
   fi
 }
 
+install_packages_from_artifacts() {
+  # Artifact-mode replacement for ensure_dependencies_installed + ensure_docker_installed.
+  # Everything comes from the bundle's flat APT repository; the host's configured
+  # remote repositories take no part in dependency resolution.
+  echo -e "${YELLOW}#${RESET} Installing host dependencies from the offline artifact bundle...\\n"
+
+  local apt_root
+  if ! apt_root="$(mktemp -d /tmp/nomad-artifact-apt.XXXXXX)"; then
+    header_red
+    echo -e "${RED}#${RESET} Failed to create a temporary directory for the local APT repository."
+    exit 1
+  fi
+
+  # Removable media is routinely mounted under a path containing spaces, which
+  # the APT "file:" source syntax cannot express. Reach the bundle repository
+  # through a whitespace-free symlink instead.
+  if ! ln -s "${artifact_apt_repo_dir}" "${apt_root}/repo"; then
+    header_red
+    echo -e "${RED}#${RESET} Failed to link the local APT repository at ${artifact_apt_repo_dir}."
+    exit 1
+  fi
+  mkdir -p "${apt_root}/lists/partial"
+  echo "deb [trusted=yes] file:${apt_root}/repo ./" > "${apt_root}/sources.list"
+
+  # Isolation: only the bundle repository is visible (sourcelist), /etc/apt/sources.list.d
+  # is excluded (sourceparts=-), list state is kept out of the host's (Dir::State::Lists),
+  # and APT is told not to retry fetches. A dependency that is missing from the
+  # bundle therefore fails the install instead of being pulled from the internet.
+  local apt_opts=(
+    -o "Dir::Etc::sourcelist=${apt_root}/sources.list"
+    -o "Dir::Etc::sourceparts=-"
+    -o "Dir::State::Lists=${apt_root}/lists"
+    -o "APT::Get::List-Cleanup=0"
+    -o "Acquire::Languages=none"
+    -o "Acquire::Retries=0"
+  )
+
+  # Mirrors what the online path installs: the dependencies checked by
+  # ensure_dependencies_installed, the Docker packages the convenience script
+  # would install, and the host utilities used later by verify_gpu_setup.
+  local packages=(
+    ca-certificates
+    curl
+    gnupg
+    jq
+    pciutils
+    docker-ce
+    docker-ce-cli
+    containerd.io
+    docker-buildx-plugin
+    docker-compose-plugin
+  )
+  if [[ "$(artifact_manifest_get WITH_NVIDIA_TOOLKIT)" == '1' ]]; then
+    packages+=(nvidia-container-toolkit)
+  fi
+
+  if ! sudo apt-get "${apt_opts[@]}" update; then
+    header_red
+    echo -e "${RED}#${RESET} Failed to read the offline APT repository at ${artifact_apt_repo_dir}."
+    rm -rf "${apt_root}"
+    exit 1
+  fi
+
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get "${apt_opts[@]}" install -y --no-install-recommends "${packages[@]}"; then
+    header_red
+    echo -e "${RED}#${RESET} Failed to install host dependencies from the offline artifact bundle."
+    echo -e "${RED}#${RESET} The bundle is missing one or more packages required by this system. Rebuild it"
+    echo -e "${RED}#${RESET} on a connected machine for $(artifact_manifest_get TARGET_OS) $(artifact_manifest_get TARGET_VERSION) and try again."
+    rm -rf "${apt_root}"
+    exit 1
+  fi
+
+  rm -rf "${apt_root}"
+
+  if ! command -v docker &> /dev/null; then
+    header_red
+    echo -e "${RED}#${RESET} Docker is still not available after installing packages from the bundle."
+    exit 1
+  fi
+
+  if ! systemctl is-active --quiet docker; then
+    echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
+    sudo systemctl enable --now docker
+    if ! systemctl is-active --quiet docker; then
+      echo -e "${RED}#${RESET} Failed to start Docker. Please check the Docker service status and try again."
+      exit 1
+    fi
+  fi
+
+  echo -e "${GREEN}#${RESET} Host dependencies installed from the offline artifact bundle.\\n"
+}
+
 check_docker_compose() {
   # Check if 'docker compose' (v2 plugin) is available
   if ! docker compose version &>/dev/null; then
@@ -227,12 +539,10 @@ check_docker_compose() {
   fi
 }
 
-setup_nvidia_container_toolkit() {
-  # This function attempts to set up NVIDIA GPU support but is non-blocking
-  # Any failures will result in warnings but will NOT stop the installation process
-  
-  echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...\\n"
-  
+detect_nvidia_gpu() {
+  # Shared hardware detection for the online and artifact toolkit paths.
+  # Returns 0 when an NVIDIA GPU is present.
+
   # Safely detect NVIDIA GPU
   local has_nvidia_gpu=false
   if command -v lspci &> /dev/null; then
@@ -241,7 +551,7 @@ setup_nvidia_container_toolkit() {
       echo -e "${GREEN}#${RESET} NVIDIA GPU detected.\\n"
     fi
   fi
-  
+
   # Also check for nvidia-smi
   if ! $has_nvidia_gpu && command -v nvidia-smi &> /dev/null; then
     if nvidia-smi &> /dev/null; then
@@ -249,12 +559,63 @@ setup_nvidia_container_toolkit() {
       echo -e "${GREEN}#${RESET} NVIDIA GPU detected via nvidia-smi.\\n"
     fi
   fi
-  
-  if ! $has_nvidia_gpu; then
+
+  $has_nvidia_gpu
+}
+
+setup_nvidia_container_toolkit_from_artifacts() {
+  # Artifact-mode counterpart of setup_nvidia_container_toolkit. Same non-blocking
+  # philosophy: warn and continue rather than fail the install. The toolkit, when
+  # present, was installed from the bundle by install_packages_from_artifacts —
+  # the NVIDIA package repository is never contacted.
+
+  echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...\\n"
+
+  if ! detect_nvidia_gpu; then
+    echo -e "${YELLOW}#${RESET} No NVIDIA GPU detected. Skipping NVIDIA container toolkit configuration.\\n"
+    return 0
+  fi
+
+  if ! command -v nvidia-ctk &> /dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: an NVIDIA GPU is present but this bundle does not include the NVIDIA"
+    echo -e "${YELLOW}#${RESET} Container Toolkit. Rebuild the bundle without --without-nvidia-toolkit to add it.\\n"
+    echo -e "${YELLOW}#${RESET} Continuing without NVIDIA container acceleration.\\n"
+    return 0
+  fi
+
+  if ! command -v nvidia-smi &> /dev/null || ! nvidia-smi &> /dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: the NVIDIA Container Toolkit is installed but no working host NVIDIA"
+    echo -e "${YELLOW}#${RESET} driver was detected. Host GPU drivers are outside the scope of offline bundles"
+    echo -e "${YELLOW}#${RESET} and must be installed separately. Continuing without GPU acceleration.\\n"
+    return 0
+  fi
+
+  echo -e "${YELLOW}#${RESET} Configuring Docker to use NVIDIA runtime...\\n"
+  if ! sudo nvidia-ctk runtime configure --runtime=docker 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: nvidia-ctk runtime configuration failed. GPU support may require manual setup.\\n"
+    return 0
+  fi
+
+  echo -e "${YELLOW}#${RESET} Restarting Docker service...\\n"
+  if ! sudo systemctl restart docker 2>/dev/null; then
+    echo -e "${YELLOW}#${RESET} Warning: Failed to restart Docker service. You may need to restart it manually.\\n"
+    return 0
+  fi
+
+  echo -e "${GREEN}#${RESET} NVIDIA container toolkit configuration completed.\\n"
+}
+
+setup_nvidia_container_toolkit() {
+  # This function attempts to set up NVIDIA GPU support but is non-blocking
+  # Any failures will result in warnings but will NOT stop the installation process
+
+  echo -e "${YELLOW}#${RESET} Checking for NVIDIA GPU...\\n"
+
+  if ! detect_nvidia_gpu; then
     echo -e "${YELLOW}#${RESET} No NVIDIA GPU detected. Skipping NVIDIA container toolkit installation.\\n"
     return 0
   fi
-  
+
   # Check if nvidia-container-toolkit is already installed
   if command -v nvidia-ctk &> /dev/null; then
     echo -e "${GREEN}#${RESET} NVIDIA container toolkit is already installed.\\n"
@@ -353,6 +714,25 @@ setup_nvidia_container_toolkit() {
 }
 
 get_install_confirmation(){
+  if artifact_mode_enabled && [[ "${existing_install}" == 'true' ]]; then
+    # Re-running artifact mode over an existing install is the supported offline
+    # update path: new images and helper scripts are applied, data is kept.
+    echo -e "${YELLOW}#${RESET} An existing Project NOMAD installation was found at ${NOMAD_DIR}."
+    echo -e "${YELLOW}#${RESET} This will update it from the artifact bundle, keeping your database, installed apps and content."
+    echo -e "${YELLOW}#${RESET} Backing up ${NOMAD_DIR} first is still recommended."
+    read -p "Are you sure you want to continue? (y/N): " choice
+    case "$choice" in
+      y|Y )
+        echo -e "${GREEN}#${RESET} User chose to continue with the update."
+        return 0
+        ;;
+      * )
+        echo "User chose not to continue with the update."
+        exit 0
+        ;;
+    esac
+  fi
+
   echo -e "${YELLOW}#${RESET} This script will install Project NOMAD and its dependencies on your machine."
   echo -e "${YELLOW}#${RESET} If you already have Project NOMAD installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
   read -p "Are you sure you want to continue? (y/N): " choice
@@ -407,6 +787,23 @@ create_nomad_directory(){
   sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
 }
 
+copy_artifact_payload_file() {
+  local source_name="$1"
+  local destination="$2"
+
+  if [[ ! -f "${artifact_payload_dir}/${source_name}" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} Required file missing from the artifact bundle payload: ${source_name}"
+    exit 1
+  fi
+
+  if ! cp "${artifact_payload_dir}/${source_name}" "${destination}"; then
+    header_red
+    echo -e "${RED}#${RESET} Failed to copy ${source_name} from the artifact bundle to ${destination}."
+    exit 1
+  fi
+}
+
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
 
@@ -416,23 +813,89 @@ download_management_compose_file() {
     exit 1
   fi
   echo -e "${GREEN}#${RESET} Docker compose file downloaded successfully to $compose_file_path.\\n"
+}
 
-  local app_key=$(generateRandomPass)
-  local db_root_password=$(generateRandomPass)
-  local db_user_password=$(generateRandomPass)
+copy_management_compose_file_from_artifacts() {
+  local compose_file_path="${NOMAD_DIR}/compose.yml"
 
-  # If MySQL data directory exists from a previous install attempt, remove it.
-  # MySQL only initializes credentials on first startup when the data dir is empty.
-  # If stale data exists, MySQL ignores the new passwords above and uses the old ones,
-  # causing "Access denied" errors when the admin container tries to connect.
-  if [[ -d "${NOMAD_DIR}/mysql" ]]; then
-    echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
-    sudo rm -rf "${NOMAD_DIR}/mysql"
+  echo -e "${YELLOW}#${RESET} Installing docker-compose file for management from the artifact bundle...\\n"
+  copy_artifact_payload_file management_compose.yaml "$compose_file_path"
+  # Layered at startup to force pull_policy: never for every service, so the
+  # canonical compose file keeps its normal pull_policy: always.
+  copy_artifact_payload_file compose.artifact.yml "${NOMAD_DIR}/compose.artifact.yml"
+  echo -e "${GREEN}#${RESET} Docker compose file installed successfully to $compose_file_path.\\n"
+}
+
+compose_env_value() {
+  # Reads a "- KEY=value" entry from a compose file. Prints nothing when the key
+  # is absent or still holds the placeholder.
+  local key="$1" file="$2" value
+  [[ -f "$file" ]] || return 0
+  value="$(awk -v key="${key}" '
+    $0 ~ "^[[:space:]]*-[[:space:]]*" key "=" {
+      sub("^[[:space:]]*-[[:space:]]*" key "=", "", $0)
+      print
+      exit
+    }
+  ' "$file")"
+  [[ "$value" != 'replaceme' ]] || return 0
+  echo "$value"
+}
+
+detect_existing_installation() {
+  # Must run before the compose file is replaced, so an update can carry the
+  # generated credentials forward instead of orphaning the existing database.
+  local compose_file_path="${NOMAD_DIR}/compose.yml"
+  [[ -f "$compose_file_path" ]] || return 0
+
+  existing_app_key="$(compose_env_value APP_KEY "$compose_file_path")"
+  existing_db_password="$(compose_env_value MYSQL_PASSWORD "$compose_file_path")"
+  existing_db_root_password="$(compose_env_value MYSQL_ROOT_PASSWORD "$compose_file_path")"
+  existing_url="$(compose_env_value URL "$compose_file_path")"
+
+  if [[ -n "$existing_app_key" && -n "$existing_db_password" && -n "$existing_db_root_password" ]]; then
+    existing_install='true'
+  fi
+}
+
+configure_management_compose_file() {
+  local compose_file_path="${NOMAD_DIR}/compose.yml"
+  local app_key db_root_password db_user_password
+
+  # Re-running artifact mode over an existing install is an update, not a fresh
+  # install: keep the credentials the database was initialised with so its data,
+  # installed apps and settings survive. MySQL only applies these passwords on
+  # first startup, so regenerating them here is what would force wiping the data
+  # directory.
+  if artifact_mode_enabled && [[ "${existing_install}" == 'true' ]]; then
+    echo -e "${YELLOW}#${RESET} Existing Project NOMAD installation detected — updating in place and keeping your data.\\n"
+    app_key="${existing_app_key}"
+    db_root_password="${existing_db_root_password}"
+    db_user_password="${existing_db_password}"
+  else
+    app_key=$(generateRandomPass)
+    db_root_password=$(generateRandomPass)
+    db_user_password=$(generateRandomPass)
+
+    # If MySQL data directory exists from a previous install attempt, remove it.
+    # MySQL only initializes credentials on first startup when the data dir is empty.
+    # If stale data exists, MySQL ignores the new passwords above and uses the old ones,
+    # causing "Access denied" errors when the admin container tries to connect.
+    if [[ -d "${NOMAD_DIR}/mysql" ]]; then
+      echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
+      sudo rm -rf "${NOMAD_DIR}/mysql"
+    fi
   fi
 
   # Inject dynamic env values into the compose file
   echo -e "${YELLOW}#${RESET} Configuring docker-compose file env variables...\\n"
-  sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
+  if artifact_mode_enabled && [[ -n "${existing_url}" ]]; then
+    # Keep the address the instance is already reachable at rather than silently
+    # repointing it during an update.
+    sed -i "s|URL=replaceme|URL=${existing_url}|g" "$compose_file_path"
+  else
+    sed -i "s|URL=replaceme|URL=http://${local_ip_address}:8080|g" "$compose_file_path"
+  fi
   sed -i "s|APP_KEY=replaceme|APP_KEY=${app_key}|g" "$compose_file_path"
   
   sed -i "s|DB_PASSWORD=replaceme|DB_PASSWORD=${db_user_password}|g" "$compose_file_path"
@@ -440,6 +903,18 @@ download_management_compose_file() {
   sed -i "s|MYSQL_PASSWORD=replaceme|MYSQL_PASSWORD=${db_user_password}|g" "$compose_file_path"
   
   echo -e "${GREEN}#${RESET} Docker compose file configured successfully.\\n"
+}
+
+setup_management_compose_file() {
+  # Read the outgoing compose file before it is overwritten.
+  detect_existing_installation
+
+  if artifact_mode_enabled; then
+    copy_management_compose_file_from_artifacts
+  else
+    download_management_compose_file
+  fi
+  configure_management_compose_file
 }
 
 download_helper_scripts() {
@@ -469,9 +944,113 @@ download_helper_scripts() {
   echo -e "${GREEN}#${RESET} Helper scripts downloaded successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
 }
 
+copy_helper_scripts_from_artifacts() {
+  local start_script_path="${NOMAD_DIR}/start_nomad.sh"
+  local stop_script_path="${NOMAD_DIR}/stop_nomad.sh"
+  local update_script_path="${NOMAD_DIR}/update_nomad.sh"
+
+  echo -e "${YELLOW}#${RESET} Installing helper scripts from the artifact bundle...\\n"
+  copy_artifact_payload_file start_nomad.sh "$start_script_path"
+  chmod +x "$start_script_path"
+
+  copy_artifact_payload_file stop_nomad.sh "$stop_script_path"
+  chmod +x "$stop_script_path"
+
+  copy_artifact_payload_file update_nomad.sh "$update_script_path"
+  chmod +x "$update_script_path"
+
+  # The uninstall script is normally fetched from GitHub on demand, which a
+  # disconnected host cannot do. Ship it alongside the others when the bundle
+  # carries it.
+  if [[ -f "${artifact_payload_dir}/uninstall_nomad.sh" ]]; then
+    copy_artifact_payload_file uninstall_nomad.sh "${NOMAD_DIR}/uninstall_nomad.sh"
+    chmod +x "${NOMAD_DIR}/uninstall_nomad.sh"
+  fi
+
+  echo -e "${GREEN}#${RESET} Helper scripts installed successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
+}
+
+setup_helper_scripts() {
+  if artifact_mode_enabled; then
+    copy_helper_scripts_from_artifacts
+  else
+    download_helper_scripts
+  fi
+}
+
+load_artifact_images() {
+  echo -e "${YELLOW}#${RESET} Loading Docker images from the artifact bundle...\\n"
+
+  local archive
+  local archives_loaded=0
+  for archive in "${artifact_image_dir}"/*.tar; do
+    [[ -f "$archive" ]] || continue
+    # Skip AppleDouble sidecars ("._core-images.tar"), which macOS leaves on
+    # FAT/exFAT media next to real files. They match *.tar but are metadata.
+    [[ "$(basename "$archive")" != ._* ]] || continue
+    echo -e "${YELLOW}#${RESET} Loading $(basename "$archive")...\\n"
+    if ! sudo docker load -i "$archive"; then
+      header_red
+      echo -e "${RED}#${RESET} Failed to load Docker images from $(basename "$archive")."
+      exit 1
+    fi
+    archives_loaded=$((archives_loaded + 1))
+  done
+
+  if [[ "$archives_loaded" -eq 0 ]]; then
+    header_red
+    echo -e "${RED}#${RESET} No Docker image archives were found in ${artifact_image_dir}."
+    exit 1
+  fi
+
+  # Fail closed: the stack starts with --pull never, so a management image that
+  # did not make it into the archive must be caught here with a clear message
+  # rather than as an opaque Compose failure.
+  local image
+  while IFS= read -r image; do
+    [[ -n "$image" ]] || continue
+    if ! sudo docker image inspect "$image" &> /dev/null; then
+      header_red
+      echo -e "${RED}#${RESET} The bundle lists image ${image} but it is not present after loading."
+      echo -e "${RED}#${RESET} Rebuild the bundle on a connected machine and try again."
+      exit 1
+    fi
+  done < "${artifact_image_dir}/core-images.txt"
+
+  echo -e "${GREEN}#${RESET} Docker images loaded successfully from the artifact bundle.\\n"
+}
+
+seed_artifact_content() {
+  # Optional extension point: a bundle may carry pre-staged NOMAD storage
+  # content. Transporting files here does not make every optional app or content
+  # type installable offline — see admin/docs/offline-install.md.
+  [[ -d "${NOMAD_ARTIFACT_PATH}/content" ]] || return 0
+
+  echo -e "${YELLOW}#${RESET} Seeding pre-staged content into ${NOMAD_DIR}/storage...\\n"
+  sudo mkdir -p "${NOMAD_DIR}/storage"
+  # -n so re-running never overwrites content the user has changed or replaced;
+  # new files in a later bundle are still added.
+  if ! sudo cp -a -n "${NOMAD_ARTIFACT_PATH}/content/." "${NOMAD_DIR}/storage/"; then
+    header_red
+    echo -e "${RED}#${RESET} Failed to seed pre-staged content from the artifact bundle."
+    exit 1
+  fi
+  echo -e "${GREEN}#${RESET} Pre-staged content seeded successfully.\\n"
+}
+
 start_management_containers() {
   echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
-  if ! sudo docker compose -p project-nomad -f "${NOMAD_DIR}/compose.yml" up -d; then
+
+  local compose_args=(-p project-nomad -f "${NOMAD_DIR}/compose.yml")
+  if artifact_mode_enabled; then
+    # Layer the bundle's override (pull_policy: never for every service) and
+    # forbid pulls outright, so startup uses only the images loaded above.
+    compose_args+=(-f "${NOMAD_DIR}/compose.artifact.yml" up -d --pull never)
+  else
+    compose_args+=(up -d)
+  fi
+
+  if ! sudo docker compose "${compose_args[@]}"; then
     echo -e "${RED}#${RESET} Failed to start management containers. Please check the logs and try again."
     exit 1
   fi
@@ -479,11 +1058,23 @@ start_management_containers() {
 }
 
 get_local_ip() {
-  local_ip_address=$(hostname -I | awk '{print $1}')
-  if [[ -z "$local_ip_address" ]]; then
-    echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
-    exit 1
+  local_ip_address=$(hostname -I 2>/dev/null | awk '{print $1}')
+  if [[ -n "$local_ip_address" ]]; then
+    has_lan_address='true'
+    return 0
   fi
+
+  if artifact_mode_enabled; then
+    # A genuinely disconnected target may have no LAN address at all. That must
+    # not block an offline install, so fall back to localhost and simply don't
+    # advertise a LAN URL.
+    echo -e "${YELLOW}#${RESET} No LAN address detected. Project NOMAD will be reachable at http://localhost:8080.\\n"
+    local_ip_address='localhost'
+    return 0
+  fi
+
+  echo -e "${RED}#${RESET} Unable to determine local IP address. Please check your network configuration."
+  exit 1
 }
 verify_gpu_setup() {
   # This function only displays GPU setup status and is completely non-blocking
@@ -604,7 +1195,12 @@ success_message() {
   echo -e "${GREEN}#${RESET} Project NOMAD installation completed successfully!\\n"
   echo -e "${GREEN}#${RESET} Installation files are located at /opt/project-nomad\\n\n"
   echo -e "${GREEN}#${RESET} Project NOMAD's Command Center should automatically start whenever your device reboots. However, if you need to start it manually, you can always do so by running: ${WHITE_R}${NOMAD_DIR}/start_nomad.sh${RESET}\\n"
-  echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
+  if [[ "${has_lan_address}" == 'true' ]]; then
+    echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080 or http://${local_ip_address}:8080\\n"
+  else
+    # No LAN address was available (offline install on a host with no network).
+    echo -e "${GREEN}#${RESET} You can now access the management interface at http://localhost:8080\\n"
+  fi
   echo -e "${GREEN}#${RESET} Thank you for supporting Project NOMAD!\\n"
 }
 
@@ -614,24 +1210,51 @@ success_message() {
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
+# The test suite sources this script to exercise individual functions. Every
+# other invocation runs the installer normally.
+if [[ "${NOMAD_INSTALLER_LIB_ONLY:-}" == '1' ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+parse_installer_args "$@"
+
 # Pre-flight checks
 check_is_debian_based
 check_is_x86_64
 check_is_bash
 check_has_sudo
-ensure_dependencies_installed
+if artifact_mode_enabled; then
+  # Artifact mode is fail-closed from here on: no dependency is acquired over
+  # the network, so the bundle is validated up front instead.
+  validate_artifact_bundle
+  # Read before anything is written, so the confirmation prompt can tell the
+  # user whether this is a fresh install or an in-place update.
+  detect_existing_installation
+else
+  ensure_dependencies_installed
+fi
 check_is_debug_mode
 
 # Main install
 get_install_confirmation
 accept_terms
-ensure_docker_installed
-check_docker_compose
-setup_nvidia_container_toolkit
+if artifact_mode_enabled; then
+  install_packages_from_artifacts
+  check_docker_compose
+  setup_nvidia_container_toolkit_from_artifacts
+else
+  ensure_docker_installed
+  check_docker_compose
+  setup_nvidia_container_toolkit
+fi
 get_local_ip
 create_nomad_directory
-download_helper_scripts
-download_management_compose_file
+setup_helper_scripts
+setup_management_compose_file
+if artifact_mode_enabled; then
+  load_artifact_images
+  seed_artifact_content
+fi
 start_management_containers
 verify_gpu_setup
 success_message

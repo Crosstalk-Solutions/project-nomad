@@ -22,6 +22,13 @@ import { getPrimaryDiskInfo } from '~/hooks/useDiskDisplayData'
 import classNames from 'classnames'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
+import {
+  canCompleteSetupOffline,
+  describeOfflineBlockers,
+  isServiceInstallableOffline,
+  offlineBlockers,
+  type WizardSelections,
+} from '~/lib/offline_setup'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 
 // Capability definitions - maps user-friendly categories to services
@@ -107,7 +114,17 @@ const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 
 export default function EasySetupWizard(props: {
-  system: { services: ServiceSlim[]; remoteOllamaUrl: string }
+  system: {
+    services: ServiceSlim[]
+    remoteOllamaUrl: string
+    /**
+     * service_name values whose container image is already in the local Docker
+     * daemon — the apps an air-gapped host can install right now, because the
+     * install path skips the registry pull when the image is present. Populated
+     * by an offline artifact bundle built with `--with-apps`.
+     */
+    locallyAvailableServices?: string[]
+  }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const CORE_CAPABILITIES = buildCoreCapabilities(aiAssistantName)
@@ -351,13 +368,34 @@ export default function EasySetupWizard(props: {
   // Get primary disk/filesystem info for storage projection
   const storageInfo = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
 
+  // Offline capability (docs/offline-install.md). An air-gapped host installed
+  // from an artifact bundle has the app images on disk already, so installing
+  // those capabilities works with no internet; only the remote catalogs (maps,
+  // content, packs, models, Wikipedia) genuinely need a connection. The wizard
+  // used to gate *everything* on isOnline, which locked offline operators out
+  // of the one thing their bundle had prepared for them.
+  const locallyAvailableServices = props.system.locallyAvailableServices ?? []
+
+  const currentSelections: WizardSelections = {
+    services: selectedServices,
+    mapCollections: selectedMapCollections,
+    creatorPacks: selectedCreatorPacks,
+    categoryTierCount: selectedTiers.size,
+    aiModels: selectedAiModels,
+    wikipediaOptionId: selectedWikipedia,
+  }
+
+  const offlineOnlyBlockers = offlineBlockers(currentSelections, locallyAvailableServices)
+  const canFinishOffline = canCompleteSetupOffline(currentSelections, locallyAvailableServices)
+
   // The review step is always the last active step. Read by canProceedToNextStep
   // and the bottom-bar Next-vs-Finish switch.
   const finalStep: WizardStep = activeSteps[activeSteps.length - 1]
 
   const canProceedToNextStep = () => {
-    if (!isOnline) return false // Must be online to proceed
-    // Every step before the review is skippable; the review step shows Finish, not Next.
+    // Navigation itself needs nothing from the network — the per-step controls
+    // decide what an offline user may actually pick. The review step shows
+    // Finish, not Next.
     return currentStep < finalStep
   }
 
@@ -376,10 +414,12 @@ export default function EasySetupWizard(props: {
   }
 
   const handleFinish = async () => {
-    if (!isOnline) {
+    // Offline is only a problem for the selections that have to fetch something.
+    // Installing an app whose image is already local is fine air-gapped.
+    if (!isOnline && !canFinishOffline) {
       addNotification({
         type: 'error',
-        message: 'You must have an internet connection to complete the setup.',
+        message: `Without an internet connection NOMAD can't set up ${describeOfflineBlockers(offlineOnlyBlockers)}. Remove those selections to continue offline.`,
       })
       return
     }
@@ -592,10 +632,22 @@ export default function EasySetupWizard(props: {
     )
   }
 
+  // Offline, a capability is installable only if every image it needs is
+  // already in the local Docker daemon — otherwise the install would try to
+  // pull and fail. Online this is always true; the pull just happens.
+  const isCapabilityAvailable = (capability: Capability) => {
+    if (isOnline) return true
+    return capability.services.every((service) =>
+      isServiceInstallableOffline(service, locallyAvailableServices)
+    )
+  }
+
   // Toggle all services for a capability (only if not already installed)
   const toggleCapability = (capability: Capability) => {
     // Don't allow toggling installed capabilities
     if (isCapabilityInstalled(capability)) return
+    // Offline with no local image there is nothing to install from.
+    if (!isCapabilityAvailable(capability)) return
 
     const isSelected = isCapabilitySelected(capability)
 
@@ -637,6 +689,7 @@ export default function EasySetupWizard(props: {
     const selected = isCapabilitySelected(capability)
     const installed = isCapabilityInstalled(capability)
     const exists = capabilityExists(capability)
+    const unavailableOffline = !installed && !isCapabilityAvailable(capability)
 
     if (!exists) return null
 
@@ -651,9 +704,11 @@ export default function EasySetupWizard(props: {
           'p-6 rounded-lg border-2 transition-all',
           installed
             ? 'border-desert-green bg-desert-green/20 cursor-default'
-            : selected
-              ? 'border-desert-green bg-desert-green shadow-md cursor-pointer'
-              : 'border-desert-stone-light bg-surface-primary hover:border-desert-green hover:shadow-sm cursor-pointer'
+            : unavailableOffline
+              ? 'border-desert-stone-light bg-surface-primary opacity-50 cursor-not-allowed'
+              : selected
+                ? 'border-desert-green bg-desert-green shadow-md cursor-pointer'
+                : 'border-desert-stone-light bg-surface-primary hover:border-desert-green hover:shadow-sm cursor-pointer'
         )}
       >
         <div className="flex items-start justify-between">
@@ -670,6 +725,11 @@ export default function EasySetupWizard(props: {
               {installed && (
                 <span className="text-xs bg-desert-green text-white px-2 py-0.5 rounded-full">
                   Installed
+                </span>
+              )}
+              {unavailableOffline && (
+                <span className="text-xs bg-surface-secondary text-text-muted border border-border-default px-2 py-0.5 rounded-full">
+                  Needs internet
                 </span>
               )}
             </div>
@@ -853,6 +913,19 @@ export default function EasySetupWizard(props: {
     )
   }
 
+  // Steps 2-5 all hand out remote content. Offline they stay browsable but
+  // unselectable, so say why rather than leaving the user clicking dead cards.
+  const renderOfflineDownloadNotice = (what: string) =>
+    !isOnline ? (
+      <Alert
+        title="Unavailable offline"
+        message={`${what} download from a remote catalog, so they can't be added while this machine has no internet connection. Skip this step — apps whose images are already on disk still install — and come back here once you're connected.`}
+        type="info"
+        variant="bordered"
+        className="mb-6"
+      />
+    ) : null
+
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -862,6 +935,7 @@ export default function EasySetupWizard(props: {
           regions later.
         </p>
       </div>
+      {renderOfflineDownloadNotice('Map regions')}
       <div className="mx-auto max-w-2xl rounded-lg border border-border-subtle bg-surface-secondary p-3 text-center">
         <p className="text-sm text-text-secondary">
           Only need a specific country, or want the whole world? Individual countries and a full
@@ -931,6 +1005,8 @@ export default function EasySetupWizard(props: {
               : 'Configure content for your selected capabilities.'}
           </p>
         </div>
+
+        {renderOfflineDownloadNotice('Wikipedia and curated content collections')}
 
         {/* Wikipedia Selection - Only show if Information capability is selected */}
         {isInformationSelected && (
@@ -1028,6 +1104,8 @@ export default function EasySetupWizard(props: {
           </p>
         </div>
 
+        {renderOfflineDownloadNotice('Creator packs')}
+
         {creatorPacks.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {creatorPacks.map((pack) => (
@@ -1063,6 +1141,8 @@ export default function EasySetupWizard(props: {
             Choose models to download and set how {aiAssistantName} handles new content.
           </p>
         </div>
+
+        {renderOfflineDownloadNotice('AI models')}
 
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-surface-primary border border-border-subtle flex items-center justify-center shadow-sm">
@@ -1379,12 +1459,25 @@ export default function EasySetupWizard(props: {
               </div>
             )}
 
-            <Alert
-              title="Ready to Start"
-              message="Click 'Complete Setup' to begin installing apps and downloading content. This may take some time depending on your internet connection and the size of the downloads."
-              type="info"
-              variant="solid"
-            />
+            {!isOnline && !canFinishOffline ? (
+              <Alert
+                title="Some selections need an internet connection"
+                message={`This machine is offline, so NOMAD can't set up ${describeOfflineBlockers(offlineOnlyBlockers)}. Go back and clear those selections to finish the rest now, or connect to the internet and return here.`}
+                type="warning"
+                variant="solid"
+              />
+            ) : (
+              <Alert
+                title="Ready to Start"
+                message={
+                  isOnline
+                    ? "Click 'Complete Setup' to begin installing apps and downloading content. This may take some time depending on your internet connection and the size of the downloads."
+                    : "Click 'Complete Setup' to install the selected apps from images already on this machine. No internet connection is needed for these."
+                }
+                type="info"
+                variant="solid"
+              />
+            )}
           </div>
         )}
       </div>
@@ -1397,7 +1490,11 @@ export default function EasySetupWizard(props: {
       {!isOnline && (
         <Alert
           title="No Internet Connection"
-          message="You'll need an internet connection to proceed. Please connect to the internet and try again."
+          message={
+            locallyAvailableServices.length > 0
+              ? 'You can still install apps whose images are already on this machine — an offline install bundle puts them there. Downloads (maps, content, creator packs, AI models, Wikipedia) need a connection and stay unavailable until you have one.'
+              : "No app images are available locally, so there's nothing this wizard can install right now. Connect to the internet, or re-run the installer against an offline bundle built with --with-apps."
+          }
           type="warning"
           variant="solid"
           className="mb-8"
@@ -1477,7 +1574,9 @@ export default function EasySetupWizard(props: {
                 ) : (
                   <StyledButton
                     onClick={handleFinish}
-                    disabled={isProcessing || !isOnline || !anySelectionMade}
+                    disabled={
+                      isProcessing || !anySelectionMade || (!isOnline && !canFinishOffline)
+                    }
                     loading={isProcessing}
                     variant="success"
                     icon="IconCheck"
