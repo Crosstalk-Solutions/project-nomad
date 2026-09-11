@@ -10,6 +10,7 @@ import CategoryCard from '~/components/CategoryCard'
 import CreatorPackCard from '~/components/CreatorPackCard'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
+import ContentLanguageSelector from '~/components/ContentLanguageSelector'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
 import { IconCheck, IconCpu, IconBooks } from '@tabler/icons-react'
@@ -186,6 +187,26 @@ export default function EasySetupWizard(props: {
     queryFn: () => api.getWikipediaState(),
     refetchOnWindowFocus: false,
   })
+
+  // A content-language change can remove options from the lists above: drop
+  // pending picks that are no longer offered so Finish never submits them.
+  useEffect(() => {
+    if (
+      wikipediaState &&
+      selectedWikipedia &&
+      !wikipediaState.options.some((option) => option.id === selectedWikipedia)
+    ) {
+      setSelectedWikipedia(null)
+    }
+  }, [wikipediaState, selectedWikipedia])
+
+  useEffect(() => {
+    if (!categories) return
+    setSelectedTiers((prev) => {
+      const kept = [...prev].filter(([slug]) => categories.some((c) => c.slug === slug))
+      return kept.length === prev.size ? prev : new Map(kept)
+    })
+  }, [categories])
 
   // All services for display purposes
   const allServices = props.system.services
@@ -931,6 +952,13 @@ export default function EasySetupWizard(props: {
               : 'Configure content for your selected capabilities.'}
           </p>
         </div>
+
+        {/* Content languages - filter the Wikipedia packages and collections offered below */}
+        {isInformationSelected && (
+          <div className="mb-8">
+            <ContentLanguageSelector disabled={!isOnline} />
+          </div>
+        )}
 
         {/* Wikipedia Selection - Only show if Information capability is selected */}
         {isInformationSelected && (

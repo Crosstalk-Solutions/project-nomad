@@ -35,6 +35,7 @@ import CategoryCard from '~/components/CategoryCard'
 import CreatorPacksSection from '~/components/CreatorPacksSection'
 import TierSelectionModal from '~/components/TierSelectionModal'
 import WikipediaSelector from '~/components/WikipediaSelector'
+import ContentLanguageSelector from '~/components/ContentLanguageSelector'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import type { CategoryWithStatus, SpecTier } from '../../../../types/collections'
 import useDownloads from '~/hooks/useDownloads'
@@ -105,6 +106,17 @@ export default function ZimRemoteExplorer() {
     queryFn: () => api.getWikipediaState(),
     refetchOnWindowFocus: false,
   })
+
+  // A content-language change can hide the pending Wikipedia pick: drop it.
+  useEffect(() => {
+    if (
+      wikipediaState &&
+      selectedWikipedia &&
+      !wikipediaState.options.some((option) => option.id === selectedWikipedia)
+    ) {
+      setSelectedWikipedia(null)
+    }
+  }, [wikipediaState, selectedWikipedia])
 
   const { data: localFiles } = useQuery<ZimFileWithMetadata[]>({
     queryKey: [ZIM_FILES_KEY],
@@ -495,6 +507,11 @@ export default function ZimRemoteExplorer() {
             >
               Force Refresh Collections
             </StyledButton>
+          </div>
+
+          {/* Content languages: filters Wikipedia, curated collections and Kiwix search below */}
+          <div className="mt-8 bg-surface-primary rounded-lg border border-border-subtle p-6">
+            <ContentLanguageSelector />
           </div>
 
           {/* Wikipedia Selector */}

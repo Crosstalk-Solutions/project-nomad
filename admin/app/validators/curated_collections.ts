@@ -72,6 +72,8 @@ export const wikipediaSpecSchema = vine.object({
       size_mb: vine.number().min(0),
       url: vine.string().url().nullable(),
       version: vine.string().nullable(),
+      // Content language (absent == 'en'). Declared so VineJS doesn't strip it.
+      language: vine.string().minLength(2).maxLength(5).optional(),
     })
   ).minLength(1),
 })
@@ -109,6 +111,7 @@ export const wikipediaOptionSchema = vine.object({
   description: vine.string(),
   size_mb: vine.number().min(0),
   url: vine.string().url().nullable(),
+  language: vine.string().minLength(2).maxLength(5).optional(),
 })
 
 export const wikipediaOptionsFileSchema = vine.object({

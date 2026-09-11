@@ -125,7 +125,14 @@ const WikipediaSelector: React.FC<WikipediaSelectorProps> = ({
 
               {/* Option content */}
               <div className="pr-16 flex flex-col h-full">
-                <h4 className="text-lg font-semibold text-text-primary mb-1">{option.name}</h4>
+                <h4 className="text-lg font-semibold text-text-primary mb-1">
+                  {option.name}
+                  {option.language && option.language !== 'en' && (
+                    <span className="ml-2 align-middle text-xs uppercase font-medium px-1.5 py-0.5 rounded bg-surface-secondary text-text-secondary">
+                      {option.language}
+                    </span>
+                  )}
+                </h4>
                 <p className="text-sm text-text-secondary mb-3 flex-grow">{option.description}</p>
                 <div className="flex items-center gap-3">
                   {/* Radio indicator */}

@@ -2,6 +2,7 @@ import vine from "@vinejs/vine";
 import { SETTINGS_KEYS } from "../../constants/kv_store.js";
 import type { KVStoreKey } from "../../types/kv_store.js";
 import { CONTEXT_LADDER } from "../utils/context_window.js";
+import { validateContentLanguagesValue } from "../utils/content_languages.js";
 
 export const getSettingSchema = vine.compile(vine.object({
     key: vine.enum(SETTINGS_KEYS),
@@ -55,6 +56,8 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'content.languages':
+            return validateContentLanguagesValue(value)
         case 'contentAutoUpdate.maxBytesPerWindow': {
             // Per-window download budget in bytes. 0 = unlimited.
             const num = Number(value)
