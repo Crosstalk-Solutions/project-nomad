@@ -10,6 +10,16 @@ import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema, creatorPacksSpecSchema } from '#validators/curated_collections'
 import { isGatedResource } from '../utils/hosted_content.js'
+import KVStore from '#models/kv_store'
+import {
+  isSupportedContentLanguage,
+  manifestCacheKey,
+  manifestUrlFor,
+  mergeZimCategorySpecs,
+  parseContentLanguages,
+  type LanguageScopedManifestType,
+} from '../utils/content_languages.js'
+import { DEFAULT_CONTENT_LANGUAGE } from '../../constants/content_languages.js'
 import {
   ensureDirectoryExists,
   listDirectoryContents,
@@ -47,16 +57,35 @@ export class CollectionManifestService {
 
   // ---- Spec management ----
 
-  async fetchAndCacheSpec(type: ManifestType): Promise<boolean> {
+  /**
+   * Fetch a manifest and cache it. `language` defaults to English, which keeps
+   * the historical URL and cache key. Other languages only exist for the
+   * language-scoped types (categories, Wikipedia) and read from
+   * `collections/<language>/…`.
+   */
+  async fetchAndCacheSpec(
+    type: ManifestType,
+    language: string = DEFAULT_CONTENT_LANGUAGE
+  ): Promise<boolean> {
+    const isEnglish = language === DEFAULT_CONTENT_LANGUAGE
+    if (!isEnglish && !CollectionManifestService.isLanguageScoped(type)) return false
+    // Only allow-listed codes ever reach the URL path (defence in depth: callers
+    // already pass parsed setting values).
+    if (!isSupportedContentLanguage(language)) return false
+
+    const url = isEnglish
+      ? SPEC_URLS[type]
+      : manifestUrlFor(type as LanguageScopedManifestType, language)
+    const cacheKey = manifestCacheKey(type, language)
     try {
-      const response = await axios.get(SPEC_URLS[type], { timeout: 15000 })
+      const response = await axios.get(url, { timeout: 15000 })
 
       const validated = await vine.validate({
         schema: VALIDATORS[type],
         data: response.data,
       })
 
-      const existing = await CollectionManifest.find(type)
+      const existing = await CollectionManifest.find(cacheKey)
       const specVersion = validated.spec_version
 
       if (existing) {
@@ -69,7 +98,7 @@ export class CollectionManifestService {
       }
 
       await CollectionManifest.create({
-        type,
+        type: cacheKey,
         spec_version: specVersion,
         spec_data: validated,
         fetched_at: DateTime.now(),
@@ -77,30 +106,120 @@ export class CollectionManifestService {
 
       return true
     } catch (error) {
-      logger.error(`[CollectionManifestService] Failed to fetch spec for ${type}:`, error?.message || error)
+      if (isEnglish) {
+        logger.error(
+          `[CollectionManifestService] Failed to fetch spec for ${type}:`,
+          error?.message || error
+        )
+      } else if (error?.response?.status === 404) {
+        // Expected until a language has curated manifests of its own: that language
+        // simply contributes no curated content. Not worth a warning on every page load.
+        logger.debug(
+          `[CollectionManifestService] No ${type} manifest for content language '${language}'`
+        )
+      } else {
+        logger.warn(
+          `[CollectionManifestService] Failed to fetch ${type} manifest for content language '${language}': ${error?.message || error}`
+        )
+      }
       return false
     }
   }
 
-  async getCachedSpec<T>(type: ManifestType): Promise<T | null> {
-    const manifest = await CollectionManifest.find(type)
+  async getCachedSpec<T>(
+    type: ManifestType,
+    language: string = DEFAULT_CONTENT_LANGUAGE
+  ): Promise<T | null> {
+    const manifest = await CollectionManifest.find(manifestCacheKey(type, language))
     if (!manifest) return null
     return manifest.spec_data as T
   }
 
-  async getSpecWithFallback<T>(type: ManifestType): Promise<T | null> {
+  async getSpecWithFallback<T>(
+    type: ManifestType,
+    language: string = DEFAULT_CONTENT_LANGUAGE
+  ): Promise<T | null> {
     try {
-      await this.fetchAndCacheSpec(type)
+      await this.fetchAndCacheSpec(type, language)
     } catch {
       // Fetch failed, will fall back to cache
     }
-    return this.getCachedSpec<T>(type)
+    return this.getCachedSpec<T>(type, language)
+  }
+
+  static isLanguageScoped(type: ManifestType): type is LanguageScopedManifestType {
+    return type === 'zim_categories' || type === 'wikipedia'
+  }
+
+  /** The user's content languages (`content.languages`), English when unset. */
+  async getContentLanguages(): Promise<string[]> {
+    return parseContentLanguages(await KVStore.getValue('content.languages'))
+  }
+
+  /**
+   * Category spec for the picker, merged across content languages. With the
+   * default (English only) this is exactly the English manifest, as before.
+   *
+   * `fetch: false` reads the cache only, for paths that must not hit the
+   * network. `languages` overrides the user's setting.
+   */
+  async getZimCategoriesSpec(
+    { fetch, languages }: { fetch: boolean; languages?: string[] } = { fetch: true }
+  ): Promise<ZimCategoriesSpec | null> {
+    const codes = languages ?? (await this.getContentLanguages())
+    const specs = await Promise.all(
+      codes.map(async (language) => ({
+        language,
+        spec: fetch
+          ? await this.getSpecWithFallback<ZimCategoriesSpec>('zim_categories', language)
+          : await this.getCachedSpec<ZimCategoriesSpec>('zim_categories', language),
+      }))
+    )
+    return mergeZimCategorySpecs(specs)
+  }
+
+  /**
+   * Cached categories for bookkeeping (gated-id guard, filesystem reconcile).
+   * English is always included even if deselected, so installed English content
+   * keeps its safeguards and metadata.
+   */
+  private async getCachedZimCategoriesForBookkeeping(): Promise<ZimCategoriesSpec | null> {
+    const enabled = await this.getContentLanguages()
+    const languages = [
+      DEFAULT_CONTENT_LANGUAGE,
+      ...enabled.filter((l) => l !== DEFAULT_CONTENT_LANGUAGE),
+    ]
+    return this.getZimCategoriesSpec({ fetch: false, languages })
+  }
+
+  /**
+   * Refresh the language-scoped manifests of every enabled non-English
+   * language. English is refreshed by the callers exactly as before.
+   * Returns whether anything changed.
+   */
+  async refreshAdditionalLanguageManifests(): Promise<{
+    zim_categories: boolean
+    wikipedia: boolean
+  }> {
+    const languages = await this.getContentLanguages()
+    const others = languages.filter((l) => l !== DEFAULT_CONTENT_LANGUAGE)
+    let zimChanged = false
+    let wikiChanged = false
+    for (const language of others) {
+      const [zim, wiki] = await Promise.all([
+        this.fetchAndCacheSpec('zim_categories', language),
+        this.fetchAndCacheSpec('wikipedia', language),
+      ])
+      zimChanged ||= zim
+      wikiChanged ||= wiki
+    }
+    return { zim_categories: zimChanged, wikipedia: wikiChanged }
   }
 
   // ---- Status computation ----
 
   async getCategoriesWithStatus(): Promise<CategoryWithStatus[]> {
-    const spec = await this.getSpecWithFallback<ZimCategoriesSpec>('zim_categories')
+    const spec = await this.getZimCategoriesSpec({ fetch: true })
     if (!spec) return []
 
     // Include 'dataset' rows alongside 'zim' so a curated tier carrying the FDA
@@ -335,7 +454,7 @@ export class CollectionManifestService {
    */
   async getGatedZimResourceIds(): Promise<Set<string>> {
     const ids = new Set<string>()
-    const spec = await this.getCachedSpec<ZimCategoriesSpec>('zim_categories')
+    const spec = await this.getCachedZimCategoriesForBookkeeping()
     if (!spec) return ids
 
     for (const category of spec.categories) {
@@ -430,7 +549,7 @@ export class CollectionManifestService {
       console.log(`Found ${zimFiles.length} ZIM files on disk. Reconciling with database...`)
 
       // Get spec for URL lookup
-      const zimSpec = await this.getCachedSpec<ZimCategoriesSpec>('zim_categories')
+      const zimSpec = await this.getCachedZimCategoriesForBookkeeping()
       const specResourceMap = new Map<string, SpecResource>()
       if (zimSpec) {
         for (const cat of zimSpec.categories) {

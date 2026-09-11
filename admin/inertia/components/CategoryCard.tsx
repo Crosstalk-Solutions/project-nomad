@@ -65,6 +65,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selectedTier, onC
           <div className="flex items-center">
             <DynamicIcon icon={category.icon as DynamicIconName} className="w-6 h-6 mr-2" />
             <h3 className="text-lg font-semibold">{category.name}</h3>
+            {category.language && category.language !== 'en' && (
+              <span className="ml-2 text-xs uppercase px-1.5 py-0.5 rounded bg-white/15 text-white/90">
+                {category.language}
+              </span>
+            )}
           </div>
           {badgeTier ? (
             <div className="flex items-center">

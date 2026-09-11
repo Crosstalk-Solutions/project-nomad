@@ -4,6 +4,7 @@ import XHRUpload from '@uppy/xhr-upload'
 import '@uppy/core/css/style.min.css'
 import '@uppy/dashboard/css/style.min.css'
 import { useEffect, useRef, useState } from 'react'
+import { isWikipediaZimFilename } from '../../../app/utils/zim_filename'
 
 interface ZimUploaderProps {
   onUploadComplete: (added: number) => void
@@ -54,9 +55,10 @@ export default function ZimUploader({ onUploadComplete, existingFilenames }: Zim
         return
       }
 
-      const isWikipedia = (name: string) => name.startsWith('wikipedia_en_')
-      if (isWikipedia(file.name)) {
-        const alreadyQueued = uppy.getFiles().some((f) => f.id !== file.id && isWikipedia(f.name))
+      if (isWikipediaZimFilename(file.name)) {
+        const alreadyQueued = uppy
+          .getFiles()
+          .some((f) => f.id !== file.id && isWikipediaZimFilename(f.name))
         if (alreadyQueued) {
           uppy.removeFile(file.id)
           uppy.info('Only one Wikipedia file can be uploaded at a time', 'error', 6000)

@@ -44,6 +44,11 @@ export const KV_STORE_SCHEMA = {
   'contentAutoUpdate.windowResetAt':     'string',
   'ui.hasVisitedEasySetup':     'boolean',
   'ui.theme':                   'string',
+  // Languages offered for curated content, Wikipedia and Kiwix search, as a
+  // comma-separated list of ISO 639-1 codes ("en,fr"). Unset means English
+  // only, the behaviour before this setting existed. Content only: the UI
+  // itself is not translated.
+  'content.languages':          'string',
   'ai.assistantCustomName':     'string',
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',

@@ -9,6 +9,7 @@ import { DownloadJobWithProgress, DownloadProgressData, RunDownloadJobParams } f
 import type { Job, Queue } from 'bullmq'
 import { normalize } from 'path'
 import { deleteFileIfExists } from '../utils/fs.js'
+import { isWikipediaZimFilename } from '../utils/zim_filename.js'
 import transmit from '@adonisjs/transmit/services/main'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 
@@ -333,7 +334,7 @@ export class DownloadService {
 
     // If this was a Wikipedia download, update selection status to failed
     // (the worker's failed event may not fire if we removed the job first)
-    if (job.data.filetype === 'zim' && job.data.url?.includes('wikipedia_en_')) {
+    if (job.data.filetype === 'zim' && job.data.url && isWikipediaZimFilename(job.data.url)) {
       try {
         const { DockerService } = await import('#services/docker_service')
         const { ZimService } = await import('#services/zim_service')

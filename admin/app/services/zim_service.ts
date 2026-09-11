@@ -7,7 +7,17 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
-import { findReplacedWikipediaFiles } from '../utils/zim_filename.js'
+import {
+  findReplacedWikipediaFiles,
+  isSelectorManagedWikipedia,
+  isWikipediaZimFilename,
+} from '../utils/zim_filename.js'
+import {
+  filterWikipediaOptions,
+  mergeWikipediaOptions,
+  toKiwixLangParam,
+} from '../utils/content_languages.js'
+import { DEFAULT_CONTENT_LANGUAGE } from '../../constants/content_languages.js'
 import { decideSupersededDeletion } from '../utils/superseded_resource.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
@@ -25,7 +35,6 @@ import vine from '@vinejs/vine'
 import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
 import WikipediaSelection from '#models/wikipedia_selection'
 import InstalledResource from '#models/installed_resource'
-import CollectionManifest from '#models/collection_manifest'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
 import { DrugReferenceService } from './drug_reference_service.js'
@@ -38,6 +47,8 @@ import CustomLibrarySource from '#models/custom_library_source'
 import { assertNotPrivateUrl } from '#validators/common'
 import { resolveZimDownload } from '../utils/zim_download_resolution.js'
 import { getHostedContentHeaders } from '../utils/hosted_content_auth.js'
+
+type WikipediaOptionsSpec = { options: WikipediaOption[] }
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
 const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
@@ -101,6 +112,9 @@ export class ZimService {
     const existing = await this.list()
     const existingKeys = new Set(existing.files.map((file) => file.name))
 
+    // Search the user's content languages ("eng" by default, as before).
+    const lang = toKiwixLangParam(await new CollectionManifestService().getContentLanguages())
+
     const accumulated: RemoteZimFileEntry[] = []
     const seenIds = new Set<string>()
     let currentStart = start
@@ -111,7 +125,7 @@ export class ZimService {
         params: {
           start: currentStart,
           count: KIWIX_PAGE_SIZE,
-          lang: 'eng',
+          lang,
           ...(query ? { q: query } : {}),
         },
         responseType: 'text',
@@ -247,7 +261,8 @@ export class ZimService {
 
   async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<string[] | null> {
     const manifestService = new CollectionManifestService()
-    const spec = await manifestService.getSpecWithFallback<import('../../types/collections.js').ZimCategoriesSpec>('zim_categories')
+    // Same merged view the picker shows, so namespaced (non-English) slugs resolve.
+    const spec = await manifestService.getZimCategoriesSpec({ fetch: true })
     if (!spec) {
       throw new Error('Could not load ZIM categories spec')
     }
@@ -347,9 +362,19 @@ export class ZimService {
   }
 
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
-    // Check if any URL is a Wikipedia download and handle it
+    // Decided up front, before onWikipediaDownloadComplete moves the selection to the new file.
+    const selection = await this.getWikipediaSelection()
+    const managedWikipediaUrls = new Set<string>()
     for (const url of urls) {
-      if (url.includes('wikipedia_en_')) {
+      if (await this.isManagedWikipediaDownload(url, selection?.filename)) {
+        managedWikipediaUrls.add(url)
+      }
+    }
+    const isManagedWikipedia = (url: string) => managedWikipediaUrls.has(url)
+
+    // Check if any URL is the picker's Wikipedia download and handle it
+    for (const url of urls) {
+      if (isManagedWikipedia(url)) {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
@@ -414,8 +439,9 @@ export class ZimService {
     const zimStorageDir = join(process.cwd(), ZIM_STORAGE_PATH)
     let removedSupersededZim = false
     for (const url of urls) {
-      // Skip Wikipedia files (managed separately)
-      if (url.includes('wikipedia_en_')) continue
+      // Skip the picker's Wikipedia (managed separately). Wikipedia-derived corpora
+      // from curated tiers (e.g. WikiMed) are bookkept like any other ZIM.
+      if (isManagedWikipedia(url)) continue
 
       const filename = url.split('/').pop()
       if (!filename) continue
@@ -553,10 +579,9 @@ export class ZimService {
 
     // If the uploaded file matches a known Wikipedia option, mark it as installed
     try {
-      const manifest = await CollectionManifest.find('wikipedia')
-      if (manifest) {
-        const spec = manifest.spec_data as { options: Array<{ id: string; url: string | null }> }
-        const matchedOption = spec.options.find(
+      const knownOptions = await this.getCachedWikipediaOptions()
+      if (knownOptions.length > 0) {
+        const matchedOption = knownOptions.find(
           (opt) => opt.url && opt.url.split('/').pop() === filename
         )
         if (matchedOption && matchedOption.url) {
@@ -577,17 +602,19 @@ export class ZimService {
           }
           logger.info(`[ZimService] Marked Wikipedia option '${matchedOption.id}' as installed from local upload`)
 
-          // Remove any other wikipedia_en_*.zim files, same as the download flow
+          // Remove prior releases of the same Wikipedia variant, same as the download
+          // flow (#884): distinct corpora such as a curated tier's WikiMed are kept
           const allFiles = await this.list()
-          const staleWikipediaFiles = allFiles.files.filter(
-            (f) => f.name.startsWith('wikipedia_en_') && f.name !== filename
+          const staleWikipediaFiles = findReplacedWikipediaFiles(
+            filename,
+            allFiles.files.map((f) => f.name)
           )
           for (const stale of staleWikipediaFiles) {
             try {
-              await this.delete(stale.name)
-              logger.info(`[ZimService] Deleted stale Wikipedia file after upload: ${stale.name}`)
+              await this.delete(stale)
+              logger.info(`[ZimService] Deleted stale Wikipedia file after upload: ${stale}`)
             } catch (err) {
-              logger.warn(`[ZimService] Could not delete stale Wikipedia file: ${stale.name}`, err)
+              logger.warn(`[ZimService] Could not delete stale Wikipedia file: ${stale}`, err)
             }
           }
         }
@@ -693,7 +720,14 @@ export class ZimService {
 
   // Wikipedia selector methods
 
-  async getWikipediaOptions(): Promise<WikipediaOption[]> {
+  /**
+   * Every known Wikipedia option: the English manifest (fetched exactly as
+   * before, and still required) plus each other enabled content language's
+   * manifest, whose ids are namespaced (`fr:all-maxi`). A missing non-English
+   * manifest just contributes nothing.
+   */
+  private async getAllWikipediaOptions(): Promise<WikipediaOption[]> {
+    let english: WikipediaOption[]
     try {
       const response = await axios.get(WIKIPEDIA_OPTIONS_URL)
       const data = response.data
@@ -703,11 +737,88 @@ export class ZimService {
         data,
       })
 
-      return validated.options
+      english = validated.options
     } catch (error) {
       logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
       throw new Error('Failed to fetch Wikipedia options')
     }
+
+    const manifestService = new CollectionManifestService()
+    const others = await this.getAdditionalContentLanguages(manifestService)
+    const extra = await Promise.all(
+      others.map(async (language) => {
+        const spec = await manifestService.getSpecWithFallback<WikipediaOptionsSpec>(
+          'wikipedia',
+          language
+        )
+        return { language, options: spec?.options ?? [] }
+      })
+    )
+    return mergeWikipediaOptions(english, extra)
+  }
+
+  /**
+   * Options shown in the picker for the user's content languages. The current
+   * selection is always kept so an installed Wikipedia never disappears when
+   * its language is deselected.
+   */
+  async getWikipediaOptions(currentOptionId?: string | null): Promise<WikipediaOption[]> {
+    const all = await this.getAllWikipediaOptions()
+    const languages = await new CollectionManifestService().getContentLanguages()
+    let keep = currentOptionId
+    if (keep === undefined) {
+      const selection = await this.getWikipediaSelection()
+      keep = selection?.option_id
+    }
+    return filterWikipediaOptions(all, languages, keep)
+  }
+
+  /** Wikipedia options from cached manifests only (no network), all languages. */
+  private async getCachedWikipediaOptions(): Promise<WikipediaOption[]> {
+    const manifestService = new CollectionManifestService()
+    const englishSpec = await manifestService.getCachedSpec<WikipediaOptionsSpec>('wikipedia')
+    const others = await this.getAdditionalContentLanguages(manifestService)
+    const extra = await Promise.all(
+      others.map(async (language) => {
+        const spec = await manifestService.getCachedSpec<WikipediaOptionsSpec>(
+          'wikipedia',
+          language
+        )
+        return { language, options: spec?.options ?? [] }
+      })
+    )
+    return mergeWikipediaOptions(englishSpec?.options ?? [], extra)
+  }
+
+  /**
+   * Is this finished download the picker's Wikipedia: same variant as the current
+   * selection or a known option (see isSelectorManagedWikipedia)? Ordinary ZIMs
+   * and the usual picker download are answered without any I/O; the option list
+   * (network, falling back to the cache) is only consulted for other Wikipedia
+   * files, so an offline install never waits on GitHub to finish a download.
+   */
+  private async isManagedWikipediaDownload(
+    url: string,
+    selectionFilename: string | null | undefined
+  ): Promise<boolean> {
+    if (!isWikipediaZimFilename(url)) return false
+    if (isSelectorManagedWikipedia(url, selectionFilename, [])) return true
+    let options: WikipediaOption[]
+    try {
+      options = await this.getAllWikipediaOptions()
+    } catch {
+      options = await this.getCachedWikipediaOptions()
+    }
+    const optionUrls = options.map((o) => o.url).filter((u): u is string => !!u)
+    return isSelectorManagedWikipedia(url, selectionFilename, optionUrls)
+  }
+
+  /** Enabled content languages other than English (which has its own, unchanged path). */
+  private async getAdditionalContentLanguages(
+    manifestService: CollectionManifestService
+  ): Promise<string[]> {
+    const languages = await manifestService.getContentLanguages()
+    return languages.filter((language) => language !== DEFAULT_CONTENT_LANGUAGE)
   }
 
   async getWikipediaSelection(): Promise<WikipediaSelection | null> {
@@ -716,8 +827,8 @@ export class ZimService {
   }
 
   async getWikipediaState(): Promise<WikipediaState> {
-    const options = await this.getWikipediaOptions()
     const selection = await this.getWikipediaSelection()
+    const options = await this.getWikipediaOptions(selection?.option_id ?? null)
 
     return {
       options,
@@ -859,7 +970,7 @@ export class ZimService {
     // Determine which Wikipedia option this file belongs to by matching filename
     let matchedOptionId: string | null = null
     try {
-      const options = await this.getWikipediaOptions()
+      const options = await this.getAllWikipediaOptions()
       for (const opt of options) {
         if (opt.url && opt.url.split('/').pop() === filename) {
           matchedOptionId = opt.id

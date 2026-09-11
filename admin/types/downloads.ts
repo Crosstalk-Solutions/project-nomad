@@ -86,6 +86,8 @@ export type WikipediaOption = {
   description: string
   size_mb: number
   url: string | null
+  /** ISO 639-1 content language. Absent in the English manifest, which means `en`. */
+  language?: string
 }
 
 export type WikipediaOptionsFile = {

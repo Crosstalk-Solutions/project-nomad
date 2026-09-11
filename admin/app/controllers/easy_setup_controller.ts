@@ -35,18 +35,19 @@ export default class EasySetupController {
 
   async refreshManifests({}: HttpContext) {
     const manifestService = new CollectionManifestService()
-    const [zimChanged, mapsChanged, wikiChanged] = await Promise.all([
+    const [zimChanged, mapsChanged, wikiChanged, otherLanguages] = await Promise.all([
       manifestService.fetchAndCacheSpec('zim_categories'),
       manifestService.fetchAndCacheSpec('maps'),
       manifestService.fetchAndCacheSpec('wikipedia'),
+      manifestService.refreshAdditionalLanguageManifests(),
     ])
 
     return {
       success: true,
       changed: {
-        zim_categories: zimChanged,
+        zim_categories: zimChanged || otherLanguages.zim_categories,
         maps: mapsChanged,
-        wikipedia: wikiChanged,
+        wikipedia: wikiChanged || otherLanguages.wikipedia,
       },
     }
   }
