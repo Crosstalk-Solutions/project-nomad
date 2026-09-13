@@ -8,6 +8,11 @@ import {
   mergeContainerConfigPreservingHostPorts,
   mergeUiLocationPreservingHostPort,
 } from '../../app/utils/service_catalog_merge.js'
+import {
+  OPENHOP_REPEATER_HOST_PORT,
+  OPENHOP_REPEATER_IMAGE,
+  buildOpenHopRepeaterContainerConfig,
+} from '../../constants/openhop_repeater.js'
 
 type ServiceSeedRecord = Omit<
   ModelAttributes<Service>,
@@ -440,6 +445,29 @@ export default class ServiceSeeder extends BaseSeeder {
         ExposedPorts: { '443/tcp': {} },
       }),
       ui_location: 'https:8500',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'networking',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.OPENHOP_REPEATER,
+      friendly_name: 'openHop Repeater',
+      powered_by: 'openHop',
+      display_order: 33,
+      description:
+        'Self-hosted MeshCore repeater with a local web interface plus USB and TCP modem support',
+      icon: 'IconAntenna',
+      // Use the approved stable release, including the in-container plugin manager.
+      container_image: OPENHOP_REPEATER_IMAGE,
+      source_repo: 'https://github.com/openhop-dev/openhop_repeater',
+      container_command: null,
+      container_config: JSON.stringify(
+        buildOpenHopRepeaterContainerConfig(ServiceSeeder.NOMAD_STORAGE_ABS_PATH)
+      ),
+      ui_location: OPENHOP_REPEATER_HOST_PORT,
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,

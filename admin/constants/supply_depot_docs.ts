@@ -20,6 +20,7 @@ export const SUPPLY_DEPOT_DOC_ANCHORS: Record<string, string> = {
   [SERVICE_NAMES.KOLIBRI]: 'kolibri',
   [SERVICE_NAMES.KOLIBRI_GEN2]: 'kolibri',
   [SERVICE_NAMES.MESHCORE_WEB]: 'meshcore-web',
+  [SERVICE_NAMES.OPENHOP_REPEATER]: 'openhop-repeater',
   [SERVICE_NAMES.TRANSLATE]: 'offline-translation',
 }
 

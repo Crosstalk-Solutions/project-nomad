@@ -283,6 +283,51 @@ A browser-based client for [MeshCore](https://meshcore.io) radios. MeshCore is a
 
 **Works offline:** Fully offline, which is the whole point of MeshCore. The app is served from your NOMAD and talks to your radio directly over USB or Bluetooth, never the internet.
 
+## openHop Repeater {% #openhop-repeater %}
+
+An open-source MeshCore repeater and management service with a full local web interface. It can route mesh traffic, manage the repeater identity and radio settings, expose statistics and logs, and connect to a supported radio modem without depending on a cloud service.
+
+**Official site:** [openhop.dev](https://openhop.dev) · **Flasher:** [flasher.openhop.dev](https://flasher.openhop.dev) · **Source:** [github.com/openhop-dev/openhop_repeater](https://github.com/openhop-dev/openhop_repeater)
+
+**First time you open it:** openHop starts in its setup wizard. Create the administrator credentials and review the node settings there. NOMAD deliberately does not install the shared example passwords that appear in generic development configurations.
+
+**Radio hardware:** openHop Repeater needs an openHop Modem running on a supported device. Use [flasher.openhop.dev](https://flasher.openhop.dev) to install the openHop Modem firmware, then connect that device to your NOMAD over USB or to the same local network for TCP operation.
+
+**Safe starting state:** The Supply Depot installation opens with the radio disabled and `no_tx` mode selected. This gives you time to finish the identity, modem, region, and radio settings before enabling mesh traffic.
+
+**Using a USB modem:** Plug the openHop Modem into the NOMAD itself, then select **openHop Modem USB** in openHop's radio configuration. USB serial devices are available inside the app under `/host/dev`. Prefer the stable path under `/host/dev/serial/by-id/` when your modem provides one; `/host/dev/ttyACM0` or `/host/dev/ttyUSB0` also works when that is how Linux identifies it. The normal openHop Modem USB baud rate is `921600`.
+
+**Using a network modem:** For an openHop Modem on the same LAN, select **openHop Modem TCP**, enter the modem's LAN IP address, port (normally `5055`), and its token if one is configured. Prefer a reserved IP address or normal local DNS name; `.local`/mDNS names do not always resolve from inside Docker containers.
+
+Before enabling forwarding, verify the antenna, region, frequency, bandwidth, spreading factor, coding rate, preamble, and transmit power for the attached radio. Use `no_tx` or monitor mode while checking the connection.
+
+**AI awareness:** This branch adds a short openHop section to the shared `storage/NOMAD.md` once during database migration, for both new installations and upgrades. Existing instructions are preserved, and an existing openHop heading is left alone. Edit or remove the section through the chat sidebar's **NOMAD.md** editor; normal restarts do not restore it. It explains the optional bridge and DM-only transport without claiming the app is installed or connected. This is standing context, not a separate per-app prompt file. For detailed AI setup and troubleshooting answers, import the relevant openHop documentation into the Knowledge Base; this migration does not ingest documentation automatically.
+
+**Plugins:** openHop includes a plugin manager. Install optional plugins such as waev:outpost or NOMAD Bridge through openHop's plugin catalogue; they are not bundled with the image. Plugin packages, settings, and data persist beneath `storage/openhop-repeater/data/plugins`, so no extra mount or privileged container is required. Installing plugins and their dependencies normally requires internet access. Plugins run as trusted code with the repeater's container account.
+
+**NOMAD AI over the mesh:** The optional [NOMAD Bridge plugin](https://github.com/openhop-dev/openhop-nomad-plugin) connects a dedicated openHop Companion identity to NOMAD's local AI assistant. MeshCore users send that identity a direct message; the plugin passes the question to NOMAD and sends the answer back over the mesh. Once the model and plugin are installed, local AI requests do not require a cloud AI service.
+
+Inside openHop, open the plugin manager and install **NOMAD Bridge** from the plugin catalogue, then enable and configure it. The bridge runs inside the openHop container; you do not need a separate bridge container.
+
+The plugin's default NOMAD API address (`nomad_url`) is **`http://nomad_admin:8080`**. NOMAD runs as a Docker app, and `nomad_admin` is its admin container's hostname on the shared Docker network. Leave this default in place for the normal NOMAD Supply Depot installation and select a model already installed in NOMAD's AI Assistant. The bridge sends requests to the **NOMAD API**, which provides access to the AI running on your NOMAD box; do not point it directly at Ollama.
+
+If openHop runs on another machine or outside NOMAD's Docker network, set `nomad_url` to a reachable NOMAD address such as `http://<NOMAD-LAN-IP>:8080` instead. Do not use `http://127.0.0.1:8080`: inside openHop, that points to the openHop container, not NOMAD.
+
+Configure a dedicated openHop Companion identity/frame server for the bridge. The first companion created in openHop uses port **`5050`** by default. Since the bridge and Companion run inside the same openHop container, configure the bridge's Companion connection with host **`127.0.0.1`** and port **`5050`** without exposing an additional host port. If you use another companion or change its listening port, use the port shown for that specific companion instead. Before sending your first question, exchange contacts as described below.
+
+**Messaging NOMAD Bridge (DMs only):**
+
+1. **Advertise the companion you will send messages from.** In the MeshCore app, send an advert from your own companion radio so openHop Repeater can discover its contact.
+2. **Import your sending companion's contact into the bridge's companion.** In openHop Repeater, go to **Companions**, open the companion connected to NOMAD Bridge, and use **Import Contacts** to import the contact for the radio you just advertised. Import it into that specific companion, not a different companion on the repeater. The bridge's companion needs your sender's public contact to decrypt your direct messages.
+3. **Add the bridge's companion to your MeshCore app.** On the companion connected to the bridge, click the **QR** button to display its QR code. Scan that code in the MeshCore app to add the bridge's companion as a contact.
+4. **Send that contact a direct message.** Open a DM to the bridge's companion and send your question. NOMAD Bridge passes it to NOMAD's local AI and sends the answer back as a DM over the mesh.
+
+**The bridge only accepts direct messages (DMs); channel messages cannot be used to talk to it.** Repeat the advert and contact-import steps for each sending companion that needs to message the bridge.
+
+**Your data:** Configuration and identity material live in `storage/openhop-repeater/config`. Packet history, metrics, plugins, and other runtime data live in `storage/openhop-repeater/data`. Back up both folders together. The configuration can contain identity keys, modem tokens, and other secrets, so protect the backup like a password vault and do not post it in support logs.
+
+**Works offline:** The repeater, web interface, local modem connection, statistics, and configuration work on the local network without internet access. Optional services you configure yourself, such as remote MQTT brokers or update checks, naturally need access to those endpoints.
+
 ## Translated Library {% #offline-translation %}
 
 Reads the Information Library in another language. Open an article and a **Translate this page** bar appears at the top with a button for each installed language, plus **Original** to switch back. Your choice sticks as you click through to other articles.

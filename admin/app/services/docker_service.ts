@@ -27,6 +27,7 @@ import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
+import { prepareOpenHopRepeaterStorage } from './openhop_repeater_preinstall.js'
 
 @inject()
 export class DockerService {
@@ -719,6 +720,15 @@ export class DockerService {
         )
       }
 
+      if (service.service_name === SERVICE_NAMES.OPENHOP_REPEATER) {
+        await this._runPreinstallActions__OpenHopRepeater()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for openHop Repeater completed successfully.`
+        )
+      }
+
       // GPU-aware configuration for Ollama
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
@@ -1025,6 +1035,12 @@ export class DockerService {
         message: `Failed to remove service ${serviceName} container. Check server logs for details.`,
       }
     }
+  }
+
+  private async _runPreinstallActions__OpenHopRepeater(): Promise<void> {
+    // File preparation runs inside the admin container, where the shared storage mount is /app/storage.
+    // The separate host-path resolver is only for child-container bind specifications.
+    await prepareOpenHopRepeaterStorage(DockerService.ADMIN_STORAGE_DEST)
   }
 
   private async _runPreinstallActions__KiwixServe(): Promise<void> {

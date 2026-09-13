@@ -15,6 +15,7 @@ export const SERVICE_NAMES = {
   MESHTASTIC_WEB: 'nomad_meshtastic_web',
   MESHTASTICD: 'nomad_meshtasticd',
   MESHCORE_WEB: 'nomad_meshcore_web',
+  OPENHOP_REPEATER: 'nomad_openhop_repeater',
   HOMEBOX: 'nomad_homebox',
   VAULTWARDEN: 'nomad_vaultwarden',
   JELLYFIN: 'nomad_jellyfin',
