@@ -1,0 +1,5 @@
+# Shell scripts must keep LF endings. These are copied into Linux container
+# images, where a CRLF after the shebang makes the interpreter unresolvable and
+# the container exits immediately. Checkouts on Windows would otherwise convert
+# them, which only shows up when building an image locally rather than in CI.
+*.sh text eol=lf
