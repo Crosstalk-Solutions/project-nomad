@@ -32,6 +32,9 @@ export default class KbIngestState extends BaseModel {
   declare collection: string | null
 
   @column()
+  declare active: boolean
+
+  @column()
   declare last_error: string | null
 
   @column.dateTime({ autoCreate: true })
@@ -43,7 +46,7 @@ export default class KbIngestState extends BaseModel {
   static async getOrCreate(filePath: string, collection?: string): Promise<KbIngestState> {
     return this.firstOrCreate(
       { file_path: filePath },
-      { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null }
+      { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null, active: true }
     )
   }
 
