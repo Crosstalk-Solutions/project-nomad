@@ -99,15 +99,19 @@ export class CollectionUpdateService {
     update: ResourceUpdateInfo,
     options?: { auto?: boolean }
   ): Promise<{ success: boolean; jobId?: string; error?: string }> {
-    // Check if a download is already in progress for this URL
-    const existingJob = await RunDownloadJob.getByUrl(update.download_url)
+    // Only block when a download is genuinely in progress. getActiveByUrl
+    // removes any terminal (failed/completed) job for this URL first, so a
+    // previous failed attempt doesn't leave a stale job that blocks the
+    // re-dispatch below. Using the raw getByUrl here (unlike every other
+    // dispatch site) meant a failed download stuck the resource forever: the
+    // failed job survived under the deterministic jobId, dispatch hit "job
+    // already exists" and returned it, and applyUpdate reported success while
+    // nothing was re-downloaded.
+    const existingJob = await RunDownloadJob.getActiveByUrl(update.download_url)
     if (existingJob) {
-      const state = await existingJob.getState()
-      if (state === 'active' || state === 'waiting' || state === 'delayed') {
-        return {
-          success: false,
-          error: `A download is already in progress for ${update.resource_id}`,
-        }
+      return {
+        success: false,
+        error: `A download is already in progress for ${update.resource_id}`,
       }
     }
 

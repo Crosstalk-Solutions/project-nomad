@@ -1,5 +1,9 @@
 import axios, { AxiosError, AxiosInstance } from 'axios'
-import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
+import {
+  ListCatalogLanguagesResponse,
+  ListRemoteZimFilesResponse,
+  ListZimFilesResponse,
+} from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, ContentAutoUpdateStatus, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
@@ -832,10 +836,12 @@ class API {
     start = 0,
     count = 12,
     query,
+    language,
   }: {
     start?: number
     count?: number
     query?: string
+    language?: string
   }) {
     return catchInternal(async () => {
       return await this.client.get<ListRemoteZimFilesResponse>('/zim/list-remote', {
@@ -843,8 +849,17 @@ class API {
           start,
           count,
           query,
+          language,
         },
       })
+    })()
+  }
+
+  async listCatalogLanguages() {
+    return catchInternal(async () => {
+      const response =
+        await this.client.get<ListCatalogLanguagesResponse>('/zim/catalog-languages')
+      return response.data.languages
     })()
   }
 
@@ -1112,6 +1127,16 @@ class API {
     })()
   }
 
+  async setFileActive(source: string, active: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/active', {
+        source,
+        active,
+      })
+      return response.data
+    })()
+  }
+
   async renameCollection(oldName: string, newName: string) {
     return catchInternal(async () => {
       const response = await this.client.post<{ message: string }>('/rag/rename-collection', {
@@ -1127,6 +1152,16 @@ class API {
       const response = await this.client.post<{ message: string }>('/rag/delete-collection', {
         name,
       })
+      return response.data
+    })()
+  }
+
+  async setKnowledgeCollectionActive(collection: string | null, active: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; affectedCount: number }>(
+        '/rag/collection-active',
+        { collection, active }
+      )
       return response.data
     })()
   }
