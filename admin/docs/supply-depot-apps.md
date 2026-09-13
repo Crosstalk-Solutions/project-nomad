@@ -282,3 +282,23 @@ A browser-based client for [MeshCore](https://meshcore.io) radios. MeshCore is a
 **Your data:** There's nothing to set up or store on your NOMAD for this app. Your radio's settings live on the radio itself, and the app's preferences live in your browser. There's no NOMAD folder to manage.
 
 **Works offline:** Fully offline, which is the whole point of MeshCore. The app is served from your NOMAD and talks to your radio directly over USB or Bluetooth, never the internet.
+
+## Translated Library {% #offline-translation %}
+
+Reads the Information Library in another language. Open an article and a **Translate this page** bar appears at the top with a button for each installed language, plus **Original** to switch back. Your choice sticks as you click through to other articles.
+
+**Why this instead of the AI Assistant:** the AI Assistant can translate, but this is roughly 1,600 times faster on the same machine, and it does not need a graphics card, so it works on every NOMAD. It is also more careful with names: asked to translate a page, the AI Assistant will happily translate "Project NOMAD" into another language, and this will not.
+
+**Choosing languages:** French, Spanish and German are set up by default. To change that, use **Manage > Edit** and set `TRANSLATE_LANGS` to a comma-separated list of language codes, for example `fr,it,pt`. Each language is about 74 MB, and new ones download the next time the app restarts. Around 40 languages are available, including Hindi, Bengali, Tamil, Telugu, Vietnamese and Indonesian. **Chinese, Japanese, Korean, Arabic and Thai are not available**, because no compact model exists for them yet.
+
+**First start needs internet.** The language models download when the app first runs, the same as installing any other app. After that it is entirely offline. If you install this while disconnected the app still starts and the library still works, just without translation until it can fetch the models.
+
+**What it does not translate:** tables and infoboxes, the page title in your browser tab, and Kiwix's own search results. Searching also still matches the original language, so look things up in English and translate the article you land on.
+
+**A note on two language buttons:** the library's own toolbar has a globe that changes the *menus* around the page. The bar this app adds changes the *article*. They are different things and sit close together, which is unfortunate but not something we can move.
+
+**Accuracy:** this is machine translation, and it is literal. It is very good for getting the sense of an article. Be careful relying on it for exact medical or safety wording, where the correct term in another language is often not the literal one.
+
+**Your data:** language models live in `storage/translate/models`. Nothing you read is stored or sent anywhere.
+
+**Works offline:** yes, once the models have downloaded.
