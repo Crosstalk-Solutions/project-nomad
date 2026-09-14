@@ -19,7 +19,7 @@ REDIS_HOST="${REDIS_HOST:-redis}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 echo "Waiting for Redis at ${REDIS_HOST}:${REDIS_PORT}..."
 for i in $(seq 1 60); do
-  if node -e "const net=require('net');const s=net.connect(Number(process.env.REDIS_PORT||6379),process.env.REDIS_HOST||'redis');s.on('connect',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));" 2>/dev/null; then
+  if node -e "const net=require('net');const s=net.connect(Number(process.env.REDIS_PORT||6379),process.env.REDIS_HOST||'redis');let done=false;const finish=(code)=>{if(done)return;done=true;s.destroy();process.exit(code)};s.setTimeout(1000,()=>finish(1));s.on('connect',()=>finish(0));s.on('error',()=>finish(1));" 2>/dev/null; then
     echo "Redis is up and running!"
     break
   fi
