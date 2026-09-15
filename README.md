@@ -32,6 +32,21 @@ Project NOMAD is now installed on your device! Open a browser and navigate to `h
 
 For a complete step-by-step walkthrough (including Ubuntu installation), see the [Installation Guide](https://www.projectnomad.us/install). For Windows users, see the [WSL2 install guide](https://www.projectnomad.us/install/wsl2) — community-supported path covering native Docker and Docker Desktop install routes.
 
+### Offline (Air-Gapped) Installation
+The quick install above needs an internet connection to download dependencies. If your target machine has no connectivity — or you want to be able to rebuild it after connectivity is gone — you can build an offline artifact bundle on a connected machine and install from it:
+
+```bash
+# On a connected machine, from a Project NOMAD checkout (Docker is the only requirement):
+./install/build_offline_bundle_docker.sh --target ubuntu:26.04 --output /media/usb/NOMAD
+```
+
+```bash
+# On the disconnected target, from inside the bundle directory:
+sudo bash ./install_nomad.sh --artifacts .
+```
+
+Bundles are specific to one OS, version, and architecture, and cover the core Command Center stack — not offline content or Supply Depot apps. See the [Offline Installation Guide](admin/docs/offline-install.md) for the full workflow, bundle format, and limitations.
+
 ### Advanced Installation
 For more control over the installation process, copy and paste the [Docker Compose template](https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
 
@@ -78,7 +93,7 @@ At its core, however, NOMAD is still very lightweight. For a barebones installat
 - RAM: 4GB system memory
 - Storage: At least 5 GB free disk space
 - OS: Debian-based (Ubuntu 26.04 LTS recommended)
-- Stable internet connection (required during install only)
+- Stable internet connection (required during install only, or use an [offline artifact bundle](admin/docs/offline-install.md))
 
 To run LLMs and other included AI tools:
 
@@ -88,7 +103,7 @@ To run LLMs and other included AI tools:
 - Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
 - Storage: At least 250 GB free disk space (preferably on SSD)
 - OS: Debian-based (Ubuntu 26.04 LTS recommended)
-- Stable internet connection (required during install only)
+- Stable internet connection (required during install only, or use an [offline artifact bundle](admin/docs/offline-install.md))
 
 **For detailed build recommendations at three price points ($150–$1,000+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
 
@@ -105,6 +120,8 @@ For answers to common questions about Project NOMAD, please see our [FAQ](FAQ.md
 
 ## About Internet Usage & Privacy
 Project NOMAD is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, NOMAD does not require an internet connection and has ZERO built-in telemetry.
+
+If even the initial installation needs to happen without connectivity, see the [Offline Installation Guide](admin/docs/offline-install.md) — dependencies are prepared on a connected machine and carried to the target instead.
 
 To test internet connectivity, NOMAD first attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace`. If that endpoint is unreachable (for example, because your network blocks `1.1.1.1`), it falls back to other endpoints the application already contacts (the GitHub API and the Project NOMAD API) and considers the connection online if any of them respond.
 

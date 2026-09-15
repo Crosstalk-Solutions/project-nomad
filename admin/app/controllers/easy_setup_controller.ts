@@ -1,3 +1,4 @@
+import { DockerService } from '#services/docker_service'
 import { SystemService } from '#services/system_service'
 import { ZimService } from '#services/zim_service'
 import { CollectionManifestService } from '#services/collection_manifest_service'
@@ -9,18 +10,33 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class EasySetupController {
   constructor(
     private systemService: SystemService,
-    private zimService: ZimService
+    private zimService: ZimService,
+    private dockerService: DockerService
   ) {}
 
   async index({ inertia }: HttpContext) {
-    const [services, remoteOllamaUrl] = await Promise.all([
+    const [services, remoteOllamaUrl, localImageTags] = await Promise.all([
       this.systemService.getServices({ installedOnly: false }),
       KVStore.getValue('ai.remoteOllamaUrl'),
+      this.dockerService.listLocalImageTags(),
     ])
+
+    // Apps whose image is already in the local Docker daemon install without
+    // touching a registry (createContainerPreflight skips the pull when the
+    // image is present). An offline artifact bundle built with --with-apps
+    // loads exactly these, so this is what makes the wizard's offline mode
+    // honest: it can say which capabilities are genuinely installable now
+    // instead of pulling and failing halfway.
+    const localImages = new Set(localImageTags)
+    const locallyAvailableServices = services
+      .filter((service) => !!service.container_image && localImages.has(service.container_image))
+      .map((service) => service.service_name)
+
     return inertia.render('easy-setup/index', {
       system: {
         services: services,
         remoteOllamaUrl: remoteOllamaUrl ?? '',
+        locallyAvailableServices,
       },
     })
   }
