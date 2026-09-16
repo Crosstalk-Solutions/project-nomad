@@ -133,7 +133,7 @@
     "remark-gfm": "4.0.1",
     "sharp": "0.34.5",
     "stopword": "3.1.5",
-    "stream-json": "1.9.1",
+    "stream-json": "3.5.0",
     "systeminformation": "5.31.7",
     "tailwindcss": "4.2.2",
     "tar": "7.5.16",
