@@ -116,7 +116,7 @@
     "luxon": "3.7.2",
     "mammoth": "1.12.0",
     "maplibre-gl": "4.7.1",
-    "mysql2": "3.22.5",
+    "mysql2": "3.23.1",
     "ollama": "0.6.3",
     "openai": "6.38.0",
     "pdf-parse": "2.4.5",
