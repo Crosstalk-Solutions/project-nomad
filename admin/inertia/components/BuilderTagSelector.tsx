@@ -81,7 +81,7 @@ export default function BuilderTagSelector({
           value={adjective}
           onChange={(e) => handleAdjectiveChange(e.target.value)}
           disabled={disabled}
-          className="px-3 py-2 bg-desert-stone-lighter border border-desert-stone-light rounded-lg text-desert-green font-medium focus:outline-none focus:ring-2 focus:ring-desert-green disabled:opacity-50"
+          className="px-3 py-2 bg-desert-stone-lighter border border-desert-stone-light rounded-lg text-text-primary font-medium focus:outline-none focus:ring-2 focus:ring-desert-green disabled:opacity-50"
         >
           {ADJECTIVES.map((adj) => (
             <option key={adj} value={adj}>
@@ -96,7 +96,7 @@ export default function BuilderTagSelector({
           value={noun}
           onChange={(e) => handleNounChange(e.target.value)}
           disabled={disabled}
-          className="px-3 py-2 bg-desert-stone-lighter border border-desert-stone-light rounded-lg text-desert-green font-medium focus:outline-none focus:ring-2 focus:ring-desert-green disabled:opacity-50"
+          className="px-3 py-2 bg-desert-stone-lighter border border-desert-stone-light rounded-lg text-text-primary font-medium focus:outline-none focus:ring-2 focus:ring-desert-green disabled:opacity-50"
         >
           {NOUNS.map((n) => (
             <option key={n} value={n}>
@@ -107,7 +107,7 @@ export default function BuilderTagSelector({
 
         <span className="text-desert-stone-dark font-bold">-</span>
 
-        <span className="px-3 py-2 bg-desert-stone-lighter border border-desert-stone-light rounded-lg text-desert-green font-mono font-bold">
+        <span className="px-3 py-2 bg-desert-stone-lighter border border-desert-stone-light rounded-lg text-text-primary font-mono font-bold">
           {number}
         </span>
 

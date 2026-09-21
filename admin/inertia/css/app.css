@@ -66,8 +66,9 @@ body {
   --color-desert-green-darker: #f7eedc;
   --color-desert-green-dark: #e8dfc8;
 
-  /* Accent green: slightly brighter for dark bg visibility */
+  /* Accent green remains dark enough for white text on buttons */
   --color-desert-green: #525530;
+  --color-desert-green-foreground: #babaaa;
 
   /* Light variants → dark variants (hover bg, disabled states) */
   --color-desert-green-light: #3a3c24;
@@ -118,6 +119,11 @@ body {
   --color-btn-green-active: #3a3c24;
 
   color-scheme: dark;
+}
+
+/* Keep foreground accents readable without lightening green button backgrounds. */
+[data-theme="dark"] .text-desert-green {
+  color: var(--color-desert-green-foreground);
 }
 
 /* MapLibre popup styling for dark mode */
