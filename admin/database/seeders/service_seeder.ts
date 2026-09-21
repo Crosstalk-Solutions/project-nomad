@@ -98,7 +98,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 3,
       description: 'Local AI chat that runs entirely on your hardware - no internet required',
       icon: 'IconWand',
-      container_image: 'ollama/ollama:0.24.0',
+      container_image: 'ollama/ollama:0.33.3',
       source_repo: 'https://github.com/ollama/ollama',
       container_command: 'serve',
       container_config: JSON.stringify({
