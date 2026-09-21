@@ -251,7 +251,21 @@ export class OllamaService {
           const response = await axios.get(`${this.baseUrl}/api/tags`, { timeout: 5000 })
           // LM Studio answers 200 on unknown paths with an incompatible body — validate the shape.
           this.isOllamaNative = Array.isArray(response.data?.models)
-        } catch {
+        } catch (err) {
+          if (axios.isAxiosError(err) && err.response === undefined) {
+            // No HTTP response at all: the backend is unreachable (down, starting, or busy
+            // past the timeout), which proves nothing about its identity. A busy Ollama
+            // times out exactly like a non-Ollama server here, and memoizing `false` for
+            // the process lifetime blocks model pulls with a misleading error (#1349).
+            // Degrade for this call only and let the next caller re-probe.
+            this.nativeProbe = null
+            logger.info(
+              '[OllamaService] Native-API probe could not reach the backend; leaving the backend type undetermined and re-probing on next use.'
+            )
+            return false
+          }
+          // The backend answered (non-2xx status, or a 200 with a non-Ollama body via the
+          // shape check above): that is a live server that does not speak the native API.
           this.isOllamaNative = false
         }
         if (!this.isOllamaNative) {
@@ -1231,10 +1245,19 @@ export class OllamaService {
       const models: NomadInstalledModel[] = response.data.models
       if (includeEmbeddings) return models
       return models.filter((m) => !m.name.includes('embed'))
-    } catch {
+    } catch (tagsErr) {
+      // Classify the backend only when it actually answered. A non-2xx status, or the
+      // shape-mismatch throw above (a 200 arrived with a non-Ollama body), proves a live
+      // server that does not speak the native API. A request that got NO response — a
+      // timeout while Ollama is busy or still starting, a refused connection — proves
+      // nothing, and marking it non-Ollama here made every model download fail with
+      // "pulling is only supported for Ollama backends" on stock installs (#1349).
+      const backendAnswered = axios.isAxiosError(tagsErr) ? tagsErr.response !== undefined : true
+      if (backendAnswered) {
+        this.isOllamaNative = false
+        this.nativeProbe = Promise.resolve(false)
+      }
       // Fall back to the OpenAI-compatible /v1/models endpoint (LM Studio, llama.cpp, etc.)
-      this.isOllamaNative = false
-      this.nativeProbe = Promise.resolve(false)
       logger.info('[OllamaService] /api/tags unavailable, falling back to /v1/models')
       try {
         const modelList = await this.openai!.models.list()
