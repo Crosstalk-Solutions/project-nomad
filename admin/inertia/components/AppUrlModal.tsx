@@ -79,6 +79,7 @@ export default function AppUrlModal({ open, service, onClose, onSaved, showError
               name="customUrl"
               label="Custom URL"
               placeholder="http://jellyfin.myhomelab.net"
+              maxLength={255}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               error={isInvalid}

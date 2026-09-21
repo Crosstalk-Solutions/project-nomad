@@ -101,7 +101,7 @@ export const customAppValidator = vine.compile(
 export const setServiceCustomUrlValidator = vine.compile(
   vine.object({
     service_name: vine.string().trim(),
-    custom_url: vine.string().trim().nullable(),
+    custom_url: vine.string().trim().maxLength(255).nullable(),
   })
 )
 
@@ -118,7 +118,10 @@ export function normalizeCustomUrl(input: string | null | undefined): string | n
   try {
     const url = new URL(withScheme)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    return url.href
+    // services.custom_url uses the database driver's default VARCHAR(255) size.
+    // Check the normalized value because prepending a scheme or URL canonicalization
+    // can make a valid-looking input longer than the stored column.
+    return url.href.length <= 255 ? url.href : null
   } catch {
     return null
   }

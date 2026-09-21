@@ -13,7 +13,8 @@ export function normalizeCustomUrl(input: string | null | undefined): string | n
     try {
         const url = new URL(withScheme);
         if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-        return url.href;
+        // Keep the normalized value within services.custom_url's VARCHAR(255) column.
+        return url.href.length <= 255 ? url.href : null;
     } catch {
         return null;
     }
