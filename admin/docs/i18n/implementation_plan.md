@@ -115,7 +115,7 @@ Exemplos:
 
 #### Tasks:
 - [ ] Instalar `react-i18next`, `i18next` e `i18next-browser-languagedetector` via npm
-- [ ] Criar arquivo de configuração `admin/inertia/lib/i18n.ts` com:
+- [ ] Criar arquivo de configuração `admin/inertia/lib/i18n.ts` com:  
   - Inicialização do i18next
   - Plugin de detecção de idioma do navegador
   - Configuração de fallback language (`en`)
