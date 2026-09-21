@@ -10,11 +10,12 @@ import type { MapRef, MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-import { Protocol } from 'pmtiles'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { PMTiles, Protocol } from 'pmtiles'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 
 import { useMapMarkers, PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { PinColorId } from '~/hooks/useMapMarkers'
+import type { FileEntry } from '../../../types/files'
 
 import MarkerPin from './MarkerPin'
 import MarkerPanel from './MarkerPanel'
@@ -26,12 +27,26 @@ type ScaleUnit = 'imperial' | 'metric'
 type MapComponentProps = {
   isHoveringUI: boolean
   showCoordinatesEnabled: boolean
+  regionFiles: FileEntry[]
 }
 
 const SAVED_MAP_VIEW_KEY = 'nomad:map-view'
 const DEFAULT_MAP_VIEW = { longitude: -101, latitude: 40, zoom: 3.5 }
 
 type SavedMapView = { longitude: number; latitude: number; zoom: number }
+
+const getRegionLabel = (filename: string) => {
+  const slug = filename
+    .replace(/\.pmtiles$/i, '')
+    .replace(/_\d{4}-\d{2}$/i, '')
+    .replace(/_[\d-]+_z\d+$/i, '')
+
+  return slug
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
 
 // Restore the last map position/zoom from localStorage so a refresh of /maps doesn't snap back
 // to the default US-wide view. Bounds-checked so a corrupt or out-of-range value falls through
@@ -63,6 +78,7 @@ const getSavedMapView = (): SavedMapView | null => {
 export default function MapComponent({
   isHoveringUI,
   showCoordinatesEnabled,
+  regionFiles,
 }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
@@ -92,6 +108,18 @@ export default function MapComponent({
   } | null>(null)
 
   const [showCoordinates, setShowCoordinates] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState('')
+  const [isNavigatingToRegion, setIsNavigatingToRegion] = useState(false)
+  const [regionNavigationError, setRegionNavigationError] = useState<string | null>(null)
+
+  const installedRegions = useMemo(
+    () =>
+      regionFiles
+        .filter((file): file is Extract<FileEntry, { type: 'file' }> => file.type === 'file')
+        .map((file) => ({ filename: file.name, label: getRegionLabel(file.name) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [regionFiles]
+  )
 
   useEffect(() => {
     const protocol = new Protocol()
@@ -178,6 +206,34 @@ export default function MapComponent({
 
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
     mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 12, duration: 1500 })
+  }, [])
+
+  const handleRegionChange = useCallback(async (filename: string) => {
+    setSelectedRegion(filename)
+    setRegionNavigationError(null)
+    if (!filename) return
+
+    setIsNavigatingToRegion(true)
+    try {
+      const archiveUrl = `${window.location.origin}/pmtiles/${encodeURIComponent(filename)}`
+      const header = await new PMTiles(archiveUrl).getHeader()
+      mapRef.current?.fitBounds(
+        [
+          [header.minLon, header.minLat],
+          [header.maxLon, header.maxLat],
+        ],
+        {
+          padding: { top: 150, right: 50, bottom: 50, left: 50 },
+          maxZoom: 8,
+          duration: 1200,
+        }
+      )
+    } catch (error) {
+      console.error('Failed to read map region bounds:', error)
+      setRegionNavigationError('Could not open that downloaded map.')
+    } finally {
+      setIsNavigatingToRegion(false)
+    }
   }, [])
 
   const handleDeleteMarker = useCallback(
@@ -379,6 +435,39 @@ export default function MapComponent({
             </Popup>
           )}
         </Map>
+
+        {installedRegions.length > 0 && (
+          <div className="absolute left-4 top-[124px] z-40 min-w-64 rounded-lg border border-border-default bg-surface-secondary/95 p-3 shadow-lg backdrop-blur-sm">
+            <label
+              htmlFor="map-region-select"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted"
+            >
+              Jump to downloaded region
+            </label>
+            <select
+              id="map-region-select"
+              value={selectedRegion}
+              disabled={isNavigatingToRegion}
+              onChange={(event) => void handleRegionChange(event.target.value)}
+              className="w-full rounded-md border border-border-default bg-surface-primary px-3 py-2 text-sm text-text-primary focus:border-transparent focus:outline-none focus:ring-2 focus:ring-desert-green disabled:opacity-60"
+            >
+              <option value="">
+                {isNavigatingToRegion ? 'Opening region…' : 'Choose a region…'}
+              </option>
+              {installedRegions.map((region) => (
+                <option key={region.filename} value={region.filename}>
+                  {region.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-text-muted">Zoom in further for streets and places.</p>
+            {regionNavigationError && (
+              <p className="mt-1 text-xs text-red-600" role="alert">
+                {regionNavigationError}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div onMouseEnter={hideCoordinates}>

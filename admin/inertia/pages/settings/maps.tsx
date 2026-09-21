@@ -303,7 +303,10 @@ export default function MapsManager(props: {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
-              <p className="text-text-muted">Manage your stored map files and explore new regions!</p>
+              <p className="text-text-muted">
+                Manage offline vector maps with streets, buildings, and places. Open the map and
+                zoom into a downloaded region to see local detail.
+              </p>
             </div>
             <div className="flex space-x-4">
 
