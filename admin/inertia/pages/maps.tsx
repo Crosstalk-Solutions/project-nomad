@@ -83,6 +83,7 @@ export default function Maps(props: {
           <MapComponent
             isHoveringUI={isHoveringUI}
             showCoordinatesEnabled={showMapCoordinates}
+            regionFiles={props.maps.regionFiles}
           />
         </div>
       </div>
