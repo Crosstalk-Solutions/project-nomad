@@ -749,37 +749,25 @@ export class IngestDrugDataJob {
     // Install-state write-back: when this ingest was kicked off by a curated-tier
     // install, record an `installed_resources` row so the tier-status math (which
     // is row-driven for ZIM/map) recognizes the dataset uniformly — the home-tile
-    // gate and the tier "installed" badge both read these rows. resource_type
-    // 'dataset' was widened onto the model in the foundational slice. The row's
+    // gate and the tier "installed" badge both read these rows. The row's
     // `version` is the openFDA export_date (the real freshness key), not the
-    // manifest placeholder. Manual downloads pass no resourceMeta → no row, which
-    // is correct: install-state belongs to the curated-tier path only.
+    // manifest placeholder. Manual ingests pass no resourceMeta and write no row
+    // here; DrugInstallRowProvider backfills that case on the next admin boot.
     if (!resourceMeta) return
     try {
-      const { default: InstalledResource } = await import('#models/installed_resource')
-      const { DateTime } = await import('luxon')
-      const totalBytes = await this.totalDownloadedBytes()
-      await InstalledResource.updateOrCreate(
-        { resource_id: resourceMeta.resourceId, resource_type: 'dataset' },
-        {
-          version: exportDate,
-          collection_ref: resourceMeta.collectionRef,
-          url: 'https://api.fda.gov/download.json',
-          // No single on-disk file — the parts are deleted after ingest; the
-          // installed artifact is the DB table. Record the staging dir for
-          // provenance; uninstall keys off resource_id, never this path.
-          file_path: STORAGE_BASE,
-          file_size_bytes: totalBytes,
-          installed_at: DateTime.now(),
-        }
-      )
+      const { DrugReferenceService } = await import('#services/drug_reference_service')
+      await new DrugReferenceService().recordInstalledRow({
+        version: exportDate,
+        collectionRef: resourceMeta.collectionRef,
+        fileSizeBytes: await this.totalDownloadedBytes(),
+      })
       logger.info(
         `[IngestDrugDataJob] Wrote installed_resources row for ${resourceMeta.resourceId} (export_date=${exportDate})`
       )
     } catch (err) {
       // A failed row write must NOT abort a completed ingest — the data is
       // already searchable. Log loud; the tier badge will simply read
-      // not-installed until the next install reconcile.
+      // not-installed until DrugInstallRowProvider backfills it on the next boot.
       logger.error(
         `[IngestDrugDataJob] Failed to write installed_resources row for ${resourceMeta.resourceId}: ${
           err instanceof Error ? err.message : String(err)
