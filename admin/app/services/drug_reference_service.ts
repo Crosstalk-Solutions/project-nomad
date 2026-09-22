@@ -567,6 +567,60 @@ export class DrugReferenceService {
   }
 
   /**
+   * Write (or refresh) the `installed_resources` 'dataset' row that the tier-
+   * status math and the curated-install filter read. Shared by the ingest job's
+   * final pass, the ZimService tier-select path, and DrugInstallRowProvider's
+   * boot backfill so all three write the same shape. Throws; callers log.
+   */
+  async recordInstalledRow(opts: {
+    version: string
+    collectionRef: string | null
+    fileSizeBytes: number | null
+  }): Promise<void> {
+    const { default: InstalledResource } = await import('#models/installed_resource')
+    const { DateTime } = await import('luxon')
+    await InstalledResource.updateOrCreate(
+      { resource_id: DRUG_DATASET_RESOURCE_ID, resource_type: 'dataset' },
+      {
+        version: opts.version,
+        collection_ref: opts.collectionRef,
+        url: 'https://api.fda.gov/download.json',
+        // No single on-disk file — the parts are deleted after ingest; the
+        // installed artifact is the DB table. Record the staging dir for
+        // provenance; uninstall keys off resource_id, never this path.
+        file_path: STORAGE_BASE,
+        file_size_bytes: opts.fileSizeBytes,
+        installed_at: DateTime.now(),
+      }
+    )
+  }
+
+  /** Whether the `installed_resources` 'dataset' row exists. */
+  async hasInstalledRow(): Promise<boolean> {
+    const { default: InstalledResource } = await import('#models/installed_resource')
+    const row = await InstalledResource.query()
+      .where('resource_type', 'dataset')
+      .where('resource_id', DRUG_DATASET_RESOURCE_ID)
+      .first()
+    return row !== null
+  }
+
+  /**
+   * Whether either drug queue holds an active/waiting/delayed job. Counts the
+   * whole queue rather than the deterministic jobIds, since ingest continuations
+   * run without one. Throws when Redis is unreachable.
+   */
+  async isJobInFlight(): Promise<boolean> {
+    for (const queueName of [DownloadDrugDataJob.queue, IngestDrugDataJob.queue]) {
+      const counts = await QueueService.getInstance()
+        .getQueue(queueName)
+        .getJobCounts('active', 'waiting', 'delayed')
+      if ((counts.active ?? 0) + (counts.waiting ?? 0) + (counts.delayed ?? 0) > 0) return true
+    }
+    return false
+  }
+
+  /**
    * Uninstall the offline FDA drug dataset — the curated-tier "remove" path.
    *
    * Mirrors how ZimService.delete() reverses a ZIM install: stop anything that

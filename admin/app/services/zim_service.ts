@@ -359,6 +359,26 @@ export class ZimService {
         const status = await drugReferenceService.getIngestStatus()
         if (status.phase === 'ready' || status.rowCount > 0) {
           logger.info('[ZimService] Drug dataset already ingested, skipping dispatch.')
+          // Reaching here means no 'dataset' row exists (the installed filter
+          // above would have dropped the resource). A finished ingest that lost
+          // its row write (1.34.0's narrow enum, or a manual ingest) gets one now,
+          // so re-selecting the tier resolves it without waiting for a reboot.
+          if (status.phase === 'ready' && status.lastUpdated) {
+            try {
+              await drugReferenceService.recordInstalledRow({
+                version: status.lastUpdated,
+                collectionRef: categorySlug,
+                fileSizeBytes: null,
+              })
+              logger.info('[ZimService] Backfilled installed_resources row for the drug dataset.')
+            } catch (err) {
+              logger.error(
+                `[ZimService] Failed to backfill drug dataset row: ${
+                  err instanceof Error ? err.message : String(err)
+                }`
+              )
+            }
+          }
           continue
         }
         // DownloadDrugDataJob.dispatch() is idempotent on its deterministic
