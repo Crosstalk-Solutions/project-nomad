@@ -58,6 +58,21 @@ test('dark accent text clears WCAG AA without changing the accent background', (
     /\[data-theme="dark"\] \.text-desert-green\s*\{\s*color:\s*var\(--color-desert-green-foreground\)/,
     'dark text-desert-green utilities must use the foreground-only accent token'
   )
+  assert.match(
+    css,
+    /\[data-theme="dark"\] \.hover\\:text-desert-green:hover\s*\{\s*color:\s*var\(--color-desert-green-foreground\)/,
+    'dark hover:text-desert-green must use the foreground-only accent token'
+  )
+  assert.match(
+    css,
+    /\[data-theme="dark"\] \.hover\\:text-desert-green\\\/80:hover\s*\{[^}]*var\(--color-desert-green-foreground\)/,
+    'dark hover:text-desert-green/80 must use the foreground-only accent token'
+  )
+  assert.match(
+    css,
+    /\[data-theme="dark"\] \.group-hover\\:text-desert-green:is\(:where\(\.group\):hover \*\)\s*\{\s*color:\s*var\(--color-desert-green-foreground\)/,
+    'dark group-hover:text-desert-green must use the foreground-only accent token'
+  )
   assert.ok(
     contrast('#ffffff', token('--color-desert-green')) >= 4.5,
     'the unchanged accent background must retain readable white text'

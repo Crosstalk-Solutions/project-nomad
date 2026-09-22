@@ -126,6 +126,18 @@ body {
   color: var(--color-desert-green-foreground);
 }
 
+[data-theme="dark"] .hover\:text-desert-green:hover {
+  color: var(--color-desert-green-foreground);
+}
+
+[data-theme="dark"] .hover\:text-desert-green\/80:hover {
+  color: color-mix(in oklab, var(--color-desert-green-foreground) 80%, transparent);
+}
+
+[data-theme="dark"] .group-hover\:text-desert-green:is(:where(.group):hover *) {
+  color: var(--color-desert-green-foreground);
+}
+
 /* MapLibre popup styling for dark mode */
 [data-theme="dark"] .maplibregl-popup-content {
   background: #2a2918;
