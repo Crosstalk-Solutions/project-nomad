@@ -225,6 +225,8 @@ export default class OllamaController {
         const abortController = new AbortController()
         response.response.on('close', () => abortController.abort())
         let fullContent = ''
+        let doneReason: string | undefined
+        let completionTokens: number | undefined
         try {
           const stream = await this.ollamaService.chatStream({
             ...ollamaRequest,
@@ -242,8 +244,10 @@ export default class OllamaController {
               fullContent += chunk.message.content
             }
             if (chunk.usage) {
+              completionTokens = chunk.usage.completionTokens
               this._recordUsage(reqData.model, trace, chunk.usage)
             }
+            if (chunk.done_reason) doneReason = chunk.done_reason
             response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
           }
         } catch (err) {
@@ -254,6 +258,9 @@ export default class OllamaController {
           unknownVisionUpstreamRejected =
             normalizedImages.length > 0 && modelCapabilities.vision === 'unknown'
           throw err
+        }
+        if (doneReason === 'length') {
+          this._logLengthStop(reqData.model, numCtx, numPredict, completionTokens)
         }
         // Trailing citation event, written before end(). It carries no `message`
         // key, which is how the client tells it apart from Ollama's own chunks.
@@ -301,6 +308,9 @@ export default class OllamaController {
       if (result?.usage) {
         this._recordUsage(reqData.model, trace, result.usage)
       }
+      if (result?.done_reason === 'length') {
+        this._logLengthStop(reqData.model, numCtx, numPredict, result.usage?.completionTokens)
+      }
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content, sources)
@@ -333,6 +343,23 @@ export default class OllamaController {
       }
       throw error
     }
+  }
+
+  /**
+   * A reply that hit the generation cap reaches the user cut off. The client
+   * shows that from done_reason; this puts it in the admin log with the numbers
+   * needed to tell a small window from a cap that is set too low (#1342).
+   */
+  private _logLengthStop(
+    model: string,
+    numCtx: number | undefined,
+    numPredict: number | undefined,
+    completionTokens: number | undefined
+  ): void {
+    logger.info(
+      `[OllamaController] ${model} stopped at the length limit: ` +
+        `${completionTokens ?? '?'} tokens generated, num_predict=${numPredict ?? 'unset'}, num_ctx=${numCtx ?? 'unset'}`
+    )
   }
 
   /**

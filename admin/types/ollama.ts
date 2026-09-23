@@ -66,6 +66,8 @@ export type NomadChatResponse = {
   message: { content: string; thinking?: string }
   done: boolean
   model: string
+  // 'length' means the answer hit the generation cap and was cut off (#1342).
+  done_reason?: string
 }
 
 /**

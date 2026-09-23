@@ -106,6 +106,12 @@ export type NomadChatResponse = {
    * than feed a JSON fragment to a parser written for prose.
    */
   structured?: boolean
+  /**
+   * Why generation stopped, in Ollama's vocabulary: 'stop' for a natural end,
+   * 'length' when num_predict / max_tokens cut it off. Snake case because this
+   * object goes to API clients as-is and that is the field name they know.
+   */
+  done_reason?: string
 }
 
 export type NomadChatStreamChunk = {
@@ -113,6 +119,8 @@ export type NomadChatStreamChunk = {
   done: boolean
   // Present only on the final chunk of a stream.
   usage?: NomadChatUsage
+  // Present only on the chunk that ends generation. See NomadChatResponse.
+  done_reason?: string
 }
 
 type ChatInput = {
@@ -690,6 +698,7 @@ export class OllamaService {
       // The grammar reached the model only if a caller asked for one; this is the
       // native transport, so requesting it is the same as applying it.
       structured: chatRequest.format !== undefined,
+      ...(response.done_reason ? { done_reason: response.done_reason } : {}),
       usage: {
         promptTokens: response.prompt_eval_count,
         completionTokens: response.eval_count,
@@ -726,6 +735,7 @@ export class OllamaService {
       // so the response is unconstrained prose and the caller's string parser is
       // still the correct way to recover it.
       structured: false,
+      ...(choice.finish_reason ? { done_reason: choice.finish_reason } : {}),
       usage: {
         promptTokens: response.usage?.prompt_tokens,
         completionTokens: response.usage?.completion_tokens,
@@ -785,6 +795,7 @@ export class OllamaService {
             done: chunk.done === true,
             ...(chunk.done
               ? {
+                  ...(chunk.done_reason ? { done_reason: chunk.done_reason } : {}),
                   usage: {
                     promptTokens: chunk.prompt_eval_count,
                     completionTokens: chunk.eval_count,
@@ -843,12 +854,15 @@ export class OllamaService {
         const nativeThinking: string = (delta as any)?.thinking ?? (delta as any)?.reasoning ?? ''
         const split = splitter.push(delta?.content ?? '')
 
+        const finishReason = chunk.choices[0]?.finish_reason
         yield {
           message: {
             content: split.content,
             thinking: nativeThinking + split.thinking,
           },
-          done: chunk.choices[0]?.finish_reason !== null && chunk.choices[0]?.finish_reason !== undefined,
+          done: finishReason !== null && finishReason !== undefined,
+          // OpenAI's finish_reason uses the same 'stop' / 'length' values.
+          ...(finishReason ? { done_reason: finishReason } : {}),
         }
       }
 
