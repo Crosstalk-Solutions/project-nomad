@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   ELISION_MARKER,
   HISTORY_EVICTION_BLOCK,
+  MAX_RESPONSE_RESERVE,
   groupIntoTurns,
   planPrompt,
   type BudgetChunk,
@@ -80,11 +81,43 @@ test('never exceeds the prompt budget', () => {
   assert.ok(result.trace.turnsDropped > 0)
 })
 
-test('reserves room for the response and reports it as numPredict', () => {
+test('reserves room for the response out of the prompt budget', () => {
   const result = planPrompt(makeInputs({ contextWindow: 4096 }))
-  assert.equal(result.trace.responseReserve, result.numPredict)
   assert.equal(result.trace.promptBudget, 4096 - result.trace.responseReserve)
-  assert.ok(result.numPredict > 0)
+  assert.ok(result.numPredict >= result.trace.responseReserve)
+  assert.equal(result.trace.numPredict, result.numPredict)
+})
+
+test('numPredict scales with the window instead of pinning at 1024 (#1342)', () => {
+  const result = planPrompt(makeInputs({ contextWindow: 65536 }))
+  assert.ok(result.numPredict > 60000, `numPredict ${result.numPredict} should use the free window`)
+  assert.ok(
+    result.trace.estimatedPromptTokens + result.numPredict <= 65536,
+    'prompt plus answer must still fit the window'
+  )
+})
+
+test('numPredict never runs past the window, even with a full prompt', () => {
+  for (const contextWindow of [4096, 8192, 32768]) {
+    const result = planPrompt(makeInputs({ history: history(400), contextWindow }))
+    assert.ok(result.numPredict >= result.trace.responseReserve)
+    assert.ok(
+      result.trace.estimatedPromptTokens + result.numPredict <= contextWindow,
+      `window ${contextWindow}: ${result.trace.estimatedPromptTokens} + ${result.numPredict} overflows`
+    )
+  }
+})
+
+test('the response reserve is capped so large windows keep their prompt space', () => {
+  const result = planPrompt(makeInputs({ contextWindow: 131072 }))
+  assert.equal(result.trace.responseReserve, MAX_RESPONSE_RESERVE)
+})
+
+test('an explicit response reserve is still honoured as the floor', () => {
+  const result = planPrompt(makeInputs({ contextWindow: 8192, responseReserve: 500 }))
+  assert.equal(result.trace.responseReserve, 500)
+  assert.equal(result.trace.promptBudget, 8192 - 500)
+  assert.ok(result.numPredict >= 500)
 })
 
 test('system blocks and the current question are never dropped', () => {
