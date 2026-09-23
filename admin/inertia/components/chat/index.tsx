@@ -213,6 +213,7 @@ export default function Chat({
         role: 'assistant',
         content: data.message?.content || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
+        truncated: data.done_reason === 'length',
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -512,6 +513,12 @@ export default function Chat({
             (sources) => {
               setMessages((prev) =>
                 prev.map((m) => (m.id === assistantMsgId ? { ...m, sources } : m))
+              )
+            },
+            (reason) => {
+              if (reason !== 'length') return
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantMsgId ? { ...m, truncated: true } : m))
               )
             }
           )

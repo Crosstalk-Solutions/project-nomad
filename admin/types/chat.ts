@@ -20,6 +20,8 @@ export interface ChatMessage {
   isThinking?: boolean
   thinkingDuration?: number
   sources?: ChatSource[]
+  // Generation stopped at the length limit, so the answer ends mid-thought.
+  truncated?: boolean
 }
 
 export interface ChatImageAttachment {

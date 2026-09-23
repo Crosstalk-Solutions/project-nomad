@@ -15,7 +15,9 @@
  * record what happened so the eval harness can see it.
  *
  * Allocation order, most protected first:
- *   1. Response reserve  — tokens held back for the answer itself.
+ *   1. Response reserve  — a floor held back for the answer itself. The actual
+ *                          generation cap is whatever the window has left once
+ *                          the prompt is assembled, which is usually far more.
  *   2. Fixed blocks      — system prompts and the current question. Never dropped.
  *   3. Retrieved context — whole chunks, best-first, until its share is spent.
  *   4. History           — whole turns, newest-first, into whatever remains.
@@ -86,19 +88,37 @@ export type BudgetTrace = {
   historyElided: boolean
   queryTruncated: boolean
   ragPlacement: RagPlacement
+  numPredict: number
 }
 
 export type BudgetResult = {
   messages: BudgetMessage[]
   trace: BudgetTrace
-  /** What to send as num_predict, so generation can't run past the window. */
+  /**
+   * What to send as num_predict: the space the window actually has left after
+   * the prompt, less a margin for estimator error. Never below the reserve.
+   */
   numPredict: number
 }
 
-/** Ceiling on tokens reserved for the answer. */
-export const MAX_RESPONSE_RESERVE = 1024
+/**
+ * Ceiling on tokens reserved for the answer.
+ *
+ * This only bounds how much prompt space is held back; it is not the
+ * generation cap. It used to double as one, which pinned every answer at 1024
+ * tokens regardless of window size and cut long answers off mid-sentence
+ * (#1342).
+ */
+export const MAX_RESPONSE_RESERVE = 8192
 /** Share of the window reserved for the answer when that is smaller. */
 export const RESPONSE_RESERVE_FRACTION = 0.25
+/**
+ * Headroom left between the estimated prompt and the end of the window when
+ * sizing num_predict. The estimator is calibrated per model but still only an
+ * estimate; undershooting here means llama.cpp context-shifts mid-answer.
+ */
+export const NUM_PREDICT_SAFETY_FRACTION = 0.05
+export const NUM_PREDICT_SAFETY_MIN = 64
 /** Share of the remaining budget the retrieved context may claim. */
 export const DEFAULT_RAG_SHARE = 0.35
 
@@ -268,9 +288,17 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
 
   const estimatedPromptTokens = cost(messages)
 
+  // The planner already kept the prompt within `contextWindow - responseReserve`,
+  // so the reserve floor can never push generation past the window.
+  const safetyMargin = Math.max(
+    NUM_PREDICT_SAFETY_MIN,
+    Math.ceil(estimatedPromptTokens * NUM_PREDICT_SAFETY_FRACTION)
+  )
+  const numPredict = Math.max(responseReserve, contextWindow - estimatedPromptTokens - safetyMargin)
+
   return {
     messages,
-    numPredict: responseReserve,
+    numPredict,
     trace: {
       contextWindow,
       responseReserve,
@@ -287,6 +315,7 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
       historyElided,
       queryTruncated,
       ragPlacement: placement,
+      numPredict,
     },
   }
 }

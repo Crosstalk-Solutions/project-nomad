@@ -5,9 +5,11 @@ import { ChatMessage } from '../../../types/chat'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
+  // Offered on the latest answer when it was cut off at the length limit.
+  onContinue?: () => void
 }
 
-export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+export default function ChatMessageBubble({ message, onContinue }: ChatMessageBubbleProps) {
   return (
     <div
       className={classNames(
@@ -114,6 +116,20 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
         )}
       </div>
+      {message.role === 'assistant' && message.truncated && !message.isStreaming && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-2 text-xs text-text-secondary">
+          <span>This answer hit the length limit and was cut off.</span>
+          {onContinue && (
+            <button
+              type="button"
+              onClick={onContinue}
+              className="rounded border border-border-default px-2 py-0.5 font-medium text-desert-green hover:bg-surface-primary focus:outline-none focus:ring-2 focus:ring-desert-green"
+            >
+              Continue
+            </button>
+          )}
+        </div>
+      )}
       {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
         <div className="mt-3 border-t border-border-subtle pt-2 text-xs text-text-primary">
           <div className="mb-1 font-medium">Sources</div>

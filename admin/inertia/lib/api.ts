@@ -362,7 +362,8 @@ class API {
     chatRequest: OllamaChatRequestWithImages,
     onChunk: (content: string, thinking: string, done: boolean) => void,
     signal?: AbortSignal,
-    onSources?: (sources: ChatSource[]) => void
+    onSources?: (sources: ChatSource[]) => void,
+    onDoneReason?: (reason: string) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
     const serialized = serializeChatRequest({ ...chatRequest, stream: true })
@@ -406,6 +407,12 @@ class API {
           if (data.sources) {
             onSources?.(data.sources)
             continue
+          }
+
+          // Only the chunk that ends generation carries it; 'length' means the
+          // answer was cut off rather than finished (#1342).
+          if (data.done_reason) {
+            onDoneReason?.(data.done_reason)
           }
 
           onChunk(
