@@ -1,17 +1,17 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Discord Community
+  - name: 💬 Comunidade do Discord  
     url: https://discord.com/invite/crosstalksolutions
-    about: Join our Discord community for general questions, support, and discussions
-  - name: 📖 Documentation
+    about: Entre em nossa comunidade no Discord para questões gerais, suporte e discurssões     
+  - name: 📖 Documentação 
     url: https://projectnomad.us
-    about: Check the official documentation and guides
-  - name: 🏆 Community Leaderboard
+    about: Consulte a documentos oficiais e guias    
+  - name: 🏆 Ranking da Comunidade
     url: https://benchmark.projectnomad.us
-    about: View the NOMAD benchmark leaderboard
-  - name: 🤝 Contributing Guide
+    about: Veja o ranking de desempenho do NOMAD
+  - name: 🤝 Guia de Contribuição
     url: https://github.com/Crosstalk-Solutions/project-nomad/blob/main/CONTRIBUTING.md
-    about: Learn how to contribute to Project NOMAD
+    about: Aprenda como contribuir com o Project NOMAD  
   - name: 📅 Roadmap
     url: https://roadmap.projectnomad.us
-    about: See our public roadmap, vote on features, and suggest new ones
+    about: Veja nosso roadmap, vote em funcionalidades e sugira novas funcionalidades
