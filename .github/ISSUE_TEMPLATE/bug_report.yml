@@ -1,91 +1,91 @@
-name: Bug Report
-description: Report a bug or issue with Project NOMAD
+name: Relatório de Bug
+description: Relate um bug ou problema com o Project NOMAD
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug! Please fill out the information below to help us diagnose and fix the issue.
+        Obrigado por reservar um tempo para relatar um bug! Preencha as informações abaixo para nos ajudar a diagnosticar e corrigir o problema.
         
-        **Before submitting:**
-        - Search existing issues to avoid duplicates
-        - Ensure you're running the latest version of NOMAD
-        - Redact any personal or sensitive information from logs/configs
-        - Please don't submit issues related to running NOMAD on Unraid or another NAS - we don't have plans to support these kinds of platforms at this time
+        **Antes de enviar:**
+        - Pesquise problemas existentes para evitar duplicatas
+        - Certifique-se de estar executando a versão mais recente do NOMAD
+        - Remova qualquer informação pessoal ou sensível dos logs/configurações
+        - Não envie problemas relacionados à execução do NOMAD no Unraid ou em outro NAS - atualmente não temos planos de oferecer suporte a esse tipo de plataforma
 
   - type: dropdown
     id: issue-category
     attributes:
-      label: Issue Category
-      description: What area is this issue related to?
+      label: Categoria do Problema
+      description: A qual área este problema está relacionado?
       options:
-        - Installation/Setup
-        - AI Assistant (Ollama)
-        - Knowledge Base/RAG (Document Upload)
-        - Docker/Container Issues
-        - GPU Configuration
-        - Content Downloads (ZIM, Maps, Collections)
-        - Service Management (Start/Stop/Update)
-        - System Performance/Resources
-        - UI/Frontend Issue
-        - Other
+        - Instalação/Configuração
+        - Assistente de IA (Ollama)
+        - Base de Conhecimento/RAG (Upload de Documentos)
+        - Problemas com Docker/Containers
+        - Configuração da GPU
+        - Downloads de Conteúdo (ZIM, Mapas, Coleções)
+        - Gerenciamento de Serviços (Iniciar/Parar/Atualizar)
+        - Desempenho/Recursos do Sistema
+        - Problema na Interface/Frontend
+        - Outro
     validations:
       required: true
 
   - type: textarea
     id: description
     attributes:
-      label: Bug Description
-      description: Provide a clear and concise description of what the bug is
-      placeholder: What happened? What did you expect to happen?
+      label: Descrição do Bug
+      description: Forneça uma descrição clara e concisa de qual é o bug
+      placeholder: O que aconteceu? O que você esperava que acontecesse?
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: Steps to Reproduce
-      description: How can we reproduce this issue?
+      label: Passos para Reproduzir
+      description: Como podemos reproduzir este problema?
       placeholder: |
-        1. Go to '...'
-        2. Click on '...'
-        3. See error
+        1. Acesse '...'
+        2. Clique em '...'
+        3. Veja o erro
     validations:
       required: true
 
   - type: textarea
     id: expected-behavior
     attributes:
-      label: Expected Behavior
-      description: What did you expect to happen?
-      placeholder: Describe the expected outcome
+      label: Comportamento Esperado
+      description: O que você esperava que acontecesse?
+      placeholder: Descreva qual deveria ser o resultado esperado
     validations:
       required: true
 
   - type: textarea
     id: actual-behavior
     attributes:
-      label: Actual Behavior
-      description: What actually happened?
-      placeholder: Describe what actually occurred, including any error messages
+      label: Comportamento Atual
+      description: O que realmente aconteceu?
+      placeholder: Descreva o que realmente ocorreu, incluindo quaisquer mensagens de erro
     validations:
       required: true
 
   - type: input
     id: nomad-version
     attributes:
-      label: NOMAD Version
-      description: What version of NOMAD are you running? (Check Settings > Update or run `docker ps` and check nomad_admin image tag)
-      placeholder: "e.g., 1.29.0"
+      label: Versão do NOMAD
+      description: Qual versão do NOMAD você está executando? (Verifique em Configurações > Atualização ou execute `docker ps` e verifique a tag da imagem nomad_admin)
+      placeholder: "ex.: 1.29.0"
     validations:
       required: true
 
   - type: dropdown
     id: os
     attributes:
-      label: Operating System
-      description: What OS are you running NOMAD on?
+      label: Sistema Operacional
+      description: Em qual sistema operacional você está executando o NOMAD?
       options:
         - Ubuntu 26.04 (Resolute Raccoon)
         - Ubuntu 24.04
@@ -94,101 +94,101 @@ body:
         - Debian 13 (Trixie)
         - Debian 12 (Bookworm)
         - Debian 11 (Bullseye)
-        - Other Debian-based
-        - Other (not yet officially supported)
+        - Outro baseado em Debian
+        - Outro (ainda não oficialmente suportado)
     validations:
       required: true
 
   - type: input
     id: docker-version
     attributes:
-      label: Docker Version
-      description: What version of Docker are you running? (`docker --version`)
-      placeholder: "e.g., Docker version 24.0.7"
+      label: Versão do Docker
+      description: Qual versão do Docker você está executando? (`docker --version`)
+      placeholder: "ex.: Docker version 24.0.7"
 
   - type: dropdown
     id: gpu-present
     attributes:
-      label: Do you have a dedicated GPU?
+      label: Você possui uma GPU dedicada?
       options:
-        - "Yes"
-        - "No"
-        - "Not sure"
+        - "Sim"
+        - "Não"
+        - "Não tenho certeza"
     validations:
       required: true
 
   - type: input
     id: gpu-model
     attributes:
-      label: GPU Model (if applicable)
-      description: What GPU model do you have? (Check Settings > System or run `nvidia-smi` if NVIDIA GPU)
-      placeholder: "e.g., NVIDIA GeForce RTX 3060"
+      label: Modelo da GPU (se aplicável)
+      description: Qual modelo de GPU você possui? (Verifique em Configurações > Sistema ou execute `nvidia-smi` caso tenha uma GPU NVIDIA)
+      placeholder: "ex.: NVIDIA GeForce RTX 3060"
 
   - type: textarea
     id: system-specs
     attributes:
-      label: System Specifications
-      description: Provide relevant system specs (CPU, RAM, available disk space)
+      label: Especificações do Sistema
+      description: Forneça as especificações relevantes do sistema (CPU, RAM, espaço disponível em disco)
       placeholder: |
         CPU: 
         RAM: 
-        Available Disk Space: 
-        GPU (if any): 
+        Espaço disponível em disco: 
+        GPU (se houver): 
 
   - type: textarea
     id: service-status
     attributes:
-      label: Service Status (if relevant)
-      description: If this is a service-related issue, what's the status of relevant services? (Check Settings > Apps or run `docker ps`)
+      label: Status dos Serviços (se relevante)
+      description: Se este for um problema relacionado a um serviço, qual é o status dos serviços relevantes? (Verifique em Configurações > Aplicativos ou execute `docker ps`)
       placeholder: |
-        Paste output from `docker ps` or describe service states from the UI
+        Cole a saída de `docker ps` ou descreva o estado dos serviços pela interface
 
   - type: textarea
     id: logs
     attributes:
-      label: Relevant Logs
+      label: Logs Relevantes
       description: |
-        Include any relevant logs or error messages. **Please redact any personal/sensitive information.**
+        Inclua quaisquer logs ou mensagens de erro relevantes. **Remova informações pessoais/sensíveis.**
         
-        Useful commands for collecting logs:
-        - NOMAD management app: `docker logs nomad_admin`
+        Comandos úteis para coletar logs:
+        - Aplicativo de gerenciamento do NOMAD: `docker logs nomad_admin`
         - Ollama: `docker logs nomad_ollama`
         - Qdrant: `docker logs nomad_qdrant`
-        - Specific service: `docker logs nomad_<service-name>`
-      placeholder: Paste relevant log output here
+        - Serviço específico: `docker logs nomad_<service-name>`
+      placeholder: Cole aqui a saída dos logs relevantes
       render: shell
 
   - type: textarea
     id: browser-console
     attributes:
-      label: Browser Console Errors (if UI issue)
-      description: If this is a UI issue, include any errors from your browser's developer console (F12)
-      placeholder: Paste browser console errors here
+      label: Erros no Console do Navegador (se for um problema da interface)
+      description: Se este for um problema da interface, inclua quaisquer erros do console de desenvolvedor do navegador (F12)
+      placeholder: Cole aqui os erros do console do navegador
       render: javascript
 
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots
-      description: If applicable, add screenshots to help explain your problem (drag and drop images here)
+      label: Capturas de Tela
+      description: Se aplicável, adicione capturas de tela para ajudar a explicar o problema (arraste e solte as imagens aqui)
 
   - type: textarea
     id: additional-context
     attributes:
-      label: Additional Context
-      description: Add any other context about the problem here (network setup, custom configurations, recent changes, etc.)
+      label: Contexto Adicional
+      description: Adicione qualquer outro contexto sobre o problema aqui (configuração da rede, configurações personalizadas, alterações recentes etc.)
 
   - type: checkboxes
     id: terms
     attributes:
-      label: Pre-submission Checklist
-      description: Please confirm the following before submitting
+      label: Lista de Verificação Antes do Envio
+      description: Confirme os itens abaixo antes de enviar
       options:
-        - label: I have searched for existing issues that might be related to this bug
+        - label: Pesquisei problemas existentes que possam estar relacionados a este bug
           required: true
-        - label: I am running the latest version of Project NOMAD (or have noted my version above)
+        - label: Estou executando a versão mais recente do Project NOMAD (ou informei minha versão acima)
           required: true
-        - label: I have redacted any personal or sensitive information from logs and screenshots
+        - label: Removi qualquer informação pessoal ou sensível dos logs e capturas de tela
           required: true
-        - label: This issue is NOT related to running NOMAD on an unsupported/non-Debian-based OS
+        - label: Este problema NÃO está relacionado à execução do NOMAD em um sistema operacional sem suporte/não baseado em Debian
           required: false
