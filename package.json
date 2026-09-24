@@ -7,5 +7,10 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Crosstalk Solutions, LLC",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "react-i18next": "^17.0.15"
+  }
 }
