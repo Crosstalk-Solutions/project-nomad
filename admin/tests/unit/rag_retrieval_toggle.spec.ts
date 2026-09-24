@@ -22,8 +22,18 @@ import type { OllamaChatMessage } from '../../types/ollama.js'
 import type { RetrievedChunk } from '../../types/rag.js'
 
 /** Records every call so the tests can assert on what was *not* run. */
-function makeFakes(opts: { nomadMd?: string | null; searchResults?: RetrievedChunk[] } = {}) {
-  const calls = { hasDocuments: 0, search: 0, chat: 0 }
+function makeFakes(
+  opts: {
+    nomadMd?: string | null
+    searchResults?: RetrievedChunk[]
+    /** What the `rag.relevanceCheck` setting resolves to. Null (off) by default. */
+    checkModel?: string | null
+    /** The check's verdict when it runs. */
+    onTopic?: boolean
+  } = {}
+) {
+  const calls = { hasDocuments: 0, search: 0, chat: 0, judge: 0 }
+  const judged = { question: '', model: '' }
   const args = { minFinalScore: undefined as number | undefined }
 
   const ragService = {
@@ -65,6 +75,9 @@ function makeFakes(opts: { nomadMd?: string | null; searchResults?: RetrievedChu
     async getModels() {
       return []
     },
+    async checkModelHasThinking() {
+      return false
+    },
   }
 
   const nomadMdService = {
@@ -87,15 +100,35 @@ function makeFakes(opts: { nomadMd?: string | null; searchResults?: RetrievedChu
     },
   }
 
+  // Off unless a test turns it on, matching the setting's default.
+  const relevanceJudge = {
+    async resolveModel() {
+      return opts.checkModel ?? null
+    },
+    async judge(question: string, chunks: RetrievedChunk[], model: string) {
+      calls.judge++
+      judged.question = question
+      judged.model = model
+      const onTopic = opts.onTopic ?? true
+      return {
+        kept: onTopic ? chunks : [],
+        rejected: onTopic ? 0 : chunks.length,
+        judged: true,
+        ms: 7,
+      }
+    },
+  }
+
   const service = new RagPipelineService(
     ollamaService as any,
     ragService as any,
     nomadMdService as any,
     contextWindowService as any,
-    tokenCalibration as any
+    tokenCalibration as any,
+    relevanceJudge as any
   )
 
-  return { service, calls, args }
+  return { service, calls, args, judged }
 }
 
 const userTurn: OllamaChatMessage[] = [{ role: 'user', content: 'how do I purify water?' }]
@@ -204,5 +237,77 @@ test.group('buildPrompt | relevance floor', () => {
     await service.buildPrompt(userTurn, 'llama3.1:8b', { minFinalScore: 0.9 })
 
     assert.equal(args.minFinalScore, 0.9)
+  })
+})
+
+test.group('buildPrompt | relevance check', () => {
+  test('does not run when the setting is off', async ({ assert }) => {
+    // Off is the default: the check is a model call per turn and only pays off
+    // on ~8B models, so it must cost nothing until someone opts in.
+    const { service, calls } = makeFakes()
+
+    const trace = await service.buildPrompt(userTurn, 'llama3.1:8b', {})
+
+    assert.equal(calls.judge, 0)
+    assert.isNull(trace.relevanceCheckModel)
+    assert.lengthOf(trace.injected, 1)
+  })
+
+  test('an off-topic verdict leaves nothing to inject or cite', async ({ assert }) => {
+    // #1341: the floor kept a chunk, the check says it is not about the
+    // question, so the prompt gets no context block and the answer no sources.
+    const { service, calls } = makeFakes({ checkModel: 'llama3:8b', onTopic: false })
+
+    const trace = await service.buildPrompt(userTurn, 'llama3.1:8b', {})
+
+    assert.equal(calls.judge, 1)
+    assert.deepEqual(trace.retrieved, [])
+    assert.deepEqual(trace.injected, [])
+    assert.equal(trace.chunksRejectedByCheck, 1)
+    assert.equal(trace.relevanceCheckModel, 'llama3:8b')
+    assert.isFalse(systemContents(trace.messages).some((c) => c.includes('[Context 1')))
+  })
+
+  test('an on-topic verdict keeps what the floor kept', async ({ assert }) => {
+    const { service } = makeFakes({ checkModel: 'llama3:8b', onTopic: true })
+
+    const trace = await service.buildPrompt(userTurn, 'llama3.1:8b', {})
+
+    assert.lengthOf(trace.injected, 1)
+    assert.equal(trace.chunksRejectedByCheck, 0)
+    assert.equal(trace.timings.relevanceCheckMs, 7)
+  })
+
+  test('judges the retrieval query, not the raw message', async ({ assert }) => {
+    // On a follow-up the rewrite is the standalone question; judging "what about
+    // the second one?" against the passages would reject everything.
+    const { service, judged } = makeFakes({ checkModel: 'llama3:8b' })
+    const conversation: OllamaChatMessage[] = [
+      { role: 'user', content: 'how do I purify water?' },
+      { role: 'assistant', content: 'Boil it or use chlorine.' },
+      { role: 'user', content: 'how long for the first one?' },
+    ]
+
+    await service.buildPrompt(conversation, 'llama3.1:8b', {})
+
+    assert.equal(judged.question, 'rewritten query')
+  })
+
+  test('an explicit null skips it whatever the setting says', async ({ assert }) => {
+    // The eval harness pins it off so one machine's setting cannot move scores.
+    const { service, calls } = makeFakes({ checkModel: 'llama3:8b', onTopic: false })
+
+    const trace = await service.buildPrompt(userTurn, 'llama3.1:8b', { relevanceCheckModel: null })
+
+    assert.equal(calls.judge, 0)
+    assert.lengthOf(trace.injected, 1)
+  })
+
+  test('skips the call when the floor already left nothing', async ({ assert }) => {
+    const { service, calls } = makeFakes({ checkModel: 'llama3:8b', searchResults: [] })
+
+    await service.buildPrompt(userTurn, 'llama3.1:8b', { minFinalScore: 0.62 })
+
+    assert.equal(calls.judge, 0)
   })
 })

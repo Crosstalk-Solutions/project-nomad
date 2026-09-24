@@ -48,7 +48,7 @@ export type RerankedRAGResult = Omit<RAGResult, 'keywords'> & {
 }
 
 /** One entry in a recorded retrieval stage: just enough to score a ranking. */
-export type StageEntry = { source?: string; score: number }
+export type StageEntry = { source?: string; score: number; semanticScore?: number }
 
 /**
  * The three ranked lists retrieval produces internally, captured so the eval
@@ -62,6 +62,13 @@ export type RetrievalStages = {
   dense?: StageEntry[]
   reranked?: StageEntry[]
   diversified?: StageEntry[]
+  /**
+   * The whole reranked candidate pool, unsliced and before the relevance floor,
+   * with both the boosted and the raw cosine score. What `eval:retrieval --dump`
+   * writes out, so a candidate gate can be simulated offline against every
+   * golden instead of costing a full sweep per setting.
+   */
+  candidates?: StageEntry[]
 }
 
 /**
@@ -117,6 +124,10 @@ export type PipelineOptions = {
    *  setting; the eval harness passes an explicit value so its numbers cannot
    *  depend on how one machine's slider happens to be set. */
   minFinalScore?: number
+  /** Model for the relevance check, or null to skip it. Unset resolves the
+   *  user's `rag.relevanceCheck` setting; the eval harness passes an explicit
+   *  value for the same reason it pins `minFinalScore`. */
+  relevanceCheckModel?: string | null
 }
 
 /**
@@ -139,7 +150,7 @@ export type PipelineTrace = {
   /** Generation cap, so the answer cannot run past the end of the window. */
   numPredict: number | undefined
   contextLimits: { maxResults: number; maxTokens: number }
-  timings: { rewriteMs: number; retrievalMs: number }
+  timings: { rewriteMs: number; retrievalMs: number; relevanceCheckMs: number }
   /**
    * The relevance floor this turn was retrieved under, and how many candidates
    * fell below it. `chunksBelowFloor > 0` with `retrieved.length === 0` is the
@@ -148,6 +159,10 @@ export type PipelineTrace = {
    */
   minFinalScore: number
   chunksBelowFloor: number
+  /** The model that ran the relevance check this turn, or null when it did not run. */
+  relevanceCheckModel: string | null
+  /** Chunks the check dropped after the floor had kept them. */
+  chunksRejectedByCheck: number
   /**
    * What the budget planner decided: how the window was spent and what was left
    * out. Undefined only when planning was bypassed. The eval harness reads this

@@ -33,6 +33,12 @@ export default class EvalRetrieval extends BaseCommand {
   })
   declare minFinalScore: string
 
+  @flags.string({
+    description:
+      'Run the retrieval relevance check on this model after the floor (default: off, keeping this tier model-free)',
+  })
+  declare judgeModel: string
+
   @flags.boolean({ description: 'Also score the raw dense, reranked, and diversified orderings' })
   declare ablate: boolean
 
@@ -54,6 +60,13 @@ export default class EvalRetrieval extends BaseCommand {
 
   @flags.boolean({ description: 'Write a JSON + Markdown report to tests/eval/reports/' })
   declare report: boolean
+
+  @flags.string({
+    description:
+      "Write every golden's full pre-floor candidate pool (boosted + cosine scores) to this JSON path, " +
+      'for simulating a relevance gate offline',
+  })
+  declare dump: string
 
   static options: CommandOptions = {
     startApp: true,
@@ -93,6 +106,8 @@ export default class EvalRetrieval extends BaseCommand {
         scoreThreshold: this.threshold ? Number.parseFloat(this.threshold) : undefined,
         minFinalScore: this.minFinalScore ? Number.parseFloat(this.minFinalScore) : undefined,
         ablate: this.ablate,
+        dump: Boolean(this.dump),
+        judgeModel: this.judgeModel || undefined,
       })
       const elapsed = ((Date.now() - started) / 1000).toFixed(1)
 
@@ -100,6 +115,13 @@ export default class EvalRetrieval extends BaseCommand {
         `Params: topK=${result.params.topK} threshold=${result.params.scoreThreshold} ` +
           `minFinalScore=${result.params.minFinalScore}  (${elapsed}s)`
       )
+      if (result.judge) {
+        const j = result.judge
+        this.logger.info(
+          `Relevance check: ${j.model} · ${j.calls} calls · rejected ${j.rejected} chunk(s) · ` +
+            `${j.failures} failed open · mean ${Math.round(j.meanMs)}ms max ${Math.round(j.maxMs)}ms`
+        )
+      }
       this.logger.info('')
       this.printAggregate('OVERALL', result.overall, result.params.kValues)
 
@@ -133,8 +155,12 @@ export default class EvalRetrieval extends BaseCommand {
       this.logger.info('=== By tag ===')
       for (const [tag, agg] of Object.entries(result.byTag).sort()) {
         const k = result.params.kValues.includes(5) ? 5 : result.params.kValues[0]
+        // A refusal-only tag has no recall to report; what it has is the leak rate,
+        // which is the number #1341 is about.
+        const leak =
+          agg.nonEmptyRateOnRefusal === null ? '' : `  leaked=${pct(agg.nonEmptyRateOnRefusal)}`
         this.logger.info(
-          `  ${tag.padEnd(20)} n=${String(agg.cases).padStart(3)}  recall@${k}=${fmt(agg.recall[k])}  ndcg@${k}=${fmt(agg.ndcg[k])}`
+          `  ${tag.padEnd(20)} n=${String(agg.cases).padStart(3)}  recall@${k}=${fmt(agg.recall[k])}  ndcg@${k}=${fmt(agg.ndcg[k])}${leak}`
         )
       }
 
@@ -153,6 +179,32 @@ export default class EvalRetrieval extends BaseCommand {
         }
       } else if (misses.length > 0) {
         this.logger.info('Re-run with --verbose to see which questions and what they retrieved.')
+      }
+
+      // The other failure: a question the corpus cannot answer that retrieved
+      // something anyway. Each of these becomes a citation the user sees.
+      const leaks = result.cases.filter((c) => c.expectRefusal && !c.empty)
+      if (leaks.length > 0) {
+        this.logger.info('')
+        this.logger.info(`${leaks.length} out-of-corpus question(s) retrieved something anyway`)
+        if (this.verbose) {
+          this.logger.info('')
+          this.logger.info('=== Leaks ===')
+          for (const leak of leaks) {
+            this.logger.info(`  ${leak.id}`)
+            const top = leak.top
+              ? `  (top final=${leak.top.score.toFixed(3)} semantic=${leak.top.semanticScore?.toFixed(3) ?? 'n/a'})`
+              : ''
+            this.logger.info(`    retrieved: ${leak.retrievedDocIds.join(', ')}${top}`)
+          }
+        }
+      }
+
+      if (this.dump && result.pools) {
+        const { writeFile } = await import('node:fs/promises')
+        await writeFile(this.dump, JSON.stringify({ fingerprint, params: result.params, pools: result.pools }, null, 2))
+        this.logger.info('')
+        this.logger.success(`Candidate pools written: ${this.dump}`)
       }
 
       if (this.report) {

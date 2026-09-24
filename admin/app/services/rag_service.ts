@@ -1112,6 +1112,11 @@ export class RagService {
         stagesOut.diversified = diverseResults
           .slice(0, limit)
           .map((r) => ({ source: r.source, score: r.finalScore }))
+        stagesOut.candidates = rerankedResults.map((r) => ({
+          source: r.source,
+          score: r.finalScore,
+          semanticScore: r.score,
+        }))
       }
 
       // Return top N results with enhanced metadata

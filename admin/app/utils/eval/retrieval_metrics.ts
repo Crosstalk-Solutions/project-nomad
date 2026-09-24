@@ -225,6 +225,12 @@ export type RetrievalCaseResult = {
   reciprocalRank: number | null
   /** True when this case retrieved nothing at all. */
   empty: boolean
+  /**
+   * The highest-ranked chunk's scores, or null when nothing was retrieved. Shown
+   * for out-of-corpus leaks: the gap between the two says how much of a false
+   * positive the reranker's lexical boosts supplied.
+   */
+  top: { score: number; semanticScore: number | null } | null
 }
 
 export type RetrievalAggregate = {
@@ -275,6 +281,10 @@ export function scoreCase(c: RetrievalCase, kValues: number[] = DEFAULT_K_VALUES
     ndcg: byK((k) => ndcgAtK(c.retrieved, c.relevantDocIds, k)),
     reciprocalRank: reciprocalRank(c.retrieved, c.relevantDocIds),
     empty: c.retrieved.length === 0,
+    top:
+      c.retrieved.length === 0
+        ? null
+        : { score: c.retrieved[0].score, semanticScore: c.retrieved[0].semanticScore ?? null },
   }
 }
 

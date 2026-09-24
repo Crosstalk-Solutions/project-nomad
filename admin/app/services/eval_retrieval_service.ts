@@ -1,5 +1,6 @@
 import { EvalCorpusService } from '#services/eval_corpus_service'
 import { RagService } from '#services/rag_service'
+import { RelevanceJudgeService } from '#services/relevance_judge_service'
 import { inject } from '@adonisjs/core'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
 import {
@@ -29,6 +30,33 @@ export type RetrievalRunOptions = {
   kValues?: number[]
   /** Score the raw dense / reranked / diversified orderings separately. */
   ablate?: boolean
+  /** Also return every golden's full pre-floor candidate pool (see RetrievalStages.candidates). */
+  dump?: boolean
+  /**
+   * Run the relevance check on this model after the floor, as chat does when it
+   * is enabled. Unset keeps this tier model-free and deterministic.
+   */
+  judgeModel?: string
+}
+
+/** What the relevance check cost and did, when `judgeModel` was set. */
+export type JudgeStats = {
+  model: string
+  calls: number
+  /** Calls that failed open (timeout, error, unusable verdict). */
+  failures: number
+  rejected: number
+  meanMs: number
+  maxMs: number
+}
+
+/** One golden's full candidate pool, for simulating a relevance gate offline. */
+export type CandidatePool = {
+  id: string
+  tags: string[]
+  expectRefusal: boolean
+  relevantDocIds: string[]
+  candidates: Array<{ docId: string | null; score: number; semanticScore: number | null }>
 }
 
 export type StageAblation = {
@@ -48,6 +76,9 @@ export type RetrievalRunResult = {
    * collection filter leaked and the run is measuring the wrong corpus.
    */
   unresolvedChunks: number
+  /** Every golden's candidate pool, when `dump` was requested. */
+  pools: CandidatePool[] | null
+  judge: JudgeStats | null
 }
 
 /**
@@ -69,7 +100,8 @@ export type RetrievalRunResult = {
 export class EvalRetrievalService {
   constructor(
     private ragService: RagService,
-    private corpusService: EvalCorpusService
+    private corpusService: EvalCorpusService,
+    private judgeService: RelevanceJudgeService
   ) {}
 
   async run(goldens: Golden[], options: RetrievalRunOptions = {}): Promise<RetrievalRunResult> {
@@ -87,18 +119,31 @@ export class EvalRetrievalService {
     const denseCases: RetrievalCase[] = []
     const rerankedCases: RetrievalCase[] = []
     const diversifiedCases: RetrievalCase[] = []
+    const pools: CandidatePool[] = []
+    const recordStages = options.ablate || options.dump
+    const judgeMs: number[] = []
+    let judgeFailures = 0
+    let judgeRejected = 0
     let unresolvedChunks = 0
 
     for (const golden of goldens) {
       const stages: RetrievalStages = {}
-      const docs = await this.ragService.searchSimilarDocuments(
+      let docs = await this.ragService.searchSimilarDocuments(
         golden.query,
         topK,
         scoreThreshold,
         KB_EVAL_COLLECTION,
-        options.ablate ? stages : undefined,
+        recordStages ? stages : undefined,
         minFinalScore
       )
+
+      if (options.judgeModel && docs.length > 0) {
+        const verdict = await this.judgeService.judge(golden.query, docs, options.judgeModel)
+        judgeMs.push(verdict.ms)
+        if (!verdict.judged) judgeFailures++
+        judgeRejected += verdict.rejected
+        docs = verdict.kept
+      }
 
       const retrieved: ScoredChunk[] = docs.map((d) => {
         const docId = docIdFromSource(d.metadata?.source)
@@ -107,6 +152,20 @@ export class EvalRetrievalService {
       })
 
       cases.push(toCase(golden, retrieved))
+
+      if (options.dump) {
+        pools.push({
+          id: golden.id,
+          tags: golden.tags,
+          expectRefusal: golden.expectRefusal,
+          relevantDocIds: golden.relevantDocIds,
+          candidates: (stages.candidates ?? []).map((c) => ({
+            docId: docIdFromSource(c.source),
+            score: c.score,
+            semanticScore: c.semanticScore ?? null,
+          })),
+        })
+      }
 
       if (options.ablate) {
         denseCases.push(toCase(golden, stageToChunks(stages.dense)))
@@ -133,6 +192,17 @@ export class EvalRetrievalService {
           }
         : null,
       unresolvedChunks,
+      pools: options.dump ? pools : null,
+      judge: options.judgeModel
+        ? {
+            model: options.judgeModel,
+            calls: judgeMs.length,
+            failures: judgeFailures,
+            rejected: judgeRejected,
+            meanMs: judgeMs.length ? judgeMs.reduce((a, b) => a + b, 0) / judgeMs.length : 0,
+            maxMs: judgeMs.length ? Math.max(...judgeMs) : 0,
+          }
+        : null,
     }
   }
 

@@ -28,7 +28,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; responseStyle: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -108,6 +108,7 @@ export default function ModelsPage(props: {
   const [tasksModel, setTasksModel] = useState(props.models.settings.tasksModel)
   const [contextWindow, setContextWindow] = useState(props.models.settings.contextWindow)
   const [minRelevance, setMinRelevance] = useState(String(props.models.settings.minRelevance))
+  const [relevanceCheck, setRelevanceCheck] = useState(props.models.settings.relevanceCheck)
   const [responseStyle, setResponseStyle] = useState(props.models.settings.responseStyle)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
@@ -440,6 +441,16 @@ export default function ModelsPage(props: {
                   setMinRelevance(newVal)
                   updateSettingMutation.mutate({ key: 'rag.minRelevance', value: newVal })
                 }}
+              />
+              <Switch
+                checked={relevanceCheck}
+                disabled={!ragEnabled}
+                onChange={(newVal) => {
+                  setRelevanceCheck(newVal)
+                  updateSettingMutation.mutate({ key: 'rag.relevanceCheck', value: newVal })
+                }}
+                label="Double-check knowledge base matches"
+                description="Before answering, ask the Tasks Model whether the passages found are actually about your question, and leave them out (and uncited) when they are not. Helps most with large libraries like Wikipedia or Project Gutenberg, where something always looks similar. Needs a capable Tasks Model (about 8B parameters or larger); smaller models reject too many good matches. Adds a short delay to every reply."
               />
               <Select
                 name="responseStyle"

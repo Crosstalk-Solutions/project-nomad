@@ -1,0 +1,4919 @@
+{
+  "meta": {
+    "kind": "retrieval",
+    "createdAt": "2026-09-23T22:08:54.308Z",
+    "corpusFingerprint": "b4ebe5dce8699f5d",
+    "gitSha": "b2cb1f15d70d547243447679d4c2218b097e8c9f",
+    "gitBranch": "dev",
+    "gitDirty": true,
+    "nomadVersion": "1.35.0-rc.1",
+    "platform": {
+      "cpuArchitecture": "x64",
+      "osName": "Linux 7.0.0-31-generic",
+      "nodeVersion": "v24.15.0"
+    },
+    "params": {
+      "topK": 5,
+      "scoreThreshold": 0.3,
+      "minFinalScore": 0.62,
+      "kValues": [
+        1,
+        3,
+        5,
+        10
+      ],
+      "tag": null
+    }
+  },
+  "metrics": {
+    "recall@1": 0.9308510638297872,
+    "recall@3": 0.9822695035460992,
+    "recall@5": 0.9911347517730497,
+    "recall@10": 0.9911347517730497,
+    "hitRate@1": 0.9680851063829787,
+    "hitRate@3": 1,
+    "hitRate@5": 1,
+    "hitRate@10": 1,
+    "precision@1": 0.9680851063829787,
+    "precision@3": 0.5407801418439718,
+    "precision@5": 0.48829787234042565,
+    "precision@10": 0.48829787234042565,
+    "ndcg@1": 0.9680851063829787,
+    "ndcg@3": 0.9750351707454068,
+    "ndcg@5": 0.9799944842461846,
+    "ndcg@10": 0.9799944842461846,
+    "mrr": 0.9822695035460992,
+    "emptyRateOnAnswerable": 0,
+    "nonEmptyRateOnRefusal": 0.6
+  },
+  "byTag": {
+    "acronym": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.625,
+      "precision@5": 0.6111111111111112,
+      "precision@10": 0.6111111111111112,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "acronym-control": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.5,
+      "precision@5": 0.47333333333333333,
+      "precision@10": 0.47333333333333333,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "adversarial": {
+      "recall@1": null,
+      "recall@3": null,
+      "recall@5": null,
+      "recall@10": null,
+      "hitRate@1": null,
+      "hitRate@3": null,
+      "hitRate@5": null,
+      "hitRate@10": null,
+      "precision@1": null,
+      "precision@3": null,
+      "precision@5": null,
+      "precision@10": null,
+      "ndcg@1": null,
+      "ndcg@3": null,
+      "ndcg@5": null,
+      "ndcg@10": null,
+      "mrr": null,
+      "emptyRateOnAnswerable": null,
+      "nonEmptyRateOnRefusal": 1
+    },
+    "chunk-boundary": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.7083333333333333,
+      "precision@5": 0.7083333333333333,
+      "precision@10": 0.7083333333333333,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "distractor": {
+      "recall@1": 0,
+      "recall@3": 0.3333333333333333,
+      "recall@5": 0.6666666666666666,
+      "recall@10": 0.6666666666666666,
+      "hitRate@1": 0,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 0,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.4,
+      "precision@10": 0.4,
+      "ndcg@1": 0,
+      "ndcg@3": 0.2960819109658652,
+      "ndcg@5": 0.49818925746641285,
+      "ndcg@10": 0.49818925746641285,
+      "mrr": 0.5,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "distractor-control": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.2,
+      "precision@10": 0.2,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "fictional": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.7962962962962963,
+      "precision@5": 0.787037037037037,
+      "precision@10": 0.787037037037037,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "multi-hop": {
+      "recall@1": 0.5,
+      "recall@3": 0.8571428571428571,
+      "recall@5": 0.9285714285714286,
+      "recall@10": 0.9285714285714286,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.7619047619047619,
+      "precision@5": 0.6714285714285714,
+      "precision@10": 0.6714285714285714,
+      "ndcg@1": 1,
+      "ndcg@3": 0.8894706265044167,
+      "ndcg@5": 0.9271946440147868,
+      "ndcg@10": 0.9271946440147868,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "multi-turn": {
+      "recall@1": 0.375,
+      "recall@3": 0.875,
+      "recall@5": 0.875,
+      "recall@10": 0.875,
+      "hitRate@1": 0.5,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 0.5,
+      "precision@3": 0.6666666666666666,
+      "precision@5": 0.6,
+      "precision@10": 0.6,
+      "ndcg@1": 0.5,
+      "ndcg@3": 0.686019236584229,
+      "ndcg@5": 0.686019236584229,
+      "ndcg@10": 0.686019236584229,
+      "mrr": 0.7083333333333333,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "near-miss": {
+      "recall@1": 0.5,
+      "recall@3": 0.5,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.3333333333333333,
+      "precision@5": 0.4,
+      "precision@10": 0.4,
+      "ndcg@1": 1,
+      "ndcg@3": 0.6131471927654584,
+      "ndcg@5": 0.8772153153380493,
+      "ndcg@10": 0.8772153153380493,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "numeric": {
+      "recall@1": 0.9607843137254902,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.5098039215686274,
+      "precision@5": 0.44673202614379076,
+      "precision@10": 0.44673202614379076,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    },
+    "out-of-corpus": {
+      "recall@1": null,
+      "recall@3": null,
+      "recall@5": null,
+      "recall@10": null,
+      "hitRate@1": null,
+      "hitRate@3": null,
+      "hitRate@5": null,
+      "hitRate@10": null,
+      "precision@1": null,
+      "precision@3": null,
+      "precision@5": null,
+      "precision@10": null,
+      "ndcg@1": null,
+      "ndcg@3": null,
+      "ndcg@5": null,
+      "ndcg@10": null,
+      "mrr": null,
+      "emptyRateOnAnswerable": null,
+      "nonEmptyRateOnRefusal": 0.6
+    },
+    "single-hop": {
+      "recall@1": 1,
+      "recall@3": 1,
+      "recall@5": 1,
+      "recall@10": 1,
+      "hitRate@1": 1,
+      "hitRate@3": 1,
+      "hitRate@5": 1,
+      "hitRate@10": 1,
+      "precision@1": 1,
+      "precision@3": 0.45597484276729555,
+      "precision@5": 0.38836477987421375,
+      "precision@10": 0.38836477987421375,
+      "ndcg@1": 1,
+      "ndcg@3": 1,
+      "ndcg@5": 1,
+      "ndcg@10": 1,
+      "mrr": 1,
+      "emptyRateOnAnswerable": 0,
+      "nonEmptyRateOnRefusal": null
+    }
+  },
+  "cases": [
+    {
+      "id": "water-boil-time-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-waterbath",
+        "water-chemical-treatment",
+        "water-storage",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9815961793677813,
+        "semanticScore": 0.84374034
+      }
+    },
+    {
+      "id": "water-boil-altitude-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8886211579572276,
+        "semanticScore": 0.7710216
+      }
+    },
+    {
+      "id": "water-boil-altitude-threshold-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "regions-elevation-table",
+        "distractor-gutenberg-walden"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8846119588030473,
+        "semanticScore": 0.76037663
+      }
+    },
+    {
+      "id": "water-boil-taste-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "food-canning-waterbath",
+        "water-filtration",
+        "water-chemical-treatment",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8557696922283238,
+        "semanticScore": 0.7380408
+      }
+    },
+    {
+      "id": "water-bleach-dose-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-storage",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8636524329750481,
+        "semanticScore": 0.7437347
+      }
+    },
+    {
+      "id": "water-bleach-cloudy-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-boiling",
+        "food-canning-waterbath",
+        "water-storage",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8749046828336395,
+        "semanticScore": 0.755469
+      }
+    },
+    {
+      "id": "water-bleach-wait-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-boiling",
+        "water-storage",
+        "food-canning-waterbath",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8586794298974931,
+        "semanticScore": 0.7463015
+      }
+    },
+    {
+      "id": "water-cldioxide-crypto-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-chemical-treatment",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8430570823748271,
+        "semanticScore": 0.7204655
+      }
+    },
+    {
+      "id": "water-filter-pore-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "water-filtration"
+      ],
+      "retrievedDocIds": [
+        "water-filtration",
+        "food-mylar-oxygen",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8839381956312117,
+        "semanticScore": 0.75586677
+      }
+    },
+    {
+      "id": "water-filter-virus-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-filtration"
+      ],
+      "retrievedDocIds": [
+        "water-filtration",
+        "water-boiling",
+        "water-chemical-treatment",
+        "sanitation-waste",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9204883406086626,
+        "semanticScore": 0.7986715
+      }
+    },
+    {
+      "id": "water-filter-freeze-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-filtration"
+      ],
+      "retrievedDocIds": [
+        "water-filtration",
+        "shelter-cold-layering",
+        "water-storage",
+        "sanitation-waste",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7627079824026435,
+        "semanticScore": 0.67205715
+      }
+    },
+    {
+      "id": "water-storage-amount-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-storage"
+      ],
+      "retrievedDocIds": [
+        "water-storage",
+        "distractor-gutenberg-walden",
+        "water-chemical-treatment",
+        "food-canning-waterbath",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8973458901159983,
+        "semanticScore": 0.7816726
+      }
+    },
+    {
+      "id": "water-storage-rotation-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-storage"
+      ],
+      "retrievedDocIds": [
+        "water-storage",
+        "equipment-tr88-pump",
+        "water-boiling",
+        "food-canning-waterbath",
+        "food-storage-rotation"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.856474313054675,
+        "semanticScore": 0.7579396
+      }
+    },
+    {
+      "id": "water-storage-containers-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-storage"
+      ],
+      "retrievedDocIds": [
+        "water-storage",
+        "sanitation-waste",
+        "food-canning-waterbath",
+        "food-storage-rotation",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8808618114191967,
+        "semanticScore": 0.76681
+      }
+    },
+    {
+      "id": "food-pressure-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "water-boiling",
+        "food-dehydrating",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9813954471479394,
+        "semanticScore": 0.8590077
+      }
+    },
+    {
+      "id": "food-pressure-psi-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8249878485353306,
+        "semanticScore": 0.72774994
+      }
+    },
+    {
+      "id": "food-greenbeans-method-01",
+      "tags": [
+        "near-miss",
+        "multi-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure",
+        "food-canning-waterbath"
+      ],
+      "retrievedDocIds": [
+        "food-canning-waterbath",
+        "water-boiling",
+        "distractor-gutenberg-walden",
+        "food-canning-pressure",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 0.5,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 0.6131471927654584,
+        "5": 0.8772153153380493,
+        "10": 0.8772153153380493
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8261421160519709,
+        "semanticScore": 0.70916414
+      }
+    },
+    {
+      "id": "food-waterbath-ph-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-waterbath"
+      ],
+      "retrievedDocIds": [
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-boiling",
+        "water-chemical-treatment",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9990537452476687,
+        "semanticScore": 0.8702697
+      }
+    },
+    {
+      "id": "food-tomato-acid-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "food-canning-waterbath"
+      ],
+      "retrievedDocIds": [
+        "food-canning-waterbath",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8219545875081886,
+        "semanticScore": 0.7028638
+      }
+    },
+    {
+      "id": "food-dehydrate-veg-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-dehydrating"
+      ],
+      "retrievedDocIds": [
+        "food-dehydrating",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "water-boiling",
+        "shelter-cold-layering"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9143909051287706,
+        "semanticScore": 0.8098521
+      }
+    },
+    {
+      "id": "food-jerky-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-dehydrating"
+      ],
+      "retrievedDocIds": [
+        "food-dehydrating",
+        "food-canning-pressure",
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9110871322068216,
+        "semanticScore": 0.8120425
+      }
+    },
+    {
+      "id": "food-conditioning-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-dehydrating"
+      ],
+      "retrievedDocIds": [
+        "food-dehydrating",
+        "food-storage-rotation",
+        "food-canning-pressure",
+        "food-canning-waterbath",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8526046649195075,
+        "semanticScore": 0.76138353
+      }
+    },
+    {
+      "id": "food-fifo-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "protocol-thornfield-cache"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8022697771034744,
+        "semanticScore": 0.7070433
+      }
+    },
+    {
+      "id": "food-fifo-spelled-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "distractor-gutenberg-walden",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.847281259676453,
+        "semanticScore": 0.7355672
+      }
+    },
+    {
+      "id": "food-brownrice-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "water-storage",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.803988248754077,
+        "semanticScore": 0.7034714
+      }
+    },
+    {
+      "id": "food-wheat-shelflife-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "food-storage-rotation"
+      ],
+      "retrievedDocIds": [
+        "food-storage-rotation",
+        "water-storage",
+        "food-dehydrating"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8128399909827848,
+        "semanticScore": 0.7093493
+      }
+    },
+    {
+      "id": "food-oxyabsorber-5gal-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "water-storage",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9985756617677146,
+        "semanticScore": 0.8614108
+      }
+    },
+    {
+      "id": "food-oxyabsorber-1gal-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "water-storage"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9984644913412891,
+        "semanticScore": 0.8613149
+      }
+    },
+    {
+      "id": "food-mylar-thickness-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen",
+        "food-storage-rotation",
+        "water-storage",
+        "food-canning-pressure",
+        "gear-bug-out-bag"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9177936121453854,
+        "semanticScore": 0.7878382
+      }
+    },
+    {
+      "id": "food-oxyabsorber-sugar-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "retrievedDocIds": [
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.827158536589331,
+        "semanticScore": 0.71003664
+      }
+    },
+    {
+      "id": "firstaid-tq-placement-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-bleeding-control"
+      ],
+      "retrievedDocIds": [
+        "firstaid-bleeding-control",
+        "firstaid-ifak-contents",
+        "distractor-gutenberg-walden",
+        "distractor-gutenberg-sherlock-holmes"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8767431147026937,
+        "semanticScore": 0.765917
+      }
+    },
+    {
+      "id": "firstaid-tq-time-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-bleeding-control"
+      ],
+      "retrievedDocIds": [
+        "firstaid-bleeding-control",
+        "firstaid-ifak-contents",
+        "distractor-gutenberg-sherlock-holmes",
+        "distractor-gutenberg-pride-and-prejudice",
+        "distractor-gutenberg-walden"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8139192206934482,
+        "semanticScore": 0.71666646
+      }
+    },
+    {
+      "id": "firstaid-woundpack-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "firstaid-bleeding-control"
+      ],
+      "retrievedDocIds": [
+        "firstaid-bleeding-control",
+        "food-canning-pressure",
+        "firstaid-burns",
+        "firstaid-ifak-contents"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.25,
+        "10": 0.25
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7940771832923635,
+        "semanticScore": 0.6950495
+      }
+    },
+    {
+      "id": "firstaid-ifak-acronym-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9483528549696179,
+        "semanticScore": 0.8466351
+      }
+    },
+    {
+      "id": "firstaid-ifak-spelled-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag",
+        "firstaid-bleeding-control",
+        "gear-edc",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8701354170333943,
+        "semanticScore": 0.7513508
+      }
+    },
+    {
+      "id": "firstaid-ifak-carry-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "firstaid-ifak-contents",
+        "gear-bug-out-bag",
+        "gear-edc",
+        "distractor-gutenberg-sherlock-holmes"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.25,
+        "10": 0.25
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9470041287973104,
+        "semanticScore": 0.81291264
+      }
+    },
+    {
+      "id": "firstaid-hypothermia-temp-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-hypothermia"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "shelter-cold-layering",
+        "food-dehydrating",
+        "food-canning-pressure",
+        "water-boiling"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9981127319538972,
+        "semanticScore": 0.8579373
+      }
+    },
+    {
+      "id": "firstaid-hypothermia-shivering-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "firstaid-hypothermia"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "shelter-cold-layering"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8273611450246979,
+        "semanticScore": 0.71021056
+      }
+    },
+    {
+      "id": "firstaid-hypothermia-handling-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-hypothermia"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "distractor-gutenberg-walden",
+        "shelter-cold-layering",
+        "power-emp-protection",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8788057115268926,
+        "semanticScore": 0.7744947
+      }
+    },
+    {
+      "id": "firstaid-burn-cooling-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-burns"
+      ],
+      "retrievedDocIds": [
+        "firstaid-burns",
+        "water-boiling",
+        "shelter-cold-layering",
+        "water-chemical-treatment",
+        "food-canning-pressure"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8477873975707532,
+        "semanticScore": 0.7396909
+      }
+    },
+    {
+      "id": "firstaid-burn-ice-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-burns"
+      ],
+      "retrievedDocIds": [
+        "firstaid-burns",
+        "water-boiling",
+        "water-chemical-treatment",
+        "shelter-cold-layering",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8737608425,
+        "semanticScore": 0.7681414
+      }
+    },
+    {
+      "id": "radio-gmrs-license-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8674937135834537,
+        "semanticScore": 0.77788824
+      }
+    },
+    {
+      "id": "radio-gmrs-term-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9286593710087677,
+        "semanticScore": 0.8099425
+      }
+    },
+    {
+      "id": "radio-frs-power-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9047517219068886,
+        "semanticScore": 0.79064566
+      }
+    },
+    {
+      "id": "radio-gmrs-power-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-antenna-basics",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.25,
+        "10": 0.25
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.956371181094478,
+        "semanticScore": 0.831138
+      }
+    },
+    {
+      "id": "radio-frs-license-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "radio-gmrs-frs"
+      ],
+      "retrievedDocIds": [
+        "radio-gmrs-frs",
+        "radio-ham-bands"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8601949519648088,
+        "semanticScore": 0.7463573
+      }
+    },
+    {
+      "id": "radio-tech-questions-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "radio-ham-bands"
+      ],
+      "retrievedDocIds": [
+        "radio-ham-bands",
+        "radio-gmrs-frs",
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8976950898219473,
+        "semanticScore": 0.77305055
+      }
+    },
+    {
+      "id": "radio-extra-questions-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "radio-ham-bands"
+      ],
+      "retrievedDocIds": [
+        "radio-ham-bands",
+        "distractor-gutenberg-sherlock-holmes"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.25,
+        "10": 0.25
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8040526197310376,
+        "semanticScore": 0.69428915
+      }
+    },
+    {
+      "id": "radio-morse-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "radio-ham-bands"
+      ],
+      "retrievedDocIds": [
+        "radio-ham-bands",
+        "radio-gmrs-frs",
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9232337825190203,
+        "semanticScore": 0.8170906
+      }
+    },
+    {
+      "id": "radio-counterpoise-01",
+      "tags": [
+        "chunk-boundary",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.6887594812561,
+        "semanticScore": 0.594735
+      }
+    },
+    {
+      "id": "radio-swr-threshold-01",
+      "tags": [
+        "chunk-boundary",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.6666666666666666,
+        "10": 0.6666666666666666
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8996441492678643,
+        "semanticScore": 0.7777715
+      }
+    },
+    {
+      "id": "radio-swr-meaning-01",
+      "tags": [
+        "chunk-boundary"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics",
+        "radio-gmrs-frs"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.6666666666666666,
+        "10": 0.6666666666666666
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9697775419115846,
+        "semanticScore": 0.8373905
+      }
+    },
+    {
+      "id": "radio-wavelength-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.6735561864496017,
+        "semanticScore": 0.59360754
+      }
+    },
+    {
+      "id": "radio-height-vs-power-01",
+      "tags": [
+        "chunk-boundary"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "radio-antenna-basics"
+      ],
+      "retrievedDocIds": [
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.774340820960127,
+        "semanticScore": 0.67186505
+      }
+    },
+    {
+      "id": "power-leadacid-dod-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "power-solar-sizing",
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing",
+        "food-canning-pressure",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8356629275408575,
+        "semanticScore": 0.73461556
+      }
+    },
+    {
+      "id": "power-lifepo4-dod-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "power-solar-sizing",
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8801602501625471,
+        "semanticScore": 0.7723173
+      }
+    },
+    {
+      "id": "power-derate-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "power-solar-sizing"
+      ],
+      "retrievedDocIds": [
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8284260104818267,
+        "semanticScore": 0.7385195
+      }
+    },
+    {
+      "id": "power-mppt-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "power-solar-sizing"
+      ],
+      "retrievedDocIds": [
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7269665910705577,
+        "semanticScore": 0.63427526
+      }
+    },
+    {
+      "id": "power-peaksun-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "power-solar-sizing"
+      ],
+      "retrievedDocIds": [
+        "power-solar-sizing",
+        "distractor-gutenberg-walden",
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.25,
+        "10": 0.25
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7173070113380687,
+        "semanticScore": 0.63504803
+      }
+    },
+    {
+      "id": "power-lifepo4-cycles-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.922135527213677,
+        "semanticScore": 0.8156935
+      }
+    },
+    {
+      "id": "power-agm-cycles-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8270568769888269,
+        "semanticScore": 0.7207232
+      }
+    },
+    {
+      "id": "power-lifepo4-cold-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8761724121708904,
+        "semanticScore": 0.74922615
+      }
+    },
+    {
+      "id": "power-usable-capacity-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "power-battery-chemistry"
+      ],
+      "retrievedDocIds": [
+        "power-battery-chemistry",
+        "power-solar-sizing"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8283468262363889,
+        "semanticScore": 0.726374
+      }
+    },
+    {
+      "id": "power-emp-acronym-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "power-emp-protection"
+      ],
+      "retrievedDocIds": [
+        "power-emp-protection"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8180948146825751,
+        "semanticScore": 0.7022563
+      }
+    },
+    {
+      "id": "power-emp-spelled-01",
+      "tags": [
+        "acronym-control"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "power-emp-protection"
+      ],
+      "retrievedDocIds": [
+        "power-emp-protection"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7815537727207493,
+        "semanticScore": 0.6730354
+      }
+    },
+    {
+      "id": "power-faraday-ground-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "power-emp-protection"
+      ],
+      "retrievedDocIds": [
+        "power-emp-protection"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9457987425000001,
+        "semanticScore": 0.8049351
+      }
+    },
+    {
+      "id": "gear-bob-acronym-01",
+      "tags": [
+        "acronym",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "gear-bug-out-bag"
+      ],
+      "retrievedDocIds": [
+        "gear-bug-out-bag",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9222916173124887,
+        "semanticScore": 0.7998831
+      }
+    },
+    {
+      "id": "gear-bob-spelled-01",
+      "tags": [
+        "acronym-control",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "gear-bug-out-bag"
+      ],
+      "retrievedDocIds": [
+        "gear-bug-out-bag",
+        "food-mylar-oxygen",
+        "distractor-gutenberg-walden"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9059645891985582,
+        "semanticScore": 0.78572303
+      }
+    },
+    {
+      "id": "gear-bob-weight-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "gear-bug-out-bag"
+      ],
+      "retrievedDocIds": [
+        "gear-bug-out-bag",
+        "food-mylar-oxygen"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8843168902664935,
+        "semanticScore": 0.76694846
+      }
+    },
+    {
+      "id": "gear-edc-acronym-01",
+      "tags": [
+        "acronym"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "gear-edc"
+      ],
+      "retrievedDocIds": [
+        "gear-edc"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9546281240080038,
+        "semanticScore": 0.87477267
+      }
+    },
+    {
+      "id": "shelter-cotton-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "shelter-cold-layering"
+      ],
+      "retrievedDocIds": [
+        "shelter-cold-layering",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8900715224907906,
+        "semanticScore": 0.7799366
+      }
+    },
+    {
+      "id": "shelter-layers-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "shelter-cold-layering"
+      ],
+      "retrievedDocIds": [
+        "shelter-cold-layering",
+        "firstaid-hypothermia"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9515753232601358,
+        "semanticScore": 0.82696784
+      }
+    },
+    {
+      "id": "shelter-cold-hands-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "shelter-cold-layering"
+      ],
+      "retrievedDocIds": [
+        "shelter-cold-layering",
+        "firstaid-burns",
+        "firstaid-hypothermia",
+        "distractor-gutenberg-walden",
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8004097473015831,
+        "semanticScore": 0.71227074
+      }
+    },
+    {
+      "id": "sanitation-latrine-distance-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "sanitation-waste"
+      ],
+      "retrievedDocIds": [
+        "sanitation-waste",
+        "distractor-gutenberg-walden",
+        "distractor-gutenberg-sherlock-holmes",
+        "water-boiling",
+        "food-canning-waterbath"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7484099375158363,
+        "semanticScore": 0.6521878
+      }
+    },
+    {
+      "id": "sanitation-buckets-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "sanitation-waste"
+      ],
+      "retrievedDocIds": [
+        "sanitation-waste"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8153330972173664,
+        "semanticScore": 0.7171987
+      }
+    },
+    {
+      "id": "nav-declination-01",
+      "tags": [
+        "single-hop"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "navigation-map-compass"
+      ],
+      "retrievedDocIds": [
+        "navigation-map-compass"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8303358097696566,
+        "semanticScore": 0.7262616
+      }
+    },
+    {
+      "id": "nav-pacecount-01",
+      "tags": [
+        "single-hop",
+        "numeric"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "navigation-map-compass"
+      ],
+      "retrievedDocIds": [
+        "navigation-map-compass",
+        "radio-ham-bands",
+        "radio-antenna-basics"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.666197416592364,
+        "semanticScore": 0.58598906
+      }
+    },
+    {
+      "id": "fict-thornfield-interval-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9249835934834107,
+        "semanticScore": 0.8060596
+      }
+    },
+    {
+      "id": "fict-thornfield-states-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 3,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table",
+        "distractor-gutenberg-walden"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.3333333333333333,
+        "10": 0.3333333333333333
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.90653471802931,
+        "semanticScore": 0.7806628
+      }
+    },
+    {
+      "id": "fict-thornfield-marker-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 4,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table",
+        "distractor-gutenberg-sherlock-holmes"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.25,
+        "10": 0.25
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9068972627437311,
+        "semanticScore": 0.77706385
+      }
+    },
+    {
+      "id": "fict-thornfield-custody-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "protocol-thornfield-cache"
+      ],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9161573646346456,
+        "semanticScore": 0.78406894
+      }
+    },
+    {
+      "id": "fict-tr88-flow-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9589474281023889,
+        "semanticScore": 0.82579803
+      }
+    },
+    {
+      "id": "fict-tr88-diaphragm-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.9017118930351233,
+        "semanticScore": 0.78772956
+      }
+    },
+    {
+      "id": "fict-tr88-maxtemp-01",
+      "tags": [
+        "fictional",
+        "numeric"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.883851612127077,
+        "semanticScore": 0.77362835
+      }
+    },
+    {
+      "id": "fict-tr88-spares-01",
+      "tags": [
+        "fictional"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7852771638185309,
+        "semanticScore": 0.6762418
+      }
+    },
+    {
+      "id": "multihop-kestrel-boil-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "regions-elevation-table",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7887670104112251,
+        "semanticScore": 0.6977197
+      }
+    },
+    {
+      "id": "multihop-ashmere-boil-01",
+      "tags": [
+        "multi-hop",
+        "numeric"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "water-boiling",
+        "regions-elevation-table",
+        "food-canning-waterbath",
+        "food-canning-pressure",
+        "water-chemical-treatment"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7677511515734357,
+        "semanticScore": 0.6791297
+      }
+    },
+    {
+      "id": "multihop-bellhollow-canning-01",
+      "tags": [
+        "multi-hop"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "food-canning-pressure",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.690503215451349,
+        "semanticScore": 0.64038515
+      }
+    },
+    {
+      "id": "distract-river-drink-01",
+      "tags": [
+        "distractor"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-boiling",
+        "water-filtration",
+        "water-chemical-treatment"
+      ],
+      "retrievedDocIds": [
+        "water-river-song",
+        "water-boiling",
+        "water-storage",
+        "water-filtration",
+        "distractor-gutenberg-walden"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.6666666666666666,
+        "10": 0.6666666666666666
+      },
+      "hitRate": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.4
+      },
+      "ndcg": {
+        "1": 0,
+        "3": 0.2960819109658652,
+        "5": 0.49818925746641285,
+        "10": 0.49818925746641285
+      },
+      "reciprocalRank": 0.5,
+      "empty": false,
+      "top": {
+        "score": 0.7787109717989457,
+        "semanticScore": 0.68996376
+      }
+    },
+    {
+      "id": "distract-river-legit-01",
+      "tags": [
+        "distractor-control"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "water-river-song"
+      ],
+      "retrievedDocIds": [
+        "water-river-song",
+        "distractor-gutenberg-walden",
+        "distractor-gutenberg-sherlock-holmes"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.8823675403166954,
+        "semanticScore": 0.78150845
+      }
+    },
+    {
+      "id": "ooc-tire-pressure-01",
+      "tags": [
+        "out-of-corpus"
+      ],
+      "retrievedCount": 0,
+      "relevantDocIds": [],
+      "retrievedDocIds": [],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": true,
+      "top": null
+    },
+    {
+      "id": "ooc-bgp-01",
+      "tags": [
+        "out-of-corpus"
+      ],
+      "retrievedCount": 0,
+      "relevantDocIds": [],
+      "retrievedDocIds": [],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": true,
+      "top": null
+    },
+    {
+      "id": "ooc-thornfield-founded-01",
+      "tags": [
+        "out-of-corpus",
+        "adversarial"
+      ],
+      "retrievedCount": 2,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "protocol-thornfield-cache",
+        "regions-elevation-table"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false,
+      "top": {
+        "score": 0.7221133559445054,
+        "semanticScore": 0.6327611
+      }
+    },
+    {
+      "id": "ooc-tr88-warranty-01",
+      "tags": [
+        "out-of-corpus",
+        "adversarial"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false,
+      "top": {
+        "score": 0.836970555812808,
+        "semanticScore": 0.7579527
+      }
+    },
+    {
+      "id": "ooc-tr92-01",
+      "tags": [
+        "out-of-corpus",
+        "adversarial"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": true,
+      "recall": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "hitRate": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "precision": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "ndcg": {
+        "1": null,
+        "3": null,
+        "5": null,
+        "10": null
+      },
+      "reciprocalRank": null,
+      "empty": false,
+      "top": {
+        "score": 0.7540597825177621,
+        "semanticScore": 0.67281055
+      }
+    },
+    {
+      "id": "multiturn-canning-temp-01",
+      "tags": [
+        "multi-turn"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "food-canning-pressure"
+      ],
+      "retrievedDocIds": [
+        "firstaid-hypothermia",
+        "food-canning-pressure",
+        "shelter-cold-layering",
+        "water-boiling",
+        "food-dehydrating"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 0,
+        "3": 0.6309297535714575,
+        "5": 0.6309297535714575,
+        "10": 0.6309297535714575
+      },
+      "reciprocalRank": 0.5,
+      "empty": false,
+      "top": {
+        "score": 0.7645762202981194,
+        "semanticScore": 0.67382383
+      }
+    },
+    {
+      "id": "multiturn-ifak-carry-01",
+      "tags": [
+        "multi-turn"
+      ],
+      "retrievedCount": 5,
+      "relevantDocIds": [
+        "firstaid-ifak-contents"
+      ],
+      "retrievedDocIds": [
+        "gear-edc",
+        "distractor-gutenberg-sherlock-holmes",
+        "firstaid-ifak-contents",
+        "distractor-gutenberg-walden",
+        "gear-bug-out-bag"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "ndcg": {
+        "1": 0,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "reciprocalRank": 0.3333333333333333,
+      "empty": false,
+      "top": {
+        "score": 0.7634589094965507,
+        "semanticScore": 0.657453
+      }
+    },
+    {
+      "id": "multiturn-tr88-diaphragm-01",
+      "tags": [
+        "multi-turn",
+        "fictional"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "retrievedDocIds": [
+        "equipment-tr88-pump"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.7444315261088696,
+        "semanticScore": 0.6702486
+      }
+    },
+    {
+      "id": "multiturn-boil-altitude-01",
+      "tags": [
+        "multi-turn",
+        "multi-hop"
+      ],
+      "retrievedCount": 1,
+      "relevantDocIds": [
+        "regions-elevation-table",
+        "water-boiling"
+      ],
+      "retrievedDocIds": [
+        "regions-elevation-table"
+      ],
+      "expectRefusal": false,
+      "recall": {
+        "1": 0.5,
+        "3": 0.5,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "hitRate": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "precision": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "ndcg": {
+        "1": 1,
+        "3": 0.6131471927654584,
+        "5": 0.6131471927654584,
+        "10": 0.6131471927654584
+      },
+      "reciprocalRank": 1,
+      "empty": false,
+      "top": {
+        "score": 0.684573435,
+        "semanticScore": 0.6018228
+      }
+    }
+  ]
+}

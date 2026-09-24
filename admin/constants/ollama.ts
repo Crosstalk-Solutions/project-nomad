@@ -149,6 +149,24 @@ export const RAG_DEFAULT_SCORE_THRESHOLD = 0.3
  * So nonEmptyRateOnRefusal bottoms out at 0.6 here, and a cutoff tuned to drive
  * it lower is cutting real documents.
  *
+ * What this floor cannot do (#1341). With general-prose distractors added to the
+ * corpus (fingerprint b4ebe5dce8699f5d: Gutenberg excerpts, the Python tutorial,
+ * MDN), the `off_topic` suite measures:
+ *
+ *     floor   core recall@5   off-topic questions that retrieve something
+ *     0.62        0.991                  67%   (22% without the distractors)
+ *     0.65        0.991                  33%
+ *     0.69        0.934                  11%
+ *
+ * The weakest correct top hit scores 0.666 while "write me a haiku about autumn
+ * leaves" pulls Walden at 0.705, so no value here separates the two, and a
+ * better-stocked library only makes it worse. 0.65 halves the leaks at no
+ * measured recall cost but sits 0.016 under that weakest hit, which is not the
+ * margin this default was chosen for. The coherent-but-off-topic case is left to
+ * the opt-in relevance check (app/utils/relevance_judge.ts). A cosine floor
+ * alongside this one was also tried and loses recall faster than it cuts leaks:
+ * the reranker's boosts lift relevant chunks more than irrelevant ones.
+ *
  * Unset `rag.minRelevance` resolves to this value; see app/utils/rag_relevance.ts.
  */
 export const RAG_MIN_FINAL_SCORE = 0.62
@@ -210,6 +228,13 @@ export const RAG_PLACEMENT: 'tail' | 'front' = 'tail'
  * nothing and costs the turn its rewrite entirely.
  */
 export const QUERY_REWRITE_MAX_TOKENS = 160
+
+/**
+ * Token cap on the retrieval relevance check. The answer is `{"on_topic": true}`,
+ * under ten tokens; the rest is headroom, since a truncated verdict is discarded
+ * and the turn keeps its chunks unjudged.
+ */
+export const RELEVANCE_CHECK_MAX_TOKENS = 32
 
 /**
  * How long Ollama keeps a chat model — and its KV cache — resident after a
@@ -344,6 +369,13 @@ Respond with JSON: {"suggestions": ["...", "...", "..."]}
   title_generation: `You are a title generator. Given the start of a conversation, generate a concise, descriptive title under 50 characters.
 
 Respond with JSON: {"title": "..."}`,
+  relevance_check: `You check whether search results are about what a user asked.
+
+Answer true if at least one passage is about the same specific subject as the question, even if it does not state the exact answer.
+
+Answer false if the passages only share a word or a loose theme with the question. Also answer false if the user is not asking for information at all: greetings, chit-chat, or asking you to produce something new such as a poem, a joke, a translation, or a letter.
+
+Respond with JSON: {"on_topic": true} or {"on_topic": false}`,
   query_rewrite: `
 You are a query rewriting assistant. Your task is to reformulate the user's latest question to include relevant context from the conversation history.
 

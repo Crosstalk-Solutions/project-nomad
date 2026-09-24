@@ -2,6 +2,7 @@ import { ContextWindowService } from '#services/context_window_service'
 import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
+import { RelevanceJudgeService } from '#services/relevance_judge_service'
 import { TokenCalibrationService } from '#services/token_calibration_service'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
@@ -43,7 +44,8 @@ export class RagPipelineService {
     private ragService: RagService,
     private nomadMdService: NomadMdService,
     private contextWindowService: ContextWindowService,
-    private tokenCalibration: TokenCalibrationService
+    private tokenCalibration: TokenCalibrationService,
+    private relevanceJudge: RelevanceJudgeService
   ) {}
 
   /**
@@ -104,9 +106,11 @@ export class RagPipelineService {
       numCtx: undefined,
       numPredict: undefined,
       contextLimits: { maxResults: RAG_DEFAULT_TOP_K, maxTokens: 0 },
-      timings: { rewriteMs: 0, retrievalMs: 0 },
+      timings: { rewriteMs: 0, retrievalMs: 0, relevanceCheckMs: 0 },
       minFinalScore: 0,
       chunksBelowFloor: 0,
+      relevanceCheckModel: null,
+      chunksRejectedByCheck: 0,
     }
 
     // --- Retrieval -------------------------------------------------------
@@ -157,6 +161,25 @@ export class RagPipelineService {
               ? ` (${floor.belowFloor} of ${floor.candidates} dropped below the ${minFinalScore} relevance floor)`
               : '')
         )
+
+        // Opt-in relevance check (#1341). The floor cannot tell a coherent
+        // off-topic question from a real one on a large general-prose library;
+        // a model can, at ~8B. Judged against the rewritten query, which is the
+        // standalone form of what the user is asking this turn.
+        if (relevantDocs.length > 0) {
+          const checkModel =
+            opts.relevanceCheckModel !== undefined
+              ? opts.relevanceCheckModel
+              : await this.relevanceJudge.resolveModel(model)
+          if (checkModel) {
+            const verdict = await this.relevanceJudge.judge(retrievalQuery, relevantDocs, checkModel)
+            relevantDocs = verdict.kept
+            trace.retrieved = relevantDocs
+            trace.relevanceCheckModel = checkModel
+            trace.chunksRejectedByCheck = verdict.rejected
+            trace.timings.relevanceCheckMs = verdict.ms
+          }
+        }
       }
     }
 
