@@ -946,7 +946,8 @@ export class SystemService {
     if (key === 'ai.assistantCustomName') {
       invalidateAssistantNameCache()
     }
-    if (key === 'rag.minRelevance') {
+    // The embedding model supplies the default floor, so switching it moves the resolved value
+    if (key === 'rag.minRelevance' || key === 'rag.embeddingModel') {
       invalidateMinRelevanceCache()
     }
     if (key === 'ai.responseStyle') {
