@@ -97,13 +97,16 @@ export class DownloadService {
       }
     })
 
-    const modelDownloads = modelTagged.map(({ job }) => ({
+    // Status comes from the tagged BullMQ state like every other type. BullMQ keeps
+    // `failedReason` on a job it has moved to `delayed` for another attempt, so
+    // reading status off `failedReason` showed a retrying download as failed (#1311).
+    const modelDownloads = modelTagged.map(({ job, state }) => ({
       jobId: job.id!.toString(),
       url: job.data.modelName || 'Unknown Model',
       progress: parseInt(job.progress.toString(), 10),
       filepath: job.data.modelName || 'Unknown Model',
       filetype: 'model',
-      status: (job.failedReason ? 'failed' : 'active') as 'active' | 'failed',
+      status: state,
       failedReason: job.failedReason || undefined,
     }))
 
