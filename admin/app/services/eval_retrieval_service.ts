@@ -3,11 +3,8 @@ import { RagService } from '#services/rag_service'
 import { RelevanceJudgeService } from '#services/relevance_judge_service'
 import { inject } from '@adonisjs/core'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
-import {
-  RAG_DEFAULT_SCORE_THRESHOLD,
-  RAG_DEFAULT_TOP_K,
-  RAG_MIN_FINAL_SCORE,
-} from '../../constants/ollama.js'
+import { RAG_DEFAULT_SCORE_THRESHOLD, RAG_DEFAULT_TOP_K } from '../../constants/ollama.js'
+import { resolveDefaultMinFinalScore } from '../utils/rag_relevance.js'
 import type { RetrievalStages } from '../../types/rag.js'
 import { docIdFromSource } from '../utils/eval/corpus_source.js'
 import type { Golden } from '../utils/eval/golden_set.js'
@@ -107,12 +104,12 @@ export class EvalRetrievalService {
   async run(goldens: Golden[], options: RetrievalRunOptions = {}): Promise<RetrievalRunResult> {
     const topK = options.topK ?? RAG_DEFAULT_TOP_K
     const scoreThreshold = options.scoreThreshold ?? RAG_DEFAULT_SCORE_THRESHOLD
-    // RAG_MIN_FINAL_SCORE, deliberately — NOT resolveMinFinalScore(). The chat
-    // path reads the user's `rag.minRelevance` setting; this tier must not, or a
-    // slider position on one developer's machine would silently move the numbers
-    // and the committed baseline would stop being reproducible anywhere else.
-    // Same reasoning as the harness omitting `skipRetrieval`.
-    const minFinalScore = options.minFinalScore ?? RAG_MIN_FINAL_SCORE
+    // The embedding model's default floor, deliberately — NOT resolveMinFinalScore().
+    // The chat path reads the user's `rag.minRelevance` setting; this tier must not,
+    // or a slider position on one developer's machine would silently move the
+    // numbers and the committed baseline would stop being reproducible anywhere
+    // else. Same reasoning as the harness omitting `skipRetrieval`.
+    const minFinalScore = options.minFinalScore ?? (await resolveDefaultMinFinalScore())
     const kValues = options.kValues ?? DEFAULT_K_VALUES
 
     const cases: RetrievalCase[] = []
