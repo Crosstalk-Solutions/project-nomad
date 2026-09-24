@@ -97,11 +97,11 @@
             },
             {
               "id": "librepathology_en_all_maxi",
-              "version": "2025-09",
+              "version": "2026-09",
               "title": "LibrePathology",
               "description": "Pathology reference for disease identification",
-              "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2025-09.zim",
-              "size_mb": 76
+              "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2026-09.zim",
+              "size_mb": 95
             }
           ]
         }
@@ -145,12 +145,12 @@
               "size_mb": 27
             },
             {
-              "id": "canadian_prepper_winterprepping_en",
-              "version": "2026-02",
+              "id": "canadian-prepper_en_winterprepping",
+              "version": "2026-08",
               "title": "Canadian Prepper: Winter Prepping",
               "description": "Video guides for winter survival and cold weather emergencies",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_winterprepping_en_2026-02.zim",
-              "size_mb": 1340
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_winterprepping_2026-08.zim",
+              "size_mb": 1342
             },
             {
               "id": "canadian_prepper_bugoutroll_en",
@@ -193,12 +193,12 @@
               "size_mb": 75
             },
             {
-              "id": "canadian_prepper_bugoutconcepts_en",
-              "version": "2026-02",
+              "id": "canadian-prepper_en_bugoutconcepts",
+              "version": "2026-08",
               "title": "Canadian Prepper: Bug Out Concepts",
               "description": "Strategies and planning for emergency evacuation",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutconcepts_en_2026-02.zim",
-              "size_mb": 2890
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_bugoutconcepts_2026-08.zim",
+              "size_mb": 2886
             },
             {
               "id": "urban-prepper_en_all",
