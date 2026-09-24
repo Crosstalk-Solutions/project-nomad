@@ -14,6 +14,10 @@ export const KV_STORE_SCHEMA = {
   // Stored as the number rather than a preset name so retuning the presets in
   // Settings > Models cannot invalidate a value someone already saved.
   'rag.minRelevance':           'string',
+  // Whether a model double-checks that retrieved chunks are about the question
+  // before they are injected and cited (#1341). Unset means OFF: the check costs
+  // a model call per turn and only pays off on ~8B-class models.
+  'rag.relevanceCheck':         'boolean',
   'system.updateAvailable':     'boolean',
   'system.latestVersion':       'string',
   'system.earlyAccess':         'boolean',
