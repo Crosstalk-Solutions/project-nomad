@@ -18,6 +18,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
     'rag.defaultIngestPolicy',
     'rag.enabled',
     'rag.minRelevance',
+    'rag.relevanceCheck',
     'autoUpdate.enabled',
     'autoUpdate.windowStart',
     'autoUpdate.windowEnd',

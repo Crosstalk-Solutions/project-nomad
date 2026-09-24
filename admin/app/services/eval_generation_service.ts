@@ -296,6 +296,9 @@ export class EvalGenerationService {
       skipQueryRewrite: options.skipQueryRewrite || isMock,
       // A developer's personal NOMAD.md would silently skew every score.
       skipNomadMd: true,
+      // Pinned off rather than read from `rag.relevanceCheck`, for the same
+      // reason as minFinalScore. eval:retrieval --judge-model measures it.
+      relevanceCheckModel: null,
     }
 
     if (options.mode === 'oracle') {

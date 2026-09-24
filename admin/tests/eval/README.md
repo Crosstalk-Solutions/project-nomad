@@ -39,9 +39,31 @@ invalidate every committed baseline.
 |---|---|
 | `core` | The default 99 questions. Retrieval and generation quality. |
 | `long_context` | Conversations long enough to exercise the budget planner. |
+| `off_topic` | Coherent questions the corpus cannot answer, plus distractor controls (#1341). |
 
 `--suite a,b` runs several. `eval:corpus` always validates every suite, since a
 malformed fixture should fail validation whether or not it is in the default run.
+
+### The `off_topic` suite
+
+Eighteen questions no document answers (general trivia, chit-chat, requests to
+write something, personal asks, and domains the corpus lacks, such as gardening)
+and seven controls that the `distractor-*` documents *do* answer.
+
+Every refusal case must retrieve **nothing**. `eval:retrieval` prints a `leaked=`
+rate per tag and, with `--verbose`, each leaked question with its top chunk's
+boosted and cosine scores. The controls keep a fix honest: a gate that stops the
+leaks by also rejecting "how do list comprehensions work in Python?" has traded
+one bug for another.
+
+The suite exists because the relevance floor looked fine on the original 28
+documents (22% of these leaked) and fails on a well-stocked library (67% leaked
+once Gutenberg prose and programming docs were added). A small corpus
+understates this failure, so keep the distractors in.
+
+Retrieval-only for now. The generation tier scores `expectRefusal` as "the model
+declined", and "Paris" is the right answer to the capital question as long as
+nothing is cited for it.
 
 ### The `long_context` suite
 
@@ -159,7 +181,15 @@ node ace eval:retrieval --min-final-score=0.7 # sweep the post-rerank relevance 
 node ace eval:retrieval --tag=multi-hop
 node ace eval:retrieval --verbose             # show every miss and what it retrieved
 node ace eval:retrieval --report              # write JSON + Markdown to reports/
+node ace eval:retrieval --suite=off_topic --judge-model=llama3:8b   # measure the relevance check
+node ace eval:retrieval --suite=core,off_topic --dump=pools.json    # candidate pools for offline gate sims
 ```
+
+`--judge-model` runs the opt-in relevance check (`rag.relevanceCheck`) after the
+floor and prints its latency and how often it failed open. It makes the run
+model-dependent, so it is never part of a baseline. `--dump` writes every
+golden's full pre-floor candidate pool with both scores, which lets you simulate
+a new gate in a few lines of script instead of a sweep per setting.
 
 **There are two cutoffs, on two different scores, and they do not interchange.**
 `--threshold` is what Qdrant applies to the raw cosine score, before reranking;
@@ -237,7 +267,12 @@ manufacture a regression. Re-baseline instead.
 
 ## The corpus and the goldens
 
-- `corpus/*.md` — 28 short documents across NOMAD's real domains.
+- `corpus/*.md` — 28 short documents across NOMAD's real domains, plus six
+  `distractor-*` documents (Project Gutenberg excerpts, the Python tutorial, MDN
+  pages). The distractors stand in for a library with general prose in it, where
+  something is always semantically near the question. Sources and licences are
+  in each file's header: Gutenberg texts are public domain, the Python tutorial
+  is PSF License v2, MDN is CC-BY-SA 2.5.
 - `goldens/*.jsonl` — 99 questions, one JSON object per line.
 
 The corpus is built with deliberate traps, not just easy questions:
@@ -383,8 +418,8 @@ Read these before trusting a number.
 
 ```
 tests/eval/
-  corpus/         28 markdown fixtures — the frozen knowledge base
-  goldens/        99 questions as JSONL
+  corpus/         34 markdown fixtures (28 domain + 6 distractor) — the frozen knowledge base
+  goldens/        one JSONL file per suite (core: 99 questions)
   baselines/      <corpus-fingerprint>/*.json — COMMITTED; the gate compares against these
   reports/        run artifacts — gitignored
 ```
