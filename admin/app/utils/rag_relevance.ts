@@ -1,7 +1,7 @@
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 import { RAG_MIN_FINAL_SCORE } from '../../constants/ollama.js'
-import { parseMinRelevance } from './misc.js'
+import { parseMinRelevance, pickEmbeddingModel } from './misc.js'
 
 /**
  * Resolves the user's retrieval relevance floor (`rag.minRelevance`), cached.
@@ -26,24 +26,35 @@ export function invalidateMinRelevanceCache(): void {
   cache = null
 }
 
+/**
+ * The configured embedding model's default floor — what an unset
+ * `rag.minRelevance` means. Never reads the user's setting, so the eval harness
+ * can pin to it the way it pinned to RAG_MIN_FINAL_SCORE.
+ */
+export async function resolveDefaultMinFinalScore(): Promise<number> {
+  return pickEmbeddingModel(await KVStore.getValue('rag.embeddingModel')).minFinalScore
+}
+
 /** The relevance floor to apply to this turn's retrieval. */
 export async function resolveMinFinalScore(): Promise<number> {
   const now = Date.now()
   if (cache && now < cache.expiresAt) return cache.value
 
   let raw: string | null = null
+  let fallback = RAG_MIN_FINAL_SCORE
   try {
     raw = await KVStore.getValue('rag.minRelevance')
+    fallback = await resolveDefaultMinFinalScore()
   } catch (error) {
     // A KV read failure must not take retrieval out, and must not be cached —
     // fall back to the default and let the next turn try again.
     logger.warn(
-      `[RAG] Failed to read rag.minRelevance, using ${RAG_MIN_FINAL_SCORE}: ${error instanceof Error ? error.message : error}`
+      `[RAG] Failed to read the relevance settings, using ${RAG_MIN_FINAL_SCORE}: ${error instanceof Error ? error.message : error}`
     )
     return RAG_MIN_FINAL_SCORE
   }
 
-  const value = parseMinRelevance(raw, RAG_MIN_FINAL_SCORE)
+  const value = parseMinRelevance(raw, fallback)
   cache = { value, expiresAt: now + CACHE_TTL_MS }
   return value
 }
