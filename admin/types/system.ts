@@ -6,6 +6,18 @@ export type GpuHealthStatus = {
   hasRocmRuntime: boolean
   ollamaGpuAccessible: boolean
   gpuVendor?: 'nvidia' | 'amd'
+  /**
+   * AMD passthrough_failed only. Whether a reinstall would change the running
+   * container. When false, a reinstall rebuilds the same CPU-bound container and
+   * the fix is an HSA override (ai.amdHsaOverride).
+   */
+  amdReinstallWouldChange?: boolean
+  /** gfx target Ollama reported for an unsupported AMD GPU, e.g. 'gfx1103'. */
+  amdGfxTarget?: string
+  /** HSA_OVERRIDE_GFX_VERSION the running container has, if any. */
+  currentHsaOverride?: string
+  /** Override the gfx mapping recommends for amdGfxTarget, if it knows one. */
+  suggestedHsaOverride?: string
 }
 
 export type SystemInformationResponse = {

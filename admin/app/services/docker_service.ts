@@ -1551,6 +1551,15 @@ export class DockerService {
   }
 
   /**
+   * The HSA_OVERRIDE_GFX_VERSION an AMD install or reinstall would apply right now.
+   * Exposed so GpuPassthroughRemediationProvider can tell whether a reinstall would
+   * change the running container.
+   */
+  async getAmdHsaOverride(options: { quiet?: boolean } = {}): Promise<string | null> {
+    return this._resolveAmdHsaOverride(options)
+  }
+
+  /**
    * Resolve the HSA_OVERRIDE_GFX_VERSION value for the host's AMD GPU.
    *
    * gfx1030 (RX 6800/6700/etc.), gfx1100/1101/1102 (RX 7900/7800/7600) are on AMD's
@@ -1589,32 +1598,32 @@ export class DockerService {
     return pepper
   }
 
-  private async _resolveAmdHsaOverride(): Promise<string | null> {
+  private async _resolveAmdHsaOverride({ quiet = false }: { quiet?: boolean } = {}): Promise<string | null> {
     const manualRaw = await KVStore.getValue('ai.amdHsaOverride')
     if (manualRaw !== null && manualRaw !== undefined && String(manualRaw).trim() !== '') {
       const manual = String(manualRaw).trim().toLowerCase()
       if (manual === 'none' || manual === 'off' || manual === 'false') {
-        logger.info('[DockerService] HSA override disabled via ai.amdHsaOverride')
+        if (!quiet) logger.info('[DockerService] HSA override disabled via ai.amdHsaOverride')
         return null
       }
       if (/^\d+\.\d+\.\d+$/.test(manual)) {
-        logger.info(`[DockerService] HSA override forced to ${manual} via ai.amdHsaOverride`)
+        if (!quiet) logger.info(`[DockerService] HSA override forced to ${manual} via ai.amdHsaOverride`)
         return manual
       }
-      logger.warn(`[DockerService] Ignoring invalid ai.amdHsaOverride value: ${manualRaw}`)
+      if (!quiet) logger.warn(`[DockerService] Ignoring invalid ai.amdHsaOverride value: ${manualRaw}`)
     }
 
     try {
       const gfx = (await readFile('/app/storage/.nomad-amd-gfx', 'utf8')).trim()
       const mapped = this._mapGfxToHsaOverride(gfx)
-      logger.info(`[DockerService] AMD gfx marker '${gfx}' → HSA override ${mapped ?? 'none'}`)
+      if (!quiet) logger.info(`[DockerService] AMD gfx marker '${gfx}' → HSA override ${mapped ?? 'none'}`)
       return mapped
     } catch {
       // Marker absent — most likely an existing install upgraded without re-running
       // install_nomad.sh. Fall through to the default.
     }
 
-    logger.warn(
+    if (!quiet) logger.warn(
       '[DockerService] AMD GPU configured but no gfx marker (/app/storage/.nomad-amd-gfx) and no ' +
         'ai.amdHsaOverride KV; relying on native ROCm discovery. iGPUs not on the bundled rocblas ' +
         'allowlist (e.g. 780M/gfx1103, 680M/gfx1035) will silently fall back to CPU. Set the ' +

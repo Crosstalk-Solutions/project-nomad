@@ -1,14 +1,14 @@
 import logger from '@adonisjs/core/services/logger'
 import type { ApplicationService } from '@adonisjs/core/types'
-import type Docker from 'dockerode'
 
 /**
- * Auto-remediates NVIDIA GPU passthrough loss after admin / host restart.
+ * Detects Ollama's silent CPU fallback after admin / host restart, and auto-remediates
+ * it on NVIDIA.
  *
  * Detects the condition from Ollama's own "inference compute" startup log line:
- * if the NVIDIA container runtime is registered with Docker but Ollama still
- * loaded a CPU-only backend, passthrough is broken and nomad_ollama is recreated.
- * This single signal covers two failure modes:
+ * if Ollama is expected on a GPU (see resolveExpectedGpuVendor) but loaded a CPU-only
+ * backend, passthrough is broken. On NVIDIA, nomad_ollama is recreated.
+ * This single signal covers two NVIDIA failure modes:
  *   1. nomad_ollama was created CPU-only because the nvidia runtime was registered
  *      only AFTER the AI Assistant was first installed (DockerService attaches a
  *      GPU DeviceRequest only when 'nvidia' is in docker.info().Runtimes at install
@@ -20,16 +20,19 @@ import type Docker from 'dockerode'
  * PR #208 added detection + a one-click "Fix: Reinstall AI Assistant" banner; this
  * provider performs that click automatically on admin boot.
  *
+ * AMD is detect-only. The usual cause there is a missing HSA override for an iGPU
+ * outside ROCm's allowlist (e.g. gfx1103), which a reinstall rebuilds unchanged. The
+ * provider logs whether a reinstall would change the container and leaves the
+ * reinstall to the user; SystemService surfaces the same state as passthrough_failed.
+ *
  * Guards:
- *   - NVIDIA-only. AMD passthrough_failed has a different fix path (HSA override
- *     handling in PR #804) and is left to the user.
  *   - One-shot per admin boot. The provider runs once on startup; if the recreate
  *     itself fails the banner remains as a fallback.
  *   - Cooldown: will not auto-reinstall more than once within
  *     AUTO_REMEDIATE_COOLDOWN_MS, to avoid a reinstall loop when the GPU cannot be
  *     accelerated (e.g. an architecture Ollama has no kernels for).
  *   - Opt-out via KV `ai.autoFixGpuPassthrough = false`.
- *   - Skipped entirely when no NVIDIA runtime is registered with Docker.
+ *   - Skipped entirely when nomad_ollama is not expected on a GPU.
  */
 export default class GpuPassthroughRemediationProvider {
   constructor(protected app: ApplicationService) {}
@@ -55,14 +58,6 @@ export default class GpuPassthroughRemediationProvider {
         const docker = new Docker({ socketPath: '/var/run/docker.sock' })
         const dockerInfo = await docker.info()
         const runtimes = dockerInfo.Runtimes || {}
-        const hasNvidiaRuntime = 'nvidia' in runtimes
-
-        if (!hasNvidiaRuntime) {
-          logger.info(
-            '[GpuPassthroughRemediationProvider] No NVIDIA runtime registered — skipping.'
-          )
-          return
-        }
 
         const containers = await docker.listContainers({ all: false })
         const ollama = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
@@ -74,20 +69,43 @@ export default class GpuPassthroughRemediationProvider {
           return
         }
 
+        const container = docker.getContainer(ollama.Id)
+        const inspect = await container.inspect()
+        const {
+          classifyOllamaComputeBackend,
+          diffAmdOllamaConfig,
+          readOllamaStartupLogs,
+          resolveExpectedGpuVendor,
+        } = await import('#services/ollama_compute')
+
+        // The container's own GPU config decides the vendor. The KV AMD type only
+        // matters when no container exists, which the return above rules out.
+        const vendor = resolveExpectedGpuVendor({
+          hasNvidiaRuntime: 'nvidia' in runtimes,
+          amdConfigured: false,
+          container: inspect,
+        })
+
+        if (!vendor) {
+          logger.info(
+            '[GpuPassthroughRemediationProvider] nomad_ollama is not configured for a GPU — skipping.'
+          )
+          return
+        }
+
         // Probe: read Ollama's own "inference compute" startup line from its logs.
         // This is the ground truth for whether Ollama loaded a GPU backend, and it
         // catches every failure mode:
         //   - nomad_ollama created CPU-only because the nvidia runtime was registered
         //     only AFTER first install (Ollama logs library=cpu), and
         //   - DeviceRequests present but the toolkit binding tore after a recreate,
-        //     where Ollama silently falls back to CPU (also library=cpu).
+        //     where Ollama silently falls back to CPU (also library=cpu), and
+        //   - a ROCm container on an AMD GPU that ROCm could not initialize.
         // The previous implementation probed by exec'ing `nvidia-smi` inside the
         // container, but a CPU-only container does not ship nvidia-smi, so the exec
         // returned an error string that the alphabetic-output check mistook for
         // "healthy" — a false negative that suppressed all auto-remediation.
-        const container = docker.getContainer(ollama.Id)
-        const { classifyOllamaComputeBackend } = await import('#services/ollama_compute')
-        const backend = classifyOllamaComputeBackend(await readOllamaStartupLogs(container))
+        const backend = classifyOllamaComputeBackend(await readOllamaStartupLogs(container, inspect))
 
         if (backend === 'gpu') {
           logger.info(
@@ -99,6 +117,43 @@ export default class GpuPassthroughRemediationProvider {
         if (backend === 'unknown') {
           logger.info(
             '[GpuPassthroughRemediationProvider] No "inference compute" line found in nomad_ollama logs yet — skipping.'
+          )
+          return
+        }
+
+        if (vendor === 'amd') {
+          const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
+          if (String(amdEnabledRaw) === 'false') {
+            logger.info(
+              '[GpuPassthroughRemediationProvider] Ollama is on CPU and AMD acceleration is disabled via ai.amdGpuAcceleration — skipping.'
+            )
+            return
+          }
+
+          const hsaOverride = await new DockerService().getAmdHsaOverride()
+          const drift = diffAmdOllamaConfig(inspect, hsaOverride)
+          if (drift.length > 0) {
+            logger.warn(
+              '[GpuPassthroughRemediationProvider] AMD GPU configured but Ollama fell back to CPU. ' +
+                `A reinstall would change the container (${drift.join('; ')}). ` +
+                'Use "Fix: Reinstall AI Assistant" to apply it.'
+            )
+          } else {
+            logger.warn(
+              '[GpuPassthroughRemediationProvider] AMD GPU configured but Ollama fell back to CPU, and a ' +
+                'reinstall would rebuild the same container. If this is an iGPU outside the ROCm ' +
+                'allowlist, use "Fix: Set GFX Override" in Settings (e.g. 11.0.0 for a 780M/gfx1103).'
+            )
+          }
+          return
+        }
+
+        // NVIDIA DeviceRequests without a registered runtime: a reinstall would come up
+        // CPU-only, since DockerService attaches the GPU only when the runtime is present.
+        if (!('nvidia' in runtimes)) {
+          logger.warn(
+            '[GpuPassthroughRemediationProvider] nomad_ollama requests an NVIDIA GPU but no NVIDIA runtime ' +
+              'is registered with Docker. Reinstall the NVIDIA Container Toolkit; skipping auto-reinstall.'
           )
           return
         }
@@ -151,39 +206,3 @@ export default class GpuPassthroughRemediationProvider {
  * provider. Bounds a reinstall loop when the GPU cannot be accelerated.
  */
 const AUTO_REMEDIATE_COOLDOWN_MS = 60 * 60 * 1000 // 1 hour
-
-/**
- * Read nomad_ollama's logs from its startup window (the five minutes after it
- * booted), where the "inference compute" line is emitted. Mirrors the windowing
- * in SystemService.getOllamaInferenceComputeFromLogs. Returns '' on any error so
- * the caller classifies the backend as 'unknown' rather than throwing.
- */
-async function readOllamaStartupLogs(container: Docker.Container): Promise<string> {
-  try {
-    const inspect = await container.inspect()
-    const startedAtRaw = inspect?.State?.StartedAt
-    const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
-
-    const logsOpts: {
-      stdout: true
-      stderr: true
-      follow: false
-      since?: number
-      until?: number
-      tail?: number
-    } = { stdout: true, stderr: true, follow: false }
-
-    if (Number.isFinite(startedAtMs) && startedAtMs > 0) {
-      const startedAtSec = Math.floor(startedAtMs / 1000)
-      logsOpts.since = startedAtSec
-      logsOpts.until = startedAtSec + 300
-    } else {
-      logsOpts.tail = 500
-    }
-
-    const buf = (await container.logs(logsOpts)) as unknown as Buffer
-    return buf.toString('utf8')
-  } catch {
-    return ''
-  }
-}
