@@ -118,6 +118,19 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'ai.amdHsaOverride': {
+            // Lands in the Ollama container env as HSA_OVERRIDE_GFX_VERSION, so only
+            // the forms DockerService._resolveAmdHsaOverride honours are accepted.
+            // Empty clears it and 'none' disables the gfx-marker default.
+            const raw = typeof value === 'string' ? value.trim().toLowerCase() : value
+            if (raw === '' || raw === undefined || raw === null || raw === 'none') {
+                return null
+            }
+            if (typeof raw !== 'string' || !/^\d{1,2}\.\d{1,2}\.\d{1,2}$/.test(raw)) {
+                return 'GFX override must be a version like "11.0.0", "none", or empty to use the detected default.'
+            }
+            return null
+        }
         default:
             return null
     }

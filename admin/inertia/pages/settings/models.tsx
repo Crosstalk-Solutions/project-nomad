@@ -23,6 +23,7 @@ import { formatBytes } from '~/lib/util'
 import useDebounce from '~/hooks/useDebounce'
 import ActiveModelDownloads from '~/components/ActiveModelDownloads'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
+import GpuPassthroughAlert from '~/components/GpuPassthroughAlert'
 
 export default function ModelsPage(props: {
   models: {
@@ -41,62 +42,6 @@ export default function ModelsPage(props: {
   const { data: systemInfo } = useSystemInfo({})
   const queryClient = useQueryClient()
 
-  const [gpuBannerDismissed, setGpuBannerDismissed] = useState(() => {
-    try {
-      return localStorage.getItem('nomad:gpu-banner-dismissed') === 'true'
-    } catch {
-      return false
-    }
-  })
-  const [reinstalling, setReinstalling] = useState(false)
-
-  const handleDismissGpuBanner = () => {
-    setGpuBannerDismissed(true)
-    try {
-      localStorage.setItem('nomad:gpu-banner-dismissed', 'true')
-    } catch {}
-  }
-
-  const handleForceReinstallOllama = () => {
-    openModal(
-      <StyledModal
-        title="Reinstall AI Assistant?"
-        onConfirm={async () => {
-          closeAllModals()
-          setReinstalling(true)
-          try {
-            const response = await api.forceReinstallService('nomad_ollama')
-            if (!response || !response.success) {
-              throw new Error(response?.message || 'Force reinstall failed')
-            }
-            addNotification({
-              message: `${aiAssistantName} is being reinstalled with GPU support. This page will reload shortly.`,
-              type: 'success',
-            })
-            try { localStorage.removeItem('nomad:gpu-banner-dismissed') } catch {}
-            setTimeout(() => window.location.reload(), 5000)
-          } catch (error) {
-            addNotification({
-              message: `Failed to reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              type: 'error',
-            })
-            setReinstalling(false)
-          }
-        }}
-        onCancel={closeAllModals}
-        open={true}
-        confirmText="Reinstall"
-        cancelText="Cancel"
-      >
-        <p className="text-text-primary">
-          This will recreate the {aiAssistantName} container with GPU support enabled.
-          Your downloaded models will be preserved. The service will be briefly
-          unavailable during reinstall.
-        </p>
-      </StyledModal>,
-      'gpu-health-force-reinstall-modal'
-    )
-  }
   const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
     props.models.settings.chatSuggestionsEnabled
   )
@@ -345,24 +290,11 @@ export default function ModelsPage(props: {
               className="!mt-6"
             />
           )}
-          {isInstalled && systemInfo?.gpuHealth?.status === 'passthrough_failed' && !gpuBannerDismissed && (
-            <Alert
-              type="warning"
-              variant="bordered"
-              title="GPU Not Accessible"
-              message={`Your system has ${systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
+          {isInstalled && (
+            <GpuPassthroughAlert
+              gpuHealth={systemInfo?.gpuHealth}
+              assistantName={aiAssistantName}
               className="!mt-6"
-              dismissible={true}
-              onDismiss={handleDismissGpuBanner}
-              buttonProps={{
-                children: `Fix: Reinstall ${aiAssistantName}`,
-                icon: 'IconRefresh',
-                variant: 'action',
-                size: 'sm',
-                onClick: handleForceReinstallOllama,
-                loading: reinstalling,
-                disabled: reinstalling,
-              }}
             />
           )}
 
