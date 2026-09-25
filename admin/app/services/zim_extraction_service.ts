@@ -1,4 +1,4 @@
-import { Archive, Entry } from '@openzim/libzim'
+import type { Archive, Entry } from '@openzim/libzim'
 import * as cheerio from 'cheerio'
 import { HTML_SELECTORS_TO_REMOVE, NON_CONTENT_HEADING_PATTERNS } from '../../constants/zim_extraction.js'
 import { extractStructuredContent } from '../utils/zim_html.js'
@@ -63,6 +63,7 @@ export class ZIMExtractionService {
                 throw new Error(`ZIM file is invalid or corrupted: ${filePath}`)
             }
 
+            const { Archive } = await import('@openzim/libzim')
             const archive = new Archive(filePath)
 
             // Extract archive-level metadata once
