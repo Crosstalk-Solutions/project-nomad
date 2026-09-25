@@ -54,6 +54,39 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'ui.serviceLogsUrl': {
+            if (value === undefined || value === null) {
+                return null
+            }
+            if (typeof value !== 'string') {
+                return 'Service logs URL must be a string.'
+            }
+            // Empty clears the setting (reverts to the port-derived default). The Advanced
+            // page trims before submitting, so whitespace-only has to mean "clear" too.
+            const trimmed = value.trim()
+            if (trimmed === '') {
+                return null
+            }
+            // A bare host ("logs.lan", "10.0.0.5:9999") is accepted and normalized to
+            // http:// by normalizeCustomUrl before it becomes an href, so validate the
+            // same way rather than demanding a scheme. An explicitly declared
+            // non-http(s) scheme ("file://", "ftp://") is refused rather than silently
+            // reinterpreted as a hostname by that http:// prefix.
+            const isHttpUrl = /^https?:\/\//i.test(trimmed)
+            if (!isHttpUrl && /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+                return 'Service logs URL must use http or https.'
+            }
+            const withScheme = isHttpUrl ? trimmed : `http://${trimmed}`
+            try {
+                const url = new URL(withScheme)
+                if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                    return 'Service logs URL must use http or https.'
+                }
+            } catch {
+                return 'Service logs URL must be a valid URL (e.g. "https://logs.example.com").'
+            }
+            return null
+        }
         case 'contentAutoUpdate.maxBytesPerWindow': {
             // Per-window download budget in bytes. 0 = unlimited.
             const num = Number(value)
