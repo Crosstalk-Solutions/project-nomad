@@ -63,7 +63,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
     return (
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-desert-sand px-6 ring-1 ring-white/5 pt-4 shadow-md">
         <div className="flex h-16 shrink-0 items-center">
-          <img src="/project_nomad_logo.webp" alt="Project NOMAD Logo" className="h-16 w-16" />
+          <img src="/nomad-primary.svg" alt="Project NOMAD Logo" className="h-16 w-16 object-contain" />
           <h1 className="ml-3 text-xl font-semibold text-text-primary">{title}</h1>
         </div>
         <nav className="flex flex-1 flex-col">

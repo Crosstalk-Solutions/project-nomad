@@ -1,5 +1,5 @@
 <div align="center">
-<img src="admin/public/project_nomad_logo.webp" width="200" height="200"/>
+<img src="admin/public/nomad-primary.svg" width="200" alt="Project NOMAD"/>
 
 # Project NOMAD
 ### Knowledge That Never Goes Offline
