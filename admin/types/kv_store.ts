@@ -34,6 +34,12 @@ export const KV_STORE_SCHEMA = {
   'contentAutoUpdate.windowResetAt':     'string',
   'ui.hasVisitedEasySetup':     'boolean',
   'ui.theme':                   'string',
+  // Reverse-proxy / local-DNS override for the Settings sidebar's "Service Logs &
+  // Metrics" entry. Dozzle is a management-compose container, not a `services` row,
+  // so the per-app `custom_url` column (#991) has nothing to attach to and the link
+  // would otherwise always resolve to http://<current-host>:9999 — unreachable for
+  // anyone serving NOMAD behind a proxy or a DNS name. Null keeps the port default.
+  'ui.serviceLogsUrl':          'string',
   'ai.assistantCustomName':     'string',
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',

@@ -126,10 +126,12 @@ export default class SettingsController {
     // so surface that to the UI to disable the field and explain the override.
     const envOverride = Boolean(env.get('INTERNET_STATUS_TEST_URL')?.trim())
     const internetStatusTestUrl = await KVStore.getValue('system.internetStatusTestUrl')
+    const serviceLogsUrl = await KVStore.getValue('ui.serviceLogsUrl')
     return inertia.render('settings/advanced', {
       advanced: {
         internetStatusTestUrl: internetStatusTestUrl ?? '',
         internetStatusTestUrlEnvOverride: envOverride,
+        serviceLogsUrl: serviceLogsUrl ?? '',
       },
     })
   }
