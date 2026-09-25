@@ -47,11 +47,14 @@ export class DownloadModelJob {
 
     const ollamaService = new OllamaService()
 
-    // Even if no models are installed, this should return an empty array if ready
-    const existingModels = await ollamaService.getModels()
-    if (!existingModels) {
+    // getModels() throws while Ollama is still starting — Easy Setup dispatches model
+    // downloads without waiting for the install — so treat that as "not ready" and let
+    // the retry backoff wait it out, rather than surfacing the raw init error (#1311)
+    try {
+      await ollamaService.getModels()
+    } catch (error) {
       logger.warn(
-        `[DownloadModelJob] Ollama service not ready yet for model ${modelName}. Will retry...`
+        `[DownloadModelJob] Ollama service not ready yet for model ${modelName} (${error instanceof Error ? error.message : error}). Will retry...`
       )
       throw new Error('Ollama service not ready yet')
     }
