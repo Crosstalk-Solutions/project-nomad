@@ -114,7 +114,7 @@ export default function ChatSidebar({
         )}
       </div>
       <div className="p-4 flex flex-col items-center justify-center gap-y-2">
-        <img src="/project_nomad_logo.webp" alt="Project NOMAD Logo" className="h-28 w-28 mb-6" />
+        <img src="/nomad-primary.svg" alt="Project NOMAD Logo" className="h-28 w-28 mb-6 object-contain" />
         <StyledButton
           onClick={() => {
             // /chat is served by the admin app itself, so navigate in place rather than
