@@ -35,8 +35,22 @@ START_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/update_nomad.sh"
 script_option_debug='true'
+non_interactive='false'
 accepted_terms='false'
 local_ip_address=''
+
+# Parse command-line arguments
+for arg in "$@"; do
+  case "$arg" in
+    --yes|--non-interactive|-y)
+      non_interactive='true'
+      echo -e "${GREEN}#${RESET} Non-interactive mode enabled; skipping confirmation prompts.\n"
+      ;;
+    --debug)
+      script_option_debug='true'
+      ;;
+  esac
+done
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -74,6 +88,56 @@ check_is_bash() {
     exit 1
   fi
     echo -e "${GREEN}#${RESET} This script is running in bash.\\n"
+}
+
+detect_package_manager() {
+  if command -v apt-get &> /dev/null; then
+    echo "apt"
+  elif command -v dnf &> /dev/null; then
+    echo "dnf"
+  elif command -v pacman &> /dev/null; then
+    echo "pacman"
+  elif command -v zypper &> /dev/null; then
+    echo "zypper"
+  else
+    echo "unknown"
+  fi
+}
+
+pkg_update() {
+  local pm
+  pm="$(detect_package_manager)"
+  case "$pm" in
+    apt)       sudo apt-get update ;;
+    dnf)       sudo dnf check-update || true ;;
+    pacman)    sudo pacman -Sy ;;
+    zypper)    sudo zypper refresh ;;
+    *)         echo -e "${YELLOW}#${RESET} Unknown package manager; skipping update.\n" ;;
+  esac
+}
+
+pkg_install() {
+  local pm
+  pm="$(detect_package_manager)"
+  case "$pm" in
+    apt)       sudo apt-get install -y "$@" ;;
+    dnf)       sudo dnf install -y "$@" ;;
+    pacman)    sudo pacman -S --noconfirm "$@" ;;
+    zypper)    sudo zypper --non-interactive install "$@" ;;
+    *)         echo -e "${RED}#${RESET} Unknown package manager; cannot install: $*\n"; return 1 ;;
+  esac
+}
+
+check_is_supported_distro() {
+  local pm
+  pm="$(detect_package_manager)"
+  if [[ "$pm" == "unknown" ]]; then
+    header_red
+    echo -e "${RED}#${RESET} Unable to detect a supported package manager (apt-get, dnf, pacman, zypper).\n"
+    echo -e "${RED}#${RESET} Please install the required dependencies manually and try again."
+    exit 1
+  fi
+  echo -e "${GREEN}#${RESET} Detected package manager: ${pm}.\n"
 }
 
 check_is_debian_based() {
@@ -121,8 +185,8 @@ ensure_dependencies_installed() {
 
   if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo -e "${YELLOW}#${RESET} Installing required dependencies: ${missing_deps[*]}...\\n"
-    sudo apt-get update
-    sudo apt-get install -y "${missing_deps[@]}"
+    pkg_update
+    pkg_install "${missing_deps[@]}"
 
     # Verify installation
     for dep in "${missing_deps[@]}"; do
@@ -161,10 +225,10 @@ ensure_docker_installed() {
     echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
     
     # Update package database
-    sudo apt-get update
-    
+    pkg_update
+
     # Install prerequisites
-    sudo apt-get install -y ca-certificates curl
+    pkg_install ca-certificates curl
     
     # Create directory for keyrings
     # sudo install -m 0755 -d /etc/apt/keyrings
@@ -355,6 +419,10 @@ setup_nvidia_container_toolkit() {
 get_install_confirmation(){
   echo -e "${YELLOW}#${RESET} This script will install Project NOMAD and its dependencies on your machine."
   echo -e "${YELLOW}#${RESET} If you already have Project NOMAD installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
+  if [[ "${non_interactive}" == 'true' ]]; then
+    echo -e "${GREEN}#${RESET} Non-interactive mode; continuing automatically."
+    return
+  fi
   read -p "Are you sure you want to continue? (y/N): " choice
   case "$choice" in
     y|Y )
@@ -376,6 +444,11 @@ accept_terms() {
   printf "\n"
   echo "By accepting this agreement, you acknowledge that you have read and understood the terms and conditions of the Apache License 2.0 and agree to be bound by them while using Project NOMAD"
   echo -e "\n\n"
+  if [[ "${non_interactive}" == 'true' ]]; then
+    echo -e "${GREEN}#${RESET} Non-interactive mode; accepting terms automatically."
+    accepted_terms='true'
+    return
+  fi
   read -p "I have read and accept License Agreement & Terms of Use (y/N)? " choice
   case "$choice" in
     y|Y )
@@ -615,7 +688,7 @@ success_message() {
 ###################################################################################################################################################################################################
 
 # Pre-flight checks
-check_is_debian_based
+check_is_supported_distro
 check_is_x86_64
 check_is_bash
 check_has_sudo
