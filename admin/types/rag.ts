@@ -23,6 +23,8 @@ export type ProcessAndEmbedFileResponse = {
   hasMoreBatches?: boolean
   articlesProcessed?: number
   totalArticles?: number
+  // Dirents already finished in this ZIM. Continuation jobs seek to it.
+  resumeAtDirent?: number
 }
 export type ProcessZIMFileResponse = ProcessAndEmbedFileResponse
 
