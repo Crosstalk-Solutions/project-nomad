@@ -91,8 +91,10 @@ export type ExtractZIMContentOptions = {
   maxArticles?: number
   onProgress?: (processedArticles: number, totalArticles: number) => void
   // Batch processing options to avoid lock timeouts
-  startOffset?: number // Article index to start from for resuming
+  startOffset?: number // Article index. Used only when resumeAtDirent is absent.
   batchSize?: number // Max articles to process in this batch
+  // Dirents already finished in iterByPath(). The next batch seeks here.
+  resumeAtDirent?: number
 }
 
 export type ExtractZIMChunkingStrategy = 'structured' | 'simple'
