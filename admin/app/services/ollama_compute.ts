@@ -1,5 +1,5 @@
 import type Docker from 'dockerode'
-import { mapGfxToHsaOverride } from '../utils/amd_hsa_override.js'
+import { mapGfxToHsaOverride, readHsaOverrideFromEnv } from '../utils/amd_hsa_override.js'
 
 /**
  * Pure helpers for classifying which compute backend Ollama actually loaded,
@@ -156,8 +156,7 @@ export function diffAmdOllamaConfig(
   if (!hasDevice(container, '/dev/kfd')) drift.push('/dev/kfd is not passed through')
   if (!hasDevice(container, '/dev/dri')) drift.push('/dev/dri is not passed through')
 
-  const currentOverride =
-    env.find((e) => e.startsWith('HSA_OVERRIDE_GFX_VERSION='))?.split('=')[1] ?? null
+  const currentOverride = readHsaOverrideFromEnv(env)
   if (currentOverride !== desiredHsaOverride) {
     drift.push(
       `HSA_OVERRIDE_GFX_VERSION is ${currentOverride ?? 'unset'}, expected ${desiredHsaOverride ?? 'unset'}`
@@ -180,7 +179,9 @@ export function parseAmdGfxTargetFromLogs(logText: string): string | null {
 
 /**
  * Why an AMD container expected on the GPU is running on CPU, in the shape
- * GpuHealthStatus reports to the UI.
+ * GpuHealthStatus reports to the UI. desiredHsaOverride must come from
+ * DockerService.getAmdHsaOverride with this container's env, so the diff matches
+ * what a reinstall would build.
  */
 export function diagnoseAmdCpuFallback(
   container: OllamaContainerSnapshot,
@@ -188,10 +189,11 @@ export function diagnoseAmdCpuFallback(
   desiredHsaOverride: string | null
 ) {
   const gfx = parseAmdGfxTargetFromLogs(logText)
-  const current = (container.Config?.Env ?? [])
-    .find((e) => e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
-    ?.split('=')[1]
-  const suggested = gfx ? mapGfxToHsaOverride(gfx) : null
+  const current = readHsaOverrideFromEnv(container.Config?.Env)
+  // With an override applied, Ollama logs the coerced target (gfx1100 for a 780M on
+  // 11.0.0), which maps to "no override" and would suggest removing a working value.
+  // The override the container carries is the better suggestion then (#1377).
+  const suggested = current ?? (gfx ? mapGfxToHsaOverride(gfx) : null)
   return {
     amdReinstallWouldChange: diffAmdOllamaConfig(container, desiredHsaOverride).length > 0,
     ...(gfx && { amdGfxTarget: gfx }),

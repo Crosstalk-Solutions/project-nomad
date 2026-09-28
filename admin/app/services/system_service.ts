@@ -623,7 +623,12 @@ export class SystemService {
                 diagnoseAmdCpuFallback(
                   ollama.inspect,
                   ollamaLogs,
-                  await this.dockerService.getAmdHsaOverride({ quiet: true })
+                  // Pass the container env so the diff matches what a reinstall would
+                  // really build, including an override it keeps from the container (#1377).
+                  await this.dockerService.getAmdHsaOverride({
+                    quiet: true,
+                    containerEnv: ollama.inspect.Config?.Env,
+                  })
                 )
               )
             }

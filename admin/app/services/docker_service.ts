@@ -4,7 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
-import { mapGfxToHsaOverride } from '../utils/amd_hsa_override.js'
+import { pickAmdHsaOverride } from '../utils/amd_hsa_override.js'
 import { join } from 'path'
 import os from 'node:os'
 import env from '#start/env'
@@ -27,6 +27,9 @@ import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
+
+// Written by install_nomad.sh with the host AMD GPU's gfx target.
+const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
 
 @inject()
 export class DockerService {
@@ -387,6 +390,17 @@ export class DockerService {
 
         if (container) {
           const dockerContainer = this.docker.getContainer(container.Id)
+
+          if (serviceName === SERVICE_NAMES.OLLAMA) {
+            // The recreate builds env from scratch, so capture a working HSA override
+            // before this container, the only place it lives, is removed (#1377).
+            try {
+              const inspect = await dockerContainer.inspect()
+              await this._adoptContainerHsaOverride(inspect.Config?.Env)
+            } catch (error: any) {
+              logger.warn(`[DockerService] Could not preserve the Ollama HSA override: ${error.message}`)
+            }
+          }
 
           // Only try to stop if it's running
           if (container.State === 'running') {
@@ -1555,7 +1569,9 @@ export class DockerService {
    * Exposed so GpuPassthroughRemediationProvider can tell whether a reinstall would
    * change the running container.
    */
-  async getAmdHsaOverride(options: { quiet?: boolean } = {}): Promise<string | null> {
+  async getAmdHsaOverride(
+    options: { quiet?: boolean; containerEnv?: string[] | null } = {}
+  ): Promise<string | null> {
     return this._resolveAmdHsaOverride(options)
   }
 
@@ -1572,9 +1588,11 @@ export class DockerService {
    * Resolution order:
    *   1. KV `ai.amdHsaOverride` — manual user override; accepts 'none' (disable) or a semver-style value.
    *   2. Marker file `/app/storage/.nomad-amd-gfx` written by install_nomad.sh.
-   *   3. Default: none — let ROCm discover the GPU natively. Users on hardware that still
+   *   3. The override the existing container runs with, when the caller passes its env (#1377).
+   *   4. Default: none — let ROCm discover the GPU natively. Users on hardware that still
    *      needs coercion can force a value via the KV. A hardcoded default gets more wrong
    *      as ROCm adds native targets, so null is the safer forward-looking default.
+   * The pure ordering lives in pickAmdHsaOverride (../utils/amd_hsa_override.ts).
    *
    * Returns null when no override should be applied.
    */
@@ -1598,43 +1616,76 @@ export class DockerService {
     return pepper
   }
 
-  private async _resolveAmdHsaOverride({ quiet = false }: { quiet?: boolean } = {}): Promise<string | null> {
-    const manualRaw = await KVStore.getValue('ai.amdHsaOverride')
-    if (manualRaw !== null && manualRaw !== undefined && String(manualRaw).trim() !== '') {
-      const manual = String(manualRaw).trim().toLowerCase()
-      if (manual === 'none' || manual === 'off' || manual === 'false') {
-        if (!quiet) logger.info('[DockerService] HSA override disabled via ai.amdHsaOverride')
-        return null
-      }
-      if (/^\d+\.\d+\.\d+$/.test(manual)) {
-        if (!quiet) logger.info(`[DockerService] HSA override forced to ${manual} via ai.amdHsaOverride`)
-        return manual
-      }
-      if (!quiet) logger.warn(`[DockerService] Ignoring invalid ai.amdHsaOverride value: ${manualRaw}`)
-    }
+  private async _resolveAmdHsaOverride({
+    quiet = false,
+    containerEnv,
+  }: { quiet?: boolean; containerEnv?: string[] | null } = {}): Promise<string | null> {
+    const manual = await KVStore.getValue('ai.amdHsaOverride')
+    const markerGfx = await this._readAmdGfxMarker()
+    const resolved = pickAmdHsaOverride({ manual, markerGfx, containerEnv })
+    if (quiet) return resolved.value
 
-    try {
-      const gfx = (await readFile('/app/storage/.nomad-amd-gfx', 'utf8')).trim()
-      const mapped = this._mapGfxToHsaOverride(gfx)
-      if (!quiet) logger.info(`[DockerService] AMD gfx marker '${gfx}' → HSA override ${mapped ?? 'none'}`)
-      return mapped
-    } catch {
-      // Marker absent — most likely an existing install upgraded without re-running
-      // install_nomad.sh. Fall through to the default.
+    if (resolved.invalidManual !== undefined) {
+      logger.warn(`[DockerService] Ignoring invalid ai.amdHsaOverride value: ${resolved.invalidManual}`)
     }
-
-    if (!quiet) logger.warn(
-      '[DockerService] AMD GPU configured but no gfx marker (/app/storage/.nomad-amd-gfx) and no ' +
-        'ai.amdHsaOverride KV; relying on native ROCm discovery. iGPUs not on the bundled rocblas ' +
-        'allowlist (e.g. 780M/gfx1103, 680M/gfx1035) will silently fall back to CPU. Set the ' +
-        'ai.amdHsaOverride KV (e.g. 11.0.0 for a 780M) and force-reinstall the AI service if so.'
-    )
-    return null
+    switch (resolved.source) {
+      case 'kv-disabled':
+        logger.info('[DockerService] HSA override disabled via ai.amdHsaOverride')
+        break
+      case 'kv':
+        logger.info(`[DockerService] HSA override forced to ${resolved.value} via ai.amdHsaOverride`)
+        break
+      case 'marker':
+        logger.info(
+          `[DockerService] AMD gfx marker '${markerGfx}' → HSA override ${resolved.value ?? 'none'}`
+        )
+        break
+      case 'container':
+        logger.info(
+          `[DockerService] Keeping HSA override ${resolved.value} from the existing container`
+        )
+        break
+      case 'default':
+        logger.warn(
+          `[DockerService] AMD GPU configured but no gfx marker (${AMD_GFX_MARKER_PATH}) and no ` +
+            'ai.amdHsaOverride KV; relying on native ROCm discovery. iGPUs not on the bundled rocblas ' +
+            'allowlist (e.g. 780M/gfx1103, 680M/gfx1035) will silently fall back to CPU. Set the ' +
+            'ai.amdHsaOverride KV (e.g. 11.0.0 for a 780M) and force-reinstall the AI service if so.'
+        )
+        break
+    }
+    return resolved.value
   }
 
-  private _mapGfxToHsaOverride(gfx: string): string | null {
-    // Pure mapping lives in ../utils/amd_hsa_override.ts so it stays unit-testable.
-    return mapGfxToHsaOverride(gfx)
+  /**
+   * Before a force reinstall removes nomad_ollama, persist the HSA override it runs with
+   * when nothing else would supply one (#1377). The recreate builds env from scratch, so
+   * without this an upgraded box with a hand-set override loses it. Persisting rather than
+   * passing it along in memory keeps it through a reinstall that fails after removal, and
+   * shows it in the Set GFX Override modal.
+   */
+  private async _adoptContainerHsaOverride(containerEnv: string[] | null | undefined): Promise<void> {
+    const resolved = pickAmdHsaOverride({
+      manual: await KVStore.getValue('ai.amdHsaOverride'),
+      markerGfx: await this._readAmdGfxMarker(),
+      containerEnv,
+    })
+    if (resolved.source !== 'container' || !resolved.value) return
+
+    await KVStore.setValue('ai.amdHsaOverride', resolved.value)
+    logger.info(
+      `[DockerService] Persisted HSA override ${resolved.value} from the existing container to ai.amdHsaOverride`
+    )
+  }
+
+  private async _readAmdGfxMarker(): Promise<string | null> {
+    try {
+      return (await readFile(AMD_GFX_MARKER_PATH, 'utf8')).trim()
+    } catch {
+      // Marker absent: most likely an existing install upgraded without re-running
+      // install_nomad.sh.
+      return null
+    }
   }
 
   /**
@@ -1836,7 +1887,7 @@ export class DockerService {
       const baseEnv = inspectData.Config?.Env || []
       let finalEnv = baseEnv
       if (updatedAmdGpuConfigured) {
-        const hsaOverride = await this._resolveAmdHsaOverride()
+        const hsaOverride = await this._resolveAmdHsaOverride({ containerEnv: baseEnv })
         finalEnv = baseEnv.filter(
           (e: string) =>
             !e.startsWith('HSA_OVERRIDE_GFX_VERSION=') && !e.startsWith('OLLAMA_IGPU_ENABLE=')
