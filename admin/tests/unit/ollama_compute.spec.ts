@@ -228,5 +228,21 @@ test('diagnoseAmdCpuFallback reports the current override and omits unknown fiel
   assert.deepEqual(diagnoseAmdCpuFallback(ROCM_CONTAINER, '', '11.0.0'), {
     amdReinstallWouldChange: false,
     currentHsaOverride: '11.0.0',
+    suggestedHsaOverride: '11.0.0',
+  })
+})
+
+test('diagnoseAmdCpuFallback on the #1377 box: keeps the hand-set override, flags the iGPU flag', () => {
+  // Override set by hand, OLLAMA_IGPU_ENABLE missing. The resolver keeps the container's
+  // override, so the only drift is the iGPU flag and a reinstall preserves 11.0.0.
+  const container = {
+    ...ROCM_CONTAINER,
+    Config: { ...ROCM_CONTAINER.Config, Env: ['OLLAMA_NO_CLOUD=1', 'HSA_OVERRIDE_GFX_VERSION=11.0.0'] },
+  }
+  assert.deepEqual(diffAmdOllamaConfig(container, '11.0.0'), ['OLLAMA_IGPU_ENABLE=1 is not set'])
+  assert.deepEqual(diagnoseAmdCpuFallback(container, '', '11.0.0'), {
+    amdReinstallWouldChange: true,
+    currentHsaOverride: '11.0.0',
+    suggestedHsaOverride: '11.0.0',
   })
 })

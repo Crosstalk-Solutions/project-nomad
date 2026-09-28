@@ -50,3 +50,57 @@ export function mapGfxToHsaOverride(gfx: string): string | null {
   // Unknown/newer target: prefer native discovery over a coercion that's likely wrong.
   return null
 }
+
+const HSA_OVERRIDE_ENV_PREFIX = 'HSA_OVERRIDE_GFX_VERSION='
+const HSA_OVERRIDE_VALUE_RE = /^\d+\.\d+\.\d+$/
+
+/** The raw HSA_OVERRIDE_GFX_VERSION in a container env, or null when it is not set. */
+export function readHsaOverrideFromEnv(env: string[] | null | undefined): string | null {
+  const entry = (env ?? []).find((e) => e.startsWith(HSA_OVERRIDE_ENV_PREFIX))
+  return entry ? entry.slice(HSA_OVERRIDE_ENV_PREFIX.length) : null
+}
+
+export type AmdHsaOverrideResolution = {
+  value: string | null
+  source: 'kv' | 'kv-disabled' | 'marker' | 'container' | 'default'
+  /** Set when the KV held something unusable and was skipped. */
+  invalidManual?: string
+}
+
+/**
+ * Pick the HSA_OVERRIDE_GFX_VERSION an AMD install should apply. Resolution order:
+ *   1. KV `ai.amdHsaOverride`: a version forces it, 'none'/'off'/'false' disables it.
+ *   2. The gfx marker install_nomad.sh writes, mapped through mapGfxToHsaOverride. A
+ *      marker is authoritative even when it maps to none.
+ *   3. The override the existing container already runs with (#1377). Upgraded installs
+ *      that got it by hand or from an older install path have neither 1 nor 2, and
+ *      dropping a working override would push the GPU back to CPU.
+ *   4. None, letting ROCm discover the GPU natively.
+ */
+export function pickAmdHsaOverride(input: {
+  manual: unknown
+  markerGfx: string | null
+  containerEnv?: string[] | null
+}): AmdHsaOverrideResolution {
+  let invalidManual: string | undefined
+  if (input.manual !== null && input.manual !== undefined && String(input.manual).trim() !== '') {
+    const manual = String(input.manual).trim().toLowerCase()
+    if (manual === 'none' || manual === 'off' || manual === 'false') {
+      return { value: null, source: 'kv-disabled' }
+    }
+    if (HSA_OVERRIDE_VALUE_RE.test(manual)) return { value: manual, source: 'kv' }
+    invalidManual = String(input.manual)
+  }
+  const extra = invalidManual !== undefined ? { invalidManual } : {}
+
+  if (input.markerGfx !== null) {
+    return { value: mapGfxToHsaOverride(input.markerGfx), source: 'marker', ...extra }
+  }
+
+  const existing = readHsaOverrideFromEnv(input.containerEnv)?.trim()
+  if (existing && HSA_OVERRIDE_VALUE_RE.test(existing)) {
+    return { value: existing, source: 'container', ...extra }
+  }
+
+  return { value: null, source: 'default', ...extra }
+}
