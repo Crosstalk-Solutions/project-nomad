@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 1.35.0 - September 29, 2026
 
 ### Features
 - **AI**: support local vision attachments in chat (#1288). Thanks @gabegraves and @chriscrosstalk for the contribution!
