@@ -389,11 +389,7 @@ export class MapService implements IMapService {
   }
 
   async ensureBaseAssets(): Promise<boolean> {
-    const exists = await this.checkBaseAssetsExist()
-    if (!exists) {
-      const downloaded = await this.downloadBaseAssets()
-      if (!downloaded) return false
-    }
+    if (!(await this.ensureBaseAssetFiles())) return false
 
     try {
       await this.ensureWorldBasemap()
@@ -426,8 +422,9 @@ export class MapService implements IMapService {
    * base map" action so the one network dependency can be satisfied deliberately while online (#1030).
    */
   async provisionWorldBasemap(): Promise<boolean> {
-    const baseAssetsExist = await this.ensureBaseAssets()
-    if (!baseAssetsExist) return false
+    // Skip ensureBaseAssets(): it runs its own swallowed ensureWorldBasemap(), so a failure there
+    // would clear the in-flight promise and the call below would launch a second extract.
+    if (!(await this.ensureBaseAssetFiles())) return false
     await this.ensureWorldBasemap()
     return this.checkWorldBasemapExists()
   }
@@ -448,6 +445,13 @@ export class MapService implements IMapService {
       this.worldBasemapInFlight = null
     })
     return this.worldBasemapInFlight
+  }
+
+  /** Download the style/sprite/font base assets if missing. Does not touch the world basemap. */
+  private async ensureBaseAssetFiles(): Promise<boolean> {
+    const exists = await this.checkBaseAssetsExist()
+    if (exists) return true
+    return this.downloadBaseAssets()
   }
 
   private async _setupWorldBasemap(): Promise<void> {
