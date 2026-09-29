@@ -1495,11 +1495,32 @@ export class RagService {
         filter: { must: [{ key: 'source', match: { value: source } }] },
       })
 
-      const row = await KbIngestState.query().where('file_path', source).first()
-      if (row) {
-        row.active = active
-        await row.save()
+      // A source can have chunks in Qdrant but no state row: a ZIM mid-ingestion
+      // (markIndexed only runs after the final batch), a pre-RFC install, or a
+      // lost row. getStoredFiles() reports such a file as active, so skipping the
+      // write here left the switch stuck on while every point went inactive, and
+      // the user had no way to turn it back on. Create the row the same way the
+      // scanner backfills it: `indexed` when chunks exist, so the file doesn't
+      // regress to pending_decision and get re-dispatched.
+      let row = await KbIngestState.query().where('file_path', source).first()
+      if (!row) {
+        const { count } = await this.qdrant!.count(RagService.CONTENT_COLLECTION_NAME, {
+          filter: { must: [{ key: 'source', match: { value: source } }] },
+          exact: false,
+        })
+        row = await KbIngestState.firstOrCreate(
+          { file_path: source },
+          {
+            file_path: source,
+            state: count > 0 ? 'indexed' : 'pending_decision',
+            chunks_embedded: 0,
+            collection: null,
+            active,
+          }
+        )
       }
+      row.active = active
+      await row.save()
 
       return { success: true, message: active ? 'File is now active.' : 'File is now inactive.' }
     } catch (error) {
