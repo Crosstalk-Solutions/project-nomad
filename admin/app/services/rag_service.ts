@@ -598,7 +598,8 @@ export class RagService {
     deleteAfterEmbedding: boolean,
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>,
-    collection?: string
+    collection?: string,
+    resumeAtDirent?: number
   ): Promise<ProcessZIMFileResponse> {
     const zimExtractionService = new ZIMExtractionService()
 
@@ -606,17 +607,34 @@ export class RagService {
     const startOffset = batchOffset || 0
 
     logger.info(
-      `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
+      `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE}${resumeAtDirent !== undefined ? ', seek' : ''})`
     )
 
     const {
       chunks: zimChunks,
       totalArticles,
       articlesProcessed,
+      resumeAtDirent: nextResumeAtDirent,
     } = await zimExtractionService.extractZIMContent(filepath, {
       startOffset,
       batchSize: ZIM_BATCH_SIZE,
+      resumeAtDirent,
     })
+
+    // A seek that returns nothing while articles remain is a bad cursor, not
+    // the deliberate one-batch overrun at the real end of the archive. That
+    // overrun happens after the article offset has already passed articleCount.
+    if (
+      resumeAtDirent !== undefined &&
+      articlesProcessed === 0 &&
+      startOffset < totalArticles
+    ) {
+      const message =
+        `ZIM resume seek at dirent ${resumeAtDirent} found no further articles ` +
+        `(${startOffset} of ${totalArticles} done).`
+      logger.error(`[RAG] ${message}`)
+      return { success: false, message }
+    }
 
     logger.info(
       `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
@@ -707,6 +725,7 @@ export class RagService {
       // zero and re-run the same window forever.
       articlesProcessed,
       totalArticles,
+      resumeAtDirent: nextResumeAtDirent,
     }
   }
 
@@ -855,7 +874,8 @@ export class RagService {
     deleteAfterEmbedding: boolean = false,
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>,
-    collection?: string
+    collection?: string,
+    resumeAtDirent?: number
   ): Promise<ProcessAndEmbedFileResponse> {
     try {
       const fileType = determineFileType(filepath)
@@ -874,7 +894,14 @@ export class RagService {
       // Process based on file type
       // ZIM files are handled specially since they have their own embedding workflow
       if (fileType === 'zim') {
-        return await this.processZIMFile(filepath, deleteAfterEmbedding, batchOffset, onProgress, collection)
+        return await this.processZIMFile(
+          filepath,
+          deleteAfterEmbedding,
+          batchOffset,
+          onProgress,
+          collection,
+          resumeAtDirent
+        )
       }
 
       // Extract text based on file type
