@@ -167,9 +167,62 @@ export const RAG_DEFAULT_SCORE_THRESHOLD = 0.3
  * alongside this one was also tried and loses recall faster than it cuts leaks:
  * the reranker's boosts lift relevant chunks more than irrelevant ones.
  *
- * Unset `rag.minRelevance` resolves to this value; see app/utils/rag_relevance.ts.
+ * Unset `rag.minRelevance` resolves to this value when the embedding model is
+ * nomic; other models carry their own (EMBEDDING_MODELS). See app/utils/rag_relevance.ts.
  */
 export const RAG_MIN_FINAL_SCORE = 0.62
+
+/**
+ * Embedding models the knowledge base can be built with (`rag.embeddingModel`),
+ * keyed by Ollama model name. Vectors from two models are not comparable, so
+ * changing the setting needs a Reset & Rebuild of the knowledge base.
+ *
+ * `minFinalScore` is each model's default relevance floor (what an unset
+ * `rag.minRelevance` resolves to). Score scales differ between models — bge-m3
+ * puts relevant chunks around where nomic puts unrelated ones — so one floor
+ * cannot serve them all. Each was calibrated the way RAG_MIN_FINAL_SCORE was,
+ * with `eval:retrieval --min-final-score=<x>` on the same eval corpus: the
+ * highest floor that costs no recall@5, less the same
+ * 0.04 of margin (nomic 0.66 → 0.62, bge-m3 0.48 → 0.44). Where recall already
+ * falls above 0.30 the floor sits at 0.30, which scores identically to no
+ * floor on the golden set.
+ */
+export const EMBEDDING_MODELS: Record<
+  string,
+  { dimension: number; documentPrefix: string; queryPrefix: string; minFinalScore: number }
+> = {
+  // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
+  [EMBEDDING_MODEL_NAME]: {
+    dimension: 768,
+    documentPrefix: 'search_document: ',
+    queryPrefix: 'search_query: ',
+    minFinalScore: RAG_MIN_FINAL_SCORE,
+  },
+  // Multilingual (100+ languages), 8K context; dense retrieval takes no prefixes
+  'bge-m3': { dimension: 1024, documentPrefix: '', queryPrefix: '', minFinalScore: 0.44 },
+  // Multilingual, 32K context; queries carry an instruction, documents nothing
+  'qwen3-embedding:0.6b': {
+    dimension: 1024,
+    documentPrefix: '',
+    queryPrefix:
+      'Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:',
+    minFinalScore: 0.35,
+  },
+  // Multilingual, 8K context
+  'snowflake-arctic-embed2': {
+    dimension: 1024,
+    documentPrefix: '',
+    queryPrefix: 'query: ',
+    minFinalScore: 0.3,
+  },
+  // Multilingual, 2K context
+  'embeddinggemma': {
+    dimension: 768,
+    documentPrefix: 'title: none | text: ',
+    queryPrefix: 'task: search result | query: ',
+    minFinalScore: 0.3,
+  },
+}
 
 /**
  * Preset relevance floors offered in Settings > Models, and the labels for them.

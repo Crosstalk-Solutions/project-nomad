@@ -31,7 +31,8 @@ import { decideContentReindex, type ReindexOutcome } from '../utils/content_rein
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
-import { applyRelevanceFloor } from '../utils/misc.js'
+import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
+import { applyRelevanceFloor, isInstalledTagOf, pickEmbeddingModel } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
 
 /**
@@ -47,7 +48,6 @@ import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { hasMoreArticleBatches } from '../utils/zim_batch_decision.js'
-import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
 import {
   ProcessAndEmbedFileResponse,
   ProcessZIMFileResponse,
@@ -71,13 +71,13 @@ export class RagService {
   private qdrantInitPromise: Promise<void> | null = null
   private embeddingModelVerified = false
   private resolvedEmbeddingModel: string | null = null
+  private embeddingModel: ReturnType<typeof pickEmbeddingModel> | null = null
   // Collections already verified this session (created + payload indexes in place).
   // Skips the getCollections/createPayloadIndex round-trips that otherwise run on
   // every embed call — ~45% of per-document Qdrant time on large ingestions (#1129)
   private ensuredCollections = new Set<string>()
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
-  public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
   // Upper bound on distinct sources returned by Qdrant's facet API. Real
   // NOMADs cap out at a few hundred ZIM files + uploaded PDFs; 10k leaves
   // generous headroom without paying the cost of an unbounded request.
@@ -93,9 +93,6 @@ export class RagService {
   public static CHAR_TO_TOKEN_RATIO = 2 // Conservative chars-per-token estimate; technical docs
   // (numbers, symbols, abbreviations) tokenize denser
   // than plain prose (~3), so 2 avoids context overflows
-  // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
-  public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
-  public static SEARCH_QUERY_PREFIX = 'search_query: '
   public static EMBEDDING_BATCH_SIZE = 8 // Conservative batch size for low-end hardware
 
   constructor(
@@ -146,10 +143,35 @@ export class RagService {
     }
   }
 
-  private async _ensureCollection(
-    collectionName: string,
-    dimensions: number = RagService.EMBEDDING_DIMENSION
-  ) {
+  /**
+   * The configured embedding model (`rag.embeddingModel`), read once per
+   * instance so one job never embeds with two models. Each EmbedFileJob builds
+   * its own RagService, so a changed setting applies from the next job.
+   */
+  private async _getEmbeddingModel() {
+    this.embeddingModel ??= pickEmbeddingModel(await KVStore.getValue('rag.embeddingModel'))
+    return this.embeddingModel
+  }
+
+  /**
+   * False when the knowledge base was built with a different model than the
+   * configured one — `rag.embeddingModel` was changed without a Reset & Rebuild.
+   * A different width makes Qdrant reject every write and query; the same width
+   * (nomic ↔ embeddinggemma) is worse, returning unrelated chunks without error.
+   * Collections that predate the setting have no record and were built by nomic.
+   */
+  public async embeddingModelMatchesCollection(): Promise<boolean> {
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
+    const info = await this.qdrant!.getCollection(RagService.CONTENT_COLLECTION_NAME)
+    const { name, dimension } = await this._getEmbeddingModel()
+    const indexedWith = (await KVStore.getValue('rag.embeddingModelIndexed')) ?? EMBEDDING_MODEL_NAME
+    return (
+      indexedWith === name &&
+      (info.config?.params?.vectors as { size?: number } | undefined)?.size === dimension
+    )
+  }
+
+  private async _ensureCollection(collectionName: string) {
     try {
       await this._ensureDependencies()
 
@@ -160,13 +182,15 @@ export class RagService {
       const collections = await this.qdrant!.getCollections()
       const collectionExists = collections.collections.some((col) => col.name === collectionName)
 
+      const { name, dimension } = await this._getEmbeddingModel()
       if (!collectionExists) {
         await this.qdrant!.createCollection(collectionName, {
           vectors: {
-            size: dimensions,
+            size: dimension,
             distance: 'Cosine',
           },
         })
+        await KVStore.setValue('rag.embeddingModelIndexed', name)
       }
 
       // Create payload indexes for faster filtering (idempotent — Qdrant ignores duplicates)
@@ -352,33 +376,31 @@ export class RagService {
     onProgress?: (percent: number) => Promise<void>
   ): Promise<{ chunks: number } | null> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
+      const embedding = await this._getEmbeddingModel()
 
       if (!this.embeddingModelVerified) {
         const allModels = await this.ollamaService.getModels(true)
         const embeddingModel =
-          allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
-          allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
+          allModels.find((model) => model.name === embedding.name) ??
+          allModels.find((model) => isInstalledTagOf(model.name, embedding.name))
 
         if (!embeddingModel) {
           try {
-            const downloadResult = await this.ollamaService.downloadModel(EMBEDDING_MODEL_NAME)
+            const downloadResult = await this.ollamaService.downloadModel(embedding.name)
             if (!downloadResult.success) {
               throw new Error(downloadResult.message || 'Unknown error during model download')
             }
           } catch (modelError) {
             logger.error(
-              `[RAG] Embedding model ${EMBEDDING_MODEL_NAME} not found locally and failed to download:`,
+              `[RAG] Embedding model ${embedding.name} not found locally and failed to download:`,
               modelError
             )
             this.embeddingModelVerified = false
             return null
           }
         }
-        this.resolvedEmbeddingModel = embeddingModel?.name ?? EMBEDDING_MODEL_NAME
+        this.resolvedEmbeddingModel = embeddingModel?.name ?? embedding.name
         this.embeddingModelVerified = true
       }
 
@@ -408,7 +430,7 @@ export class RagService {
         let chunkText = chunks[i]
 
         // Final safety check: ensure chunk + prefix fits
-        const prefixText = RagService.SEARCH_DOCUMENT_PREFIX
+        const prefixText = embedding.documentPrefix
         const withPrefix = prefixText + chunkText
         const estimatedTokens = this.estimateTokenCount(withPrefix)
 
@@ -421,7 +443,7 @@ export class RagService {
           chunkText = this.truncateToTokenLimit(chunkText, maxTokensForText)
         }
 
-        prefixedChunks.push(RagService.SEARCH_DOCUMENT_PREFIX + chunkText)
+        prefixedChunks.push(embedding.documentPrefix + chunkText)
       }
 
       // Batch embed chunks for performance
@@ -438,7 +460,7 @@ export class RagService {
         )
 
         const response = await this.ollamaService.embed(
-          this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME,
+          this.resolvedEmbeddingModel ?? embedding.name,
           batch
         )
 
@@ -953,10 +975,7 @@ export class RagService {
     try {
       logger.debug(`[RAG] Starting similarity search for query: "${query}"`)
 
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       // Check if collection has any points
       const collectionInfo = await this.qdrant!.getCollection(RagService.CONTENT_COLLECTION_NAME)
@@ -968,14 +987,22 @@ export class RagService {
         return []
       }
 
+      const embedding = await this._getEmbeddingModel()
+      if (!(await this.embeddingModelMatchesCollection())) {
+        logger.warn(
+          `[RAG] Knowledge base was built with a different embedding model than ${embedding.name}. Run Reset & Rebuild to search it.`
+        )
+        return []
+      }
+
       if (!this.embeddingModelVerified) {
         const allModels = await this.ollamaService.getModels(true)
         const embeddingModel =
-          allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
-          allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
+          allModels.find((model) => model.name === embedding.name) ??
+          allModels.find((model) => isInstalledTagOf(model.name, embedding.name))
 
         if (!embeddingModel) {
-          logger.warn(`[RAG] ${EMBEDDING_MODEL_NAME} not found. Cannot perform similarity search.`)
+          logger.warn(`[RAG] ${embedding.name} not found. Cannot perform similarity search.`)
           this.embeddingModelVerified = false
           return []
         }
@@ -990,12 +1017,12 @@ export class RagService {
 
       // Generate embedding for the query with search_query prefix
       // Ensure query doesn't exceed token limit
-      const prefixTokens = this.estimateTokenCount(RagService.SEARCH_QUERY_PREFIX)
+      const prefixTokens = this.estimateTokenCount(embedding.queryPrefix)
       const maxQueryTokens = RagService.MAX_SAFE_TOKENS - prefixTokens
       const truncatedQuery = this.truncateToTokenLimit(processedQuery, maxQueryTokens)
 
-      const prefixedQuery = RagService.SEARCH_QUERY_PREFIX + truncatedQuery
-      logger.debug(`[RAG] Generating embedding with prefix: "${RagService.SEARCH_QUERY_PREFIX}"`)
+      const prefixedQuery = embedding.queryPrefix + truncatedQuery
+      logger.debug(`[RAG] Generating embedding with prefix: "${embedding.queryPrefix}"`)
 
       // Validate final token count
       const queryTokenCount = this.estimateTokenCount(prefixedQuery)
@@ -1007,7 +1034,7 @@ export class RagService {
       }
 
       const response = await this.ollamaService.embed(
-        this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME,
+        this.resolvedEmbeddingModel ?? embedding.name,
         [prefixedQuery]
       )
 
@@ -1300,10 +1327,7 @@ export class RagService {
    */
   public async hasDocuments(): Promise<boolean> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
       const collectionInfo = await this.qdrant!.getCollection(RagService.CONTENT_COLLECTION_NAME)
       return (collectionInfo.points_count ?? 0) > 0
     } catch {
@@ -1313,10 +1337,7 @@ export class RagService {
 
   public async getStoredFiles(): Promise<StoredFileInfo[]> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       // Use Qdrant's facet API to enumerate distinct `source` values in one
       // call. The previous scroll-loop walked every point in the collection
@@ -1417,7 +1438,7 @@ export class RagService {
    * `source` facet pattern used elsewhere in this file (see getStoredFiles).
    */
   public async getKnowledgeCollections(): Promise<string[]> {
-    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
     const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
       key: 'collection',
       limit: RagService.FACET_SOURCE_LIMIT,
@@ -1444,10 +1465,7 @@ export class RagService {
     collection: string | null
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { collection },
@@ -1485,10 +1503,7 @@ export class RagService {
     active: boolean
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { active },
@@ -1526,10 +1541,7 @@ export class RagService {
     active: boolean
   ): Promise<{ success: boolean; message: string; affectedCount: number }> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       const collectionQuery = () =>
         collection === null
@@ -1581,10 +1593,7 @@ export class RagService {
       if (!oldName || !newName || oldName === newName) {
         return { success: false, message: 'Invalid collection names.' }
       }
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { collection: newName },
@@ -1613,10 +1622,7 @@ export class RagService {
       if (!name) {
         return { success: false, message: 'Invalid collection name.' }
       }
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { collection: null },
@@ -1641,7 +1647,7 @@ export class RagService {
    * landed and what a future per-collection UI would want.
    */
   public async countChunksInCollection(collection: string): Promise<number> {
-    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
     const result = await this.qdrant!.count(RagService.CONTENT_COLLECTION_NAME, {
       filter: { must: [{ key: 'collection', match: { value: collection } }] },
       exact: true,
@@ -1659,7 +1665,7 @@ export class RagService {
    * disposable by construction. Returns the number of points removed.
    */
   public async deleteCollectionPoints(collection: string): Promise<number> {
-    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
     const before = await this.countChunksInCollection(collection)
     if (before === 0) return 0
     await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
@@ -1778,10 +1784,7 @@ export class RagService {
    */
   public async computeFileWarnings(): Promise<FileWarningsResult> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       // Per-source chunk count via Qdrant's facet API. Was a full scroll of
       // every point in the collection, which on a fully-ingested NOMAD takes
@@ -1859,10 +1862,7 @@ export class RagService {
    */
   public async deleteFileBySource(source: string): Promise<{ success: boolean; message: string }> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
         filter: {
@@ -2271,7 +2271,7 @@ export class RagService {
    */
   private async _deletePointsBySources(sources: string[]): Promise<void> {
     if (sources.length === 0) return
-    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
     await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
       filter: { must: [{ key: 'source', match: { any: sources } }] },
     })
@@ -2347,10 +2347,7 @@ export class RagService {
       const { files: filesInStorage, scannedRoots } = await this._discoverKbFilesWithRoots()
       logger.info(`[RAG] Found ${filesInStorage.length} embeddable files in storage`)
 
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       // Collect every unique `source` already in Qdrant so we can skip files
       // that have already been embedded. Facet returns the distinct values in
@@ -2539,10 +2536,7 @@ export class RagService {
 
       const filesInStorage = await this._discoverKbFiles()
 
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       // Per-file: delete-then-dispatch. We tried dispatch-then-delete but that
       // opens a race where a fast worker can write new points before our
@@ -2650,10 +2644,7 @@ export class RagService {
       // _ensureCollection call below actually recreates it
       this.ensuredCollections.delete(RagService.CONTENT_COLLECTION_NAME)
 
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
+      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
 
       // Force Nomad docs to be re-dispatched.
       await KVStore.setValue('rag.docsEmbedded', false)

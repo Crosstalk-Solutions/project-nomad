@@ -19,6 +19,7 @@ import Fuse, { IFuseOptions } from 'fuse.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
+import { isEmbeddingModelName, pickEmbeddingModel } from '../utils/misc.js'
 import KVStore from '#models/kv_store'
 import type { ModelCapabilities } from '../utils/model_capabilities.js'
 import {
@@ -1175,9 +1176,12 @@ export class OllamaService {
       const response = await axios.get(`${this.baseUrl}/api/ps`, { timeout: 5000 })
       const models: Array<{ name?: string; size_vram?: number }> = response.data?.models ?? []
       // Match any loaded model whose name signals it's an embedding model.
-      // nomic-embed-text, mxbai-embed-large, snowflake-arctic-embed, etc. all follow this convention.
+      // nomic-embed-text, mxbai-embed-large, snowflake-arctic-embed, etc. all follow this
+      // convention; bge-m3 doesn't, so the configurable models are matched by name too.
       return models.some(
-        (m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0
+        (m) =>
+          (m.name?.toLowerCase().includes('embed') || isEmbeddingModelName(m.name ?? '')) &&
+          (m.size_vram ?? 0) > 0
       )
     } catch (err: any) {
       // /api/ps unreachable (Ollama down, non-native backend, etc.) — fail closed: assume CPU,
@@ -1234,14 +1238,20 @@ export class OllamaService {
     // message — and the whole point of routing the rewrite off the chat model was
     // to stop the two from fighting over Ollama's single slot.
     let tasksModel: string | null = null
+    let embeddingModel = EMBEDDING_MODEL_NAME
     try {
       tasksModel = (await KVStore.getValue('ai.tasksModel'))?.trim() || null
+      embeddingModel = pickEmbeddingModel(await KVStore.getValue('rag.embeddingModel')).name
     } catch {
-      // Setting unreadable; fall through and treat it as unset.
+      // Settings unreadable; fall through and treat them as unset.
     }
 
     const toUnload = loadedModels.filter(
-      (name) => name !== EMBEDDING_MODEL_NAME && name !== targetModel && name !== tasksModel
+      (name) =>
+        name !== embeddingModel &&
+        name !== `${embeddingModel}:latest` &&
+        name !== targetModel &&
+        name !== tasksModel
     )
 
     await Promise.all(
@@ -1285,7 +1295,7 @@ export class OllamaService {
       this.nativeProbe = Promise.resolve(true)
       const models: NomadInstalledModel[] = response.data.models
       if (includeEmbeddings) return models
-      return models.filter((m) => !m.name.includes('embed'))
+      return models.filter((m) => !m.name.includes('embed') && !isEmbeddingModelName(m.name))
     } catch (tagsErr) {
       // Classify the backend only when it actually answered. A non-2xx status, or the
       // shape-mismatch throw above (a 200 arrived with a non-Ollama body), proves a live
@@ -1304,7 +1314,7 @@ export class OllamaService {
         const modelList = await this.openai!.models.list()
         const models: NomadInstalledModel[] = installedModelsFromOpenAIResponse(modelList)
         if (includeEmbeddings) return models
-        return models.filter((m) => !m.name.includes('embed'))
+        return models.filter((m) => !m.name.includes('embed') && !isEmbeddingModelName(m.name))
       } catch (err) {
         logger.error(
           `[OllamaService] Failed to list models: ${err instanceof Error ? err.message : err}`
