@@ -1,5 +1,66 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+- **AI**: support local vision attachments in chat (#1288). Thanks @gabegraves and @chriscrosstalk for the contribution!
+- **AI**: show source document and date as citations under RAG answers (#1287). Thanks @chriscrosstalk for the contribution!
+- **AI**: budget the prompt and actually set the context window on a native Ollama chat path (#1253). Thanks @jakeaturner for the contribution!
+- **AI**: give chat a sampler with four response-style profiles instead of backend defaults (#1282). Thanks @jakeaturner for the contribution!
+- **AI**: constrain the structured task calls (titles, chips, query rewrite) instead of asking nicely (#1259). Thanks @jakeaturner for the contribution!
+- **AI**: let retrieval decline via a post-rerank relevance floor (#1281). Thanks @jakeaturner for the contribution!
+- **AI**: add opt-in relevance check for off-topic retrieval (#1365). Thanks @jakeaturner for the contribution!
+- **AI**: specify a lightweight model for ancillary tasks (#1244). Thanks @jakeaturner for the contribution!
+- **AI**: make RAG retrieval optional per chat (#1247). Thanks @jakeaturner for the contribution!
+- **Dashboard**: user-added link tiles for services NOMAD does not manage (#1293). Thanks @chriscrosstalk for the contribution!
+- **KB**: per-file active toggle plus collection grouping and bulk toggle (#1286). Thanks @just-jbc and @chriscrosstalk for the contribution!
+- **Kiwix Library**: browse the remote Kiwix catalog in any language, not just English (#1299). Thanks @chriscrosstalk for the contribution!
+- **Maps**: full marker management (visibility, search/sort, per-marker icon and colour, coordinate navigation, delete confirmation) (#1291). Thanks @kennethbrewer3 and @chriscrosstalk for the contribution!
+- **Translate**: offline machine translation for the Information Library, shipped as a Supply Depot app (#1292). Thanks @chriscrosstalk for the contribution!
+
+### Bug Fixes
+- **AI**: stop `<think>` output leaking into titles, chips, and the RAG rewrite (#1254). Thanks @jakeaturner for the contribution!
+- **AI**: report a failed Ollama model pull as a failure instead of a success (#1274). Thanks @chriscrosstalk for the contribution!
+- **AI**: don't probe the native embed endpoint on a non-Ollama backend (#1284). Thanks @chriscrosstalk for the contribution!
+- **AI**: don't classify the backend as non-Ollama when it is merely unreachable (#1357). Thanks @chriscrosstalk for the contribution!
+- **AI**: bump the Ollama pin to 0.33.3 to fix the disconnect hang (#1356). Thanks @chriscrosstalk for the contribution!
+- **AI**: remove the long-dead default rewrite model warning (#1249). Thanks @jakeaturner for the contribution!
+- **Benchmark**: show the v2 score in Benchmark History (#1210). Thanks @chriscrosstalk for the contribution!
+- **Benchmark**: stop WSL2 submitting "Microsoft Basic Render Driver" as the GPU model (#1277). Thanks @chriscrosstalk for the contribution!
+- **Chat**: abort abandoned response streams (#1220). Thanks @NgoQuocViet2001 for the contribution!
+- **Chat**: stop capping answers at 1024 tokens and surface truncation (#1360). Thanks @jakeaturner for the contribution!
+- **Chat**: render the user's message before creating the session (#1301). Thanks @chriscrosstalk for the contribution!
+- **Content**: re-download content updates after a failed attempt (#1213). Thanks @Osamaali313 for the contribution!
+- **Database**: allow `dataset` in `installed_resources.resource_type` (#1243). Thanks @rcorvus for the contribution!
+- **Downloads**: guard orphaned model jobs (#1245). Thanks @NgoQuocViet2001 for the contribution!
+- **GPU**: detect Ollama CPU fallback from logs so auto-remediation fires (#1109). Thanks @fpolica91 for the contribution!
+- **GPU**: detect Ollama CPU fallback on AMD and offer the right fix (#1370). Thanks @jakeaturner for the contribution!
+- **GPU**: stop a missing `/dev/kfd` blocking the AI Assistant install entirely (#1276). Thanks @chriscrosstalk for the contribution!
+- **GPU**: keep an existing AMD HSA override across reinstall and update (#1390). Thanks @jakeaturner for the contribution!
+- **Install**: time out Redis readiness probes (#1347). Thanks @dajiaohuang for the contribution!
+- **Install**: match the HawkPoint1 lspci string for gfx1103 AMD GPU detection (#1385). Thanks @Yi-111-a for the contribution!
+- **KB**: stop leaking Qdrant vectors when a ZIM is deleted or replaced (#1227). Thanks @just-jbc for the contribution!
+- **KB**: stop the orphan sweep purging an empty but present scan root (#1393). Thanks @jakeaturner for the contribution!
+- **KB**: persist the source active toggle when no ingest state row exists (#1395). Thanks @jakeaturner for the contribution!
+- **Maps**: stop world basemap provisioning running pmtiles extract twice (#1394). Thanks @jakeaturner for the contribution!
+- **Queue**: clear terminal jobs before re-dispatch so downloads aren't silently dropped (#1225). Thanks @chriscrosstalk for the contribution!
+- **Queue**: stop stalled-job recovery forking the embedding chain (#1270). Thanks @chriscrosstalk for the contribution!
+- **RAG**: don't abandon a ZIM after one sparse batch (#1242). Thanks @rcorvus for the contribution!
+- **Security**: reject oversized custom URLs (#1354). Thanks @dajiaohuang for the contribution!
+- **Seeder**: keep an installed app's host port across catalog sync (#1300). Thanks @johno10661 and @chriscrosstalk for the contribution!
+- **System**: resolve a placeholder GPU name on the System page too (#1285). Thanks @chriscrosstalk for the contribution!
+- **UI**: restore dark mode text contrast (#1358). Thanks @Tiancheng-Xu for the contribution!
+- **ZIM**: resolve flavoured and non-English ZIMs in the update check (#1298). Thanks @chriscrosstalk for the contribution!
+
+### Improvements
+- **Brand**: replace the retired N.O.M.A.D. badge with the new logo (#1375). Thanks @chriscrosstalk for the contribution!
+- **CI**: add a weekly schedule trigger to collection URL validation (#1217). Thanks @cclavin for the contribution!
+- **Dashboard**: tighten the Drug Reference tile description (#1297). Thanks @chriscrosstalk for the contribution!
+- **Docs**: add SECURITY.md and tighten .gitignore for credential files (#1223). Thanks @chriscrosstalk for the contribution!
+- **Docs**: state how much disk NOMAD needs before any content (#1278). Thanks @chriscrosstalk for the contribution!
+- **Eval**: standardized RAG quality evaluation harness with a frozen corpus and golden question set (#1233). Thanks @jakeaturner for the contribution!
+- **Install**: add the Project NOMAD ASCII banner to the installer (#1310). Thanks @chriscrosstalk for the contribution!
+
 ## Version 1.34.0 - August 4, 2026
 
 ### Features
