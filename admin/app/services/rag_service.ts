@@ -461,10 +461,7 @@ export class RagService {
       // (retries, force re-embeds, replaced-content reindexing, etc.) instead of
       // resetting it to active on every write. A genuinely new file (no row yet)
       // still defaults to active.
-      const existingIngestState = await KbIngestState.query()
-        .where('file_path', sanitizedSource)
-        .first()
-      const active = existingIngestState ? existingIngestState.active : true
+      const active = await this._readActiveFlag(sanitizedSource)
 
       const points = chunks.map((chunkText, index) => {
         // Sanitize text to prevent JSON encoding errors
@@ -509,6 +506,19 @@ export class RagService {
       })
 
       await this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, { points })
+
+      // A toggle can land between the read above and the upsert, and its
+      // setPayload then misses these points. The toggles write the row before
+      // Qdrant, so re-reading after the upsert closes the gap: either this read
+      // sees the new value, or the toggle's setPayload runs after the upsert and
+      // covers these points itself.
+      const currentActive = await this._readActiveFlag(sanitizedSource)
+      if (currentActive !== active) {
+        await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+          payload: { active: currentActive },
+          points: points.map((p) => p.id),
+        })
+      }
 
       logger.debug(`[RAG] Successfully embedded and stored ${chunks.length} chunks`)
       logger.debug(`[RAG] First chunk preview: "${chunks[0].substring(0, 100)}..."`)
@@ -1473,12 +1483,15 @@ export class RagService {
   }
 
   /**
-   * Toggle a file's active (searchable) state. Updates the `active` payload
-   * field on every existing Qdrant point for this source in place — no
-   * deletion or re-embedding, so this is instant in either direction — then
-   * mirrors the change onto the KbIngestState row so getStoredFiles() reflects
-   * it immediately. Vectors stay in Qdrant permanently either way; only
+   * Toggle a file's active (searchable) state. Writes the KbIngestState row,
+   * then updates the `active` payload field on every existing Qdrant point for
+   * this source in place — no deletion or re-embedding, so this is instant in
+   * either direction. Vectors stay in Qdrant permanently either way; only
    * `searchSimilarDocuments()`'s query-time filter is affected. See #1119.
+   *
+   * The row goes first so an in-flight embedAndStoreText() call always ends up
+   * with the right value: its post-upsert re-read either sees this write, or
+   * the setPayload below runs after its upsert and covers the new points.
    */
   public async setFileActive(
     source: string,
@@ -1490,11 +1503,6 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
-      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
-        payload: { active },
-        filter: { must: [{ key: 'source', match: { value: source } }] },
-      })
-
       // A source can have chunks in Qdrant but no state row: a ZIM mid-ingestion
       // (markIndexed only runs after the final batch), a pre-RFC install, or a
       // lost row. getStoredFiles() reports such a file as active, so skipping the
@@ -1503,6 +1511,7 @@ export class RagService {
       // scanner backfills it: `indexed` when chunks exist, so the file doesn't
       // regress to pending_decision and get re-dispatched.
       let row = await KbIngestState.query().where('file_path', source).first()
+      const previousActive = row ? Boolean(row.active) : true
       if (!row) {
         const { count } = await this.qdrant!.count(RagService.CONTENT_COLLECTION_NAME, {
           filter: { must: [{ key: 'source', match: { value: source } }] },
@@ -1522,11 +1531,33 @@ export class RagService {
       row.active = active
       await row.save()
 
+      try {
+        await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+          payload: { active },
+          filter: { must: [{ key: 'source', match: { value: source } }] },
+        })
+      } catch (error) {
+        // Put the row back so the panel keeps showing what retrieval does.
+        row.active = previousActive
+        await row.save()
+        throw error
+      }
+
       return { success: true, message: active ? 'File is now active.' : 'File is now inactive.' }
     } catch (error) {
       logger.error('[RAG] Error updating file active state:', error)
       return { success: false, message: 'Error updating file active state.' }
     }
+  }
+
+  /**
+   * A source's active flag as a real boolean. MySQL returns tinyint(1) as 0/1,
+   * and a raw 0 stamped into a Qdrant payload slips past the
+   * `must_not: active == false` search filter. A source with no row is active.
+   */
+  private async _readActiveFlag(source: string): Promise<boolean> {
+    const row = await KbIngestState.query().where('file_path', source).first()
+    return row ? Boolean(row.active) : true
   }
 
   /**
@@ -1557,20 +1588,31 @@ export class RagService {
           ? KbIngestState.query().whereNull('collection')
           : KbIngestState.query().where('collection', collection)
 
-      const countRow = await collectionQuery().where('active', !active).count('* as total').first()
-      const affectedCount = Number((countRow as any)?.$extras?.total ?? 0)
-
       const collectionFilterClause =
         collection === null
           ? { is_empty: { key: 'collection' } }
           : { key: 'collection', match: { value: collection } }
 
-      await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
-        payload: { active },
-        filter: { must: [collectionFilterClause] },
-      })
-
+      // Rows before Qdrant, for the same reason as setFileActive(). Only rows
+      // that change are touched, so a failed setPayload can restore exactly
+      // those without flipping files that already held the target value.
+      const changedPaths = (
+        await collectionQuery().where('active', !active).select('file_path')
+      ).map((r) => r.file_path)
+      const affectedCount = changedPaths.length
       await collectionQuery().update({ active })
+
+      try {
+        await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+          payload: { active },
+          filter: { must: [collectionFilterClause] },
+        })
+      } catch (error) {
+        if (changedPaths.length > 0) {
+          await KbIngestState.query().whereIn('file_path', changedPaths).update({ active: !active })
+        }
+        throw error
+      }
 
       const label = collection ?? 'Uncategorized'
       const verb = active ? 'Turned on' : 'Turned off'
