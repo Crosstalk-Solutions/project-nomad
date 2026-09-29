@@ -20,28 +20,39 @@ const upload = (name: string) => join(KB_UPLOADS_ROOT, name)
 const zim = (name: string) => join(ZIM_ROOT, name)
 
 test('no sources in Qdrant → no orphans', () => {
-  assert.deepEqual(decideOrphans([], [zim('a.zim')]), [])
+  assert.deepEqual(decideOrphans([], [zim('a.zim')], SCAN_ROOTS), { orphans: [], withheld: [] })
 })
 
 test('every Qdrant source still has a file on disk → no orphans', () => {
-  assert.deepEqual(decideOrphans([zim('a.zim'), zim('b.zim')], [zim('a.zim'), zim('b.zim')]), [])
+  assert.deepEqual(
+    decideOrphans([zim('a.zim'), zim('b.zim')], [zim('a.zim'), zim('b.zim')], SCAN_ROOTS),
+    { orphans: [], withheld: [] }
+  )
 })
 
 test('a source with no matching file on disk is an orphan', () => {
-  assert.deepEqual(decideOrphans([zim('a.zim'), zim('gone.zim')], [zim('a.zim')]), [
-    zim('gone.zim'),
-  ])
+  assert.deepEqual(decideOrphans([zim('a.zim'), zim('gone.zim')], [zim('a.zim')], SCAN_ROOTS), {
+    orphans: [zim('gone.zim')],
+    withheld: [],
+  })
 })
 
-test('every Qdrant source is orphaned when none remain on disk (but disk scan was non-empty)', () => {
-  assert.deepEqual(decideOrphans([zim('gone1.zim'), zim('gone2.zim')], [zim('unrelated.zim')]), [
-    zim('gone1.zim'),
-    zim('gone2.zim'),
-  ])
+test('sources outside every scanned root are never orphans (e.g. bundled docs)', () => {
+  const readme = join('/data', 'README.md')
+  assert.deepEqual(decideOrphans([readme, zim('a.zim')], [zim('a.zim')], SCAN_ROOTS), {
+    orphans: [],
+    withheld: [],
+  })
 })
 
-test('empty disk scan is treated as a transient failure, not "everything was deleted"', () => {
-  assert.equal(decideOrphans([zim('a.zim'), zim('b.zim')], []), null)
+test('empty disk scan withholds every root instead of purging everything', () => {
+  assert.deepEqual(decideOrphans([upload('a.pdf'), zim('a.zim')], [], SCAN_ROOTS), {
+    orphans: [],
+    withheld: [
+      { root: KB_UPLOADS_ROOT, count: 1, reason: 'empty_root' },
+      { root: ZIM_ROOT, count: 1, reason: 'empty_root' },
+    ],
+  })
 })
 
 test('filterOrphanCandidates keeps sources under the kb_uploads or zim scan roots', () => {
@@ -80,7 +91,10 @@ test('a root that was not scanned contributes no candidates, even though the sca
   assert.deepEqual(candidates, [upload('a.pdf')])
 
   // End to end: the ZIMs survive despite having no backing file in the scan.
-  assert.deepEqual(decideOrphans(candidates, [upload('a.pdf')]), [])
+  assert.deepEqual(decideOrphans(sourcesInQdrant, [upload('a.pdf')], [KB_UPLOADS_ROOT]), {
+    orphans: [],
+    withheld: [],
+  })
 })
 
 test('no roots scanned at all yields no candidates', () => {
@@ -89,12 +103,67 @@ test('no roots scanned at all yields no candidates', () => {
   assert.deepEqual(filterOrphanCandidates([zim('a.zim')], []), [])
 })
 
-test('a scanned-but-empty root still yields orphans for what it contains', () => {
-  // The counterpart to the case above, and the reason the distinction matters:
-  // zim scanned clean and legitimately holds no files, so its indexed sources
-  // really are orphaned and should be purged. A missing root and an empty one
-  // must not behave the same way.
-  const candidates = filterOrphanCandidates([zim('gone.zim')], SCAN_ROOTS)
-  assert.deepEqual(candidates, [zim('gone.zim')])
-  assert.deepEqual(decideOrphans(candidates, [upload('a.pdf')]), [zim('gone.zim')])
+test('a walked root with no embeddable files keeps its sources (#1378)', () => {
+  // The unmounted-volume shape: boot's ensureDirectoryExists() recreates the
+  // zim mountpoint as an empty directory, so the scan walks it without error
+  // and reports it as scanned. kb_uploads keeps the overall scan non-empty.
+  // Treating "walked and empty" as "everything under it was deleted" would
+  // purge every ZIM in the index.
+  const sourcesInQdrant = [upload('a.pdf'), zim('wikipedia_en_all_maxi.zim'), zim('gutenberg.zim')]
+  assert.deepEqual(decideOrphans(sourcesInQdrant, [upload('a.pdf')], SCAN_ROOTS), {
+    orphans: [],
+    withheld: [{ root: ZIM_ROOT, count: 2, reason: 'empty_root' }],
+  })
+})
+
+test('a root holding only non-embeddable files still counts as empty', () => {
+  // Kiwix regenerates kiwix-library.xml in the empty mountpoint, so the
+  // directory has entries. Only embeddable files are evidence the content is
+  // there, and _discoverKbFilesWithRoots() drops the XML before this point, so
+  // the zim root arrives with nothing under it.
+  const embeddable = [upload('a.pdf')]
+  assert.deepEqual(decideOrphans([zim('a.zim')], embeddable, SCAN_ROOTS).withheld, [
+    { root: ZIM_ROOT, count: 1, reason: 'empty_root' },
+  ])
+})
+
+test('an empty kb_uploads root keeps its sources while zim is swept normally', () => {
+  const zims = ['a', 'b', 'c'].map((n) => zim(`${n}.zim`))
+  assert.deepEqual(
+    decideOrphans([upload('a.pdf'), ...zims, zim('gone.zim')], zims, SCAN_ROOTS),
+    {
+      orphans: [zim('gone.zim')],
+      withheld: [{ root: KB_UPLOADS_ROOT, count: 1, reason: 'empty_root' }],
+    }
+  )
+})
+
+test('removing most of a root in one sync is withheld as a likely wrong mount', () => {
+  // The root is present and non-empty, but it holds 2 of 10 indexed ZIMs:
+  // far likelier a different disk or stale copy than 8 hand-deletions.
+  const indexed = Array.from({ length: 10 }, (_, i) => zim(`z${i}.zim`))
+  const onDisk = indexed.slice(0, 2)
+  assert.deepEqual(decideOrphans(indexed, onDisk, SCAN_ROOTS), {
+    orphans: [],
+    withheld: [{ root: ZIM_ROOT, count: 8, reason: 'mass_removal' }],
+  })
+})
+
+test('removing up to half a root is still purged', () => {
+  const indexed = Array.from({ length: 10 }, (_, i) => zim(`z${i}.zim`))
+  const onDisk = indexed.slice(0, 5)
+  assert.deepEqual(decideOrphans(indexed, onDisk, SCAN_ROOTS), {
+    orphans: indexed.slice(5),
+    withheld: [],
+  })
+})
+
+test('the mass-removal guard does not engage below the minimum count', () => {
+  // 4 of 5 missing is 80%, but only 4 sources: too few for the ratio to mean
+  // anything, and cheap to re-embed if wrong.
+  const indexed = Array.from({ length: 5 }, (_, i) => zim(`z${i}.zim`))
+  assert.deepEqual(decideOrphans(indexed, indexed.slice(0, 1), SCAN_ROOTS), {
+    orphans: indexed.slice(1),
+    withheld: [],
+  })
 })
