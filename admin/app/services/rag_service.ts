@@ -22,11 +22,11 @@ import { OllamaService } from './ollama_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
-import { join, resolve, sep } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
-import { decideOrphans, filterOrphanCandidates } from '../utils/kb_orphan_decision.js'
+import { decideOrphans } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
@@ -2097,9 +2097,11 @@ export class RagService {
    * install legitimately has no kb_uploads until the first upload. That makes
    * an absent root indistinguishable from a present-but-empty one by looking
    * at the file list alone — and the orphan sweep in scanAndSyncStorage()
-   * cannot afford to confuse the two. "This root scanned clean and had no
-   * files" means everything indexed under it is an orphan; "this root wasn't
-   * there" means we know nothing about it and must not touch it.
+   * cannot afford to confuse the two. "This root wasn't there" means we know
+   * nothing about it and must not touch it. A root that was there but empty
+   * is not much better evidence: boot creates the zim directory, so an
+   * unmounted volume shows up as an empty one (#1378). decideOrphans()
+   * therefore also refuses to purge under a walked root with no files.
    *
    * That distinction is the whole reason this variant exists. If the zim root
    * is missing, renamed, or not yet mounted (see #1050 — relocating the data
@@ -2388,24 +2390,29 @@ export class RagService {
       // leftover from ZimService.delete() (which never touched Qdrant) or
       // from reconcileReplacedContentFile's qdrant_not_running no-op. Running
       // this in sync (rather than only in the delete path) also self-heals
-      // installs already in this state. decideOrphans no-ops when
-      // embeddableFiles came back empty, so a filesystem hiccup can't be
-      // misread as "every file was deleted."
+      // installs already in this state.
       //
-      // Allowlisted (via filterOrphanCandidates) to `scannedRoots` — the roots
-      // the scan above actually walked, not the roots it meant to walk. Two
-      // separate things are excluded by that one rule. Nomad's own bundled
-      // docs (README.md + docs/) are embedded by discoverNomadDocs() from
-      // outside these roots, so they're left alone without being named here.
-      // And a root that wasn't present at scan time contributes no candidates
-      // at all, because a missing root is skipped rather than fatal: without
-      // this, a relocated or unmounted zim directory (#1050) would leave the
-      // scan non-empty via kb_uploads, sail past decideOrphans' empty-scan
-      // guard, and purge every ZIM in the index in a single batch.
-      const orphanCandidates = filterOrphanCandidates([...sourcesInQdrant], scannedRoots)
-      const orphans = decideOrphans(orphanCandidates, embeddableFiles)
+      // Confined to `scannedRoots`, the roots the scan above actually walked,
+      // not the roots it meant to walk. Nomad's own bundled docs (README.md +
+      // docs/) live outside these roots, so they're left alone without being
+      // named here, and a root missing at scan time contributes nothing
+      // (#1050). Within each walked root, decideOrphans also withholds the
+      // purge when the root holds no embeddable files (an unmounted volume
+      // leaves an empty mountpoint behind, #1378) or when it would remove most
+      // of the root at once. Withheld roots are reported back to the operator
+      // rather than silently skipped.
+      const { orphans, withheld } = decideOrphans(
+        [...sourcesInQdrant],
+        embeddableFiles,
+        scannedRoots
+      )
+      for (const w of withheld) {
+        logger.warn(
+          `[RAG] Withheld purge of ${w.count} indexed source(s) under ${w.root} (${w.reason}); the directory may be unmounted or pointing at the wrong location`
+        )
+      }
       let orphansPurged = 0
-      if (orphans && orphans.length > 0) {
+      if (orphans.length > 0) {
         logger.info(
           `[RAG] Found ${orphans.length} orphaned source(s) with no corresponding file on disk`
         )
@@ -2478,10 +2485,20 @@ export class RagService {
         `[RAG] Scan results (policy=${policy}): ${filesToEmbed.length} to embed, ${backfilled} backfilled, ${createdRows} new pending, ${createdPending} waiting on user, ${skipped} skipped`
       )
 
+      const withheldNote = withheld
+        .map(
+          (w) =>
+            `; left ${w.count} indexed source${w.count !== 1 ? 's' : ''} under ${relative(process.cwd(), w.root)} untouched because ${
+              w.reason === 'empty_root'
+                ? 'that folder has no files (is the drive mounted?)'
+                : 'removing them would clear most of that folder (is it pointing at the right drive?)'
+            }`
+        )
+        .join('')
       const orphanNote =
-        orphansPurged > 0
+        (orphansPurged > 0
           ? `; purged ${orphansPurged} orphaned source${orphansPurged !== 1 ? 's' : ''}`
-          : ''
+          : '') + withheldNote
 
       if (filesToEmbed.length === 0) {
         return {
