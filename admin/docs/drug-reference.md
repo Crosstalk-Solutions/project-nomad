@@ -1,77 +1,77 @@
-# Drug Reference
+# Referência de Medicamentos
 
-The Drug Reference is an offline, searchable database of **FDA drug labels**, the official information that comes with over-the-counter and prescription medicines. Once it is installed you can look up a medicine by name, work backwards from a situation to the medicines that treat it, and put two labels side by side, all with no internet connection.
+A Referência de Medicamentos é um banco de dados offline e pesquisável de **bulas de medicamentos da FDA**, contendo as informações oficiais que acompanham medicamentos de venda livre e de prescrição. Depois de instalada, você pode pesquisar um medicamento pelo nome, partir de uma situação para encontrar os medicamentos indicados para tratá-la e colocar duas bulas lado a lado, tudo sem conexão com a internet.
 
-It is an optional add-on. A fresh NOMAD does not have it until you choose to install it, because the dataset is large.
+É um complemento opcional. Uma instalação nova do NOMAD não o possui até que você escolha instalá-lo, pois o conjunto de dados é grande.
 
-> **This is health information, not medical advice.** The Drug Reference shows you the manufacturer's FDA label text and matches situations to over-the-counter options. It cannot replace a doctor, pharmacist, or nurse. Always follow the directions on the actual product you have, and in a real emergency get professional help if you can.
+> **Estas são informações de saúde, não aconselhamento médico.** A Referência de Medicamentos exibe o texto da bula da FDA fornecido pelo fabricante e relaciona situações a opções de medicamentos de venda livre. Ela não substitui um médico, farmacêutico ou enfermeiro. Sempre siga as instruções do produto que você possui e, em uma emergência real, procure ajuda profissional se possível.
 
-The first time you open the Drug Reference in a browser, you will see this warning as a dialog you have to acknowledge before the page will load. That acknowledgement is remembered per browser, so a different browser or device will show it again.
-
----
-
-## Installing it
-
-There are two ways to get the data, and they end up in the same place.
-
-**From the Content Explorer**, as part of a collection:
-
-1. From the home screen, open **Content Explorer**.
-2. Choose the **Medicine** category.
-3. Select the **Standard** tier. Its contents are listed on the card, and you will see **FDA Drug Reference** among them.
-4. Confirm the download.
-
-**From the Drug Reference page itself.** Open **Drug Reference** from the home screen. If no data is installed you will get a "No FDA drug data yet" panel with a **Download FDA drug data** button, which starts the same process.
-
-Either way it runs in two stages in the background:
-
-- **Download** — NOMAD pulls the openFDA drug-label dataset, about **1.7 GB** compressed, in several parts. If your connection drops it picks up where it left off.
-- **Indexing** — NOMAD ingests those labels into a fast offline search database. This is the longer stage, and the data expands to roughly **8 to 10 GB** on disk.
-
-You do not have to sit and watch. Leave the page and it keeps going, and search switches on by itself once indexing finishes. The page shows progress for both stages while they run.
+Na primeira vez que você abrir a Referência de Medicamentos em um navegador, verá este aviso em uma caixa de diálogo que deverá ser reconhecida antes que a página seja carregada. Essa confirmação é lembrada por navegador, portanto, outro navegador ou dispositivo exibirá o aviso novamente.
 
 ---
 
-## Finding your way around
+## Instalando
 
-Everything lives behind a single **Drug Reference** tile on the home screen. Once data is installed, the page has three tabs.
+Há duas maneiras de obter os dados, e ambas os colocam no mesmo local.
 
-### Search by drug
+**Pelo Explorador de Conteúdo**, como parte de uma coleção:
 
-Type a drug name, brand or generic, and NOMAD shows matching FDA labels: what the medicine is for, dosing, warnings, and ingredients, straight from the manufacturer's official label.
+1. Na tela inicial, abra o **Explorador de Conteúdo**.
+2. Escolha a categoria **Medicina**.
+3. Selecione o nível **Padrão**. O conteúdo está listado no cartão, e você verá **Referência de Medicamentos da FDA** entre eles.
+4. Confirme o download.
 
-Results are **grouped by active ingredient** rather than listed as hundreds of near-identical products. A search for a common painkiller returns one group per ingredient instead of every store brand separately, so you can see what you are actually choosing between.
+**Pela própria página da Referência de Medicamentos.** Abra **Referência de Medicamentos** na tela inicial. Se nenhum dado estiver instalado, você verá um painel "Ainda não há dados de medicamentos da FDA" com o botão **Baixar dados de medicamentos da FDA**, que inicia o mesmo processo.
 
-### By situation
+De qualquer maneira, o processo ocorre em duas etapas em segundo plano:
 
-Start from the problem instead of the product. Pick one or more situations, such as burn, fever, or diarrhea, and NOMAD lists the medicines whose FDA labels cover them.
+* **Download** — O NOMAD baixa o conjunto de dados de bulas de medicamentos do openFDA, com cerca de **1,7 GB** compactados, dividido em várias partes. Se sua conexão cair, o download continua de onde parou.
+* **Indexação** — O NOMAD importa essas bulas para um banco de dados de pesquisa offline rápido. Esta é a etapa mais demorada, e os dados ocupam aproximadamente **8 a 10 GB** no disco.
 
-Selecting more than one situation looks for medicines that cover **all** of them first, then falls back to showing results for each situation on its own. That is useful when you are dealing with more than one symptom at once and want a single product if one exists.
-
-### FDA data
-
-Shows where the data came from and its current state: whether it is downloaded, indexed, and how many labels are loaded. This is also where you go to re-run a download or restart indexing if something needs attention.
-
----
-
-## Comparing two medicines
-
-From a drug's detail page, use **Compare label warnings** to put two labels side by side and read what each one says.
-
-This puts the two manufacturers' warning sections next to each other. It does **not** calculate drug interactions, and it will not tell you whether a combination is safe. Deciding whether two medicines can be taken together is exactly the kind of question to put to a pharmacist or doctor.
+Você não precisa ficar acompanhando o processo. Pode sair da página e ele continuará em execução; a pesquisa será ativada automaticamente quando a indexação terminar. A página mostra o progresso das duas etapas enquanto elas estão em andamento.
 
 ---
 
-## Keeping it current
+## Como navegar
 
-FDA labels change over time. If you have turned on **automatic content updates** (Settings → Updates), NOMAD periodically checks whether openFDA has published a newer dataset and refreshes the Drug Reference on its own, the same way it handles your other offline content.
+Tudo fica disponível por meio de um único bloco **Referência de Medicamentos** na tela inicial. Depois que os dados forem instalados, a página terá três abas.
 
-With automatic updates off, the data stays exactly as it was when you installed it, which is fine for offline use. You can always re-run the download from the **FDA data** tab to pull the latest.
+### Pesquisar por medicamento
+
+Digite o nome de um medicamento, marca ou princípio ativo, e o NOMAD mostrará as bulas da FDA correspondentes: para que o medicamento é utilizado, dosagem, advertências e ingredientes, diretamente da bula oficial fornecida pelo fabricante.
+
+Os resultados são **agrupados por princípio ativo**, em vez de serem listados como centenas de produtos quase idênticos. Uma pesquisa por um analgésico comum, por exemplo, retorna um grupo para cada princípio ativo, em vez de mostrar separadamente cada marca comercial, permitindo que você veja o que realmente está escolhendo.
+
+### Por situação
+
+Comece pelo problema em vez do produto. Selecione uma ou mais situações, como queimadura, febre ou diarreia, e o NOMAD listará os medicamentos cujas bulas da FDA abrangem essas situações.
+
+Ao selecionar mais de uma situação, o sistema primeiro procura medicamentos que atendam a **todas** elas e, depois, mostra os resultados de cada situação separadamente. Isso é útil quando você está lidando com mais de um sintoma ao mesmo tempo e quer encontrar um único produto, caso exista um.
+
+### Dados da FDA
+
+Mostra a origem dos dados e seu estado atual: se foram baixados, indexados e quantas bulas estão carregadas. Também é nessa seção que você pode executar novamente um download ou reiniciar a indexação caso seja necessário.
 
 ---
 
-## A note on storage
+## Comparando dois medicamentos
 
-The Drug Reference is the largest single item in the Medicine → Standard collection. Budget around **8 to 10 GB** of disk for it after indexing, on top of the 1.7 GB download.
+Na página de detalhes de um medicamento, use **Comparar advertências das bulas** para colocar duas bulas lado a lado e ler o que cada uma informa.
 
-If storage is tight, the Content Explorer shows the full size of a tier before you commit, so you can see what you are taking on.
+Isso coloca as seções de advertências dos dois fabricantes lado a lado. **Não** calcula interações medicamentosas e não informa se uma combinação é segura. Decidir se dois medicamentos podem ser tomados juntos é exatamente o tipo de questão que deve ser direcionada a um farmacêutico ou médico.
+
+---
+
+## Mantendo os dados atualizados
+
+As bulas da FDA mudam com o tempo. Se você ativou as **atualizações automáticas de conteúdo** (Configurações → Atualizações), o NOMAD verifica periodicamente se o openFDA publicou um conjunto de dados mais recente e atualiza a Referência de Medicamentos automaticamente, da mesma forma que faz com os outros conteúdos offline.
+
+Com as atualizações automáticas desativadas, os dados permanecem exatamente como estavam quando você os instalou, o que é adequado para uso offline. Você pode executar novamente o download a qualquer momento pela aba **Dados da FDA** para obter a versão mais recente.
+
+---
+
+## Uma observação sobre armazenamento
+
+A Referência de Medicamentos é o maior item individual da coleção Medicina → Padrão. Reserve aproximadamente **8 a 10 GB** de espaço em disco para ela após a indexação, além dos 1,7 GB necessários para o download.
+
+Se o espaço de armazenamento estiver limitado, o Explorador de Conteúdo mostra o tamanho total de um nível antes de você confirmar, permitindo visualizar quanto espaço será necessário.
