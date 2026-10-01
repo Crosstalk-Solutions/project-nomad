@@ -9,6 +9,9 @@ import { DownloadJobWithProgress, DownloadProgressData, RunDownloadJobParams } f
 import type { Job, Queue } from 'bullmq'
 import { normalize } from 'path'
 import { deleteFileIfExists } from '../utils/fs.js'
+import { refreshRetryParams } from '../utils/download_retry.js'
+import { CollectionManifestService } from './collection_manifest_service.js'
+import type { ZimCategoriesSpec } from '../../types/collections.js'
 import transmit from '@adonisjs/transmit/services/main'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 
@@ -200,11 +203,13 @@ export class DownloadService {
           return { success: true, message: `Retrying download for model ${modelName}` }
         }
 
-        // For file downloads (zim, map, etc.), re-dispatch with original params
-        const params = job.data as RunDownloadJobParams
-        if (!params.url || !params.filepath) {
+        // For file downloads (zim, map, etc.), re-dispatch with the stored params,
+        // refreshed from the current catalog for a curated ZIM
+        const stored = job.data as RunDownloadJobParams
+        if (!stored.url || !stored.filepath) {
           return { success: false, message: 'Cannot retry: missing URL or filepath in job data' }
         }
+        const params = refreshRetryParams(stored, await this.currentZimCatalog())
 
         // Remove the old failed job, then dispatch a fresh one
         await job.remove().catch(() => {})
@@ -214,6 +219,17 @@ export class DownloadService {
     }
 
     return { success: false, message: 'Failed job not found. It may have already been dismissed.' }
+  }
+
+  /** Null when the catalog cannot be read, so a retry falls back to its stored params. */
+  private async currentZimCatalog(): Promise<ZimCategoriesSpec | null> {
+    try {
+      return await new CollectionManifestService().getSpecWithFallback<ZimCategoriesSpec>(
+        'zim_categories'
+      )
+    } catch {
+      return null
+    }
   }
 
   async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
