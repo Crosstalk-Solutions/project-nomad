@@ -164,8 +164,26 @@ test('resolves per-model capabilities advertised by a hybrid router', async () =
 
   assert.deepEqual(visionModel, { thinking: true, vision: 'supported' })
   assert.deepEqual(textModel, { thinking: true, vision: 'unsupported' })
-  assert.equal(showProbeCalls, 0)
-  assert.equal(propsProbeCalls, 0)
+  // A listed vision model is trusted without probing. A listed text-only model is
+  // probed once, and the router's answer stands when the probes have nothing better.
+  assert.equal(showProbeCalls, 1)
+  assert.equal(propsProbeCalls, 1)
+})
+
+test('probes a model the list reports without vision, as Ollama does for gemma3', async () => {
+  // Measured on Ollama 0.33.3: /api/tags lists gemma3:4b as ['completion'] while
+  // /api/show for the same model reports ['completion', 'vision'].
+  const gemma = await resolveModelCapabilities(
+    { capabilities: ['completion'] },
+    {
+      ollamaShow: async () => ({ capabilities: ['completion', 'vision'] }),
+      llamaProps: async () => {
+        throw new Error('not used')
+      },
+    }
+  )
+
+  assert.deepEqual(gemma, { thinking: false, vision: 'supported' })
 })
 
 test('preserves per-model capabilities from an OpenAI-compatible model list', () => {
@@ -243,9 +261,7 @@ test('classifies the four supported backend capability cases', async () => {
     {
       name: 'known text-only',
       advertised: { capabilities: ['completion', 'thinking'] },
-      ollamaShow: async () => {
-        throw new Error('not used')
-      },
+      ollamaShow: async () => ({ capabilities: ['completion', 'thinking'] }),
       llamaProps: async () => {
         throw new Error('not used')
       },
