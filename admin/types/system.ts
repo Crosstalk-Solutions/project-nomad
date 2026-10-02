@@ -1,11 +1,15 @@
 import { Systeminformation } from 'systeminformation'
 
 export type GpuHealthStatus = {
-  status: 'ok' | 'passthrough_failed' | 'no_gpu' | 'ollama_not_installed'
+  status: 'ok' | 'passthrough_failed' | 'no_gpu' | 'ollama_not_installed' | 'unsupported'
   hasNvidiaRuntime: boolean
   hasRocmRuntime: boolean
   ollamaGpuAccessible: boolean
-  gpuVendor?: 'nvidia' | 'amd'
+  /**
+   * 'intel' only ever accompanies status 'unsupported': a GPU is present but
+   * NOMAD ships no acceleration path for it, so inference runs on CPU.
+   */
+  gpuVendor?: 'nvidia' | 'amd' | 'intel'
   /**
    * AMD passthrough_failed only. Whether a reinstall would change the running
    * container. When false, a reinstall rebuilds the same CPU-bound container and
