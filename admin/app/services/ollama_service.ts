@@ -22,7 +22,6 @@ import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 import KVStore from '#models/kv_store'
 import type { ModelCapabilities } from '../utils/model_capabilities.js'
 import {
-  capabilitiesFromOllamaShow,
   installedModelsFromOpenAIResponse,
   resolveModelCapabilities,
 } from '../utils/model_capabilities.js'
@@ -928,23 +927,14 @@ export class OllamaService {
     await this._ensureDependencies()
     if (!this.baseUrl) return { thinking: false, vision: 'unknown' }
 
-    // Composite OpenAI-compatible routers can advertise different capabilities for each model.
-    // Prefer that per-model metadata before probing backend-specific endpoints.
-    const advertised = capabilitiesFromOllamaShow(advertisedMetadata)
-    if (advertised) {
-      this.modelCapabilityCache.set(modelName, {
-        value: advertised,
-        expiresAt: Number.POSITIVE_INFINITY,
-      })
-      return advertised
-    }
-
     const cached = this.modelCapabilityCache.get(modelName)
     if (cached && cached.expiresAt > Date.now()) return cached.value
 
-    // Probe per model instead of relying on the backend-wide classification from getModels().
+    // Composite OpenAI-compatible routers can advertise different capabilities for each
+    // model, and that metadata is passed through here. A list that omits vision is not
+    // trusted on its own (see resolveModelCapabilities), so the model is still probed.
     // Hybrid routers may expose /v1/models plus /api/show without exposing /api/tags.
-    const detected = await resolveModelCapabilities(null, {
+    const detected = await resolveModelCapabilities(advertisedMetadata, {
       ollamaShow: async () => {
         const response = await axios.post(
           `${this.baseUrl}/api/show`,

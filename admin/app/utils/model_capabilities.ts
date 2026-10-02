@@ -49,7 +49,11 @@ export async function resolveModelCapabilities(
   probes: ModelCapabilityProbes
 ): Promise<ModelCapabilities | null> {
   const advertised = capabilitiesFromOllamaShow(advertisedMetadata)
-  if (advertised) return advertised
+  // A model list that reports vision is trusted outright. One that does not is
+  // not conclusive: Ollama's /api/tags lists gemma3 as ['completion'] while its
+  // /api/show for the same model reports ['completion', 'vision'], which left
+  // image upload disabled for one of the most common small vision models.
+  if (advertised?.vision === 'supported') return advertised
 
   try {
     const ollama = capabilitiesFromOllamaShow(await probes.ollamaShow())
@@ -58,10 +62,10 @@ export async function resolveModelCapabilities(
 
   try {
     const vision = visionCapabilityFromLlamaProps(await probes.llamaProps())
-    if (vision) return { thinking: false, vision }
+    if (vision) return { thinking: advertised?.thinking ?? false, vision }
   } catch {}
 
-  return null
+  return advertised
 }
 
 export function installedModelsFromOpenAIResponse(value: unknown): InstalledModelMetadata[] {
