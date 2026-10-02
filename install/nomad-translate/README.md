@@ -32,9 +32,11 @@ Reimplementing or wrapping the Kiwix reading view is explicitly out of scope.
 | `blocks.py` | Finds translatable blocks; decides HTML mode versus plain text |
 | `fetch_models.py` | Pulls models from Firefox Remote Settings on first start |
 | `test_blocks.py` | Tests for the block planner. No Bergamot, no network |
+| `test_fetch_models.py` | Tests for which model files get downloaded. No network |
 | `entrypoint.sh` | Fetch models, then serve. Fetch failure is non-fatal |
 
-Run the tests with `python3 install/nomad-translate/test_blocks.py`.
+Run the tests with `python3 install/nomad-translate/test_blocks.py` and
+`python3 install/nomad-translate/test_fetch_models.py`.
 
 ## Configuration
 
@@ -53,9 +55,11 @@ From **Firefox Remote Settings**, the endpoint Firefox itself uses, not the
 `mozilla/firefox-translations-models` GitHub repo, which was archived on
 2026-08-21. MPL-2.0.
 
-About 37 MB per direction, 74 MB for a language in both directions. 84 pairs
-across roughly 44 languages. **No Chinese, Japanese, Korean, Arabic or Thai** in
-the tiny model set.
+50 languages have a release in both directions (checked 2026-10), each from
+about 45 MB to about 140 MB for both directions. Only releases desktop Firefox
+would use are fetched; pre-releases (`1.0a1`) and Android-only builds are
+skipped. **Chinese is not offered**: it is published as `zh-Hans`/`zh-Hant`,
+which the proxy's two-letter language codes do not handle yet.
 
 Fetching is skipped entirely when every requested pair is already on disk, so a
 restart on a genuinely offline box does not fail. A failed fetch is non-fatal:

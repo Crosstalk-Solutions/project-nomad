@@ -61,15 +61,19 @@ _opener = urllib.request.build_opener(_NoRedirect)
 # Display names for the languages Bergamot's tiny model set covers. A language
 # only appears in the control if its model is actually on disk.
 LANG_NAMES = {
-    "bg": "Bulgarian", "bn": "Bengali", "cs": "Czech", "da": "Danish",
+    "af": "Afrikaans", "ar": "Arabic", "bg": "Bulgarian", "bn": "Bengali",
+    "bs": "Bosnian", "ca": "Catalan", "cs": "Czech", "da": "Danish",
     "de": "German", "el": "Greek", "es": "Spanish", "et": "Estonian",
-    "fa": "Persian", "fi": "Finnish", "fr": "French", "he": "Hebrew",
-    "hi": "Hindi", "hu": "Hungarian", "id": "Indonesian", "is": "Icelandic",
-    "it": "Italian", "lt": "Lithuanian", "lv": "Latvian", "nb": "Norwegian",
-    "nl": "Dutch", "pl": "Polish", "pt": "Portuguese", "ro": "Romanian",
-    "ru": "Russian", "sk": "Slovak", "sl": "Slovenian", "sr": "Serbian",
-    "sv": "Swedish", "ta": "Tamil", "te": "Telugu", "tr": "Turkish",
-    "uk": "Ukrainian", "vi": "Vietnamese",
+    "eu": "Basque", "fa": "Persian", "fi": "Finnish", "fr": "French",
+    "gl": "Galician", "gu": "Gujarati", "he": "Hebrew", "hi": "Hindi",
+    "hr": "Croatian", "hu": "Hungarian", "id": "Indonesian", "is": "Icelandic",
+    "it": "Italian", "ja": "Japanese", "kn": "Kannada", "ko": "Korean",
+    "lt": "Lithuanian", "lv": "Latvian", "ml": "Malayalam", "mr": "Marathi",
+    "ms": "Malay", "nb": "Norwegian", "nl": "Dutch", "pl": "Polish",
+    "pt": "Portuguese", "ro": "Romanian", "ru": "Russian", "sk": "Slovak",
+    "sl": "Slovenian", "sr": "Serbian", "sv": "Swedish", "ta": "Tamil",
+    "te": "Telugu", "th": "Thai", "tr": "Turkish", "uk": "Ukrainian",
+    "ur": "Urdu", "vi": "Vietnamese",
 }
 
 # Hop-by-hop headers must not be forwarded. Content-Length and Content-Encoding
@@ -96,6 +100,9 @@ def available_languages() -> dict[str, str]:
 
 
 LANGS = available_languages()
+# Part of every translated page's ETag, so a cached page from before a language
+# was added can never revalidate as unchanged.
+LANGS_TAG = "".join(sorted(LANGS)) or "none"
 
 # Bergamot is imported lazily so the proxy can still boot, and still forward
 # Kiwix untouched, on a box where the models never downloaded.
@@ -293,10 +300,17 @@ class Handler(BaseHTTPRequestHandler):
             # feature not working. The ETag is namespaced by language so
             # revalidation still works per language rather than being disabled.
             if translatable and key.lower() == "etag":
-                value = f'{value.rstrip()}-nomadlang-{lang or "orig"}'
+                value = f'{value.rstrip()}-nomadlang-{lang or "orig"}-{LANGS_TAG}'
+            # The page also carries the language bar, which changes whenever a
+            # language is added. Kiwix's max-age=3600 kept the old bar on screen
+            # for up to an hour, and a normal refresh does not reach the
+            # article frame. Revalidating every time is cheap on a local box.
+            if translatable and key.lower() == "cache-control":
+                continue
             self.send_header(key, value)
         if translatable:
             self.send_header("Vary", "Cookie")
+            self.send_header("Cache-Control", "no-cache")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         if not body_only:
