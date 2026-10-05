@@ -102,7 +102,7 @@
     "@vinejs/vine": "4.4.0",
     "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.5.0",
-    "axios": "1.18.1",
+    "axios": "1.20.0",
     "better-sqlite3": "12.6.2",
     "bullmq": "5.77.6",
     "cheerio": "1.2.0",
