@@ -1,5 +1,16 @@
 # Release Notes
 
+## Unreleased
+
+### Features
+
+### Bug Fixes
+- **AI**: probe a model the list reports without vision before disabling image attachments, so `gemma3` accepts images again (#1409). Thanks @chriscrosstalk for the contribution!
+- **Translate**: forward upstream redirects instead of following them, so books open styled and their article links resolve (#1379). Thanks @chriscrosstalk for the contribution!
+- **Translate**: download every released language instead of crashing on pre-release models, and list all supported languages in the docs (#1405). Thanks @chriscrosstalk for the contribution!
+
+### Improvements
+
 ## Version 1.35.0 - September 29, 2026
 
 ### Features
