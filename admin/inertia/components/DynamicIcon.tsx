@@ -13,11 +13,13 @@ interface DynamicIconProps {
 const DynamicIcon: React.FC<DynamicIconProps> = ({ icon, className, stroke, onClick }) => {
   if (!icon) return null
 
-  const Icon = icons[icon]
+  let Icon = icons[icon]
 
+  // A name outside the registry can still arrive from data (e.g. a Custom App icon set
+  // via the API). Show a generic box rather than an empty hole where the icon should be.
   if (!Icon) {
     console.warn(`Icon "${icon}" not found in icon map.`)
-    return null
+    Icon = icons.IconBox
   }
 
   return <Icon className={classNames('h-5 w-5', className)} strokeWidth={stroke ?? 2} onClick={onClick} />
