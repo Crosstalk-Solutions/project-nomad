@@ -1,284 +1,286 @@
-# Supply Depot Apps
+# Aplicativos do Supply Depot
 
-The Supply Depot is where you install extra apps onto your NOMAD beyond the built-in tools. Each app runs in its own container on your NOMAD, fully offline, and shows up with an **Open** button once it finishes installing.
+O Supply Depot é onde você instala aplicativos extras no seu NOMAD, além das ferramentas integradas. Cada aplicativo roda em seu próprio contêiner no seu NOMAD, totalmente offline, e aparece com um botão **Open** assim que termina de instalar.
 
-This page covers what you need to know to get up and running with each app *on NOMAD specifically*: whether you log in, what the default credentials are, where your files end up, and anything you need to have on hand first. It does not cover how to use the apps themselves. Each app is its own open-source project with its own documentation, and we link out to that for every one.
+Esta página aborda o que você precisa saber para começar a usar cada aplicativo *especificamente no NOMAD*: se é necessário fazer login, quais são as credenciais padrão, onde seus arquivos ficam e o que você precisa ter em mãos antes de começar. Ela não aborda como usar os aplicativos em si. Cada aplicativo é um projeto de código aberto independente, com sua própria documentação, e incluímos um link para ela em cada caso.
 
-A quick note on logins: some of these apps have their own accounts, separate from your NOMAD login. Where an app asks you to sign in, we tell you the starting credentials and whether you should change them.
-
----
-
-## Managing your apps
-
-Every app you install gets a **Manage** menu on its card. From there you can:
-
-- **Docs** — jump straight to the NOMAD getting-started notes for that app (the same per-app sections you'll find below).
-- **Edit** — change an app's settings: port mappings, volume binds, environment variables, and memory/CPU limits. This works for curated apps too, not just custom ones. Your edits are merged into the app's existing setup, so advanced settings (like GPU access on the AI Assistant) are preserved, and an edited app stops getting overwritten by catalog updates.
-- **Logs** and **Stats** — open a live view of an app's log output or its current memory and CPU use, handy when something isn't behaving.
-- **Update** and **Remove** — pull the latest version of an app, or remove it (optionally deleting its image too). If an update's new container fails to start, NOMAD automatically rolls back to the version that was working.
-
-**Seeing what version you're running:** Each app card shows the installed version right next to the app name (for example, `Kiwix · 3.7.0`). When a newer version is available, an orange **Update available** pill appears on the card so it's easy to spot at a glance.
-
-**Custom "Open" links:** By default the **Open** button points at the app on your NOMAD's own address. If you run a reverse proxy or local DNS and would rather open an app at a friendlier address (for example `https://jellyfin.myhomelab.net`), use **Manage › Edit** to set a custom launch URL. NOMAD keeps your original link safely on file, so you can always switch back, and the override sticks across upgrades.
-
-**Keeping apps updated automatically:** Installed apps can update themselves hands-off. This is opt-in at two levels — a master switch in **Settings → Updates** and a per-app toggle in the Supply Depot — and only minor and patch updates are ever applied automatically (major versions always stay manual). See the [Updates guide](/docs/updates) for the full story.
+Uma observação rápida sobre logins: alguns desses aplicativos possuem suas próprias contas, separadas do login do NOMAD. Quando um aplicativo solicitar login, informamos as credenciais iniciais e se você deve alterá-las.
 
 ---
 
-## Bringing your own app
+## Gerenciando seus aplicativos
 
-Beyond the curated catalog, the Supply Depot can run **your own Docker container** as a managed app alongside everything else. Click **Add a custom app** and tell NOMAD:
+Todo aplicativo instalado recebe um menu **Manage** em seu cartão. A partir dele, você pode:
 
-- the **image** to pull (for example `ghcr.io/owner/app:1.2.3`),
-- any **port mappings**, **volume binds**, **environment variables**, and **memory/CPU limits** it needs.
+* **Docs** — ir diretamente para as instruções iniciais do NOMAD para esse aplicativo (as mesmas seções específicas de cada aplicativo encontradas abaixo).
+* **Edit** — alterar as configurações de um aplicativo: mapeamentos de portas, vinculações de volumes, variáveis de ambiente e limites de memória/CPU. Isso funciona também para aplicativos selecionados do catálogo, não apenas para os personalizados. Suas alterações são mescladas à configuração existente do aplicativo, portanto, configurações avançadas (como acesso à GPU no Assistente de IA) são preservadas, e um aplicativo editado deixa de ser sobrescrito pelas atualizações do catálogo.
+* **Logs** e **Stats** — abrir uma visualização em tempo real da saída dos logs de um aplicativo ou de seu uso atual de memória e CPU, algo útil quando alguma coisa não está funcionando como deveria.
+* **Update** e **Remove** — obter a versão mais recente de um aplicativo ou removê-lo (opcionalmente excluindo também sua imagem). Se o novo contêiner de uma atualização não conseguir iniciar, o NOMAD automaticamente faz rollback para a versão que estava funcionando.
 
-As you fill it in, NOMAD runs a live pre-flight check and warns you about things like port conflicts or risky settings. Some warnings (an untrusted registry, or a `:latest` tag that can't be version-tracked) are advisory and you can choose **Install anyway**; genuinely unsafe configurations are blocked outright.
+**Ver qual versão você está executando:** Cada cartão de aplicativo mostra a versão instalada logo ao lado do nome do aplicativo (por exemplo, `Kiwix · 3.7.0`). Quando uma versão mais nova está disponível, um indicador laranja **Update available** aparece no cartão, tornando isso fácil de identificar rapidamente.
 
-Once installed, a custom app behaves like any other: it gets the same **Manage** menu (Edit, Logs, Stats, Update, Remove), shows its version on the card, and can opt in to automatic updates. NOMAD hardens host-path binds and scopes logs and stats to its own managed containers, so a custom app can't reach outside what you give it.
+**Links personalizados de "Open":** Por padrão, o botão **Open** aponta para o aplicativo no próprio endereço do seu NOMAD. Se você usa um proxy reverso ou DNS local e prefere abrir um aplicativo em um endereço mais amigável (por exemplo, `https://jellyfin.myhomelab.net`), use **Manage › Edit** para definir uma URL de abertura personalizada. O NOMAD mantém seu link original salvo com segurança, para que você possa voltar a ele quando quiser, e a substituição permanece mesmo após as atualizações.
 
-> A custom app is exactly that — yours. NOMAD runs it and gets out of the way; it doesn't provide setup docs or support for software outside the curated catalog. Check the project's own documentation for how to use it.
+**Mantendo os aplicativos atualizados automaticamente:** Os aplicativos instalados podem se atualizar automaticamente, sem intervenção. Isso é opcional em dois níveis — uma opção principal em **Settings → Updates** e uma opção individual para cada aplicativo no Supply Depot — e somente atualizações menores e de correção são aplicadas automaticamente (versões principais sempre permanecem manuais). Consulte o [guia de atualizações](/docs/updates) para saber todos os detalhes.
+
+---
+
+## Trazendo seu próprio aplicativo
+
+Além do catálogo selecionado, o Supply Depot pode executar **seu próprio contêiner Docker** como um aplicativo gerenciado junto com os demais. Clique em **Add a custom app** e informe ao NOMAD:
+
+* a **imagem** a ser baixada (por exemplo, `ghcr.io/owner/app:1.2.3`);
+* quaisquer **mapeamentos de portas**, **vinculações de volumes**, **variáveis de ambiente** e **limites de memória/CPU** necessários.
+
+Enquanto você preenche os dados, o NOMAD executa uma verificação preliminar em tempo real e avisa sobre coisas como conflitos de portas ou configurações arriscadas. Alguns avisos (como um registro não confiável ou uma tag `:latest` que não pode ser acompanhada por versão) são apenas informativos, e você pode escolher **Install anyway**; configurações realmente inseguras são bloqueadas diretamente.
+
+Depois de instalado, um aplicativo personalizado funciona como qualquer outro: recebe o mesmo menu **Manage** (Edit, Logs, Stats, Update, Remove), mostra sua versão no cartão e pode optar por receber atualizações automáticas. O NOMAD reforça a segurança das vinculações de caminhos do host e limita logs e estatísticas aos seus próprios contêineres gerenciados, de modo que um aplicativo personalizado não pode acessar nada além do que você fornecer a ele.
+
+> Um aplicativo personalizado é exatamente isso — seu. O NOMAD o executa e não interfere; ele não fornece documentação de configuração nem suporte para softwares fora do catálogo selecionado. Consulte a documentação do próprio projeto para saber como usá-lo.
 
 ---
 
 ## Stirling PDF {% #stirling-pdf %}
 
-A full toolbox for working with PDFs, all on your own hardware. Merge and split files, convert to and from PDF, compress, rotate, add or remove passwords, OCR scanned documents so they're searchable, sign, stamp, and redact. There are over 50 tools in here, and because it runs locally, none of your documents ever leave your NOMAD.
+Uma caixa de ferramentas completa para trabalhar com PDFs, tudo em seu próprio hardware. Mescle e divida arquivos, converta de e para PDF, compacte, gire, adicione ou remova senhas, use OCR em documentos digitalizados para torná-los pesquisáveis, assine, carimbe e oculte informações. São mais de 50 ferramentas, e como ele roda localmente, nenhum dos seus documentos sai do seu NOMAD.
 
-**Official site:** [stirlingpdf.com](https://stirlingpdf.com) · **Source:** [github.com/Stirling-Tools/Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF)
+**Site oficial:** [stirlingpdf.com](https://stirlingpdf.com) · **Código-fonte:** [github.com/Stirling-Tools/Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF)
 
-**First time you open it:** It opens straight to the tools, no login required. We set Stirling up to skip its login screen, since on a NOMAD it's a personal tool on your own network and a password wall just gets in the way. You'll see "Guest" in the bottom-left corner, which is normal.
+**Na primeira vez que você abrir:** Ele abre diretamente nas ferramentas, sem necessidade de login. Configuramos o Stirling para ignorar sua tela de login, já que em um NOMAD ele é uma ferramenta pessoal em sua própria rede e uma barreira de senha apenas atrapalharia. Você verá "Guest" no canto inferior esquerdo, o que é normal.
 
-**Heads up, it's a slow starter:** Stirling PDF is a big Java application. After you install it, give it 30 to 60 seconds to finish starting up before it loads cleanly. It also wants a good chunk of memory (around a gigabyte), so it's happier on a NOMAD with room to spare.
+**Atenção, ele demora para iniciar:** O Stirling PDF é uma grande aplicação Java. Depois de instalá-lo, aguarde de 30 a 60 segundos para que ele termine de iniciar antes de carregá-lo normalmente. Ele também precisa de uma boa quantidade de memória (cerca de um gigabyte), portanto funciona melhor em um NOMAD com memória disponível.
 
-**Want a password on it?** If you'd rather Stirling require a login (say a few people share your NOMAD and you want this app locked down), you can turn its login back on from NOMAD:
+**Quer colocar uma senha?** Se você preferir que o Stirling exija um login (por exemplo, se algumas pessoas compartilham seu NOMAD e você quer proteger este aplicativo), pode reativar o login pelo NOMAD:
 
-1. On the Supply Depot page, find Stirling PDF and click **Manage > Edit**.
-2. Under **Environment Variables**, change `SECURITY_ENABLELOGIN=false` to `SECURITY_ENABLELOGIN=true`.
-3. Save. NOMAD rebuilds the app, and the login screen comes back.
+1. Na página do Supply Depot, encontre o Stirling PDF e clique em **Manage > Edit**.
+2. Em **Environment Variables**, altere `SECURITY_ENABLELOGIN=false` para `SECURITY_ENABLELOGIN=true`.
+3. Salve. O NOMAD reconstrói o aplicativo e a tela de login volta a aparecer.
 
-The first time you sign in after that, use username `admin` and password `stirling`. Stirling will make you set your own password right away. Note that this is the only way to flip the login back on: Stirling's own settings menu is locked behind being logged in, so once login is off you turn it on from NOMAD's Edit screen, not from inside Stirling.
+Na primeira vez que fizer login depois disso, use o nome de usuário `admin` e a senha `stirling`. O Stirling fará com que você defina sua própria senha imediatamente. Observe que essa é a única maneira de reativar o login: o menu de configurações do próprio Stirling fica bloqueado enquanto você não estiver conectado, portanto, quando o login estiver desativado, você deve ativá-lo pela tela **Edit** do NOMAD, e não de dentro do Stirling.
 
-**Your data:** Your settings live in the `storage/stirling-pdf` folder on your NOMAD. The PDFs you work on are uploaded for the operation and downloaded back to your own device. Stirling isn't a long-term library, so it's not holding onto your documents.
+**Seus dados:** Suas configurações ficam na pasta `storage/stirling-pdf` do seu NOMAD. Os PDFs com os quais você trabalha são enviados para realizar a operação e baixados de volta para seu próprio dispositivo. O Stirling não é uma biblioteca de longo prazo, portanto não mantém seus documentos armazenados.
 
-**Where your PDFs come from (and why you don't see your NOMAD's files):** Stirling works on files from whatever device you're using, your laptop, phone, or tablet. You click "Open from computer," pick a PDF, work on it, then download the result back to that device. Stirling can't reach into files stored elsewhere on your NOMAD, so it won't show you your books folder, your Knowledge Base documents, or anything sitting in File Browser. If the PDF you want is already on your NOMAD, download it from wherever it lives first (File Browser, for example), then open that copy in Stirling. It's one extra step, but it's also why your files stay exactly where you put them instead of getting pulled into another app.
+**De onde vêm seus PDFs (e por que você não vê os arquivos do seu NOMAD):** O Stirling trabalha com arquivos do dispositivo que você estiver usando — notebook, celular ou tablet. Você clica em "Open from computer", escolhe um PDF, trabalha nele e depois baixa o resultado de volta para o dispositivo. O Stirling não consegue acessar arquivos armazenados em outras partes do seu NOMAD, portanto ele não mostrará sua pasta de livros, seus documentos da Base de Conhecimento ou qualquer coisa armazenada no File Browser. Se o PDF que você quer já estiver no seu NOMAD, baixe-o primeiro de onde estiver (do File Browser, por exemplo) e depois abra essa cópia no Stirling. É uma etapa extra, mas também é por isso que seus arquivos permanecem exatamente onde você os colocou, em vez de serem transferidos para outro aplicativo.
 
-**Works offline:** All of the PDF tools run locally on your NOMAD, so the toolbox itself works fully offline. A few side features reach out to the internet and won't do anything when you're disconnected: the "Google Drive" import option, and the links in the footer (Survey, Discord, GitHub). None of those matter for actually working on PDFs. The one core feature with an online piece is OCR, which reads text out of scanned pages: it ships with English already installed, and adding other languages is the only part that would need a connection.
+**Funciona offline:** Todas as ferramentas de PDF são executadas localmente no seu NOMAD, portanto a própria caixa de ferramentas funciona totalmente offline. Alguns recursos secundários acessam a internet e não funcionarão quando você estiver desconectado: a opção de importação do "Google Drive" e os links no rodapé (Survey, Discord, GitHub). Nenhum deles é necessário para trabalhar com PDFs. O único recurso principal que possui uma parte online é o OCR, que lê texto de páginas digitalizadas: ele já vem com o inglês instalado, e adicionar outros idiomas é a única parte que precisaria de uma conexão.
 
 ## File Browser {% #file-browser %}
 
-A web-based file manager for your NOMAD. Browse folders, upload and download files, create folders, rename, move, and delete, all from your browser with nothing to install on your computer. It's a handy way to move files on and off the device or tidy things up without dropping into a command line.
+Um gerenciador de arquivos baseado na web para seu NOMAD. Navegue pelas pastas, envie e baixe arquivos, crie pastas, renomeie, mova e exclua arquivos, tudo pelo navegador e sem precisar instalar nada no computador. É uma maneira prática de mover arquivos de e para o dispositivo ou organizar as coisas sem precisar usar uma linha de comando.
 
-**Official site:** [filebrowser.org](https://filebrowser.org) · **Source:** [github.com/filebrowser/filebrowser](https://github.com/filebrowser/filebrowser)
+**Site oficial:** [filebrowser.org](https://filebrowser.org) · **Código-fonte:** [github.com/filebrowser/filebrowser](https://github.com/filebrowser/filebrowser)
 
-**First time you open it:** You'll get a login screen. Sign in with username `admin` and password `nomad`. **Change that password right away.** It's the same default on every NOMAD, so until you change it, anyone on your network who knows it could get in. Click the settings gear, open your profile settings, and set a new password.
+**Na primeira vez que você abrir:** Você verá uma tela de login. Entre com o nome de usuário `admin` e a senha `nomad`. **Altere essa senha imediatamente.** Ela é a mesma senha padrão em todos os NOMADs, portanto, até que você a altere, qualquer pessoa na sua rede que saiba dela poderá entrar. Clique no ícone de engrenagem das configurações, abra as configurações do seu perfil e defina uma nova senha.
 
-Unlike most of the apps here, File Browser keeps its login on purpose. It can rename and delete real files on your NOMAD, so a password is the right call even on your own network.
+Diferentemente da maioria dos aplicativos daqui, o File Browser mantém seu login propositalmente. Ele pode renomear e excluir arquivos reais do seu NOMAD, portanto uma senha é a escolha certa mesmo em sua própria rede.
 
-**What you can see:** File Browser shows you your NOMAD's content folders in one place:
+**O que você pode ver:** O File Browser mostra as pastas de conteúdo do seu NOMAD em um único lugar:
 
-- **books** - e-books, including anything you want Calibre-Web to read
-- **maps** - downloaded map data
-- **media** - video, music, and photos, including anything you want Jellyfin to serve
-- **zim** - downloaded offline content like Wikipedia and other reference libraries
-- **kb_uploads** - documents you've added to the Knowledge Base
+* **books** - e-books, incluindo qualquer conteúdo que você queira que o Calibre-Web leia
+* **maps** - dados de mapas baixados
+* **media** - vídeos, músicas e fotos, incluindo qualquer conteúdo que você queira que o Jellyfin disponibilize
+* **zim** - conteúdo offline baixado, como a Wikipédia e outras bibliotecas de referência
+* **kb_uploads** - documentos que você adicionou à Base de Conhecimento
 
-You can upload, download, rename, move, and delete inside these, and anything you drop in the top level is saved too. The behind-the-scenes folders that the apps actually run on (things like the AI models, the search index, and the password vault) are deliberately kept out of File Browser, so you can't browse or delete them by accident.
+Você pode enviar, baixar, renomear, mover e excluir arquivos dentro dessas pastas, e qualquer coisa que você colocar no nível superior também será salva. As pastas internas usadas pelos aplicativos para funcionar (como os modelos de IA, o índice de pesquisa e o cofre de senhas) são deliberadamente mantidas fora do File Browser, para que você não possa navegar até elas ou excluí-las acidentalmente.
 
-> **A word on deleting:** what you delete here is really gone, there's no recycle bin. The content is mostly replaceable (you can re-download a map or a Wikipedia library), but if you delete a book or a video you added yourself, that copy is gone. Delete with the same care you would on your own computer.
+> **Uma observação sobre exclusões:** o que você excluir aqui realmente será apagado, não existe lixeira. A maior parte do conteúdo pode ser substituída (você pode baixar novamente um mapa ou uma biblioteca da Wikipédia), mas se excluir um livro ou vídeo que você adicionou pessoalmente, essa cópia será perdida. Exclua arquivos com o mesmo cuidado que teria em seu próprio computador.
 
-**Works offline:** Fully offline. File Browser runs entirely on your NOMAD and doesn't reach out to the internet for anything, so it works exactly the same connected or not.
+**Funciona offline:** Totalmente offline. O File Browser roda inteiramente no seu NOMAD e não acessa a internet para nada, portanto funciona exatamente da mesma forma conectado ou não.
 
 ## Calibre-Web {% #calibre-web %}
 
-A web-based reader and library manager for your e-book collection. Read books right in your browser, organize them by author, series, and tags, and send them to a Kindle or other e-reader. It pairs with the books folder on your NOMAD, so your whole library lives on the device and goes wherever it goes.
+Um leitor e gerenciador de biblioteca baseado na web para sua coleção de e-books. Leia livros diretamente no navegador, organize-os por autor, série e tags e envie-os para um Kindle ou outro leitor digital. Ele funciona junto com a pasta books do seu NOMAD, portanto toda a sua biblioteca fica no dispositivo e acompanha você para onde ele for.
 
-**Official site:** [github.com/janeczku/calibre-web](https://github.com/janeczku/calibre-web)
+**Site oficial:** [github.com/janeczku/calibre-web](https://github.com/janeczku/calibre-web)
 
-**First time you open it:** Calibre-Web needs a library to point at, and NOMAD sets up an empty one for you during install, so you won't get stuck on a setup error. Here's the one-time flow:
+**Na primeira vez que você abrir:** O Calibre-Web precisa de uma biblioteca para apontar, e o NOMAD configura uma vazia para você durante a instalação, então você não ficará preso a um erro de configuração. Veja o procedimento inicial:
 
-1. Open Calibre-Web. It lands on a **Database Configuration** screen.
-2. In the **Location of Calibre Database** box, type `/books` and click **Save**. You'll see "Database Settings updated" and your (empty) library opens.
-3. That's it for setup. Your library is ready to fill.
+1. Abra o Calibre-Web. Ele exibirá uma tela de **Database Configuration**.
+2. Na caixa **Location of Calibre Database**, digite `/books` e clique em **Save**. Você verá "Database Settings updated" e sua biblioteca (vazia) será aberta.
+3. Pronto. Sua biblioteca está pronta para ser preenchida.
 
-If it asks you to sign in at any point, the default login is `admin` / `admin123`. **Change that password** once you're in (click `admin` in the top right, then Edit). It's the same default on every NOMAD.
+Se ele pedir para você fazer login em algum momento, o login padrão é `admin` / `admin123`. **Altere essa senha** depois de entrar (clique em `admin` no canto superior direito e depois em Edit). É a mesma senha padrão em todos os NOMADs.
 
-**Adding books:** Uploading through the web page is turned off by default. To turn it on, go to **Admin** (top right) and edit the basic configuration to allow uploads, then you'll get an Upload button. You can also drop e-book files straight into the books folder using File Browser, then use Calibre-Web's "scan" to pick them up.
+**Adicionando livros:** O envio de arquivos pela página web está desativado por padrão. Para ativá-lo, vá até **Admin** (canto superior direito) e edite a configuração básica para permitir uploads; depois disso, aparecerá um botão Upload. Você também pode colocar arquivos de e-book diretamente na pasta books usando o File Browser e, em seguida, usar o recurso "scan" do Calibre-Web para encontrá-los.
 
-**Your data:** Your library lives in the `books` folder on your NOMAD (the same `books` you see in File Browser). Every book you add is stored there, so backing up that one folder backs up your whole collection.
+**Seus dados:** Sua biblioteca fica na pasta `books` do seu NOMAD (a mesma `books` que você vê no File Browser). Cada livro adicionado é armazenado ali, portanto fazer backup dessa única pasta faz backup de toda a sua coleção.
 
-**Works offline:** Reading and managing your library works fully offline. The one feature that reaches out to the internet is "fetch metadata," which pulls book covers and descriptions from online sources. That part won't do anything when you're offline, but it doesn't affect reading or organizing the books you already have.
+**Funciona offline:** Ler e gerenciar sua biblioteca funciona totalmente offline. O único recurso que acessa a internet é "fetch metadata", que busca capas e descrições dos livros em fontes online. Essa parte não funcionará quando você estiver offline, mas isso não afeta a leitura ou organização dos livros que você já possui.
 
 ## IT Tools {% #it-tools %}
 
-A collection of over 100 small utilities you'd otherwise go hunting for online: hash generators, base64 and URL encoders, JSON and SQL formatters, UUID generators, a QR code maker, color converters, and a lot more. It all runs locally on your NOMAD, so you can use it with no internet connection.
+Uma coleção com mais de 100 pequenos utilitários que você normalmente teria que procurar na internet: geradores de hash, codificadores base64 e de URL, formatadores de JSON e SQL, geradores de UUID, um criador de QR Code, conversores de cores e muito mais. Tudo roda localmente no seu NOMAD, então você pode usá-lo sem conexão com a internet.
 
-**Official site:** [it-tools.tech](https://it-tools.tech) · **Source:** [github.com/CorentinTh/it-tools](https://github.com/CorentinTh/it-tools)
+**Site oficial:** [it-tools.tech](https://it-tools.tech) · **Código-fonte:** [github.com/CorentinTh/it-tools](https://github.com/CorentinTh/it-tools)
 
-**First time you open it:** It opens straight to the tools. No login, no account, no setup. Pick a tool from the sidebar and use it.
+**Na primeira vez que você abrir:** Ele abre diretamente nas ferramentas. Sem login, sem conta e sem configuração. Escolha uma ferramenta na barra lateral e use-a.
 
-**Your data:** There's nothing to manage. IT Tools doesn't store anything on your NOMAD between sessions, so there are no files, no library to set up, and no credentials to keep track of. It's the simplest app in the Supply Depot.
+**Seus dados:** Não há nada para gerenciar. O IT Tools não armazena nada no seu NOMAD entre as sessões, portanto não existem arquivos, biblioteca para configurar ou credenciais para acompanhar. É o aplicativo mais simples do Supply Depot.
 
-**Works offline:** Every tool runs right in your browser against the copy on your NOMAD. Nothing here reaches out to the internet, so all of it keeps working when you're offline.
+**Funciona offline:** Cada ferramenta roda diretamente no seu navegador usando a cópia presente no seu NOMAD. Nada aqui acessa a internet, então tudo continua funcionando quando você estiver offline.
 
 ## Excalidraw {% #excalidraw %}
 
-A virtual whiteboard for quick, hand-drawn-style diagrams and sketches. Draw boxes, arrows, and freehand shapes, drop in text and images, and lay out a flowchart, a network diagram, or a rough idea in seconds. The whole thing has a friendly, sketched-on-a-napkin look, and it runs right in your browser.
+Uma lousa virtual para criar rapidamente diagramas e esboços com aparência desenhada à mão. Desenhe caixas, setas e formas à mão livre, adicione textos e imagens e monte um fluxograma, um diagrama de rede ou uma ideia inicial em poucos segundos. Tudo tem uma aparência amigável, como se tivesse sido desenhado em um guardanapo, e roda diretamente no navegador.
 
-**Official site:** [excalidraw.com](https://excalidraw.com) · **Source:** [github.com/excalidraw/excalidraw](https://github.com/excalidraw/excalidraw)
+**Site oficial:** [excalidraw.com](https://excalidraw.com) · **Código-fonte:** [github.com/excalidraw/excalidraw](https://github.com/excalidraw/excalidraw)
 
-**First time you open it:** It opens straight to a blank canvas. No login, no account, no setup. Pick a shape from the toolbar and start drawing. You'll see a short welcome note reminding you that your work is saved in your browser, which leads to the one thing worth understanding about Excalidraw on NOMAD.
+**Na primeira vez que você abrir:** Ele abre diretamente em uma tela em branco. Sem login, sem conta e sem configuração. Escolha uma forma na barra de ferramentas e comece a desenhar. Você verá uma pequena mensagem de boas-vindas lembrando que seu trabalho é salvo no navegador, o que leva ao ponto mais importante para entender sobre o Excalidraw no NOMAD.
 
-**Where your drawings live (read this part):** This version of Excalidraw has no storage on your NOMAD. Your drawing is saved inside the web browser you're using, on that one device. A few things follow from that:
+**Onde seus desenhos ficam (leia esta parte):** Esta versão do Excalidraw não possui armazenamento no seu NOMAD. Seu desenho é salvo dentro do navegador que você está usando, naquele dispositivo específico. Isso traz algumas consequências:
 
-- Your drawing is **not shared between devices**. What you draw on your laptop won't show up when you open Excalidraw on your phone, because each browser keeps its own copy.
-- If you **clear your browser data**, or use a private/incognito window, the drawing is gone. There's no copy on the NOMAD to fall back on.
-- So **save your work to a file.** Use the menu (top-left) to **Save to...** an `.excalidraw` file, and put it somewhere safe, for example your media or documents folder via File Browser. To pick it back up later, use **Open** and load that file. This is the only way to keep a drawing for the long term or move it to another device.
+* Seu desenho **não é compartilhado entre dispositivos**. O que você desenhar no notebook não aparecerá quando abrir o Excalidraw no celular, porque cada navegador mantém sua própria cópia.
+* Se você **limpar os dados do navegador** ou usar uma janela privada/anônima, o desenho será perdido. Não existe uma cópia no NOMAD para recuperar.
+* Portanto, **salve seu trabalho em um arquivo.** Use o menu (canto superior esquerdo) para **Save to...** um arquivo `.excalidraw` e coloque-o em um local seguro, por exemplo, na pasta de mídia ou documentos usando o File Browser. Para continuar trabalhando nele depois, use **Open** e carregue esse arquivo. Essa é a única maneira de manter um desenho por longo prazo ou movê-lo para outro dispositivo.
 
-**Your data:** Because everything stays in your browser, there are no NOMAD folders or credentials to manage for Excalidraw. The files you save are wherever you choose to put them.
+**Seus dados:** Como tudo permanece no navegador, não há pastas ou credenciais do NOMAD para gerenciar no Excalidraw. Os arquivos que você salvar ficarão onde você escolher colocá-los.
 
-**Works offline:** The whiteboard itself works offline, you can draw, edit, and save files with no internet. Three things to know:
+**Funciona offline:** A lousa funciona offline; você pode desenhar, editar e salvar arquivos sem internet. Três coisas devem ser observadas:
 
-- **The signature hand-drawn font comes from the internet.** When your NOMAD is offline, Excalidraw can't fetch it and falls back to a plain font, so your diagrams look a little less sketchy. Your drawings themselves are completely unaffected, only the on-screen font changes.
-- **Excalidraw sends anonymous usage analytics when your NOMAD is online.** The app's makers include basic page-view tracking (through a service called Simple Analytics) that records that the app was opened. It doesn't see your drawings, and it can't reach anything when your NOMAD is offline, but we want you to know it's there since NOMAD is otherwise built to keep to itself.
-- **A few buttons are cloud features that don't work on NOMAD.** "Live collaboration," "Sign up," and "Excalidraw+" all point to the makers' paid online service and need the internet. They're not part of your offline whiteboard, so you can ignore them. The same goes for the shape **Library** browser, which pulls from an online gallery.
+* **A fonte característica de desenho à mão vem da internet.** Quando seu NOMAD estiver offline, o Excalidraw não conseguirá buscá-la e usará uma fonte simples como alternativa, então seus diagramas parecerão um pouco menos desenhados à mão. Seus desenhos não são afetados; apenas a fonte exibida na tela muda.
+* **O Excalidraw envia análises de uso anônimas quando seu NOMAD está online.** Os desenvolvedores do aplicativo incluem um rastreamento básico de visualizações de página (por meio de um serviço chamado Simple Analytics) que registra que o aplicativo foi aberto. Ele não vê seus desenhos e não consegue acessar nada quando seu NOMAD está offline, mas queremos que você saiba que isso existe, já que o NOMAD foi desenvolvido para manter esse tipo de comunicação ao mínimo.
+* **Alguns botões são recursos de nuvem que não funcionam no NOMAD.** "Live collaboration", "Sign up" e "Excalidraw+" apontam para o serviço online pago dos desenvolvedores e precisam de internet. Eles não fazem parte da lousa offline, então você pode ignorá-los. O mesmo vale para o navegador da **Library** de formas, que busca conteúdo de uma galeria online.
 
 ## Homebox {% #homebox %}
 
-A home inventory system for keeping track of everything you own. Catalog your belongings into locations and labels, attach photos, record serial numbers, purchase prices, warranty dates, and receipts, and find anything with a search. It's a genuinely useful tool for insurance records, warranty tracking, and knowing what you have and where it is.
+Um sistema de inventário doméstico para manter o controle de tudo o que você possui. Catalogue seus pertences por locais e etiquetas, adicione fotos, registre números de série, preços de compra, datas de garantia e recibos e encontre qualquer coisa usando a pesquisa. É uma ferramenta realmente útil para registros de seguro, acompanhamento de garantias e para saber o que você possui e onde está.
 
-**Official site:** [homebox.software](https://homebox.software) · **Source:** [github.com/sysadminsmedia/homebox](https://github.com/sysadminsmedia/homebox)
+**Site oficial:** [homebox.software](https://homebox.software) · **Código-fonte:** [github.com/sysadminsmedia/homebox](https://github.com/sysadminsmedia/homebox)
 
-**First time you open it:** Homebox lands on a login screen, but you don't have an account yet, so you create one. Click **Register**, then fill in:
+**Na primeira vez que você abrir:** O Homebox exibirá uma tela de login, mas você ainda não possui uma conta, então deverá criar uma. Clique em **Register** e preencha:
 
-- **your email** (used as your username to log in),
-- **your name**,
-- **a password** (Homebox shows a strength meter and won't let you register until the password is strong enough, so use a real one).
+* **seu e-mail** (usado como nome de usuário para fazer login);
+* **seu nome**;
+* **uma senha** (o Homebox mostra um indicador de força e não permitirá o cadastro até que a senha seja forte o suficiente, então use uma senha de verdade).
 
-Click **Register**, then log in with that email and password. The first account you create is the **owner** of this Homebox. There are no default credentials to change, the account is yours from the start.
+Clique em **Register** e faça login com esse e-mail e senha. A primeira conta criada será o **proprietário** deste Homebox. Não existem credenciais padrão para alterar; a conta é sua desde o início.
 
-**Sharing your NOMAD with others?** By default Homebox lets anyone who can reach it create their own account. That's fine if it's just you, or if you trust everyone on your network. If you'd rather lock it down so no one else can register after you've made your account:
+**Compartilhando seu NOMAD com outras pessoas?** Por padrão, o Homebox permite que qualquer pessoa que consiga acessá-lo crie sua própria conta. Isso é adequado se você estiver sozinho ou confiar em todos na sua rede. Se preferir bloqueá-lo para que ninguém mais possa se cadastrar depois que você criar sua conta:
 
-1. Create your owner account first (above).
-2. On the Supply Depot page, find Homebox and click **Manage > Edit**.
-3. Under **Environment Variables**, add `HBOX_OPTIONS_ALLOW_REGISTRATION=false`.
-4. Save. NOMAD rebuilds the app, and the Register button stops creating new accounts. You can still log in normally.
+1. Crie primeiro sua conta de proprietário (acima).
+2. Na página do Supply Depot, encontre o Homebox e clique em **Manage > Edit**.
+3. Em **Environment Variables**, adicione `HBOX_OPTIONS_ALLOW_REGISTRATION=false`.
+4. Salve. O NOMAD reconstrói o aplicativo e o botão Register deixa de criar novas contas. Você ainda poderá fazer login normalmente.
 
-**Your data:** Everything Homebox stores lives in one folder on your NOMAD, `storage/homebox`, as a single database file (plus any photos and receipts you attach). Backing up that one folder backs up your entire inventory.
+**Seus dados:** Tudo o que o Homebox armazena fica em uma única pasta do seu NOMAD, `storage/homebox`, como um único arquivo de banco de dados (além de quaisquer fotos e recibos anexados). Fazer backup dessa única pasta faz backup de todo o seu inventário.
 
-**Works offline:** Fully offline. Homebox runs entirely on your NOMAD, keeps all your data locally, and has no usage tracking, so it works exactly the same whether your NOMAD is connected or not. The links in its header (GitHub, Discord, the project website) need the internet, but they're just shortcuts to the project's pages and have nothing to do with your inventory.
+**Funciona offline:** Totalmente offline. O Homebox roda inteiramente no seu NOMAD, mantém todos os seus dados localmente e não possui rastreamento de uso, portanto funciona exatamente da mesma maneira com ou sem conexão. Os links no cabeçalho (GitHub, Discord e o site do projeto) precisam de internet, mas são apenas atalhos para as páginas do projeto e não têm nenhuma relação com seu inventário.
 
 ## Vaultwarden {% #vaultwarden %}
 
-A private password manager that runs on your own NOMAD. It's compatible with Bitwarden, so you can store logins, secure notes, and card details in an encrypted vault, and use the official Bitwarden browser extensions and phone apps to access it, all pointed at your NOMAD instead of someone else's cloud.
+Um gerenciador de senhas privado que roda no seu próprio NOMAD. Ele é compatível com o Bitwarden, portanto você pode armazenar logins, notas seguras e dados de cartões em um cofre criptografado e usar as extensões oficiais do navegador e aplicativos de celular do Bitwarden para acessá-los, tudo apontando para seu NOMAD em vez da nuvem de outra pessoa.
 
-**Official site:** [bitwarden.com](https://bitwarden.com) (for the apps and extensions) · **Source:** [github.com/dani-garcia/vaultwarden](https://github.com/dani-garcia/vaultwarden)
+**Site oficial:** [bitwarden.com](https://bitwarden.com) (para os aplicativos e extensões) · **Código-fonte:** [github.com/dani-garcia/vaultwarden](https://github.com/dani-garcia/vaultwarden)
 
-**First time you open it, you'll see a security warning. That's expected, here's why:** A password manager will only run over a secure (HTTPS) connection, so NOMAD sets Vaultwarden up with HTTPS automatically. Because your NOMAD is your own private device and not a public website, it uses a self-signed security certificate, and browsers show a warning the first time they see one. It looks alarming but it's normal for a device on your own network. To get past it once:
+**Na primeira vez que você abrir, verá um aviso de segurança. Isso é esperado; veja o motivo:** Um gerenciador de senhas só funcionará por meio de uma conexão segura (HTTPS), então o NOMAD configura o Vaultwarden automaticamente com HTTPS. Como seu NOMAD é seu próprio dispositivo privado e não um site público, ele usa um certificado de segurança autoassinado, e os navegadores exibem um aviso na primeira vez que encontram um. Parece preocupante, mas é normal para um dispositivo em sua própria rede. Para passar por isso uma vez:
 
-1. Click **Open** on the Vaultwarden card. Your browser shows something like *"Your connection is not private"* or *"Not secure."*
-2. Click **Advanced**, then **Proceed to (your NOMAD's address)**. (On some browsers the button says "Continue" or "Accept the Risk.")
-3. You'll land on the Vaultwarden vault. Your browser remembers your choice, so you won't see the warning again on that device.
+1. Clique em **Open** no cartão do Vaultwarden. Seu navegador exibirá algo como *"Your connection is not private"* ou *"Not secure."*
+2. Clique em **Advanced** e depois em **Proceed to (your NOMAD's address)**. (Em alguns navegadores, o botão aparece como "Continue" ou "Accept the Risk.")
+3. Você chegará ao cofre do Vaultwarden. Seu navegador lembrará da escolha, portanto o aviso não aparecerá novamente nesse dispositivo.
 
-**Creating your vault:** On the login page, click **Create account**, then set your **email** and a **master password**.
+**Criando seu cofre:** Na página de login, clique em **Create account** e defina seu **e-mail** e uma **senha mestra**.
 
-> **Your master password cannot be recovered.** Vaultwarden has no "forgot password" email and no reset, by design, because it never sees your password. If you forget it, the vault and everything in it is locked for good. Choose something strong that you won't lose, and consider writing it down somewhere physically safe.
+> **Sua senha mestra não pode ser recuperada.** O Vaultwarden não possui e-mail de "esqueci minha senha" nem redefinição, por design, porque ele nunca vê sua senha. Se você esquecê-la, o cofre e tudo o que estiver nele ficarão bloqueados para sempre. Escolha algo forte que você não perderá e considere anotá-la em algum lugar fisicamente seguro.
 
-**Sharing your NOMAD with others?** By default anyone who can reach Vaultwarden can create their own account (each account is separate and encrypted). If you'd rather no one else can register after you've set yours up:
+**Compartilhando seu NOMAD com outras pessoas?** Por padrão, qualquer pessoa que consiga acessar o Vaultwarden pode criar sua própria conta (cada conta é separada e criptografada). Se preferir impedir que outras pessoas se cadastrem depois de configurar sua conta:
 
-1. Create your own account first.
-2. On the Supply Depot page, find Vaultwarden and click **Manage > Edit**.
-3. Under **Environment Variables**, add `SIGNUPS_ALLOWED=false`.
-4. Save. NOMAD rebuilds the app and new sign-ups are turned off; existing accounts keep working.
+1. Crie primeiro sua própria conta.
+2. Na página do Supply Depot, encontre o Vaultwarden e clique em **Manage > Edit**.
+3. Em **Environment Variables**, adicione `SIGNUPS_ALLOWED=false`.
+4. Salve. O NOMAD reconstrói o aplicativo e novos cadastros são desativados; as contas existentes continuam funcionando.
 
-**Using it from your phone and browser:** Install the official Bitwarden app or browser extension, and on its login screen choose **self-hosted** (or "Server URL") and enter `https://(your NOMAD's address):8480`. Note that some phone apps are stricter about self-signed certificates and may refuse to connect; the web vault you open from NOMAD always works.
+**Usando no celular e no navegador:** Instale o aplicativo oficial do Bitwarden ou a extensão do navegador e, na tela de login, escolha **self-hosted** (ou "Server URL") e informe `https://(your NOMAD's address):8480`. Observe que alguns aplicativos de celular são mais rigorosos com certificados autoassinados e podem se recusar a conectar; o cofre web que você abre pelo NOMAD sempre funciona.
 
-**Your data:** Your encrypted vault lives in the `storage/vaultwarden` folder on your NOMAD. Backing up that folder backs up everything. (The built-in admin panel is turned off unless you set an admin token, which most people don't need.)
+**Seus dados:** Seu cofre criptografado fica na pasta `storage/vaultwarden` do seu NOMAD. Fazer backup dessa pasta faz backup de tudo. (O painel administrativo integrado fica desativado, a menos que você defina um token de administrador, algo de que a maioria das pessoas não precisa.)
 
-**Works offline:** Fully offline and private. Vaultwarden runs entirely on your NOMAD, stores your vault locally, and phones home to nobody. The Bitwarden apps and extensions also keep a local copy of your vault, so they can read your passwords even when your NOMAD or your phone is offline.
+**Funciona offline:** Totalmente offline e privado. O Vaultwarden roda inteiramente no seu NOMAD, armazena seu cofre localmente e não envia informações para nenhum servidor externo. Os aplicativos e extensões do Bitwarden também mantêm uma cópia local do seu cofre, portanto podem ler suas senhas mesmo quando o NOMAD ou seu celular estiver offline.
 
 ## Jellyfin {% #jellyfin %}
 
-Your own media server. Point Jellyfin at a folder of movies, TV shows, music, and photos on your NOMAD, and it organizes everything with artwork and details and streams it to a web browser, phone, tablet, smart TV, or the Jellyfin apps. It's a private, offline alternative to the big streaming services for media you already own.
+Seu próprio servidor de mídia. Aponte o Jellyfin para uma pasta de filmes, séries, músicas e fotos no seu NOMAD, e ele organiza tudo com capas e informações e transmite o conteúdo para um navegador, celular, tablet, Smart TV ou para os aplicativos do Jellyfin. É uma alternativa privada e offline aos grandes serviços de streaming para as mídias que você já possui.
 
-**Official site:** [jellyfin.org](https://jellyfin.org) · **Source:** [github.com/jellyfin/jellyfin](https://github.com/jellyfin/jellyfin)
+**Site oficial:** [jellyfin.org](https://jellyfin.org) · **Código-fonte:** [github.com/jellyfin/jellyfin](https://github.com/jellyfin/jellyfin)
 
-**First time you open it, you'll go through a setup wizard.** It's a few quick screens:
+**Na primeira vez que você abrir, passará por um assistente de configuração.** São algumas telas rápidas:
 
-1. **Language** - pick your display language and click Next.
-2. **Create your admin account** - enter a username and password. This is the main account that controls the server, so give it a real password and keep track of it. (You can add more users, including limited ones for kids, later from the Dashboard.)
-3. **Add your media** - click **Add Media Library** and pick a content type. To make this easy, NOMAD has already created a matching folder for each type inside your media folder, so you just point each library at the one that fits:
-   - **Movies** library → the `Movies` folder
-   - **Shows** library → the `TV Shows` folder
-   - **Music** library → the `Music` folder
-   - **Photos** library → the `Photos` folder
+1. **Idioma** - escolha o idioma de exibição e clique em Next.
+2. **Crie sua conta de administrador** - informe um nome de usuário e uma senha. Essa é a conta principal que controla o servidor, portanto use uma senha real e mantenha-a guardada. (Você poderá adicionar mais usuários, incluindo usuários com acesso limitado para crianças, posteriormente pelo Dashboard.)
+3. **Adicione sua mídia** - clique em **Add Media Library** e escolha um tipo de conteúdo. Para facilitar, o NOMAD já criou uma pasta correspondente para cada tipo dentro da sua pasta de mídia, então basta apontar cada biblioteca para a pasta apropriada:
 
-   **Point each library at its own folder, not at the whole `media` folder.** This matters: if you point one library at `media` itself (which contains all the others) and another library at, say, `Music` inside it, Jellyfin sees the same files claimed twice, calls it a "duplicate path," and your music silently won't show up. One folder per library keeps everything tidy and working. You can also skip this step and add libraries later from the Dashboard.
-4. **Metadata, remote access, finish** - accept the defaults on the remaining screens and finish. Then sign in with the account you just made.
+   * Biblioteca **Movies** → a pasta `Movies`
+   * Biblioteca **Shows** → a pasta `TV Shows`
+   * Biblioteca **Music** → a pasta `Music`
+   * Biblioteca **Photos** → a pasta `Photos`
 
-**Getting your media in:** Put your files in the matching subfolder of the **media** folder on your NOMAD (the same `media` folder you see in File Browser): movies in **Movies**, series in **TV Shows**, music in **Music** (a folder per album works great), pictures in **Photos**. The easiest workflow is to upload files with File Browser (or drop them in however you like), then in Jellyfin click **Scan Library** to pick them up. Jellyfin reads sub-folders, so a whole album folder dropped into **Music** comes in as one album. It also works best when files are named clearly (for example `Movie Name (2020).mp4`), which helps it match the right artwork and details.
+   **Aponte cada biblioteca para sua própria pasta, e não para a pasta `media` inteira.** Isso é importante: se você apontar uma biblioteca para a própria pasta `media` (que contém todas as outras) e outra biblioteca para, por exemplo, `Music` dentro dela, o Jellyfin verá os mesmos arquivos duas vezes, identificará isso como um "duplicate path" e sua música silenciosamente não aparecerá. Uma pasta por biblioteca mantém tudo organizado e funcionando. Você também pode pular esta etapa e adicionar bibliotecas posteriormente pelo Dashboard.
+4. **Metadados, acesso remoto, finalização** - aceite as opções padrão nas telas restantes e conclua. Depois, faça login com a conta que acabou de criar.
 
-**Your data:** Your media lives in `storage/media`. Jellyfin's own settings, user accounts, and the artwork it downloads live in `storage/jellyfin`. Your media files are never modified, Jellyfin only reads them.
+**Colocando sua mídia:** Coloque seus arquivos na subpasta correspondente da pasta **media** no seu NOMAD (a mesma pasta `media` que você vê no File Browser): filmes em **Movies**, séries em **TV Shows**, músicas em **Music** (uma pasta por álbum funciona muito bem) e imagens em **Photos**. O fluxo mais fácil é enviar os arquivos pelo File Browser (ou colocá-los como preferir) e depois clicar em **Scan Library** no Jellyfin para que sejam encontrados. O Jellyfin lê subpastas, portanto uma pasta inteira de álbum colocada em **Music** será adicionada como um único álbum. Ele também funciona melhor quando os arquivos possuem nomes claros (por exemplo, `Movie Name (2020).mp4`), o que ajuda a encontrar a capa e as informações corretas.
 
-**Works offline:** Streaming your own media works fully offline, that's the whole point. The one piece that uses the internet is **fetching metadata**: when Jellyfin adds a movie or show, it tries to download a cover image, description, and cast info from online databases. Offline, it can't do that, so items show up with plain names and no artwork, but they still play perfectly. Once you're back online, a library scan fills in the missing artwork.
+**Seus dados:** Sua mídia fica em `storage/media`. As próprias configurações do Jellyfin, contas de usuários e capas que ele baixa ficam em `storage/jellyfin`. Seus arquivos de mídia nunca são modificados; o Jellyfin apenas os lê.
 
-> **A note on playback performance:** Jellyfin plays most files effortlessly, but if a video's format isn't supported by your device, Jellyfin has to convert it on the fly ("transcoding"), which is heavy work for the processor. NOMAD doesn't set up graphics-card acceleration for this by default, so very large or high-resolution videos may stutter on a modest NOMAD. Playing files in a widely-supported format (like MP4/H.264) avoids transcoding and plays smoothest.
+**Funciona offline:** Transmitir sua própria mídia funciona totalmente offline — esse é justamente o objetivo. A única parte que usa a internet é a **busca de metadados**: quando o Jellyfin adiciona um filme ou série, ele tenta baixar uma imagem de capa, descrição e informações do elenco a partir de bancos de dados online. Offline, ele não consegue fazer isso, então os itens aparecem apenas com nomes simples e sem capas, mas continuam sendo reproduzidos normalmente. Quando você voltar a ficar online, uma verificação da biblioteca preencherá as capas que estavam faltando.
+
+> **Uma observação sobre o desempenho da reprodução:** O Jellyfin reproduz a maioria dos arquivos sem dificuldades, mas se o formato de um vídeo não for compatível com seu dispositivo, o Jellyfin precisará convertê-lo em tempo real ("transcoding"), o que exige bastante do processador. O NOMAD não configura aceleração por placa de vídeo para isso por padrão, portanto vídeos muito grandes ou de alta resolução podem apresentar travamentos em um NOMAD mais modesto. Reproduzir arquivos em um formato amplamente compatível (como MP4/H.264) evita o transcoding e proporciona a reprodução mais fluida.
 
 ## Meshtastic Web {% #meshtastic-web %}
 
-A browser-based control panel for [Meshtastic](https://meshtastic.org) devices. Meshtastic is off-grid, long-range radio messaging: small, inexpensive LoRa radios that form their own mesh network and send text messages and GPS locations for miles with no cell service, no internet, and no fees. This app is how you configure those radios and read and send messages from a full-size screen.
+Um painel de controle baseado no navegador para dispositivos [Meshtastic](https://meshtastic.org). Meshtastic é um sistema de mensagens de rádio de longo alcance e fora da rede convencional: pequenos rádios LoRa baratos que formam sua própria rede mesh e enviam mensagens de texto e localizações GPS por quilômetros, sem serviço de celular, sem internet e sem tarifas. Este aplicativo permite configurar esses rádios e ler e enviar mensagens usando uma tela grande.
 
-**Official site:** [meshtastic.org](https://meshtastic.org) · **Source:** [github.com/meshtastic/web](https://github.com/meshtastic/web)
+**Site oficial:** [meshtastic.org](https://meshtastic.org) · **Código-fonte:** [github.com/meshtastic/web](https://github.com/meshtastic/web)
 
-**You need a Meshtastic radio to use this.** This app is just the control panel. On its own it opens to a "No devices connected" screen, because the actual work happens on a physical Meshtastic device (and the network of other radios it talks to). If you don't have one yet, the app won't do much.
+**Você precisa de um rádio Meshtastic para usar este aplicativo.** Este aplicativo é apenas o painel de controle. Sozinho, ele abre em uma tela "No devices connected", porque o trabalho de fato acontece em um dispositivo Meshtastic físico (e na rede de outros rádios com os quais ele se comunica). Se você ainda não possui um, o aplicativo não fará muita coisa.
 
-**First time you open it:** It opens straight in, no login. Click **New Connection** and you'll see three ways to connect to your radio:
+**Na primeira vez que você abrir:** Ele abre diretamente, sem login. Clique em **New Connection** e você verá três maneiras de conectar seu rádio:
 
-- **HTTP** - connect to a radio that's already joined to your Wi-Fi, by typing its IP address. **This is the method to use on NOMAD** (see below).
-- **Bluetooth** - pair with a nearby radio over Bluetooth.
-- **Serial** - connect to a radio plugged into a USB port.
+* **HTTP** - conecta-se a um rádio que já esteja conectado à sua rede Wi-Fi, informando o endereço IP dele. **Este é o método que deve ser usado no NOMAD** (veja abaixo).
+* **Bluetooth** - emparelha com um rádio próximo por Bluetooth.
+* **Serial** - conecta-se a um rádio conectado a uma porta USB.
 
-**The NOMAD-specific catch (Bluetooth and Serial need HTTPS):** Browsers only allow a website to use Bluetooth or USB when the page is loaded over a secure (HTTPS) connection. NOMAD serves Meshtastic Web over plain HTTP, so on NOMAD the **Bluetooth and Serial options won't connect**, your browser blocks them. The one that works is **HTTP**: put your Meshtastic radio on the same Wi-Fi network (Meshtastic radios can join Wi-Fi), then connect to it here by its IP address. If you specifically need to pair over USB or Bluetooth, do that from the official Meshtastic phone app or the Meshtastic website instead.
+**A particularidade do NOMAD (Bluetooth e Serial precisam de HTTPS):** Os navegadores só permitem que um site use Bluetooth ou USB quando a página é carregada por uma conexão segura (HTTPS). O NOMAD disponibiliza o Meshtastic Web por HTTP simples, portanto, no NOMAD, as opções **Bluetooth** e **Serial** não conseguirão se conectar, pois o navegador as bloqueia. A opção que funciona é **HTTP**: conecte seu rádio Meshtastic à mesma rede Wi-Fi (os rádios Meshtastic podem se conectar ao Wi-Fi) e conecte-se a ele aqui usando seu endereço IP. Se você precisar especificamente fazer o pareamento por USB ou Bluetooth, faça isso pelo aplicativo oficial do Meshtastic para celular ou pelo site do Meshtastic.
 
-**Your data:** There's nothing to set up or store on your NOMAD for this app. Your radio's settings live on the radio itself, and this app's preferences live in your browser. There's no NOMAD folder to manage.
+**Seus dados:** Não há nada para configurar ou armazenar no seu NOMAD para este aplicativo. As configurações do seu rádio ficam no próprio rádio, e as preferências deste aplicativo ficam no seu navegador. Não há nenhuma pasta do NOMAD para gerenciar.
 
-**Works offline:** Fully offline, which is the entire point of Meshtastic. The app is served from your NOMAD, and talking to your radios happens over your local network or radio, never the internet. The only online bits are the links in the footer (Vercel, legal), which don't matter for using your mesh.
+**Funciona offline:** Totalmente offline, que é justamente o objetivo do Meshtastic. O aplicativo é servido pelo seu NOMAD, e a comunicação com seus rádios acontece pela sua rede local ou pelo próprio rádio, nunca pela internet. As únicas partes online são os links no rodapé (Vercel, legal), que não fazem diferença para usar sua rede mesh.
 
-## Education Platform (Kolibri) {% #kolibri %}
+## Plataforma de Educação (Kolibri) {% #kolibri %}
 
-A complete offline learning platform from Learning Equality. Kolibri pulls together video lessons, exercises, and readings into structured channels, organizes them into classes and lessons, tracks learner progress, and works entirely on your NOMAD with no internet. It's built for schools and learners in places with little or no connectivity.
+Uma plataforma completa de aprendizado offline da Learning Equality. O Kolibri reúne aulas em vídeo, exercícios e leituras em canais estruturados, organiza-os em turmas e lições, acompanha o progresso dos alunos e funciona inteiramente no seu NOMAD sem internet. Ele foi desenvolvido para escolas e alunos em locais com pouca ou nenhuma conectividade.
 
-**Official site:** [learningequality.org/kolibri](https://learningequality.org/kolibri) · **Source:** [github.com/learningequality/kolibri](https://github.com/learningequality/kolibri)
+**Site oficial:** [learningequality.org/kolibri](https://learningequality.org/kolibri) · **Código-fonte:** [github.com/learningequality/kolibri](https://github.com/learningequality/kolibri)
 
-**First time you open it, you'll go through a quick setup wizard.** Pick your facility type and create the **admin account** (this is the super-user that manages the whole device, so give it a real password and keep track of it). Once you're in, you import learning content as **channels**.
+**Na primeira vez que você abrir, passará por um rápido assistente de configuração.** Escolha o tipo da sua instituição e crie a **conta de administrador** (este é o superusuário que gerencia todo o dispositivo, portanto use uma senha real e mantenha-a guardada). Depois de entrar, você importa o conteúdo educacional como **canais**.
 
-**Importing content:** Kolibri's content is delivered as channels you import. Open **Device → Channels → Import**, and either pull channels from Kolibri Studio (online) or import from a local drive or another Kolibri device if you already have the content files. There's a lot available, so import just the channels you need; they can be large.
+**Importando conteúdo:** O conteúdo do Kolibri é distribuído como canais que você importa. Abra **Device → Channels → Import** e escolha entre obter canais do Kolibri Studio (online) ou importar de uma unidade local ou de outro dispositivo Kolibri caso você já tenha os arquivos de conteúdo. Há muito conteúdo disponível, portanto importe apenas os canais necessários; eles podem ser grandes.
 
-**Migrating content from Education Platform (Gen 1):** Earlier NOMAD releases shipped a much older Kolibri (the `treehouses/kolibri:0.12.8` image). The Education Platform "Gen 2" is a newer, upstream-official Kolibri and installs **fresh** — your old channels and learner data are **not** carried over automatically, because the two versions store data too differently to migrate safely. If you were running the old one and want to import your existing channels into the new one, here's the process:
+**Migrando conteúdo da Plataforma de Educação (Gen 1):** As versões anteriores do NOMAD incluíam uma versão muito mais antiga do Kolibri (a imagem `treehouses/kolibri:0.12.8`). A Plataforma de Educação "Gen 2" é uma versão mais nova e oficial do Kolibri e é instalada **do zero** — seus canais antigos e dados dos alunos **não são transferidos automaticamente**, porque as duas versões armazenam os dados de maneiras muito diferentes para que uma migração segura seja possível. Se você estava usando a versão antiga e deseja importar seus canais existentes para a nova, siga este processo:
 
-1. Install "Education Platform (Gen 2)" from the catalog (it runs alongside the old one on a different port, so nothing is disrupted while you set it up).
-2. Launch the new one, walk through the setup wizard, then from the sidebar menu, navigate to **Device > Channels > Import**. Choose the "Local network or internet" option, and then "Add new device". In the dialog that appears, enter the IP address of your NOMAD with the old Education Platform port (8300 by default, so for example `http://192.168.1.36:8300`), give it a name (anything you'd like), and click "Add", and then "Continue". 
-3. You can now select individual channels from the old Education Platform, or choose "Select entire channels instead" to import everything at once. Click "Import" when ready, and the transfer will start.
-3. Once you're happy with the new install and have any content copied over, uninstall the old Education Platform from its card (it carries a **legacy** badge). It's also recommended to choose to remove the old image and data volume when uninstalling to avoid confusion and free up space, but if you want to keep it around for a while just in case, that's totally fine too.
+1. Instale a "Education Platform (Gen 2)" pelo catálogo (ela funciona junto com a antiga em uma porta diferente, portanto nada é interrompido enquanto você a configura).
+2. Inicie a nova versão, siga o assistente de configuração e, no menu lateral, navegue até **Device > Channels > Import**. Escolha a opção "Local network or internet" e depois "Add new device". Na janela exibida, informe o endereço IP do seu NOMAD com a porta da antiga Education Platform (8300 por padrão, por exemplo, `http://192.168.1.36:8300`), dê um nome a ela (qualquer nome que desejar), clique em "Add" e depois em "Continue".
+3. Agora você pode selecionar canais individuais da antiga Education Platform ou escolher "Select entire channels instead" para importar tudo de uma vez. Clique em "Import" quando estiver pronto e a transferência começará.
+4. Quando estiver satisfeito com a nova instalação e tiver copiado o conteúdo necessário, desinstale a antiga Education Platform pelo cartão dela (ela possui um indicador **legacy**). Também é recomendado escolher a remoção da imagem e do volume de dados antigos ao desinstalar para evitar confusão e liberar espaço, mas se quiser mantê-la por algum tempo, apenas por segurança, não há problema.
 
-**Your data:** Your imported channels, classes, and learner progress live in the `storage/kolibri-gen2` folder on your NOMAD. Backing up that folder backs up your whole Kolibri.
+**Seus dados:** Seus canais importados, turmas e progresso dos alunos ficam na pasta `storage/kolibri-gen2` do seu NOMAD. Fazer backup dessa pasta faz backup de todo o seu Kolibri.
 
-**Works offline:** Fully offline once content is imported, that's what Kolibri is for. The only step that uses the internet is importing channels from Kolibri Studio; everything after that, browsing lessons, doing exercises, tracking progress, runs entirely on your NOMAD.
+**Funciona offline:** Totalmente offline depois que o conteúdo for importado — é para isso que o Kolibri existe. A única etapa que usa a internet é importar canais do Kolibri Studio; depois disso, navegar pelas lições, fazer exercícios e acompanhar o progresso funciona inteiramente no seu NOMAD.
+
 ## MeshCore Web {% #meshcore-web %}
 
-A browser-based client for [MeshCore](https://meshcore.io) radios. MeshCore is another take on off-grid, long-range LoRa mesh messaging, a sibling to Meshtastic: small radios that form their own network and pass text and location for miles with no cell service, no internet, and no fees. This app is how you configure a MeshCore radio and read and send messages from a full-size screen. If you're not already running MeshCore gear, the Meshtastic client above is the more common starting point. This one is here for people who use MeshCore.
+Um cliente baseado no navegador para rádios [MeshCore](https://meshcore.io). MeshCore é outra opção de comunicação mesh LoRa de longo alcance e fora da rede convencional, semelhante ao Meshtastic: pequenos rádios que formam sua própria rede e transmitem textos e localização por quilômetros, sem serviço de celular, sem internet e sem tarifas. Este aplicativo permite configurar um rádio MeshCore e ler e enviar mensagens usando uma tela grande. Se você ainda não utiliza equipamentos MeshCore, o cliente Meshtastic acima é o ponto de partida mais comum. Este está aqui para quem utiliza MeshCore.
 
-**Official site:** [meshcore.io](https://meshcore.io) · **Source:** [github.com/aXistem-dev/meshcore-web](https://github.com/aXistem-dev/meshcore-web) (a packaged build of Liam Cottle's MeshCore client)
+**Site oficial:** [meshcore.io](https://meshcore.io) · **Código-fonte:** [github.com/aXistem-dev/meshcore-web](https://github.com/aXistem-dev/meshcore-web) (uma versão empacotada do cliente MeshCore de Liam Cottle)
 
-**You need a MeshCore radio to use this.** Like the Meshtastic client, this is just the control panel. With no radio connected, there's nothing for it to talk to.
+**Você precisa de um rádio MeshCore para usar este aplicativo.** Assim como o cliente Meshtastic, este é apenas o painel de controle. Sem um rádio conectado, não há nada com que ele possa se comunicar.
 
-**First time you open it, you'll see a security warning. That's expected, here's why:** MeshCore connects to your radio over USB or Bluetooth, and browsers only let a web page use USB or Bluetooth when the page is loaded over a secure (HTTPS) connection. So NOMAD serves this app over HTTPS, and because your NOMAD is a private device with no public web address, it uses a self-signed certificate that browsers warn about the first time they see it. To get past it once:
+**Na primeira vez que você abrir, verá um aviso de segurança. Isso é esperado; veja o motivo:** O MeshCore se conecta ao seu rádio por USB ou Bluetooth, e os navegadores só permitem que uma página use USB ou Bluetooth quando ela é carregada por uma conexão segura (HTTPS). Por isso, o NOMAD disponibiliza este aplicativo por HTTPS e, como seu NOMAD é um dispositivo privado sem um endereço web público, ele utiliza um certificado autoassinado que os navegadores avisam na primeira vez que o encontram. Para passar por isso uma vez:
 
-1. Click **Open** on the MeshCore Web card. Your browser shows something like *"Your connection is not private"* or *"Not secure."*
-2. Click **Advanced**, then **Proceed to (your NOMAD's address)**. (On some browsers the button says "Continue" or "Accept the Risk.")
-3. You'll land in MeshCore Web. Your browser remembers your choice, so you won't see the warning again on that device.
+1. Clique em **Open** no cartão do MeshCore Web. Seu navegador exibirá algo como *"Your connection is not private"* ou *"Not secure."*
+2. Clique em **Advanced** e depois em **Proceed to (your NOMAD's address)**. (Em alguns navegadores, o botão aparece como "Continue" ou "Accept the Risk.")
+3. Você chegará ao MeshCore Web. Seu navegador lembrará da escolha, portanto o aviso não aparecerá novamente nesse dispositivo.
 
-**Connecting your radio:** Use **Chrome or Edge**, which have the best support for browser USB and Bluetooth. Plug the radio into the computer you're browsing from (USB), or have it nearby (Bluetooth), then connect to it from inside the app. The radio connects to **the computer you're using**, not to the NOMAD itself, so connect from a device that has the radio plugged in or in Bluetooth range. Some phones are stricter about self-signed certificates and may refuse to connect; a desktop Chrome or Edge is the most reliable.
+**Conectando seu rádio:** Use **Chrome** ou **Edge**, que possuem o melhor suporte para USB e Bluetooth no navegador. Conecte o rádio ao computador que você está usando para navegar (USB) ou mantenha-o próximo (Bluetooth) e conecte-o de dentro do aplicativo. O rádio se conecta **ao computador que você está usando**, não ao próprio NOMAD, portanto conecte-se a partir de um dispositivo que tenha o rádio conectado ou esteja dentro do alcance do Bluetooth. Alguns celulares são mais rigorosos com certificados autoassinados e podem se recusar a conectar; um computador desktop com Chrome ou Edge é a opção mais confiável.
 
-**Your data:** There's nothing to set up or store on your NOMAD for this app. Your radio's settings live on the radio itself, and the app's preferences live in your browser. There's no NOMAD folder to manage.
+**Seus dados:** Não há nada para configurar ou armazenar no seu NOMAD para este aplicativo. As configurações do seu rádio ficam no próprio rádio, e as preferências do aplicativo ficam no seu navegador. Não há nenhuma pasta do NOMAD para gerenciar.
 
-**Works offline:** Fully offline, which is the whole point of MeshCore. The app is served from your NOMAD and talks to your radio directly over USB or Bluetooth, never the internet.
+**Funciona offline:** Totalmente offline, que é justamente o objetivo do MeshCore. O aplicativo é servido pelo seu NOMAD e se comunica diretamente com seu rádio por USB ou Bluetooth, nunca pela internet.
