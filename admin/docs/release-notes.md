@@ -1,985 +1,754 @@
-# Release Notes
-
-## Version 1.34.0 - August 4, 2026
-
-### Features
-- **AI**: nomad.md for custom instructions (#1127). Thanks @jakeaturner for the contribution!
-- **AI**: per-model thinking toggle with global default (off) (#1079). Thanks @chriscrosstalk for the contribution!
-- **API Documentation**: Auto-generating OpenAPI docs with Scalar UI (#1128). Thanks @jakeaturner for the contribution!
-- **Benchmark**: official multi-arch sysbench, resolved digest, platform metadata (#1158). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: lock Score v2 AI reference to 13.2 (measured, was placeholder) (#1097). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: dashboard re-run banner prompting a Score v2 re-run (#1096). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: Score v2 app client — raws, uncapped score, v2 payload + UI. Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: harness hardening — fail loudly + pin sysbench + record provenance (#1089). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: end-of-run score reveal + NVIDIA GPU-util overlay (#1087). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: authoritative in-test sysbench numbers + results strip (#1085). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: live telemetry during benchmark runs (#1082) (#1084). Thanks @chriscrosstalk for the contribution!
-- **Collections**: support gated downloads for self-hosted curated content (#1172). Thanks @chriscrosstalk for the contribution!
-- **Creator Packs**: gated per-creator video packs, offline via Kiwix (#1106). Thanks @chriscrosstalk for the contribution!
-- **Dashboard**: add dismissable "What's new" banner for v1.34 (#1112). Thanks @chriscrosstalk for the contribution!
-- **Dashboard**: round out the v1.34 What's new highlights (#1197). Thanks @chriscrosstalk for the contribution!
-- **Debug Info**: add storage, docker, GPU health, and auto-update diagnostics (#1102). Thanks @chriscrosstalk for the contribution!
-- **Drug Reference**: Add offline FDA drug reference (labels, interaction view, conditions, remedies) (#1040). Thanks @caweis for the contribution!
-- **Kiwix Library**: Expandable rows in Kiwix Library browser (#1060). Thanks @jarvisxyz for the contribution!
-- **Maps**: add notes input to map pin placement popup (#926). Thanks @chriscrosstalk for the contribution!
-- **RAG**: add subject/collection organization to knowledge base (#1063). Thanks @just-jbc for the contribution!
-
-### Bug Fixes
-- **AI**: stream thinking from /v1 reasoning field + abort on client disconnect (#1078). Thanks @chriscrosstalk for the contribution!
-- **AI**: stop forcing HSA_OVERRIDE=11.0.0 on natively-supported AMD iGPUs (#1076). Thanks @chriscrosstalk for the contribution!
-- **AI**: set OLLAMA_IGPU_ENABLE on AMD provisioning so iGPUs are used (#1074). Thanks @chriscrosstalk for the contribution!
-- **AI**: coerce gfx1103 (780M) to HSA_OVERRIDE 11.0.0 so it stays on GPU (#1134). Thanks @jakeaturner for the contribution!
-- **Benchmark**: fix various typescript errors. Thanks @jakeaturner for the contribution!
-- **Benchmark**: partial runs are not the NOMAD Score (relabel + renormalize) (#1088). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: remove stale progress setter (#1136). Thanks @NgoQuocViet2001 for the contribution!
-- **Benchmark**: surface a clear reason when leaderboard submission fails (#1138). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: warm the AI model before timed runs for reproducible scores (#1140). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: block leaderboard submission when AI runs on a remote host (#1157). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: don't block submission when the AI host is this machine (#1166). Thanks @chriscrosstalk for the contribution!
-- **Chat**: make conversation layout responsive (#1090). Thanks @Bortlesboat for the contribution!
-- **Chat**: open full chat in place instead of a new window (#1181). Thanks @chriscrosstalk for the contribution!
-- **Content**: resolve current ZIM URL before download (#1091). Thanks @NgoQuocViet2001 for the contribution!
-- **Content**: refresh installed ZIMs when a download completes to prune ghost entries (#1099). Thanks @chriscrosstalk for the contribution!
-- **Creator Packs**: add missing Modern Rogue banner asset (#1147). Thanks @chriscrosstalk for the contribution!
-- **Downloads**: send a descriptive User-Agent so Wikimedia mirrors don't 403 (#1114). Thanks @chriscrosstalk for the contribution!
-- **Downloads**: add retry button and resource download link for failed downloads (#1059). Thanks @jarvisxyz for the contribution!
-- **Downloads**: don't 500 the jobs endpoint on an orphaned BullMQ job (#1191). Thanks @chriscrosstalk for the contribution!
-- **Downloads**: don't retry a rejected entitlement for four hours (#1205). Thanks @chriscrosstalk for the contribution!
-- **Downloads**: let interrupted content downloads resume (#1202). Thanks @chriscrosstalk for the contribution!
-- **Easy Setup**: streamline wizard + robust model recommendations (#1110). Thanks @chriscrosstalk for the contribution!
-- **Install**: define missing header_red + colors in uninstall/update scripts (#1098). Thanks @chriscrosstalk for the contribution!
-- **KB**: stop the collection dropdown in from being clipped, widen the modal (#1198). Thanks @chriscrosstalk for the contribution!
-- **KB**: keep the collection when a file is indexed after assignment (#1200). Thanks @chriscrosstalk for the contribution!
-- **KVStore**: fix missing apps.homebox key. Thanks @jakeaturner for the contribution!
-- **Maps**: warn when world basemap missing instead of silent grey map (#1104). Thanks @not-knope for the contribution!
-- **RAG**: add proper .docx text extraction via mammoth (#1100). Thanks @just-jbc for the contribution!
-- **RAG**: stop re-creating payload indexes on every embedded document (#1135). Thanks @bragaus for the contribution!
-- **Content**: respect ingest policy when a ZIM is uploaded locally (#1184). Thanks @chriscrosstalk for the contribution!
-- **Supply Depot**: generate Homebox API key pepper so it stops crash-looping (#1077). Thanks @chriscrosstalk for the contribution!
-- **UI**: add API reference link to the Settings sidebar. Thanks @jakeaturner for the contribution!
-- **Updater**: prune superseded images after update to reclaim disk (#1101). Thanks @chriscrosstalk for the contribution!
-
-### Improvements
-- **Brand**: add ™ to Project NOMAD wordmark on prominent surfaces. Thanks @chriscrosstalk for the contribution!
-- **Brand**: standardize brand name to Project NOMAD, retire backronym. Thanks @chriscrosstalk for the contribution!
-- **Build**: run drug reference codegen step (#1132). Thanks @jakeaturner for the contribution!
-- **Supply Depot**: sunset orphaned Meshtastic Daemon card (#1049). Thanks @chriscrosstalk for the contribution!
-- **Catalog**: add The Modern Rogue creator pack (dev) (#1146). Thanks @chriscrosstalk for the contribution!
-- **CI**: fix collection URL validation. Thanks @jakeaturner for the contribution!
-- **Collections**: update stale URLs (#1148). Thanks @jakeaturner for the contribution!
-- **Collections**: fix four dead Wikipedia download URLs (#1189). Thanks @chriscrosstalk for the contribution!
-- **Content Manager**: filter non-content sections + render tables in ZIM extraction (#1044). Thanks @chriscrosstalk for the contribution!
-- **Dependencies**: bump tar, vite, and dockerode in admin. Thanks @jakeaturner for the contribution!
-- **Dependencies**: bump axios and systeminformation in admin. Thanks @jakeaturner for the contribution!
-- **Docs**: make storage-relocation guidance accurate and consistent (#1103). Thanks @chriscrosstalk for the contribution!
-- **Docs**: add UI Consistency section (#1080). Thanks @chriscrosstalk for the contribution!
-- **Docs**: recommend Ubuntu 26.04 LTS as the default base (#1141). Thanks @chriscrosstalk for the contribution!
-- **Docs**: point MeshCore Web to the official meshcore.io site (#1142). Thanks @chriscrosstalk for the contribution!
-- **Drug Reference**: make collections JSON the single source for curated data (#1130). Thanks @caweis for the contribution!
-- **Drug Reference**: tabbed redesign with grouped search, multi-select situations, and a disclaimer gate (#1137). Thanks @chriscrosstalk for the contribution!
-
-## Version 1.33.0 - June 23, 2026
-
-### Features
-- **Supply Depot — Custom Apps**: The Supply Depot is NOMAD's new home for installable apps, and it now lets you run your *own* custom Docker containers — not just the curated catalog. Specify an image, port mappings, volume binds, environment variables, and memory/CPU limits, and NOMAD spins it up as a managed sibling container. A live, debounced pre-flight check warns about port conflicts and resource limits as you type and hard-blocks unsafe configurations, with an "install anyway" override for warning-only cases (e.g. an untrusted registry or a `:latest` tag). Installed custom apps can be edited, updated (re-pull latest + recreate with a safe rollback if the new container fails), and removed (optionally deleting the image), and every installed app — curated or custom — gets per-container **Logs** and **Stats** modals. Host-path binds are hardened against escapes and logs/stats are scoped to NOMAD-managed containers only. Thanks @jakeaturner for the contribution!
-- **Supply Depot — Curated App Onboarding & Fixes**: Each curated app now ships with NOMAD-specific getting-started docs (first run, default logins, where data lives, what does and doesn't work offline), deep-linked from a **Manage › Docs** item on the card. Alongside it is a round of install fixes so the nine documented apps — Stirling PDF, File Browser, Calibre-Web, IT Tools, Excalidraw, Homebox, Vaultwarden, Jellyfin, Meshtastic Web — work out of the box: seeded logins instead of random passwords buried in logs, a bundled Calibre library, HTTPS-by-default where the app requires a secure context (Vaultwarden), corrected internal ports (Meshtastic Web), pre-created media folders (Jellyfin), and a swap to a maintained image (Homebox). You can now also **edit curated apps**, not just custom ones — edits are merged into the app's existing config (preserving advanced settings like GPU device requests) and flag the app so the seeder stops overwriting it, while untouched apps still receive catalog updates. Thanks @chriscrosstalk for the contribution!
-- **Automatic Core Updates**: NOMAD's own admin/core image can now update itself hands-off, gated by layered safety checks. It's opt-in and off by default, runs only inside a user-configured time window, and applies only same-major, strictly-newer GA releases (major bumps stay manual) past a configurable cool-off — behind pre-flight checks for the update sidecar, no in-flight updates/downloads/installs, and sufficient host disk. It auto-disables after repeated genuine failures, while transient offline release lookups are treated as harmless skips. Settings → Updates exposes the toggle, window, cool-off, and live status. This is the first leg of the auto-update trilogy. Thanks @jakeaturner for the contribution!
-- **Automatic App Updates**: Installed apps (the "Supply Depot" sibling containers) can now keep themselves up to date with opt-in, hands-off minor/patch updates, mirroring the core auto-update feature. Updates are gated behind a two-level opt-in — a global master switch in Settings → Updates **and** a per-app toggle in the Supply Depot — and respect the shared update window, cool-off period, disk/in-progress pre-flight checks, and per-app failure backoff. Major versions are never auto-applied. Thanks @jakeaturner for the contribution!
-- **Automatic Content Updates**: Completing the auto-update trilogy, installed Kiwix ZIM files and PMTiles maps can now update themselves on an opt-in basis. Content updates run on their own dedicated overnight window and bandwidth cap (separate from the app/core schedule, since content downloads are multi-GB), check the upstream Kiwix and PMTiles catalogs directly (no more reliance on external Project NOMAD API), and keep the AI Knowledge Base in sync when a ZIM is replaced. Thanks @jakeaturner for the contribution!
-- **Supply Depot — Custom Launch URLs**: You can now override an app's "Open" link with a reverse-proxy or local-DNS address (e.g. `https://jellyfin.myhomelab.net`). The override is stored separately so the default link is always recoverable, survives reseeds/upgrades, and is validated on both client and server. Thanks @jakeaturner for the contribution!
-- **Supply Depot — Version & Update visibility**: App cards now show the installed version next to the app name (e.g. `Kiwix · 3.7.0`), and the "Update available" pill now stands out with a solid desert-orange fill so available updates actually draw the eye. Thanks @chriscrosstalk for the contribution!
-- **Maps — Persistent View**: The Maps page now remembers your position and zoom across refreshes instead of resetting to the default US-wide view. The saved view is bounds-checked, so a corrupt value safely falls back to the default. Thanks @chriscrosstalk for the contribution!
-- **Content Manager — Rescan Library**: A new "Rescan Library" button rebuilds the Kiwix index from the ZIM files currently on disk, so files **sideloaded** outside NOMAD's download flow (USB stick, SSH, network share) can be served without dropping to a terminal. It reports how many new books were found and, in library mode, hot-reloads without a container restart. Thanks @chriscrosstalk for the contribution!
-- **Configuration — Redis database selection**: Added a `REDIS_DB` environment variable so operators can pick a Redis logical database (0–15) for the job queue and live-update transport. This prevents key collisions when a single Redis instance is shared across multiple stacks (common in homelabs). Defaults to db 0, preserving existing behavior. Thanks @johno10661 for the contribution!
-- **Advanced Settings — Internet Test URL**: Added a new Advanced Settings page with an option to override the default internet test "beacon" URL (more advanced settings to come). Previously, overriding this URL required an ENV variable change and container restart. The legacy ENV variable is still respected if you've set it. Thanks @jakeaturner for the contribution!
-- **RAG**: Embedding jobs can now be cancelled, allowing users to clear stuck jobs that haven't explicitly failed. Thanks @jakeaturner for the contribution!
-
-### Bug Fixes
-- **Storage**: When the admin storage volume is relocated to another disk, child apps (Kiwix, Ollama, Qdrant, Flatnotes, Kolibri) now automatically follow to the new location instead of mounting the old, empty path. The host storage root is now derived from the admin's actual mount, with an explicit `NOMAD_STORAGE_PATH` override and clearer compose comments. Thanks @chriscrosstalk for the fix!
-- **System**: A failed service update now rolls back to the previous container if the new one fails to start, so the service stays up on the old version instead of being left down. Also clears any stale leftover container so a retry can't wedge indefinitely. Thanks @chriscrosstalk for the fix!
-- **System**: Service install failures caused by a host port conflict (commonly a native Ollama install already on port 11434) now show a clear, actionable message with the exact commands to resolve it, instead of a raw Docker error. Thanks @chriscrosstalk for the fix!
-- **System**: The per-service Update button is now disabled and shows "Updating..." while an update is in flight, preventing double-clicks that previously raced into Docker errors. The in-progress state is durable, so it survives a page reload during a multi-GB pull. Thanks @chriscrosstalk for the fix!
-- **System Updates**: Update checks no longer crash for images with more than 1,000 tags (e.g Ollama). Registry pagination URLs are now resolved correctly, so the "Check for Updates" flow returns versions instead of failing silently — fixing Ollama appearing pinned at an old version. Thanks @chriscrosstalk for the fix!
-- **System**: Internet status checks no longer report "No internet connection" on networks that block or hijack Cloudflare's 1.1.1.1. The check now probes additional hosts the app already contacts (GitHub and the Project NOMAD API) in parallel and accepts any HTTP response as "online." Thanks @akashsalan for the fix!
-- **AI Assistant**: Oversized embedding chunks are now truncated and retried instead of being silently dropped, ending the retry storm that could peg the GPU and flood logs (the "api/embed for weeks" issue). The OpenAI-compatible fallback path now also passes context and truncation settings. Thanks @chriscrosstalk for the fix!
-- **AI Assistant**: Chat suggestions now use your selected model (falling back to the *smallest* installed model) instead of the largest. This prevents a flagship model that exceeds available VRAM from hanging the chat page and returning a 500 error. Thanks @johno10661 for the fix!
-- **AI Assistant**: The assistant no longer disclaims "Sorry, I couldn't find specific context regarding X..." when relevant material was actually retrieved. The RAG prompt now treats retrieved context as the authoritative source and falls back to general knowledge silently, the model-visible relevance scores that primed smaller models to distrust correct context were replaced with neutral source-title labels, and a conservative heading-match boost improves the ranking of already-retrieved chunks. Thanks @jakeaturner for the fix!
-- **Knowledge Base**: The embedded-chunk count for batched ZIM ingestion is now persisted accurately across continuation batches, instead of reporting only the final batch's count. Thanks @Metbcy for the fix!
-- **Knowledge Base**: The "ingestion may have stalled" (partial-stall) warning no longer fires falsely on link-out- or PDF-heavy ZIMs that legitimately have little embeddable text. Thanks @chriscrosstalk for the fix!
-- **Knowledge Base**: ZIM ingestion progress no longer freezes at 99% on multi-page archives (e.g. iFixit). Progress now creeps forward monotonically and only reports 100% on the genuinely final batch. Thanks @chriscrosstalk for the fix!
-- **Content**: Installing a newer version of a curated map or ZIM now removes the superseded file from disk, preventing silent accumulation of orphaned content (potentially hundreds of GB). Deletion is gated behind strict safety rails — only tracked, genuinely-replaced, strictly-newer files within the content store are ever removed; sideloaded files are never touched. Thanks @chriscrosstalk for the fix!
-- **Content**: Curated Wikipedia-themed ZIMs (e.g. `wikipedia_en_medicine_maxi` from Medicine → Comprehensive) are no longer wiped on restart. Reconciliation now skips only the single file actually managed by the Wikipedia selector, matched by exact filename. Thanks @chriscrosstalk for the fix!
-- **Maps**: Having both an old and new copy of the same map region on disk no longer blanks the entire map. Map sources are now de-duplicated to the newest file per region, and already-broken installs recover automatically on the next page load. Thanks @chriscrosstalk for the fix!
-- **Information Library (Kiwix)**: Kiwix now self-heals a missing or corrupt library file on startup by rebuilding it from the ZIM files on disk, instead of coming up with an empty library and no path to recovery. Thanks @chriscrosstalk for the fix!
-- **Docker**: Failed image pulls (dropped/metered connection, bad manifest, disk full mid-pull) are now correctly treated as failures across all pull paths, instead of proceeding to create a container from a missing or partial image and surfacing a confusing downstream error. Thanks @chriscrosstalk for the fix!
-- **Security**: Hardened the private-URL/SSRF guard by replacing the regex blocklist with proper IP-range classification (`ipaddr.js`) and normalizing the host first. This blocks alternate IP encodings and trailing-dot bypasses (e.g. `localhost.`) while no longer over-blocking legitimate public addresses. RFC1918 ranges and bare LAN hostnames remain allowed for local appliances. Thanks @chriscrosstalk for the fix!
-- **Install**: Hardened the install script — the NVIDIA toolkit GPG step now runs non-interactively so it doesn't silently skip on non-TTY installs, and helper-script downloads now retry to reduce transient partial-install failures. Thanks @Gujiassh for the fix!
-
-### Improvements
-- **License & Docs**: Corrected the package license metadata to `Apache-2.0` (the project has been Apache-2.0 for some time), added a real project description, and fixed a dead Troubleshooting link plus several README typos. Thanks @aqilaziz for the contribution!
-- **Docs**: Fixed a few typos and punctuation in the README. Thanks @teccdev for the contribution!
-- **Dependencies**: Bumped React and React DOM. Thanks @jakeaturner for the contribution!
-- **Dependencies**: Bumped autoprefixer. Thanks @jakeaturner for the contribution!
-- **Dependencies**: Bumped BullMQ to 5.77.6 and updated affected job calls to the new arguments shape. Thanks @jakeaturner for the contribution!
-- **Supply Depot**: Pinned all curated image versions to ensure consistent baseline deployments. Thanks @jakeaturner for the contribution!
-- **Supply Depot**: Bumped the default versions of CyberChef to 10.24.0 and Ollama to 0.24.0. Thanks @jakeaturner for the contribution!
-
-## Version 1.32.1 - May 27, 2026
-
-### Features
-
-### Bug Fixes
-- fix(logging): also write production logs to stdout for docker visibility (#870). Thanks @chriscrosstalk for the contribution!
-- fix(KB): cursor on Always/Manual ingest policy buttons (#927). Thanks @chriscrosstalk for the contribution!
-
-### Improvements
-- perf(KB): swap Qdrant full-scroll for facet on source enumeration (#928). Thanks @chriscrosstalk for the contribution!
-- chore(deps): bump various dependencies. Thanks @jakeaturner for the contribution!
-
-## Version 1.32.0 - May 20, 2026
-
-### Features
-- **AI:** improved AMD GPU acceleration for Ollama via ROCm + HSA override (#804)
-- **chat:** confirm-on-switch + one-chat-model-at-a-time enforcement (#ffa70a5)
-- **content-manager:** add sortable file size column (#698), closes #685
-- **content-updates:** show size, surface downloads in Active Downloads (#299b767)
-- **Content:** custom ZIM library sources with pre-seeded mirrors (#593) (#62e75fd), closes #576
-- **easy-setup:** split AI into its own conditional step (issue #905) (#0617d54), closes #907
-- **GPU:** auto-remediate nomad_ollama passthrough loss on admin boot (#755) (#2997637), closes #208 #804
-- **KB:** Always/Manual ingest policy toggle (RFC #883 §1/§4) (#894) (#8eb8809), closes #880 #886 #886 #886 #888 #888 #888 #888 #888
-- **KB:** conditional warnings A + B on Stored Files (RFC #883 §6) (#563f86a), closes #891 #891 #890 #881
-- **KB:** first-chat JIT prompt for ingest policy (RFC #883 Phase 3 task 12) (#fd153b4), closes #894 #894 #894
-- **KB:** group admin docs into single row in Stored Files (RFC #883 §9) (#c64ec97)
-- **KB:** guardrail modal at 50GB / 10%-free thresholds (RFC #883 §7) (#cf3a924), closes #897 #897 #894 #899
-- **KB:** per-file ingest action + state indicator on Stored Files (RFC #883 §5) (#d850cb9), closes #907 #907 #907 #908
-- **KB:** per-file ingest state machine (Phase 1 of RFC #883) (#888) (#743549c), closes #880 #886 #886 #886
-- **KB:** ratio registry for disk + time estimates (Phase 1B of RFC #883) (#159d57b)
-- **KB:** status pill + last-activity timestamp on Processing Queue (RFC #883 §5/§10) (#43ca584)
-- **KB:** surface embedding-disk estimate in curated tier-change modal (RFC #883 §1) (#e68c753), closes #891 #891
-- **KB:** wizard AI policy step (RFC #883 Phase 3 task 13) (#7a681d0), closes #899 #894 #894 #899
-- **Maps:** regional map downloads via go-pmtiles extract (#780) (#94059b0)
-- **maps:** show map coordinates on mouse move (#786) (#08838b1)
-
-### Bug Fixes
-- **AI:** add truncation DEBUG log (#e3b758f)
-- **AI:** improve remote Ollama url validation to prevent SSRF vulnerability (#989a401)
-- **AI:** pre-cap embed input + log fallback reason (#881) (#2dec5bf), closes #369 #670
-- **AI:** preserve semver tag in DB on AMD Ollama updates (#019a5a4)
-- **AI:** rewrite RAG query on first follow-up (off-by-one in skip-rewrite threshold) (#43645e4)
-- **AI:** vendor-aware AMD HSA override + benchmark discrete-GPU detection (#a2e2f7f), closes #804 #804 #810
-- **API:** accept notes, marker_type, and position on markers endpoints (#770) (#132ec9c), closes #768
-- **API:** skip compression for Server-Sent Events (#798) (#4b21ea6)
-- **content:** show selected tier on cards while downloads are in flight (#059cf2a), closes #36b6d8e
-- **DockerService:** improve volume logic and documentation in forceReinstall (#501860a)
-- **Downloads:** treat missing Content-Type as octet-stream (#848) (#3abf338)
-- **install:** warn loudly on non-x86_64 architectures before pulling images (#797) (#cb129d2), closes #419
-- **KB:** add re-embed and reset & rebuild opts to fix broken embeddings (#886) (#4c21196)
-- **KB:** align chunks_per_mb column type with TS contract (#4d6b140)
-- **KB:** blank-screen on panel open + tooltips on bulk-action buttons (#633a3c3), closes #892 #895 #post-#892
-- **KB:** guardrail bypass during estimate load + Transition sibling (PR #901 review) (#7e768f3)
-- **KB:** remove redundant Refresh button from Processing Queue (#4e8cadd), closes #893
-- **KB:** respect Manual ingest policy on post-download dispatch (#a5fe52f), closes #909
-- **KB:** silent maybe-later error + redundant prompt-state refetches (PR #899 review) (#9a684a5)
-- **KB:** surface file-warning compute failures instead of masking as healthy (PR #895 review) (#a0047c1)
-- **KB:** TierSelectionModal hook order + register IconLibrary (#6e5284e), closes #915
-- **KB:** union Stored Files list with state-machine file paths (#898) (#8ed0bdf), closes #886 #888 #888
-- **Maps:** render notes in marker popup when populated (#f41027c), closes #770
-- **Maps:** send filename instead of full path to delete endpoint (#6a68bac)
-- **models:** correct inverted belongsTo keys on ChatMessage.session (#921) (#82f67de)
-- **queue:** singleton QueueService to stop ioredis connection leak (#ba53702), closes #872
-- **RAG:** add start button in kb modal and ensure restart policy exists (#700) (#2d8a02f)
-- **RAG:** anchor continuation-batch initial progress to overall-file frame (#889) (#f304d80)
-- **RAG:** pace continuation batches when embedding is CPU-only (#a22c640)
-- **RAG:** pass num_ctx and truncate to Ollama embed call (#763) (#7bebedc), closes #756 #369 #670
-- **RAG:** report ZIM ingestion progress in overall-file frame (#d28eb9b)
-- **RAG:** unbreak multi-batch ZIM ingestion (jobId dedupe) (#74cef75)
-- **security:** canonicalize hostnames to block IPv4-mapped IPv6 IMDS bypass (#736c9bd)
-- **security:** match IPv6 SSRF patterns against unbracketed hostnames (#b3dac9b)
-- **System:** correct AMD VRAM in Graphics card + harden log probe (#d2f2172), closes #835 #850 #208
-- **System:** correct NVIDIA VRAM in Graphics card (#835) (#6c799dd), closes #804
-- **System:** self-heal stale updateAvailable flag after sidecar-driven update (#825) (#318276c)
-- **System:** validate StartedAt with fallback to tail:500 (PR review) (#662a6c4)
-- **UI:** Country Picker UX polish + auto-refresh stored files (#817) (#8c06b5b), closes #780
-- **UI:** four fixes for the System Update page (#827) (#3a2e92a)
-- **UI:** improve global map banner display logic (#702) (#5517e82)
-- **UI:** wire map file delete confirmation to API (#732) (#e561ce8)
-- **ZIM:** preserve co-existing Wikipedia corpora on cleanup (#884) (#5e2c599)
-
-### Improvements
-
-## Version 1.31.1 - April 21, 2026
-
-### Features
-- feat(content): custom ZIM library sources with pre-seeded mirrors (#593). Thanks @chriscrosstalk!
-- feat(content-manager): add sortable file size column (#698). Thanks @chriscrosstalk!
-- feat(ai-chat): allow cancelling in-progress model downloads (#701). Thanks @chriscrosstalk!
-- feat(content-updates): show size, surface downloads in Active Downloads (#773). Thanks @chriscrosstalk!
-- feat(maps): regional map downloads via go-pmtiles extract (#780). Thanks @bgauger!
-- feat(maps): show map coordinates on mouse move (#786). Thanks @kennethbrewer3!
-- feat(AI): re-enable AMD GPU acceleration for Ollama via ROCm + HSA override (#804). Thanks @chriscrosstalk!
-- feat(GPU): auto-remediate nomad_ollama passthrough loss on admin boot (#878). Thanks @chriscrosstalk!
-- feat(KB): per-file ingest state machine (Phase 1 of RFC #883) (#888). Thanks @chriscrosstalk!
-- feat(KB): ratio registry for disk + time estimates (Phase 1B of RFC #883) (#891). Thanks @chriscrosstalk!
-- feat(KB): group admin docs into single row in Stored Files (§9) (#892). Thanks @chriscrosstalk!
-- feat(KB): status pill + last-activity on Processing Queue (§5/§10) (#893). Thanks @chriscrosstalk!
-- feat(KB): Always/Manual ingest policy toggle (§1/§4) (#894). Thanks @chriscrosstalk!
-- feat(KB): conditional warnings A + B on Stored Files (§6) (#895). Thanks @chriscrosstalk!
-- feat(KB): surface embedding-disk estimate in curated tier-change modal (§1) (#897). Thanks @chriscrosstalk!
-- feat(KB): first-chat JIT prompt for ingest policy (Phase 3 task 12) (#899). Thanks @chriscrosstalk!
-- feat(KB): wizard AI policy step (Phase 3 task 13) (#900). Thanks @chriscrosstalk!
-- feat(KB): guardrail modal at 50GB / 10%-free thresholds (§7) (#901). Thanks @chriscrosstalk!
-- feat(easy-setup): split AI into its own conditional step (#908). Thanks @chriscrosstalk!
-- feat(KB): per-file ingest action + state indicator on Stored Files (§5) (#909). Thanks @chriscrosstalk!
-- feat(chat): confirm-on-switch + one-chat-model-at-a-time enforcement (#916). Thanks @chriscrosstalk!
-
-### Bug Fixes
-- fix(downloads): stage downloads to .tmp to prevent Kiwix loading partial files (#448). Thanks @artbird309!
-- fix(security): close remaining security audit items 3 & 4 (CWE-918, CWE-209) (#552). Thanks @LuisMIguelFurlanettoSousa!
-- fix(ai-chat): add null check to model name (#645). Thanks @hestela!
-- fix(ai-chat): qwen2.5 loading on every chat message (#649). Thanks @hestela!
-- fix(disk-collector): fix storage reporting for NFS mounts (#686). Thanks @bgauger!
-- fix(rag): add start button in kb modal and ensure restart policy exists (#700). Thanks @hestela!
-- fix(admin): only hide global map banner after download (#702). Thanks @Gujiassh!
-- fix(maps): wire delete confirmation to API (#732). Thanks @cuyua9!
-- fix: prevent ZIM corrupt file crash and deduplicate Ollama download logs (#741). Thanks @jakeaturner!
-- fix(ai): stop local nomad_ollama when remote Ollama is configured (#744). Thanks @chriscrosstalk!
-- fix(rag): repair ZIM embedding pipeline (sync filter, batch gate, DOM walk) (#745). Thanks @chriscrosstalk!
-- fix(zim): accumulate across Kiwix pages to prevent empty Content Explorer (#746). Thanks @chriscrosstalk!
-- fix(qdrant): disable anonymous telemetry by default (#747). Thanks @chriscrosstalk!
-- fix(disk-display): gate NAS Storage label on network filesystem type (#749). Thanks @bgauger!
-- fix(docker): write /app/version.json from VERSION build-arg (#754). Thanks @chriscrosstalk!
-- fix(rag): pass num_ctx and truncate to Ollama embed call (#763). Thanks @chriscrosstalk!
-- fix(api): accept notes, marker_type, and position on markers endpoints (#770). Thanks @jrsphoto!
-- fix(install): warn loudly on non-x86_64 architectures before pulling images (#797). Thanks @chriscrosstalk!
-- fix(stream): skip compression for Server-Sent Events (#798). Thanks @chriscrosstalk!
-- fix(maps): Country Picker UX polish + auto-refresh stored files (#817). Thanks @chriscrosstalk!
-- fix(System): self-heal stale updateAvailable flag after sidecar-driven update (#825). Thanks @jakeaturner!
-- fix(settings/update): four UI/UX fixes for the System Update page (#827). Thanks @chriscrosstalk!
-- fix(Maps): send filename instead of full path to delete endpoint (#829). Thanks @bgauger!
-- fix(Maps): render notes in marker popup when populated (#830). Thanks @chriscrosstalk!
-- fix(AI): vendor-aware AMD HSA override + benchmark discrete-GPU detection (#832). Thanks @chriscrosstalk!
-- fix(System): correct NVIDIA VRAM in Graphics card (#850). Thanks @bgauger!
-- fix(Downloads): treat missing Content-Type as octet-stream (#859). Thanks @bgauger!
-- fix(AI): preserve semver tag in DB on AMD Ollama updates (#868). Thanks @chriscrosstalk!
-- fix(AI): rewrite RAG query on first chat follow-up (#869). Thanks @chriscrosstalk!
-- fix(RAG): unbreak multi-batch ZIM ingestion (jobId dedupe) (#872). Thanks @chriscrosstalk!
-- fix(RAG): pace continuation batches when embedding is CPU-only (#873). Thanks @chriscrosstalk!
-- fix(queue): singleton QueueService to stop ioredis connection leak (#877). Thanks @chriscrosstalk!
-- fix(System): correct AMD VRAM in Graphics card + harden log probe (#879). Thanks @chriscrosstalk!
-- fix(RAG): report ZIM ingestion progress in overall-file frame (#880). Thanks @chriscrosstalk!
-- fix(KB): add re-embed and reset & rebuild options to fix broken embeddings (#886). Thanks @jakeaturner!
-- fix(ZIM): preserve co-existing Wikipedia corpora on cleanup (#887). Thanks @chriscrosstalk!
-- fix(RAG): anchor continuation-batch initial progress to overall-file frame (#889). Thanks @chriscrosstalk!
-- fix(AI): pre-cap embed input + log fallback reason (#890). Thanks @chriscrosstalk!
-- fix(KB): remove redundant Refresh button from Processing Queue (#896). Thanks @chriscrosstalk!
-- fix(KB): union Stored Files list with state-machine file paths (#898). Thanks @chriscrosstalk!
-- fix(KB): blank-screen on panel open + tooltips on bulk-action buttons (#907). Thanks @chriscrosstalk!
-- fix(KB): TierSelectionModal hook order + register IconLibrary (#917). Thanks @chriscrosstalk!
-- fix(content): show selected tier on cards while downloads are in flight (#918). Thanks @chriscrosstalk!
-- fix(KB): respect Manual ingest policy on post-download dispatch (#919). Thanks @chriscrosstalk!
-- fix(AI): improve remote Ollama url validation to prevent SSRF vuln (#920). Thanks @jakeaturner!
-- fix(models): correct inverted belongsTo keys on ChatMessage.session (#921). Thanks @jakeaturner!
-
-### Improvements
-- docs: add Community Add-Ons page with field manuals + W3Schools packs (#753). Thanks @chriscrosstalk!
-- docs: add map marker API reference (#783). Thanks @kennethbrewer3!
-- docs: require linked issue for non-trivial PRs (#799). Thanks @chriscrosstalk!
-- docs(map): updated notes on the map pin api (#803). Thanks @kennethbrewer3!
-- docs: link to new WSL2 install guide from README and FAQ (#811). Thanks @chriscrosstalk!
-- build(deps): bump picomatch in /admin (#544). Thanks @dependabot[bot]!
-- build(deps): bump lodash from 4.17.23 to 4.18.1 in /admin (#643). Thanks @dependabot[bot]!
-- build(deps-dev): bump vite from 6.4.1 to 6.4.2 in /admin (#677). Thanks @dependabot[bot]!
-- build(deps): bump axios from 1.13.5 to 1.15.0 in /admin (#708). Thanks @dependabot[bot]!
-- build(deps): bump @adonisjs/http-server from 7.8.0 to 7.8.1 in /admin (#724). Thanks @dependabot[bot]!
-- build(deps): bump follow-redirects from 1.15.11 to 1.16.0 in /admin (#729). Thanks @dependabot[bot]!
-- build(deps): bump protocol-buffers-schema from 3.6.0 to 3.6.1 in /admin (#736). Thanks @dependabot[bot]!
-- build(deps): bump protobufjs from 7.5.4 to 7.5.5 in /admin (#737). Thanks @dependabot[bot]!
-
-## Version 1.31.1 - April 21, 2026
-
-### Features
-- **AI Assistant**: Added improved support for AMD GPU acceleration for Ollama via ROCm + HSA override. Thanks @chriscrosstalk for the contribution!
-- **Content Explorer**: Added support for custom ZIM library sources and pre-seeded ZIM library mirrors in addition to the default Kiwix library. Thanks @chriscrosstalk for the contribution!
-- **Content Manager**: Content update sizes and downloads are now properly displayed in Active Downloads with progress bars and friendly names. Thanks @chriscrosstalk for the contribution!
-- **Maps**: Map regions can now be extracted and downloaded locally from PMTiles to avoid the need for a full global map download for users who only want specific regions. Thanks @bgauger for the contribution!
-
-### Bug Fixes
-- **API**: Compression is now skipped for Server-Sent Events (SSE) responses to prevent issues with streaming endpoints. Thanks @chriscrosstalk for the fix!
-- **Maps**: Fixed logic issues with the global map banner display. Thanks @Gujiassh for the fix!
-- **Maps**: The selected map file is now properly deleted after confirming the action in the UI. Thanks @cuyua9 for the fix!
-- **System**: Fixed an issue where the a pending update could still be indicated in the UI even after the system was updated successfully. Thanks @jakeaturner for the fix!
-
-### Improvements
-- **Build**: The Command Center image now uses the VERSION build arg to write `app/version.json` with the current version for improved version tracking and debugging, even in RC environments. Thanks @chriscrosstalk for the contribution!
-- **Content Manager**: Added a sortable file size column to the ZIM files table in the Content Manager for easier management of storage space. Thanks @chriscrosstalk for the contribution!
-- **Dependencies**: All package.json dependencies have been pinned to specific versions to ensure stability and reduce the risk of unexpected breaking changes/supply-chain compromises from upstream packages. Thanks @jakeaturner for the contribution!
-- **Dependencies**: Updated various dependencies to close security vulnerabilities and improve stability
-- **Docs**: Update CONTIRBUTING.md to require an issue to be opened before submitting a PR for non-trivial changes to ensure proper discussion and review of proposed changes. Thanks @chriscrosstalk for the contribution!
-- **Docs**: Added the map markers endpoints to the API reference documentation. Thanks @kennethbrewer3 for the contribution!
-- **Docs**: Added a link to the new WSL2 install guide in the README and FAQ. Thanks @chriscrosstalk for the contribution!
-- **Install**: The install script now warns loudly if the user is attempting to install on a non-x86_64/amd64 platform to prevent unsupported installations and potential issues. Thanks @chriscrosstalk for the contribution!
-- **Maps**: The maps API endpoints now properly accept and validate notes, marker_type, and position data for map markers and persist them in the database for retrieval in the UI. Thanks @jrsphoto for the contribution!
-- **Maps**: The current coordinates of the mouse pointer can now be displayed in the map viewer for easier navigation and exploration. Thanks @kennethbrewer3 for the contribution!
-- **RAG**: NOMAD now properly passed `num_ctx` and truncation to the Ollama embedding endpoint to ensure that the context window of the model is best utilized for embeddings. Thanks @chriscrosstalk for the contribution!
-- **RAG**: Added a manual start button for Qdrant and a self-healing mechanism for Qdrant's restart-policy to ensure that the vector database is running properly for embedding and retrieval tasks. Thanks @hestela for the contribution!
-
-## Version 1.31.1 - April 21, 2026
-
-### Features
-
-### Bug Fixes
-- **AI Assistant**: In-progress model downloads can now be cancelled properly and the progress UI now matches that of file downloads. Thanks @chriscrosstalk for the contribution!
-- **AI Assistant**: Fixed an issue where the AI Assistant settings page could crash if a model object did not have a details property. Thanks @hestela for the fix!
-- **AI Assistant**: Fixed an issue with non-embeddable files being queued for embedding and flooding logs with errors. Thanks @sbruschke for the bug report and @chriscrosstalk for the fix!
-- **AI Assistant**: Fixed an issue with ZIM batch embedding using the wrong batch count and causing remaining batches to be skipped. Thanks @sbruschke for the bug report and @chriscrosstalk for the fix!
-- **AI Assistant**: Fixed an issue with ZIM content extraction only extracting the first-level children of the article body and thus missing a lot of content. Thanks @sbruschke for the bug report and @chriscrosstalk for the fix!
-- **Disk Collector**: Improved reporting for NFS mount stats and display in the UI. Thanks @bgauger and @bravosierra99 for the contribution!
-- **Downloads**: Downloads are now staged to .tmp files and atomically renamed upon completion to prevent issues with incomplete/corrupt files. Thanks @artbird309 for the contribution!
-- **Downloads**: Removed a duplicate error listener and improved stability when handling Range requests for file downloads. Thanks @jakeaturner for the contribution!
-- **Downloads**: Added improved handling for corrupt ZIM file downloads and removed duplicate Ollama download logs. Thanks @aegisman for the contribution!
-- **Security**: Closed a potential SSRF vulnerability in the map file download functionality by implementing stricter URL validation and blocking private IP ranges. Thanks @LuisMIguelFurlanettoSousa for the fix!
-- **Security**: Sanitized error messages from the backend to prevent potential information disclosure. Thanks @LuisMIguelFurlanettoSousa for the fix!
-- **UI**: Fixed an issue with broken pagination for the Content Explorer that could cause some users to see a "No records found" message indefinitely. Thanks @johno10661 for the bug report and @chriscrosstalk for the fix!
-- **UI**: Fixed an issue where all storage devices could report as "NAS Storage" regardless of actual type. Thanks @bgauger for the fix!
-
-### Improvements
-- **AI Assistant**: Now uses the currently loaded model for query rewriting and chat title generation for improved performance and consistency. Thanks @hestela for the contribution!
-- **AI Assistant**: When a remote Ollama URL is configured, the Command Center will now attempt to stop NOMAD's local Ollama container to free up resources and avoid confusion. Thanks @chriscrosstalk for the contribution!
-- **Dependencies**: Updated various dependencies to close security vulnerabilities and improve stability
-- **Docs**: Added a "Community Add-Ons" page to the documentation to highlight some of the amazing community contributions that have been made since launch. Thanks @chriscrosstalk for the contribution!
-- **Privacy**: Added the appropriate environment variable to disable telemetry for the Qdrant container. Note that this will only take effect on new installations of if the Qdrant container is force re-installed on existing installations. Thanks @berkdamerc for the find and @chriscrosstalk for the contribution!
-
-## Version 1.31.0 - April 3, 2026
-
-### Features
-- **AI Assistant**: Added support for remote OpenAI-compatible hosts (e.g. Ollama, LM Studio, etc.) to support running models on seperate hardware from the Command Center host. Thanks @hestela for the contribution!
-- **AI Assistant**: Disabled Ollama Cloud support (not compatible with NOMAD's architecture) and added support for flash_attn to improve performance of compatible models. Thanks @hestela for the contribution!
-- **Information Library (Kiwix)**: The Kiwix container now uses an XML library file approach instead of a glob-based approach to inform the Kiwix container of available ZIM files. This allows for much more robust handling of ZIM files and avoids issues with the container failing to start due to incomplete/corrupt ZIM files being present in the storage directory. Thanks @jakeaturner for the contribution!
-- **RAG**: Added support for EPUB file embedding into the Knowledge Base. Thanks @arn6694 for the contribution!
-- **RAG**: Added support for multiple file uploads (<=5, 100mb each) to the Knowledge Base. Thanks @jakeaturner for the contribution!
-- **Maps**: Added support for customizable location markers on the map with database persistence. Thanks @chriscrosstalk for the contribution!
-- **Maps**: The global map file can now be downloaded directly from PMTiles for users who want to the full map and/or regions outside of the U.S. that haven't been added to the curated collections yet. Thanks @bgauger for the contribution!
-- **Maps**: Added a scale bar to the map viewer with imperial and metric options. Thanks @chriscrosstalk for the contribution!
-- **Downloads**: Added support/improvements for rich progress, friendly names, cancellation, and live status updates for active downloads in the UI. Thanks @chriscrosstalk for the contribution!
-- **UI**: Converted all PNGs to WEBP for reduced image sizes and improved performance. Thanks @hestela for the contribution!
-- **UI**: Added an Installed Models section to AI Assistant settings. Thanks @chriscrosstalk for the contribution!
-
-### Bug Fixes
-- **Maps**: The maps API endpoints now properly check for "X-Forwarded-Proto" to support scenarios where the Command Center is behind a reverse proxy that terminates TLS. Thanks @davidgross for the fix!
-- **Maps**: Fixed an issue where the maps API endpoints could fail with an internal error if a hostname was used to access the Command Center instead of an IP address or localhost. Thanks @jakeaturner for the fix!
-- **Queue**: Increased the BullMQ lockDuration to prevent jobs from being killed prematurely on slower systems. Thanks @bgauger for the contribution!
-- **Queue**: Added better handling for very large downloads and user-initated cancellations. Thanks @bgauger for the contribution!
-- **Install**: The install script now checks for the presence of gpg (required for NVIDIA toolkit install) and automatically attempts to install it if it's missing. Thanks @chriscrosstalk for the fix!
-- **Security**: Added key validation to the settings read API endpoint. Thanks @LuisMIguelFurlanettoSousa for the fix!
-- **Security**: Improved URL validation logic for ZIM downloads to prevent SSRF vulnerabilities. Thanks @sebastiondev for the fix!
-- **UI**: Fixed the activity feed height in Easy Setup and added automatic scrolling to the latest message during installation. Thanks @chriscrosstalk for the contribution!
-
-### Improvements
-
-- **Dependencies**: Updated various dependencies to close security vulnerabilities and improve stability
-- **Docker**: NOMAD now adds 'com.docker.compose.project': 'project-nomad-managed' and 'io.project-nomad.managed': 'true' labels to all containers installed via the Command Center to improve compatibility with other Docker management tools and make it easier to identify and manage NOMAD containers. Thanks @techyogi for the contribution!
-- **Docs**: Added a simple API reference for power users and developers. Thanks @hestela for the contribution!
-- **Docs**: Re-formatted the Quick Install command into multiple lines for better readability in the README. Thanks @samsara-02 for the contribution!
-- **Docs**: Updated the CONTRIBUTING and FAQ guides with the latest information and clarified some common questions. Thanks @jakeaturner for the contribution!
-- **Ops**: Bumped GitHub Actions to their latest versions. Thanks @salmanmkc for the contribution!
-- **Performance**: Shrunk the bundle size of the Command Center UI significantly by optimizing dependencies and tree-shaking, resulting in faster load times and a snappier user experience. Thanks @jakeaturner for the contribution!
-- **Performance**: Implemented gzip compression by default for all HTTP registered routes from the Command Center backend to further improve performance, especially on slower connections. The DISABLE_COMPRESSION environment variable can be used to turn off this feature if needed. Thanks @jakeaturner for the contribution!
-- **Performance**: Added light caching of certain Docker socket interactions and custom AI Assistant name resolution to improve performance and reduce redundant calls to the Docker API. Thanks @jakeaturner for the contribution!
-- **Performance**: Switched to Inertia router navigation calls where appropriate to take advantage of Inertia's built-in caching and performance optimizations for a smoother user experience. Thanks @jakeaturner for the contribution!
-
-## Version 1.30.3 - March 25, 2026
-
-### Features
-
-### Bug Fixes
-- **Benchmark**: Fixed an issue where CPU and Disk Write scores could be displayed as 0 if the measured values was less than half of the reference mark. Thanks @bortlesboat for the fix!
-- **Content Manager**: Fixed a missing API client method that was causing ZIM file deletions to fail. Thanks @LuisMIguelFurlanettoSousa for the fix!
-- **Install**: Fixed an issue where the install script could incorrectly report the Docker NVIDIA runtime as missing. Thanks @brenex for the fix!
-- **Support the Project**: Fixed a broken link to Rogue Support. Thanks @chriscrosstalk for the fix!
-
-### Improvements
-- **AI Assistant**: Improved error reporting and handling for model downloads. Thanks @chriscrosstalk for the contribution!
-- **AI Assistant**: Bumped the default version of Ollama installed to v0.18.1 to take advantage of the latest performance improvements and bug fixes.
-- **Apps**: Improved error reporting and handling for service installation failures. Thanks @trek-e for the contribution!
-- **Collections**: Updated various curated collection links to their latest versions. Thanks @builder555 for the contribution!
-- **Cyberchef**: Bumped the default version of CyberChef installed to v10.22.1 to take advantage of the latest features and bug fixes.
-- **Docs**: Added a link to the step-by-step installation guide and video tutorial. Thanks @chriscrosstalk for the contribution!
-- **Install**: Increased the retries limit for the MySQL service in Docker Compose to improve stability during installation on systems with slower performance. Thanks @dx4956 for the contribution!
-- **Install**: Fixed an issue where stale data could cause credentials mismatch in MySQL on reinstall. Thanks @chriscrosstalk for the fix!
-
-## Version 1.30.0 - March 20, 2026
-
-### Features
-- **Night Ops**: Added our most requested feature — a dark mode theme for the Command Center interface! Activate it from the footer and enjoy the sleek new look during your late-night missions. Thanks @chriscrosstalk for the contribution!
-- **Debug Info**: Added a new "Debug Info" modal accessible from the footer that provides detailed system and application information for troubleshooting and support. Thanks @chriscrosstalk for the contribution!
-- **Support the Project**: Added a new "Support the Project" page in settings with links to community resources, donation options, and ways to contribute.
-- **Install**: The main NOMAD image is now fully self-contained and directly usable with Docker Compose, allowing for more flexible and customizable installations without relying on external scripts. The image remains fully backwards compatible with existing installations, and the install script has been updated to reflect the simpler deployment process.
-
-### Bug Fixes
-- **Settings**: Storage usage display now prefers real block devices over tempfs. Thanks @Bortlesboat for the fix!
-- **Settings**: Fixed an issue where device matching and mount entry deduplication logic could cause incorrect storage usage reporting and missing devices in storage displays.
-- **Maps**: The Maps page now respects the request protocol (http vs https) to ensure map tiles load correctly. Thanks @davidgross for the bug report!
-- **Knowledge Base**: Fixed an issue where file embedding jobs could cause a retry storm if the Ollama service was unavailable. Thanks @skyam25 for the bug report!
-- **Curated Collections**: Fixed some broken links in the curated collections definitions (maps and ZIM files) that were causing some resources to fail to download.
-- **Easy Setup**: Fixed an issue where the "Start Here" badge would persist even after visiting the Easy Setup Wizard for the first time. Thanks @chriscrosstalk for the fix!
-- **UI**: Fixed an issue where the loading spinner could look strange in certain use cases.
-- **System Updates**: Fixed an issue where the update banner would persist even after the system was updated successfully. Thanks @chriscrosstalk for the fix!
-- **Performance**: Various small memory leak fixes and performance improvements across the UI to ensure a smoother experience.
-
-### Improvements
-- **Ollama**: Improved GPU detection logic to ensure the latest GPU config is always passed to the Ollama container on update
-- **Ollama**: The detected GPU type is now persisted in the database for more reliable configuration and troubleshooting across updates and restarts. Thanks @chriscrosstalk for the contribution!
-- **Downloads**: Users can now dismiss failed download notifications to reduce clutter in the UI. Thanks @chriscrosstalk for the contribution!
-- **Logging**: Changed the default log level to "info" to reduce noise and focus on important messages. Thanks @traxeon for the suggestion!
-- **Logging**: NOMAD's internal logger now creates it's own log directory on startup if it doesn't already exist to prevent errors on fresh installs where the logs directory hasn't been created yet.
-- **Dozzle**: Dozzle shell access and container actions are now disabled by default. Thanks @traxeon for the recommendation!
-- **MySQL & Redis**: Removed port exposure to host by default for improved security. Ports can still be exposed manually if needed. Thanks @traxeon for the recommendation!
-- **Dependencies**: Various dependency updates to close security vulnerabilities and improve stability
-- **Utility Scripts**: Added a check for the expected Docker Compose version (v2) in all utility scripts to provide clearer error messages and guidance if the environment is not set up correctly.
-- **Utility Scripts**: Added an additional warning to the installation script to inform about potential overwriting of existing customized configurations and the importance of backing up data before running the installation script again.
-- **Documentation**: Updated installation instructions to reflect the new option for manual deployment via Docker Compose without the install script.
-
-
-## Version 1.29.0 - March 11, 2026
-
-### Features
-- **AI Assistant**: Added improved user guidance for troubleshooting GPU pass-through issues
-- **AI Assistant**: The last used model is now automatically selected when a new chat is started
-- **Settings**: NOMAD now automatically performs nightly checks for available app updates, and users can select and apply updates from the Apps page in Settings
-
-### Bug Fixes
-- **Settings**: Fixed an issue where the AI Assistant settings page would be shown in navigation even if the AI Assistant was not installed, thus causing 404 errors when clicked
-- **Security**: Path traversal and SSRF mitigations
-- **AI Assistant**: Fixed an issue that was causing intermittent failures saving chat session titles
-
-### Improvements
-- **AI Assistant**: Extensive performance improvements and improved RAG intelligence/context usage
-
-## Version 1.28.0 - March 5, 2026
-
-### Features
-- **RAG**: Added support for viewing active embedding jobs in the processing queue and improved job progress tracking with more granular status updates
-- **RAG**: Added support for removing documents from the knowledge base (deletion from Qdrant and local storage)
-
-### Bug Fixes
-- **Install**: Fixed broken url's in install script and updated to prompt for Apache 2.0 license acceptance
-- **Docs**: Updated legal notices to reflect Apache 2.0 license and added Qdrant attribution
-- **Dependencies**: Various minor dependency updates to close security vulnerabilities
-
-### Improvements
-- **License**: Added Apache 2.0 license file to repository for clarity and legal compliance
-
-## Version 1.27.0 - March 4, 2026
-
-### Features
-- **Settings**: Added pagination support for Ollama model list
-- **Early Access Channel**: Allows users to opt in to receive early access builds with the latest features and improvements before they hit stable releases
-
-### Bug Fixes
-
-### Improvements
-- **AI Assistant**: Improved chat performance by optimizing query rewriting and response streaming logic
-- **CI/CD**: Updated release workflows to support release candidate versions
-- **KV Store**: Improved type safety in KV store implementation
-
-## Version 1.26.0 - February 19, 2026
-
-### Features
-- **AI Assistant**: Added support for showing reasoning stream for models with thinking capabilities
-- **AI Assistant**: Added support for response streaming for improved UX
-
-### Bug Fixes
-
-### Improvements
-
-
-## Version 1.25.2 - February 18, 2026
-
-### Features
-
-### Bug Fixes
-- **AI Assistant**: Fixed an error from chat suggestions when no Ollama models are installed
-- **AI Assistant**: Improved discrete GPU detection logic
-- **UI**: Legacy links to /docs and /knowledge-base now gracefully redirect to the correct pages instead of showing 404 errors
-
-### Improvements
-- **AI Assistant**: Chat suggestions are now disabled by default to avoid overwhelming smaller hardware setups
-
-## Version 1.25.1 - February 12, 2026
-
-### Features
-
-### Bug Fixes
-- **Settings**: Fix potential stale cache issue when checking for system updates
-- **Settings**: Improve user guidance during system updates
-
-### Improvements
-
-
-## Version 1.25.0 - February 12, 2026
-
-### Features
-- **Collections**: Complete overhaul of collection management with dynamic manifests, database tracking of installed resources, and improved UI for managing ZIM files and map assets
-- **Collections**: Added support for checking if newer versions of installed resources are available based on manifest data
-### Bug Fixes
-- **Benchmark**: Improved error handling and status code propagation for better user feedback on submission failures
-- **Benchmark**: Fix a race condition in the sysbench container management that could lead to benchmark test failures
-
-### Improvements
+# Notas de Lançamento
+
+## Versão 1.34.0 - 4 de agosto de 2026
+
+### Recursos
+
+* **IA**: `nomad.md` para instruções personalizadas (#1127). Obrigado @jakeaturner pela contribuição!
+* **IA**: alternância de raciocínio por modelo com padrão global (desativado) (#1079). Obrigado @chriscrosstalk pela contribuição!
+* **Documentação da API**: geração automática da documentação OpenAPI com Scalar UI (#1128). Obrigado @jakeaturner pela contribuição!
+* **Benchmark**: sysbench oficial para múltiplas arquiteturas, digest resolvido e metadados da plataforma (#1158). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: fixar a referência de IA do Score v2 em 13.2 (valor medido, anteriormente era um placeholder) (#1097). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: banner no painel solicitando uma nova execução do Score v2 (#1096). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: cliente do aplicativo Score v2 — dados brutos, pontuação sem limite, payload v2 + interface. Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: fortalecimento do sistema de testes — falhar de forma explícita + fixar versão do sysbench + registrar procedência (#1089). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: exibição da pontuação ao final da execução + sobreposição de utilização da GPU NVIDIA (#1087). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: números oficiais do sysbench durante o teste + faixa de resultados (#1085). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: telemetria em tempo real durante as execuções do benchmark (#1082) (#1084). Obrigado @chriscrosstalk pela contribuição!
+* **Coleções**: suporte a downloads protegidos para conteúdo selecionado hospedado pelo próprio usuário (#1172). Obrigado @chriscrosstalk pela contribuição!
+* **Pacotes de Criadores**: pacotes de vídeos individuais por criador, protegidos e disponíveis offline via Kiwix (#1106). Obrigado @chriscrosstalk pela contribuição!
+* **Painel**: adicionar banner dispensável de "Novidades" para a v1.34 (#1112). Obrigado @chriscrosstalk pela contribuição!
+* **Painel**: completar os destaques de "Novidades" da v1.34 (#1197). Obrigado @chriscrosstalk pela contribuição!
+* **Informações de Depuração**: adicionar diagnósticos de armazenamento, Docker, saúde da GPU e atualização automática (#1102). Obrigado @chriscrosstalk pela contribuição!
+* **Referência de Medicamentos**: adicionar referência offline de medicamentos da FDA (rótulos, visualização de interações, condições e tratamentos) (#1040). Obrigado @caweis pela contribuição!
+* **Biblioteca Kiwix**: adicionar linhas expansíveis ao navegador da Biblioteca Kiwix (#1060). Obrigado @jarvisxyz pela contribuição!
+* **Mapas**: adicionar campo de observações ao pop-up de posicionamento de marcadores no mapa (#926). Obrigado @chriscrosstalk pela contribuição!
+* **RAG**: adicionar organização por assunto/coleção à base de conhecimento (#1063). Obrigado @just-jbc pela contribuição!
+
+### Correções de Bugs
+
+* **IA**: transmitir o raciocínio a partir do campo `/v1 reasoning` + interromper quando o cliente se desconectar (#1078). Obrigado @chriscrosstalk pela contribuição!
+* **IA**: deixar de forçar `HSA_OVERRIDE=11.0.0` em iGPUs AMD com suporte nativo (#1076). Obrigado @chriscrosstalk pela contribuição!
+* **IA**: definir `OLLAMA_IGPU_ENABLE` durante o provisionamento da AMD para que as iGPUs sejam utilizadas (#1074). Obrigado @chriscrosstalk pela contribuição!
+* **IA**: forçar `gfx1103` (780M) para `HSA_OVERRIDE 11.0.0` para mantê-la na GPU (#1134). Obrigado @jakeaturner pela contribuição!
+* **Benchmark**: corrigir vários erros de TypeScript. Obrigado @jakeaturner pela contribuição!
+* **Benchmark**: execuções parciais não são o NOMAD Score (renomear + renormalizar) (#1088). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: remover atualizador de progresso obsoleto (#1136). Obrigado @NgoQuocViet2001 pela contribuição!
+* **Benchmark**: exibir um motivo claro quando o envio para o ranking falhar (#1138). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: aquecer o modelo de IA antes das execuções cronometradas para obter pontuações reproduzíveis (#1140). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: bloquear o envio para o ranking quando a IA estiver sendo executada em um host remoto (#1157). Obrigado @chriscrosstalk pela contribuição!
+* **Benchmark**: não bloquear o envio quando o host da IA for esta própria máquina (#1166). Obrigado @chriscrosstalk pela contribuição!
+* **Chat**: tornar o layout das conversas responsivo (#1090). Obrigado @Bortlesboat pela contribuição!
+* **Chat**: abrir o chat completo no mesmo local em vez de uma nova janela (#1181). Obrigado @chriscrosstalk pela contribuição!
+* **Conteúdo**: resolver a URL atual do ZIM antes do download (#1091). Obrigado @NgoQuocViet2001 pela contribuição!
+* **Conteúdo**: atualizar os ZIMs instalados quando um download for concluído para remover entradas fantasmas (#1099). Obrigado @chriscrosstalk pela contribuição!
+* **Pacotes de Criadores**: adicionar o recurso de banner ausente do Modern Rogue (#1147). Obrigado @chriscrosstalk pela contribuição!
+* **Downloads**: enviar um User-Agent descritivo para que os mirrors da Wikimedia não retornem erro 403 (#1114). Obrigado @chriscrosstalk pela contribuição!
+* **Downloads**: adicionar botão de tentar novamente e link para baixar o recurso em downloads com falha (#1059). Obrigado @jarvisxyz pela contribuição!
+* **Downloads**: não retornar erro 500 no endpoint de tarefas devido a uma tarefa órfã do BullMQ (#1191). Obrigado @chriscrosstalk pela contribuição!
+* **Downloads**: não tentar novamente uma autorização rejeitada durante quatro horas (#1205). Obrigado @chriscrosstalk pela contribuição!
+* **Downloads**: permitir que downloads de conteúdo interrompidos sejam retomados (#1202). Obrigado @chriscrosstalk pela contribuição!
+* **Configuração Fácil**: simplificar o assistente + recomendações de modelos mais robustas (#1110). Obrigado @chriscrosstalk pela contribuição!
+* **Instalação**: definir `header_red` e cores ausentes nos scripts de desinstalação/atualização (#1098). Obrigado @chriscrosstalk pela contribuição!
+* **KB**: impedir que o menu suspenso de coleções seja cortado e aumentar a largura do modal (#1198). Obrigado @chriscrosstalk pela contribuição!
+* **KB**: manter a coleção quando um arquivo for indexado após sua atribuição (#1200). Obrigado @chriscrosstalk pela contribuição!
+* **KVStore**: corrigir a chave `apps.homebox` ausente. Obrigado @jakeaturner pela contribuição!
+* **Mapas**: avisar quando o mapa-base mundial estiver ausente em vez de exibir silenciosamente um mapa cinza (#1104). Obrigado @not-knope pela contribuição!
+* **RAG**: adicionar extração adequada de texto `.docx` usando mammoth (#1100). Obrigado @just-jbc pela contribuição!
+* **RAG**: parar de recriar índices de payload para cada documento incorporado (#1135). Obrigado @bragaus pela contribuição!
+* **Conteúdo**: respeitar a política de ingestão quando um ZIM for enviado localmente (#1184). Obrigado @chriscrosstalk pela contribuição!
+* **Supply Depot**: gerar o pepper da chave da API do Homebox para impedir que ele entre em um ciclo contínuo de falhas (#1077). Obrigado @chriscrosstalk pela contribuição!
+* **UI**: adicionar link para a referência da API na barra lateral de Configurações. Obrigado @jakeaturner pela contribuição!
+* **Atualizador**: remover imagens substituídas após a atualização para recuperar espaço em disco (#1101). Obrigado @chriscrosstalk pela contribuição!
+
+### Melhorias
+
+* **Marca**: adicionar ™ ao nome Project NOMAD nas áreas de maior destaque. Obrigado @chriscrosstalk pela contribuição!
+* **Marca**: padronizar o nome da marca como Project NOMAD e aposentar o acrônimo retroativo. Obrigado @chriscrosstalk pela contribuição!
+* **Build**: executar a etapa de geração de código da referência de medicamentos (#1132). Obrigado @jakeaturner pela contribuição!
+* **Supply Depot**: remover o cartão órfão do Meshtastic Daemon (#1049). Obrigado @chriscrosstalk pela contribuição!
+* **Catálogo**: adicionar o pacote do criador The Modern Rogue (dev) (#1146). Obrigado @chriscrosstalk pela contribuição!
+* **CI**: corrigir a validação de URLs das coleções. Obrigado @jakeaturner pela contribuição!
+* **Coleções**: atualizar URLs desatualizadas (#1148). Obrigado @jakeaturner pela contribuição!
+* **Coleções**: corrigir quatro URLs de download do Wikipedia que estavam indisponíveis (#1189). Obrigado @chriscrosstalk pela contribuição!
+* **Gerenciador de Conteúdo**: filtrar seções que não são de conteúdo + renderizar tabelas na extração de ZIM (#1044). Obrigado @chriscrosstalk pela contribuição!
+* **Dependências**: atualizar tar, vite e dockerode no admin. Obrigado @jakeaturner pela contribuição!
+* **Dependências**: atualizar axios e systeminformation no admin. Obrigado @jakeaturner pela contribuição!
+* **Documentação**: tornar as orientações sobre realocação de armazenamento precisas e consistentes (#1103). Obrigado @chriscrosstalk pela contribuição!
+* **Documentação**: adicionar seção de Consistência da UI (#1080). Obrigado @chriscrosstalk pela contribuição!
+* **Documentação**: recomendar Ubuntu 26.04 LTS como base padrão (#1141). Obrigado @chriscrosstalk pela contribuição!
+* **Documentação**: direcionar o MeshCore Web para o site oficial meshcore.io (#1142). Obrigado @chriscrosstalk pela contribuição!
+* **Referência de Medicamentos**: tornar o JSON de coleções a única fonte para os dados selecionados (#1130). Obrigado @caweis pela contribuição!
+* **Referência de Medicamentos**: reformulação com abas, pesquisa agrupada, seleção múltipla de situações e tela de confirmação de aviso (#1137). Obrigado @chriscrosstalk pela contribuição!
+Claro. Continuando exatamente de onde parei:
+
+## Versão 1.33.0 - 23 de junho de 2026
+
+### Melhorias
+
+* **Licença e Documentação**: corrigidos os metadados da licença do pacote para `Apache-2.0` (o projeto já utilizava Apache-2.0 há algum tempo), adicionada uma descrição real do projeto e corrigido um link quebrado de Solução de Problemas, além de vários erros de digitação no README. Obrigado @aqilaziz pela contribuição!
+* **Documentação**: corrigidos alguns erros de digitação e pontuação no README. Obrigado @teccdev pela contribuição!
+* **Dependências**: atualizados React e React DOM. Obrigado @jakeaturner pela contribuição!
+* **Dependências**: atualizado autoprefixer. Obrigado @jakeaturner pela contribuição!
+* **Dependências**: atualizado BullMQ para 5.77.6 e ajustadas as chamadas de tarefas afetadas para o novo formato de argumentos. Obrigado @jakeaturner pela contribuição!
+* **Supply Depot**: fixadas todas as versões das imagens selecionadas para garantir implantações consistentes. Obrigado @jakeaturner pela contribuição!
+* **Supply Depot**: atualizadas as versões padrão do CyberChef para 10.24.0 e do Ollama para 0.24.0. Obrigado @jakeaturner pela contribuição!
+* **Privacidade**: adicionada a variável de ambiente apropriada para desativar a telemetria do container Qdrant. Isso só terá efeito em novas instalações ou se o container Qdrant for reinstalado à força em instalações existentes. Obrigado @berkdamerc pela descoberta e @chriscrosstalk pela contribuição!
+
+## Versão 1.31.0 - 3 de abril de 2026
+
+### Recursos
+
+* **Assistente de IA**: adicionado suporte a hosts remotos compatíveis com OpenAI (por exemplo, Ollama, LM Studio etc.), permitindo executar modelos em hardware separado do host do Command Center. Obrigado @hestela pela contribuição!
+* **Assistente de IA**: suporte ao Ollama Cloud desativado (incompatível com a arquitetura do NOMAD) e adicionado suporte ao `flash_attn` para melhorar o desempenho de modelos compatíveis. Obrigado @hestela pela contribuição!
+* **Biblioteca de Informações (Kiwix)**: o container Kiwix agora utiliza uma abordagem baseada em arquivo XML da biblioteca em vez de uma abordagem baseada em glob para informar ao container Kiwix quais arquivos ZIM estão disponíveis. Isso permite um tratamento muito mais robusto dos arquivos ZIM e evita problemas em que o container não consegue iniciar devido à presença de arquivos ZIM incompletos/corrompidos no diretório de armazenamento. Obrigado @jakeaturner pela contribuição!
+* **RAG**: adicionado suporte à incorporação de arquivos EPUB na Base de Conhecimento. Obrigado @arn6694 pela contribuição!
+* **RAG**: adicionado suporte ao envio de vários arquivos (até 5, 100 MB cada) para a Base de Conhecimento. Obrigado @jakeaturner pela contribuição!
+* **Mapas**: adicionado suporte a marcadores de localização personalizáveis no mapa, com persistência no banco de dados. Obrigado @chriscrosstalk pela contribuição!
+* **Mapas**: o arquivo do mapa global agora pode ser baixado diretamente do PMTiles para usuários que desejam o mapa completo e/ou regiões fora dos EUA que ainda não foram adicionadas às coleções selecionadas. Obrigado @bgauger pela contribuição!
+* **Mapas**: adicionada uma escala ao visualizador de mapas, com opções imperial e métrica. Obrigado @chriscrosstalk pela contribuição!
+* **Downloads**: adicionados suporte/melhorias para progresso detalhado, nomes amigáveis, cancelamento e atualizações de status em tempo real para downloads ativos na interface. Obrigado @chriscrosstalk pela contribuição!
+* **UI**: todos os PNGs foram convertidos para WEBP para reduzir o tamanho das imagens e melhorar o desempenho. Obrigado @hestela pela contribuição!
+* **UI**: adicionada uma seção de Modelos Instalados às configurações do Assistente de IA. Obrigado @chriscrosstalk pela contribuição!
+
+### Correções de Bugs
+
+* **Mapas**: os endpoints da API de mapas agora verificam corretamente `X-Forwarded-Proto` para oferecer suporte a cenários em que o Command Center está atrás de um proxy reverso que termina o TLS. Obrigado @davidgross pela correção!
+* **Mapas**: corrigido um problema em que os endpoints da API de mapas poderiam falhar com um erro interno quando um hostname era usado para acessar o Command Center em vez de um endereço IP ou localhost. Obrigado @jakeaturner pela correção!
+* **Fila**: aumentado o `lockDuration` do BullMQ para evitar que tarefas sejam encerradas prematuramente em sistemas mais lentos. Obrigado @bgauger pela contribuição!
+* **Fila**: adicionado melhor tratamento para downloads muito grandes e cancelamentos iniciados pelo usuário. Obrigado @bgauger pela contribuição!
+* **Instalação**: o script de instalação agora verifica a presença do `gpg` (necessário para instalar o toolkit NVIDIA) e tenta instalá-lo automaticamente caso esteja ausente. Obrigado @chriscrosstalk pela correção!
+* **Segurança**: adicionada validação de chaves ao endpoint da API de leitura das configurações. Obrigado @LuisMIguelFurlanettoSousa pela correção!
+* **Segurança**: melhorada a lógica de validação de URLs para downloads de ZIM, evitando vulnerabilidades de SSRF. Obrigado @sebastiondev pela correção!
+* **UI**: corrigida a altura do feed de atividades na Configuração Fácil e adicionada rolagem automática para a mensagem mais recente durante a instalação. Obrigado @chriscrosstalk pela contribuição!
+
+### Melhorias
+
+* **Dependências**: atualizadas várias dependências para corrigir vulnerabilidades de segurança e melhorar a estabilidade.
+* **Docker**: o NOMAD agora adiciona os rótulos `'com.docker.compose.project': 'project-nomad-managed'` e `'io.project-nomad.managed': 'true'` a todos os containers instalados pelo Command Center, melhorando a compatibilidade com outras ferramentas de gerenciamento Docker e facilitando a identificação e o gerenciamento dos containers do NOMAD. Obrigado @techyogi pela contribuição!
+* **Docs**: adicionada uma referência simples da API para usuários avançados e desenvolvedores. Obrigado @hestela pela contribuição!
+* **Docs**: reformatação do comando de instalação rápida em várias linhas para melhorar a legibilidade no README. Obrigado @samsara-02 pela contribuição!
+* **Docs**: atualizados os guias CONTRIBUTING e FAQ com as informações mais recentes e esclarecidas algumas dúvidas comuns. Obrigado @jakeaturner pela contribuição!
+* **Ops**: atualizadas as GitHub Actions para suas versões mais recentes. Obrigado @salmanmkc pela contribuição!
+* **Performance**: reduzido significativamente o tamanho do bundle da interface do Command Center por meio da otimização de dependências e tree-shaking, resultando em tempos de carregamento mais rápidos e uma experiência mais ágil. Obrigado @jakeaturner pela contribuição!
+* **Performance**: implementada compressão gzip por padrão para todas as rotas HTTP registradas pelo backend do Command Center, melhorando ainda mais o desempenho, especialmente em conexões mais lentas. A variável de ambiente `DISABLE_COMPRESSION` pode ser usada para desativar esse recurso, se necessário. Obrigado @jakeaturner pela contribuição!
+* **Performance**: adicionado cache leve para determinadas interações com o socket do Docker e para a resolução personalizada do nome do Assistente de IA, melhorando o desempenho e reduzindo chamadas redundantes à API do Docker. Obrigado @jakeaturner pela contribuição!
+* **Performance**: utilização de chamadas de navegação do roteador Inertia quando apropriado, aproveitando o cache integrado e as otimizações de desempenho do Inertia para uma experiência mais fluida. Obrigado @jakeaturner pela contribuição!
+
+## Versão 1.30.3 - 25 de março de 2026
+
+### Recursos
+
+### Correções de Bugs
+
+* **Benchmark**: corrigido um problema em que as pontuações de CPU e gravação em disco poderiam ser exibidas como 0 caso os valores medidos fossem inferiores à metade do valor de referência. Obrigado @bortlesboat pela correção!
+* **Gerenciador de Conteúdo**: corrigido um método ausente do cliente da API que fazia com que a exclusão de arquivos ZIM falhasse. Obrigado @LuisMIguelFurlanettoSousa pela correção!
+* **Instalação**: corrigido um problema em que o script de instalação poderia informar incorretamente que o runtime NVIDIA do Docker estava ausente. Obrigado @brenex pela correção!
+* **Apoie o Projeto**: corrigido um link quebrado para o Rogue Support. Obrigado @chriscrosstalk pela correção!
+
+### Melhorias
+
+* **Assistente de IA**: melhorados os relatórios e o tratamento de erros durante downloads de modelos. Obrigado @chriscrosstalk pela contribuição!
+* **Assistente de IA**: atualizada a versão padrão do Ollama instalado para v0.18.1, aproveitando as melhorias de desempenho e correções de bugs mais recentes.
+* **Aplicativos**: melhorados os relatórios e o tratamento de erros para falhas na instalação de serviços. Obrigado @trek-e pela contribuição!
+* **Coleções**: atualizados vários links de coleções selecionadas para suas versões mais recentes. Obrigado @builder555 pela contribuição!
+* **CyberChef**: atualizada a versão padrão instalada do CyberChef para v10.22.1, aproveitando os recursos e correções de bugs mais recentes.
+* **Docs**: adicionado um link para o guia de instalação passo a passo e para o tutorial em vídeo. Obrigado @chriscrosstalk pela contribuição!
+* **Instalação**: aumentado o limite de tentativas do serviço MySQL no Docker Compose para melhorar a estabilidade durante a instalação em sistemas com desempenho mais baixo. Obrigado @dx4956 pela contribuição!
+* **Instalação**: corrigido um problema em que dados antigos poderiam causar incompatibilidade de credenciais no MySQL durante uma reinstalação. Obrigado @chriscrosstalk pela correção!
+
+## Versão 1.30.0 - 20 de março de 2026
+
+### Recursos
+
+* **Night Ops**: adicionado o recurso mais solicitado — um tema de modo escuro para a interface do Command Center! Ative-o pelo rodapé e aproveite o novo visual durante suas missões noturnas. Obrigado @chriscrosstalk pela contribuição!
+* **Informações de Depuração**: adicionado um novo modal "Informações de Depuração", acessível pelo rodapé, que fornece informações detalhadas do sistema e do aplicativo para solução de problemas e suporte. Obrigado @chriscrosstalk pela contribuição!
+* **Apoie o Projeto**: adicionada uma nova página "Apoie o Projeto" nas configurações, com links para recursos da comunidade, opções de doação e formas de contribuir.
+* **Instalação**: a imagem principal do NOMAD agora é totalmente independente e pode ser utilizada diretamente com Docker Compose, permitindo instalações mais flexíveis e personalizáveis sem depender de scripts externos. A imagem continua totalmente compatível com instalações existentes, e o script de instalação foi atualizado para refletir o processo de implantação simplificado.
+
+### Correções de Bugs
+
+* **Configurações**: a exibição do uso de armazenamento agora prioriza dispositivos de bloco reais em vez de tempfs. Obrigado @Bortlesboat pela correção!
+* **Configurações**: corrigido um problema em que a lógica de correspondência de dispositivos e deduplicação das entradas de montagem poderia causar relatórios incorretos de uso de armazenamento e dispositivos ausentes nas exibições de armazenamento.
+* **Mapas**: a página de Mapas agora respeita o protocolo da solicitação (http vs https) para garantir que os blocos do mapa sejam carregados corretamente. Obrigado @davidgross pelo relatório de bug!
+* **Base de Conhecimento**: corrigido um problema em que tarefas de embedding de arquivos poderiam causar uma tempestade de tentativas quando o serviço Ollama estivesse indisponível. Obrigado @skyam25 pelo relatório de bug!
+* **Coleções Selecionadas**: corrigidos alguns links quebrados nas definições das coleções selecionadas (mapas e arquivos ZIM), que faziam alguns recursos não conseguirem ser baixados.
+* **Configuração Fácil**: corrigido um problema em que o indicador "Comece Aqui" permanecia mesmo depois de visitar o Assistente de Configuração Fácil pela primeira vez. Obrigado @chriscrosstalk pela correção!
+* **UI**: corrigido um problema em que o indicador de carregamento poderia apresentar uma aparência estranha em determinadas situações.
+* **Atualizações do Sistema**: corrigido um problema em que o banner de atualização permanecia mesmo depois que o sistema era atualizado com sucesso. Obrigado @chriscrosstalk pela correção!
+* **Performance**: várias pequenas correções de vazamentos de memória e melhorias de desempenho em toda a interface para garantir uma experiência mais fluida.
+
+### Melhorias
+
+* **Ollama**: melhorada a lógica de detecção de GPU para garantir que a configuração mais recente da GPU seja sempre enviada ao container Ollama durante uma atualização.
+* **Ollama**: o tipo de GPU detectado agora é armazenado no banco de dados para uma configuração e solução de problemas mais confiáveis entre atualizações e reinicializações. Obrigado @chriscrosstalk pela contribuição!
+* **Downloads**: os usuários agora podem dispensar notificações de downloads com falha para reduzir a desorganização na interface. Obrigado @chriscrosstalk pela contribuição!
+* **Logging**: alterado o nível padrão de log para "info" para reduzir ruídos e concentrar-se em mensagens importantes. Obrigado @traxeon pela sugestão!
+* **Logging**: o logger interno do NOMAD agora cria seu próprio diretório de logs durante a inicialização caso ele ainda não exista, evitando erros em novas instalações em que o diretório de logs ainda não foi criado.
+* **Dozzle**: acesso ao shell do Dozzle e ações sobre containers agora são desativados por padrão. Obrigado @traxeon pela recomendação!
+* **MySQL & Redis**: removida a exposição de portas ao host por padrão para melhorar a segurança. As portas ainda podem ser expostas manualmente quando necessário. Obrigado @traxeon pela recomendação!
+* **Dependências**: várias atualizações de dependências para corrigir vulnerabilidades de segurança e melhorar a estabilidade.
+* **Scripts Utilitários**: adicionada uma verificação da versão esperada do Docker Compose (v2) em todos os scripts utilitários, fornecendo mensagens de erro e orientações mais claras caso o ambiente não esteja configurado corretamente.
+* **Scripts Utilitários**: adicionada uma advertência extra ao script de instalação informando sobre a possibilidade de sobrescrever configurações personalizadas existentes e sobre a importância de fazer backup dos dados antes de executar novamente o script de instalação.
+* **Documentação**: atualizadas as instruções de instalação para refletir a nova opção de implantação manual via Docker Compose sem o script de instalação.
+
+## Versão 1.29.0 - 11 de março de 2026
+
+### Recursos
+
+* **Assistente de IA**: adicionadas orientações aprimoradas ao usuário para solucionar problemas de passagem da GPU.
+* **Assistente de IA**: o último modelo utilizado agora é selecionado automaticamente quando um novo chat é iniciado.
+* **Configurações**: o NOMAD agora realiza automaticamente verificações noturnas em busca de atualizações disponíveis dos aplicativos, e os usuários podem selecionar e aplicar atualizações na página de Aplicativos em Configurações.
+
+### Correções de Bugs
+
+* **Configurações**: corrigido um problema em que a página de configurações do Assistente de IA aparecia na navegação mesmo quando o Assistente de IA não estava instalado, causando erros 404 ao ser selecionada.
+* **Segurança**: implementadas proteções contra path traversal e SSRF.
+* **Assistente de IA**: corrigido um problema que causava falhas intermitentes ao salvar títulos das sessões de chat.
+
+### Melhorias
+
+* **Assistente de IA**: melhorias extensas de desempenho e aprimoramento da inteligência do RAG/uso de contexto.
+
+## Versão 1.28.0 - 5 de março de 2026
+
+### Recursos
+
+* **RAG**: adicionado suporte para visualizar tarefas de embedding ativas na fila de processamento e melhorado o acompanhamento do progresso das tarefas com atualizações de status mais detalhadas.
+* **RAG**: adicionado suporte para remover documentos da base de conhecimento (exclusão do Qdrant e do armazenamento local).
+
+### Correções de Bugs
+
+* **Instalação**: corrigidas URLs quebradas no script de instalação e atualizado o processo para solicitar a aceitação da licença Apache 2.0.
+* **Docs**: atualizados os avisos legais para refletir a licença Apache 2.0 e adicionada a atribuição ao Qdrant.
+* **Dependências**: várias pequenas atualizações de dependências para corrigir vulnerabilidades de segurança.
+
+### Melhorias
+
+* **Licença**: adicionado o arquivo de licença Apache 2.0 ao repositório para maior clareza e conformidade legal.
+
+## Versão 1.27.0 - 4 de março de 2026
+
+### Recursos
+
+* **Configurações**: adicionado suporte à paginação na lista de modelos do Ollama.
+* **Canal de Acesso Antecipado**: permite que os usuários optem por receber versões de acesso antecipado com os recursos e melhorias mais recentes antes de chegarem às versões estáveis.
+
+### Correções de Bugs
+
+### Melhorias
+
+* **Assistente de IA**: melhorado o desempenho do chat por meio da otimização da reescrita de consultas e da lógica de transmissão das respostas.
+* **CI/CD**: atualizados os fluxos de lançamento para oferecer suporte a versões candidatas a lançamento.
+* **KV Store**: melhorada a segurança de tipos na implementação do KV Store.
+
+## Versão 1.26.0 - 19 de fevereiro de 2026
+
+### Recursos
+
+* **Assistente de IA**: adicionado suporte à exibição do fluxo de raciocínio para modelos com recursos de pensamento.
+* **Assistente de IA**: adicionado suporte à transmissão de respostas para melhorar a experiência do usuário.
+
+### Correções de Bugs
+
+### Melhorias
+
+## Versão 1.25.2 - 18 de fevereiro de 2026
+
+### Recursos
+
+### Correções de Bugs
+
+* **Assistente de IA**: corrigido um erro nas sugestões de chat quando nenhum modelo Ollama está instalado.
+* **Assistente de IA**: melhorada a lógica de detecção de GPUs dedicadas.
+* **UI**: links antigos para `/docs` e `/knowledge-base` agora redirecionam corretamente para as páginas correspondentes em vez de mostrar erros 404.
+
+### Melhorias
+
+* **Assistente de IA**: as sugestões de chat agora ficam desativadas por padrão para evitar sobrecarregar configurações de hardware menores.
+
+## Versão 1.25.1 - 12 de fevereiro de 2026
+
+### Recursos
+
+### Correções de Bugs
+
+* **Configurações**: corrigido um possível problema de cache desatualizado durante a verificação de atualizações do sistema.
+* **Configurações**: melhoradas as orientações ao usuário durante as atualizações do sistema.
+
+### Melhorias
+
+## Versão 1.25.0 - 12 de fevereiro de 2026
+
+### Recursos
+
+* **Coleções**: reformulação completa do gerenciamento de coleções com manifests dinâmicos, rastreamento no banco de dados dos recursos instalados e interface aprimorada para gerenciar arquivos ZIM e recursos de mapas.
+* **Coleções**: adicionado suporte à verificação de versões mais recentes dos recursos instalados com base nos dados do manifest.
+
+### Correções de Bugs
+
+* **Benchmark**: melhorado o tratamento de erros e a propagação de códigos de status para fornecer um feedback melhor ao usuário em falhas de envio.
+* **Benchmark**: corrigida uma condição de corrida no gerenciamento do container sysbench que poderia causar falhas nos testes de benchmark.
+
+### Melhorias
 
 ---
 
-## Version 1.24.0 - February 10, 2026
+## Versão 1.24.0 - 10 de fevereiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **AI Assistant**: Query rewriting for enhanced context retrieval
-- **AI Assistant**: Allow manual scan and resync of Knowledge Base
-- **AI Assistant**: Integrated Knowledge Base UI into AI Assistant page
-- **AI Assistant**: ZIM content embedding into Knowledge Base
-- **Downloads**: Display model download progress
-- **System**: Cron job for automatic update checks
-- **Docs**: Polished documentation rendering with desert-themed components
+* **Assistente de IA**: reescrita de consultas para melhorar a recuperação de contexto.
+* **Assistente de IA**: permitir a verificação e ressincronização manual da Base de Conhecimento.
+* **Assistente de IA**: interface da Base de Conhecimento integrada à página do Assistente de IA.
+* **Assistente de IA**: incorporação de conteúdo ZIM na Base de Conhecimento.
+* **Downloads**: exibição do progresso de download dos modelos.
+* **Sistema**: tarefa Cron para verificações automáticas de atualização.
+* **Docs**: renderização aprimorada da documentação com componentes inspirados no tema desértico.
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **AI Assistant**: Chat suggestion performance improvements
-- **AI Assistant**: Inline code rendering
-- **GPU**: Detect NVIDIA GPUs via Docker API instead of lspci
-- **Install**: Improve Docker GPU configuration
-- **System**: Correct memory usage percentage calculation
-- **System**: Show host OS, hostname, and GPU instead of container info
-- **Collections**: Correct devdocs ZIM filenames in Computing & Technology
-- **Downloads**: Sort active downloads by progress descending
-- **Docs**: Fix multiple broken internal links and route references
+* **Assistente de IA**: melhorias no desempenho das sugestões de chat.
+* **Assistente de IA**: renderização de código inline.
+* **GPU**: detecção de GPUs NVIDIA por meio da API do Docker em vez de `lspci`.
+* **Instalação**: melhoria da configuração de GPU do Docker.
+* **Sistema**: correção do cálculo da porcentagem de uso de memória.
+* **Sistema**: exibição do sistema operacional do host, hostname e GPU em vez das informações do container.
+* **Coleções**: correção dos nomes de arquivos ZIM do devdocs em Computação e Tecnologia.
+* **Downloads**: ordenação dos downloads ativos por progresso decrescente.
+* **Docs**: correção de vários links internos e referências de rotas quebrados.
 
-### ✨ Improvements
+### ✨ Melhorias
 
-- **Docs**: Overhauled in-app documentation with sidebar ordering
-- **Docs**: Updated README with feature overview
-- **GPU**: Reusable utility for running nvidia-smi
-
----
-
-## Version 1.23.0 - February 5, 2026
-
-### 🚀 Features
-
-- **Maps**: Maps now use full page by default
-- **Navigation**: Added "Back to Home" link on standard header pages
-- **AI**: Fuzzy search for AI models list
-- **UI**: Improved global error reporting with user notifications
-
-### 🐛 Bug Fixes
-
-- **Kiwix**: Avoid restarting the Kiwix container while download jobs are running
-- **Docker**: Ensure containers are fully removed on failed service install
-- **AI**: Filter cloud models from API response and fallback model list
-- **Curated Collections**: Prevent duplicate resources when fetching latest collections
-- **Content Tiers**: Rework tier system to dynamically determine install status on the server side
-
-### ✨ Improvements
-
-- **Docs**: Added pretty rendering for markdown tables in documentation pages
+* **Docs**: reformulação da documentação dentro do aplicativo com ordenação da barra lateral.
+* **Docs**: atualização do README com visão geral dos recursos.
+* **GPU**: utilitário reutilizável para executar `nvidia-smi`.
 
 ---
 
-## Version 1.22.0 - February 4, 2026
+## Versão 1.23.0 - 5 de fevereiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Content Manager**: Display friendly names (Title and Summary) instead of raw filenames for ZIM files
-- **AI Knowledge Base**: Automatically add NOMAD documentation to AI Knowledge Base on install
+* **Mapas**: os Mapas agora utilizam a página inteira por padrão.
+* **Navegação**: adicionado link "Voltar para o Início" às páginas com cabeçalho padrão.
+* **IA**: pesquisa aproximada na lista de modelos de IA.
+* **UI**: melhorado o relatório global de erros com notificações ao usuário.
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **Maps**: Ensure map asset URLs resolve correctly when accessed via hostname
-- **Wikipedia**: Prevent loading spinner overlay during download
-- **Easy Setup**: Scroll to top when navigating between wizard steps
-- **AI Chat**: Hide chat button and page unless AI Assistant is actually installed
-- **Settings**: Rename confusing "Port" column to "Location" in Apps Settings
+* **Kiwix**: evitar reiniciar o container Kiwix enquanto houver tarefas de download em execução.
+* **Docker**: garantir que os containers sejam completamente removidos quando a instalação de um serviço falhar.
+* **IA**: filtrar modelos na nuvem da resposta da API e da lista de modelos de fallback.
+* **Coleções Selecionadas**: impedir recursos duplicados ao buscar as coleções mais recentes.
+* **Níveis de Conteúdo**: reformular o sistema de níveis para determinar dinamicamente o status de instalação no lado do servidor.
 
-### ✨ Improvements
+### ✨ Melhorias
 
-- **Ollama**: Cleanup model download logic and improve progress tracking
-
----
-
-## Version 1.21.0 - February 2, 2026
-
-### 🚀 Features
-
-- **AI Assistant**: Built-in AI chat interface — no more separate Open WebUI app
-- **Knowledge Base**: Document upload with OCR, semantic search (RAG), and contextual AI responses via Qdrant
-- **Wikipedia Selector**: Dedicated Wikipedia content management with smart package selection
-- **GPU Support**: NVIDIA and AMD GPU passthrough for Ollama (faster AI inference)
-
-### 🐛 Bug Fixes
-
-- **Benchmark**: Detect Intel Arc Graphics on Core Ultra processors
-- **Easy Setup**: Remove built-in System Benchmark from wizard (now in Settings)
-- **Icons**: Switch to Tabler Icons for consistency, remove unused icon libraries
-- **Docker**: Avoid re-pulling existing images during install
-
-### ✨ Improvements
-
-- **Ollama**: Fallback list of recommended models if api.projectnomad.us is down
-- **Ollama/Qdrant**: Docker images pinned to specific versions for stability
-- **README**: Added website and community links
-- Removed Open WebUI as a separate installable app (replaced by built-in AI Chat)
+* **Docs**: adicionada renderização aprimorada para tabelas Markdown nas páginas de documentação.
 
 ---
 
-## Version 1.20.0 - January 28, 2026
+## Versão 1.22.0 - 4 de fevereiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Collections**: Expanded curated categories with more content and improved tier selection modal UX
-- **Legal**: Expanded Legal Notices and moved to bottom of Settings sidebar
+* **Gerenciador de Conteúdo**: exibir nomes amigáveis (Título e Resumo) em vez dos nomes brutos dos arquivos ZIM.
+* **Base de Conhecimento de IA**: adicionar automaticamente a documentação do NOMAD à Base de Conhecimento de IA durante a instalação.
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **Install**: Handle missing curl dependency on fresh Ubuntu installs
-- **Migrations**: Fix timestamp ordering for builder_tag migration
+* **Mapas**: garantir que as URLs dos recursos dos mapas sejam resolvidas corretamente quando acessadas por hostname.
+* **Wikipedia**: impedir a sobreposição do indicador de carregamento durante o download.
+* **Configuração Fácil**: rolar para o topo ao navegar entre as etapas do assistente.
+* **Chat de IA**: ocultar o botão e a página de chat caso o Assistente de IA não esteja realmente instalado.
+* **Configurações**: renomear a coluna confusa "Porta" para "Localização" nas Configurações de Aplicativos.
 
----
+### ✨ Melhorias
 
-## Version 1.19.0 - January 28, 2026
-
-### 🚀 Features
-
-- **Benchmark**: Builder Tag system — claim leaderboard spots with NOMAD-themed tags (e.g., "Tactical-Llama-1234")
-- **Benchmark**: Full benchmark with AI now required for community sharing; HMAC-signed submissions
-- **Release Notes**: Subscribe to release notes via email
-- **Maps**: Automatically download base map assets if missing
-
-### 🐛 Bug Fixes
-
-- **System Info**: Fall back to fsSize when disk array is empty (fixes "No storage devices detected")
+* **Ollama**: limpeza da lógica de download de modelos e melhoria do acompanhamento do progresso.
 
 ---
 
-## Version 1.18.0 - January 24, 2026
+## Versão 1.21.0 - 2 de fevereiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Collections**: Improved curated collections UX with persistent tier selection and submit-to-confirm workflow
+* **Assistente de IA**: interface de chat de IA integrada — não é mais necessário instalar o aplicativo Open WebUI separadamente.
+* **Base de Conhecimento**: envio de documentos com OCR, pesquisa semântica (RAG) e respostas de IA contextuais por meio do Qdrant.
+* **Seletor da Wikipedia**: gerenciamento dedicado de conteúdo da Wikipedia com seleção inteligente de pacotes.
+* **Suporte a GPU**: passagem de GPUs NVIDIA e AMD para o Ollama (inferência de IA mais rápida).
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **Benchmark**: Fix AI benchmark connectivity (Docker container couldn't reach Ollama on host)
-- **Open WebUI**: Fix install status indicator
+* **Benchmark**: detecção de Intel Arc Graphics nos processadores Core Ultra.
+* **Configuração Fácil**: removido o Benchmark do Sistema integrado do assistente (agora está em Configurações).
+* **Ícones**: mudança para Tabler Icons por consistência e remoção de bibliotecas de ícones não utilizadas.
+* **Docker**: evitar baixar novamente imagens existentes durante a instalação.
 
-### ✨ Improvements
+### ✨ Melhorias
 
-- **Docker**: Container URL resolution utility and networking improvements
-
----
-
-## Version 1.17.0 - January 23, 2026
-
-### 🚀 Features
-
-- **System Benchmark**: Hardware scoring with NOMAD Score, circular gauges, and community leaderboard submission
-- **Dashboard**: User-friendly app names with "Powered by" open source attribution
-- **Settings**: Updated nomenclature and added tiered content collections to Settings pages
-- **Queues**: Support working all queues with a single command
-
-### 🐛 Bug Fixes
-
-- **Easy Setup**: Select valid primary disk for storage projection bar
-- **Docs**: Remove broken service links that pointed to invalid routes
-- **Notifications**: Improved styling
-- **UI**: Remove splash screen
-- **Maps**: Static path resolution fix
+* **Ollama**: lista alternativa de modelos recomendados caso api.projectnomad.us esteja indisponível.
+* **Ollama/Qdrant**: imagens Docker fixadas em versões específicas para maior estabilidade.
+* **README**: adicionados links para o site e para a comunidade.
+* Removido o Open WebUI como aplicativo instalável separado (substituído pelo Chat de IA integrado).
 
 ---
 
-## Version 1.16.0 - January 20, 2026
+## Versão 1.20.0 - 28 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Apps**: Force-reinstall option for installed applications
-- **Open WebUI**: Manage Ollama models directly from Command Center
-- **Easy Setup**: Show selected AI model size in storage projection bar
+* **Coleções**: categorias selecionadas ampliadas com mais conteúdo e UX aprimorada no modal de seleção de níveis.
+* **Legal**: Avisos Legais ampliados e movidos para a parte inferior da barra lateral de Configurações.
 
-### ✨ Improvements
+### 🐛 Correções de Bugs
 
-- **Curated Categories**: Improved fetching from GitHub
-- **Build**: Added dockerignore file
-
----
-
-## Version 1.15.0 - January 19, 2026
-
-### 🚀 Features
-
-- **Easy Setup Wizard**: Redesigned Step 1 with user-friendly capability cards instead of app names
-- **Tiered Collections**: Category-based content collections with Essential, Standard, and Comprehensive tiers
-- **Storage Projection Bar**: Visual disk usage indicator showing projected additions during Easy Setup
-- **Windows Support**: Docker Desktop support for local development with platform detection and NOMAD_STORAGE_PATH env var
-- **Documentation**: Comprehensive in-app documentation (Home, Getting Started, FAQ, Use Cases)
-
-### ✨ Improvements
-
-- **Easy Setup**: Renamed step 3 label from "ZIM Files" to "Content"
-- **Notifications**: Fixed auto-dismiss not working due to stale closure
-- Added Survival & Preparedness and Education & Reference content categories
+* **Instalação**: tratamento da dependência `curl` ausente em novas instalações do Ubuntu.
+* **Migrações**: correção da ordenação de timestamps para a migração `builder_tag`.
 
 ---
 
-## Version 1.14.0 - January 16, 2026
+## Versão 1.19.0 - 28 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Collections**: Auto-fetch latest curated collections from GitHub
+* **Benchmark**: sistema Builder Tag — reivindique posições no ranking usando tags com tema NOMAD (por exemplo, `"Tactical-Llama-1234"`).
+* **Benchmark**: benchmark completo com IA agora é obrigatório para compartilhamento com a comunidade; envios assinados com HMAC.
+* **Notas de Lançamento**: inscrição para receber notas de lançamento por e-mail.
+* **Mapas**: download automático dos recursos do mapa-base caso estejam ausentes.
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **Docker**: Improved container state management
-
----
-
-## Version 1.13.0 - January 15, 2026
-
-### 🚀 Features
-
-- **Easy Setup Wizard**: Initial implementation of the guided first-time setup experience
-- **Maps**: Enhanced missing assets warnings
-- **Apps**: Improved app cards with custom icons
-
-### 🐛 Bug Fixes
-
-- **Curated Collections**: UI tweaks
-- **Install**: Changed admin container pull_policy to always
+* **Informações do Sistema**: usar `fsSize` como fallback quando o array de discos estiver vazio (corrige "Nenhum dispositivo de armazenamento detectado").
 
 ---
 
-## Version 1.12.0 - 1.12.3 - December 24, 2025 - January 13, 2026
+## Versão 1.18.0 - 24 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **System**: Check internet status on backend with custom test URL support
+* **Coleções**: melhoria da experiência das coleções selecionadas com seleção persistente de nível e fluxo de envio para confirmação.
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **Admin**: Improved service install status management
-- **Admin**: Improved duplicate install request handling
-- **Admin**: Fixed base map assets download URL
-- **Admin**: Fixed port binding for Open WebUI
-- **Admin**: Improved memory usage indicators
-- **Admin**: Added favicons
-- **Admin**: Fixed container healthcheck
-- **Admin**: Fixed missing ZIM download API client method
-- **Install**: Fixed disk info file mount and stability
-- **Install**: Ensure update script always pulls latest images
-- **Install**: Use modern docker compose command in update script
-- **Install**: Ensure update script is executable
-- **Scripts**: Remove disk info file on uninstall
+* **Benchmark**: corrigida a conectividade do benchmark de IA (o container Docker não conseguia acessar o Ollama no host).
+* **Open WebUI**: corrigido o indicador de status da instalação.
+
+### ✨ Melhorias
+
+* **Docker**: utilitário de resolução de URLs de containers e melhorias de rede.
 
 ---
 
-## Version 1.11.0 - 1.11.1 - December 24, 2025
+## Versão 1.17.0 - 23 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Maps**: Curated map region collections
-- **Collections**: Map region collection definitions
+* **Benchmark do Sistema**: pontuação de hardware com NOMAD Score, medidores circulares e envio para o ranking da comunidade.
+* **Painel**: nomes amigáveis para aplicativos com atribuição de código aberto "Powered by".
+* **Configurações**: nomenclatura atualizada e adição de coleções de conteúdo em níveis às páginas de Configurações.
+* **Filas**: suporte para trabalhar com todas as filas usando um único comando.
 
-### 🐛 Bug Fixes
+### 🐛 Correções de Bugs
 
-- **Maps**: Fixed custom pmtiles file downloads
-- **Docs**: Documentation renderer fixes
-
----
-
-## Version 1.10.1 - December 5, 2025
-
-### ✨ Improvements
-- **Kiwix**: ZIM storage path improvements
+* **Configuração Fácil**: selecionar o disco primário válido para a barra de projeção de armazenamento.
+* **Docs**: remover links de serviços quebrados que apontavam para rotas inválidas.
+* **Notificações**: melhoria do estilo.
+* **UI**: remover a tela de abertura.
+* **Mapas**: correção da resolução de caminhos estáticos.
 
 ---
 
-## Version 1.10.0 - December 5, 2025
+## Versão 1.16.0 - 20 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- Disk info monitoring
+* **Aplicativos**: opção de reinstalação forçada para aplicativos instalados.
+* **Open WebUI**: gerenciamento direto dos modelos Ollama pelo Command Center.
+* **Configuração Fácil**: exibir o tamanho do modelo de IA selecionado na barra de projeção de armazenamento.
 
-### ✨ Improvements
+### ✨ Melhorias
 
-- **Install**: Add Redis env variables to compose file
-- **Kiwix**: Initial download and setup
-
----
-
-## Version 1.9.0 - December 5, 2025
-
-### 🚀 Features
-
-- Background job management with BullMQ
-
-### ✨ Improvements
-
-- **Install**: Character escaping in env variables
-- **Install**: Host env variable
+* **Categorias Selecionadas**: melhoria da busca no GitHub.
+* **Build**: adicionado arquivo dockerignore.
 
 ---
 
-## Version 1.8.0 - December 5, 2025
+## Versão 1.15.0 - 19 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- Alert and button styles redesign
-- System info page redesign
-- **Collections**: Curated ZIM Collections with slug, icon, and language support
-- Custom map and ZIM file downloads (WIP)
-- New maps system (WIP)
+* **Assistente de Configuração Fácil**: etapa 1 redesenhada com cartões de recursos fáceis de entender em vez de nomes de aplicativos.
+* **Coleções em Níveis**: coleções de conteúdo baseadas em categorias com níveis Essencial, Padrão e Completo.
+* **Barra de Projeção de Armazenamento**: indicador visual de uso do disco mostrando as adições previstas durante a Configuração Fácil.
+* **Suporte ao Windows**: suporte ao Docker Desktop para desenvolvimento local com detecção de plataforma e variável de ambiente `NOMAD_STORAGE_PATH`.
+* **Documentação**: documentação completa dentro do aplicativo (Início, Primeiros Passos, FAQ e Casos de Uso).
 
-### ✨ Improvements
+### ✨ Melhorias
 
-- **DockerService**: Cleanup old OSM stuff
-- **Install**: Standardize compose file names
-
----
-
-## Version 1.7.0 - December 5, 2025
-
-### 🚀 Features
-
-- Alert and button styles redesign
-- System info page redesign
-- **Collections**: Curated ZIM Collections
-- Custom map and ZIM file downloads (WIP)
-- New maps system (WIP)
-
-### ✨ Improvements
-
-- **DockerService**: Cleanup old OSM stuff
-- **Install**: Standardize compose file names
+* **Configuração Fácil**: renomeado o rótulo da etapa 3 de "Arquivos ZIM" para "Conteúdo".
+* **Notificações**: corrigido o fechamento automático que não funcionava devido a um closure desatualizado.
+* Adicionadas as categorias de conteúdo Sobrevivência e Preparação e Educação e Referência.
 
 ---
 
-## Version 1.6.0 - November 18, 2025
+## Versão 1.14.0 - 16 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- Added Kolibri to standard app library
+* **Coleções**: busca automática das coleções selecionadas mais recentes no GitHub.
 
-### ✨ Improvements
+### 🐛 Correções de Bugs
 
-- Standardize container names in management-compose
-
----
-
-## Version 1.5.0 - November 18, 2025
-
-### 🚀 Features
-
-- Version footer and fix CI version handling
+* **Docker**: melhoria do gerenciamento do estado dos containers.
 
 ---
 
-## Version 1.4.0 - November 18, 2025
+## Versão 1.13.0 - 15 de janeiro de 2026
 
-### 🚀 Features
+### 🚀 Recursos
 
-- **Services**: Friendly names and descriptions
+* **Assistente de Configuração Fácil**: implementação inicial da experiência guiada de configuração na primeira execução.
+* **Mapas**: melhorias nos avisos de recursos ausentes.
+* **Aplicativos**: cartões de aplicativos aprimorados com ícones personalizados.
 
-### ✨ Improvements
+### 🐛 Correções de Bugs
 
-- **Scripts**: Logs directory creation improvements
-- **Scripts**: Fix typo in management-compose file path
-
----
-
-## Version 1.3.0 - October 9, 2025
-
-### 🚀 New Features
-
-- Uninstall script now removes non-management NOMAD app containers
-
-### ✨ Improvements
-
-- **OpenStreetMap**: Apply dir permission fixes more robustly
+* **Coleções Selecionadas**: ajustes na UI.
+* **Instalação**: alterado o `pull_policy` do container admin para `always`.
 
 ---
 
-## Version 1.2.0 - October 7, 2025
+## Versão 1.12.0 - 1.12.3 - 24 de dezembro de 2025 - 13 de janeiro de 2026
 
-### 🚀 New Features
+### 🚀 Recursos
 
-- Added CyberChef to standard app library
-- Added Dozzle to core containers for enhanced logs and metrics
-- Added FlatNotes to standard app library
-- Uninstall helper script available
+* **Sistema**: verificação do status da internet no backend com suporte a uma URL de teste personalizada.
 
-### ✨ Improvements
+### 🐛 Correções de Bugs
 
-- **OpenStreetMap**:
-    - Fixed directory paths and access issues
-    - Improved error handling
-    - Fixed renderer file permissions
-    - Fixed absolute host path issue
-- **ZIM Manager**:
-    - Initial ZIM download now hosted in Project NOMAD GitHub repo for better availability
-
----
-
-## Version 1.1.0 - August 20, 2025
-
-### 🚀 New Features
-
-**OpenStreetMap Installation**
-- Added OpenStreetMap to installable applications
-- Automatically downloads and imports US Pacific region during installation.
-- Supports rendered tile caching for enhanced performance.
-
-### ✨ Improvements
-
-- **Apps**: Added start/stop/restart controls for each application container in settings
-- **ZIM Manager**: Error-handling/resumable downloads + enhanced UI
-- **System**: You can now view system information such as CPU, RAM, and disk stats in settings
-- **Legal**: Added legal notices in settings
-- **UI**: Added general UI enhancements such as alerts and error dialogs
-- Standardized container naming to reduce potential for conflicts with existing containers on host system
-
-### ⚠️ Breaking Changes
-
-- **Container Naming**: As a result of standardized container naming, it is recommend that you do a fresh install of Project NOMAD and any apps to avoid potential conflicts/duplication of containers
-
-### 📚 Documentation
-
-- Added release notes page
+* **Admin**: melhoria do gerenciamento do status de instalação de serviços.
+* **Admin**: melhoria do tratamento de solicitações de instalação duplicadas.
+* **Admin**: correção da URL de download dos recursos do mapa-base.
+* **Admin**: correção do mapeamento de porta para o Open WebUI.
+* **Admin**: melhoria dos indicadores de uso de memória.
+* **Admin**: adição de favicons.
+* **Admin**: correção do healthcheck do container.
+* **Admin**: correção do método ausente do cliente da API de download de ZIM.
+* **Instalação**: correção da montagem do arquivo de informações do disco e melhorias de estabilidade.
+* **Instalação**: garantir que o script de atualização sempre baixe as imagens mais recentes.
+* **Instalação**: utilizar o comando moderno `docker compose` no script de atualização.
+* **Instalação**: garantir que o script de atualização tenha permissão de execução.
+* **Scripts**: remover o arquivo de informações do disco durante a desinstalação.
 
 ---
 
-## Version 1.0.1 - July 11, 2025
+## Versão 1.11.0 - 1.11.1 - 24 de dezembro de 2025
 
-### 🐛 Bug Fixes
+### 🚀 Recursos
 
-- **Docs**: Fixed doc rendering
-- **Install**: Fixed installation script URLs
-- **OpenWebUI**: Fixed Ollama connection
+* **Mapas**: coleções selecionadas de regiões de mapas.
+* **Coleções**: definições de coleções de regiões de mapas.
 
----
+### 🐛 Correções de Bugs
 
-## Version 1.0.0 - July 11, 2025
-
-### 🚀 New Features
-
-- Initial alpha release for app installation and documentation
-- OpenWebUI, Ollama, Kiwix installation
-- ZIM downloads & management
+* **Mapas**: corrigidos downloads personalizados de arquivos pmtiles.
+* **Docs**: correções no renderizador da documentação.
 
 ---
 
-## Support
+## Versão 1.10.1 - 5 de dezembro de 2025
 
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) — Get help, share your builds, and connect with other NOMAD users
-- **Bug Reports:** [GitHub Issues](https://github.com/Crosstalk-Solutions/project-nomad/issues)
-- **Website:** [www.projectnomad.us](https://www.projectnomad.us)
+### ✨ Melhorias
+
+* **Kiwix**: melhorias no caminho de armazenamento dos ZIMs.
 
 ---
 
-*For the full changelog, see our [GitHub releases](https://github.com/Crosstalk-Solutions/project-nomad/releases).*
+## Versão 1.10.0 - 5 de dezembro de 2025
+
+### 🚀 Recursos
+
+* Monitoramento das informações do disco.
+
+### ✨ Melhorias
+
+* **Instalação**: adicionadas variáveis de ambiente do Redis ao arquivo compose.
+* **Kiwix**: download e configuração inicial.
+
+---
+
+## Versão 1.9.0 - 5 de dezembro de 2025
+
+### 🚀 Recursos
+
+* Gerenciamento de tarefas em segundo plano com BullMQ.
+
+### ✨ Melhorias
+
+* **Instalação**: escape de caracteres nas variáveis de ambiente.
+* **Instalação**: variável de ambiente do host.
+
+---
+
+## Versão 1.8.0 - 5 de dezembro de 2025
+
+### 🚀 Recursos
+
+* Redesign dos estilos de alertas e botões.
+* Redesign da página de informações do sistema.
+* **Coleções**: coleções ZIM selecionadas com suporte a slug, ícone e idioma.
+* Downloads personalizados de mapas e arquivos ZIM (WIP).
+* Novo sistema de mapas (WIP).
+
+### ✨ Melhorias
+
+* **DockerService**: limpeza de componentes antigos do OSM.
+* **Instalação**: padronização dos nomes dos arquivos compose.
+
+---
+
+## Versão 1.7.0 - 5 de dezembro de 2025
+
+### 🚀 Recursos
+
+* Redesign dos estilos de alertas e botões.
+* Redesign da página de informações do sistema.
+* **Coleções**: coleções ZIM selecionadas.
+* Downloads personalizados de mapas e arquivos ZIM (WIP).
+* Novo sistema de mapas (WIP).
+
+### ✨ Melhorias
+
+* **DockerService**: limpeza de componentes antigos do OSM.
+* **Instalação**: padronização dos nomes dos arquivos compose.
+
+---
+
+## Versão 1.6.0 - 18 de novembro de 2025
+
+### 🚀 Recursos
+
+* Adicionado Kolibri à biblioteca padrão de aplicativos.
+
+### ✨ Melhorias
+
+* Padronização dos nomes dos containers no `management-compose`.
+
+---
+
+## Versão 1.5.0 - 18 de novembro de 2025
+
+### 🚀 Recursos
+
+* Rodapé com versão e correção do gerenciamento de versão do CI.
+
+---
+
+## Versão 1.4.0 - 18 de novembro de 2025
+
+### 🚀 Recursos
+
+* **Serviços**: nomes e descrições amigáveis.
+
+### ✨ Melhorias
+
+* **Scripts**: melhorias na criação do diretório de logs.
+* **Scripts**: correção de erro de digitação no caminho do arquivo `management-compose`.
+
+---
+
+## Versão 1.3.0 - 9 de outubro de 2025
+
+### 🚀 Novos Recursos
+
+* O script de desinstalação agora remove containers de aplicativos NOMAD que não são de gerenciamento.
+
+### ✨ Melhorias
+
+* **OpenStreetMap**: aplicação mais robusta das correções de permissões de diretórios.
+
+---
+
+## Versão 1.2.0 - 7 de outubro de 2025
+
+### 🚀 Novos Recursos
+
+* Adicionado CyberChef à biblioteca padrão de aplicativos.
+* Adicionado Dozzle aos containers principais para melhorar logs e métricas.
+* Adicionado FlatNotes à biblioteca padrão de aplicativos.
+* Script auxiliar de desinstalação disponível.
+
+### ✨ Melhorias
+
+* **OpenStreetMap**:
+
+  * Corrigidos caminhos de diretórios e problemas de acesso.
+  * Melhorado o tratamento de erros.
+  * Corrigidas permissões dos arquivos do renderizador.
+  * Corrigido problema com caminho absoluto do host.
+* **ZIM Manager**:
+
+  * O download inicial do ZIM agora é hospedado no repositório GitHub do Project NOMAD para melhorar a disponibilidade.
+
+---
+
+## Versão 1.1.0 - 20 de agosto de 2025
+
+### 🚀 Novos Recursos
+
+**Instalação do OpenStreetMap**
+
+* Adicionado OpenStreetMap aos aplicativos instaláveis.
+* Baixa e importa automaticamente a região do Pacífico dos EUA durante a instalação.
+* Suporta cache de blocos renderizados para melhorar o desempenho.
+
+### ✨ Melhorias
+
+* **Aplicativos**: adicionados controles de iniciar/parar/reiniciar para cada container de aplicativo nas configurações.
+* **ZIM Manager**: downloads com tratamento de erros e possibilidade de retomada + interface aprimorada.
+* **Sistema**: agora é possível visualizar informações do sistema, como CPU, RAM e estatísticas do disco, nas configurações.
+* **Legal**: adicionados avisos legais nas configurações.
+* **UI**: adicionadas melhorias gerais na interface, como alertas e caixas de diálogo de erro.
+* Padronização dos nomes dos containers para reduzir possíveis conflitos com containers existentes no sistema host.
+
+### ⚠️ Alterações que Quebram Compatibilidade
+
+* **Nomenclatura de Containers**: como resultado da padronização dos nomes dos containers, é recomendado realizar uma nova instalação do Project NOMAD e dos aplicativos para evitar possíveis conflitos/duplicações de containers.
+
+### 📚 Documentação
+
+* Adicionada página de notas de lançamento.
+
+---
+
+## Versão 1.0.1 - 11 de julho de 2025
+
+### 🐛 Correções de Bugs
+
+* **Docs**: corrigida a renderização da documentação.
+* **Instalação**: corrigidas as URLs do script de instalação.
+* **OpenWebUI**: corrigida a conexão com o Ollama.
+
+---
+
+## Versão 1.0.0 - 11 de julho de 2025
+
+### 🚀 Novos Recursos
+
+* Lançamento inicial em alpha para instalação de aplicativos e documentação.
+* Instalação do OpenWebUI, Ollama e Kiwix.
+* Downloads e gerenciamento de ZIM.
+
+---
+
+## Suporte
+
+* **Discord:** [Entrar na Comunidade](https://discord.com/invite/crosstalksolutions) — Obtenha ajuda, compartilhe suas configurações e conecte-se com outros usuários do NOMAD.
+* **Relatórios de Bugs:** [GitHub Issues](https://github.com/Crosstalk-Solutions/project-nomad/issues)
+* **Site:** [www.projectnomad.us](https://www.projectnomad.us)
+
+---
+
+*Para ver o changelog completo, consulte os [lançamentos do GitHub](https://github.com/Crosstalk-Solutions/project-nomad/releases).*
