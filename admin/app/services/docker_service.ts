@@ -27,6 +27,7 @@ import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
+import { withLogRotation } from '../utils/log_rotation.js'
 
 // Written by install_nomad.sh with the host AMD GPU's gfx target.
 const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
@@ -52,6 +53,10 @@ export class DockerService {
 
   private _servicesStatusCache: { data: { service_name: string; status: string }[]; expiresAt: number } | null = null
   private _servicesStatusInflight: Promise<{ service_name: string; status: string }[]> | null = null
+
+  // The daemon's default log driver, resolved once. Log rotation is only applied
+  // when containers would otherwise land on an unbounded json-file log (#1412).
+  private _daemonLogDriver: Promise<string | undefined> | null = null
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)
@@ -864,6 +869,8 @@ export class DockerService {
         'creating',
         `Creating Docker container for service ${service.service_name}...`
       )
+      gpuHostConfig = await this._withLogRotation(gpuHostConfig)
+
       // Built once and reused, so the AMD fallback below cannot drift from the
       // real payload as this config grows.
       const buildCreateOptions = (image: string, hostConfig: any, env: string[]) => ({
@@ -1433,7 +1440,7 @@ export class DockerService {
       const newContainer = await this.docker.createContainer({
         Image: service.container_image,
         name: service.service_name,
-        HostConfig: containerConfig?.HostConfig ?? {},
+        HostConfig: await this._withLogRotation(containerConfig?.HostConfig ?? {}),
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
         Cmd: KIWIX_LIBRARY_CMD.split(' '),
         ...(process.env.NODE_ENV === 'production' && {
@@ -1923,6 +1930,7 @@ export class DockerService {
           RestartPolicy: hostConfig.RestartPolicy || undefined,
           DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
           Devices: serviceName === SERVICE_NAMES.OLLAMA && updatedAmdDevices ? updatedAmdDevices : (hostConfig.Devices || undefined),
+          LogConfig: hostConfig.LogConfig || undefined,
         },
         NetworkingConfig: inspectData.NetworkSettings?.Networks
           ? {
@@ -1939,6 +1947,7 @@ export class DockerService {
           delete newContainerConfig.HostConfig[key]
         }
       })
+      newContainerConfig.HostConfig = await this._withLogRotation(newContainerConfig.HostConfig)
 
       let newContainer: any
       try {
@@ -2063,6 +2072,27 @@ export class DockerService {
       message,
     })
     logger.info(`[DockerService] [${service}] ${status}: ${message}`)
+  }
+
+
+  /**
+   * Add a size cap to `hostConfig`'s log config when the container would
+   * otherwise get Docker's unbounded json-file log (#1412). Anything the user
+   * chose, a different driver or their own `max-size`, is left alone.
+   */
+  private async _withLogRotation<T extends Record<string, any>>(hostConfig: T): Promise<T> {
+    if (!this._daemonLogDriver) {
+      this._daemonLogDriver = this.docker
+        .info()
+        .then((info: any) => info?.LoggingDriver as string | undefined)
+        .catch(() => {
+          // Don't memoize a failure; try again on the next container create.
+          this._daemonLogDriver = null
+          return undefined
+        })
+    }
+    const logConfig = withLogRotation(hostConfig?.LogConfig, await this._daemonLogDriver)
+    return logConfig ? { ...hostConfig, LogConfig: logConfig } : hostConfig
   }
 
   private _parseContainerConfig(containerConfig: any): any {
