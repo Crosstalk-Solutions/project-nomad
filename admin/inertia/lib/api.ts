@@ -728,13 +728,20 @@ class API {
   }
 
   async extractMapPreflight(params: { countries: CountryCode[]; maxzoom?: number }) {
-    return catchInternal(async () => {
+    // Not wrapped in catchInternal: the country picker shows the error inline, and the
+    // server's message (e.g. a timeout on a very large selection, #1258) is the useful part.
+    try {
       const response = await this.client.post<MapExtractPreflight>(
         '/maps/extract-preflight',
         params
       )
       return response.data
-    })()
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        throw new Error(error.response.data.message)
+      }
+      throw error
+    }
   }
 
   async extractMapRegion(params: {

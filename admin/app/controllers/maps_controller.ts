@@ -1,4 +1,4 @@
-import { MapService } from '#services/map_service'
+import { MapService, MapPreflightTimeoutError } from '#services/map_service'
 import MapMarker from '#models/map_marker'
 import {
   assertNotPrivateUrl,
@@ -119,9 +119,18 @@ export default class MapsController {
     return { groups: await this.mapService.listCountryGroups() }
   }
 
-  async extractPreflight({ request }: HttpContext) {
+  async extractPreflight({ request, response }: HttpContext) {
     const payload = await request.validateUsing(mapExtractPreflightValidator)
-    return await this.mapService.extractPreflight(payload)
+    try {
+      return await this.mapService.extractPreflight(payload)
+    } catch (error) {
+      // A timeout is the user's selection being too big for this box, not a server
+      // fault, so say so instead of a bare 500 (#1258).
+      if (error instanceof MapPreflightTimeoutError) {
+        return response.status(504).send({ message: error.message })
+      }
+      throw error
+    }
   }
 
   async extractRegion({ request }: HttpContext) {
