@@ -37,6 +37,7 @@ UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/Crosstalk-Solutions/project
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
+preflight_compose_file=''
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -425,9 +426,17 @@ create_nomad_directory(){
 
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
+  local source_file="${1:-}"
 
   echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
-  if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
+  if [[ -n "$source_file" ]]; then
+    # Redirection rather than cp so the file keeps the umask-derived mode that
+    # the curl path below produces; cp would copy the temp file's 0600 instead.
+    if ! cat "$source_file" > "$compose_file_path"; then
+      echo -e "${RED}#${RESET} Failed to copy the preflighted docker compose file."
+      exit 1
+    fi
+  elif ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
     echo -e "${RED}#${RESET} Failed to download the docker compose file. Please check the URL and try again."
     exit 1
   fi
@@ -501,6 +510,120 @@ get_local_ip() {
     exit 1
   fi
 }
+
+# Prints "<port> <protocol>" for every host port published by the compose file.
+# Ranges such as "6333-6334:6333-6334" are expanded so each host port is checked.
+get_published_management_ports() {
+  local compose_file="$1"
+
+  awk '
+    /^[[:space:]]+ports:[[:space:]]*$/ { in_ports = 1; next }
+    in_ports && /^[[:space:]]+-[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]+-[[:space:]]*"?/, "", value)
+      sub(/"?[[:space:]]*(#.*)?$/, "", value)
+
+      protocol = "tcp"
+      if (value ~ /\//) {
+        protocol = value
+        sub(/^.*\//, "", protocol)
+        sub(/\/.*$/, "", value)
+      }
+
+      count = split(value, parts, ":")
+      if (count < 2) next
+      host_ports = parts[count - 1]
+
+      if (host_ports ~ /^[0-9]+-[0-9]+$/) {
+        split(host_ports, bounds, "-")
+        for (port = bounds[1]; port <= bounds[2]; port++) print port, protocol
+      } else if (host_ports ~ /^[0-9]+$/) {
+        print host_ports, protocol
+      }
+      next
+    }
+    in_ports && /^[[:space:]]+[[:alnum:]_-]+:/ { in_ports = 0 }
+  ' "$compose_file" | sort -u -k1,1n -k2,2
+}
+
+get_propagation_mount_paths() {
+  local compose_file="$1"
+
+  awk '
+    /:[^#]*:(ro,)?r?(shared|slave)(,|[[:space:]#]|$)/ {
+      value = $0
+      sub(/^[[:space:]]+-[[:space:]]*"?/, "", value)
+      sub(/"?[[:space:]]*(#.*)?$/, "", value)
+      sub(/:[^:]*:(ro,)?r?(shared|slave).*/, "", value)
+      # Only host paths have mount propagation; a named volume is not inspectable.
+      if (value ~ /^[\/.~]/) print value
+    }
+  ' "$compose_file" | sort -u
+}
+
+mount_propagation_for_path() {
+  findmnt -no PROPAGATION --target "$1" 2>/dev/null
+}
+
+is_port_in_use() {
+  local port="$1"
+  local protocol="${2:-tcp}"
+  local family='-t'
+
+  [[ "$protocol" == "udp" ]] && family='-u'
+  ss -H -ln "$family" "sport = :${port}" 2>/dev/null | grep -q .
+}
+
+run_host_preflight() {
+  local compose_file="$1"
+  local mount_path propagation port protocol
+  local failed=false
+  local port_conflict=false
+
+  while IFS= read -r mount_path; do
+    [[ -z "$mount_path" ]] && continue
+    if ! propagation=$(mount_propagation_for_path "$mount_path"); then
+      echo -e "${RED}#${RESET} Unable to inspect mount propagation for ${mount_path}. Ensure findmnt is installed and the path exists."
+      failed=true
+    elif [[ "$propagation" != shared* && "$propagation" != slave* ]]; then
+      echo -e "${RED}#${RESET} Mount ${mount_path} uses '${propagation}' propagation; mount propagation must be shared or slave for the management containers."
+      echo -e "${RED}#${RESET} Configure the host mount as shared, then rerun the installer."
+      failed=true
+    fi
+  done < <(get_propagation_mount_paths "$compose_file")
+
+  if ! command -v ss &> /dev/null; then
+    echo -e "${RED}#${RESET} Unable to inspect management ports because the 'ss' command is unavailable. Install iproute2 and rerun the installer."
+    failed=true
+  else
+    while read -r port protocol; do
+      [[ -z "$port" ]] && continue
+      if is_port_in_use "$port" "$protocol"; then
+        echo -e "${RED}#${RESET} Port ${port}/${protocol} is already in use. Stop the listening service or free the port, then rerun the installer."
+        port_conflict=true
+        failed=true
+      fi
+    done < <(get_published_management_ports "$compose_file")
+
+    if [[ "$port_conflict" == true ]]; then
+      echo -e "${RED}#${RESET} If Project NOMAD is already installed on this host, these ports are expected to be in use. Rerunning the installer is not an update path and will reset the database."
+    fi
+  fi
+
+  if [[ "$failed" == true ]]; then
+    echo -e "${RED}#${RESET} Project NOMAD host preflight failed before installation resources were created."
+    exit 1
+  fi
+
+  echo -e "${GREEN}#${RESET} Host mount propagation and management port checks passed.\\n"
+}
+
+cleanup_preflight_compose_file() {
+  if [[ -n "$preflight_compose_file" ]]; then
+    rm -f "$preflight_compose_file"
+  fi
+}
+
 verify_gpu_setup() {
   # This function only displays GPU setup status and is completely non-blocking
   # It never exits or returns error codes - purely informational
@@ -630,28 +753,43 @@ success_message() {
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
-# Pre-flight checks
-check_is_debian_based
-check_is_x86_64
-check_is_bash
-check_has_sudo
-ensure_dependencies_installed
-check_is_debug_mode
+main() {
+  # Pre-flight checks
+  check_is_debian_based
+  check_is_x86_64
+  check_is_bash
+  check_has_sudo
+  ensure_dependencies_installed
+  check_is_debug_mode
 
-# Main install
-banner
-get_install_confirmation
-accept_terms
-ensure_docker_installed
-check_docker_compose
-setup_nvidia_container_toolkit
-get_local_ip
-create_nomad_directory
-download_helper_scripts
-download_management_compose_file
-start_management_containers
-verify_gpu_setup
-success_message
+  # Main install
+  banner
+  get_install_confirmation
+  accept_terms
+  ensure_docker_installed
+  check_docker_compose
+  setup_nvidia_container_toolkit
+  get_local_ip
+
+  preflight_compose_file=$(mktemp)
+  trap cleanup_preflight_compose_file EXIT
+  if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$preflight_compose_file"; then
+    echo -e "${RED}#${RESET} Failed to download the management compose file for host preflight checks."
+    exit 1
+  fi
+  run_host_preflight "$preflight_compose_file"
+
+  create_nomad_directory
+  download_helper_scripts
+  download_management_compose_file "$preflight_compose_file"
+  start_management_containers
+  verify_gpu_setup
+  success_message
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
 
 # free_space_check() {
 #   if [[ "$(df -B1 / | awk 'NR==2{print $4}')" -le '5368709120' ]]; then
