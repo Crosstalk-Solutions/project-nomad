@@ -21,6 +21,7 @@ import logger from '@adonisjs/core/services/logger'
 import { rm } from 'node:fs/promises'
 import {
   attachImagesToLatestUserMessage,
+  CHAT_IMAGE_UPLOAD_OPTIONS,
   ChatImageError,
   normalizeChatImages,
   type NormalizedChatImage,
@@ -65,10 +66,7 @@ export default class OllamaController {
   }
 
   async chat({ request, response }: HttpContext) {
-    const uploadedImages = request.files('images', {
-      size: '8mb',
-      extnames: ['jpg', 'jpeg', 'png', 'webp'],
-    })
+    const uploadedImages = request.files('images', CHAT_IMAGE_UPLOAD_OPTIONS)
     const cleanupUploadedImages = () =>
       Promise.all(
         uploadedImages
