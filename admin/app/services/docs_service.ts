@@ -1,6 +1,7 @@
 import Markdoc from '@markdoc/markdoc'
 import { streamToString } from '../../util/docs.js'
 import { getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
+import { blockingFindings, markdocConfig } from '../utils/docs_markdoc.js'
 import path from 'path'
 import InternalServerErrorException from '#exceptions/internal_server_error_exception'
 import logger from '@adonisjs/core/services/logger'
@@ -45,17 +46,15 @@ export class DocsService {
   parse(content: string) {
     try {
       const ast = Markdoc.parse(content)
-      const config = this.getConfig()
-      const errors = Markdoc.validate(ast, config)
+      const errors = Markdoc.validate(ast, markdocConfig)
 
-      // Filter out attribute-undefined errors which may be caused by emojis and special characters
-      const criticalErrors = errors.filter((e) => e.error.id !== 'attribute-undefined')
+      const criticalErrors = blockingFindings(errors)
       if (criticalErrors.length > 0) {
         logger.error('Markdoc validation errors:', errors.map((e) => JSON.stringify(e.error)).join(', '))
         throw new Error('Markdoc validation failed')
       }
 
-      return Markdoc.transform(ast, config)
+      return Markdoc.transform(ast, markdocConfig)
     } catch (error) {
       logger.error('Error parsing Markdoc content:', error)
       throw new InternalServerErrorException(`Error parsing content: ${(error as Error).message}`)
@@ -108,101 +107,5 @@ export class DocsService {
     // Convert to Title Case
     const titleCased = cleaned.replace(/\b\w/g, (char) => char.toUpperCase())
     return titleCased.charAt(0).toUpperCase() + titleCased.slice(1)
-  }
-
-  private getConfig() {
-    return {
-      tags: {
-        callout: {
-          render: 'Callout',
-          attributes: {
-            type: {
-              type: String,
-              default: 'info',
-              matches: ['info', 'warning', 'error', 'success'],
-            },
-            title: {
-              type: String,
-            },
-          },
-        },
-      },
-      nodes: {
-        heading: {
-          render: 'Heading',
-          attributes: {
-            level: { type: Number, required: true },
-            id: { type: String },
-          },
-        },
-        list: {
-          render: 'List',
-          attributes: {
-            ordered: { type: Boolean },
-            start: { type: Number },
-          },
-        },
-        list_item: {
-          render: 'ListItem',
-          attributes: {
-            marker: { type: String },
-            className: { type: String },
-            class: { type: String }
-          }
-        },
-        table: {
-          render: 'Table',
-        },
-        thead: {
-          render: 'TableHead',
-        },
-        tbody: {
-          render: 'TableBody',
-        },
-        tr: {
-          render: 'TableRow',
-        },
-        th: {
-          render: 'TableHeader',
-        },
-        td: {
-          render: 'TableCell',
-        },
-        paragraph: {
-          render: 'Paragraph',
-        },
-        image: {
-          render: 'Image',
-          attributes: {
-            src: { type: String, required: true },
-            alt: { type: String },
-            title: { type: String },
-          },
-        },
-        link: {
-          render: 'Link',
-          attributes: {
-            href: { type: String, required: true },
-            title: { type: String },
-          },
-        },
-        fence: {
-          render: 'CodeBlock',
-          attributes: {
-            content: { type: String },
-            language: { type: String },
-          },
-        },
-        code: {
-          render: 'InlineCode',
-          attributes: {
-            content: { type: String },
-          },
-        },
-        hr: {
-          render: 'HorizontalRule',
-        },
-      },
-    }
   }
 }
