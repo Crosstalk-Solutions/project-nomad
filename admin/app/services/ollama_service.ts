@@ -4,7 +4,7 @@ import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/res
 import type { Stream } from 'openai/streaming.js'
 import { Ollama } from 'ollama'
 import { ThinkTagSplitter, normalizeNonStreamed } from '../utils/think_stream.js'
-import { readContextLength, readModelfileNumCtx } from '../utils/context_window.js'
+import { readContextLength, readModelfileNumCtx, withheldKvHeadsKey } from '../utils/context_window.js'
 import { compatSamplerParams, nativeSamplerOptions, readModelfileSamplers } from '../utils/sampler.js'
 import { NomadOllamaModel, SamplerProfile } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -902,6 +902,13 @@ export class OllamaService {
         { timeout: 5000 }
       )
       const data = response.data ?? {}
+      const kvHeadsKey = withheldKvHeadsKey(data.model_info)
+      if (kvHeadsKey) {
+        data.model_info = {
+          ...data.model_info,
+          [kvHeadsKey]: await this._fetchVerboseModelInfoKey(modelName, kvHeadsKey),
+        }
+      }
       const info: NomadModelInfo = {
         hasThinking: Array.isArray(data.capabilities) && data.capabilities.includes('thinking'),
         contextLength: readContextLength(data.model_info),
@@ -917,6 +924,27 @@ export class OllamaService {
       // Non-Ollama backends don't expose /api/show. Left uncached so a transient
       // failure can be retried rather than poisoning the process.
       return { hasThinking: false }
+    }
+  }
+
+  /**
+   * One key of a model's metadata as `/api/show` returns it with `verbose`.
+   *
+   * The verbose response carries the whole tokenizer, megabytes of it, so it is
+   * fetched only when the plain response withheld something the KV cost needs and
+   * only that key is kept. Undefined on failure, which leaves the KV cost to the
+   * fallbacks in computeKvBytesPerToken.
+   */
+  private async _fetchVerboseModelInfoKey(modelName: string, key: string): Promise<unknown> {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/show`,
+        { model: modelName, verbose: true },
+        { timeout: 15000 }
+      )
+      return response.data?.model_info?.[key]
+    } catch {
+      return undefined
     }
   }
 
