@@ -11,7 +11,7 @@ import env from '#start/env'
 import { parseMinRelevance } from '../utils/misc.js'
 import { isRelevanceCheckEnabled } from '../utils/relevance_judge.js'
 import { parseResponseStyle } from '../utils/sampler.js'
-import { RAG_MIN_FINAL_SCORE } from '../../constants/ollama.js'
+import { resolveDefaultMinFinalScore } from '../utils/rag_relevance.js'
 
 @inject()
 export default class SettingsController {
@@ -111,7 +111,7 @@ export default class SettingsController {
           contextWindow: contextWindow ?? 'auto',
           // Sent as the resolved number so the select can match an option
           // without duplicating the "unset means the default" rule in the UI.
-          minRelevance: parseMinRelevance(minRelevance, RAG_MIN_FINAL_SCORE),
+          minRelevance: parseMinRelevance(minRelevance, await resolveDefaultMinFinalScore()),
           relevanceCheck: isRelevanceCheckEnabled(relevanceCheck),
           // Resolved rather than raw, for the same reason: unset means 'auto',
           // and the select shouldn't have to know that.
