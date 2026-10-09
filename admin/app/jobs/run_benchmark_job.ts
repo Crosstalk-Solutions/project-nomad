@@ -4,6 +4,7 @@ import { BenchmarkService } from '#services/benchmark_service'
 import type { RunBenchmarkJobParams } from '../../types/benchmark.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from '#services/docker_service'
+import type { InFlightBenchmark } from '../utils/benchmark_status.js'
 
 export class RunBenchmarkJob {
   static get queue() {
@@ -21,6 +22,14 @@ export class RunBenchmarkJob {
 
     const dockerService = new DockerService()
     const benchmarkService = new BenchmarkService(dockerService)
+    // Publish each stage on the job so the web process can answer /api/benchmark/status
+    // and the double-run guard (#1326). Best-effort: a missed update only makes the
+    // reported stage lag, and must not fail the benchmark.
+    benchmarkService.onStatusChange = (status) => {
+      job.updateProgress({ status }).catch((err) => {
+        logger.warn(`[RunBenchmarkJob] Could not publish stage ${status}: ${err.message}`)
+      })
+    }
 
     try {
       let result
@@ -92,6 +101,22 @@ export class RunBenchmarkJob {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     return await queue.getJob(benchmarkId)
+  }
+
+  /** Benchmark jobs that are running or still queued to run. */
+  static async getInFlight(): Promise<InFlightBenchmark[]> {
+    const queue = QueueService.getInstance().getQueue(this.queue)
+    const [active, waiting, delayed] = await Promise.all([
+      queue.getJobs(['active']),
+      queue.getJobs(['waiting']),
+      queue.getJobs(['delayed']),
+    ])
+    const tag = (state: InFlightBenchmark['state']) => (job: Job) => ({
+      state,
+      benchmarkId: (job.data as RunBenchmarkJobParams | undefined)?.benchmark_id ?? job.id ?? null,
+      progress: job.progress,
+    })
+    return [...active.map(tag('active')), ...waiting.map(tag('waiting')), ...delayed.map(tag('delayed'))]
   }
 
   static async getJobState(benchmarkId: string): Promise<string | undefined> {
