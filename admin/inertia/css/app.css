@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* dark: utilities follow the in-app theme toggle, not the OS color scheme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --color-desert-white: #f6f6f4;
   --color-desert-sand: #f7eedc;
@@ -48,6 +51,8 @@
   /* Button interactive states (green hover/active swap conflicts with text color inversion) */
   --color-btn-green-hover: #353518;
   --color-btn-green-active: #2a2a15;
+  --color-btn-tan-hover: #6b5d4f;
+  --color-btn-tan-active: #6b5d4f;
 }
 
 body {
@@ -78,11 +83,11 @@ body {
   --color-desert-orange-dark: #c85815;
   --color-desert-orange: #c85815;
   --color-desert-orange-light: #e69556;
-  --color-desert-orange-lighter: #f0b87a;
+  --color-desert-orange-lighter: #8a3d0f;
 
-  /* Tan: lightened for readability */
+  /* Tan: lightened for readability; the base stays dark enough for white button text */
   --color-desert-tan-dark: #c9b99f;
-  --color-desert-tan: #a8927a;
+  --color-desert-tan: #80694f;
   --color-desert-tan-light: #8b7355;
   --color-desert-tan-lighter: #6b5d4f;
 
@@ -110,13 +115,15 @@ body {
   --color-surface-elevated: #3d3c2a;
   --color-text-primary: #f7eedc;
   --color-text-secondary: #afafa5;
-  --color-text-muted: #8f8f82;
+  --color-text-muted: #a0a093;
   --color-border-default: #424420;
   --color-border-subtle: #353420;
 
   /* Button interactive states: darker green for hover/active on dark bg */
   --color-btn-green-hover: #474a28;
   --color-btn-green-active: #3a3c24;
+  --color-btn-tan-hover: #705c45;
+  --color-btn-tan-active: #5e5040;
 
   color-scheme: dark;
 }

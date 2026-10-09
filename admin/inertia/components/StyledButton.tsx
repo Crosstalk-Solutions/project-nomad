@@ -67,8 +67,8 @@ const StyledButton: React.FC<StyledButtonProps> = ({
       case 'secondary':
         return clsx(
           'bg-desert-tan text-white',
-          'hover:bg-desert-tan-dark hover:shadow-lg',
-          'active:bg-desert-tan-dark',
+          'hover:bg-btn-tan-hover hover:shadow-lg',
+          'active:bg-btn-tan-active',
           'disabled:bg-desert-tan-lighter disabled:text-desert-stone-light',
           baseTransition,
           baseHover
