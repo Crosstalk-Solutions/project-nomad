@@ -38,9 +38,8 @@ defensive one.
 
 **The AI is the variable, and it is the model rather than NOMAD.** Ollama idles at
 roughly 1.2GB, and a model needs about its download size resident while it answers,
-so an 8B model at ~4.6GB wants about that much on top. **8GB is workable for a small
-model, 16GB is comfortable, and 32GB is the recommendation if you want to run larger
-ones.**
+so an 8B model at ~4.6GB wants about that much on top.
+**8GB is workable for a small model, 16GB is comfortable, and 32GB is the recommendation if you want to run larger ones.**
 
 Where that memory comes from depends on your hardware. With a discrete GPU the model
 loads into VRAM and never touches system RAM, so VRAM is the number that limits which
