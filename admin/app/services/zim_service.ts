@@ -445,10 +445,11 @@ export class ZimService {
     // Update the kiwix library XML after all downloaded ZIM files are in place.
     // This covers all ZIM types including Wikipedia. Rebuilding once from disk
     // avoids repeated XML parse/write cycles and reduces the chance of write races
-    // when multiple download jobs complete concurrently.
+    // when multiple download jobs complete concurrently. Unchanged files keep their
+    // existing entries, so only the new downloads get opened.
     const kiwixLibraryService = new KiwixLibraryService()
     try {
-      await kiwixLibraryService.rebuildFromDisk()
+      await kiwixLibraryService.rebuildFromDisk({ reuseUnchanged: true })
     } catch (err) {
       logger.error('[ZimService] Failed to rebuild kiwix library from disk:', err)
     }
@@ -571,7 +572,7 @@ export class ZimService {
     // while both versions were still on disk.
     if (removedSupersededZim) {
       try {
-        await new KiwixLibraryService().rebuildFromDisk()
+        await new KiwixLibraryService().rebuildFromDisk({ reuseUnchanged: true })
         logger.info('[ZimService] Rebuilt Kiwix library after removing superseded ZIM(s).')
       } catch (err) {
         logger.error('[ZimService] Failed to rebuild Kiwix library after cleanup:', err)
