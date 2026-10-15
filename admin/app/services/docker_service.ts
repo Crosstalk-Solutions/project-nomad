@@ -5,6 +5,7 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { pickAmdHsaOverride } from '../utils/amd_hsa_override.js'
+import { joinInFlight } from '../utils/in_flight.js'
 import { join } from 'path'
 import os from 'node:os'
 import env from '#start/env'
@@ -35,6 +36,9 @@ const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
 export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
+  // Static, not per-instance: controllers get a fresh DockerService per request, and
+  // the installs that race (#1439) arrive on separate requests.
+  private static installsInFlight = new Map<string, Promise<void>>()
   public static NOMAD_NETWORK = 'project-nomad_default'
   public static ADMIN_CONTAINER_NAME = 'nomad_admin'
   // The admin's own storage mount destination inside its container (compose maps
@@ -628,6 +632,17 @@ export class DockerService {
     service: Service & { dependencies?: Service[] },
     containerConfig: any
   ): Promise<void> {
+    // A service that is already installing (its own install, or another service's
+    // dependency install) is joined rather than started again (#1439).
+    return joinInFlight(DockerService.installsInFlight, service.service_name, () =>
+      this._installContainer(service, containerConfig)
+    )
+  }
+
+  private async _installContainer(
+    service: Service & { dependencies?: Service[] },
+    containerConfig: any
+  ): Promise<void> {
     try {
       this._broadcast(service.service_name, 'initializing', '')
 
@@ -652,11 +667,19 @@ export class DockerService {
         )
         for (const dependency of dependencies) {
           if (!dependency.installed) {
-            this._broadcast(
-              service.service_name,
-              'dependency-not-installed',
-              `Dependency service ${dependency.service_name} is not installed. Installing it first...`
-            )
+            if (DockerService.installsInFlight.has(dependency.service_name)) {
+              this._broadcast(
+                service.service_name,
+                'dependency-installing',
+                `Dependency service ${dependency.service_name} is already being installed. Waiting for it to finish...`
+              )
+            } else {
+              this._broadcast(
+                service.service_name,
+                'dependency-not-installed',
+                `Dependency service ${dependency.service_name} is not installed. Installing it first...`
+              )
+            }
             await this._createContainer(
               dependency,
               this._parseContainerConfig(dependency.container_config)
