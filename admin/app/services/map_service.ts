@@ -79,7 +79,11 @@ export class MapService implements IMapService {
   private readonly baseDirPath = join(process.cwd(), this.mapStoragePath)
   private baseAssetsExistCache: boolean | null = null
   private worldBasemapReady = false
-  private worldBasemapInFlight: Promise<void> | null = null
+  // Process-wide rather than per instance: controllers get a fresh MapService per request,
+  // so easy setup's parallel collection downloads, or a /maps visit landing at the same
+  // moment, would otherwise each download the tarball and extract the basemap.
+  private static baseAssetFilesInFlight: Promise<boolean> | null = null
+  private static worldBasemapInFlight: Promise<void> | null = null
 
   async listRegions() {
     const files = (await this.listAllMapStorageItems()).filter(
@@ -146,6 +150,14 @@ export class MapService implements IMapService {
     const toDownload = collection.resources.filter((r) => !installedIds.has(r.id))
 
     if (toDownload.length === 0) return null
+
+    // Collections are downloaded while online (often from easy setup, before anyone opens
+    // /maps), so provision the base assets and world basemap now too. Otherwise a box that
+    // goes offline next shows a grey map outside the downloaded regions (#1030). Not
+    // awaited: a failure leaves the lazy path on /maps and the Download Base Map action.
+    this.ensureBaseAssets().catch((err) => {
+      logger.warn(`[MapService] Base map provisioning for collection ${slug} failed: ${err}`)
+    })
 
     const downloadFilenames: string[] = []
 
@@ -440,18 +452,30 @@ export class MapService implements IMapService {
    */
   private async ensureWorldBasemap(): Promise<void> {
     if (this.worldBasemapReady) return
-    if (this.worldBasemapInFlight) return this.worldBasemapInFlight
-    this.worldBasemapInFlight = this._setupWorldBasemap().finally(() => {
-      this.worldBasemapInFlight = null
-    })
-    return this.worldBasemapInFlight
+    if (!MapService.worldBasemapInFlight) {
+      MapService.worldBasemapInFlight = this._setupWorldBasemap().finally(() => {
+        MapService.worldBasemapInFlight = null
+      })
+    }
+    // _setupWorldBasemap() throws on failure, so reaching here means the file is in place,
+    // including when another instance ran the extract.
+    await MapService.worldBasemapInFlight
+    this.worldBasemapReady = true
   }
 
   /** Download the style/sprite/font base assets if missing. Does not touch the world basemap. */
   private async ensureBaseAssetFiles(): Promise<boolean> {
     const exists = await this.checkBaseAssetsExist()
     if (exists) return true
-    return this.downloadBaseAssets()
+    if (!MapService.baseAssetFilesInFlight) {
+      MapService.baseAssetFilesInFlight = this.downloadBaseAssets().finally(() => {
+        MapService.baseAssetFilesInFlight = null
+      })
+    }
+    const downloaded = await MapService.baseAssetFilesInFlight
+    // This instance cached `false` above; downloadBaseAssets() only updates its own instance.
+    if (downloaded) this.baseAssetsExistCache = true
+    return downloaded
   }
 
   private async _setupWorldBasemap(): Promise<void> {
