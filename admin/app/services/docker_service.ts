@@ -5,6 +5,7 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { pickAmdHsaOverride } from '../utils/amd_hsa_override.js'
+import { recreatesOnStart } from '../utils/dependency_start.js'
 import { join } from 'path'
 import os from 'node:os'
 import env from '#start/env'
@@ -92,7 +93,7 @@ export class DockerService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       const service = await Service.query().where('service_name', serviceName).first()
-      if (!service || !service.installed) {
+      if (!service) {
         return {
           success: false,
           message: `Service ${serviceName} not found or not installed`,
@@ -101,6 +102,24 @@ export class DockerService {
 
       const containers = await this.docker.listContainers({ all: true })
       const container = containers.find((c) => c.Names.includes(`/${serviceName}`))
+
+      if (recreatesOnStart(action, service.is_dependency_service, !!container)) {
+        logger.info(`[DockerService] ${serviceName} has no container. Recreating it.`)
+        // Preflight refuses a row still marked installed; the next sync would reset it anyway.
+        if (service.installed) {
+          service.installed = false
+          await service.save()
+        }
+        return await this.createContainerPreflight(serviceName)
+      }
+
+      if (!service.installed) {
+        return {
+          success: false,
+          message: `Service ${serviceName} not found or not installed`,
+        }
+      }
+
       if (!container) {
         return {
           success: false,

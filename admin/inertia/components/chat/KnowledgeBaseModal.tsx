@@ -55,6 +55,10 @@ const VIEWABLE_EXTENSIONS = new Set([
   'html',
 ])
 
+// How long "Start Qdrant" waits for the health check to come back online. Long
+// enough for a recreate that has to pull the image again.
+const QDRANT_START_TIMEOUT_MS = 5 * 60_000
+
 function isViewableExtension(filename: string): boolean {
   const ext = filename.split('.').at(-1)?.toLowerCase() ?? ''
   return VIEWABLE_EXTENSIONS.has(ext)
@@ -228,6 +232,20 @@ export default function KnowledgeBaseModal({
     if (!qdrantOffline) setIsStartingQdrant(false)
   }, [qdrantOffline])
 
+  // Stop waiting on a Qdrant that started and then crashed, or whose recreate failed.
+  useEffect(() => {
+    if (!isStartingQdrant) return
+    const timer = setTimeout(() => {
+      setIsStartingQdrant(false)
+      addNotification({
+        type: 'error',
+        message:
+          'Qdrant did not come online. Check its logs under Settings → Service Logs & Metrics.',
+      })
+    }, QDRANT_START_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [isStartingQdrant])
+
   const { data: storedFiles = [], isLoading: isLoadingFiles } = useQuery({
     queryKey: ['storedFiles'],
     queryFn: () => api.getStoredRAGFiles(),
@@ -399,7 +417,12 @@ export default function KnowledgeBaseModal({
 
   const startQdrantMutation = useMutation({
     mutationFn: () => api.affectService(SERVICE_NAMES.QDRANT, 'start'),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // A refused start comes back as success: false, not as a thrown error.
+      if (!result?.success) {
+        addNotification({ type: 'error', message: result?.message || 'Failed to start Qdrant.' })
+        return
+      }
       setIsStartingQdrant(true)
       queryClient.invalidateQueries({ queryKey: ['qdrantHealth'] })
     },
