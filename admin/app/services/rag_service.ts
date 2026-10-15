@@ -45,6 +45,7 @@ const EXCLUDE_EVAL_FILTER = {
 }
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
+import { chunkTextHash, dedupeZimChunks } from '../utils/zim_chunk_dedupe.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { hasMoreArticleBatches } from '../utils/zim_batch_decision.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
@@ -185,6 +186,12 @@ export class RagService {
       await this.qdrant!.createPayloadIndex(collectionName, {
         field_name: 'active',
         field_schema: 'bool',
+      })
+      // Lets processZIMFile ask "which of these texts are already stored for this
+      // file?" in one filtered scroll instead of a table scan (#1438).
+      await this.qdrant!.createPayloadIndex(collectionName, {
+        field_name: 'text_hash',
+        field_schema: 'keyword',
       })
 
       // Backfill: stamp `active: true` on any point that predates this field.
@@ -632,13 +639,29 @@ export class RagService {
       `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
     )
 
+    // Store each distinct text once per file. Scraped-site ZIMs repeat their
+    // banners, disclaimers and sidebars in every article, and those identical
+    // vectors degrade HNSW recall for the whole collection (#1438). Earlier
+    // batches win: a text already in Qdrant for this file is skipped here.
+    const storedHashes = await this._findStoredTextHashes(
+      filepath,
+      zimChunks.map((c) => c.text)
+    )
+    const { kept, droppedInBatch, droppedStored } = dedupeZimChunks(zimChunks, storedHashes)
+    if (droppedInBatch + droppedStored > 0) {
+      logger.info(
+        `[RAG] Skipping ${droppedInBatch + droppedStored} duplicate chunks (${droppedInBatch} repeated in this batch, ${droppedStored} already stored)`
+      )
+    }
+
     // Process each chunk individually with its metadata
     let totalChunks = 0
-    for (let i = 0; i < zimChunks.length; i++) {
-      const zimChunk = zimChunks[i]
+    for (let i = 0; i < kept.length; i++) {
+      const { chunk: zimChunk, hash: textHash } = kept[i]
       const result = await this.embedAndStoreText(zimChunk.text, {
         source: filepath,
         content_type: 'zim_article',
+        text_hash: textHash,
         // Without this the ZIM path writes points with no `collection` at all, so
         // getKnowledgeCollections() (which facets on it) never sees them.
         ...(collection ? { collection } : {}),
@@ -673,7 +696,7 @@ export class RagService {
       }
 
       if (onProgress) {
-        await onProgress(((i + 1) / zimChunks.length) * 100)
+        await onProgress(((i + 1) / kept.length) * 100)
       }
     }
 
@@ -2317,6 +2340,47 @@ export class RagService {
       success: true,
       message: force ? 'Re-embed queued for this file.' : 'Indexing queued for this file.',
     }
+  }
+
+  /**
+   * Which of these chunk texts does Qdrant already hold for `source`? Returns
+   * their hashes (see `chunkTextHash`). Points written before #1438 carry no
+   * `text_hash`, so they are invisible here; only newly ingested files get the
+   * cross-batch guarantee, and a re-index of an older file starts clean anyway
+   * because its points are deleted first.
+   */
+  private async _findStoredTextHashes(source: string, texts: string[]): Promise<Set<string>> {
+    const found = new Set<string>()
+    if (texts.length === 0) return found
+
+    // First call in a batch job: this both connects the client and creates the
+    // `text_hash` payload index the filter below relies on.
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME)
+
+    const hashes = [...new Set(texts.map((t) => chunkTextHash(t)))]
+    let offset: string | number | undefined
+
+    do {
+      const page = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
+        filter: {
+          must: [
+            { key: 'source', match: { value: this.sanitizeText(source) } },
+            { key: 'text_hash', match: { any: hashes } },
+          ],
+        },
+        with_payload: ['text_hash'],
+        with_vector: false,
+        limit: hashes.length,
+        ...(offset !== undefined ? { offset } : {}),
+      })
+      for (const point of page.points) {
+        const hash = point.payload?.text_hash
+        if (typeof hash === 'string') found.add(hash)
+      }
+      offset = (page.next_page_offset as string | number | null | undefined) ?? undefined
+    } while (offset !== undefined)
+
+    return found
   }
 
   /**
