@@ -1,19 +1,20 @@
-name: Release SemVer
+name: Lançamento SemVer
 
 on: workflow_dispatch
 
 jobs:
   check_authorization:
-    name: Check authorization to release new version
+    name: Verificar autorização para lançar uma nova versão
     runs-on: ubuntu-latest
     outputs:
       isAuthorized: ${{ steps.check-auth.outputs.is_authorized }}
     steps:
-      - name: check-auth
+      - name: Verificar autorização
         id: check-auth
         run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
+
   release:
-    name: Release
+    name: Lançamento
     needs: check_authorization
     if: needs.check_authorization.outputs.isAuthorized == 'true'
     runs-on: ubuntu-latest
@@ -21,14 +22,16 @@ jobs:
       didRelease: ${{ steps.semver.outputs.new_release_published }}
       newVersion: ${{ steps.semver.outputs.new_release_version }}
     steps:
-      - name: Checkout
+      - name: Baixar o código do repositório
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Sync tags
+
+      - name: Sincronizar as tags
         run: git fetch --tags --force
-      - name: semantic-release
+
+      - name: Executar o semantic-release
         uses: cycjimmy/semantic-release-action@v6
         id: semver
         env:
@@ -38,8 +41,8 @@ jobs:
           GIT_COMMITTER_NAME: cosmistack-bot
           GIT_COMMITTER_EMAIL: dev@cosmistack.com
 
-      - name: Finalize release notes
-        # Skip for pre-releases (versions containing a hyphen, e.g. 1.27.0-rc.1)
+      - name: Finalizar as notas de lançamento
+        # Ignorar pré-lançamentos (versões com hífen, como 1.27.0-rc.1)
         if: |
           steps.semver.outputs.new_release_published == 'true' &&
           !contains(steps.semver.outputs.new_release_version, '-')
@@ -59,7 +62,7 @@ jobs:
             echo "has_notes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit finalized release notes
+      - name: Registrar as notas de lançamento finalizadas
         if: |
           steps.semver.outputs.new_release_published == 'true' &&
           steps.finalize-notes.outputs.has_notes == 'true' &&
@@ -69,10 +72,10 @@ jobs:
           git config user.email "dev@cosmistack.com"
           git remote set-url origin https://x-access-token:${{ secrets.COSMISTACKBOT_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
           git add admin/docs/release-notes.md
-          git commit -m "docs(release): finalize v${{ steps.semver.outputs.new_release_version }} release notes [skip ci]"
+          git commit -m "docs(release): finalizar notas da versão v${{ steps.semver.outputs.new_release_version }} [skip ci]"
           git push origin main
 
-      - name: Update GitHub release body
+      - name: Atualizar o conteúdo da publicação no GitHub
         if: |
           steps.semver.outputs.new_release_published == 'true' &&
           steps.finalize-notes.outputs.has_notes == 'true' &&
@@ -83,8 +86,8 @@ jobs:
           gh release edit "v${{ steps.semver.outputs.new_release_version }}" \
             --notes-file admin/docs/release-notes.md.section
 
-      # Future: Send release notes email
-      # - name: Send release notes email
+      # Futuramente: enviar as notas de lançamento por e-mail
+      # - name: Enviar notas de lançamento por e-mail
       #   if: steps.semver.outputs.new_release_published == 'true' && steps.finalize-notes.outputs.has_notes == 'true'
       #   run: |
       #     curl -X POST "https://api.projectnomad.us/api/v1/newsletter/release" \
