@@ -11,7 +11,7 @@ export default class HomeController {
     ) { }
 
     async index({ response }: HttpContext) {
-        // Redirect / to /home
+        // Redireciona / para /home
         return response.redirect().toPath('/home');
     }
 
@@ -21,21 +21,26 @@ export default class HomeController {
             system: {
                 services
             },
-            // Gate the Drug Reference / "When to use what" tiles behind the FDA
-            // dataset install state. Installed when the curated-tier ingest has
-            // reached 'ready' OR an install is in flight (downloading/ingesting) —
-            // so the tile appears the moment the user opts in and persists through
-            // the long install, rather than popping in only at the very end.
+            // Controla a exibição dos blocos de Referência de Medicamentos /
+            // "Quando usar o quê" de acordo com o estado de instalação do conjunto
+            // de dados da FDA. Considera-se instalado quando a importação da categoria
+            // selecionada chega ao estado 'ready' ou quando uma instalação está em
+            // andamento (downloading/ingesting). Assim, o bloco aparece assim que
+            // o usuário inicia a instalação e permanece visível durante o processo,
+            // em vez de aparecer apenas no final.
             drugReferenceInstalled: await this.computeDrugReferenceInstalled(),
         })
     }
 
     /**
-     * True when the offline FDA drug dataset is installed or installing. Reads the
-     * two-phase ingest status: ready (fully installed) or an active phase
-     * (downloading/downloaded/ingesting). rowCount > 0 covers a populated table
-     * whose job history was pruned. Never throws — a status read failure hides the
-     * tiles (fail-closed) rather than 500-ing the dashboard.
+     * Retorna true quando o conjunto de dados de medicamentos da FDA para uso
+     * offline está instalado ou em processo de instalação. Consulta o status da
+     * importação em duas etapas: ready (totalmente instalado) ou uma fase ativa
+     * (downloading/downloaded/ingesting). rowCount > 0 também cobre uma tabela
+     * preenchida cujo histórico de tarefas foi removido.
+     *
+     * Nunca lança exceções: se a consulta do status falhar, oculta os blocos
+     * (falha fechada) em vez de gerar um erro HTTP 500 no painel.
      */
     private async computeDrugReferenceInstalled(): Promise<boolean> {
         try {
@@ -47,7 +52,7 @@ export default class HomeController {
             return status.phase === 'ready' || installing || status.rowCount > 0
         } catch (err) {
             logger.error(
-                `[HomeController] drug-reference install check failed: ${
+                `[HomeController] Falha ao verificar a instalação da referência de medicamentos: ${
                     err instanceof Error ? err.message : String(err)
                 }`
             )
