@@ -1,4 +1,5 @@
-name: Validate Collection URLs
+
+name: Validar URLs das coleções
 
 on:
   push:
@@ -14,24 +15,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Extract and validate URLs
+      - name: Extrair e validar URLs
         run: |
           FAILED=0
           CHECKED=0
           FAILED_URLS=""
 
-          # Recursively extract all non-null string URLs from every JSON file in collections/
+          # Extrai recursivamente todas as URLs em formato de string
+          # não nulas de cada arquivo JSON em collections/.
           URLS=$(jq -r '.. | .url? | select(type == "string")' collections/*.json | sort -u)
 
           while IFS= read -r url; do
             [ -z "$url" ] && continue
             CHECKED=$((CHECKED + 1))
-            printf "Checking: %s ... " "$url"
+            printf "Verificando: %s ... " "$url"
 
-            # HEAD transfers no body at all, so nothing is downloaded even when a
-            # server ignores Range headers. curl can still exit non-zero (DNS,
-            # TLS, timeout), so capture the status without letting `set -e`
-            # (bash -e) kill the whole step mid-loop.
+            # HEAD não transfere o corpo da resposta.
+            # O curl pode retornar um código diferente de zero em casos
+            # de falha de DNS, TLS ou tempo limite. Capturamos esse
+            # código para evitar que o bash -e encerre a etapa.
             METHOD="HEAD"
             CURL_EXIT=0
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -42,11 +44,10 @@ jobs:
               --location \
               "$url") || CURL_EXIT=$?
 
-            # Some servers refuse HEAD outright. Fall back to a single-byte
-            # ranged GET for those. --max-filesize caps the damage if the server
-            # ignores the Range header, but has to stay comfortably above a
-            # redirect body: --location applies the limit to the 3xx body too,
-            # and a cap below that aborts on the redirect itself.
+            # Alguns servidores recusam requisições HEAD.
+            # Nesses casos, tenta uma requisição GET de um único byte.
+            # O limite de tamanho reduz o risco de baixar arquivos
+            # grandes caso o servidor ignore o cabeçalho Range.
             case "$HTTP_CODE" in
               403|405|501)
                 METHOD="GET"
@@ -65,18 +66,18 @@ jobs:
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
               echo "OK ($HTTP_CODE via $METHOD)"
             else
-              echo "FAILED (HTTP $HTTP_CODE via $METHOD, curl exit $CURL_EXIT)"
+              echo "FALHA (HTTP $HTTP_CODE via $METHOD, código de saída do curl: $CURL_EXIT)"
               FAILED=$((FAILED + 1))
-              FAILED_URLS="$FAILED_URLS\n  - $url (HTTP $HTTP_CODE via $METHOD, curl exit $CURL_EXIT)"
+              FAILED_URLS="$FAILED_URLS\n  - $url (HTTP $HTTP_CODE via $METHOD, código de saída do curl: $CURL_EXIT)"
             fi
           done <<< "$URLS"
 
           echo ""
-          echo "Checked $CHECKED URLs, $FAILED failed."
+          echo "Verificadas $CHECKED URLs; $FAILED falharam."
 
           if [ "$FAILED" -gt 0 ]; then
             echo ""
-            echo "Broken URLs:"
+            echo "URLs com falha:"
             printf "%b\n" "$FAILED_URLS"
             exit 1
           fi
