@@ -1,26 +1,29 @@
+
 /* eslint-disable */
 /**
- * GENERATED FILE — DO NOT EDIT.
+ * ARQUIVO GERADO — NÃO EDITAR.
  *
- * Single source of truth: collections/natural_remedies.json
- * Regenerate after editing the JSON: `npm run gen:curated-data` (from admin/).
- * curated_data_sync.standalone.ts fails CI if this file drifts from the JSON.
+ * Fonte única da verdade: collections/natural_remedies.json
+ * Gere novamente após editar o JSON: `npm run gen:curated-data` (a partir de admin/).
+ * curated_data_sync.standalone.ts faz a CI falhar se este arquivo divergir do JSON.
  *
- * Hand-curated subset of NCCIH "Herbs at a Glance" (nccih.nih.gov), mapped to the condition spine. US-government / public domain; attribution lives in the file `source` field and the UI caveat.
+ * Subconjunto selecionado manualmente de "Herbs at a Glance" do NCCIH (nccih.nih.gov),
+ * mapeado para a estrutura de condições. Domínio público / governo dos EUA; a atribuição
+ * da fonte está no campo `source` do arquivo e na observação exibida pela interface.
  */
 import type { NaturalRemediesFile } from '../../types/conditions.js'
 
 export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
   "version": "2026-06-10",
   "source": {
-    "name": "NCCIH — Herbs at a Glance",
+    "name": "NCCIH — Ervas em Destaque",
     "url": "https://www.nccih.nih.gov/health/herbsataglance",
-    "license": "Public domain (US government work; NCCIH)"
+    "license": "Domínio público (obra do governo dos EUA; NCCIH)"
   },
   "remedies": [
     {
       "slug": "aloe-vera",
-      "name": "Aloe Vera",
+      "name": "Babosa",
       "commonNames": [
         "Aloe barbadensis miller"
       ],
@@ -29,10 +32,10 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "acne",
         "dry-skin"
       ],
-      "uses": "Aloe vera gel is applied topically for burns, acne, and various skin conditions including psoriasis and radiation-related skin damage. Oral use is promoted for digestive conditions, though topical applications have more research support.",
-      "how": "Apply gel from the inner leaf of the aloe plant (or a commercially prepared aloe gel) directly to the affected skin area. Topical use is the application with the most research support; oral aloe products carry more serious risks and should not be used without consulting a healthcare provider.",
-      "evidence": "Research suggests topical aloe gel may speed burn healing and reduce burn-related pain. Two small studies indicate aloe gel, combined with other treatments, may improve acne; evidence for other skin uses is limited.",
-      "cautions": "Topical use is generally well tolerated, though occasional burning or itching may occur. Oral use carries more serious risks: the latex can cause abdominal pain and diarrhea, oral extracts have been linked to cases of acute hepatitis, and animal studies associated non-decolorized extracts with gastrointestinal cancer. Likely unsafe during pregnancy; may interact with medications such as digoxin.",
+      "uses": "O gel de babosa é aplicado topicamente para queimaduras, acne e diversas condições de pele, incluindo psoríase e danos cutâneos relacionados à radiação. O uso oral é promovido para problemas digestivos, embora as aplicações tópicas tenham maior respaldo em pesquisas.",
+      "how": "Aplique o gel da parte interna da folha da babosa (ou um gel de babosa preparado comercialmente) diretamente na área afetada da pele. O uso tópico é a aplicação com maior respaldo científico; produtos de babosa para uso oral apresentam riscos mais graves e não devem ser utilizados sem consultar um profissional de saúde.",
+      "evidence": "Pesquisas sugerem que o gel tópico de babosa pode acelerar a cicatrização de queimaduras e reduzir a dor relacionada a elas. Dois pequenos estudos indicam que o gel de babosa, combinado com outros tratamentos, pode melhorar a acne; as evidências para outros usos na pele são limitadas.",
+      "cautions": "O uso tópico geralmente é bem tolerado, embora possam ocorrer ocasionalmente ardência ou coceira. O uso oral apresenta riscos mais graves: o látex da planta pode causar dor abdominal e diarreia, extratos orais foram associados a casos de hepatite aguda e estudos em animais relacionaram extratos não descoloridos ao câncer gastrointestinal. O uso provavelmente não é seguro durante a gravidez; pode interagir com medicamentos, como a digoxina.",
       "sourceUrl": "https://www.nccih.nih.gov/health/aloe-vera"
     },
     {
@@ -45,15 +48,15 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
       "conditions": [
         "muscle-joint-pain"
       ],
-      "uses": "Boswellia resin extract is traditionally used to reduce inflammation and pain, and is promoted as a dietary supplement to support joint health and mobility, particularly for osteoarthritis.",
-      "how": "Boswellia is taken orally as a dietary supplement. Clinical trials have used doses up to 1,000 mg daily for up to 6 months; follow the product label and consult a healthcare provider before starting.",
-      "evidence": "Some studies suggest oral boswellia may help reduce inflammation and pain associated with osteoarthritis, but larger rigorous trials are needed; topical use lacks sufficient evidence of effectiveness.",
-      "cautions": "Extracts up to 1,000 mg daily have been used safely in clinical trials lasting up to 6 months. Consult a healthcare provider before use, especially if pregnant, breastfeeding, managing asthma, or taking medications, as interactions remain unclear.",
+      "uses": "O extrato da resina de boswellia é tradicionalmente utilizado para reduzir a inflamação e a dor, sendo promovido como suplemento alimentar para favorecer a saúde e a mobilidade das articulações, especialmente em casos de osteoartrite.",
+      "how": "A boswellia é ingerida por via oral como suplemento alimentar. Ensaios clínicos utilizaram doses de até 1.000 mg por dia durante períodos de até 6 meses; siga as instruções do rótulo e consulte um profissional de saúde antes de começar a utilizá-la.",
+      "evidence": "Alguns estudos sugerem que a boswellia oral pode ajudar a reduzir a inflamação e a dor associadas à osteoartrite, mas são necessários ensaios maiores e mais rigorosos; não há evidências suficientes sobre a eficácia do uso tópico.",
+      "cautions": "Extratos em doses de até 1.000 mg por dia foram utilizados com segurança em ensaios clínicos com duração de até 6 meses. Consulte um profissional de saúde antes de utilizar o produto, especialmente se estiver grávida, amamentando, tratando asma ou tomando medicamentos, pois as possíveis interações ainda não estão bem esclarecidas.",
       "sourceUrl": "https://www.nccih.nih.gov/health/boswellia"
     },
     {
       "slug": "bromelain",
-      "name": "Bromelain",
+      "name": "Bromelina",
       "commonNames": [
         "pineapple enzyme",
         "Ananas comosus extract"
@@ -62,14 +65,14 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "muscle-joint-pain",
         "nasal-congestion"
       ],
-      "uses": "Bromelain, an enzyme from pineapple, is promoted for reducing postoperative pain and swelling, sinusitis, osteoarthritis, and exercise-induced muscle soreness. A topical formulation has FDA approval for debridement of severe burns.",
-      "evidence": "Some studies suggest oral bromelain may reduce certain symptoms after wisdom tooth surgery; evidence for sinusitis is insufficient. The topical formulation has been successfully used by health professionals for burn debridement as an alternative to surgical debridement.",
-      "cautions": "Oral bromelain is generally well tolerated; the most common side effects are stomach upset and diarrhea. Talk with a healthcare provider before use alongside any medications, as harmful interactions are possible. Safety during pregnancy and breastfeeding is unclear.",
+      "uses": "A bromelina, uma enzima extraída do abacaxi, é promovida para reduzir a dor e o inchaço após cirurgias, tratar sinusite e osteoartrite e aliviar dores musculares provocadas por exercícios. Uma formulação tópica foi aprovada pela FDA para o desbridamento de queimaduras graves.",
+      "evidence": "Alguns estudos sugerem que a bromelina oral pode reduzir determinados sintomas após a cirurgia de extração dos dentes do siso; as evidências para sinusite são insuficientes. A formulação tópica tem sido utilizada com sucesso por profissionais de saúde no desbridamento de queimaduras como alternativa ao procedimento cirúrgico.",
+      "cautions": "A bromelina oral geralmente é bem tolerada; os efeitos colaterais mais comuns são desconforto estomacal e diarreia. Converse com um profissional de saúde antes de utilizá-la junto com medicamentos, pois podem ocorrer interações prejudiciais. A segurança durante a gravidez e a amamentação não está esclarecida.",
       "sourceUrl": "https://www.nccih.nih.gov/health/bromelain"
     },
     {
       "slug": "butterbur",
-      "name": "Butterbur",
+      "name": "Petasites",
       "commonNames": [
         "Petasites hybridus"
       ],
@@ -77,15 +80,15 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "headache",
         "allergic-reaction"
       ],
-      "uses": "Butterbur root extract is used for migraine prevention and for reducing symptoms of allergic rhinitis (hay fever). It has been studied for reducing migraine frequency in both adults and children.",
-      "how": "Butterbur is taken orally as a root extract for migraine prevention or as a leaf extract for allergic rhinitis symptoms. Use only products that are certified and labeled as free of pyrrolizidine alkaloids (PA-free), as the untreated plant contains compounds that can damage the liver.",
-      "evidence": "Studies of a butterbur root extract suggest it may reduce migraine frequency; a leaf extract may help with allergic rhinitis symptoms. However, the American Academy of Neurology withdrew its 2012 recommendation in 2015 due to safety concerns.",
-      "cautions": "The plant naturally contains pyrrolizidine alkaloids (PAs) that can damage the liver and lungs and may cause cancer; only PA-free certified products should be used. Even PA-free products have been linked to rare cases of liver injury. Side effects include belching, diarrhea, drowsiness, rash, and stomach upset. Avoid during pregnancy; people allergic to ragweed or related plants are at higher risk of reactions.",
+      "uses": "O extrato da raiz de petasites é utilizado na prevenção da enxaqueca e na redução dos sintomas da rinite alérgica (febre do feno). A planta foi estudada para reduzir a frequência das crises de enxaqueca em adultos e crianças.",
+      "how": "O petasites é ingerido por via oral como extrato da raiz para prevenir a enxaqueca ou como extrato das folhas para aliviar os sintomas da rinite alérgica. Utilize somente produtos certificados e identificados como livres de alcaloides pirrolizidínicos (PA-free), pois a planta não tratada contém compostos capazes de causar danos ao fígado.",
+      "evidence": "Estudos de um extrato da raiz de petasites sugerem que ele pode reduzir a frequência das crises de enxaqueca; um extrato das folhas pode ajudar a aliviar os sintomas da rinite alérgica. Entretanto, a Academia Americana de Neurologia retirou, em 2015, sua recomendação de 2012 devido a preocupações com a segurança.",
+      "cautions": "A planta contém naturalmente alcaloides pirrolizidínicos (APs), que podem causar danos ao fígado e aos pulmões e aumentar o risco de câncer; somente produtos certificados e livres desses compostos devem ser utilizados. Mesmo produtos sem APs foram associados a casos raros de lesão hepática. Os efeitos colaterais incluem arrotos, diarreia, sonolência, erupções cutâneas e desconforto estomacal. Evite durante a gravidez; pessoas alérgicas à ambrósia ou a plantas relacionadas apresentam maior risco de reações.",
       "sourceUrl": "https://www.nccih.nih.gov/health/butterbur"
     },
     {
       "slug": "chamomile",
-      "name": "Chamomile",
+      "name": "Camomila",
       "commonNames": [
         "Matricaria chamomilla",
         "German chamomile",
@@ -98,15 +101,15 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "sore-throat",
         "skin-rash-itch"
       ],
-      "uses": "Chamomile is promoted for insomnia, indigestion, anxiety, the common cold, and infant colic; it is also used topically for skin conditions and as a mouthwash for oral inflammation.",
-      "how": "Chamomile is commonly consumed as a tea (considered safe in amounts typically found in teas), taken as an oral supplement, applied topically to skin, or used as a mouthwash for oral inflammation. Consult a healthcare provider before using oral supplements rather than tea.",
-      "evidence": "Evidence is limited: some preliminary studies suggest chamomile supplements may help with anxiety, and combination products may help childhood diarrhea and infant colic. A 2019 review found minimal evidence for insomnia, with one study showing no benefit. Evidence for cold, sore throat, and skin uses in people is insufficient.",
-      "cautions": "Generally considered safe in typical amounts. Side effects may include nausea, dizziness, and allergic reactions, including severe hypersensitivity; risk is higher for those sensitive to ragweed, chrysanthemums, marigolds, or daisies. May interact with blood thinners, birth control pills, sedatives, and liver-metabolized drugs. Safety during pregnancy and breastfeeding is unknown.",
+      "uses": "A camomila é promovida para insônia, indigestão, ansiedade, resfriado comum e cólicas em bebês. Também é utilizada topicamente para problemas de pele e como enxaguante bucal para inflamações na boca.",
+      "how": "A camomila é comumente consumida como chá (considerado seguro nas quantidades normalmente encontradas nessas bebidas), ingerida como suplemento oral, aplicada topicamente na pele ou utilizada como enxaguante bucal para inflamações na boca. Consulte um profissional de saúde antes de utilizar suplementos orais em vez do chá.",
+      "evidence": "As evidências são limitadas: alguns estudos preliminares sugerem que suplementos de camomila podem ajudar com a ansiedade, e produtos combinados podem ajudar no tratamento da diarreia infantil e das cólicas em bebês. Uma revisão de 2019 encontrou poucas evidências para o tratamento da insônia, com um estudo que não demonstrou benefícios. As evidências em pessoas para o uso contra resfriados, dor de garganta e problemas de pele são insuficientes.",
+      "cautions": "Geralmente é considerada segura nas quantidades habituais. Os efeitos colaterais podem incluir náusea, tontura e reações alérgicas, inclusive hipersensibilidade grave; o risco é maior para pessoas sensíveis à ambrósia, crisântemos, calêndulas ou margaridas. Pode interagir com anticoagulantes, pílulas anticoncepcionais, sedativos e medicamentos metabolizados pelo fígado. A segurança durante a gravidez e a amamentação é desconhecida.",
       "sourceUrl": "https://www.nccih.nih.gov/health/chamomile"
     },
     {
       "slug": "echinacea",
-      "name": "Echinacea",
+      "name": "Equinácea",
       "commonNames": [
         "Echinacea purpurea",
         "purple coneflower"
@@ -114,43 +117,43 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
       "conditions": [
         "common-cold"
       ],
-      "uses": "Echinacea is primarily marketed for the common cold and upper respiratory tract infections, based on the idea that it may support immune system function.",
-      "evidence": "Studies indicate that taking echinacea may slightly reduce the chances of catching a cold, though evidence regarding whether it shortens cold duration is inconclusive. Evidence for other conditions, including eczema, is unclear.",
-      "cautions": "E. purpurea extracts appear likely safe for short periods in adults; allergic reactions can occur, with digestive symptoms most common. Children may experience rashes potentially linked to allergic reactions. Theoretical interactions with immunosuppressants and certain other drugs; consult a healthcare provider before use with medications. Limited data on safety in early pregnancy.",
+      "uses": "A equinácea é comercializada principalmente para o resfriado comum e infecções do trato respiratório superior, com base na ideia de que pode favorecer o funcionamento do sistema imunológico.",
+      "evidence": "Estudos indicam que o uso de equinácea pode reduzir ligeiramente as chances de contrair um resfriado, embora as evidências sobre a redução da duração dos sintomas sejam inconclusivas. As evidências para outras condições, incluindo eczema, não são claras.",
+      "cautions": "Os extratos de E. purpurea parecem ser seguros para adultos quando utilizados por períodos curtos; podem ocorrer reações alérgicas, sendo os sintomas digestivos os mais comuns. Crianças podem apresentar erupções cutâneas possivelmente relacionadas a reações alérgicas. Existem possíveis interações teóricas com imunossupressores e determinados outros medicamentos; consulte um profissional de saúde antes de utilizá-la junto com medicamentos. Há poucos dados sobre a segurança no início da gravidez.",
       "sourceUrl": "https://www.nccih.nih.gov/health/echinacea"
     },
     {
       "slug": "elderberry",
-      "name": "Elderberry",
+      "name": "Sabugueiro",
       "commonNames": [
         "Sambucus nigra"
       ],
       "conditions": [
         "common-cold"
       ],
-      "uses": "Elderberry has been used in folk medicine to treat colds and flu, and is promoted as a dietary supplement for colds, flu, and other upper respiratory infections.",
-      "how": "Elderberry is used as a prepared dietary supplement (syrup, capsule, or lozenge) rather than raw fruit. Never eat raw or unripe elderberries — they contain cyanide-producing substances that cause nausea, vomiting, and severe diarrhea; cooking the berries eliminates this toxin.",
-      "evidence": "A small number of studies suggest elderberry may relieve symptoms of flu, colds, or other upper respiratory infections; however, the overall evidence is limited and insufficient for most other claimed benefits.",
-      "cautions": "Raw or unripe elderberries contain cyanide-producing substances that can cause nausea, vomiting, and severe diarrhea; cooking eliminates this toxin. Consult a healthcare provider before use, especially if taking medications. Limited safety data for pregnancy and breastfeeding.",
+      "uses": "O sabugueiro é utilizado na medicina popular para tratar resfriados e gripe e é promovido como suplemento alimentar para resfriados, gripe e outras infecções do trato respiratório superior.",
+      "how": "O sabugueiro deve ser utilizado na forma de suplemento alimentar preparado (xarope, cápsula ou pastilha), e não como fruto cru. Nunca consuma sabugueiros crus ou verdes: eles contêm substâncias que liberam cianeto e podem causar náuseas, vômitos e diarreia grave. O cozimento dos frutos elimina essa toxina.",
+      "evidence": "Um pequeno número de estudos sugere que o sabugueiro pode aliviar sintomas de gripe, resfriados ou outras infecções do trato respiratório superior; entretanto, as evidências gerais são limitadas e insuficientes para a maioria dos outros benefícios alegados.",
+      "cautions": "Sabugueiros crus ou verdes contêm substâncias que liberam cianeto e podem causar náuseas, vômitos e diarreia grave; o cozimento elimina essa toxina. Consulte um profissional de saúde antes de utilizar o produto, especialmente se estiver tomando medicamentos. Há poucos dados sobre a segurança durante a gravidez e a amamentação.",
       "sourceUrl": "https://www.nccih.nih.gov/health/elderberry"
     },
     {
       "slug": "feverfew",
-      "name": "Feverfew",
+      "name": "Tanaceto",
       "commonNames": [
         "Tanacetum parthenium"
       ],
       "conditions": [
         "headache"
       ],
-      "uses": "Feverfew is promoted for migraine headache prevention and for minor head and tension pain. Topically, it is marketed for itching and skin irritation.",
-      "evidence": "A 2020 systematic review of seven migraine studies found inconsistent results, though some evidence suggests feverfew may reduce migraine frequency and associated symptoms such as nausea and light sensitivity. There is little or no evidence supporting feverfew for other health conditions.",
-      "cautions": "Side effects include nausea, digestive issues, bloating, and mouth sores from chewing fresh leaves. People sensitive to ragweed may experience allergic reactions. Feverfew may slow blood clotting and should be stopped at least 2 weeks before scheduled surgery. It may interact with migraine medications and should be avoided during pregnancy due to potential effects on uterine contractions.",
+      "uses": "O tanaceto é promovido para prevenir enxaquecas e aliviar dores leves na cabeça e dores tensionais. Também é comercializado para aplicação tópica contra coceira e irritação da pele.",
+      "evidence": "Uma revisão sistemática de 2020, que analisou sete estudos sobre enxaqueca, encontrou resultados inconsistentes, embora algumas evidências sugiram que o tanaceto pode reduzir a frequência das crises e sintomas associados, como náusea e sensibilidade à luz. Há poucas evidências ou nenhuma evidência que sustente seu uso para outras condições de saúde.",
+      "cautions": "Os efeitos colaterais incluem náusea, problemas digestivos, inchaço abdominal e feridas na boca ao mastigar folhas frescas. Pessoas sensíveis à ambrósia podem apresentar reações alérgicas. O tanaceto pode retardar a coagulação sanguínea e deve ser suspenso pelo menos duas semanas antes de uma cirurgia programada. Pode interagir com medicamentos para enxaqueca e deve ser evitado durante a gravidez devido aos possíveis efeitos sobre as contrações uterinas.",
       "sourceUrl": "https://www.nccih.nih.gov/health/feverfew"
     },
     {
       "slug": "ginger",
-      "name": "Ginger",
+      "name": "Gengibre",
       "commonNames": [
         "Zingiber officinale"
       ],
@@ -159,14 +162,14 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "menstrual-cramps",
         "indigestion"
       ],
-      "uses": "Ginger is traditionally and commonly used for nausea and vomiting, indigestion, menstrual cramps, and osteoarthritis.",
-      "evidence": "Research shows ginger may be helpful for nausea and vomiting associated with pregnancy. Studies suggest ginger dietary supplements might be helpful for reducing the severity of menstrual cramps and for knee osteoarthritis symptoms; effectiveness for chemotherapy- or post-surgery-related nausea remains uncertain.",
-      "cautions": "Side effects when taken orally include abdominal discomfort, heartburn, diarrhea, and mouth and throat irritation. Possible interactions with medications exist; consult a healthcare provider before use, especially during pregnancy or breastfeeding.",
+      "uses": "O gengibre é tradicionalmente utilizado e comumente consumido para aliviar náuseas, vômitos, indigestão, cólicas menstruais e sintomas da osteoartrite.",
+      "evidence": "Pesquisas mostram que o gengibre pode ser útil para náuseas e vômitos associados à gravidez. Estudos sugerem que suplementos alimentares de gengibre podem ajudar a reduzir a intensidade das cólicas menstruais e os sintomas da osteoartrite do joelho; sua eficácia contra náuseas relacionadas à quimioterapia ou a cirurgias permanece incerta.",
+      "cautions": "Os efeitos colaterais do uso oral incluem desconforto abdominal, azia, diarreia e irritação da boca e da garganta. Existem possíveis interações com medicamentos; consulte um profissional de saúde antes de utilizá-lo, especialmente durante a gravidez ou a amamentação.",
       "sourceUrl": "https://www.nccih.nih.gov/health/ginger"
     },
     {
       "slug": "goldenseal",
-      "name": "Goldenseal",
+      "name": "Hidraste",
       "commonNames": [
         "Hydrastis canadensis"
       ],
@@ -175,44 +178,44 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "diarrhea",
         "wounds-cuts"
       ],
-      "uses": "Goldenseal is marketed for the common cold and upper respiratory infections, diarrhea, constipation, and other digestive conditions. Historically, Native Americans used it for digestive disorders, wounds, and skin conditions.",
-      "evidence": "There is not enough evidence to determine whether goldenseal is useful for any health condition; no rigorous studies have been done in people. Very little of the active compound berberine is absorbed when goldenseal is taken orally, making findings from berberine studies potentially inapplicable.",
-      "cautions": "Short-term use at approximately 3 grams daily appears to be without serious adverse effects, though longer-term safety is uncertain. Goldenseal significantly affects drug metabolism; one study found it decreased metformin levels by about 25%. Some commercial products contain unlisted ingredients or substitute herbs. Avoid during pregnancy, breastfeeding, and in infants due to potential harm from berberine.",
+      "uses": "O hidraste é comercializado para resfriados comuns, infecções do trato respiratório superior, diarreia, constipação e outros problemas digestivos. Historicamente, povos indígenas norte-americanos o utilizavam para distúrbios digestivos, feridas e problemas de pele.",
+      "evidence": "Não há evidências suficientes para determinar se o hidraste é útil para qualquer condição de saúde; não foram realizados estudos rigorosos em seres humanos. Uma quantidade muito pequena do composto ativo berberina é absorvida quando o hidraste é ingerido por via oral, o que significa que os resultados de estudos sobre a berberina podem não ser aplicáveis ao hidraste.",
+      "cautions": "O uso por curto prazo, em aproximadamente 3 gramas por dia, parece não causar efeitos adversos graves, embora a segurança do uso prolongado seja incerta. O hidraste afeta significativamente o metabolismo de medicamentos; um estudo constatou que ele reduziu os níveis de metformina em cerca de 25%. Alguns produtos comerciais contêm ingredientes não declarados ou substituem a erva por outras plantas. Evite durante a gravidez, a amamentação e em bebês devido aos possíveis danos causados pela berberina.",
       "sourceUrl": "https://www.nccih.nih.gov/health/goldenseal"
     },
     {
       "slug": "horse-chestnut",
-      "name": "Horse Chestnut",
+      "name": "Castanha-da-índia",
       "commonNames": [
         "Aesculus hippocastanum"
       ],
       "conditions": [
         "hemorrhoids"
       ],
-      "uses": "Horse chestnut seed extract is promoted for chronic venous insufficiency (leg pain and swelling from poor circulation) and has historically been used for hemorrhoids, arthritis, and menstrual cramps.",
-      "how": "Use only standardized horse chestnut seed extract (a dietary supplement) — never raw seeds, bark, flowers, or leaves, which are toxic when taken orally. Research has used standardized extract for up to 12 weeks; follow the product label and consult a healthcare provider before use.",
-      "evidence": "A 2012 systematic review found horse chestnut seed extract can improve symptoms of chronic venous insufficiency, comparable to compression stockings in one study; however, more rigorous trials are needed. Evidence for other uses, including hemorrhoids, is insufficient.",
-      "cautions": "Raw seeds, bark, flowers, and leaves are unsafe to take orally due to toxic components; only standardized extracts with the toxin removed should be used, and research shows safety for up to 12 weeks. Side effects include dizziness, digestive upset, headache, and itching. Safety during pregnancy and breastfeeding is unknown; consult a healthcare provider before use.",
+      "uses": "O extrato das sementes da castanha-da-índia é promovido para tratar a insuficiência venosa crônica (dor e inchaço nas pernas decorrentes da má circulação) e, historicamente, foi utilizado para hemorroidas, artrite e cólicas menstruais.",
+      "how": "Utilize somente extratos padronizados das sementes da castanha-da-índia, comercializados como suplementos alimentares. Nunca ingira sementes, cascas, flores ou folhas cruas, pois são tóxicas quando consumidas por via oral. Pesquisas utilizaram extratos padronizados por períodos de até 12 semanas; siga as instruções do rótulo e consulte um profissional de saúde antes de utilizá-los.",
+      "evidence": "Uma revisão sistemática de 2012 constatou que o extrato das sementes da castanha-da-índia pode melhorar os sintomas da insuficiência venosa crônica, com resultados comparáveis aos das meias de compressão em um estudo; entretanto, são necessários ensaios mais rigorosos. As evidências para outros usos, incluindo hemorroidas, são insuficientes.",
+      "cautions": "Sementes, cascas, flores e folhas cruas não são seguras para ingestão devido à presença de componentes tóxicos. Somente extratos padronizados dos quais a toxina foi removida devem ser utilizados; pesquisas indicam segurança por até 12 semanas. Os efeitos colaterais incluem tontura, desconforto digestivo, dor de cabeça e coceira. A segurança durante a gravidez e a amamentação é desconhecida; consulte um profissional de saúde antes de utilizar o produto.",
       "sourceUrl": "https://www.nccih.nih.gov/health/horse-chestnut"
     },
     {
       "slug": "lavender",
-      "name": "Lavender",
+      "name": "Lavanda",
       "commonNames": [
         "Lavandula angustifolia"
       ],
       "conditions": [
         "sleeplessness"
       ],
-      "uses": "Lavender is promoted as an oral supplement and aromatherapy agent for calming anxiety, stress, and sleep difficulties; it is also used topically and in aromatherapy for depression symptoms and pain.",
-      "how": "Lavender is used as an oral supplement (capsule or tea), as an aromatherapy oil (inhaled or diffused), or applied topically to skin. Oral lavender oil products have been studied for anxiety; aromatherapy involves inhaling the scent from a diffuser or a few drops on a cloth.",
-      "evidence": "Studies suggest oral lavender oil might be beneficial for anxiety, including anxiety with co-occurring depression; evidence for sleep improvement is insufficient, and it is unclear whether aromatherapy with lavender benefits anxiety, stress, or depression.",
-      "cautions": "Oral lavender products may cause diarrhea, headache, nausea, or burping. Topical application can trigger allergic skin reactions. Potential interactions with sedative drugs warrant discussion with a healthcare provider. Safety during pregnancy and breastfeeding is unknown.",
+      "uses": "A lavanda é promovida como suplemento oral e recurso de aromaterapia para acalmar a ansiedade, o estresse e as dificuldades para dormir. Também é utilizada topicamente e na aromaterapia para sintomas de depressão e dores.",
+      "how": "A lavanda pode ser utilizada como suplemento oral (cápsula ou chá), como óleo de aromaterapia (inalado ou difundido no ambiente) ou aplicada topicamente na pele. Produtos de óleo de lavanda para uso oral foram estudados para a ansiedade; a aromaterapia envolve inalar o aroma de um difusor ou de algumas gotas aplicadas em um tecido.",
+      "evidence": "Estudos sugerem que o óleo de lavanda por via oral pode ser benéfico para a ansiedade, inclusive quando acompanhada de depressão. As evidências para melhorar o sono são insuficientes, e não está claro se a aromaterapia com lavanda beneficia a ansiedade, o estresse ou a depressão.",
+      "cautions": "Produtos orais de lavanda podem causar diarreia, dor de cabeça, náusea ou arrotos. A aplicação tópica pode provocar reações alérgicas na pele. Possíveis interações com medicamentos sedativos devem ser discutidas com um profissional de saúde. A segurança durante a gravidez e a amamentação é desconhecida.",
       "sourceUrl": "https://www.nccih.nih.gov/health/lavender"
     },
     {
       "slug": "licorice-root",
-      "name": "Licorice Root",
+      "name": "Raiz de alcaçuz",
       "commonNames": [
         "Glycyrrhiza glabra"
       ],
@@ -222,30 +225,30 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "burns",
         "skin-rash-itch"
       ],
-      "uses": "Licorice root is promoted for digestive and respiratory support and is used topically for skin conditions. Research has focused on mouth rinses for canker sores, gargles or lozenges for sore throat prevention, and topical gels for eczema and burn healing.",
-      "how": "For canker sores, licorice is used as a mouth rinse or gargle; for sore throat prevention around surgery, as a gargle or lozenge; for eczema or burn healing, as a topical gel applied to the skin. Avoid long-term or high-dose oral use due to serious cardiovascular risks.",
-      "evidence": "Preliminary studies suggest licorice mouth rinses may reduce canker sore pain and size, and lozenges or gargles may prevent sore throat after surgical intubation. Topical gels show some promise for eczema symptoms and burn healing, though more research is needed. There is not enough high-quality evidence to support its use for most conditions.",
-      "cautions": "Licorice contains glycyrrhizin, which can cause serious adverse effects including irregular heartbeat and cardiac arrest, especially with long-term or large-dose use. Even small amounts can be risky for people with high blood pressure, high salt intake, or heart or kidney conditions. Large amounts during pregnancy increase miscarriage risk and are considered unsafe. Interactions with corticosteroids have been documented; consult a healthcare provider before use.",
+      "uses": "A raiz de alcaçuz é promovida para auxiliar a saúde digestiva e respiratória e é utilizada topicamente para problemas de pele. As pesquisas se concentraram em enxaguantes bucais para aftas, gargarejos ou pastilhas para prevenir dor de garganta e géis tópicos para eczema e cicatrização de queimaduras.",
+      "how": "Para aftas, o alcaçuz é utilizado como enxaguante bucal ou gargarejo; para prevenir dor de garganta relacionada a cirurgias, como gargarejo ou pastilha; e para eczema ou cicatrização de queimaduras, como gel aplicado diretamente na pele. Evite o uso oral prolongado ou em doses elevadas devido aos riscos cardiovasculares graves.",
+      "evidence": "Estudos preliminares sugerem que enxaguantes bucais de alcaçuz podem reduzir a dor e o tamanho das aftas, e que pastilhas ou gargarejos podem prevenir a dor de garganta após a intubação cirúrgica. Géis tópicos apresentam resultados promissores para sintomas de eczema e cicatrização de queimaduras, embora sejam necessárias mais pesquisas. Não existem evidências de alta qualidade suficientes para sustentar seu uso na maioria das condições.",
+      "cautions": "O alcaçuz contém glicirrizina, que pode causar efeitos adversos graves, incluindo batimentos cardíacos irregulares e parada cardíaca, especialmente com o uso prolongado ou em doses elevadas. Mesmo pequenas quantidades podem ser arriscadas para pessoas com pressão alta, consumo elevado de sal ou problemas cardíacos ou renais. O consumo de grandes quantidades durante a gravidez aumenta o risco de aborto espontâneo e é considerado inseguro. Foram documentadas interações com corticosteroides; consulte um profissional de saúde antes de utilizar o produto.",
       "sourceUrl": "https://www.nccih.nih.gov/health/licorice-root"
     },
     {
       "slug": "passionflower",
-      "name": "Passionflower",
+      "name": "Maracujá",
       "commonNames": [
         "Passiflora incarnata"
       ],
       "conditions": [
         "sleeplessness"
       ],
-      "uses": "Passionflower is marketed as a dietary supplement for anxiety, sleep problems, and stress.",
-      "how": "Passionflower is taken as a tea (studied for up to 7 nights) or as an oral extract supplement (studied for up to 8 weeks). Follow package directions and consult a healthcare provider before use, especially if you take other medications or are scheduled for surgery.",
-      "evidence": "Some research suggests oral passionflower may help reduce anxiety symptoms and improve total sleep time in adults with insomnia, though findings on falling or staying asleep are mixed and conclusions are not definite.",
-      "cautions": "Taking passionflower alongside anesthesia or other surgical medications may slow the nervous system too much; avoid use before surgery. Should not be used during pregnancy as it may induce uterine contractions. Possible side effects include drowsiness, dizziness, and confusion. Discuss with a healthcare provider before combining with medications.",
+      "uses": "O maracujá é comercializado como suplemento alimentar para ansiedade, problemas de sono e estresse.",
+      "how": "O maracujá pode ser consumido como chá (estudado por até 7 noites) ou como extrato oral em suplemento (estudado por até 8 semanas). Siga as instruções da embalagem e consulte um profissional de saúde antes de utilizá-lo, especialmente se estiver tomando outros medicamentos ou tiver uma cirurgia programada.",
+      "evidence": "Algumas pesquisas sugerem que o maracujá por via oral pode ajudar a reduzir os sintomas de ansiedade e aumentar o tempo total de sono em adultos com insônia, embora os resultados sobre adormecer ou permanecer dormindo sejam variados e as conclusões não sejam definitivas.",
+      "cautions": "O uso do maracujá junto com anestésicos ou outros medicamentos utilizados em cirurgias pode desacelerar excessivamente o sistema nervoso; evite utilizá-lo antes de cirurgias. Não deve ser utilizado durante a gravidez, pois pode provocar contrações uterinas. Os possíveis efeitos colaterais incluem sonolência, tontura e confusão. Converse com um profissional de saúde antes de combiná-lo com medicamentos.",
       "sourceUrl": "https://www.nccih.nih.gov/health/passionflower"
     },
     {
       "slug": "peppermint-oil",
-      "name": "Peppermint Oil",
+      "name": "Óleo de hortelã-pimenta",
       "commonNames": [
         "Mentha x piperita"
       ],
@@ -254,15 +257,15 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "nausea-vomiting",
         "indigestion"
       ],
-      "uses": "Peppermint oil is promoted for irritable bowel syndrome, indigestion, headaches, muscle tension, and nausea. Topical application is used for tension headaches, and inhaled peppermint oil is used for nausea.",
-      "how": "For IBS, peppermint oil is taken as enteric-coated capsules (which reduce heartburn compared to plain capsules). For tension headaches, apply peppermint oil topically to the skin. For nausea, peppermint oil is inhaled as aromatherapy.",
-      "evidence": "A 2022 review found peppermint oil was better than placebo at improving overall IBS symptoms and abdominal pain. A 2024 review concluded that inhaling peppermint oil was particularly effective at reducing nausea and vomiting in patients with cancer. Evidence suggests potential benefit for tension headaches when applied topically, though peppermint oil taken alone may worsen indigestion in some people.",
-      "cautions": "Oral side effects may include heartburn, nausea, abdominal pain, and dry mouth; enteric-coated capsules reduce heartburn risk. Never apply topically to infants' or young children's faces due to menthol's respiratory effects. Skin irritation is possible with topical use. Consult a healthcare provider before use with medications, as interactions may occur.",
+      "uses": "O óleo de hortelã-pimenta é promovido para a síndrome do intestino irritável, indigestão, dores de cabeça, tensão muscular e náuseas. A aplicação tópica é utilizada para dores de cabeça tensionais, enquanto a inalação do óleo é utilizada para aliviar náuseas.",
+      "how": "Para a síndrome do intestino irritável, o óleo de hortelã-pimenta é ingerido em cápsulas com revestimento entérico, que reduzem a azia em comparação com cápsulas comuns. Para dores de cabeça tensionais, aplique o óleo topicamente na pele. Para náuseas, utilize o óleo por inalação na aromaterapia.",
+      "evidence": "Uma revisão de 2022 constatou que o óleo de hortelã-pimenta foi mais eficaz do que o placebo para melhorar os sintomas gerais da síndrome do intestino irritável e a dor abdominal. Uma revisão de 2024 concluiu que a inalação do óleo foi particularmente eficaz na redução de náuseas e vômitos em pacientes com câncer. As evidências sugerem possíveis benefícios para dores de cabeça tensionais quando aplicado topicamente, embora o óleo ingerido isoladamente possa piorar a indigestão em algumas pessoas.",
+      "cautions": "Os efeitos colaterais do uso oral podem incluir azia, náusea, dor abdominal e boca seca; cápsulas com revestimento entérico reduzem o risco de azia. Nunca aplique o produto topicamente no rosto de bebês ou crianças pequenas, pois o mentol pode afetar a respiração. O uso tópico pode causar irritação na pele. Consulte um profissional de saúde antes de utilizá-lo junto com medicamentos, pois podem ocorrer interações.",
       "sourceUrl": "https://www.nccih.nih.gov/health/peppermint-oil"
     },
     {
       "slug": "tea-tree-oil",
-      "name": "Tea Tree Oil",
+      "name": "Óleo de melaleuca",
       "commonNames": [
         "Melaleuca alternifolia"
       ],
@@ -273,15 +276,15 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "insect-bites-stings",
         "burns"
       ],
-      "uses": "Tea tree oil is marketed for external use including acne, athlete's foot, toenail fungus, and lice. Traditional Aboriginal uses included treating wounds, burns, and insect bites.",
-      "how": "Apply tea tree oil topically to the affected skin area only — for acne or athlete's foot, use a product containing tea tree oil as directed on the label. Never swallow tea tree oil; oral ingestion can cause serious symptoms including confusion, unsteadiness, and coma.",
-      "evidence": "A small amount of research suggests tea tree oil might be helpful for acne and athlete's foot (fungal infection), though more studies are needed. Evidence for toenail fungus, lice, eyelid inflammation, and oral health uses is insufficient or uncertain. Traditional wound, burn, and insect bite uses lack rigorous clinical research.",
-      "cautions": "Critical warning: tea tree oil must not be swallowed — oral ingestion can cause serious symptoms including confusion, unsteadiness, inability to walk, and coma. Topical use is generally safe for most adults, though some experience skin redness or irritation. Older products or those exposed to heat, light, or air may increase reaction risk. Products appear safe during pregnancy and breastfeeding when used topically only.",
+      "uses": "O óleo de melaleuca é comercializado para uso externo, inclusive para acne, pé de atleta, fungos nas unhas dos pés e piolhos. Entre os usos tradicionais dos povos aborígenes estavam o tratamento de feridas, queimaduras e picadas de insetos.",
+      "how": "Aplique o óleo de melaleuca somente na área afetada da pele. Para acne ou pé de atleta, utilize um produto que contenha óleo de melaleuca de acordo com as instruções do rótulo. Nunca ingira o óleo de melaleuca; a ingestão pode causar sintomas graves, incluindo confusão, falta de coordenação e coma.",
+      "evidence": "Uma quantidade limitada de pesquisas sugere que o óleo de melaleuca pode ser útil para acne e pé de atleta (infecção fúngica), embora sejam necessários mais estudos. As evidências para fungos nas unhas, piolhos, inflamação das pálpebras e usos relacionados à saúde bucal são insuficientes ou incertas. Os usos tradicionais para feridas, queimaduras e picadas de insetos não contam com pesquisas clínicas rigorosas.",
+      "cautions": "Aviso importante: o óleo de melaleuca não deve ser ingerido. A ingestão pode causar sintomas graves, incluindo confusão, falta de coordenação, incapacidade de caminhar e coma. O uso tópico geralmente é seguro para a maioria dos adultos, embora algumas pessoas apresentem vermelhidão ou irritação na pele. Produtos antigos ou expostos ao calor, à luz ou ao ar podem aumentar o risco de reações. Os produtos parecem ser seguros durante a gravidez e a amamentação quando utilizados exclusivamente por via tópica.",
       "sourceUrl": "https://www.nccih.nih.gov/health/tea-tree-oil"
     },
     {
       "slug": "turmeric",
-      "name": "Turmeric",
+      "name": "Cúrcuma",
       "commonNames": [
         "Curcuma longa",
         "curcumin"
@@ -291,25 +294,25 @@ export const NATURAL_REMEDIES_FILE: NaturalRemediesFile = {
         "indigestion",
         "skin-rash-itch"
       ],
-      "uses": "Turmeric is promoted for osteoarthritis, itching, depression, allergies, and high cholesterol; topical applications target joint pain. Historically, it was used in traditional medicine for indigestion, colds, skin infections, and liver disease.",
-      "how": "Turmeric is taken orally as a dietary supplement or applied topically to the skin. Conventionally formulated oral turmeric or curcumin supplements are considered likely safe in recommended amounts for up to 2 to 3 months; follow the product label and consult a healthcare provider before use.",
-      "evidence": "For osteoarthritis, initial evidence is positive for knee pain relief and joint function, though higher-quality research is needed. For most other claimed uses, researchers cannot definitively confirm turmeric's effectiveness, and overall evidence remains inconclusive.",
-      "cautions": "Standard turmeric formulations are likely safe in recommended amounts for up to 2–3 months. Common side effects include nausea, vomiting, acid reflux, and digestive issues. Enhanced bioavailability products have caused liver damage in some users; symptoms include fatigue, dark urine, and jaundice. Use during pregnancy may be unsafe; breastfeeding safety is unclear. Consult a healthcare provider before use with medications.",
+      "uses": "A cúrcuma é promovida para osteoartrite, coceira, depressão, alergias e colesterol alto; as aplicações tópicas são direcionadas à dor nas articulações. Historicamente, foi utilizada na medicina tradicional para indigestão, resfriados, infecções de pele e doenças hepáticas.",
+      "how": "A cúrcuma pode ser ingerida como suplemento alimentar ou aplicada topicamente na pele. Suplementos orais convencionais de cúrcuma ou curcumina são considerados provavelmente seguros nas quantidades recomendadas por até 2 a 3 meses; siga as instruções do rótulo e consulte um profissional de saúde antes de utilizá-los.",
+      "evidence": "Para a osteoartrite, as evidências iniciais são positivas quanto ao alívio da dor no joelho e à melhora da função articular, embora sejam necessárias pesquisas de maior qualidade. Para a maioria dos outros usos alegados, os pesquisadores não conseguem confirmar definitivamente a eficácia da cúrcuma, e as evidências gerais permanecem inconclusivas.",
+      "cautions": "As formulações convencionais de cúrcuma provavelmente são seguras nas quantidades recomendadas por até 2 a 3 meses. Os efeitos colaterais comuns incluem náusea, vômito, refluxo ácido e problemas digestivos. Produtos com maior biodisponibilidade causaram danos ao fígado em alguns usuários; os sintomas incluem fadiga, urina escura e icterícia. O uso durante a gravidez pode ser inseguro; a segurança durante a amamentação não está esclarecida. Consulte um profissional de saúde antes de utilizá-la junto com medicamentos.",
       "sourceUrl": "https://www.nccih.nih.gov/health/turmeric"
     },
     {
       "slug": "valerian",
-      "name": "Valerian",
+      "name": "Valeriana",
       "commonNames": [
         "Valeriana officinalis"
       ],
       "conditions": [
         "sleeplessness"
       ],
-      "uses": "Valerian is promoted for insomnia, anxiety, stress, and depression; historically, it was also used for migraine, fatigue, and stomach issues.",
-      "how": "Valerian is taken orally as a dietary supplement; clinical studies have used doses of 300 to 600 mg daily for up to 6 weeks. Follow the product label and consult a healthcare provider before use, particularly if combining with sedatives or alcohol.",
-      "evidence": "Evidence is limited and inconsistent. The American Academy of Sleep Medicine recommended against using valerian for chronic insomnia in adults (2017). Studies on anxiety, menstrual cramps, and other conditions show inadequate evidence of benefit.",
-      "cautions": "Appears generally safe for short-term use at 300–600 mg daily for up to 6 weeks; long-term safety is unknown. Common side effects include headache, stomach upset, mental dullness, and vivid dreams. Abrupt discontinuation after long-term use may cause withdrawal symptoms including anxiety and insomnia. Avoid combining with alcohol or sedatives. Safety during pregnancy and breastfeeding is unclear.",
+      "uses": "A valeriana é promovida para insônia, ansiedade, estresse e depressão; historicamente, também foi utilizada para enxaqueca, fadiga e problemas estomacais.",
+      "how": "A valeriana é ingerida por via oral como suplemento alimentar; estudos clínicos utilizaram doses de 300 a 600 mg por dia durante períodos de até 6 semanas. Siga as instruções do rótulo e consulte um profissional de saúde antes de utilizá-la, especialmente se for combiná-la com sedativos ou álcool.",
+      "evidence": "As evidências são limitadas e inconsistentes. A Academia Americana de Medicina do Sono recomendou que a valeriana não fosse utilizada para tratar insônia crônica em adultos (2017). Estudos sobre ansiedade, cólicas menstruais e outras condições apresentam evidências insuficientes de benefícios.",
+      "cautions": "A valeriana parece geralmente segura para uso de curto prazo em doses de 300 a 600 mg por dia durante até 6 semanas; a segurança do uso prolongado é desconhecida. Os efeitos colaterais comuns incluem dor de cabeça, desconforto estomacal, redução da clareza mental e sonhos vívidos. A interrupção abrupta após uso prolongado pode causar sintomas de abstinência, incluindo ansiedade e insônia. Evite combiná-la com álcool ou sedativos. A segurança durante a gravidez e a amamentação não está esclarecida.",
       "sourceUrl": "https://www.nccih.nih.gov/health/valerian"
     }
   ]
