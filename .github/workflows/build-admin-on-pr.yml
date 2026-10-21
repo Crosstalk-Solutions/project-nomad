@@ -13,7 +13,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          # 24.22.1 is the 21 Oct 2026 security release for the 24 line.
+          node-version: '24.22.1'
           cache: 'npm'
 
       - name: Install dependencies

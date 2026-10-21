@@ -1,4 +1,8 @@
-FROM node:22-slim AS base
+# 22.23.4 is the 21 Oct 2026 security release for the 22 line
+# (CVE-2026-111497 Brotli RCE, plus the TLS and DNS hostname fixes).
+# Digest is the multi-arch index for node:22.23.4-slim, so a cached
+# node:22-slim from before that release cannot satisfy this build.
+FROM node:22.23.4-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS base
 
 # Install bash & curl for entrypoint script compatibility, graphicsmagick for pdf2pic, and vips-dev & build-base for sharp 
 RUN apt-get update && apt-get install -y \
