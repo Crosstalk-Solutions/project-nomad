@@ -8,14 +8,14 @@ import { situationsForIndications } from '../../util/conditions.js'
 import { affirmativeRemediesEnabled } from '../utils/affirmative_remedies.js'
 
 /**
- * Drug Reference v1 — HTTP boundary.
+ * Referência de Medicamentos v1 — camada HTTP.
  *
- * Two Inertia pages (index / show) + a small JSON API (search / status /
- * download). Mirrors the WorkshopController / InventoryController chain:
- *   - index/show render Inertia
- *   - JSON actions return plain objects
- *   - Integer-id guard on show
- *   - Never leak exceptions to the UI
+ * Duas páginas Inertia (index / show) + uma pequena API JSON (search / status /
+ * download). Segue a mesma sequência do WorkshopController / InventoryController:
+ *   - index/show renderizam páginas Inertia
+ *   - ações JSON retornam objetos simples
+ *   - Validação de identificador inteiro em show
+ *   - Nunca expõe exceções à interface
  */
 export default class DrugReferenceController {
   private get service() {
@@ -23,11 +23,12 @@ export default class DrugReferenceController {
   }
 
   /**
-   * GET /drug-reference — unified search page.
-   * Passes the current row count and ingest status so the empty-state
-   * "download first" prompt can render server-side. Also passes the curated
-   * condition spine so the always-visible situation chips (and the situation→
-   * drugs direction of the unified surface) can render server-side.
+   * GET /drug-reference — página de busca unificada.
+   * Envia a quantidade atual de registros e o status da importação para que
+   * a mensagem inicial "baixe primeiro" possa ser exibida no servidor.
+   * Também envia a lista organizada de condições para que os indicadores
+   * de situações, sempre visíveis, e a relação situação → medicamentos
+   * possam ser exibidos no servidor.
    */
   async index({ inertia }: HttpContext) {
     try {
@@ -42,15 +43,16 @@ export default class DrugReferenceController {
         ingestStatus: status,
         rowCount: count,
         conditions: conditionService.listConditions(),
-        // Affirmative remedy content is gated off by default (#1040): keep it out
-        // of the payload entirely when disabled, and tell the page so it can hide
-        // the "Natural" filter too. Drug search + condition matching are unaffected.
+        // O conteúdo de remédios naturais fica desativado por padrão (#1040):
+        // não o inclui na resposta quando estiver desativado e informa à página
+        // que ela também deve ocultar o filtro "Natural".
+        // A busca de medicamentos e a correspondência com condições não são afetadas.
         remedies: remediesOn ? conditionService.listRemedies() : [],
         remediesEnabled: remediesOn,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] index failed: ${msg}`)
+      logger.error(`[DrugReferenceController] Falha no index: ${msg}`)
       return inertia.render('drug-reference/index', {
         ingestStatus: null,
         rowCount: 0,
@@ -62,23 +64,24 @@ export default class DrugReferenceController {
   }
 
   /**
-   * GET /drug-reference/:id — detail page.
+   * GET /drug-reference/:id — página de detalhes.
    */
   async show({ inertia, params, response }: HttpContext) {
     const id = Number(params.id)
     if (!Number.isInteger(id) || id <= 0) {
-      return response.notFound({ error: 'invalid id' })
+      return response.notFound({ error: 'identificador inválido' })
     }
 
     try {
       const label = await this.service.find(id)
       if (!label) {
-        return response.notFound({ error: 'Drug label not found' })
+        return response.notFound({ error: 'Rótulo do medicamento não encontrado' })
       }
 
-      // Reverse link — the other direction of the symbiotic relationship: which
-      // curated situations does THIS label's indications text treat? Matched
-      // server-side against the curated spine so searchTerms stay server-only.
+      // Relação inversa — o outro lado da relação entre as condições e os
+      // medicamentos: quais situações organizadas o texto de indicações deste
+      // rótulo contempla? A correspondência é feita no servidor para manter
+      // searchTerms restrito ao servidor.
       const situations = situationsForIndications(
         label.indications,
         new ConditionService().allConditions()
@@ -87,14 +90,14 @@ export default class DrugReferenceController {
       return inertia.render('drug-reference/show', { label, situations })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] show(${id}) failed: ${msg}`)
-      return response.internalServerError({ error: 'Could not load drug label' })
+      logger.error(`[DrugReferenceController] Falha no show(${id}): ${msg}`)
+      return response.internalServerError({ error: 'Não foi possível carregar o rótulo do medicamento' })
     }
   }
 
   /**
    * GET /api/drug-reference/search
-   * Returns a slim collapsed result list (brand+generic pairs).
+   * Retorna uma lista resumida de resultados agrupados (pares de marcas e genéricos).
    */
   async search({ request, response }: HttpContext) {
     try {
@@ -110,14 +113,14 @@ export default class DrugReferenceController {
       return { results }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.warn(`[DrugReferenceController] search failed: ${msg}`)
+      logger.warn(`[DrugReferenceController] Falha na busca: ${msg}`)
       return response.badRequest({ error: msg })
     }
   }
 
   /**
    * GET /api/drug-reference/status
-   * Returns the live ingest status DTO.
+   * Retorna o objeto com o status atual da importação.
    */
   async status({ response }: HttpContext) {
     try {
@@ -125,16 +128,17 @@ export default class DrugReferenceController {
       return status
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] status failed: ${msg}`)
-      return response.internalServerError({ error: 'Could not read ingest status' })
+      logger.error(`[DrugReferenceController] Falha ao consultar o status: ${msg}`)
+      return response.internalServerError({ error: 'Não foi possível consultar o status da importação' })
     }
   }
 
   /**
-   * GET /drug-reference/interactions — side-by-side label comparison page.
-   * Passes rowCount + ingestStatus so the empty-state prompt can render,
-   * mirroring the index() pattern. The actual entry data is loaded client-side
-   * via /api/drug-reference/interactions?ids=… so the page is shareable via URL.
+   * GET /drug-reference/interactions — página de comparação lado a lado dos rótulos.
+   * Envia rowCount e ingestStatus para que a mensagem inicial possa ser exibida,
+   * seguindo o mesmo padrão de index(). Os dados das entradas são carregados
+   * no cliente por meio de /api/drug-reference/interactions?ids=…,
+   * permitindo compartilhar a página pela URL.
    */
   async interactions({ inertia }: HttpContext) {
     try {
@@ -149,7 +153,7 @@ export default class DrugReferenceController {
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] interactions page failed: ${msg}`)
+      logger.error(`[DrugReferenceController] Falha na página de comparações: ${msg}`)
       return inertia.render('drug-reference/interactions', {
         ingestStatus: null,
         rowCount: 0,
@@ -159,8 +163,9 @@ export default class DrugReferenceController {
 
   /**
    * GET /api/drug-reference/interactions?ids=1,2,3
-   * Validates → parses → fetches and returns { entries: DrugInteractionEntry[] }.
-   * Never leaks exceptions; integer-guards ids via parseCompareIds.
+   * Valida → interpreta → busca e retorna { entries: DrugInteractionEntry[] }.
+   * Nunca expõe exceções; valida se os identificadores são inteiros por meio
+   * de parseCompareIds.
    */
   async interactionsApi({ request, response }: HttpContext) {
     try {
@@ -170,15 +175,15 @@ export default class DrugReferenceController {
       return { entries }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.warn(`[DrugReferenceController] interactionsApi failed: ${msg}`)
+      logger.warn(`[DrugReferenceController] Falha na API de comparações: ${msg}`)
       return response.badRequest({ error: msg })
     }
   }
 
   /**
    * POST /api/drug-reference/download
-   * Triggers the download phase (idempotent — deduped on deterministic jobId).
-   * The download auto-chains the ingest phase on completion.
+   * Inicia a etapa de download (idempotente — evita duplicações usando um jobId determinístico).
+   * Após a conclusão, o download inicia automaticamente a etapa de importação.
    */
   async download({ response }: HttpContext) {
     try {
@@ -186,16 +191,17 @@ export default class DrugReferenceController {
       return { success: true, created: result.created, message: result.message }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] download trigger failed: ${msg}`)
-      return response.internalServerError({ error: 'Could not trigger download' })
+      logger.error(`[DrugReferenceController] Falha ao iniciar o download: ${msg}`)
+      return response.internalServerError({ error: 'Não foi possível iniciar o download' })
     }
   }
 
   /**
    * POST /api/drug-reference/ingest
-   * Manually (re-)runs the ingest phase from the already-downloaded on-disk
-   * parts, with no re-download. Returns 404 when nothing is on disk so the UI
-   * can keep its guard honest even if the button is reached out of band.
+   * Executa manualmente (ou novamente) a etapa de importação usando os arquivos
+   * já baixados e armazenados em disco, sem realizar um novo download.
+   * Retorna 404 quando não há arquivos no disco, permitindo que a interface
+   * mantenha a validação correta mesmo se o botão for acionado externamente.
    */
   async ingest({ response }: HttpContext) {
     try {
@@ -206,16 +212,17 @@ export default class DrugReferenceController {
       return { success: true, created: result.created, message: result.message }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] ingest trigger failed: ${msg}`)
-      return response.internalServerError({ error: 'Could not trigger ingest' })
+      logger.error(`[DrugReferenceController] Falha ao iniciar a importação: ${msg}`)
+      return response.internalServerError({ error: 'Não foi possível iniciar a importação' })
     }
   }
 
   /**
    * POST /api/drug-reference/reset-ingest
-   * Force-clears a wedged ingest job (e.g. one left 'active' by a worker killed
-   * mid-ingest during an upgrade) and restarts it from the on-disk parts. The
-   * escape hatch for a stuck "Indexing…" state.
+   * Limpa à força uma tarefa de importação travada (por exemplo, uma tarefa
+   * deixada como 'active' após a interrupção de um processo durante uma atualização)
+   * e a reinicia usando os arquivos já existentes no disco.
+   * É uma alternativa para resolver o estado travado "Indexando…".
    */
   async resetIngest({ response }: HttpContext) {
     try {
@@ -226,17 +233,20 @@ export default class DrugReferenceController {
       return { success: true, created: result.created, message: result.message }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] reset-ingest failed: ${msg}`)
-      return response.internalServerError({ error: 'Could not reset ingest' })
+      logger.error(`[DrugReferenceController] Falha ao reiniciar a importação: ${msg}`)
+      return response.internalServerError({ error: 'Não foi possível reiniciar a importação' })
     }
   }
 
   /**
    * POST /api/drug-reference/uninstall
-   * Uninstall the offline FDA drug dataset: stop in-flight jobs, delete on-disk
-   * parts, TRUNCATE drug_labels, clear KV markers, and remove the install-state
-   * row (which auto-hides the home tiles). The curated-tier "remove" action.
-   * Reports partial failures rather than masking them.
+   * Desinstala o conjunto de dados de medicamentos da FDA para uso offline:
+   * interrompe tarefas em andamento, exclui os arquivos armazenados em disco,
+   * limpa a tabela drug_labels com TRUNCATE, remove os marcadores KV e exclui
+   * o registro de estado da instalação (o que oculta automaticamente os blocos
+   * correspondentes na página inicial).
+   * É a ação "remover" da categoria de conteúdo selecionado.
+   * Informa falhas parciais em vez de ocultá-las.
    */
   async uninstall({ response }: HttpContext) {
     try {
@@ -251,19 +261,22 @@ export default class DrugReferenceController {
       return { success: true, rowsDropped: result.rowsDropped, message: result.message }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logger.error(`[DrugReferenceController] uninstall failed: ${msg}`)
-      return response.internalServerError({ error: 'Could not uninstall drug reference' })
+      logger.error(`[DrugReferenceController] Falha ao desinstalar: ${msg}`)
+      return response.internalServerError({ error: 'Não foi possível desinstalar a referência de medicamentos' })
     }
   }
 
   /**
    * GET /api/drug-reference/ingest-log
-   * Tail the persisted app log for ingest/download lines. In production the logger
-   * writes JSON to /app/storage/logs/admin.log (both the admin and worker
-   * containers share that volume), so the worker's [IngestDrugDataJob] trace lands
-   * there even when its stdout never reaches the log viewer. This surfaces it over
-   * HTTP so the exact stall stage (zip-open vs first-record vs batch) is visible
-   * without container access. Reads only the last slice of the file.
+   * Lê o trecho final do registro persistente da aplicação para localizar linhas
+   * relacionadas à importação, ao download e ao worker. Em produção, o logger
+   * grava dados JSON em /app/storage/logs/admin.log (os contêineres administrativo
+   * e de processamento compartilham esse volume). Assim, os registros do
+   * [IngestDrugDataJob] também aparecem nesse arquivo, mesmo quando a saída
+   * padrão do worker não chega ao visualizador de logs.
+   * Disponibiliza essas informações por HTTP para identificar a etapa exata
+   * em que ocorreu uma interrupção (abertura do ZIP, primeiro registro ou lote),
+   * sem precisar acessar o contêiner. Lê apenas o trecho final do arquivo.
    */
   async ingestLog({ request, response }: HttpContext) {
     const LOG_PATH = '/app/storage/logs/admin.log'
@@ -278,8 +291,8 @@ export default class DrugReferenceController {
         const buf = Buffer.alloc(st.size - start)
         await fh.read(buf, 0, buf.length, start)
         const all = buf.toString('utf8').split('\n')
-        // Keep only ingest/download/worker-relevant lines; for JSON pino lines the
-        // substring match still works against the embedded "msg" field.
+        // Mantém apenas as linhas relevantes à importação, ao download e ao worker.
+        // Para linhas JSON do Pino, a busca por trecho também funciona no campo "msg".
         const re =
           /IngestDrugDataJob|DownloadDrugDataJob|DrugReference|drug-ingest|drug-download|unhandledRejection|uncaughtException|queue:work|stalled/i
         const matched = all.filter((l) => re.test(l)).slice(-limit)
