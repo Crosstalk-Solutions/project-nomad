@@ -17,6 +17,7 @@ export default class EasySetupController {
       this.systemService.getServices({ installedOnly: false }),
       KVStore.getValue('ai.remoteOllamaUrl'),
     ])
+
     return inertia.render('easy-setup/index', {
       system: {
         services: services,
@@ -35,6 +36,7 @@ export default class EasySetupController {
 
   async refreshManifests({}: HttpContext) {
     const manifestService = new CollectionManifestService()
+
     const [zimChanged, mapsChanged, wikiChanged] = await Promise.all([
       manifestService.fetchAndCacheSpec('zim_categories'),
       manifestService.fetchAndCacheSpec('maps'),
