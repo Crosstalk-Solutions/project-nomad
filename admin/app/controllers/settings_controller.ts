@@ -122,8 +122,9 @@ export default class SettingsController {
   }
 
   async advanced({ inertia }: HttpContext) {
-    // When the env var is set it always takes precedence over the stored value,
-    // so surface that to the UI to disable the field and explain the override.
+    // Quando a variável de ambiente está definida, ela sempre tem prioridade
+    // sobre o valor armazenado. Por isso, essa informação é enviada à interface
+    // para desabilitar o campo e explicar a substituição do valor.
     const envOverride = Boolean(env.get('INTERNET_STATUS_TEST_URL')?.trim())
     const internetStatusTestUrl = await KVStore.getValue('system.internetStatusTestUrl')
     return inertia.render('settings/advanced', {
@@ -147,6 +148,9 @@ export default class SettingsController {
       return response.status(422).send({ success: false, message: valueError })
     }
     await this.systemService.updateSetting(reqData.key, reqData.value)
-    return response.status(200).send({ success: true, message: 'Setting updated successfully' })
+    return response.status(200).send({
+      success: true,
+      message: 'Configuração atualizada com sucesso',
+    })
   }
 }
