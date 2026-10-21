@@ -2,38 +2,42 @@
 #
 # finalize-release-notes.sh
 #
-# Stamps the "## Unreleased" section in a release-notes file with a version
-# and date, and extracts the section content for use in GitHub releases / email.
-# Also includes all commits since the last release for complete transparency.
+# Adiciona a versão e a data à seção "## Unreleased" de um arquivo
+# de notas de lançamento e extrai o conteúdo da seção para uso
+# em lançamentos no GitHub ou em e-mails.
+# Também inclui todos os commits desde a última versão lançada,
+# garantindo transparência completa.
 #
-# Usage:  finalize-release-notes.sh <version> <file-path>
+# Uso: finalize-release-notes.sh <versão> <caminho-do-arquivo>
 #
-# Exit codes:
-#   0 - Success: section stamped and extracted
-#   1 - No "## Unreleased" section found (skip gracefully)
-#   2 - Unreleased section exists but is empty (skip gracefully)
+# Códigos de saída:
+#   0 - Sucesso: seção atualizada e conteúdo extraído
+#   1 - Seção "## Unreleased" não encontrada (ignora normalmente)
+#   2 - Seção Unreleased existe, mas está vazia (ignora normalmente)
 
 set -euo pipefail
 
-VERSION="${1:?Usage: finalize-release-notes.sh <version> <file-path>}"
-FILE="${2:?Usage: finalize-release-notes.sh <version> <file-path>}"
+VERSION="${1:?Uso: finalize-release-notes.sh <versão> <caminho-do-arquivo>}"
+FILE="${2:?Uso: finalize-release-notes.sh <versão> <caminho-do-arquivo>}"
 
 if [[ ! -f "$FILE" ]]; then
-  echo "Error: File not found: $FILE" >&2
+  echo "Erro: Arquivo não encontrado: $FILE" >&2
   exit 1
 fi
 
-# Find the line number of the ## Unreleased header (case-insensitive)
+# Encontra o número da linha do cabeçalho ## Unreleased
+# (sem diferenciar letras maiúsculas de minúsculas).
 HEADER_LINE=$(grep -inm1 '^## unreleased' "$FILE" | cut -d: -f1)
 
 if [[ -z "$HEADER_LINE" ]]; then
-  echo "No '## Unreleased' section found. Skipping."
+  echo "Seção '## Unreleased' não encontrada. Ignorando."
   exit 1
 fi
 
 TOTAL_LINES=$(wc -l < "$FILE")
 
-# Find the next section header (## Version ...) or --- separator after the Unreleased header
+# Encontra o próximo cabeçalho de seção (## Versão ...)
+# ou o separador --- após o cabeçalho Unreleased.
 NEXT_SECTION_LINE=""
 if [[ $HEADER_LINE -lt $TOTAL_LINES ]]; then
   NEXT_SECTION_LINE=$(tail -n +"$((HEADER_LINE + 1))" "$FILE" \
@@ -42,44 +46,48 @@ if [[ $HEADER_LINE -lt $TOTAL_LINES ]]; then
 fi
 
 if [[ -n "$NEXT_SECTION_LINE" ]]; then
-  # NEXT_SECTION_LINE is relative to HEADER_LINE+1, convert to absolute
+  # Converte o número relativo da linha para um número absoluto.
   END_LINE=$((HEADER_LINE + NEXT_SECTION_LINE - 1))
 else
-  # Section runs to end of file
+  # A seção vai até o final do arquivo.
   END_LINE=$TOTAL_LINES
 fi
 
-# Extract content between header and next section (exclusive of both boundaries)
+# Define o intervalo de linhas do conteúdo da seção.
 CONTENT_START=$((HEADER_LINE + 1))
 CONTENT_END=$END_LINE
 
-# Extract the section body (between header line and the next boundary)
+# Extrai o conteúdo entre o cabeçalho e a próxima seção.
 SECTION_BODY=$(sed -n "${CONTENT_START},${CONTENT_END}p" "$FILE" | sed '/^$/N;/^\n$/d')
 
-# Check for actual content: strip blank lines and lines that are only markdown headers (###...)
+# Verifica se há conteúdo real: remove linhas vazias e
+# linhas que contêm apenas cabeçalhos Markdown (###...).
 TRIMMED=$(echo "$SECTION_BODY" | sed '/^[[:space:]]*$/d')
 HAS_CONTENT=$(echo "$SECTION_BODY" | sed '/^[[:space:]]*$/d' | grep -v '^###' || true)
 
 if [[ -z "$TRIMMED" || -z "$HAS_CONTENT" ]]; then
-  echo "Unreleased section is empty. Skipping."
+  echo "A seção Unreleased está vazia. Ignorando."
   exit 2
 fi
 
-# Format the date as "Month Day, Year"
+# Formata a data como "Mês Dia, Ano".
 DATE_STAMP=$(date +'%B %-d, %Y')
 NEW_HEADER="## Version ${VERSION} - ${DATE_STAMP}"
 
-# Build the replacement: swap the header line, keep everything else intact
+# Monta o arquivo substituto, mantendo o restante intacto.
 {
-  # Lines before the Unreleased header
+  # Linhas anteriores ao cabeçalho Unreleased.
   if [[ $HEADER_LINE -gt 1 ]]; then
     head -n "$((HEADER_LINE - 1))" "$FILE"
   fi
-  # New versioned header
+
+  # Novo cabeçalho com a versão.
   echo "$NEW_HEADER"
-  # Content between header and next section
+
+  # Conteúdo entre o cabeçalho e a próxima seção.
   sed -n "${CONTENT_START},${CONTENT_END}p" "$FILE"
-  # Rest of the file after the section
+
+  # Restante do arquivo após a seção.
   if [[ $END_LINE -lt $TOTAL_LINES ]]; then
     tail -n +"$((END_LINE + 1))" "$FILE"
   fi
@@ -87,20 +95,23 @@ NEW_HEADER="## Version ${VERSION} - ${DATE_STAMP}"
 
 mv "${FILE}.tmp" "$FILE"
 
-# Get commits since the last release
+# Obtém os commits desde a última versão lançada.
 LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 COMMIT_LIST=""
 
 if [[ -n "$LAST_TAG" ]]; then
-  echo "Fetching commits since ${LAST_TAG}..."
-  # Get commits between last tag and HEAD, excluding merge commits and skip ci commits
+  echo "Buscando commits desde ${LAST_TAG}..."
+
+  # Obtém os commits entre a última tag e o HEAD,
+  # excluindo commits de merge e commits que ignoram o CI.
   COMMIT_LIST=$(git log "${LAST_TAG}..HEAD" \
     --no-merges \
     --pretty=format:"- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))" \
     --grep="\[skip ci\]" --invert-grep \
     || echo "")
 else
-  echo "No previous tag found, fetching all commits..."
+  echo "Nenhuma tag anterior encontrada. Buscando todos os commits..."
+
   COMMIT_LIST=$(git log \
     --no-merges \
     --pretty=format:"- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))" \
@@ -108,26 +119,28 @@ else
     || echo "")
 fi
 
-# Write the extracted section content (for GitHub release body / future email)
+# Grava o conteúdo extraído da seção
+# (para a descrição do lançamento no GitHub ou futuros e-mails).
 {
   echo "$NEW_HEADER"
   echo ""
+
   if [[ -n "$TRIMMED" ]]; then
     echo "$TRIMMED"
     echo ""
   fi
-  
-  # Add commit history if available
+
+  # Adiciona o histórico de commits, se disponível.
   if [[ -n "$COMMIT_LIST" ]]; then
     echo "---"
     echo ""
-    echo "### 📝 All Changes"
+    echo "### 📝 Todas as alterações"
     echo ""
     echo "$COMMIT_LIST"
   fi
 } > "${FILE}.section"
 
-echo "Finalized release notes for v${VERSION}"
-echo "  Updated: ${FILE}"
-echo "  Extracted: ${FILE}.section"
+echo "Notas de lançamento da versão v${VERSION} finalizadas."
+echo "  Atualizado: ${FILE}"
+echo "  Extraído: ${FILE}.section"
 exit 0
