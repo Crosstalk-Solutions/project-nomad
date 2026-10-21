@@ -20,6 +20,8 @@ export default class CollectionUpdatesController {
    */
   async applyUpdate({ request }: HttpContext) {
     const update = await request.validateUsing(applyContentUpdateValidator)
+
+    // Verifica se a URL de download não aponta para um endereço privado.
     assertNotPrivateUrl(update.download_url)
 
     const service = new CollectionUpdateService()
@@ -32,6 +34,7 @@ export default class CollectionUpdatesController {
   async applyAllUpdates({ request }: HttpContext) {
     const { updates } = await request.validateUsing(applyAllContentUpdatesValidator)
 
+    // Verifica a URL de download de cada atualização.
     for (const update of updates) {
       assertNotPrivateUrl(update.download_url)
     }
