@@ -1,4 +1,4 @@
-name: Build Admin
+name: Compilação do Admin
 
 on: pull_request
 
@@ -7,19 +7,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Baixar o código do repositório
         uses: actions/checkout@v6
 
-      - name: Set up Node.js
+      - name: Configurar o Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Instalar as dependências
         run: npm ci
         working-directory: ./admin
 
-      - name: Run build
+      - name: Executar a compilação
         run: npm run build
         working-directory: ./admin
