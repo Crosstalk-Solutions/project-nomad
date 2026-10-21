@@ -14,9 +14,15 @@ export default class NomadMdController {
 
   async update({ request, response }: HttpContext) {
     const { content } = await request.validateUsing(updateNomadMdSchema)
-    // Empty request strings arrive as undefined (AdonisJS null-coerces them);
-    // treat that as an explicit "clear the file".
+
+    // Strings vazias recebidas na requisição chegam como undefined
+    // (o AdonisJS converte valores nulos automaticamente);
+    // trate isso como uma solicitação explícita para limpar o arquivo.
     await this.nomadMdService.write(content ?? '')
-    return response.status(200).json({ success: true, message: 'NOMAD.md saved successfully' })
+
+    return response.status(200).json({
+      success: true,
+      message: 'NOMAD.md salvo com sucesso',
+    })
   }
 }
