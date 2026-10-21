@@ -45,6 +45,7 @@ const EXCLUDE_EVAL_FILTER = {
 }
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
+import { decidePdfOcr } from '../utils/pdf_ocr_decision.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { hasMoreArticleBatches } from '../utils/zim_batch_decision.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
@@ -540,33 +541,55 @@ export class RagService {
       .toBuffer()
   }
 
-  private async convertPDFtoImages(filebuffer: Buffer): Promise<Buffer[]> {
+  /**
+   * Rasterize the given pages (1-based) and return the images keyed by page
+   * number, so OCR can be applied to exactly the pages that need it.
+   */
+  private async convertPDFPagesToImages(
+    filebuffer: Buffer,
+    pages: number[]
+  ): Promise<Map<number, Buffer>> {
     const converted = await fromBuffer(filebuffer, {
       quality: 50,
       density: 200,
       format: 'png',
-    }).bulk(-1, {
+    }).bulk(pages, {
       responseType: 'buffer',
     })
-    return converted.filter((res) => res.buffer).map((res) => res.buffer!)
+    const images = new Map<number, Buffer>()
+    for (const res of converted) {
+      if (res.buffer && res.page) images.set(res.page, res.buffer)
+    }
+    return images
   }
 
-  private async extractPDFText(filebuffer: Buffer): Promise<string> {
+  /**
+   * Text layer of each page, index 0 = page 1, with no page separators: the
+   * default `getText()` joins pages with `-- 1 of 13 --` markers, which both
+   * leaked into the embedded text and defeated the OCR check (#1457).
+   */
+  private async extractPDFPages(filebuffer: Buffer): Promise<string[]> {
     const parser = new PDFParse({ data: filebuffer })
     const data = await parser.getText()
     await parser.destroy()
-    return data.text
+    return data.pages.map((page) => page.text)
   }
 
   private async extractTXTText(filebuffer: Buffer): Promise<string> {
     return filebuffer.toString('utf-8')
   }
 
-  private async extractImageText(filebuffer: Buffer): Promise<string> {
-    const worker = await createWorker('eng')
-    const result = await worker.recognize(filebuffer)
-    await worker.terminate()
-    return result.data.text
+  private async extractImageText(
+    filebuffer: Buffer,
+    sharedWorker?: Awaited<ReturnType<typeof createWorker>>
+  ): Promise<string> {
+    const worker = sharedWorker ?? (await createWorker('eng'))
+    try {
+      const result = await worker.recognize(filebuffer)
+      return result.data.text
+    } finally {
+      if (!sharedWorker) await worker.terminate()
+    }
   }
 
   private async processImageFile(fileBuffer: Buffer): Promise<string> {
@@ -575,27 +598,38 @@ export class RagService {
   }
 
   /**
-   * Will process the PDF and attempt to extract text.
-   * If the extracted text is minimal, it will fallback to OCR on each page.
+   * Extract a PDF's text, OCR'ing the pages that have no text layer.
+   *
+   * Pages are judged one by one (see `decidePdfOcr`): a scanned book is OCR'd
+   * in full, a text PDF is never rasterized, and a mix gets OCR only where
+   * needed. One tesseract worker serves the whole document.
    */
   private async processPDFFile(fileBuffer: Buffer): Promise<string> {
-    let extractedText = await this.extractPDFText(fileBuffer)
+    const pages = await this.extractPDFPages(fileBuffer)
+    const plan = decidePdfOcr(pages)
 
-    // Check if there was no extracted text or it was very minimal
-    if (!extractedText || extractedText.trim().length < 100) {
-      logger.debug('[RAG] PDF text extraction minimal, attempting OCR on pages')
-      // Convert PDF pages to images for OCR if text extraction was poor
-      const imageBuffers = await this.convertPDFtoImages(fileBuffer)
-      extractedText = ''
-
-      for (const imgBuffer of imageBuffers) {
-        const preprocessedImg = await this.preprocessImage(imgBuffer)
-        const pageText = await this.extractImageText(preprocessedImg)
-        extractedText += pageText + '\n'
+    if (plan.ocrPages.length > 0) {
+      logger.info(
+        `[RAG] PDF has ${plan.ocrPages.length} of ${pages.length} pages without a text layer, running OCR on them`
+      )
+      const images = await this.convertPDFPagesToImages(fileBuffer, plan.ocrPages)
+      const worker = await createWorker('eng')
+      try {
+        for (const pageNumber of plan.ocrPages) {
+          const image = images.get(pageNumber)
+          if (!image) {
+            logger.warn(`[RAG] PDF page ${pageNumber} could not be rasterized for OCR, skipping it`)
+            continue
+          }
+          const preprocessedImg = await this.preprocessImage(image)
+          pages[pageNumber - 1] = await this.extractImageText(preprocessedImg, worker)
+        }
+      } finally {
+        await worker.terminate()
       }
     }
 
-    return extractedText
+    return pages.join('\n\n')
   }
 
   /**
