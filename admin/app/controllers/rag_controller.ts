@@ -7,18 +7,24 @@ import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
 import { basename } from 'node:path'
-import { deleteFileSchema, embedFileSchema, estimateBatchSchema, fileSourceSchema, getJobStatusSchema } from '#validators/rag'
+import {
+  deleteFileSchema,
+  embedFileSchema,
+  estimateBatchSchema,
+  fileSourceSchema,
+  getJobStatusSchema,
+} from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 import { sanitizeCollectionName } from '../../constants/kb_collections.js'
 
 @inject()
 export default class RagController {
-  constructor(private ragService: RagService) { }
+  constructor(private ragService: RagService) {}
 
   public async upload({ request, response }: HttpContext) {
     const uploadedFile = request.file('file')
     if (!uploadedFile) {
-      return response.status(400).json({ error: 'No file uploaded' })
+      return response.status(400).json({ error: 'Nenhum arquivo foi enviado' })
     }
 
     const collection = sanitizeCollectionName(request.input('collection', null))
@@ -33,7 +39,7 @@ export default class RagController {
       name: fileName,
     })
 
-    // Dispatch background job for embedding
+    // Envia a tarefa de geração de embeddings para execução em segundo plano.
     const result = await EmbedFileJob.dispatch({
       filePath: fullPath,
       fileName,
@@ -49,6 +55,7 @@ export default class RagController {
       ...(collection ? { collection } : {}),
     })
   }
+
   public async getActiveJobs({ response }: HttpContext) {
     const jobs = await EmbedFileJob.listActiveJobs()
     return response.status(200).json(jobs)
@@ -61,7 +68,7 @@ export default class RagController {
     const status = await EmbedFileJob.getStatus(fullPath)
 
     if (!status.exists) {
-      return response.status(404).json({ error: 'Job not found for this file' })
+      return response.status(404).json({ error: 'Nenhuma tarefa encontrada para este arquivo' })
     }
 
     return response.status(200).json(status)
@@ -79,12 +86,15 @@ export default class RagController {
 
   public async updateFileCollection({ request, response }: HttpContext) {
     const source: string | null = request.input('source', null)
-    // sanitizeCollectionName trims/lowercases/caps length, and returns null
-    // for empty input — which doubles as "clear back to Uncategorized".
+
+    // sanitizeCollectionName remove espaços nas extremidades, converte para
+    // letras minúsculas, limita o tamanho e retorna null para entradas vazias.
+    // Esse comportamento também permite remover a coleção e voltar para
+    // a categoria "Não categorizado".
     const collection = sanitizeCollectionName(request.input('collection', null))
 
     if (!source) {
-      return response.status(400).json({ error: 'source is required.' })
+      return response.status(400).json({ error: 'O campo source é obrigatório.' })
     }
 
     const result = await this.ragService.updateFileCollection(source, collection)
@@ -99,7 +109,9 @@ export default class RagController {
     const newName = sanitizeCollectionName(request.input('newName', null))
 
     if (!oldName || !newName) {
-      return response.status(400).json({ error: 'oldName and newName are required.' })
+      return response.status(400).json({
+        error: 'Os campos oldName e newName são obrigatórios.',
+      })
     }
 
     const result = await this.ragService.renameKnowledgeCollection(oldName, newName)
@@ -113,7 +125,7 @@ export default class RagController {
     const name = sanitizeCollectionName(request.input('name', null))
 
     if (!name) {
-      return response.status(400).json({ error: 'name is required.' })
+      return response.status(400).json({ error: 'O campo name é obrigatório.' })
     }
 
     const result = await this.ragService.deleteKnowledgeCollection(name)
@@ -160,7 +172,7 @@ export default class RagController {
   public async cleanupFailedJobs({ response }: HttpContext) {
     const result = await EmbedFileJob.cleanupFailedJobs()
     return response.status(200).json({
-      message: `Cleaned up ${result.cleaned} failed job${result.cleaned !== 1 ? 's' : ''}${result.filesDeleted > 0 ? `, deleted ${result.filesDeleted} file${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
+      message: `Limpeza concluída: ${result.cleaned} tarefa${result.cleaned !== 1 ? 's' : ''} com falha${result.filesDeleted > 0 ? `, ${result.filesDeleted} arquivo${result.filesDeleted !== 1 ? 's' : ''} excluído${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
       ...result,
     })
   }
@@ -168,7 +180,7 @@ export default class RagController {
   public async cancelAllJobs({ response }: HttpContext) {
     const result = await EmbedFileJob.cancelAllJobs()
     return response.status(200).json({
-      message: `Cancelled ${result.cancelled} job${result.cancelled !== 1 ? 's' : ''}${result.filesDeleted > 0 ? `, deleted ${result.filesDeleted} file${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
+      message: `${result.cancelled} tarefa${result.cancelled !== 1 ? 's' : ''} cancelada${result.cancelled !== 1 ? 's' : ''}${result.filesDeleted > 0 ? `, ${result.filesDeleted} arquivo${result.filesDeleted !== 1 ? 's' : ''} excluído${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
       ...result,
     })
   }
@@ -183,8 +195,10 @@ export default class RagController {
       const syncResult = await this.ragService.scanAndSyncStorage()
       return response.status(200).json(syncResult)
     } catch (error) {
-      logger.error({ err: error }, '[RagController] Error scanning and syncing storage')
-      return response.status(500).json({ error: 'Error scanning and syncing storage' })
+      logger.error({ err: error }, '[RagController] Erro ao verificar e sincronizar o armazenamento')
+      return response.status(500).json({
+        error: 'Erro ao verificar e sincronizar o armazenamento',
+      })
     }
   }
 
@@ -193,8 +207,10 @@ export default class RagController {
       const result = await this.ragService.reembedAll()
       return response.status(200).json(result)
     } catch (error) {
-      logger.error({ err: error }, '[RagController] Error during re-embed all')
-      return response.status(500).json({ error: 'Error during re-embed all' })
+      logger.error({ err: error }, '[RagController] Erro ao gerar novamente os embeddings de todos os arquivos')
+      return response.status(500).json({
+        error: 'Erro ao gerar novamente os embeddings de todos os arquivos',
+      })
     }
   }
 
@@ -203,8 +219,10 @@ export default class RagController {
       const result = await this.ragService.resetAndRebuild()
       return response.status(200).json(result)
     } catch (error) {
-      logger.error({ err: error }, '[RagController] Error during reset and rebuild')
-      return response.status(500).json({ error: 'Error during reset and rebuild' })
+      logger.error({ err: error }, '[RagController] Erro ao redefinir e reconstruir os dados')
+      return response.status(500).json({
+        error: 'Erro ao redefinir e reconstruir os dados',
+      })
     }
   }
 
@@ -215,9 +233,11 @@ export default class RagController {
 
   public async estimateBatch({ request, response }: HttpContext) {
     const { files } = await request.validateUsing(estimateBatchSchema)
-    // The registry matches on basename prefixes; if a caller passes a full path
-    // (e.g. /app/storage/zim/wikipedia_en_simple_…), strip directories first so
-    // patterns like `wikipedia_en_simple_` still match.
+
+    // O registro identifica arquivos por prefixos do nome-base.
+    // Se o chamador enviar um caminho completo (por exemplo,
+    // /app/storage/zim/wikipedia_en_simple_…), remove os diretórios primeiro,
+    // para que padrões como `wikipedia_en_simple_` continuem sendo reconhecidos.
     const normalized = files.map((f) => ({
       filename: basename(f.filename),
       sizeBytes: f.sizeBytes,
@@ -230,7 +250,9 @@ export default class RagController {
     const { source } = await request.validateUsing(fileSourceSchema)
     const result = await this.ragService.readFileContent(source)
     if (!result) {
-      return response.status(404).json({ error: 'File not found or not viewable' })
+      return response.status(404).json({
+        error: 'Arquivo não encontrado ou não pode ser visualizado',
+      })
     }
     return response.status(200).json(result)
   }
@@ -239,7 +261,7 @@ export default class RagController {
     const { source } = await request.validateUsing(fileSourceSchema)
     const filePath = await this.ragService.resolveDownloadPath(source)
     if (!filePath) {
-      return response.status(404).json({ error: 'File not found' })
+      return response.status(404).json({ error: 'Arquivo não encontrado' })
     }
     const fileName = filePath.split(/[/\\]/).at(-1) ?? 'download'
     return response.attachment(filePath, fileName)
