@@ -144,6 +144,14 @@
     "yaml": "2.8.3",
     "yauzl": "3.2.0"
   },
+  "overrides": {
+    "@qdrant/js-client-rest": {
+      "undici": "6.29.1"
+    },
+    "cheerio": {
+      "undici": "7.30.1"
+    }
+  },
   "hotHook": {
     "boundaries": [
       "./app/controllers/**/*.ts",
