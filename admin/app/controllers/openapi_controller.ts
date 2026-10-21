@@ -6,9 +6,10 @@ import { buildOpenApiDocument } from '#start/openapi/generator'
 const require = createRequire(import.meta.url)
 
 /**
- * The self-contained Scalar browser bundle, read from the installed
- * `@scalar/api-reference` package and cached in memory. Served from this app
- * (not a CDN) so the API reference works on an offline appliance.
+ * O pacote independente do navegador Scalar, carregado do pacote
+ * `@scalar/api-reference` instalado e armazenado em cache na memória.
+ * É servido pela própria aplicação (e não por uma CDN), para que a
+ * referência da API funcione em um dispositivo sem conexão com a internet.
  */
 let scalarBundle: string | null = null
 
@@ -23,15 +24,17 @@ function getScalarBundle(): string {
 }
 
 /**
- * The reference page mounts Scalar against our locally served bundle and spec.
- * Scalar auto-detects the `#api-reference` element and reads `data-url`.
+ * A página de referência inicializa o Scalar usando o pacote JavaScript
+ * servido localmente e a especificação da API.
+ * O Scalar detecta automaticamente o elemento `#api-reference`
+ * e lê o atributo `data-url`.
  */
 const REFERENCE_HTML = `<!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nomad Admin API Reference</title>
+    <title>Referência da API de Administração do Nomad</title>
   </head>
   <body>
     <div id="app"></div>
@@ -49,21 +52,22 @@ const REFERENCE_HTML = `<!doctype html>
 
 export default class OpenApiController {
   /**
-   * The generated OpenAPI 3.1 document.
+   * O documento OpenAPI 3.1 gerado.
    */
   async spec({ response }: HttpContext) {
     return response.json(buildOpenApiDocument())
   }
 
   /**
-   * The interactive Scalar API reference page.
+   * A página interativa de referência da API do Scalar.
    */
   async reference({ response }: HttpContext) {
     return response.header('content-type', 'text/html').send(REFERENCE_HTML)
   }
 
   /**
-   * The locally bundled Scalar JS (kept off any CDN for offline use).
+   * O JavaScript do Scalar disponibilizado localmente
+   * (sem utilizar uma CDN, para permitir o uso offline).
    */
   async standalone({ response }: HttpContext) {
     return response
