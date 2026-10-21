@@ -1,12 +1,13 @@
 /* eslint-disable */
 /**
- * GENERATED FILE — DO NOT EDIT.
+ * ARQUIVO GERADO — NÃO EDITE.
  *
- * Single source of truth: collections/conditions.json
- * Regenerate after editing the JSON: `npm run gen:curated-data` (from admin/).
- * curated_data_sync.standalone.ts fails CI if this file drifts from the JSON.
+ * Fonte única da verdade: collections/conditions.json
+ * Gere novamente após editar o JSON: `npm run gen:curated-data` (a partir de admin/).
+ * curated_data_sync.standalone.ts falha na CI se este arquivo divergir do JSON.
  *
- * Curated "when to use what" condition spine (Phase 1). US-government / public-domain sourcing.
+ * Lista organizada de condições para orientar "quando usar o quê" (Fase 1).
+ * Fontes do governo dos EUA / de domínio público.
  */
 import type { ConditionsFile } from '../../types/conditions.js'
 
@@ -15,423 +16,423 @@ export const CONDITIONS_FILE: ConditionsFile = {
   "conditions": [
     {
       "slug": "pain",
-      "label": "Pain",
-      "category": "Pain, fever & inflammation",
+      "label": "Dor",
+      "category": "Dor, febre e inflamação",
       "searchTerms": [
-        "pain",
-        "aches",
-        "minor aches",
-        "pain relief",
-        "analgesic"
+        "dor",
+        "dores",
+        "dores leves",
+        "alívio da dor",
+        "analgésico"
       ]
     },
     {
       "slug": "headache",
-      "label": "Headache",
-      "category": "Pain, fever & inflammation",
+      "label": "Dor de cabeça",
+      "category": "Dor, febre e inflamação",
       "searchTerms": [
-        "headache",
-        "migraine",
-        "head pain",
-        "tension headache"
+        "dor de cabeça",
+        "enxaqueca",
+        "dor na cabeça",
+        "cefaleia tensional"
       ]
     },
     {
       "slug": "muscle-joint-pain",
-      "label": "Muscle & joint pain",
-      "category": "Pain, fever & inflammation",
+      "label": "Dor muscular e nas articulações",
+      "category": "Dor, febre e inflamação",
       "searchTerms": [
-        "muscular aches",
-        "muscle aches",
-        "backache",
-        "arthritis",
-        "joint pain",
-        "minor pain of arthritis"
+        "dores musculares",
+        "dor nos músculos",
+        "dor nas costas",
+        "artrite",
+        "dor nas articulações",
+        "dor leve causada pela artrite"
       ]
     },
     {
       "slug": "fever",
-      "label": "Fever",
-      "category": "Pain, fever & inflammation",
+      "label": "Febre",
+      "category": "Dor, febre e inflamação",
       "searchTerms": [
-        "fever",
-        "reduces fever",
-        "fever reducer",
-        "temporarily reduces fever"
+        "febre",
+        "reduz a febre",
+        "antitérmico",
+        "reduz temporariamente a febre"
       ]
     },
     {
       "slug": "menstrual-cramps",
-      "label": "Menstrual cramps",
-      "category": "Pain, fever & inflammation",
+      "label": "Cólicas menstruais",
+      "category": "Dor, febre e inflamação",
       "searchTerms": [
-        "menstrual cramps",
-        "menstrual pain",
-        "period pain",
-        "premenstrual"
+        "cólicas menstruais",
+        "dor menstrual",
+        "dor da menstruação",
+        "pré-menstrual"
       ]
     },
     {
       "slug": "cough",
-      "label": "Cough",
-      "category": "Cold, cough & allergy",
+      "label": "Tosse",
+      "category": "Resfriado, tosse e alergia",
       "searchTerms": [
-        "cough",
-        "cough suppressant",
-        "coughing",
-        "controls cough"
+        "tosse",
+        "supressor da tosse",
+        "tossindo",
+        "controla a tosse"
       ]
     },
     {
       "slug": "nasal-congestion",
-      "label": "Nasal congestion",
-      "category": "Cold, cough & allergy",
+      "label": "Congestão nasal",
+      "category": "Resfriado, tosse e alergia",
       "searchTerms": [
-        "nasal congestion",
-        "stuffy nose",
-        "sinus congestion",
-        "decongestant",
-        "nasal decongestant"
+        "congestão nasal",
+        "nariz entupido",
+        "congestão dos seios nasais",
+        "descongestionante",
+        "descongestionante nasal"
       ]
     },
     {
       "slug": "sore-throat",
-      "label": "Sore throat",
-      "category": "Cold, cough & allergy",
+      "label": "Dor de garganta",
+      "category": "Resfriado, tosse e alergia",
       "searchTerms": [
-        "sore throat",
-        "sore mouth",
-        "minor sore throat",
-        "throat pain"
+        "dor de garganta",
+        "dor na boca",
+        "dor leve de garganta",
+        "dor na garganta"
       ]
     },
     {
       "slug": "common-cold",
-      "label": "Common cold",
-      "category": "Cold, cough & allergy",
+      "label": "Resfriado comum",
+      "category": "Resfriado, tosse e alergia",
       "searchTerms": [
-        "common cold",
-        "cold symptoms",
-        "cold",
-        "flu symptoms"
+        "resfriado comum",
+        "sintomas de resfriado",
+        "resfriado",
+        "sintomas de gripe"
       ]
     },
     {
       "slug": "allergic-reaction",
-      "label": "Allergies & allergic reactions",
-      "category": "Cold, cough & allergy",
+      "label": "Alergias e reações alérgicas",
+      "category": "Resfriado, tosse e alergia",
       "searchTerms": [
-        "allergy",
-        "allergic reactions",
-        "hay fever",
-        "antihistamine",
-        "runny nose",
-        "sneezing",
-        "itchy watery eyes"
+        "alergia",
+        "reações alérgicas",
+        "febre do feno",
+        "anti-histamínico",
+        "coriza",
+        "espirros",
+        "olhos lacrimejantes e com coceira"
       ]
     },
     {
       "slug": "heartburn",
-      "label": "Heartburn",
-      "category": "Stomach & digestion",
+      "label": "Azia",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "heartburn",
-        "acid indigestion",
-        "acid reducer",
-        "antacid",
-        "sour stomach"
+        "azia",
+        "indigestão ácida",
+        "redutor de acidez",
+        "antiácido",
+        "estômago ácido"
       ]
     },
     {
       "slug": "indigestion",
-      "label": "Indigestion & upset stomach",
-      "category": "Stomach & digestion",
+      "label": "Indigestão e desconforto estomacal",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "indigestion",
-        "upset stomach",
-        "gas",
-        "bloating",
-        "fullness",
-        "antacid"
+        "indigestão",
+        "desconforto estomacal",
+        "gases",
+        "inchaço abdominal",
+        "sensação de estômago cheio",
+        "antiácido"
       ]
     },
     {
       "slug": "nausea-vomiting",
-      "label": "Nausea & vomiting",
-      "category": "Stomach & digestion",
+      "label": "Náusea e vômito",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "nausea",
-        "vomiting",
-        "upset stomach associated with nausea"
+        "náusea",
+        "vômito",
+        "desconforto estomacal associado à náusea"
       ]
     },
     {
       "slug": "diarrhea",
-      "label": "Diarrhea",
-      "category": "Stomach & digestion",
+      "label": "Diarreia",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "diarrhea",
-        "antidiarrheal",
-        "loose stools",
-        "traveler’s diarrhea"
+        "diarreia",
+        "antidiarreico",
+        "fezes amolecidas",
+        "diarreia do viajante"
       ]
     },
     {
       "slug": "constipation",
-      "label": "Constipation",
-      "category": "Stomach & digestion",
+      "label": "Prisão de ventre",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "constipation",
-        "laxative",
-        "irregularity",
-        "occasional constipation",
-        "stool softener"
+        "prisão de ventre",
+        "laxante",
+        "irregularidade intestinal",
+        "prisão de ventre ocasional",
+        "amolecedor de fezes"
       ]
     },
     {
       "slug": "motion-sickness",
-      "label": "Motion sickness",
-      "category": "Stomach & digestion",
+      "label": "Enjoo de movimento",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "motion sickness",
-        "travel sickness",
-        "seasickness",
-        "car sickness"
+        "enjoo de movimento",
+        "enjoo de viagem",
+        "enjoo marítimo",
+        "enjoo de carro"
       ]
     },
     {
       "slug": "gas",
-      "label": "Gas & bloating",
-      "category": "Stomach & digestion",
+      "label": "Gases e inchaço abdominal",
+      "category": "Estômago e digestão",
       "searchTerms": [
-        "gas",
-        "bloating",
-        "flatulence",
-        "antigas",
-        "pressure"
+        "gases",
+        "inchaço abdominal",
+        "flatulência",
+        "antigases",
+        "pressão abdominal"
       ]
     },
     {
       "slug": "wounds-cuts",
-      "label": "Wounds & cuts",
-      "category": "Skin & wounds",
+      "label": "Feridas e cortes",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "minor cuts",
-        "scrapes",
-        "wounds",
-        "first aid antiseptic",
-        "first aid to help prevent infection",
-        "abrasions"
+        "cortes leves",
+        "arranhões",
+        "feridas",
+        "antisséptico de primeiros socorros",
+        "primeiros socorros para ajudar a prevenir infecções",
+        "escoriações"
       ]
     },
     {
       "slug": "burns",
-      "label": "Burns",
-      "category": "Skin & wounds",
+      "label": "Queimaduras",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "burns",
-        "minor burns",
-        "sunburn",
-        "scald",
-        "minor burn"
+        "queimaduras",
+        "queimaduras leves",
+        "queimadura solar",
+        "escaldadura",
+        "queimadura leve"
       ]
     },
     {
       "slug": "insect-bites-stings",
-      "label": "Insect bites & stings",
-      "category": "Skin & wounds",
+      "label": "Picadas e ferroadas de insetos",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "insect bites",
-        "insect stings",
-        "bug bites",
-        "bee sting",
-        "itching from insect bites"
+        "picadas de insetos",
+        "ferroadas de insetos",
+        "picadas de bichos",
+        "picada de abelha",
+        "coceira causada por picadas de insetos"
       ]
     },
     {
       "slug": "skin-rash-itch",
-      "label": "Rash & itching",
-      "category": "Skin & wounds",
+      "label": "Erupções cutâneas e coceira",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "itching",
-        "rash",
-        "skin irritation",
-        "itchy skin",
-        "minor skin irritations",
+        "coceira",
+        "erupção cutânea",
+        "irritação da pele",
+        "pele com coceira",
+        "irritações leves da pele",
         "eczema"
       ]
     },
     {
       "slug": "poison-ivy",
-      "label": "Poison ivy & plant rashes",
-      "category": "Skin & wounds",
+      "label": "Erupções causadas por plantas tóxicas",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "poison ivy",
-        "poison oak",
-        "poison sumac",
-        "rashes due to poison ivy"
+        "hera venenosa",
+        "carvalho venenoso",
+        "sumagre venenoso",
+        "erupções causadas por hera venenosa"
       ]
     },
     {
       "slug": "fungal-infection",
-      "label": "Athlete’s foot & ringworm",
-      "category": "Skin & wounds",
+      "label": "Pé de atleta e micose",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "athlete’s foot",
-        "ringworm",
-        "jock itch",
-        "antifungal",
-        "fungal infection",
-        "tinea"
+        "pé de atleta",
+        "micose",
+        "micose na virilha",
+        "antifúngico",
+        "infecção fúngica",
+        "tínea"
       ]
     },
     {
       "slug": "dry-skin",
-      "label": "Dry & chapped skin",
-      "category": "Skin & wounds",
+      "label": "Pele seca e ressecada",
+      "category": "Pele e feridas",
       "searchTerms": [
-        "dry skin",
-        "chapped skin",
-        "chapped lips",
-        "skin protectant",
-        "cracked skin"
+        "pele seca",
+        "pele ressecada",
+        "lábios rachados",
+        "protetor da pele",
+        "pele com fissuras"
       ]
     },
     {
       "slug": "acne",
       "label": "Acne",
-      "category": "Skin & wounds",
+      "category": "Pele e feridas",
       "searchTerms": [
         "acne",
-        "pimples",
-        "blackheads",
-        "acne treatment"
+        "espinhas",
+        "cravos",
+        "tratamento para acne"
       ]
     },
     {
       "slug": "eye-irritation",
-      "label": "Eye irritation & dryness",
-      "category": "Eyes, ears & mouth",
+      "label": "Irritação e ressecamento dos olhos",
+      "category": "Olhos, ouvidos e boca",
       "searchTerms": [
-        "eye irritation",
-        "dry eyes",
-        "red eyes",
-        "eye redness",
-        "itchy eyes",
-        "lubricant eye"
+        "irritação nos olhos",
+        "olhos secos",
+        "olhos vermelhos",
+        "vermelhidão nos olhos",
+        "coceira nos olhos",
+        "lubrificante ocular"
       ]
     },
     {
       "slug": "earache",
-      "label": "Earache & ear wax",
-      "category": "Eyes, ears & mouth",
+      "label": "Dor de ouvido e cera de ouvido",
+      "category": "Olhos, ouvidos e boca",
       "searchTerms": [
-        "earache",
-        "ear wax",
-        "earwax removal",
-        "ear pain",
-        "swimmer’s ear"
+        "dor de ouvido",
+        "cera de ouvido",
+        "remoção de cera de ouvido",
+        "dor no ouvido",
+        "ouvido de nadador"
       ]
     },
     {
       "slug": "canker-sores",
-      "label": "Canker & cold sores",
-      "category": "Eyes, ears & mouth",
+      "label": "Aftas e herpes labial",
+      "category": "Olhos, ouvidos e boca",
       "searchTerms": [
-        "canker sores",
-        "cold sores",
-        "mouth sores",
-        "fever blisters",
-        "oral pain"
+        "aftas",
+        "herpes labial",
+        "feridas na boca",
+        "bolhas febris",
+        "dor oral"
       ]
     },
     {
       "slug": "toothache",
-      "label": "Toothache",
-      "category": "Eyes, ears & mouth",
+      "label": "Dor de dente",
+      "category": "Olhos, ouvidos e boca",
       "searchTerms": [
-        "toothache",
-        "tooth pain",
-        "dental pain",
-        "oral analgesic"
+        "dor de dente",
+        "dor dentária",
+        "dor odontológica",
+        "analgésico oral"
       ]
     },
     {
       "slug": "sleeplessness",
-      "label": "Sleeplessness",
-      "category": "Sleep, stress & general",
+      "label": "Dificuldade para dormir",
+      "category": "Sono, estresse e bem-estar geral",
       "searchTerms": [
-        "sleeplessness",
-        "insomnia",
-        "sleep aid",
-        "difficulty falling asleep",
-        "nighttime"
+        "dificuldade para dormir",
+        "insônia",
+        "auxílio para dormir",
+        "dificuldade para pegar no sono",
+        "período noturno"
       ]
     },
     {
       "slug": "dehydration",
-      "label": "Dehydration",
-      "category": "Sleep, stress & general",
+      "label": "Desidratação",
+      "category": "Sono, estresse e bem-estar geral",
       "searchTerms": [
-        "dehydration",
-        "oral rehydration",
-        "electrolyte",
-        "fluid loss",
-        "replaces electrolytes"
+        "desidratação",
+        "reidratação oral",
+        "eletrólitos",
+        "perda de líquidos",
+        "repõe eletrólitos"
       ]
     },
     {
       "slug": "hemorrhoids",
-      "label": "Hemorrhoids",
-      "category": "Sleep, stress & general",
+      "label": "Hemorroidas",
+      "category": "Sono, estresse e bem-estar geral",
       "searchTerms": [
-        "hemorrhoids",
-        "hemorrhoidal",
-        "anal itching",
-        "rectal"
+        "hemorroidas",
+        "hemorroidário",
+        "coceira anal",
+        "retal"
       ]
     },
     {
       "slug": "yeast-infection",
-      "label": "Vaginal yeast infection",
-      "category": "Infections (OTC-treatable)",
+      "label": "Infecção vaginal por fungos",
+      "category": "Infecções (tratáveis com medicamentos sem receita)",
       "searchTerms": [
-        "vaginal yeast infection",
-        "yeast infection",
-        "vaginal antifungal",
-        "candidiasis"
+        "infecção vaginal por fungos",
+        "candidíase",
+        "antifúngico vaginal",
+        "candidíase"
       ]
     },
     {
       "slug": "pinworm",
-      "label": "Pinworm",
-      "category": "Infections (OTC-treatable)",
+      "label": "Oxiúros",
+      "category": "Infecções (tratáveis com medicamentos sem receita)",
       "searchTerms": [
-        "pinworm",
-        "pinworm infection",
-        "pinworm treatment"
+        "oxiurose",
+        "infecção por oxiúros",
+        "tratamento para oxiúros"
       ]
     },
     {
       "slug": "cold-sore-lip",
-      "label": "Chapped & sun-protected lips",
-      "category": "Sleep, stress & general",
+      "label": "Lábios ressecados e proteção solar labial",
+      "category": "Sono, estresse e bem-estar geral",
       "searchTerms": [
-        "lip protectant",
-        "chapped lips",
-        "sunburn protection lips",
-        "lip balm"
+        "protetor labial",
+        "lábios rachados",
+        "proteção solar para os lábios",
+        "bálsamo labial"
       ]
     },
     {
       "slug": "eye-allergy",
-      "label": "Eye allergies",
-      "category": "Eyes, ears & mouth",
+      "label": "Alergias oculares",
+      "category": "Olhos, ouvidos e boca",
       "searchTerms": [
-        "eye allergy",
-        "itchy eyes due to allergies",
-        "ocular itching",
-        "allergic conjunctivitis"
+        "alergia ocular",
+        "coceira nos olhos causada por alergias",
+        "coceira ocular",
+        "conjuntivite alérgica"
       ]
     }
   ]
