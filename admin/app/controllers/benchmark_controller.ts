@@ -12,24 +12,26 @@ export default class BenchmarkController {
   constructor(private benchmarkService: BenchmarkService) {}
 
   /**
-   * Start a benchmark run (async via job queue, or sync if specified)
+   * Inicia uma execução de benchmark (de forma assíncrona pela fila de tarefas
+   * ou de forma síncrona, se solicitado).
    */
   async run({ request, response }: HttpContext) {
     const payload = await request.validateUsing(runBenchmarkValidator)
     const benchmarkType: BenchmarkType = payload.benchmark_type || 'full'
     const runSync = request.input('sync') === 'true' || request.input('sync') === true
 
-    // Check if a benchmark is already running
+    // Verifica se já existe um benchmark em execução.
     const status = this.benchmarkService.getStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
         success: false,
-        error: 'A benchmark is already running',
+        error: 'Já existe um benchmark em execução.',
         current_benchmark_id: status.benchmarkId,
       })
     }
 
-    // Run synchronously if requested (useful for local dev without Redis)
+    // Executa de forma síncrona, se solicitado
+    // (útil para desenvolvimento local sem Redis).
     if (runSync) {
       try {
         let result
@@ -53,15 +55,15 @@ export default class BenchmarkController {
           result,
         })
       } catch (error) {
-        logger.error({ err: error }, '[BenchmarkController] Benchmark run failed')
+        logger.error({ err: error }, '[BenchmarkController] Falha ao executar o benchmark')
         return response.status(500).send({
           success: false,
-          error: 'An internal error occurred while running the benchmark.',
+          error: 'Ocorreu um erro interno durante a execução do benchmark.',
         })
       }
     }
 
-    // Generate benchmark ID and dispatch job (async)
+    // Gera um ID para o benchmark e envia a tarefa para execução assíncrona.
     const benchmarkId = randomUUID()
     const { job, created } = await RunBenchmarkJob.dispatch({
       benchmark_id: benchmarkId,
@@ -74,20 +76,20 @@ export default class BenchmarkController {
       job_id: job?.id || benchmarkId,
       benchmark_id: benchmarkId,
       message: created
-        ? `${benchmarkType} benchmark started`
-        : 'Benchmark job already exists',
+        ? `Benchmark do tipo ${benchmarkType} iniciado.`
+        : 'A tarefa do benchmark já existe.',
     })
   }
 
   /**
-   * Run a system-only benchmark (CPU, memory, disk)
+   * Executa apenas os testes de desempenho do sistema (CPU, memória e disco).
    */
   async runSystem({ response }: HttpContext) {
     const status = this.benchmarkService.getStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
         success: false,
-        error: 'A benchmark is already running',
+        error: 'Já existe um benchmark em execução.',
       })
     }
 
@@ -101,19 +103,19 @@ export default class BenchmarkController {
     return response.status(201).send({
       success: true,
       benchmark_id: benchmarkId,
-      message: 'System benchmark started',
+      message: 'Benchmark do sistema iniciado.',
     })
   }
 
   /**
-   * Run an AI-only benchmark
+   * Executa apenas o benchmark de inteligência artificial.
    */
   async runAI({ response }: HttpContext) {
     const status = this.benchmarkService.getStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
         success: false,
-        error: 'A benchmark is already running',
+        error: 'Já existe um benchmark em execução.',
       })
     }
 
@@ -127,12 +129,12 @@ export default class BenchmarkController {
     return response.status(201).send({
       success: true,
       benchmark_id: benchmarkId,
-      message: 'AI benchmark started',
+      message: 'Benchmark de inteligência artificial iniciado.',
     })
   }
 
   /**
-   * Get all benchmark results
+   * Obtém todos os resultados dos benchmarks.
    */
   async results({}: HttpContext) {
     const results = await this.benchmarkService.getAllResults()
@@ -143,7 +145,7 @@ export default class BenchmarkController {
   }
 
   /**
-   * Get the latest benchmark result
+   * Obtém o resultado mais recente de benchmark.
    */
   async latest({}: HttpContext) {
     const result = await this.benchmarkService.getLatestResult()
@@ -154,20 +156,20 @@ export default class BenchmarkController {
   }
 
   /**
-   * Get a specific benchmark result by ID
+   * Obtém um resultado específico de benchmark pelo ID.
    */
   async show({ params, response }: HttpContext) {
     const result = await this.benchmarkService.getResultById(params.id)
     if (!result) {
       return response.status(404).send({
-        error: 'Benchmark result not found',
+        error: 'Resultado do benchmark não encontrado.',
       })
     }
     return { result }
   }
 
   /**
-   * Submit benchmark results to central repository
+   * Envia os resultados do benchmark para o repositório central.
    */
   async submit({ request, response }: HttpContext) {
     const payload = await request.validateUsing(submitBenchmarkValidator)
@@ -181,20 +183,22 @@ export default class BenchmarkController {
         percentile: submitResult.percentile,
       })
     } catch (error) {
-      // Pass through the status code from the service if available, otherwise default to 400
+      // Utiliza o código de status do serviço, se disponível;
+      // caso contrário, utiliza 400 como padrão.
       const statusCode = (error as any).statusCode || 400
-      logger.error({ err: error }, '[BenchmarkController] Benchmark submit failed')
+      logger.error({ err: error }, '[BenchmarkController] Falha ao enviar o benchmark')
 
-      // Surface a clear, actionable reason to the UI instead of a generic failure.
-      // The rate limiter (429) is the most common cause, so name it explicitly;
-      // otherwise pass through the underlying detail (repository error or a service
-      // validation message) and fall back to a safe generic only when we have none.
+      // Retorna à interface uma explicação clara e útil, em vez de uma
+      // mensagem genérica. O limite de requisições (429) é uma causa comum,
+      // por isso é tratado separadamente. Nos demais casos, utiliza os detalhes
+      // do erro do repositório ou da validação do serviço e, se não houver,
+      // apresenta uma mensagem genérica segura.
       let errorMessage: string
       if (statusCode === 429) {
-        errorMessage = 'You can only submit one benchmark per hour. Please wait a bit and try again.'
+        errorMessage = 'Você só pode enviar um benchmark por hora. Aguarde um pouco e tente novamente.'
       } else {
         errorMessage =
-          (error as any).detail || (error as any).message || 'Failed to submit benchmark results.'
+          (error as any).detail || (error as any).message || 'Falha ao enviar os resultados do benchmark.'
       }
 
       return response.status(statusCode).send({
@@ -205,7 +209,7 @@ export default class BenchmarkController {
   }
 
   /**
-   * Update builder tag for a benchmark result
+   * Atualiza a identificação do construtor associada a um resultado de benchmark.
    */
   async updateBuilderTag({ request, response }: HttpContext) {
     const benchmarkId = request.input('benchmark_id')
@@ -214,7 +218,7 @@ export default class BenchmarkController {
     if (!benchmarkId) {
       return response.status(400).send({
         success: false,
-        error: 'benchmark_id is required',
+        error: 'O campo benchmark_id é obrigatório.',
       })
     }
 
@@ -222,17 +226,17 @@ export default class BenchmarkController {
     if (!result) {
       return response.status(404).send({
         success: false,
-        error: 'Benchmark result not found',
+        error: 'Resultado do benchmark não encontrado.',
       })
     }
 
-    // Validate builder tag format if provided
+    // Valida o formato da identificação do construtor, caso tenha sido fornecida.
     if (builderTag) {
       const tagPattern = /^[A-Za-z]+-[A-Za-z]+-\d{4}$/
       if (!tagPattern.test(builderTag)) {
         return response.status(400).send({
           success: false,
-          error: 'Invalid builder tag format. Expected: Word-Word-0000',
+          error: 'Formato inválido para a identificação do construtor. Formato esperado: Palavra-Palavra-0000.',
         })
       }
     }
@@ -247,7 +251,7 @@ export default class BenchmarkController {
   }
 
   /**
-   * Get comparison stats from central repository
+   * Obtém estatísticas de comparação do repositório central.
    */
   async comparison({}: HttpContext) {
     const stats = await this.benchmarkService.getComparisonStats()
@@ -255,21 +259,22 @@ export default class BenchmarkController {
   }
 
   /**
-   * Get current benchmark status
+   * Obtém o estado atual do benchmark.
    */
   async status({}: HttpContext) {
     return this.benchmarkService.getStatus()
   }
 
   /**
-   * Whether to show the dashboard "re-run under Score v2" banner
+   * Verifica se o painel deve exibir o aviso para executar novamente
+   * o benchmark utilizando o Score v2.
    */
   async rerunBanner({}: HttpContext) {
     return { show: await this.benchmarkService.shouldShowRerunBanner() }
   }
 
   /**
-   * Get benchmark settings
+   * Obtém as configurações dos benchmarks.
    */
   async settings({}: HttpContext) {
     const { default: BenchmarkSetting } = await import('#models/benchmark_setting')
@@ -277,7 +282,7 @@ export default class BenchmarkController {
   }
 
   /**
-   * Update benchmark settings
+   * Atualiza as configurações dos benchmarks.
    */
   async updateSettings({ request, response }: HttpContext) {
     const { default: BenchmarkSetting } = await import('#models/benchmark_setting')
@@ -296,3 +301,4 @@ export default class BenchmarkController {
     })
   }
 }
+```
