@@ -14,6 +14,7 @@ import {
 } from '../utils/fs.js'
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
+import { tesseractWorkerOptions } from '../utils/ocr_lang_data.js'
 import { fromBuffer } from 'pdf2pic'
 import JSZip from 'jszip'
 import * as cheerio from 'cheerio'
@@ -583,7 +584,8 @@ export class RagService {
     filebuffer: Buffer,
     sharedWorker?: Awaited<ReturnType<typeof createWorker>>
   ): Promise<string> {
-    const worker = sharedWorker ?? (await createWorker('eng'))
+    // Bundled model, read from node_modules; no CDN download, no cache in cwd (#1457).
+    const worker = sharedWorker ?? (await createWorker('eng', 1, tesseractWorkerOptions()))
     try {
       const result = await worker.recognize(filebuffer)
       return result.data.text
@@ -613,7 +615,7 @@ export class RagService {
         `[RAG] PDF has ${plan.ocrPages.length} of ${pages.length} pages without a text layer, running OCR on them`
       )
       const images = await this.convertPDFPagesToImages(fileBuffer, plan.ocrPages)
-      const worker = await createWorker('eng')
+      const worker = await createWorker('eng', 1, tesseractWorkerOptions())
       try {
         for (const pageNumber of plan.ocrPages) {
           const image = images.get(pageNumber)
