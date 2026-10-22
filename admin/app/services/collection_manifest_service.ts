@@ -487,7 +487,7 @@ export class CollectionManifestService {
         }
       }
     } catch (error) {
-      logger.error('[CollectionManifestService] Error reconciling ZIM files:', error)
+      logger.error({ err: error }, '[CollectionManifestService] Error reconciling ZIM files')
     }
 
     // Reconcile map files
@@ -541,7 +541,7 @@ export class CollectionManifestService {
         }
       }
     } catch (error) {
-      logger.error('[CollectionManifestService] Error reconciling map files:', error)
+      logger.error({ err: error }, '[CollectionManifestService] Error reconciling map files')
     }
 
     logger.info(`[CollectionManifestService] Reconciled ${zimCount} ZIM files, ${mapCount} map files`)

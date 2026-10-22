@@ -164,7 +164,7 @@ export default class ZimController {
         added,
       })
     } catch (error) {
-      logger.error('[ZimController] Upload failed:', error)
+      logger.error({ err: error }, '[ZimController] Upload failed')
       if (tmpPath) {
         const { unlink } = await import('fs/promises')
         await unlink(tmpPath).catch(() => {})

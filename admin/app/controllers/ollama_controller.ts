@@ -472,14 +472,14 @@ export default class OllamaController {
     const qdrantService = await Service.query().where('service_name', SERVICE_NAMES.QDRANT).first()
     if (qdrantService && !qdrantService.installed) {
       this.dockerService.createContainerPreflight(SERVICE_NAMES.QDRANT).catch((error) => {
-        logger.error('[OllamaController] Failed to start Qdrant preflight:', error)
+        logger.error({ err: error }, '[OllamaController] Failed to start Qdrant preflight')
       })
     }
 
     // Mirror post-install side effects: disable suggestions, trigger docs discovery
     await KVStore.setValue('chat.suggestionsEnabled', false)
     this.ragService.discoverNomadDocs().catch((error) => {
-      logger.error('[OllamaController] Failed to discover Nomad docs:', error)
+      logger.error({ err: error }, '[OllamaController] Failed to discover Nomad docs')
     })
 
     return { success: true, message: 'Remote Ollama configured.' }
