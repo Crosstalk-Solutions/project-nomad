@@ -123,3 +123,67 @@ test('Both warnings can fire on the same file in principle', () => {
     [{ kind: 'zero_chunks', fileSizeBytes: 1000 * MB }]
   )
 })
+
+test('Warning C: a ZIM that is a shelf of PDFs behind a shell page (#1445)', () => {
+  // Military Medicine: 25 PDFs, 1 HTML index page, 1 chunk. Reads as healthy
+  // without the census: chunks > 0 and partial_stall is suppressed for it.
+  assert.deepEqual(
+    decideWarnings({
+      fileSizeBytes: 77 * MB,
+      chunksInQdrant: 1,
+      expectedChunks: null,
+      htmlEntries: 1,
+      pdfEntries: 25,
+    }),
+    [{ kind: 'pdf_entries_skipped', pdfEntries: 25, htmlEntries: 1 }]
+  )
+})
+
+test('Warning C stays silent for a text site with a few attached PDFs', () => {
+  assert.deepEqual(
+    decideWarnings({
+      fileSizeBytes: 300 * MB,
+      chunksInQdrant: 20_000,
+      expectedChunks: 20_000,
+      htmlEntries: 1_996,
+      pdfEntries: 12,
+    }),
+    []
+  )
+})
+
+test('Warning C stays silent without a census (pre-existing rows, non-ZIM files)', () => {
+  assert.deepEqual(
+    decideWarnings({
+      fileSizeBytes: 77 * MB,
+      chunksInQdrant: 1,
+      expectedChunks: null,
+      htmlEntries: null,
+      pdfEntries: null,
+    }),
+    []
+  )
+  assert.deepEqual(
+    decideWarnings({ fileSizeBytes: 77 * MB, chunksInQdrant: 1, expectedChunks: null }),
+    []
+  )
+})
+
+test('Warning C fires at exactly half PDF entries and not below', () => {
+  const half = decideWarnings({
+    fileSizeBytes: 1 * MB,
+    chunksInQdrant: 3,
+    expectedChunks: null,
+    htmlEntries: 10,
+    pdfEntries: 10,
+  })
+  assert.equal(half.length, 1)
+  const below = decideWarnings({
+    fileSizeBytes: 1 * MB,
+    chunksInQdrant: 3,
+    expectedChunks: null,
+    htmlEntries: 11,
+    pdfEntries: 10,
+  })
+  assert.deepEqual(below, [])
+})
