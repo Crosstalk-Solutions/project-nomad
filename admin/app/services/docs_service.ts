@@ -56,7 +56,7 @@ export class DocsService {
 
       return Markdoc.transform(ast, markdocConfig)
     } catch (error) {
-      logger.error('Error parsing Markdoc content:', error)
+      logger.error({ err: error }, 'Error parsing Markdoc content')
       throw new InternalServerErrorException(`Error parsing content: ${(error as Error).message}`)
     }
   }

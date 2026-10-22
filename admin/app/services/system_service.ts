@@ -222,7 +222,7 @@ export class SystemService {
       // If we got output but looks like an error, consider it a bad response from nvidia-smi
       return 'BAD_RESPONSE'
     } catch (error) {
-      logger.error('Error getting nvidia-smi info:', error)
+      logger.error({ err: error }, 'Error getting nvidia-smi info')
       if (error instanceof Error && error.message) {
         return { error: error.message }
       }
@@ -382,7 +382,7 @@ export class SystemService {
       this.appVersion = version
       return version
     } catch (error) {
-      logger.error('Error getting app version:', error)
+      logger.error({ err: error }, 'Error getting app version')
       return '0.0.0'
     }
   }
@@ -416,7 +416,7 @@ export class SystemService {
 
         disk = this.calculateDiskUsage(diskInfo)
       } catch (error) {
-        logger.error('Error reading disk info file:', error)
+        logger.error({ err: error }, 'Error reading disk info file')
       }
 
       // GPU health tracking — detect when host has a GPU runtime but Ollama can't access it.
@@ -680,7 +680,7 @@ export class SystemService {
         gpuHealth,
       }
     } catch (error) {
-      logger.error('Error getting system info:', error)
+      logger.error({ err: error }, 'Error getting system info')
       return undefined
     }
   }
@@ -745,7 +745,7 @@ export class SystemService {
         latestVersion,
       }
     } catch (error) {
-      logger.error('Error checking latest version:', error)
+      logger.error({ err: error }, 'Error checking latest version')
       return {
         success: false,
         updateAvailable: false,
@@ -776,7 +776,7 @@ export class SystemService {
         message: `Failed to subscribe: ${response.statusText}`,
       }
     } catch (error) {
-      logger.error('Error subscribing to release notes:', error)
+      logger.error({ err: error }, 'Error subscribing to release notes')
       return {
         success: false,
         message: `Failed to subscribe: ${error instanceof Error ? error.message : error}`,
@@ -1043,7 +1043,7 @@ export class SystemService {
 
       return serviceStatusList
     } catch (error) {
-      logger.error('Error syncing containers with database:', error)
+      logger.error({ err: error }, 'Error syncing containers with database')
       return []
     }
   }

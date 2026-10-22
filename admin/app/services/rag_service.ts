@@ -202,7 +202,7 @@ export class RagService {
       // Only memoize after every step succeeded, so a partial failure is retried
       this.ensuredCollections.add(collectionName)
     } catch (error) {
-      logger.error('Error ensuring Qdrant collection:', error)
+      logger.error({ err: error }, 'Error ensuring Qdrant collection')
       throw error
     }
   }
@@ -527,7 +527,7 @@ export class RagService {
       return { chunks: chunks.length }
     } catch (error) {
       console.error(error)
-      logger.error('[RAG] Error embedding text:', error)
+      logger.error({ err: error }, '[RAG] Error embedding text')
       return null
     }
   }
@@ -936,7 +936,7 @@ export class RagService {
         collection
       )
     } catch (error) {
-      logger.error('[RAG] Error processing and embedding file:', error)
+      logger.error({ err: error }, '[RAG] Error processing and embedding file')
       // Let the job see it so BullMQ skips the 30 retries that cannot succeed.
       if (error instanceof UnrecoverableError) throw error
       return { success: false, message: 'Error processing and embedding file.' }
@@ -1169,7 +1169,7 @@ export class RagService {
         },
       }))
     } catch (error) {
-      logger.error('[RAG] Error searching similar documents:', error)
+      logger.error({ err: error }, '[RAG] Error searching similar documents')
       return []
     }
   }
@@ -1431,7 +1431,7 @@ export class RagService {
         })
       )
     } catch (error) {
-      logger.error('Error retrieving stored files:', error)
+      logger.error({ err: error }, 'Error retrieving stored files')
       return []
     }
   }
@@ -1492,7 +1492,7 @@ export class RagService {
         message: collection ? `Moved to "${collection}".` : 'Moved to Uncategorized.',
       }
     } catch (error) {
-      logger.error('[RAG] Error updating file collection:', error)
+      logger.error({ err: error }, '[RAG] Error updating file collection')
       return { success: false, message: 'Error updating file collection.' }
     }
   }
@@ -1560,7 +1560,7 @@ export class RagService {
 
       return { success: true, message: active ? 'File is now active.' : 'File is now inactive.' }
     } catch (error) {
-      logger.error('[RAG] Error updating file active state:', error)
+      logger.error({ err: error }, '[RAG] Error updating file active state')
       return { success: false, message: 'Error updating file active state.' }
     }
   }
@@ -1637,7 +1637,7 @@ export class RagService {
         affectedCount,
       }
     } catch (error) {
-      logger.error('[RAG] Error updating KB collection active state:', error)
+      logger.error({ err: error }, '[RAG] Error updating KB collection active state')
       return {
         success: false,
         message: 'Error updating collection active state.',
@@ -1673,7 +1673,7 @@ export class RagService {
 
       return { success: true, message: `Renamed "${oldName}" to "${newName}".` }
     } catch (error) {
-      logger.error('[RAG] Error renaming knowledge collection:', error)
+      logger.error({ err: error }, '[RAG] Error renaming knowledge collection')
       return { success: false, message: 'Error renaming collection.' }
     }
   }
@@ -1705,7 +1705,7 @@ export class RagService {
 
       return { success: true, message: `"${name}" removed. Files moved to Uncategorized.` }
     } catch (error) {
-      logger.error('[RAG] Error deleting knowledge collection:', error)
+      logger.error({ err: error }, '[RAG] Error deleting knowledge collection')
       return { success: false, message: 'Error deleting collection.' }
     }
   }
@@ -1925,7 +1925,7 @@ export class RagService {
 
       return { ok: true, warnings: out }
     } catch (error) {
-      logger.error('[RAG] Error computing file warnings:', error)
+      logger.error({ err: error }, '[RAG] Error computing file warnings')
       return { ok: false, warnings: {} }
     }
   }
@@ -1973,7 +1973,7 @@ export class RagService {
 
       return { success: true, message: 'File removed from knowledge base.' }
     } catch (error) {
-      logger.error('[RAG] Error deleting file from knowledge base:', error)
+      logger.error({ err: error }, '[RAG] Error deleting file from knowledge base')
       return { success: false, message: 'Error deleting file from knowledge base.' }
     }
   }
@@ -2137,7 +2137,7 @@ export class RagService {
         message: `Nomad docs discovery completed. Dispatched ${filesToEmbed.length} embedding jobs.`,
       }
     } catch (error) {
-      logger.error('Error discovering Nomad docs:', error)
+      logger.error({ err: error }, 'Error discovering Nomad docs')
       return { success: false, message: 'Error discovering Nomad docs.' }
     }
   }
@@ -2311,7 +2311,7 @@ export class RagService {
       try {
         await this._deletePointsBySource(source)
       } catch (err) {
-        logger.error(`[RAG] Failed to delete prior points for ${source}; aborting re-embed:`, err)
+        logger.error({ err: err }, `[RAG] Failed to delete prior points for ${source}; aborting re-embed`)
         return {
           success: false,
           code: 'delete_failed',
@@ -2421,7 +2421,7 @@ export class RagService {
       logger.info('[RAG] Starting knowledge base sync scan')
 
       await this.discoverNomadDocs(true).catch((error) => {
-        logger.error('[RAG] Error during Nomad docs discovery in sync process:', error)
+        logger.error({ err: error }, '[RAG] Error during Nomad docs discovery in sync process')
       })
 
       const { files: filesInStorage, scannedRoots } = await this._discoverKbFilesWithRoots()
@@ -2498,7 +2498,7 @@ export class RagService {
           await this.purgeIndexedSources(orphans)
           orphansPurged = orphans.length
         } catch (error) {
-          logger.error(`[RAG] Failed to purge orphaned sources:`, error)
+          logger.error({ err: error }, `[RAG] Failed to purge orphaned sources`)
         }
         logger.info(`[RAG] Purged ${orphansPurged}/${orphans.length} orphaned source(s)`)
       }
@@ -2596,7 +2596,7 @@ export class RagService {
         filesQueued: queuedCount,
       }
     } catch (error) {
-      logger.error('[RAG] Error scanning and syncing knowledge base:', error)
+      logger.error({ err: error }, '[RAG] Error scanning and syncing knowledge base')
       return { success: false, message: 'Error scanning and syncing knowledge base' }
     }
   }
@@ -2629,7 +2629,7 @@ export class RagService {
       logger.info('[RAG] Starting full re-embed (per-file replace)')
 
       await this.discoverNomadDocs(true).catch((error) => {
-        logger.error('[RAG] Error re-running Nomad docs discovery during re-embed:', error)
+        logger.error({ err: error }, '[RAG] Error re-running Nomad docs discovery during re-embed')
       })
 
       const filesInStorage = await this._discoverKbFiles()
@@ -2655,10 +2655,7 @@ export class RagService {
         try {
           await this._deletePointsBySource(filePath)
         } catch (err) {
-          logger.error(
-            `[RAG] Failed to delete prior points for ${filePath}; skipping dispatch:`,
-            err
-          )
+          logger.error({ err: err }, `[RAG] Failed to delete prior points for ${filePath}; skipping dispatch`)
           failedPaths.push(filePath)
           continue
         }
@@ -2701,7 +2698,7 @@ export class RagService {
         ...(failedPaths.length > 0 ? { failedPaths } : {}),
       }
     } catch (error) {
-      logger.error('[RAG] Error during re-embed:', error)
+      logger.error({ err: error }, '[RAG] Error during re-embed')
       return { success: false, message: 'Error during re-embed' }
     }
   }
@@ -2753,7 +2750,7 @@ export class RagService {
       // Force Nomad docs to be re-dispatched.
       await KVStore.setValue('rag.docsEmbedded', false)
       await this.discoverNomadDocs(true).catch((error) => {
-        logger.error('[RAG] Error re-running Nomad docs discovery after reset:', error)
+        logger.error({ err: error }, '[RAG] Error re-running Nomad docs discovery after reset')
       })
 
       const filesInStorage = await this._discoverKbFiles()
@@ -2784,7 +2781,7 @@ export class RagService {
         ...(failedPaths.length > 0 ? { failedPaths } : {}),
       }
     } catch (error) {
-      logger.error('[RAG] Error during reset & rebuild:', error)
+      logger.error({ err: error }, '[RAG] Error during reset & rebuild')
       return { success: false, message: 'Error during reset & rebuild' }
     }
   }
