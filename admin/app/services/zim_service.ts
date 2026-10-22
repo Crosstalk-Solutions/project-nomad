@@ -450,7 +450,7 @@ export class ZimService {
     try {
       await kiwixLibraryService.rebuildFromDisk()
     } catch (err) {
-      logger.error('[ZimService] Failed to rebuild kiwix library from disk:', err)
+      logger.error({ err: err }, '[ZimService] Failed to rebuild kiwix library from disk')
     }
 
     if (restart) {
@@ -492,7 +492,7 @@ export class ZimService {
           await this.dockerService
             .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
             .catch((error) => {
-              logger.error(`[ZimService] Failed to restart KIWIX container:`, error)
+              logger.error({ err: error }, `[ZimService] Failed to restart KIWIX container`)
             })
         }
       }
@@ -554,7 +554,7 @@ export class ZimService {
               `[ZimService] Removed superseded ${parsed.resource_id} file: ${decision.path}`
             )
           } catch (err) {
-            logger.warn(`[ZimService] Failed to remove superseded file ${decision.path}:`, err)
+            logger.warn({ err: err }, `[ZimService] Failed to remove superseded file ${decision.path}`)
           }
         } else if (decision.reason !== 'first_install' && decision.reason !== 'same_file') {
           logger.info(
@@ -562,7 +562,7 @@ export class ZimService {
           )
         }
       } catch (error) {
-        logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
+        logger.error({ err: error }, `[ZimService] Failed to create InstalledResource for ${filename}`)
       }
     }
 
@@ -574,7 +574,7 @@ export class ZimService {
         await new KiwixLibraryService().rebuildFromDisk()
         logger.info('[ZimService] Rebuilt Kiwix library after removing superseded ZIM(s).')
       } catch (err) {
-        logger.error('[ZimService] Failed to rebuild Kiwix library after cleanup:', err)
+        logger.error({ err: err }, '[ZimService] Failed to rebuild Kiwix library after cleanup')
       }
     }
   }
@@ -602,7 +602,7 @@ export class ZimService {
       await this.dockerService
         .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
         .catch((error) => {
-          logger.error('[ZimService] Failed to restart KIWIX container after rescan:', error)
+          logger.error({ err: error }, '[ZimService] Failed to restart KIWIX container after rescan')
         })
     }
 
@@ -615,7 +615,7 @@ export class ZimService {
       const result = await this.rescanLibrary()
       added = result.added
     } catch (err) {
-      logger.error('[ZimService] Failed to rebuild kiwix library after local upload:', err)
+      logger.error({ err: err }, '[ZimService] Failed to rebuild kiwix library after local upload')
     }
 
     const parsed = CollectionManifestService.parseZimFilename(filename)
@@ -635,7 +635,7 @@ export class ZimService {
           }
         )
       } catch (error) {
-        logger.error(`[ZimService] Failed to create InstalledResource for ${filename}:`, error)
+        logger.error({ err: error }, `[ZimService] Failed to create InstalledResource for ${filename}`)
       }
     }
 
@@ -675,13 +675,13 @@ export class ZimService {
               await this.delete(stale.name)
               logger.info(`[ZimService] Deleted stale Wikipedia file after upload: ${stale.name}`)
             } catch (err) {
-              logger.warn(`[ZimService] Could not delete stale Wikipedia file: ${stale.name}`, err)
+              logger.warn({ err: err }, `[ZimService] Could not delete stale Wikipedia file: ${stale.name}`)
             }
           }
         }
       }
     } catch (error) {
-      logger.error(`[ZimService] Failed to update WikipediaSelection for ${filename}:`, error)
+      logger.error({ err: error }, `[ZimService] Failed to update WikipediaSelection for ${filename}`)
     }
 
     const ollamaUrl = await this.dockerService.getServiceURL('nomad_ollama')
@@ -719,7 +719,7 @@ export class ZimService {
         // written to disk, so there is nothing to backfill and a settled state
         // row means the user has already decided about this file.
       } catch (error) {
-        logger.error(`[ZimService] KB ingest decision failed after local upload:`, error)
+        logger.error({ err: error }, `[ZimService] KB ingest decision failed after local upload`)
       }
     }
 
@@ -762,14 +762,14 @@ export class ZimService {
         const ragService = new RagService(this.dockerService, new OllamaService())
         await ragService.purgeIndexedSource(fullPath)
       } catch (err) {
-        logger.error(`[ZimService] Failed to purge knowledge-base entries for ${fullPath}:`, err)
+        logger.error({ err: err }, `[ZimService] Failed to purge knowledge-base entries for ${fullPath}`)
       }
     }
 
     // Remove from kiwix library XML so --monitorLibrary stops serving the deleted file
     const kiwixLibraryService = new KiwixLibraryService()
     await kiwixLibraryService.removeBook(fileName).catch((err) => {
-      logger.error(`[ZimService] Failed to remove ${fileName} from kiwix library:`, err)
+      logger.error({ err: err }, `[ZimService] Failed to remove ${fileName} from kiwix library`)
     })
 
     // Clean up InstalledResource entry
@@ -794,7 +794,7 @@ export class ZimService {
         logger.info(`[ZimService] Cleared WikipediaSelection after deleting ${fileName}`)
       }
     } catch (error) {
-      logger.error(`[ZimService] Failed to clear WikipediaSelection after deleting ${fileName}:`, error)
+      logger.error({ err: error }, `[ZimService] Failed to clear WikipediaSelection after deleting ${fileName}`)
     }
   }
 
@@ -812,7 +812,7 @@ export class ZimService {
 
       return validated.options
     } catch (error) {
-      logger.error(`[ZimService] Failed to fetch Wikipedia options:`, error)
+      logger.error({ err: error }, `[ZimService] Failed to fetch Wikipedia options`)
       throw new Error('Failed to fetch Wikipedia options')
     }
   }
@@ -886,7 +886,7 @@ export class ZimService {
       await this.dockerService
         .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
         .catch((error) => {
-          logger.error(`[ZimService] Failed to restart Kiwix after Wikipedia removal:`, error)
+          logger.error({ err: error }, `[ZimService] Failed to restart Kiwix after Wikipedia removal`)
         })
 
       return { success: true, message: 'Wikipedia removed' }
@@ -1011,7 +1011,7 @@ export class ZimService {
           await this.delete(oldFile)
           logger.info(`[ZimService] Deleted old Wikipedia file: ${oldFile}`)
         } catch (error) {
-          logger.warn(`[ZimService] Could not delete old Wikipedia file: ${oldFile}`, error)
+          logger.warn({ err: error }, `[ZimService] Could not delete old Wikipedia file: ${oldFile}`)
         }
       }
     } else {

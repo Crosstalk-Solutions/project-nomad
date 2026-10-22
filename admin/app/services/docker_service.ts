@@ -986,7 +986,7 @@ export class DockerService {
         const ragService = new (await import('./rag_service.js')).RagService(this, ollamaService)
 
         ragService.discoverNomadDocs().catch((error) => {
-          logger.error('[DockerService] Failed to discover Nomad docs:', error)
+          logger.error({ err: error }, '[DockerService] Failed to discover Nomad docs')
         })
       }
 

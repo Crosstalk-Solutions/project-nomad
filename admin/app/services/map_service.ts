@@ -242,7 +242,7 @@ export class MapService implements IMapService {
               `[MapService] Removed superseded ${parsed.resource_id} file: ${decision.path}`
             )
           } catch (err) {
-            logger.warn(`[MapService] Failed to remove superseded file ${decision.path}:`, err)
+            logger.warn({ err: err }, `[MapService] Failed to remove superseded file ${decision.path}`)
           }
         } else if (decision.reason !== 'first_install' && decision.reason !== 'same_file') {
           logger.info(
@@ -250,7 +250,7 @@ export class MapService implements IMapService {
           )
         }
       } catch (error) {
-        logger.error(`[MapService] Failed to create InstalledResource for ${filename}:`, error)
+        logger.error({ err: error }, `[MapService] Failed to create InstalledResource for ${filename}`)
       }
     }
   }
