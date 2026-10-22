@@ -30,6 +30,7 @@ import { decideOrphans } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
+import { shouldBackfillZimEntryCensus } from '../utils/zim_entry_counts.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
 import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
@@ -614,6 +615,23 @@ export class RagService {
 
     // Process in batches to avoid lock timeout
     const startOffset = batchOffset || 0
+
+    // First batch: record what kinds of entries the archive holds, so the
+    // Stored Files row can say when a ZIM is a shelf of PDFs the extractor
+    // skips (#1445). Best effort; never blocks indexing.
+    if (startOffset === 0) {
+      try {
+        const counts = await zimExtractionService.countEntryTypes(filepath)
+        await KbIngestState.recordEntryCounts(filepath, counts, collection)
+        logger.info(
+          `[RAG] ZIM entry census: ${counts.html} HTML, ${counts.pdf} PDF, ${counts.other} other`
+        )
+      } catch (error) {
+        logger.warn(
+          `[RAG] Could not record the ZIM entry census for ${filepath}: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+    }
 
     logger.info(
       `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
@@ -1887,10 +1905,22 @@ export class RagService {
         }
       }
 
+      // Entry census for Warning C (#1445); null for rows without one.
+      const entryCountsByPath = new Map<string, { html: number | null; pdf: number | null }>()
+      const censusRows = await KbIngestState.query().select(
+        'file_path',
+        'html_entries',
+        'pdf_entries'
+      )
+      for (const row of censusRows) {
+        entryCountsByPath.set(row.file_path, { html: row.html_entries, pdf: row.pdf_entries })
+      }
+
       const out: Record<string, FileWarning[]> = {}
       for (const source of allSources) {
         const fileSizeBytes = sizeByPath.get(source) ?? 0
         const chunksInQdrant = chunksBySource.get(source) ?? 0
+        const entryCounts = entryCountsByPath.get(source)
         const fileName = source.split(/[/\\]/).pop() ?? source
         // ignoreCatchAll: the partial_stall warning must only fire when the
         // registry has a *specific* expectation for this file. The empty-pattern
@@ -1904,7 +1934,13 @@ export class RagService {
               })
             : null
 
-        const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks })
+        const warnings = decideWarnings({
+          fileSizeBytes,
+          chunksInQdrant,
+          expectedChunks,
+          htmlEntries: entryCounts?.html ?? null,
+          pdfEntries: entryCounts?.pdf ?? null,
+        })
         if (warnings.length > 0) out[source] = warnings
       }
 
@@ -2320,6 +2356,26 @@ export class RagService {
   }
 
   /**
+   * One-time entry census for a ZIM row that predates the census (#1445).
+   * Best effort: a failure is logged and the row is left as it was.
+   */
+  private async _backfillZimEntryCensus(filePath: string, row: KbIngestState): Promise<void> {
+    try {
+      const counts = await new ZIMExtractionService().countEntryTypes(filePath)
+      row.html_entries = counts.html
+      row.pdf_entries = counts.pdf
+      await row.save()
+      logger.info(
+        `[RAG] ZIM entry census (backfill) for ${filePath}: ${counts.html} HTML, ${counts.pdf} PDF, ${counts.other} other`
+      )
+    } catch (error) {
+      logger.warn(
+        `[RAG] Could not backfill the ZIM entry census for ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+  }
+
+  /**
    * Delete all Qdrant points whose `source` payload matches the given path.
    * Unlike deleteFileBySource(), this does NOT touch the file on disk — used
    * by reembedAll() where the file must remain so it can be re-ingested.
@@ -2507,6 +2563,14 @@ export class RagService {
         switch (action.kind) {
           case 'skip':
             skipped++
+            // A ZIM indexed before the entry census existed, with the small
+            // chunk count that marks a PDF shelf behind a shell page: take the
+            // census now so Warning C can reach installs that never re-index
+            // (#1445). Bounded to small results so a sync never pays for a
+            // full-size archive's entry list.
+            if (stateRow && shouldBackfillZimEntryCensus(filePath, stateRow)) {
+              await this._backfillZimEntryCensus(filePath, stateRow)
+            }
             break
           case 'backfill_indexed':
             // Pre-RFC install (or a fresh admin pointed at an existing Qdrant volume):

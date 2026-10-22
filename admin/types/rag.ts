@@ -176,6 +176,7 @@ export type PipelineTrace = {
 export type FileWarning =
   | { kind: 'zero_chunks'; fileSizeBytes: number }
   | { kind: 'partial_stall'; chunksEmbedded: number; chunksExpected: number }
+  | { kind: 'pdf_entries_skipped'; pdfEntries: number; htmlEntries: number }
 
 /**
  * Row returned by `GET /api/rag/files`. `state` is null for sources that exist

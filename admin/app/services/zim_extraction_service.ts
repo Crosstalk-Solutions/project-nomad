@@ -7,6 +7,7 @@ import { ExtractZIMChunkingStrategy, ExtractZIMContentOptions, ZIMContentChunk, 
 import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
 import { isValidZimFile } from '../utils/fs.js'
+import { classifyZimEntry, emptyZimEntryCounts, ZimEntryCounts } from '../utils/zim_entry_counts.js'
 
 export class ZIMExtractionService {
 
@@ -170,6 +171,30 @@ export class ZIMExtractionService {
             logger.error('Error processing ZIM file:', error)
             throw error
         }
+    }
+
+    /**
+     * Count the archive's entries by type (HTML pages the extractor indexes,
+     * PDF documents it skips, everything else). One pass over the entry list,
+     * no content is read; a 100k-entry archive takes a few seconds. (#1445)
+     */
+    async countEntryTypes(filePath: string): Promise<ZimEntryCounts> {
+        if (!(await isValidZimFile(filePath))) {
+            throw new Error(`ZIM file is invalid or corrupted: ${filePath}`)
+        }
+        const archive = new Archive(filePath)
+        const counts = emptyZimEntryCounts()
+        for (const entry of archive.iterByPath()) {
+            if (entry.isRedirect) continue
+            let mimeType: string | undefined
+            try {
+                mimeType = entry.item.mimetype
+            } catch {
+                mimeType = undefined
+            }
+            counts[classifyZimEntry(mimeType)]++
+        }
+        return counts
     }
 
     private chooseChunkingStrategy(html: string, options = {
