@@ -14,6 +14,7 @@ import {
 } from '../utils/fs.js'
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
+import { tesseractWorkerOptions } from '../utils/ocr_lang_data.js'
 import { fromBuffer } from 'pdf2pic'
 import JSZip from 'jszip'
 import * as cheerio from 'cheerio'
@@ -563,7 +564,8 @@ export class RagService {
   }
 
   private async extractImageText(filebuffer: Buffer): Promise<string> {
-    const worker = await createWorker('eng')
+    // Bundled model, read from node_modules; no CDN download, no cache in cwd (#1457).
+    const worker = await createWorker('eng', 1, tesseractWorkerOptions())
     const result = await worker.recognize(filebuffer)
     await worker.terminate()
     return result.data.text
