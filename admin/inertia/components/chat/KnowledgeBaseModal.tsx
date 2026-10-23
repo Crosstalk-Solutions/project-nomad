@@ -885,10 +885,18 @@ export default function KnowledgeBaseModal({
                                 {w.kind === 'pdf_entries_skipped' && (
                                   <span>
                                     This ZIM holds {w.pdfEntries.toLocaleString()} PDF document
-                                    {w.pdfEntries === 1 ? '' : 's'} that were not indexed — only its{' '}
-                                    {w.htmlEntries.toLocaleString()} HTML page
-                                    {w.htmlEntries === 1 ? '' : 's'} {w.htmlEntries === 1 ? 'was' : 'were'}.
-                                    AI Assistant cannot reference the PDFs.
+                                    {w.pdfEntries === 1 ? '' : 's'} that{' '}
+                                    {(record.state ?? 'indexed') === 'indexed'
+                                      ? `${w.pdfEntries === 1 ? 'was' : 'were'} not indexed`
+                                      : 'will not be indexed'}{' '}
+                                    — only its {w.htmlEntries.toLocaleString()} HTML page
+                                    {w.htmlEntries === 1 ? '' : 's'}{' '}
+                                    {(record.state ?? 'indexed') === 'indexed'
+                                      ? w.htmlEntries === 1
+                                        ? 'was'
+                                        : 'were'
+                                      : 'will be'}
+                                    . AI Assistant cannot reference the PDFs.
                                   </span>
                                 )}
                               </span>
