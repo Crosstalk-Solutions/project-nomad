@@ -9,6 +9,7 @@ import { MapService } from '#services/map_service'
 import { RagService } from '#services/rag_service'
 import { OllamaService } from '#services/ollama_service'
 import { EmbedFileJob } from './embed_file_job.js'
+import { decideDownloadedZimKbAction } from '../utils/kb_download_decision.js'
 import { basename, join, resolve, sep } from 'node:path'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
 
@@ -209,79 +210,86 @@ export class RunDownloadJob {
               const zimService = new ZimService(dockerService)
               await zimService.downloadRemoteSuccessCallback([url], true)
 
-              // Only touch the knowledge base if AI Assistant (Ollama) is installed.
-              // skip_embedding opts a ZIM out entirely — Creator Pack video ZIMs are
-              // media galleries, not text, so they must never be embedded or KB-reconciled.
-              const ollamaUrl = await dockerService.getServiceURL('nomad_ollama')
-              if (ollamaUrl && !resourceMetadata?.skip_embedding) {
-                // A content UPDATE replaces a prior file at a DIFFERENT path
-                // (version is in the filename). A fresh install has no prior row;
-                // a same-version re-download keeps the same path. The two cases
-                // reconcile the KB differently.
-                const isReplacement = !!oldFilePath && oldFilePath !== filepath
+              // Record the file in the Knowledge Base whether or not the AI
+              // Assistant is installed yet (#1465). Easy Setup starts the service
+              // installs and the content downloads together, so a small ZIM lands
+              // minutes before Ollama is up; the state row is bookkeeping, not an
+              // AI action, and without it the file never shows in Stored Files.
+              // skip_embedding opts a ZIM out entirely — Creator Pack video ZIMs
+              // are media galleries, not text, so they must never be embedded or
+              // KB-reconciled. See decideDownloadedZimKbAction for the cases.
+              const { default: KVStore } = await import('#models/kv_store')
+              const { default: KbIngestState } = await import('#models/kb_ingest_state')
+              // Unset policy is treated as Always to preserve legacy behavior —
+              // mirrors rag_service.ts scanAndSyncStorage.
+              const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+              const policy: 'Always' | 'Manual' = policyRaw === 'Manual' ? 'Manual' : 'Always'
+              const aiInstalled = !!(await dockerService.getServiceURL('nomad_ollama'))
+              // A content UPDATE replaces a prior file at a DIFFERENT path
+              // (version is in the filename). A fresh install has no prior row;
+              // a same-version re-download keeps the same path.
+              const isReplacement = !!oldFilePath && oldFilePath !== filepath
+              const kbAction = decideDownloadedZimKbAction({
+                skipEmbedding: !!resourceMetadata?.skip_embedding,
+                isReplacement,
+                policy,
+                aiInstalled,
+              })
 
-                if (isReplacement) {
-                  // CONTENT UPDATE: mirror the REPLACED file's prior indexed state
-                  // rather than the global Always/Manual policy. reconcileReplaced-
-                  // ContentFile removes the old file's points and re-queues the new
-                  // file IFF the old one was indexed and Qdrant is running; it is a
-                  // no-op otherwise (not installed / old not indexed / Qdrant down).
-                  // The user already chose whether this content is in the KB, so we
-                  // honor that choice in both directions. See the method for the
-                  // full 5-step contract.
+              if (kbAction === 'reconcile_replacement') {
+                // CONTENT UPDATE: mirror the REPLACED file's prior indexed state
+                // rather than the global Always/Manual policy. reconcileReplaced-
+                // ContentFile removes the old file's points and re-queues the new
+                // file IFF the old one was indexed and Qdrant is running; it is a
+                // no-op otherwise (old not indexed / Qdrant down). The user already
+                // chose whether this content is in the KB, so we honor that choice
+                // in both directions. See the method for the full 5-step contract.
+                try {
+                  const ragService = new RagService(dockerService, new OllamaService())
+                  const outcome = await ragService.reconcileReplacedContentFile({
+                    oldFilePath: oldFilePath!,
+                    newFilePath: filepath,
+                    fileName: url.split('/').pop() || '',
+                  })
+                  console.log(
+                    `[RunDownloadJob] KB reconciliation for replaced ${filepath}: ${outcome}`
+                  )
+                } catch (error) {
+                  console.error(
+                    `[RunDownloadJob] Error reconciling knowledge base for replaced file ${filepath}:`,
+                    error
+                  )
+                }
+              } else if (kbAction !== 'none') {
+                try {
+                  // firstOrCreate so a re-download doesn't demote an existing
+                  // indexed/failed row — user keeps prior state and can re-index
+                  // explicitly from the KB panel if they want fresh content.
+                  await KbIngestState.firstOrCreate(
+                    { file_path: filepath },
+                    { file_path: filepath, state: 'pending_decision', chunks_embedded: 0 }
+                  )
+                } catch (error) {
+                  console.error(
+                    `[RunDownloadJob] Error recording pending_decision state for ${filepath}:`,
+                    error
+                  )
+                }
+
+                if (kbAction === 'record_and_embed') {
                   try {
-                    const ragService = new RagService(dockerService, new OllamaService())
-                    const outcome = await ragService.reconcileReplacedContentFile({
-                      oldFilePath: oldFilePath!,
-                      newFilePath: filepath,
+                    await EmbedFileJob.dispatch({
                       fileName: url.split('/').pop() || '',
+                      filePath: filepath,
                     })
-                    console.log(
-                      `[RunDownloadJob] KB reconciliation for replaced ${filepath}: ${outcome}`
-                    )
                   } catch (error) {
-                    console.error(
-                      `[RunDownloadJob] Error reconciling knowledge base for replaced file ${filepath}:`,
-                      error
-                    )
+                    console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
                   }
-                } else {
-                  // FRESH INSTALL (or same-version re-download): respect the global
-                  // ingest policy. Under Manual, record the file as pending_decision
-                  // so the KB panel surfaces the per-file Index affordance (PR #909)
-                  // instead of silently auto-embedding behind the user's back. Unset
-                  // is treated as Always to preserve legacy behavior — mirrors
-                  // rag_service.ts:1587-1588.
-                  const { default: KVStore } = await import('#models/kv_store')
-                  const { default: KbIngestState } = await import('#models/kb_ingest_state')
-                  const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
-                  const policy: 'Always' | 'Manual' = policyRaw === 'Manual' ? 'Manual' : 'Always'
-
-                  if (policy === 'Manual') {
-                    try {
-                      // firstOrCreate so a re-download doesn't demote an existing
-                      // indexed/failed row — user keeps prior state and can re-index
-                      // explicitly from the KB panel if they want fresh content.
-                      await KbIngestState.firstOrCreate(
-                        { file_path: filepath },
-                        { file_path: filepath, state: 'pending_decision', chunks_embedded: 0 }
-                      )
-                    } catch (error) {
-                      console.error(
-                        `[RunDownloadJob] Error recording pending_decision state for ${filepath}:`,
-                        error
-                      )
-                    }
-                  } else {
-                    try {
-                      await EmbedFileJob.dispatch({
-                        fileName: url.split('/').pop() || '',
-                        filePath: filepath,
-                      })
-                    } catch (error) {
-                      console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
-                    }
-                  }
+                } else if (!aiInstalled) {
+                  console.log(
+                    `[RunDownloadJob] AI Assistant is not installed yet; recorded ${filepath} as pending_decision. ` +
+                      `The knowledge base sync that runs when it installs picks it up.`
+                  )
                 }
               }
             } else if (filetype === 'map') {

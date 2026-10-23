@@ -988,6 +988,24 @@ export class DockerService {
         ragService.discoverNomadDocs().catch((error) => {
           logger.error('[DockerService] Failed to discover Nomad docs:', error)
         })
+
+        // Content that finished downloading before the AI Assistant existed
+        // (Easy Setup runs both at once) sits in Stored Files as
+        // pending_decision (#1465). Under policy Always the sync queues it now;
+        // under Manual it stays put, waiting for the user.
+        ragService
+          .scanAndSyncStorage()
+          .then((result) => {
+            logger.info(
+              `[DockerService] Knowledge base sync after Ollama install: ${result.message}`
+            )
+          })
+          .catch((error) => {
+            logger.error(
+              { err: error },
+              '[DockerService] Knowledge base sync after Ollama install failed'
+            )
+          })
       }
 
       this._broadcast(
