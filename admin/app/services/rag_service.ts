@@ -30,7 +30,7 @@ import { decideOrphans } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
-import { shouldBackfillZimEntryCensus } from '../utils/zim_entry_counts.js'
+import { planZimEntryCensus } from '../utils/zim_entry_counts.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
 import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
@@ -622,10 +622,12 @@ export class RagService {
     if (startOffset === 0) {
       try {
         const counts = await zimExtractionService.countEntryTypes(filepath)
-        await KbIngestState.recordEntryCounts(filepath, counts, collection)
-        logger.info(
-          `[RAG] ZIM entry census: ${counts.html} HTML, ${counts.pdf} PDF, ${counts.other} other`
-        )
+        if (counts) {
+          await KbIngestState.recordEntryCounts(filepath, counts, collection)
+          logger.info(
+            `[RAG] ZIM entry census: ${counts.html} HTML, ${counts.pdf} PDF, ${counts.other} other`
+          )
+        }
       } catch (error) {
         logger.warn(
           `[RAG] Could not record the ZIM entry census for ${filepath}: ${error instanceof Error ? error.message : String(error)}`
@@ -2356,21 +2358,30 @@ export class RagService {
   }
 
   /**
-   * One-time entry census for a ZIM row that predates the census (#1445).
-   * Best effort: a failure is logged and the row is left as it was.
+   * Take the entry census for a ZIM row that has none (#1445): rows that
+   * predate the census, and rows that are not indexed yet, so the Stored
+   * Files warning shows before the user decides whether to index. The plan
+   * bounds the cost: the instant `Counter` metadata read for most rows, a
+   * full entry walk only for a small indexed result. Best effort: a failure
+   * is logged and the row is left as it was.
    */
-  private async _backfillZimEntryCensus(filePath: string, row: KbIngestState): Promise<void> {
+  private async _censusZimRow(filePath: string, row: KbIngestState): Promise<void> {
+    const plan = planZimEntryCensus(filePath, row)
+    if (plan === 'none') return
     try {
-      const counts = await new ZIMExtractionService().countEntryTypes(filePath)
+      const counts = await new ZIMExtractionService().countEntryTypes(filePath, {
+        allowFullScan: plan === 'full',
+      })
+      if (!counts) return
       row.html_entries = counts.html
       row.pdf_entries = counts.pdf
       await row.save()
       logger.info(
-        `[RAG] ZIM entry census (backfill) for ${filePath}: ${counts.html} HTML, ${counts.pdf} PDF, ${counts.other} other`
+        `[RAG] ZIM entry census for ${filePath}: ${counts.html} HTML, ${counts.pdf} PDF, ${counts.other} other`
       )
     } catch (error) {
       logger.warn(
-        `[RAG] Could not backfill the ZIM entry census for ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+        `[RAG] Could not take the ZIM entry census for ${filePath}: ${error instanceof Error ? error.message : String(error)}`
       )
     }
   }
@@ -2563,35 +2574,37 @@ export class RagService {
         switch (action.kind) {
           case 'skip':
             skipped++
-            // A ZIM indexed before the entry census existed, with the small
-            // chunk count that marks a PDF shelf behind a shell page: take the
-            // census now so Warning C can reach installs that never re-index
-            // (#1445). Bounded to small results so a sync never pays for a
-            // full-size archive's entry list.
-            if (stateRow && shouldBackfillZimEntryCensus(filePath, stateRow)) {
-              await this._backfillZimEntryCensus(filePath, stateRow)
-            }
+            // A settled ZIM row with no entry census yet (indexed before the
+            // census existed, or waiting for the user under Manual policy):
+            // take it now so Warning C can show without re-indexing (#1445).
+            if (stateRow) await this._censusZimRow(filePath, stateRow)
             break
           case 'backfill_indexed':
             // Pre-RFC install (or a fresh admin pointed at an existing Qdrant volume):
             // chunks already exist with no state row, so trust Qdrant and record
             // `indexed` without re-embedding. chunks_embedded is left 0 because
             // we don't count points-per-source during the scroll above.
-            await KbIngestState.create({
-              file_path: filePath,
-              state: 'indexed',
-              chunks_embedded: 0,
-            })
+            await this._censusZimRow(
+              filePath,
+              await KbIngestState.create({
+                file_path: filePath,
+                state: 'indexed',
+                chunks_embedded: 0,
+              })
+            )
             backfilled++
             break
           case 'create_pending':
             // Manual mode: record that we've seen the file but don't dispatch.
             // The KB panel surfaces a per-card "Index" affordance for these.
-            await KbIngestState.create({
-              file_path: filePath,
-              state: 'pending_decision',
-              chunks_embedded: 0,
-            })
+            await this._censusZimRow(
+              filePath,
+              await KbIngestState.create({
+                file_path: filePath,
+                state: 'pending_decision',
+                chunks_embedded: 0,
+              })
+            )
             createdPending++
             break
           case 'dispatch':

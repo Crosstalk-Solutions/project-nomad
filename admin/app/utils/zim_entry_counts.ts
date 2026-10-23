@@ -5,7 +5,7 @@
  * else, PDFs included. Some archives, NOMAD's own Medicine and Survival tiers
  * among them, are a one-page HTML shell around a shelf of PDF books, so they
  * index to one or two chunks and show as healthy. Counting the entry types
- * once, when indexing starts, lets the Stored Files row say what was skipped.
+ * lets the Stored Files row say what was, or will be, skipped.
  */
 
 export type ZimEntryKind = 'html' | 'pdf' | 'other'
@@ -28,27 +28,61 @@ export function emptyZimEntryCounts(): ZimEntryCounts {
 }
 
 /**
- * Indexed ZIM rows below this chunk count get a one-time census during the
- * storage scan if they have none. A shelf of PDFs behind a shell page yields a
- * handful of chunks; anything with real HTML content is far above this and
- * would already have embedded its text.
+ * Parse the `Counter` metadata entry that the ZIM writer stores in modern
+ * archives: `text/html=14940;application/pdf=2851;image/jpeg=7842;...`.
+ * One metadata read replaces a walk over every entry. Returns null when the
+ * value is missing or holds no usable `mimetype=count` pair.
  */
-export const ZIM_CENSUS_BACKFILL_MAX_CHUNKS = 100
+export function parseZimCounterMetadata(counter: string | null | undefined): ZimEntryCounts | null {
+  if (!counter) return null
+  const counts = emptyZimEntryCounts()
+  let pairs = 0
+  for (const field of counter.split(';')) {
+    const eq = field.lastIndexOf('=')
+    if (eq <= 0) continue
+    const count = Number(field.slice(eq + 1).trim())
+    if (!Number.isInteger(count) || count < 0) continue
+    counts[classifyZimEntry(field.slice(0, eq).trim())] += count
+    pairs++
+  }
+  return pairs > 0 ? counts : null
+}
+
+/**
+ * An indexed ZIM row at or below this chunk count carries the PDF-shelf
+ * signature (a shell page or two in front of the books), so a storage sync
+ * may walk its entries when the archive has no `Counter` metadata. Anything
+ * with real HTML content is far above this and would already have embedded
+ * its text.
+ */
+export const ZIM_CENSUS_FULL_SCAN_MAX_CHUNKS = 100
+
+/**
+ * How much a storage sync may spend on the census of one ZIM row.
+ *
+ * - `none`: not a ZIM, or the row already has a census.
+ * - `full`: an indexed ZIM that produced only a handful of chunks. Worth a
+ *   walk over the entries even when the archive lacks `Counter` metadata.
+ * - `metadata_only`: everything else, including rows that are not indexed
+ *   yet (Manual policy) and large indexed ZIMs. Read the `Counter` metadata,
+ *   which is instant, and leave the row uncensused if the archive has none.
+ */
+export type ZimCensusPlan = 'none' | 'metadata_only' | 'full'
 
 export interface ZimCensusRow {
   state: string
   chunks_embedded: number
-  html_entries: number | null
-  pdf_entries: number | null
+  /** Null or undefined when no census was taken: a row fresh from `create()`
+   *  leaves unset columns undefined, one loaded from the table has null. */
+  html_entries?: number | null
+  pdf_entries?: number | null
 }
 
-/** Should the storage scan take the entry census for this already-indexed ZIM now? */
-export function shouldBackfillZimEntryCensus(filePath: string, row: ZimCensusRow): boolean {
-  return (
-    filePath.toLowerCase().endsWith('.zim') &&
-    row.state === 'indexed' &&
-    row.html_entries === null &&
-    row.pdf_entries === null &&
-    row.chunks_embedded < ZIM_CENSUS_BACKFILL_MAX_CHUNKS
-  )
+export function planZimEntryCensus(filePath: string, row: ZimCensusRow): ZimCensusPlan {
+  if (!filePath.toLowerCase().endsWith('.zim')) return 'none'
+  if (typeof row.html_entries === 'number' || typeof row.pdf_entries === 'number') return 'none'
+  if (row.state === 'indexed' && row.chunks_embedded <= ZIM_CENSUS_FULL_SCAN_MAX_CHUNKS) {
+    return 'full'
+  }
+  return 'metadata_only'
 }
