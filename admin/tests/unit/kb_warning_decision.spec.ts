@@ -123,3 +123,35 @@ test('Both warnings can fire on the same file in principle', () => {
     [{ kind: 'zero_chunks', fileSizeBytes: 1000 * MB }]
   )
 })
+
+test('Warning A stays quiet for a large file the user has not indexed yet (Manual policy)', () => {
+  for (const state of ['pending_decision', 'browse_only', 'failed', 'stalled'] as const) {
+    assert.deepEqual(
+      decideWarnings({
+        fileSizeBytes: 374 * MB,
+        chunksInQdrant: 0,
+        expectedChunks: 20_000,
+        state,
+      }),
+      [],
+      state
+    )
+  }
+})
+
+test('Warning A still fires for an indexed file, and for a legacy row-less one', () => {
+  const expected = [{ kind: 'zero_chunks', fileSizeBytes: 374 * MB }]
+  assert.deepEqual(
+    decideWarnings({
+      fileSizeBytes: 374 * MB,
+      chunksInQdrant: 0,
+      expectedChunks: 0,
+      state: 'indexed',
+    }),
+    expected
+  )
+  assert.deepEqual(
+    decideWarnings({ fileSizeBytes: 374 * MB, chunksInQdrant: 0, expectedChunks: 0, state: null }),
+    expected
+  )
+})
