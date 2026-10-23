@@ -1,7 +1,11 @@
 import { Job, UnrecoverableError } from 'bullmq'
 import { RunDownloadJobParams, DownloadProgressData } from '../../types/downloads.js'
 import { QueueService } from '#services/queue_service'
-import { doResumableDownload, GatedContentAuthError } from '../utils/downloads.js'
+import {
+  doResumableDownload,
+  GatedContentAuthError,
+  InsufficientDiskSpaceError,
+} from '../utils/downloads.js'
 import { createHash } from 'crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
@@ -321,6 +325,10 @@ export class RunDownloadJob {
       // backoff from 30s, so the job reads `delayed` for ~4h15m and the user sees a
       // stuck download instead of the message above.
       if (error instanceof GatedContentAuthError) {
+        throw new UnrecoverableError(error.message)
+      }
+      // Retrying won't free space; fail now with the reason shown on the downloads page
+      if (error instanceof InsufficientDiskSpaceError || error?.code === 'ENOSPC') {
         throw new UnrecoverableError(error.message)
       }
       throw error

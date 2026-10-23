@@ -1,7 +1,7 @@
 import { Job, UnrecoverableError } from 'bullmq'
 import { spawn, ChildProcess } from 'child_process'
 import { createHash } from 'crypto'
-import { readdir, stat } from 'fs/promises'
+import { readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { QueueService } from '#services/queue_service'
 import logger from '@adonisjs/core/services/logger'
@@ -71,6 +71,9 @@ export class RunExtractPmtilesJob {
   async handle(job: Job) {
     const params = job.data as RunExtractPmtilesJobParams
     const { sourceUrl, outputFilepath, regionFilepath, maxzoom, estimatedBytes } = params
+    // pmtiles writes here; renamed to outputFilepath only on success, so a failed, cancelled or
+    // crashed extract never replaces (or leaves a half-written) map that Kiwix/the UI would serve
+    const stagingPath = outputFilepath + '.tmp'
 
     logger.info(
       `[RunExtractPmtilesJob] Starting extract: source=${sourceUrl} region=${regionFilepath} ` +
@@ -100,7 +103,7 @@ export class RunExtractPmtilesJob {
       }
 
       try {
-        const fileStat = await stat(outputFilepath)
+        const fileStat = await stat(stagingPath)
         const downloadedBytes = Number(fileStat.size)
         if (downloadedBytes === lastReportedBytes) return
         lastReportedBytes = downloadedBytes
@@ -123,7 +126,7 @@ export class RunExtractPmtilesJob {
     try {
       const args = buildPmtilesExtractArgs({
         sourceUrl,
-        outputFilepath,
+        outputFilepath: stagingPath,
         regionFilepath,
         maxzoom,
         downloadThreads: 8,
@@ -145,12 +148,15 @@ export class RunExtractPmtilesJob {
       })
 
       if (exitCode !== 0) {
-        await deleteFileIfExists(outputFilepath)
+        await deleteFileIfExists(stagingPath)
         if (userCancelled) {
           throw new UnrecoverableError(`Extract cancelled by user (exit ${exitCode})`)
         }
         throw new Error(`pmtiles extract exited with code ${exitCode}`)
       }
+
+      // Only a finished extract replaces the served file (a re-extract can share its name)
+      await rename(stagingPath, outputFilepath)
 
       // Final progress bump — tick caps at 99 so the UI doesn't flicker to 100 mid-extract
       const finalStat = await stat(outputFilepath)

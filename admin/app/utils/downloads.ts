@@ -9,6 +9,23 @@ import { createWriteStream } from 'fs'
 import { rename } from 'fs/promises'
 import path from 'path'
 import logger from '@adonisjs/core/services/logger'
+import {
+  checkDownloadedSize,
+  DOWNLOAD_FREE_SPACE_HEADROOM_BYTES,
+  formatGiB,
+  hasRoomForDownload,
+  isMatchingResume,
+} from './download_integrity.js'
+import { statfs } from 'fs/promises'
+
+async function getFreeBytesAt(dir: string): Promise<number | null> {
+  try {
+    const stats = await statfs(dir)
+    return Number(stats.bavail) * Number(stats.bsize)
+  } catch {
+    return null
+  }
+}
 
 /**
  * A gated source rejected this install's credentials (401/403).
@@ -22,6 +39,14 @@ export class GatedContentAuthError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'GatedContentAuthError'
+  }
+}
+
+/** Not enough free disk space to finish a download (checked before writing any byte). */
+export class InsufficientDiskSpaceError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'InsufficientDiskSpaceError'
   }
 }
 
@@ -151,6 +176,20 @@ export async function doResumableDownload({
     appendMode = false
   }
 
+  // Refuse before writing anything when the rest of the file won't fit. Covers manual downloads
+  // and unattended content auto-updates alike (a 100 GB Wikipedia update at 3 AM must not fill
+  // the volume the database and Redis share). Unknown sizes and unreadable stats are not blocked.
+  if (totalBytes > 0) {
+    const remainingBytes = totalBytes - (supportsRangeRequests ? startByte : 0)
+    const freeBytes = await getFreeBytesAt(dirname)
+    if (freeBytes !== null && !hasRoomForDownload(remainingBytes, freeBytes)) {
+      throw new InsufficientDiskSpaceError(
+        `Not enough free disk space for ${path.basename(filepath)}: needs ${formatGiB(remainingBytes)} ` +
+          `plus ${formatGiB(DOWNLOAD_FREE_SPACE_HEADROOM_BYTES)} headroom, only ${formatGiB(freeBytes)} free.`
+      )
+    }
+  }
+
   // Add Range header if resuming
   if (supportsRangeRequests && startByte > 0) {
     headers.Range = `bytes=${startByte}-`
@@ -170,9 +209,18 @@ export async function doResumableDownload({
     throw new Error(`Failed to download: HTTP ${response.status}`)
   }
 
-  // If we requested a range but the server returned 200 (ignored the Range header),
-  // appending would corrupt the .tmp file — delete it and restart from byte 0.
-  if (headers.Range && response.status === 200) {
+  // If we requested a range but the server returned 200 (ignored the Range header), or a 206 that
+  // does not continue our partial file, appending would corrupt the .tmp — delete it and restart.
+  if (
+    headers.Range &&
+    (response.status === 200 ||
+      !isMatchingResume(response.headers['content-range']?.toString(), startByte, totalBytes))
+  ) {
+    if (response.status === 206) {
+      logger.warn(
+        `[Download] Resume of ${filepath} got Content-Range "${response.headers['content-range']}" for a request from byte ${startByte}; restarting from scratch`
+      )
+    }
     response.data.destroy()
     await deleteFileIfExists(tempPath)
     startByte = 0
@@ -256,6 +304,18 @@ export async function doResumableDownload({
 
     writeStream.on('finish', async () => {
       clearStallTimer()
+      // A server that closes the connection cleanly before the end leaves a truncated file. Never
+      // install it: a short .tmp is kept so the next attempt resumes it, an oversized one is junk.
+      const completeness = checkDownloadedSize(downloadedBytes, totalBytes)
+      if (completeness !== 'complete') {
+        if (completeness === 'oversized') await deleteFileIfExists(tempPath)
+        reject(
+          new Error(
+            `Download incomplete: received ${downloadedBytes} of ${totalBytes} bytes (${completeness})`
+          )
+        )
+        return
+      }
       try {
         // Atomically move the completed .tmp file to the final path
         await rename(tempPath, filepath)

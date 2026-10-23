@@ -8,7 +8,11 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { XMLParser } from 'fast-xml-parser'
 import { isRawListRemoteZimFilesResponse, isRawRemoteZimFileEntry } from '../../util/zim.js'
-import { findReplacedWikipediaFiles } from '../utils/zim_filename.js'
+import {
+  findReplacedWikipediaFiles,
+  isWikipediaSelectorFile,
+  zimFilenameStem,
+} from '../utils/zim_filename.js'
 import { decideSupersededDeletion } from '../utils/superseded_resource.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
@@ -434,10 +438,32 @@ export class ZimService {
     return downloadFilenames.length > 0 ? downloadFilenames : null
   }
 
+  /**
+   * URLs of the Wikipedia selector's options. Read from the local manifest first so this works
+   * offline; the remote options file is only a fallback. Empty when neither is available.
+   */
+  private async wikipediaOptionUrls(): Promise<Array<string | null>> {
+    try {
+      const manifest = await CollectionManifest.find('wikipedia')
+      const spec = manifest?.spec_data as { options?: Array<{ url: string | null }> } | undefined
+      if (spec?.options?.length) return spec.options.map((o) => o.url)
+    } catch {}
+    try {
+      return (await this.getWikipediaOptions()).map((o) => o.url)
+    } catch {
+      return []
+    }
+  }
+
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
-    // Check if any URL is a Wikipedia download and handle it
+    const wikipediaOptionUrls = await this.wikipediaOptionUrls()
+    const isSelectorWikipedia = (url: string) =>
+      isWikipediaSelectorFile(url.split('/').pop() ?? '', wikipediaOptionUrls)
+
+    // Only the Wikipedia selector's own files update the selection; other wikipedia_en_* corpora
+    // (e.g. the Medicine tier) are ordinary ZIMs
     for (const url of urls) {
-      if (url.includes('wikipedia_en_')) {
+      if (isSelectorWikipedia(url)) {
         await this.onWikipediaDownloadComplete(url, true)
       }
     }
@@ -502,8 +528,8 @@ export class ZimService {
     const zimStorageDir = join(process.cwd(), ZIM_STORAGE_PATH)
     let removedSupersededZim = false
     for (const url of urls) {
-      // Skip Wikipedia files (managed separately)
-      if (url.includes('wikipedia_en_')) continue
+      // Skip the selector's Wikipedia files (managed separately)
+      if (isSelectorWikipedia(url)) continue
 
       const filename = url.split('/').pop()
       if (!filename) continue
@@ -665,11 +691,13 @@ export class ZimService {
           }
           logger.info(`[ZimService] Marked Wikipedia option '${matchedOption.id}' as installed from local upload`)
 
-          // Remove any other wikipedia_en_*.zim files, same as the download flow
+          // Remove older releases of this same Wikipedia variant only, same as the download flow
+          // (a prefix match here used to delete unrelated corpora such as the Medicine tier)
           const allFiles = await this.list()
-          const staleWikipediaFiles = allFiles.files.filter(
-            (f) => f.name.startsWith('wikipedia_en_') && f.name !== filename
-          )
+          const staleWikipediaFiles = findReplacedWikipediaFiles(
+            filename,
+            allFiles.files.map((f) => f.name)
+          ).map((name) => ({ name }))
           for (const stale of staleWikipediaFiles) {
             try {
               await this.delete(stale.name)
@@ -963,18 +991,27 @@ export class ZimService {
     const filename = url.split('/').pop() || ''
     const selection = await this.getWikipediaSelection()
 
-    // Determine which Wikipedia option this file belongs to by matching filename
+    // Determine which Wikipedia option this file belongs to: same variant stem, so a newer
+    // release of an option (e.g. a content update) still matches
     let matchedOptionId: string | null = null
     try {
       const options = await this.getWikipediaOptions()
-      for (const opt of options) {
-        if (opt.url && opt.url.split('/').pop() === filename) {
-          matchedOptionId = opt.id
-          break
-        }
-      }
+      matchedOptionId =
+        options.find((opt) => opt.url && isWikipediaSelectorFile(filename, [opt.url]))?.id ?? null
     } catch {
       // If we can't fetch options, try to continue with existing selection
+    }
+
+    // Callers only pre-filter on the `wikipedia_en_` prefix. Anything that is neither a selector
+    // option nor the current selection's variant (e.g. the Medicine tier ZIM) must not touch the
+    // selection: taking it over makes the next restart drop that file's InstalledResource row,
+    // and choosing "none" in the selector would delete it.
+    const isSelectionVariant =
+      !!selection?.filename && zimFilenameStem(selection.filename) === zimFilenameStem(filename)
+    const isPendingSelection = !!selection && !selection.filename && selection.url === url
+    if (!matchedOptionId && !isSelectionVariant && !isPendingSelection) {
+      logger.info(`[ZimService] ${filename} is not the selected Wikipedia; leaving the selection unchanged`)
+      return
     }
 
     if (success) {
@@ -1016,7 +1053,7 @@ export class ZimService {
       }
     } else {
       // Download failed - update selection if it matches this file
-      if (selection && (!selection.filename || selection.filename === filename)) {
+      if (selection && (isPendingSelection || selection.filename === filename)) {
         selection.status = 'failed'
         await selection.save()
         logger.error(`[ZimService] Wikipedia download failed for: ${filename}`)

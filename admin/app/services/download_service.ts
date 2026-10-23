@@ -290,9 +290,11 @@ export class DownloadService {
     await this._pollForTerminalState(job, jobId)
     await this._removeJobWithLockFallback(job, queue, RunExtractPmtilesJob.queue, jobId)
 
+    // Extracts are staged to `<file>.tmp` (see RunExtractPmtilesJob); the final path may be an
+    // installed map with the same name, which a cancel must not delete
     if (outputFilepath) {
       try {
-        await deleteFileIfExists(outputFilepath)
+        await deleteFileIfExists(outputFilepath + '.tmp')
       } catch {
         // File may not exist yet (subprocess may not have opened it)
       }
@@ -319,11 +321,12 @@ export class DownloadService {
     await this._pollForTerminalState(job, jobId)
     await this._removeJobWithLockFallback(job, queue, RunDownloadJob.queue, jobId)
 
-    // Delete the partial file from disk
+    // Delete the partial file from disk. Downloads are staged to `<file>.tmp` and only renamed
+    // into place when complete, so the final path is never a partial: it is either a file that
+    // was already installed (re-downloading the same name) or one that finished during the
+    // cancel poll — deleting it would remove installed content its DB row still points to.
     if (filepath) {
       try {
-        await deleteFileIfExists(filepath)
-        // Also try .tmp in case PR #448 staging is merged
         await deleteFileIfExists(filepath + '.tmp')
       } catch {
         // File may not exist yet (waiting job)
