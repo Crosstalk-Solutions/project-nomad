@@ -6,3 +6,4 @@ node_modules
 admin/storage
 admin/node_modules
 admin/build
+.nomad
