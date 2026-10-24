@@ -49,6 +49,7 @@ tmp
 
 # macOS Metafiles
 .DS_Store
+.nomad/
 
 # Fonts
 .ttf

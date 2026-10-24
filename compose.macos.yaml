@@ -1,0 +1,76 @@
+# Run from the repository root: docker compose -f compose.macos.yaml up -d --build
+name: project-nomad
+services:
+  admin:
+    build:
+      context: .
+      args:
+        VERSION: 1.35.1-local
+    image: project-nomad:macos-local
+    container_name: nomad_admin
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./.nomad/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - nomad-update-shared:/app/update-shared
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      HOST: 0.0.0.0
+      URL: http://localhost:8080
+      LOG_LEVEL: info
+      APP_KEY: ${APP_KEY:?Set APP_KEY in .env}
+      NOMAD_STORAGE_PATH: ${PWD}/.nomad/storage
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: nomad
+      DB_NAME: nomad
+      DB_USER: nomad_user
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      DB_SSL: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+  mysql:
+    image: mysql:8.0
+    container_name: nomad_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: nomad
+      MYSQL_USER: nomad_user
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    container_name: nomad_redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  mysql-data:
+  redis-data:
+  nomad-update-shared:
