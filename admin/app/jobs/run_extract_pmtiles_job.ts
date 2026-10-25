@@ -7,7 +7,7 @@ import { QueueService } from '#services/queue_service'
 import logger from '@adonisjs/core/services/logger'
 import { DownloadProgressData } from '../../types/downloads.js'
 import { PMTILES_BINARY_PATH, buildPmtilesExtractArgs } from '../../constants/map_regions.js'
-import { deleteFileIfExists } from '../utils/fs.js'
+import { deleteFileIfExists, getAllocatedBytes } from '../utils/fs.js'
 
 export interface RunExtractPmtilesJobParams {
   sourceUrl: string
@@ -87,6 +87,8 @@ export class RunExtractPmtilesJob {
     // One 2s tick polls the Redis cancel signal and reads file-size for progress. pmtiles
     // writes incrementally but rewrites directories near the end so progress isn't strictly
     // monotonic — we cap at 99% and skip emit when bytes are unchanged to avoid Redis chatter.
+    // pmtiles creates the output as a sparse file at its final size, so progress uses the
+    // allocated bytes rather than the apparent size (#1479).
     const tick = setInterval(async () => {
       try {
         const val = await cancelRedis.get(RunExtractPmtilesJob.cancelKey(job.id!))
@@ -101,7 +103,7 @@ export class RunExtractPmtilesJob {
 
       try {
         const fileStat = await stat(outputFilepath)
-        const downloadedBytes = Number(fileStat.size)
+        const downloadedBytes = getAllocatedBytes(fileStat)
         if (downloadedBytes === lastReportedBytes) return
         lastReportedBytes = downloadedBytes
 

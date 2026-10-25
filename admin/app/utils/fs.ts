@@ -116,6 +116,22 @@ export async function getFileStatsIfExists(
 }
 
 /**
+ * Bytes actually written to disk for a file. Some writers (e.g. `pmtiles extract`) create
+ * the output at its final size as a sparse file and fill it in afterwards, so `size` is the
+ * final size from the start; `blocks` tracks what has really been allocated. Capped at `size`
+ * because block rounding makes `blocks * 512` slightly larger for a fully written file.
+ * Falls back to `size` where the platform doesn't report blocks.
+ */
+export function getAllocatedBytes(stats: {
+  size: number | bigint
+  blocks?: number | bigint
+}): number {
+  const size = Number(stats.size)
+  if (stats.blocks === undefined) return size
+  return Math.min(size, Number(stats.blocks) * 512)
+}
+
+/**
  * Validates that a file has the ZIM magic number (0x44D495A).
  * Must be called before passing a file to @openzim/libzim Archive,
  * because a corrupted ZIM causes a native C++ abort that cannot be
