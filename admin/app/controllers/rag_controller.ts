@@ -16,9 +16,17 @@ export default class RagController {
   constructor(private ragService: RagService) { }
 
   public async upload({ request, response }: HttpContext) {
-    const uploadedFile = request.file('file')
+    // Only the types RagService can parse (see determineFileType). extname comes
+    // from the file's magic bytes when recognisable, so a renamed file is caught too.
+    const uploadedFile = request.file('file', {
+      // 'tif': AdonisJS reports TIFF uploads by content as .tif
+      extnames: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tif', 'tiff', 'webp', 'pdf', 'docx', 'txt', 'md', 'rtf', 'epub', 'zim'],
+    })
     if (!uploadedFile) {
       return response.status(400).json({ error: 'No file uploaded' })
+    }
+    if (!uploadedFile.isValid) {
+      return response.status(400).json({ error: uploadedFile.errors[0]?.message ?? 'Unsupported file type' })
     }
 
     const collection = sanitizeCollectionName(request.input('collection', null))
