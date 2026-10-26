@@ -177,6 +177,10 @@ export default function DrugReferenceIndex({
   const [drugSearched, setDrugSearched] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Bumped per drug search; a response that isn't the latest is ignored (stale query/filters).
+  const drugReqRef = useRef(0)
+  // Same, per situation slug.
+  const sitReqRef = useRef<Record<string, number>>({})
 
   // ── Tab 2: situations (multi-select) ───────────────────────────────────────
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([])
@@ -227,9 +231,11 @@ export default function DrugReferenceIndex({
       off: number,
       append: boolean
     ) => {
+      const reqId = ++drugReqRef.current
       if (!q.trim()) {
         setDrugResults([])
         setHasMore(false)
+        setDrugLoading(false)
         return
       }
       setDrugLoading(true)
@@ -241,13 +247,15 @@ export default function DrugReferenceIndex({
         const resp = await fetch(`/api/drug-reference/search?${params}`)
         if (!resp.ok) throw new Error(`Search failed: HTTP ${resp.status}`)
         const json = (await resp.json()) as { results: DrugSearchResult[] }
+        if (reqId !== drugReqRef.current) return
         const next = json.results ?? []
         setDrugResults(append ? (prev) => [...prev, ...next] : next)
         setHasMore(next.length === LIMIT)
       } catch (err) {
+        if (reqId !== drugReqRef.current) return
         setError(err instanceof Error ? err.message : 'Search failed')
       } finally {
-        setDrugLoading(false)
+        if (reqId === drugReqRef.current) setDrugLoading(false)
       }
     },
     []
@@ -270,14 +278,17 @@ export default function DrugReferenceIndex({
     debounceRef.current = setTimeout(() => runDrugSearch(val, productType, route, sort), DEBOUNCE_MS)
   }
   const handleFilterChange = (pt: string | null) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     setProductType(pt)
     runDrugSearch(query, pt, route, sort)
   }
   const handleRouteChange = (rt: string | null) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     setRoute(rt)
     runDrugSearch(query, productType, rt, sort)
   }
   const handleSortChange = (srt: 'relevance' | 'name') => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     setSort(srt)
     runDrugSearch(query, productType, route, srt)
   }
@@ -298,6 +309,9 @@ export default function DrugReferenceIndex({
   // ── Situation search (multi-select) ─────────────────────────────────────────
   const fetchSituation = useCallback(
     async (c: ConditionSummary, rt: string | null, srt: 'relevance' | 'name') => {
+      const reqId = (sitReqRef.current[c.slug] ?? 0) + 1
+      sitReqRef.current[c.slug] = reqId
+      const isLatest = () => sitReqRef.current[c.slug] === reqId
       setSitResults((prev) => ({
         ...prev,
         [c.slug]: { label: c.label, drugs: prev[c.slug]?.drugs ?? [], remedies: prev[c.slug]?.remedies ?? [], loading: true },
@@ -312,6 +326,7 @@ export default function DrugReferenceIndex({
         const resp = await fetch(`/api/conditions/drugs?${params}`)
         if (!resp.ok) throw new Error(`Search failed: HTTP ${resp.status}`)
         const json = (await resp.json()) as ConditionDrugsResult
+        if (!isLatest()) return
         setSitResults((prev) => ({
           ...prev,
           [c.slug]: {
@@ -322,6 +337,7 @@ export default function DrugReferenceIndex({
           },
         }))
       } catch (err) {
+        if (!isLatest()) return
         setError(err instanceof Error ? err.message : 'Search failed')
         setSitResults((prev) => ({ ...prev, [c.slug]: { label: c.label, drugs: [], remedies: [], loading: false } }))
       }

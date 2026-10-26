@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
+import { isDuplicateKeyError } from '../utils/sql.js'
 
 const LAST_ERROR_MAX_LEN = 1024
 
@@ -44,10 +45,16 @@ export default class KbIngestState extends BaseModel {
   declare updated_at: DateTime
 
   static async getOrCreate(filePath: string, collection?: string): Promise<KbIngestState> {
-    return this.firstOrCreate(
-      { file_path: filePath },
-      { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null, active: true }
-    )
+    try {
+      return await this.firstOrCreate(
+        { file_path: filePath },
+        { file_path: filePath, state: 'pending_decision', chunks_embedded: 0, collection: collection ?? null, active: true }
+      )
+    } catch (err) {
+      // A concurrent caller inserted the row between our SELECT and INSERT.
+      if (!isDuplicateKeyError(err)) throw err
+      return this.findByOrFail('file_path', filePath)
+    }
   }
 
   static async markIndexed(filePath: string, chunksEmbedded: number, collection?: string): Promise<void> {

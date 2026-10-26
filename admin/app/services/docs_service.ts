@@ -3,6 +3,7 @@ import { streamToString } from '../../util/docs.js'
 import { getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
 import path from 'path'
 import InternalServerErrorException from '#exceptions/internal_server_error_exception'
+import { Exception } from '@adonisjs/core/exceptions'
 import logger from '@adonisjs/core/services/logger'
 
 export class DocsService {
@@ -74,12 +75,12 @@ export class DocsService {
       const basePath = path.resolve(this.docsPath)
       const fullPath = path.resolve(path.join(this.docsPath, filename))
       if (!fullPath.startsWith(basePath + path.sep)) {
-        throw new Error('Invalid document slug')
+        throw new Exception('Document not found', { status: 404, code: 'E_NOT_FOUND' })
       }
 
       const fileExists = await getFileStatsIfExists(fullPath)
       if (!fileExists) {
-        throw new Error(`File not found: ${filename}`)
+        throw new Exception(`Document not found: ${filename}`, { status: 404, code: 'E_NOT_FOUND' })
       }
 
       const fileStream = await getFile(fullPath, 'stream')
@@ -89,6 +90,8 @@ export class DocsService {
       const content = await streamToString(fileStream)
       return this.parse(content)
     } catch (error) {
+      // A missing doc is the client's 404, not a server fault.
+      if (error instanceof Exception && error.status === 404) throw error
       throw new InternalServerErrorException(`Error parsing file: ${(error as Error).message}`)
     }
   }

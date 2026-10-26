@@ -41,6 +41,11 @@ export default function Chat({
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
+  // Session the user selected last; a slower getChatSession for an earlier click must not win.
+  const latestSelectRef = useRef<string | null>(null)
+  // Set before the first message awaits createChatSession, so a second submit can't create another session.
+  const creatingSessionRef = useRef(false)
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
 
   const abortCurrentStream = useCallback(() => {
     abortActiveStream(streamAbortRef)
@@ -298,6 +303,7 @@ export default function Chat({
     })
     abortCurrentStream()
     setIsStreamingResponse(false)
+    latestSelectRef.current = null
     setSelectedModel(newModel)
     setPendingModelSwitch(null)
     // Clear the active session and messages — the next user message will
@@ -315,6 +321,7 @@ export default function Chat({
     // Just clear the active session and messages - don't create a session yet
     abortCurrentStream()
     setIsStreamingResponse(false)
+    latestSelectRef.current = null
     setActiveSessionId(null)
     setMessages([])
   }, [abortCurrentStream])
@@ -346,9 +353,12 @@ export default function Chat({
       abortCurrentStream()
       setIsStreamingResponse(false)
 
+      latestSelectRef.current = sessionId
       setActiveSessionId(sessionId)
       // Load messages for this session
       const sessionData = await api.getChatSession(sessionId)
+      // Another session (or a new chat) was selected while this one loaded
+      if (latestSelectRef.current !== sessionId) return
       if (sessionData?.messages) {
         setMessages(
           sessionData.messages.map((m) => ({
@@ -385,6 +395,7 @@ export default function Chat({
   const handleSendMessage = useCallback(
     async (content: string, images: ChatImageAttachment[] = []) => {
       let sessionId = activeSessionId
+      if (!sessionId && creatingSessionRef.current) return
 
       // Render the user's message before anything can await (#1211). Creating the
       // session used to come first, so on a slow or stalled request the message the
@@ -402,10 +413,15 @@ export default function Chat({
       // Create a new session if none exists
       if (!sessionId) {
         let newSession: Awaited<ReturnType<typeof api.createChatSession>> | undefined
+        creatingSessionRef.current = true
+        setIsCreatingSession(true)
         try {
           newSession = await api.createChatSession('New Chat', selectedModel)
         } catch {
           newSession = undefined
+        } finally {
+          creatingSessionRef.current = false
+          setIsCreatingSession(false)
         }
 
         if (!newSession) {
@@ -425,6 +441,7 @@ export default function Chat({
         }
 
         sessionId = newSession.id
+        latestSelectRef.current = sessionId
         setActiveSessionId(sessionId)
         queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
       }
@@ -737,7 +754,7 @@ export default function Chat({
             messages={messages}
             onSendMessage={handleSendMessage}
             visionCapability={selectedModelVisionCapability}
-            isLoading={isStreamingResponse || chatMutation.isPending}
+            isLoading={isStreamingResponse || isCreatingSession || chatMutation.isPending}
             chatSuggestions={chatSuggestions}
             chatSuggestionsEnabled={suggestionsEnabled}
             chatSuggestionsLoading={chatSuggestionsLoading}

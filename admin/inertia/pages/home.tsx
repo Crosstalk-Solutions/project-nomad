@@ -319,7 +319,7 @@ export default function Home(props: {
             const confirming = pendingDelete === tile.service_name
 
             return (
-              <div key={item.label} className="group relative">
+              <div key={item.linkTile?.service_name ?? item.to} className="group relative">
                 <a href={item.to} target="_blank" rel="noopener noreferrer">
                   {tileContent}
                 </a>
@@ -371,11 +371,11 @@ export default function Home(props: {
           }
 
           return item.target === '_blank' ? (
-            <a key={item.label} href={item.to} target="_blank" rel="noopener noreferrer">
+            <a key={item.linkTile?.service_name ?? item.to} href={item.to} target="_blank" rel="noopener noreferrer">
               {tileContent}
             </a>
           ) : (
-            <Link key={item.label} href={item.to}>
+            <Link key={item.linkTile?.service_name ?? item.to} href={item.to}>
               {tileContent}
             </Link>
           )
