@@ -2587,7 +2587,22 @@ export class RagService {
   }
 
   /**
-   * Re-embed every file on disk (per-file replace). For each discovered file:
+   * The files a bulk re-embed or rebuild should queue: what the user chose to
+   * index, not every file on disk. Same decision the sync makes for a file with
+   * no chunks left, so under Manual pending ZIMs (Wikipedia included) stay out.
+   */
+  private async _filesChosenForIndexing(discovered: string[]): Promise<string[]> {
+    const rows = await KbIngestState.query().select('file_path', 'state')
+    const stateByPath = new Map(rows.map((r) => [r.file_path, r]))
+    const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+    const policy: IngestPolicy = policyRaw === 'Manual' ? 'Manual' : 'Always'
+    return discovered.filter(
+      (f) => decideScanAction(stateByPath.get(f) ?? null, false, policy).kind === 'dispatch'
+    )
+  }
+
+  /**
+   * Re-embed every file the user chose to index (per-file replace). For each:
    * delete its existing Qdrant points by `source` match, then dispatch a fresh
    * EmbedFileJob. Files are NOT removed from disk. Any orphan points (points
    * whose source file no longer exists) are intentionally preserved — use
@@ -2617,7 +2632,8 @@ export class RagService {
         logger.error('[RAG] Error re-running Nomad docs discovery during re-embed:', error)
       })
 
-      const filesInStorage = await this._discoverKbFiles()
+      const discovered = await this._discoverKbFiles()
+      const filesInStorage = await this._filesChosenForIndexing(discovered)
 
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
@@ -2667,7 +2683,8 @@ export class RagService {
       }
 
       logger.info(
-        `[RAG] Re-embed dispatched ${queuedCount}/${filesInStorage.length} files` +
+        `[RAG] Re-embed dispatched ${queuedCount}/${filesInStorage.length} files ` +
+          `(${discovered.length - filesInStorage.length} left as the user had them)` +
           (failedPaths.length > 0 ? ` (${failedPaths.length} failed)` : '')
       )
 
@@ -2695,7 +2712,7 @@ export class RagService {
    * Destructive rebuild. Drops the entire Qdrant collection (wiping every
    * point including orphans), recreates it with the correct dimension, clears
    * the Nomad-docs discovery flag, then dispatches an EmbedFileJob for every
-   * file currently on disk.
+   * file the user chose to index.
    *
    * Refuses to run if the embeddings queue already has in-flight work.
    */
@@ -2741,13 +2758,15 @@ export class RagService {
         logger.error('[RAG] Error re-running Nomad docs discovery after reset:', error)
       })
 
-      const filesInStorage = await this._discoverKbFiles()
+      const discovered = await this._discoverKbFiles()
+      const filesInStorage = await this._filesChosenForIndexing(discovered)
       const { queuedCount, failedPaths } = await this._dispatchEmbedJobsFor(filesInStorage, {
         force: true,
       })
 
       logger.info(
-        `[RAG] Reset complete — dispatched ${queuedCount}/${filesInStorage.length} files` +
+        `[RAG] Reset complete — dispatched ${queuedCount}/${filesInStorage.length} files ` +
+          `(${discovered.length - filesInStorage.length} left as the user had them)` +
           (failedPaths.length > 0 ? ` (${failedPaths.length} failed)` : '')
       )
 
