@@ -6,6 +6,7 @@ import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
 import {
   UNKNOWN_BACKEND_CONTEXT,
+  UNREPORTED_BACKEND_CONTEXT,
   computeKvBytesPerToken,
   estimateKvBytesPerToken,
   parseParameterBillions,
@@ -60,6 +61,11 @@ export class ContextWindowService {
       return { contextWindow: UNKNOWN_BACKEND_CONTEXT, limitedBy: 'default' as const }
     })
     this.decisions.set(model, pending)
+    // Non-Ollama backends decide the size when they load the model (LM Studio: just-in-time, by
+    // this very request; the user can reload it with another size), so ask again next turn.
+    pending.then((d: ContextWindowDecision) => {
+      if (d.stable === false) this.decisions.delete(model)
+    })
     return pending
   }
 
@@ -70,17 +76,24 @@ export class ContextWindowService {
     ])
     const userCap = parseUserContextCap(userCapRaw)
 
-    // No /api/show means a non-Ollama backend, which sets its context at server
-    // start and ignores anything we send. Budget against a conservative value so
-    // the prompt planner still bounds itself rather than trusting the backend to
-    // truncate gracefully — it won't; it will truncate silently.
+    // No /api/show means a non-Ollama backend, which sets its context when it loads the model
+    // and ignores anything we send. Budget against what it reports having loaded (LM Studio,
+    // llama.cpp) — never above it, or the backend truncates the prompt silently — and against a
+    // conservative default when it reports nothing.
     if (!info.contextLength && !info.rawModelInfo) {
-      const decision: ContextWindowDecision = {
-        contextWindow: userCap ?? UNKNOWN_BACKEND_CONTEXT,
-        limitedBy: userCap ? 'user' : 'default',
-      }
+      const served = await this.ollamaService.getServedContextLength(model)
+      const decision: ContextWindowDecision =
+        served !== undefined
+          ? userCap !== undefined && userCap < served
+            ? { contextWindow: userCap, limitedBy: 'user', stable: false }
+            : { contextWindow: served, limitedBy: 'model', stable: false }
+          : {
+              contextWindow: userCap ?? UNREPORTED_BACKEND_CONTEXT,
+              limitedBy: userCap !== undefined ? 'user' : 'default',
+              stable: false,
+            }
       logger.info(
-        `[ContextWindow] ${model}: no model metadata available, budgeting at ${decision.contextWindow}`
+        `[ContextWindow] ${model}: ${served !== undefined ? `backend reports ${served} loaded` : 'backend reports no context size'}, budgeting at ${decision.contextWindow}`
       )
       return decision
     }

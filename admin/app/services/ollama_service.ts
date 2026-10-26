@@ -4,7 +4,11 @@ import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/res
 import type { Stream } from 'openai/streaming.js'
 import { Ollama } from 'ollama'
 import { ThinkTagSplitter, normalizeNonStreamed } from '../utils/think_stream.js'
-import { readContextLength, readModelfileNumCtx } from '../utils/context_window.js'
+import {
+  readContextLength,
+  readModelfileNumCtx,
+  readServedContextLength,
+} from '../utils/context_window.js'
 import { compatSamplerParams, nativeSamplerOptions, readModelfileSamplers } from '../utils/sampler.js'
 import { NomadOllamaModel, SamplerProfile } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -918,6 +922,29 @@ export class OllamaService {
       // failure can be retried rather than poisoning the process.
       return { hasThinking: false }
     }
+  }
+
+  /**
+   * Context size a non-Ollama backend loaded `modelName` with (LM Studio or llama.cpp server), or
+   * undefined when it does not say. Not cached: LM Studio only reports it once the model is
+   * loaded, and the user can reload it with a different size at any time.
+   */
+  public async getServedContextLength(modelName: string): Promise<number | undefined> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return undefined
+    const get = async (path: string) => {
+      try {
+        return (await axios.get(`${this.baseUrl}${path}`, { timeout: 3000 })).data
+      } catch {
+        return undefined
+      }
+    }
+    // LM Studio model ids contain "/" (qwen/qwen3-8b) and its route expects it unescaped
+    const modelPath = modelName.split('/').map(encodeURIComponent).join('/')
+    const lmStudioModel = await get(`/api/v0/models/${modelPath}`)
+    const fromLmStudio = readServedContextLength(lmStudioModel, undefined)
+    if (fromLmStudio) return fromLmStudio
+    return readServedContextLength(undefined, await get('/props'))
   }
 
   public async getModelCapabilities(
