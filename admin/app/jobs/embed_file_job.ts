@@ -166,9 +166,9 @@ export class EmbedFileJob {
         // saturation across all cores during multi-batch ZIM ingestion can starve
         // other services (sshd has been seen to lose responsiveness hard enough to
         // require a power-cycle). When GPU-accelerated, embeddings stream through
-        // the GPU and CPUs stay free — no pacing needed.
-        const isGpuAccelerated = await ollamaService.isEmbeddingGpuAccelerated()
-        if (!isGpuAccelerated) {
+        // the GPU and CPUs stay free — no pacing needed. A non-Ollama backend
+        // (LM Studio, llama.cpp) is never paced: see shouldPaceEmbedding.
+        if (await ollamaService.shouldPaceEmbeddings()) {
           logger.info(
             `[EmbedFileJob] Embedding is CPU-only — pacing ${EmbedFileJob.CPU_BATCH_DELAY_MS}ms before dispatching next batch`
           )
