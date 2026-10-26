@@ -30,6 +30,58 @@ for i in $(seq 1 60); do
   sleep 1
 done
 
+# Guard against silently starting over on an empty database. If the MySQL data path goes
+# missing (e.g. a bind mount that Docker recreated as an empty folder), MySQL initializes a
+# brand-new database and migrations + seeds would make it look like a fresh install. The marker
+# lives in storage and is written after the first successful migrate + seed; if it exists but the
+# services table is missing or empty, the database is not the one this install was using.
+# No marker = first run (or an install from before this check), so proceed normally.
+INIT_MARKER=/app/storage/.nomad-initialized
+if [ -f "$INIT_MARKER" ]; then
+  echo "Checking that the existing database is present..."
+  for i in $(seq 1 30); do
+    # Exit codes: 0 = services has rows, 2 = table missing or empty, 1 = could not query (retry).
+    db_check=0
+    node - <<'EOF' || db_check=$?
+const mysql = require('mysql2/promise')
+;(async () => {
+  let conn
+  try {
+    conn = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT || 3306),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+    })
+    const [rows] = await conn.query('SELECT COUNT(*) AS n FROM services')
+    process.exitCode = Number(rows[0].n) > 0 ? 0 : 2
+  } catch (err) {
+    if (err && err.code === 'ER_NO_SUCH_TABLE') { process.exitCode = 2 }
+    else { console.error('Database check failed: ' + (err && err.message)); process.exitCode = 1 }
+  } finally {
+    if (conn) await conn.end().catch(() => {})
+  }
+})()
+EOF
+    if [ "$db_check" -eq 0 ]; then
+      break
+    fi
+    if [ "$db_check" -eq 2 ]; then
+      echo "ERROR: This install was initialized before ($INIT_MARKER exists) but the database is empty." >&2
+      echo "ERROR: The MySQL data directory is probably missing or not mounted (check the mysql volume path in compose.yml)." >&2
+      echo "ERROR: Refusing to migrate and seed a fresh database over it. Restore the data directory, or delete" >&2
+      echo "ERROR: $INIT_MARKER (in the storage folder on the host) if you really want to start from scratch." >&2
+      exit 1
+    fi
+    if [ "$i" -eq 30 ]; then
+      echo "Timed out checking the database" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+fi
+
 # Run AdonisJS migrations
 echo "Running AdonisJS migrations..."
 node ace migration:run --force
@@ -38,9 +90,19 @@ node ace migration:run --force
 echo "Seeding the database..."
 node ace db:seed
 
-# Start background workers for all queues
+# Record that this install has a populated database (see the guard above).
+[ -f "$INIT_MARKER" ] || touch "$INIT_MARKER"
+
+# Start background workers for all queues, restarting them if they exit so jobs never stop silently.
 echo "Starting background workers for all queues..."
-node ace queue:work --all &
+(
+  while true; do
+    worker_code=0
+    node ace queue:work --all || worker_code=$?
+    echo "Queue worker exited with code ${worker_code}; restarting in 5 seconds..." >&2
+    sleep 5
+  done
+) &
 
 # Start the AdonisJS application
 echo "Starting AdonisJS application..."

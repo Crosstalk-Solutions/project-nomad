@@ -6,8 +6,13 @@
  */
 export function isNewerVersion(version1: string, version2: string, includePreReleases = false): boolean {
   const normalize = (v: string) => v.replace(/^v/, '')
-  const [base1, pre1] = normalize(version1).split('-')
-  const [base2, pre2] = normalize(version2).split('-')
+  // Split on the first '-' only: prerelease identifiers may themselves contain '-'.
+  const split = (v: string): [string, string | undefined] => {
+    const i = v.indexOf('-')
+    return i === -1 ? [v, undefined] : [v.slice(0, i), v.slice(i + 1)]
+  }
+  const [base1, pre1] = split(normalize(version1))
+  const [base2, pre2] = split(normalize(version2))
 
   // If pre-releases are not included and version1 is a pre-release, don't consider it newer
   if (!includePreReleases && pre1) {
@@ -30,10 +35,36 @@ export function isNewerVersion(version1: string, version2: string, includePreRel
   if (pre1 && !pre2) return false // v1 is RC, v2 is GA → v2 is newer
   if (!pre1 && !pre2) return false // both GA, equal
 
-  // Both prerelease: compare numeric suffix (e.g. "rc.2" vs "rc.1")
-  const pre1Num = parseInt(pre1.split('.')[1], 10) || 0
-  const pre2Num = parseInt(pre2.split('.')[1], 10) || 0
-  return pre1Num > pre2Num
+  // Both prerelease: semver precedence, identifier by identifier (label first, then
+  // number), so "rc.1" > "beta.2" and "rc.10" > "rc.2".
+  return comparePrerelease(pre1!, pre2!) > 0
+}
+
+/** Semver §11 prerelease precedence. Returns >0 when a is newer, <0 when older, 0 when equal. */
+function comparePrerelease(a: string, b: string): number {
+  const ids1 = a.split('.')
+  const ids2 = b.split('.')
+  const isNum = (id: string) => /^\d+$/.test(id)
+  for (let i = 0; i < Math.max(ids1.length, ids2.length); i++) {
+    const x = ids1[i]
+    const y = ids2[i]
+    if (x === undefined) return -1 // fewer identifiers = lower precedence
+    if (y === undefined) return 1
+    if (x === y) continue
+    if (isNum(x) && isNum(y)) return Number(x) - Number(y)
+    if (isNum(x)) return -1 // numeric identifiers sort below alphanumeric
+    if (isNum(y)) return 1
+    return x < y ? -1 : 1 // ASCII order
+  }
+  return 0
+}
+
+/**
+ * A release tag safe to hand to the updater sidecar (it ends up in a sed expression
+ * and a Docker image reference): "1.2.3", "v1.2.3", "v1.2.3-rc.1" or "latest".
+ */
+export function isValidReleaseTag(tag: string): boolean {
+  return /^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$|^latest$/.test(tag)
 }
 
 /**

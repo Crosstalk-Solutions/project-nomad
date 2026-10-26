@@ -25,11 +25,16 @@ services:
       #   1. Stop NOMAD (`docker compose down`) and MOVE the existing data to the new location,
       #      keeping the subfolders intact (e.g. <new-path>/zim, <new-path>/models). Pointing at an
       #      empty folder gives an empty Information Library, not your existing content.
-      #   2. Change the host path on the left of the colon below to the new location.
+      #   2. Change the `source:` host path of the /app/storage mount below to the new location.
       #   3. Set it EXACTLY the same in NOMAD_STORAGE_PATH and the disk-collector volume (both below).
-      #      Paths are case-sensitive (/mnt/Data != /mnt/data); a mismatch makes Docker create a new
-      #      empty folder, which is the usual cause of "my content disappeared after moving it".
-      - /opt/project-nomad/storage:/app/storage
+      #      Paths are case-sensitive (/mnt/Data != /mnt/data). create_host_path: false makes a wrong
+      #      or missing path fail container start instead of silently creating a new empty folder
+      #      (the usual cause of "my content disappeared after moving it").
+      - type: bind
+        source: /opt/project-nomad/storage
+        target: /app/storage
+        bind:
+          create_host_path: false
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
@@ -93,7 +98,13 @@ services:
       # Needs to match DB_PASSWORD in the admin service!
       - MYSQL_PASSWORD=replaceme
     volumes:
-      - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
+      # Persist MySQL data on the host. This path can be changed if needed, just make sure it exists and is writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
+      # create_host_path: false: if the path is missing the container refuses to start, instead of Docker creating an empty folder and MySQL silently initializing a brand-new, empty database.
+      - type: bind
+        source: /opt/project-nomad/mysql
+        target: /var/lib/mysql
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -104,7 +115,12 @@ services:
     container_name: nomad_redis
     restart: unless-stopped
     volumes:
-      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
+      # Persist Redis data on the host. This path can be changed if needed, just make sure it exists and is writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
+      - type: bind
+        source: /opt/project-nomad/redis
+        target: /data
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -131,7 +147,13 @@ services:
       - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
       # If you relocated storage (see the admin service above), set this host path to match EXACTLY,
       # or the host disk-usage figures shown in the UI will point at the wrong location.
-      - /opt/project-nomad/storage:/storage
+      # create_host_path: false so this mount can't create an empty storage folder that the admin's
+      # mount would then happily accept.
+      - type: bind
+        source: /opt/project-nomad/storage
+        target: /storage
+        bind:
+          create_host_path: false
 
 volumes:
   nomad-update-shared:

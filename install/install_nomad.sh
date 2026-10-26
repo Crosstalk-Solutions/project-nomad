@@ -419,12 +419,30 @@ create_nomad_directory(){
   # Also ensure the directory has a /storage/logs/ subdirectory
   sudo mkdir -p "${NOMAD_DIR}/storage/logs"
 
+  # compose.yml bind-mounts these with create_host_path: false (a missing path must fail loudly
+  # instead of silently starting an empty database), so they have to exist before first start.
+  sudo mkdir -p "${NOMAD_DIR}/mysql" "${NOMAD_DIR}/redis"
+
   # Create a admin.log file in the logs directory
   sudo touch "${NOMAD_DIR}/storage/logs/admin.log"
 }
 
 download_management_compose_file() {
   local compose_file_path="${NOMAD_DIR}/compose.yml"
+
+  # Re-running the installer on an existing install must not touch its data. compose.yml holds the
+  # credentials the existing MySQL data was initialized with, so keep both unless the user
+  # explicitly asks for a fresh install.
+  if [[ -f "$compose_file_path" ]]; then
+    echo -e "${YELLOW}#${RESET} An existing Project NOMAD configuration was found at $compose_file_path."
+    echo -e "${YELLOW}#${RESET} By default it is kept, together with its database and credentials."
+    echo -e "${YELLOW}#${RESET} A fresh install generates new credentials and moves the current database to ${NOMAD_DIR}/mysql.bak.<timestamp> (nothing is deleted)."
+    read -p "Type 'fresh' to start with a fresh database, or press Enter to keep the existing one: " fresh_choice || fresh_choice=""
+    if [[ "$fresh_choice" != "fresh" ]]; then
+      echo -e "${GREEN}#${RESET} Keeping the existing compose.yml and database.\\n"
+      return 0
+    fi
+  fi
 
   echo -e "${YELLOW}#${RESET} Downloading docker-compose file for management...\\n"
   if ! curl -fsSL "$MANAGEMENT_COMPOSE_FILE_URL" -o "$compose_file_path"; then
@@ -437,13 +455,17 @@ download_management_compose_file() {
   local db_root_password=$(generateRandomPass)
   local db_user_password=$(generateRandomPass)
 
-  # If MySQL data directory exists from a previous install attempt, remove it.
-  # MySQL only initializes credentials on first startup when the data dir is empty.
-  # If stale data exists, MySQL ignores the new passwords above and uses the old ones,
-  # causing "Access denied" errors when the admin container tries to connect.
-  if [[ -d "${NOMAD_DIR}/mysql" ]]; then
-    echo -e "${YELLOW}#${RESET} Removing existing MySQL data directory to ensure credentials match...\\n"
-    sudo rm -rf "${NOMAD_DIR}/mysql"
+  # MySQL only initializes credentials on first startup when the data dir is empty. If old data
+  # exists, MySQL ignores the new passwords above and the admin gets "Access denied". Move it
+  # aside (never delete it) so the new credentials take effect and the old data stays recoverable.
+  if [[ -d "${NOMAD_DIR}/mysql" ]] && [[ -n "$(sudo ls -A "${NOMAD_DIR}/mysql" 2>/dev/null)" ]]; then
+    local mysql_backup="${NOMAD_DIR}/mysql.bak.$(date +%Y%m%d%H%M%S)"
+    echo -e "${YELLOW}#${RESET} Moving existing MySQL data directory to $mysql_backup...\\n"
+    if ! sudo mv "${NOMAD_DIR}/mysql" "$mysql_backup"; then
+      echo -e "${RED}#${RESET} Failed to move the existing MySQL data directory. Aborting so no data is lost."
+      exit 1
+    fi
+    sudo mkdir -p "${NOMAD_DIR}/mysql"
   fi
 
   # Inject dynamic env values into the compose file

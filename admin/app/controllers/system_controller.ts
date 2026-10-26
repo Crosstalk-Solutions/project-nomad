@@ -467,7 +467,12 @@ export default class SystemController {
             return response.status(403).send({ error: 'Only custom apps can be deleted.' })
         }
 
-        await this.dockerService.removeCustomAppContainer(payload.service_name, payload.remove_image ?? false)
+        // Keep the record if the container could not be removed (e.g. another operation holds the
+        // app): deleting it would orphan a running container NOMAD can no longer manage
+        const removal = await this.dockerService.removeCustomAppContainer(payload.service_name, payload.remove_image ?? false)
+        if (!removal.success) {
+            return response.status(409).send({ error: removal.message })
+        }
         await service.delete()
 
         return response.send({ success: true, message: `Custom app ${payload.service_name} deleted` })

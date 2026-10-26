@@ -20,7 +20,7 @@ import axios from 'axios'
 import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
-import { isNewerVersion } from '../utils/version.js'
+import { isNewerVersion, isValidReleaseTag } from '../utils/version.js'
 import { isUnresolvedGpuModel } from '../utils/gpu_model.js'
 import {
   classifyOllamaComputeBackend,
@@ -702,6 +702,11 @@ export class SystemService {
         latestVersion = response.data.tag_name.replace(/^v/, '').trim()
       }
 
+      // The cached value later becomes the updater's image tag; never cache an odd one.
+      if (!isValidReleaseTag(latestVersion)) {
+        throw new Error(`Unexpected release tag from GitHub: ${JSON.stringify(latestVersion)}`)
+      }
+
       logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
 
       const updateAvailable =
@@ -974,8 +979,20 @@ export class SystemService {
    */
   private async _syncContainersWithDatabase(): Promise<{ service_name: string; status: string }[]> {
     try {
+      // A failed Docker listing (throws or returns null) must never be read as
+      // "no containers": that would mark every installed service uninstalled.
+      let serviceStatusList: { service_name: string; status: string }[] | null
+      try {
+        serviceStatusList = await this.dockerService.getServicesStatus()
+      } catch (error) {
+        serviceStatusList = null
+        logger.warn(`Could not list Docker containers, skipping container sync: ${error?.message ?? error}`)
+      }
+      if (!serviceStatusList) {
+        logger.warn('Docker container listing unavailable; skipping container/database reconciliation.')
+        return []
+      }
       const allServices = await Service.all()
-      const serviceStatusList = await this.dockerService.getServicesStatus()
 
       for (const service of allServices) {
         // Link tiles are shortcuts with no container behind them, so container
@@ -983,6 +1000,11 @@ export class SystemService {
         // sense that matters, which is that the dashboard should show them.
         // Without this they are marked not-installed on the next sync and vanish.
         if (service.is_link_tile) continue
+
+        // An install/update/recreate holds this row (DockerService claim). Mid-update the
+        // container is renamed to <name>_old, so it looks missing; reconciling now would
+        // flip it to not-installed and drop the claim under the running operation.
+        if (service.installation_status === 'installing') continue
 
         const containerExists = serviceStatusList.find(
           (s) => s.service_name === service.service_name

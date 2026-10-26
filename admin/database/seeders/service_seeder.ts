@@ -590,6 +590,14 @@ export default class ServiceSeeder extends BaseSeeder {
   ]
 
   async run() {
+    // Seeding runs on every container start (entrypoint.sh), before the server and queue
+    // workers boot, so no install can be in flight here. A row still 'installing' was
+    // interrupted by a crash or restart; left as-is it blocks the system auto-update
+    // preflight forever. Mark it 'error' so the UI offers a retry.
+    await Service.query().where('installation_status', 'installing').update({
+      installation_status: 'error',
+    })
+
     const existingServices = await Service.query().select([
       'service_name',
       'is_custom',
@@ -647,6 +655,19 @@ export default class ServiceSeeder extends BaseSeeder {
           metadata: (service as any).metadata ?? null,
           category: service.category,
           ui_location: uiLocation,
+          // Image and presentation fields only move for rows with nothing installed: an
+          // installed app's image changes through the app update flow, never behind its back.
+          ...(existing.installed
+            ? {}
+            : {
+                container_image: service.container_image,
+                depends_on: service.depends_on ?? null,
+                friendly_name: service.friendly_name,
+                description: service.description,
+                icon: service.icon,
+                source_repo: service.source_repo ?? null,
+                display_order: service.display_order,
+              }),
         })
       }
     }
