@@ -71,3 +71,17 @@ test('findReplacedWikipediaFiles preserves manually-named files without a date s
     []
   )
 })
+
+test('isWikipediaSelectorFile matches selector options across release dates only', async () => {
+  const { isWikipediaSelectorFile } = await import('../../app/utils/zim_filename.js')
+  const options = [
+    'https://download.kiwix.org/zim/wikipedia/wikipedia_en_all_maxi_2026-01.zim',
+    'https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_mini_2026-01.zim',
+    null,
+  ]
+  assert.equal(isWikipediaSelectorFile('wikipedia_en_all_maxi_2026-05.zim', options), true)
+  assert.equal(isWikipediaSelectorFile('wikipedia_en_top_mini_2026-01.zim', options), true)
+  assert.equal(isWikipediaSelectorFile('wikipedia_en_medicine_maxi_2026-01.zim', options), false)
+  assert.equal(isWikipediaSelectorFile('wikipedia_en_simple_all_nopic_2026-01.zim', options), false)
+  assert.equal(isWikipediaSelectorFile('wikipedia_en_all_maxi_2026-05.zim', []), false)
+})

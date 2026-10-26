@@ -90,8 +90,14 @@ export default class QueueWork extends BaseCommand {
       worker.on('failed', async (job, err) => {
         this.logger.error(`[${queueName}] Job failed: ${job?.id}, Error: ${err.message}`)
 
-        // If this was a Wikipedia download, mark it as failed in the DB
-        if (job?.data?.filetype === 'zim' && job?.data?.url?.includes('wikipedia_en_')) {
+        // If this was a Wikipedia download, mark it as failed in the DB — only once retries are
+        // exhausted, otherwise a transient error shows "failed" while the next attempt runs
+        const retriesExhausted = !!job && job.attemptsMade >= (job.opts.attempts ?? 1)
+        if (
+          retriesExhausted &&
+          job?.data?.filetype === 'zim' &&
+          job?.data?.url?.includes('wikipedia_en_')
+        ) {
           try {
             const { DockerService } = await import('#services/docker_service')
             const { ZimService } = await import('#services/zim_service')
