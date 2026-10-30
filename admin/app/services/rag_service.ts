@@ -97,6 +97,7 @@ export class RagService {
   public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
   public static SEARCH_QUERY_PREFIX = 'search_query: '
   public static EMBEDDING_BATCH_SIZE = 8 // Conservative batch size for low-end hardware
+  public static ZIM_CHUNKS_IN_FLIGHT = 8 // ZIM chunks embedded at once when the embedder is on a GPU
 
   constructor(
     private dockerService: DockerService,
@@ -632,10 +633,17 @@ export class RagService {
       `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
     )
 
-    // Process each chunk individually with its metadata
+    // Process each chunk individually with its metadata. With a GPU embedder several run at once: each one
+    // mostly waits on the embedder and then on Qdrant, so one at a time leaves the GPU idle. The first runs
+    // alone, so the collection and the embedding model are checked once before the others start.
+    const inFlight = (await this.ollamaService.isEmbeddingGpuAccelerated()) ? RagService.ZIM_CHUNKS_IN_FLIGHT : 1
     let totalChunks = 0
-    for (let i = 0; i < zimChunks.length; i++) {
-      const zimChunk = zimChunks[i]
+    let next = 0
+    let done = 0
+    let failed = false
+    let failure: unknown
+    const embedNext = async () => {
+      const zimChunk = zimChunks[next++]
       const result = await this.embedAndStoreText(zimChunk.text, {
         source: filepath,
         content_type: 'zim_article',
@@ -673,9 +681,25 @@ export class RagService {
       }
 
       if (onProgress) {
-        await onProgress(((i + 1) / zimChunks.length) * 100)
+        await onProgress((++done / zimChunks.length) * 100)
       }
     }
+    if (zimChunks.length > 0) await embedNext()
+    await Promise.all(
+      Array.from({ length: inFlight }, async () => {
+        while (!failed && next < zimChunks.length) {
+          try {
+            await embedNext()
+          } catch (error) {
+            // The others finish the chunk they are on, then the batch fails with this first error, like the
+            // one-at-a-time loop
+            if (!failed) failure = error
+            failed = true
+          }
+        }
+      })
+    )
+    if (failed) throw failure
 
     // Gate the continuation on articles the extractor CONSUMED, not on articles that
     // produced chunks. Articles whose text is empty after cleaning (redirect stubs,
