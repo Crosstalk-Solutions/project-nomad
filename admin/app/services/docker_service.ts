@@ -1475,7 +1475,11 @@ export class DockerService {
       try {
         const dockerInfo = await this.docker.info()
         const runtimes = dockerInfo.Runtimes || {}
-        if ('nvidia' in runtimes) {
+        // Hosts that hand the GPU to containers through CDI (DGX OS, for one) may not register an nvidia runtime
+        const cdiNvidia = ((dockerInfo as any).DiscoveredDevices || []).some((d: any) =>
+          String(d?.ID).startsWith('nvidia.com/gpu')
+        )
+        if ('nvidia' in runtimes || cdiNvidia) {
           logger.info('[DockerService] NVIDIA container runtime detected via Docker API')
           await this._persistGPUType('nvidia')
           return { type: 'nvidia' }
