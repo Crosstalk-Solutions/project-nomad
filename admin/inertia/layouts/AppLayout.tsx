@@ -1,3 +1,4 @@
+import { useI18n } from '~/context/I18nProvider'
 import { useState } from 'react'
 import Footer from '~/components/Footer'
 import ChatButton from '~/components/chat/ChatButton'
@@ -20,6 +21,7 @@ export default function AppLayout({
    */
   compact?: boolean
 }) {
+  const { t, locale, setLocale } = useI18n()
   const [isChatOpen, setIsChatOpen] = useState(false)
   const aiAssistantInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
@@ -35,7 +37,7 @@ export default function AppLayout({
             )}
           >
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <p className="text-lg text-text-secondary">{t('Back to Home')}</p>
           </Link>
         )}
       <div
@@ -56,8 +58,14 @@ export default function AppLayout({
             compact ? 'text-2xl' : 'text-5xl'
           )}
         >
-          Command Center
+          {t('Command Center')}
         </h1>
+      </div>
+      <div className="absolute right-4 top-4 z-20" role="group" aria-label="Interface language">
+        <button type="button" className="rounded border border-border-subtle px-2 py-1 text-sm text-text-secondary"
+          onClick={() => setLocale(locale === 'en' ? 'fr' : 'en')}
+          aria-label={locale === 'en' ? 'Passer en français' : 'Switch to English'}
+        >{locale === 'en' ? 'FR' : 'EN'}</button>
       </div>
       <hr className={
         classNames(

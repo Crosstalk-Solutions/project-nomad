@@ -1,3 +1,4 @@
+import { useI18n } from '~/context/I18nProvider'
 import { useState } from 'react'
 import { usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
@@ -6,6 +7,7 @@ import { IconBug } from '@tabler/icons-react'
 import DebugInfoModal from './DebugInfoModal'
 
 export default function Footer() {
+  const { t } = useI18n()
   const { appVersion } = usePage().props as unknown as UsePageProps
   const [debugModalOpen, setDebugModalOpen] = useState(false)
 
@@ -21,7 +23,7 @@ export default function Footer() {
           className="text-sm/6 text-gray-500 hover:text-desert-green flex items-center gap-1 cursor-pointer"
         >
           <IconBug className="size-3.5" />
-          Debug Info
+          {t('Debug Info')}
         </button>
         <ThemeToggle />
       </div>

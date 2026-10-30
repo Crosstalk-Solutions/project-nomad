@@ -1,3 +1,4 @@
+import { useI18n } from '~/context/I18nProvider'
 import {
   IconBolt,
   IconBox,
@@ -121,6 +122,7 @@ export default function Home(props: {
   // below so they only appear once the data exists.
   drugReferenceInstalled: boolean
 }) {
+  const { t } = useI18n()
   const items: DashboardItem[] = []
   const updateInfo = useUpdateAvailable();
   const rerunBanner = useBenchmarkRerunBanner()
@@ -225,7 +227,7 @@ export default function Home(props: {
 
   return (
     <AppLayout>
-      <Head title="Command Center" />
+      <Head title={t('Command Center')} />
       {
         updateInfo?.updateAvailable && (
           <div className='flex justify-center items-center p-4 w-full'>
@@ -308,9 +310,9 @@ export default function Home(props: {
                 </span>
               )}
               <div className="flex items-center justify-center mb-2">{item.icon}</div>
-              <h3 className="font-bold text-2xl">{item.label}</h3>
+              <h3 className="font-bold text-2xl">{t(item.label)}</h3>
               {item.poweredBy && <p className="text-sm opacity-80">Powered by {item.poweredBy}</p>}
-              <p className="xl:text-lg mt-2">{item.description}</p>
+              <p className="xl:text-lg mt-2">{t(item.description)}</p>
             </div>
           )
 
