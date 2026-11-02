@@ -485,6 +485,44 @@ download_helper_scripts() {
   echo -e "${GREEN}#${RESET} Helper scripts downloaded successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
 }
 
+ensure_wsl_root_mount_shared() {
+  # On WSL2 the root mount is private by default, and the disk-collector's rslave mount of "/" fails with
+  # "path / is mounted on / but it is not a shared or slave mount". Make the root mount shared and persist it.
+  if ! grep -qi microsoft /proc/version 2>/dev/null; then
+    return 0
+  fi
+
+  if [[ "$(findmnt -no PROPAGATION /)" == *shared* || "$(findmnt -no PROPAGATION /)" == *slave* ]]; then
+    echo -e "${GREEN}#${RESET} Root mount propagation is already shared.\\n"
+    return 0
+  fi
+
+  echo -e "${YELLOW}#${RESET} WSL2 detected. Making the root mount shared for the disk collector...\\n"
+  sudo mount --make-rshared /
+
+  # Re-apply on every boot, before Docker starts, so the fix survives a WSL restart.
+  if command -v systemctl &> /dev/null && [[ -d /run/systemd/system ]]; then
+    sudo tee /etc/systemd/system/nomad-rshared.service > /dev/null <<'EOF'
+[Unit]
+Description=Make root mount shared for Docker (Project NOMAD disk collector)
+Before=docker.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mount --make-rshared /
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now nomad-rshared.service > /dev/null 2>&1
+  fi
+
+  echo -e "${GREEN}#${RESET} Root mount is now shared.\\n"
+}
+
 start_management_containers() {
   echo -e "${YELLOW}#${RESET} Starting management containers using docker compose...\\n"
   if ! sudo docker compose -p project-nomad -f "${NOMAD_DIR}/compose.yml" up -d; then
@@ -649,6 +687,7 @@ get_local_ip
 create_nomad_directory
 download_helper_scripts
 download_management_compose_file
+ensure_wsl_root_mount_shared
 start_management_containers
 verify_gpu_setup
 success_message
