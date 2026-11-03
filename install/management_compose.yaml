@@ -32,6 +32,11 @@ services:
       - /opt/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
+      # OPTIONAL external Knowledge Base folder: uncomment and set the host path on the LEFT to an
+      # existing folder (e.g. a mounted NAS share) to have the AI index it without copying it into
+      # NOMAD. Keep the right side exactly "/app/kb_external:ro"; the ":ro" means NOMAD can only read
+      # it. Run "Sync Storage" in the Knowledge Base afterwards. See the FAQ for details.
+      # - /mnt/nas/library:/app/kb_external:ro
     environment:
       - NODE_ENV=production
       # NOMAD_STORAGE_PATH should equal the host path of the /app/storage volume above. The admin
