@@ -29,6 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import blocks
+import engine_check
 
 UPSTREAM = os.environ.get("KIWIX", "http://localhost:8090").rstrip("/")
 MODELS = Path(os.environ.get("MODELS", "/models"))
@@ -100,6 +101,12 @@ def available_languages() -> dict[str, str]:
 
 
 LANGS = available_languages()
+
+# Why translation is off on this box, or None. Set at startup by the engine
+# probe: on a CPU that cannot run Bergamot (no AVX, #1512) the import would kill
+# the proxy, so no language is offered and the library is forwarded untranslated.
+UNAVAILABLE: str | None = None
+
 # Part of every translated page's ETag, so a cached page from before a language
 # was added can never revalidate as unchanged.
 LANGS_TAG = "".join(sorted(LANGS)) or "none"
@@ -181,7 +188,7 @@ def build_bar(lang: str, status: str) -> str:
 
 def rewrite(body: str, lang: str) -> str:
     """Translate block text in place and inject the control."""
-    status = "not translated"
+    status = f"translation unavailable: {UNAVAILABLE}" if UNAVAILABLE else "not translated"
 
     if lang:
         started = time.time()
@@ -325,17 +332,30 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     if LANGS:
-        print(
-            f"nomad-translate: {len(LANGS)} languages available "
-            f"({', '.join(sorted(LANGS))})",
-            flush=True,
-        )
-    else:
-        print(
-            "nomad-translate: no models found, forwarding the library untranslated",
-            file=sys.stderr,
-            flush=True,
-        )
+        UNAVAILABLE = engine_check.check_engine()
+        if UNAVAILABLE:
+            LANGS = {}
+            LANGS_TAG = "none"
+            print(
+                f"nomad-translate: translation disabled, {UNAVAILABLE}; "
+                "forwarding the library untranslated",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    if not UNAVAILABLE:
+        if LANGS:
+            print(
+                f"nomad-translate: {len(LANGS)} languages available "
+                f"({', '.join(sorted(LANGS))})",
+                flush=True,
+            )
+        else:
+            print(
+                "nomad-translate: no models found, forwarding the library untranslated",
+                file=sys.stderr,
+                flush=True,
+            )
 
     print(f"nomad-translate: listening on 0.0.0.0:{PORT} -> {UPSTREAM}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
