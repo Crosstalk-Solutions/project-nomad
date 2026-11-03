@@ -1,10 +1,15 @@
 import { Job, UnrecoverableError } from 'bullmq'
-import { RunDownloadJobParams, DownloadProgressData } from '../../types/downloads.js'
+import {
+  RunDownloadJobParams,
+  DownloadProgressData,
+  DoResumableDownloadParams,
+} from '../../types/downloads.js'
 import { QueueService } from '#services/queue_service'
 import { doResumableDownload, GatedContentAuthError } from '../utils/downloads.js'
 import { createHash } from 'crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
+import { ZimMirrorService } from '#services/zim_mirror_service'
 import { MapService } from '#services/map_service'
 import { RagService } from '#services/rag_service'
 import { OllamaService } from '#services/ollama_service'
@@ -104,8 +109,19 @@ export class RunDownloadJob {
     }, 2000)
 
     try {
-      await doResumableDownload({
-        url,
+      // ZIM bytes come from the box's chosen mirror (#1115): user override, else
+      // the measured fastest, else the canonical download.kiwix.org URL. Resolved
+      // here, at fetch time, so every path that queues a ZIM (curated tiers,
+      // Wikipedia, Easy Setup, content updates, retries, the explorer) agrees
+      // without knowing about mirrors. `url` stays canonical and remains the job's
+      // identity and what onComplete records. Gated content (requestHeaders) is
+      // never on download.kiwix.org, so it's skipped outright.
+      const fetchUrl =
+        filetype === 'zim' && !requestHeaders
+          ? (await new ZimMirrorService().resolveDownloadUrl(url)).url
+          : url
+
+      const downloadOptions: Omit<DoResumableDownloadParams, 'url'> = {
         filepath,
         timeout,
         allowedMimeTypes,
@@ -127,7 +143,10 @@ export class RunDownloadJob {
           })
           lastKnownProgress = { downloadedBytes: progress.downloadedBytes, totalBytes: progress.totalBytes }
         },
-        async onComplete(url) {
+        // Deliberately ignores the fetched URL argument: bookkeeping below
+        // (InstalledResource.url, the Wikipedia selection, KB dispatch) keys on
+        // the canonical job URL even when the bytes came from a mirror.
+        async onComplete() {
           // The previous file recorded for this resource (if any). Hoisted out of
           // the metadata block below so the ZIM branch can decide whether this
           // download is a content UPDATE (replacing a prior file) vs a fresh
@@ -303,7 +322,23 @@ export class RunDownloadJob {
             if (err?.code !== -1) throw err
           })
         },
-      })
+      }
+
+      try {
+        await doResumableDownload({ url: fetchUrl, ...downloadOptions })
+      } catch (error) {
+        // Failover: a mirror that is unreachable, hasn't synced this dated file
+        // yet (404), or misbehaves gets one immediate try at the canonical source
+        // in the same attempt. A partial .tmp from the mirror resumes there, since
+        // it is the same file. Cancels/lock aborts (signal aborted) are not retried.
+        if (fetchUrl === url || userCancelled || abortController.signal.aborted) throw error
+        console.warn(
+          `[RunDownloadJob] Mirror download failed (${fetchUrl}): ${
+            error instanceof Error ? error.message : String(error)
+          }; falling back to ${url}`
+        )
+        await doResumableDownload({ url, ...downloadOptions })
+      }
 
       return {
         url,
