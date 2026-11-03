@@ -1,1 +1,9 @@
-{}
+{
+  "not_found": {
+    "title": "Page not found",
+    "message": "This page does not exist."
+  },
+  "server_error": {
+    "title": "Server Error"
+  }
+}

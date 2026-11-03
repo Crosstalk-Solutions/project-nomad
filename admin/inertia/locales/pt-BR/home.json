@@ -1,1 +1,45 @@
-{}
+{
+  "title": "Centro de Comando",
+  "alerts": {
+    "update_available": {
+      "title": "Uma atualização está disponível para o Project NOMAD!",
+      "button": "Ir para Configurações"
+    },
+    "benchmark_rescore": {
+      "title": "Seu benchmark pode ser recalculado com a Pontuação v2",
+      "message": "Atualizamos o sistema de pontuação do benchmark. Execute novamente o seu benchmark para obter um resultado atualizado da Pontuação v2 na tabela da comunidade.",
+      "button": "Executar benchmark novamente"
+    }
+  },
+  "badges": {
+    "start_here": "Comece aqui!"
+  },
+  "powered_by": "Desenvolvido por {{name}}",
+  "service_access_fallback": "Acesse a aplicação {{name}}",
+  "system_items": {
+    "maps": {
+      "label": "Mapas",
+      "description": "Visualizar mapas offline"
+    },
+    "drug_reference": {
+      "label": "Guia Farmacêutico",
+      "description": "Bulas de medicamentos offline — busque pelo nome do remédio ou pela situação (queimadura, febre, diarreia)"
+    },
+    "easy_setup": {
+      "label": "Configuração Rápida",
+      "description": "Não sabe por onde começar? Use o assistente de configuração para configurar rapidamente o seu NOMAD!"
+    },
+    "supply_depot": {
+      "label": "Central de Recursos",
+      "description": "Navegue e instale aplicativos selecionados ou adicione seus próprios contêineres Docker"
+    },
+    "docs": {
+      "label": "Documentação",
+      "description": "Leia os manuais e guias do Project NOMAD"
+    },
+    "settings": {
+      "label": "Configurações",
+      "description": "Configure as preferências do seu NOMAD"
+    }
+  }
+}

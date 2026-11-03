@@ -1,1 +1,9 @@
-{}
+{
+  "not_found": {
+    "title": "Página não encontrada",
+    "message": "Esta página não existe."
+  },
+  "server_error": {
+    "title": "Erro no Servidor"
+  }
+}
