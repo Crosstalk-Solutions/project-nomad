@@ -9,7 +9,7 @@ import type { GpuHealthStatus } from '../../types/system'
 
 // Exported so the benchmark GPU pre-flight (#1083) can un-dismiss the banner
 // before sending the user to it for the fix.
-export const GPU_BANNER_DISMISS_KEY ='nomad:gpu-banner-dismissed'
+export const GPU_BANNER_DISMISS_KEY = 'nomad:gpu-banner-dismissed'
 const HSA_OVERRIDE_PATTERN = /^\d{1,2}\.\d{1,2}\.\d{1,2}$/
 
 /**
