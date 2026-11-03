@@ -23,6 +23,7 @@ import classNames from 'classnames'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import { useTranslation } from 'react-i18next'
 
 // Capability definitions - maps user-friendly categories to services
 interface Capability {
@@ -35,33 +36,35 @@ interface Capability {
   icon: string
 }
 
-function buildCoreCapabilities(aiAssistantName: string): Capability[] {
+function buildCoreCapabilities(
+  aiAssistantName: string,
+  t: (key: string, options?: any) => string
+): Capability[] {
   return [
     {
       id: 'information',
-      name: 'Information Library',
+      name: t('wizard.capabilities.information.name'),
       technicalName: 'Kiwix',
-      description:
-        'Offline access to Wikipedia, medical references, how-to guides, and encyclopedias',
+      description: t('wizard.capabilities.information.description'),
       features: [
-        'Complete Wikipedia offline',
-        'Medical references and first aid guides',
-        'DIY repair guides and how-to content',
-        'Project Gutenberg books and literature',
+        t('wizard.capabilities.information.features.0'),
+        t('wizard.capabilities.information.features.1'),
+        t('wizard.capabilities.information.features.2'),
+        t('wizard.capabilities.information.features.3'),
       ],
       services: [SERVICE_NAMES.KIWIX],
       icon: 'IconBooks',
     },
     {
       id: 'education',
-      name: 'Education Platform',
+      name: t('wizard.capabilities.education.name'),
       technicalName: 'Kolibri',
-      description: 'Interactive learning platform with video courses and exercises',
+      description: t('wizard.capabilities.education.description'),
       features: [
-        'Khan Academy math and science courses',
-        'K-12 curriculum content',
-        'Interactive exercises and quizzes',
-        'Progress tracking for learners',
+        t('wizard.capabilities.education.features.0'),
+        t('wizard.capabilities.education.features.1'),
+        t('wizard.capabilities.education.features.2'),
+        t('wizard.capabilities.education.features.3'),
       ],
       services: [SERVICE_NAMES.KOLIBRI_GEN2],
       icon: 'IconSchool',
@@ -70,12 +73,12 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
       id: 'ai',
       name: aiAssistantName,
       technicalName: 'Ollama',
-      description: 'Local AI chat that runs entirely on your hardware - no internet required',
+      description: t('wizard.capabilities.ai.description'),
       features: [
-        'Private conversations that never leave your device',
-        'No internet connection needed after setup',
-        'Ask questions, get help with writing, brainstorm ideas',
-        'Runs on your own hardware with local AI models',
+        t('wizard.capabilities.ai.features.0'),
+        t('wizard.capabilities.ai.features.1'),
+        t('wizard.capabilities.ai.features.2'),
+        t('wizard.capabilities.ai.features.3'),
       ],
       services: [SERVICE_NAMES.OLLAMA],
       icon: 'IconRobot',
@@ -83,24 +86,7 @@ function buildCoreCapabilities(aiAssistantName: string): Capability[] {
   ]
 }
 
-// Additional tools (Notes, Data Tools, and the rest of the catalog) are no
-// longer surfaced in onboarding — they live in Supply Depot, where the full
-// app catalog is browsable any time. Step 1 keeps the focus on the three core
-// capabilities and points users to Supply Depot for everything else.
-
-// Stable step IDs. Creator Packs (4) and AI (5) are BOTH optional, so the set of
-// active steps is computed at runtime (see `activeSteps`) and navigation walks
-// that ordered list rather than doing hardcoded skip math.
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6
-
-const STEP_LABELS: Record<WizardStep, string> = {
-  1: 'Apps',
-  2: 'Maps',
-  3: 'Content',
-  4: 'Creator Packs',
-  5: 'AI',
-  6: 'Review',
-}
 
 const CURATED_MAP_COLLECTIONS_KEY = 'curated-map-collections'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
@@ -109,21 +95,27 @@ const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 export default function EasySetupWizard(props: {
   system: { services: ServiceSlim[]; remoteOllamaUrl: string }
 }) {
+  const { t } = useTranslation('easy_setup')
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
-  const CORE_CAPABILITIES = buildCoreCapabilities(aiAssistantName)
+  const CORE_CAPABILITIES = useMemo(
+    () => buildCoreCapabilities(aiAssistantName, t),
+    [aiAssistantName, t]
+  )
+
+  const STEP_LABELS: Record<WizardStep, string> = {
+    1: t('wizard.step_labels.1'),
+    2: t('wizard.step_labels.2'),
+    3: t('wizard.step_labels.3'),
+    4: t('wizard.step_labels.4'),
+    5: t('wizard.step_labels.5'),
+    6: t('wizard.step_labels.6'),
+  }
 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedMapCollections, setSelectedMapCollections] = useState<string[]>([])
   const [selectedCreatorPacks, setSelectedCreatorPacks] = useState<string[]>([])
   const [selectedAiModels, setSelectedAiModels] = useState<string[]>([])
-  // Auto-index policy for the AI Assistant Knowledge Base. Defaults to
-  // 'Manual' ("Ask me first"): auto-indexing has real cost and resource
-  // implications a non-technical user won't anticipate from the toggle alone,
-  // so we default to the safe choice and let them opt in. Persisted to
-  // KVStore['rag.defaultIngestPolicy'] on wizard submit (same key #894's KB
-  // modal toggle reads/writes) so the JIT prompt at first chat sees a decided
-  // policy and doesn't ask again.
   const [ingestPolicy, setIngestPolicy] = useState<'Always' | 'Manual'>('Manual')
   const [isProcessing, setIsProcessing] = useState(false)
   const [remoteOllamaEnabled, setRemoteOllamaEnabled] = useState(
@@ -144,7 +136,6 @@ export default function EasySetupWizard(props: {
   const { isOnline } = useInternetStatus()
   const queryClient = useQueryClient()
   const { data: systemInfo } = useSystemInfo({ enabled: true })
-  // Creator Packs are hidden entirely on builds without the release-injected key.
   const { configured: creatorPacksConfigured, packs: creatorPacks } = useCreatorPacks()
 
   const anySelectionMade =
@@ -197,11 +188,6 @@ export default function EasySetupWizard(props: {
   // Services that are already installed
   const installedServices = props.system.services.filter((service) => service.installed)
 
-  // Canonical "is AI part of this user's setup?" predicate (RFC #883 / issue #905).
-  // Single source consumed by step-indicator render, navigation skip logic, the
-  // review summary, and handleFinish. The AI step renders if and only if this
-  // is true; if false, the wizard collapses to 4 steps and the AI step is
-  // skipped on both forward and back nav.
   const isAiInSetup = useMemo(
     () =>
       selectedServices.includes(SERVICE_NAMES.OLLAMA) ||
@@ -210,9 +196,6 @@ export default function EasySetupWizard(props: {
     [selectedServices, installedServices, remoteOllamaEnabled]
   )
 
-  // Ordered list of the steps actually shown to THIS user. Creator Packs (4) and
-  // AI (5) are both optional; everything else is fixed. Navigation walks this
-  // list (see handleNext/handleBack), so a step's absence needs no skip math.
   const activeSteps = useMemo<WizardStep[]>(() => {
     const steps: WizardStep[] = [1, 2, 3]
     if (creatorPacksConfigured) steps.push(4)
@@ -249,7 +232,6 @@ export default function EasySetupWizard(props: {
   const handleTierSelect = (category: CategoryWithStatus, tier: SpecTier) => {
     setSelectedTiers((prev) => {
       const newMap = new Map(prev)
-      // If same tier is selected, deselect it
       if (prev.get(category.slug)?.slug === tier.slug) {
         newMap.delete(category.slug)
       } else {
@@ -308,7 +290,6 @@ export default function EasySetupWizard(props: {
       selectedAiModels.forEach((modelName) => {
         const model = recommendedModels.find((m) => m.name === modelName)
         if (model?.tags?.[0]?.size) {
-          // Parse size string like "4.7GB" or "1.5GB"
           const sizeStr = model.tags[0].size
           const match = sizeStr.match(/^([\d.]+)\s*(GB|MB|KB)?$/i)
           if (match) {
@@ -351,20 +332,13 @@ export default function EasySetupWizard(props: {
   // Get primary disk/filesystem info for storage projection
   const storageInfo = getPrimaryDiskInfo(systemInfo?.disk, systemInfo?.fsSize)
 
-  // The review step is always the last active step. Read by canProceedToNextStep
-  // and the bottom-bar Next-vs-Finish switch.
   const finalStep: WizardStep = activeSteps[activeSteps.length - 1]
 
   const canProceedToNextStep = () => {
-    if (!isOnline) return false // Must be online to proceed
-    // Every step before the review is skippable; the review step shows Finish, not Next.
+    if (!isOnline) return false
     return currentStep < finalStep
   }
 
-  // Navigate to the next/previous ACTIVE step relative to the current one. Using
-  // a value comparison (not indexOf) keeps nav correct even if currentStep goes
-  // momentarily stale — e.g. the user disables AI while standing on the AI step,
-  // dropping it from activeSteps; the next click still lands on the right step.
   const handleNext = () => {
     const next = activeSteps.find((s) => s > currentStep)
     if (next !== undefined) setCurrentStep(next)
@@ -379,7 +353,7 @@ export default function EasySetupWizard(props: {
     if (!isOnline) {
       addNotification({
         type: 'error',
-        message: 'You must have an internet connection to complete the setup.',
+        message: t('wizard.notifications.internet_required'),
       })
       return
     }
@@ -387,26 +361,20 @@ export default function EasySetupWizard(props: {
     setIsProcessing(true)
 
     try {
-      // Persist the auto-index policy choice before kicking off downloads so
-      // any content that finishes during this same wizard run sees the right
-      // policy. Skipped when AI is not in the user's setup; the KV stays null
-      // and the first-chat JIT prompt (#899) handles the decision later if/when
-      // the user enables AI. Uses the canonical isAiInSetup predicate so step
-      // 3 / step 4 / step 5 / handleFinish never disagree (issue #905).
       if (isAiInSetup) {
         try {
           await api.updateSetting('rag.defaultIngestPolicy', ingestPolicy)
         } catch (err) {
-          // Non-fatal: the user can still set the policy from the KB modal.
           console.warn('Could not persist ingest policy from wizard:', err)
         }
       }
 
-      // If using remote Ollama, configure it first before other installs
       if (remoteOllamaEnabled && remoteOllamaUrl) {
         const remoteResult = await api.configureRemoteOllama(remoteOllamaUrl)
         if (!remoteResult?.success) {
-          const msg = (remoteResult as any)?.message || 'Failed to configure remote Ollama.'
+          const msg =
+            (remoteResult as any)?.message ||
+            t('wizard.step1.remote_ollama_default_error')
           setRemoteOllamaUrlError(msg)
           setIsProcessing(false)
           setCurrentStep(1)
@@ -414,16 +382,15 @@ export default function EasySetupWizard(props: {
         }
       }
 
-      // All of these ops don't actually wait for completion, they just kick off the process, so we can run them in parallel without awaiting each one sequentially
-      // Exclude Ollama from local install when using remote mode
       const servicesToInstall = remoteOllamaEnabled
         ? selectedServices.filter((s) => s !== SERVICE_NAMES.OLLAMA)
         : selectedServices
-      const installPromises = servicesToInstall.map((serviceName) => api.installService(serviceName))
+      const installPromises = servicesToInstall.map((serviceName) =>
+        api.installService(serviceName)
+      )
 
       await Promise.all(installPromises)
 
-      // Download collections, category tiers, and AI models
       const categoryTierPromises: Promise<any>[] = []
       selectedTiers.forEach((tier, categorySlug) => {
         categoryTierPromises.push(api.downloadCategoryTier(categorySlug, tier.slug))
@@ -438,14 +405,13 @@ export default function EasySetupWizard(props: {
 
       await Promise.all(downloadPromises)
 
-      // Select Wikipedia option if one was chosen
       if (selectedWikipedia && selectedWikipedia !== wikipediaState?.currentSelection?.optionId) {
         await api.selectWikipedia(selectedWikipedia)
       }
 
       addNotification({
         type: 'success',
-        message: 'Setup wizard completed! Your selections are being processed.',
+        message: t('wizard.notifications.completed'),
       })
 
       router.visit('/easy-setup/complete')
@@ -453,7 +419,7 @@ export default function EasySetupWizard(props: {
       console.error('Error during setup:', error)
       addNotification({
         type: 'error',
-        message: 'An error occurred during setup. Some items may not have been processed.',
+        message: t('wizard.notifications.error'),
       })
     } finally {
       setIsProcessing(false)
@@ -486,7 +452,6 @@ export default function EasySetupWizard(props: {
       try {
         await api.updateSetting('ui.hasVisitedEasySetup', 'true')
       } catch (error) {
-        // Silent fail - this is non-critical
         console.warn('Failed to mark Easy Setup as visited:', error)
       }
     }
@@ -495,10 +460,6 @@ export default function EasySetupWizard(props: {
   }, [])
 
   const renderStepIndicator = () => {
-    // `step` is the stable WizardStep value (1=Apps, 2=Maps, 3=Content,
-    // 4=Creator Packs, 5=AI, 6=Review). Only the ACTIVE steps are shown, and
-    // `displayNumber` is the sequential position in the dot (always 1..N) so
-    // there's no gap when Creator Packs and/or AI are absent.
     const steps = activeSteps.map((step, idx) => ({
       step,
       label: STEP_LABELS[step],
@@ -519,7 +480,9 @@ export default function EasySetupWizard(props: {
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green">
                       <IconCheck aria-hidden="true" className="size-6 text-white" />
                     </span>
-                    <span className="ml-4 text-lg font-medium text-text-primary">{step.label}</span>
+                    <span className="ml-4 text-lg font-medium text-text-primary">
+                      {step.label}
+                    </span>
                   </span>
                 </div>
               ) : currentStep === step.step ? (
@@ -530,7 +493,9 @@ export default function EasySetupWizard(props: {
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green border-2 border-desert-green">
                     <span className="text-white">{step.displayNumber}</span>
                   </span>
-                  <span className="ml-4 text-lg font-medium text-desert-green">{step.label}</span>
+                  <span className="ml-4 text-lg font-medium text-desert-green">
+                    {step.label}
+                  </span>
                 </div>
               ) : (
                 <div className="group flex items-center md:justify-center">
@@ -538,33 +503,32 @@ export default function EasySetupWizard(props: {
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border-default">
                       <span className="text-text-muted">{step.displayNumber}</span>
                     </span>
-                    <span className="ml-4 text-lg font-medium text-text-muted">{step.label}</span>
+                    <span className="ml-4 text-lg font-medium text-text-muted">
+                      {step.label}
+                    </span>
                   </span>
                 </div>
               )}
 
               {stepIdx !== steps.length - 1 ? (
-                <>
-                  {/* Arrow separator for lg screens and up */}
-                  <div
-                    aria-hidden="true"
-                    className="absolute top-0 right-0 hidden h-full w-5 md:block"
+                <div
+                  aria-hidden="true"
+                  className="absolute top-0 right-0 hidden h-full w-5 md:block"
+                >
+                  <svg
+                    fill="none"
+                    viewBox="0 0 22 80"
+                    preserveAspectRatio="none"
+                    className={`size-full ${currentStep > step.step ? 'text-desert-green' : 'text-text-muted'}`}
                   >
-                    <svg
-                      fill="none"
-                      viewBox="0 0 22 80"
-                      preserveAspectRatio="none"
-                      className={`size-full ${currentStep > step.step ? 'text-desert-green' : 'text-text-muted'}`}
-                    >
-                      <path
-                        d="M0 -2L20 40L0 82"
-                        stroke="currentcolor"
-                        vectorEffect="non-scaling-stroke"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                </>
+                    <path
+                      d="M0 -2L20 40L0 82"
+                      stroke="currentcolor"
+                      vectorEffect="non-scaling-stroke"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
               ) : null}
             </li>
           ))}
@@ -573,45 +537,34 @@ export default function EasySetupWizard(props: {
     )
   }
 
-  // Check if a capability is selected (all its services are in selectedServices)
   const isCapabilitySelected = (capability: Capability) => {
     return capability.services.every((service) => selectedServices.includes(service))
   }
 
-  // Check if a capability is already installed (all its services are installed)
   const isCapabilityInstalled = (capability: Capability) => {
     return capability.services.every((service) =>
       installedServices.some((s) => s.service_name === service)
     )
   }
 
-  // Check if a capability exists in the system (has at least one matching service)
   const capabilityExists = (capability: Capability) => {
     return capability.services.some((service) =>
       allServices.some((s) => s.service_name === service)
     )
   }
 
-  // Toggle all services for a capability (only if not already installed)
   const toggleCapability = (capability: Capability) => {
-    // Don't allow toggling installed capabilities
     if (isCapabilityInstalled(capability)) return
 
     const isSelected = isCapabilitySelected(capability)
 
-    // Toggling AI off needs to clear dependent state that lives in the AI
-    // step (model picks, ingest policy, remote Ollama config). If the user
-    // has any of that filled in, confirm before discarding so a stray click
-    // doesn't quietly wipe their setup.
     if (capability.id === 'ai' && isSelected) {
       const hasAiSelections =
         selectedAiModels.length > 0 ||
         ingestPolicy !== 'Manual' ||
         remoteOllamaEnabled
       if (hasAiSelections) {
-        const confirmed = window.confirm(
-          "Turning off AI will discard your AI model picks, indexing policy, and remote Ollama configuration. Continue?"
-        )
+        const confirmed = window.confirm(t('wizard.step1.confirm_turn_off_ai'))
         if (!confirmed) return
       }
       setSelectedAiModels([])
@@ -622,10 +575,8 @@ export default function EasySetupWizard(props: {
     }
 
     if (isSelected) {
-      // Deselect all services in this capability
       setSelectedServices((prev) => prev.filter((s) => !capability.services.includes(s)))
     } else {
-      // Select all available services in this capability
       const servicesToAdd = capability.services.filter((service) =>
         availableServices.some((s) => s.service_name === service)
       )
@@ -640,7 +591,6 @@ export default function EasySetupWizard(props: {
 
     if (!exists) return null
 
-    // Determine visual state: installed (locked), selected (user chose it), or default
     const isChecked = installed || selected
 
     return (
@@ -669,7 +619,7 @@ export default function EasySetupWizard(props: {
               </h3>
               {installed && (
                 <span className="text-xs bg-desert-green text-white px-2 py-0.5 rounded-full">
-                  Installed
+                  {t('wizard.step1.installed_badge')}
                 </span>
               )}
             </div>
@@ -679,7 +629,7 @@ export default function EasySetupWizard(props: {
                 installed ? 'text-text-muted' : selected ? 'text-green-100' : 'text-text-muted'
               )}
             >
-              Powered by {capability.technicalName}
+              {t('wizard.step1.powered_by', { name: capability.technicalName })}
             </p>
             <p
               className={classNames(
@@ -693,7 +643,11 @@ export default function EasySetupWizard(props: {
               <ul
                 className={classNames(
                   'mt-3 space-y-1',
-                  installed ? 'text-text-secondary' : selected ? 'text-white' : 'text-text-secondary'
+                  installed
+                    ? 'text-text-secondary'
+                    : selected
+                      ? 'text-white'
+                      : 'text-text-secondary'
                 )}
               >
                 {capability.features.map((feature, idx) => (
@@ -736,10 +690,7 @@ export default function EasySetupWizard(props: {
   }
 
   const renderStep1 = () => {
-    // Show all capabilities that exist in the system (including installed ones)
     const existingCoreCapabilities = CORE_CAPABILITIES.filter(capabilityExists)
-
-    // Check if ALL core capabilities are already installed (nothing left to install)
     const allInstalled =
       existingCoreCapabilities.length > 0 &&
       existingCoreCapabilities.every(isCapabilityInstalled)
@@ -747,31 +698,32 @@ export default function EasySetupWizard(props: {
     return (
       <div className="space-y-8">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-text-primary mb-2">What do you want NOMAD to do?</h2>
-          <p className="text-text-secondary">
-            Select the capabilities you need. You can always add more later.
-          </p>
+          <h2 className="text-3xl font-bold text-text-primary mb-2">
+            {t('wizard.step1.title')}
+          </h2>
+          <p className="text-text-secondary">{t('wizard.step1.subtitle')}</p>
         </div>
 
         {allInstalled ? (
           <div className="text-center py-12">
             <p className="text-text-secondary text-lg">
-              All available capabilities are already installed!
+              {t('wizard.step1.all_installed')}
             </p>
             <StyledButton
               variant="primary"
               className="mt-4"
               onClick={() => router.visit('/settings/apps')}
             >
-              Manage Apps
+              {t('wizard.step1.manage_apps')}
             </StyledButton>
           </div>
         ) : (
           <>
-            {/* Core Capabilities */}
             {existingCoreCapabilities.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-text-primary mb-4">Core Capabilities</h3>
+                <h3 className="text-lg font-semibold text-text-primary mb-4">
+                  {t('wizard.step1.core_capabilities')}
+                </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {existingCoreCapabilities.map((capability) => {
                     if (capability.id === 'ai') {
@@ -794,7 +746,9 @@ export default function EasySetupWizard(props: {
                                   }}
                                   className="w-4 h-4 accent-desert-green"
                                 />
-                                <span className="text-sm font-medium text-gray-700">Use remote Ollama instance</span>
+                                <span className="text-sm font-medium text-gray-700">
+                                  {t('wizard.step1.remote_ollama_checkbox')}
+                                </span>
                               </label>
                               {remoteOllamaEnabled && (
                                 <div className="mt-3">
@@ -809,7 +763,9 @@ export default function EasySetupWizard(props: {
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-desert-green"
                                   />
                                   {remoteOllamaUrlError && (
-                                    <p className="mt-1 text-xs text-red-600">{remoteOllamaUrlError}</p>
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {remoteOllamaUrlError}
+                                    </p>
                                   )}
                                 </div>
                               )}
@@ -824,18 +780,14 @@ export default function EasySetupWizard(props: {
               </div>
             )}
 
-            {/* Everything beyond the core capabilities lives in Supply Depot,
-                the browsable app catalog. Keep onboarding focused and point
-                users there for Notes, Data Tools, and the rest. */}
             <div className="border-t border-desert-stone-light pt-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-lg bg-surface-secondary p-4">
                 <div>
                   <h3 className="text-md font-medium text-text-primary mb-1">
-                    Looking for more apps?
+                    {t('wizard.step1.more_apps_title')}
                   </h3>
                   <p className="text-sm text-text-secondary">
-                    Notes, data tools, and the full catalog of add-on apps are available any time in
-                    Supply Depot.
+                    {t('wizard.step1.more_apps_description')}
                   </p>
                 </div>
                 <StyledButton
@@ -843,7 +795,7 @@ export default function EasySetupWizard(props: {
                   onClick={() => router.visit('/supply-depot')}
                   className="flex-shrink-0"
                 >
-                  Open Supply Depot
+                  {t('wizard.step1.open_supply_depot')}
                 </StyledButton>
               </div>
             </div>
@@ -856,24 +808,22 @@ export default function EasySetupWizard(props: {
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-text-primary mb-2">Choose Map Regions</h2>
-        <p className="text-text-secondary">
-          Select map region collections to download for offline use. You can always download more
-          regions later.
-        </p>
+        <h2 className="text-3xl font-bold text-text-primary mb-2">
+          {t('wizard.step2.title')}
+        </h2>
+        <p className="text-text-secondary">{t('wizard.step2.subtitle')}</p>
       </div>
       <div className="mx-auto max-w-2xl rounded-lg border border-border-subtle bg-surface-secondary p-3 text-center">
         <p className="text-sm text-text-secondary">
-          Only need a specific country, or want the whole world? Individual countries and a full
-          global map can be installed any time from the{' '}
+          {t('wizard.step2.help_prefix')}
           <button
             type="button"
             onClick={() => router.visit('/settings/maps')}
             className="font-medium text-desert-green underline"
           >
-            Maps Manager
+            {t('wizard.step2.maps_manager_link')}
           </button>
-          .
+          {t('wizard.step2.help_suffix')}
         </p>
       </div>
       {isLoadingMaps ? (
@@ -891,7 +841,7 @@ export default function EasySetupWizard(props: {
               className={classNames(
                 'relative',
                 selectedMapCollections.includes(collection.slug) &&
-                'ring-4 ring-desert-green rounded-lg',
+                  'ring-4 ring-desert-green rounded-lg',
                 collection.all_installed && 'opacity-75',
                 !isOnline && 'opacity-50 cursor-not-allowed'
               )}
@@ -907,16 +857,15 @@ export default function EasySetupWizard(props: {
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-text-secondary text-lg">No map collections available at this time.</p>
+          <p className="text-text-secondary text-lg">
+            {t('wizard.step2.no_collections')}
+          </p>
         </div>
       )}
     </div>
   )
 
   const renderStep3 = () => {
-    // Issue #905: AI moved to its own conditional Step 4. Step 3 is now
-    // content-only (Wikipedia + curated tiers), gated on the Information
-    // capability (Kiwix).
     const isInformationSelected =
       selectedServices.includes(SERVICE_NAMES.KIWIX) ||
       installedServices.some((s) => s.service_name === SERVICE_NAMES.KIWIX)
@@ -924,15 +873,16 @@ export default function EasySetupWizard(props: {
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-text-primary mb-2">Choose Content</h2>
+          <h2 className="text-3xl font-bold text-text-primary mb-2">
+            {t('wizard.step3.title')}
+          </h2>
           <p className="text-text-secondary">
             {isInformationSelected
-              ? 'Select content categories for offline knowledge.'
-              : 'Configure content for your selected capabilities.'}
+              ? t('wizard.step3.subtitle_selected')
+              : t('wizard.step3.subtitle_unselected')}
           </p>
         </div>
 
-        {/* Wikipedia Selection - Only show if Information capability is selected */}
         {isInformationSelected && (
           <div className="mb-8">
             {isLoadingWikipedia ? (
@@ -951,10 +901,8 @@ export default function EasySetupWizard(props: {
           </div>
         )}
 
-        {/* Curated Categories with Tiers - Only show if Information capability is selected */}
         {isInformationSelected && (
           <>
-            {/* Divider between Wikipedia and Additional Content */}
             <hr className="my-8 border-border-subtle" />
 
             <div className="flex items-center gap-3 mb-4">
@@ -962,8 +910,12 @@ export default function EasySetupWizard(props: {
                 <IconBooks className="w-6 h-6 text-text-primary" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-text-primary">Additional Content</h3>
-                <p className="text-sm text-text-muted">Curated collections for offline reference</p>
+                <h3 className="text-xl font-semibold text-text-primary">
+                  {t('wizard.step3.additional_content_title')}
+                </h3>
+                <p className="text-sm text-text-muted">
+                  {t('wizard.step3.additional_content_subtitle')}
+                </p>
               </div>
             </div>
 
@@ -984,30 +936,27 @@ export default function EasySetupWizard(props: {
                   ))}
                 </div>
 
-                {/* Tier Selection Modal */}
                 <TierSelectionModal
                   isOpen={tierModalOpen}
                   onClose={closeTierModal}
                   category={activeCategory}
                   selectedTierSlug={
                     activeCategory
-                      ? selectedTiers.get(activeCategory.slug)?.slug || activeCategory.installedTierSlug
+                      ? selectedTiers.get(activeCategory.slug)?.slug ||
+                        activeCategory.installedTierSlug
                       : null
                   }
                   onSelectTier={handleTierSelect}
                 />
               </>
             ) : null}
-
           </>
         )}
 
-        {/* Show message if no content-bearing capabilities are selected */}
         {!isInformationSelected && (
           <div className="text-center py-12">
             <p className="text-text-secondary text-lg">
-              No content-based capabilities selected. You can skip this step or go back to select
-              capabilities that require content.
+              {t('wizard.step3.no_content_capabilities')}
             </p>
           </div>
         )}
@@ -1016,16 +965,13 @@ export default function EasySetupWizard(props: {
   }
 
   const renderCreatorPacks = () => {
-    // Creator Packs step. Only present when this build is configured (see
-    // activeSteps); a fork built without the key never reaches it. Selection is
-    // by pack id, held in selectedCreatorPacks; installs fire in handleFinish.
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-text-primary mb-2">Stock Creator Packs</h2>
-          <p className="text-text-secondary">
-            Branded video collections from creators, downloaded for offline viewing in Kiwix.
-          </p>
+          <h2 className="text-3xl font-bold text-text-primary mb-2">
+            {t('wizard.step4.title')}
+          </h2>
+          <p className="text-text-secondary">{t('wizard.step4.subtitle')}</p>
         </div>
 
         {creatorPacks.length > 0 ? (
@@ -1045,7 +991,9 @@ export default function EasySetupWizard(props: {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-text-secondary text-lg">No creator packs available right now.</p>
+            <p className="text-text-secondary text-lg">
+              {t('wizard.step4.no_packs')}
+            </p>
           </div>
         )}
       </div>
@@ -1053,14 +1001,14 @@ export default function EasySetupWizard(props: {
   }
 
   const renderStep4 = () => {
-    // AI step (issue #905). Only rendered when isAiInSetup is true; otherwise
-    // the wizard's step array drops it and forward/back nav jumps Content → Review.
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-text-primary mb-2">Configure {aiAssistantName}</h2>
+          <h2 className="text-3xl font-bold text-text-primary mb-2">
+            {t('wizard.step5.title', { name: aiAssistantName })}
+          </h2>
           <p className="text-text-secondary">
-            Choose models to download and set how {aiAssistantName} handles new content.
+            {t('wizard.step5.subtitle', { name: aiAssistantName })}
           </p>
         </div>
 
@@ -1069,14 +1017,18 @@ export default function EasySetupWizard(props: {
             <IconCpu className="w-6 h-6 text-text-primary" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-text-primary">AI Models</h3>
-            <p className="text-sm text-text-muted">Select models to download for offline AI</p>
+            <h3 className="text-xl font-semibold text-text-primary">
+              {t('wizard.step5.models_title')}
+            </h3>
+            <p className="text-sm text-text-muted">
+              {t('wizard.step5.models_subtitle')}
+            </p>
           </div>
         </div>
         {remoteOllamaEnabled && remoteOllamaUrl ? (
           <Alert
-            title="Remote Ollama selected"
-            message="Models are managed on the remote machine. You can add models from Settings > AI Assistant after setup, note this is only supported when using Ollama, not LM Studio and other OpenAI API software."
+            title={t('wizard.step5.remote_ollama_alert_title')}
+            message={t('wizard.step5.remote_ollama_alert_message')}
             type="info"
             variant="bordered"
           />
@@ -1103,7 +1055,9 @@ export default function EasySetupWizard(props: {
                     <h4
                       className={classNames(
                         'text-lg font-semibold mb-1',
-                        selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-primary'
+                        selectedAiModels.includes(model.name)
+                          ? 'text-white'
+                          : 'text-text-primary'
                       )}
                     >
                       {model.name}
@@ -1111,7 +1065,9 @@ export default function EasySetupWizard(props: {
                     <p
                       className={classNames(
                         'text-sm mb-2',
-                        selectedAiModels.includes(model.name) ? 'text-white' : 'text-text-secondary'
+                        selectedAiModels.includes(model.name)
+                          ? 'text-white'
+                          : 'text-text-secondary'
                       )}
                     >
                       {model.description}
@@ -1125,19 +1081,7 @@ export default function EasySetupWizard(props: {
                             : 'text-text-muted'
                         )}
                       >
-                        Size: {model.tags[0].size}
-                      </div>
-                    )}
-                    {model.tags?.[0]?.input.toLowerCase().includes('image') && (
-                      <div
-                        className={classNames(
-                          'mt-1 text-xs font-medium',
-                          selectedAiModels.includes(model.name)
-                            ? 'text-green-100'
-                            : 'text-desert-green'
-                        )}
-                      >
-                        Supports images
+                        {t('wizard.step5.model_size', { size: model.tags[0].size })}
                       </div>
                     )}
                   </div>
@@ -1159,48 +1103,50 @@ export default function EasySetupWizard(props: {
           </div>
         ) : (
           <div className="text-center py-8 bg-surface-secondary rounded-lg">
-            <p className="text-text-secondary">No recommended AI models available at this time.</p>
+            <p className="text-text-secondary">
+              {t('wizard.step5.no_models')}
+            </p>
           </div>
         )}
 
-        {/* Auto-index policy — choose now so the JIT prompt at first chat
-            doesn't ask again (RFC #883 Phase 3 task 13). Persisted to
-            rag.defaultIngestPolicy on wizard submit. */}
         <div className="mt-8 pt-6 border-t border-border-subtle">
           <h4 className="text-lg font-semibold text-text-primary mb-1">
-            Auto-index new content for {aiAssistantName}?
+            {t('wizard.step5.auto_index_title', { name: aiAssistantName })}
           </h4>
           <p className="text-sm text-text-muted mb-4">
-            When you add new ZIMs, documents, or curated content, should {aiAssistantName} index them automatically so it can search them while answering your questions?
+            {t('wizard.step5.auto_index_desc', { name: aiAssistantName })}
           </p>
-          <div className="inline-flex rounded-md border border-border-default overflow-hidden" role="group">
+          <div
+            className="inline-flex rounded-md border border-border-default overflow-hidden"
+            role="group"
+          >
             <button
               type="button"
               onClick={() => setIngestPolicy('Always')}
               className={classNames(
-                'px-5 py-2 text-sm font-medium transition-colors',
+                'px-5 py-2 text-sm font-medium transition-colors cursor-pointer',
                 ingestPolicy === 'Always'
                   ? 'bg-desert-green text-white'
                   : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
               )}
             >
-              Yes, always
+              {t('wizard.step5.auto_index_always')}
             </button>
             <button
               type="button"
               onClick={() => setIngestPolicy('Manual')}
               className={classNames(
-                'px-5 py-2 text-sm font-medium transition-colors border-l border-border-default',
+                'px-5 py-2 text-sm font-medium transition-colors border-l border-border-default cursor-pointer',
                 ingestPolicy === 'Manual'
                   ? 'bg-desert-green text-white'
                   : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
               )}
             >
-              Ask me first
+              {t('wizard.step5.auto_index_manual')}
             </button>
           </div>
           <p className="text-xs text-text-muted mt-3">
-            You can change this any time from the Knowledge Base panel inside AI Chat.
+            {t('wizard.step5.auto_index_note')}
           </p>
         </div>
       </div>
@@ -1219,14 +1165,16 @@ export default function EasySetupWizard(props: {
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-text-primary mb-2">Review Your Selections</h2>
-          <p className="text-text-secondary">Review your choices before starting the setup process.</p>
+          <h2 className="text-3xl font-bold text-text-primary mb-2">
+            {t('wizard.step6.title')}
+          </h2>
+          <p className="text-text-secondary">{t('wizard.step6.subtitle')}</p>
         </div>
 
         {!hasSelections ? (
           <Alert
-            title="No Selections Made"
-            message="You haven't selected anything to install or download. You can go back to make selections or go back to the home page."
+            title={t('wizard.step6.no_selections_title')}
+            message={t('wizard.step6.no_selections_message')}
             type="info"
             variant="bordered"
           />
@@ -1235,22 +1183,22 @@ export default function EasySetupWizard(props: {
             {selectedServices.length > 0 && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-4">
-                  Capabilities to Install
+                  {t('wizard.step6.capabilities_title')}
                 </h3>
                 <ul className="space-y-2">
                   {CORE_CAPABILITIES.filter((cap) =>
                     cap.services.some((s) => selectedServices.includes(s))
                   ).map((capability) => (
-                      <li key={capability.id} className="flex items-center">
-                        <IconCheck size={20} className="text-desert-green mr-2" />
-                        <span className="text-text-primary">
-                          {capability.name}
-                          <span className="text-text-muted text-sm ml-2">
-                            ({capability.technicalName})
-                          </span>
+                    <li key={capability.id} className="flex items-center">
+                      <IconCheck size={20} className="text-desert-green mr-2" />
+                      <span className="text-text-primary">
+                        {capability.name}
+                        <span className="text-text-muted text-sm ml-2">
+                          ({capability.technicalName})
                         </span>
-                      </li>
-                    ))}
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -1258,7 +1206,9 @@ export default function EasySetupWizard(props: {
             {selectedMapCollections.length > 0 && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-4">
-                  Map Collections to Download ({selectedMapCollections.length})
+                  {t('wizard.step6.map_collections_title', {
+                    count: selectedMapCollections.length,
+                  })}
                 </h3>
                 <ul className="space-y-2">
                   {selectedMapCollections.map((slug) => {
@@ -1277,7 +1227,9 @@ export default function EasySetupWizard(props: {
             {selectedCreatorPacks.length > 0 && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-4">
-                  Creator Packs to Install ({selectedCreatorPacks.length})
+                  {t('wizard.step6.creator_packs_title', {
+                    count: selectedCreatorPacks.length,
+                  })}
                 </h3>
                 <ul className="space-y-2">
                   {selectedCreatorPacks.map((id) => {
@@ -1296,7 +1248,9 @@ export default function EasySetupWizard(props: {
             {selectedTiers.size > 0 && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-4">
-                  Content Categories ({selectedTiers.size})
+                  {t('wizard.step6.content_categories_title', {
+                    count: selectedTiers.size,
+                  })}
                 </h3>
                 {Array.from(selectedTiers.entries()).map(([categorySlug, tier]) => {
                   const category = categories?.find((c) => c.slug === categorySlug)
@@ -1310,7 +1264,7 @@ export default function EasySetupWizard(props: {
                           {category.name} - {tier.name}
                         </span>
                         <span className="text-text-muted text-sm ml-2">
-                          ({resources.length} files)
+                          {t('wizard.step6.files_count', { count: resources.length })}
                         </span>
                       </div>
                       <ul className="ml-7 space-y-1">
@@ -1328,7 +1282,9 @@ export default function EasySetupWizard(props: {
 
             {selectedWikipedia && selectedWikipedia !== 'none' && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
-                <h3 className="text-xl font-semibold text-text-primary mb-4">Wikipedia</h3>
+                <h3 className="text-xl font-semibold text-text-primary mb-4">
+                  {t('wizard.step6.wikipedia_title')}
+                </h3>
                 {(() => {
                   const option = wikipediaState?.options.find((o) => o.id === selectedWikipedia)
                   return option ? (
@@ -1340,7 +1296,7 @@ export default function EasySetupWizard(props: {
                       <span className="text-text-muted text-sm">
                         {option.size_mb > 0
                           ? `${(option.size_mb / 1024).toFixed(1)} GB`
-                          : 'No download'}
+                          : t('wizard.step6.no_download')}
                       </span>
                     </div>
                   ) : null
@@ -1351,7 +1307,9 @@ export default function EasySetupWizard(props: {
             {selectedAiModels.length > 0 && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-4">
-                  AI Models to Download ({selectedAiModels.length})
+                  {t('wizard.step6.ai_models_title', {
+                    count: selectedAiModels.length,
+                  })}
                 </h3>
                 <ul className="space-y-2">
                   {selectedAiModels.map((modelName) => {
@@ -1375,25 +1333,19 @@ export default function EasySetupWizard(props: {
             {isAiInSetup && (
               <div className="bg-surface-primary rounded-lg border-2 border-desert-stone-light p-6">
                 <h3 className="text-xl font-semibold text-text-primary mb-2">
-                  Auto-index Setting
+                  {t('wizard.step6.auto_index_title')}
                 </h3>
                 <p className="text-text-secondary text-sm">
-                  {ingestPolicy === 'Always' ? (
-                    <>
-                      New content will be <strong>indexed automatically</strong> as it arrives so {aiAssistantName} can search it.
-                    </>
-                  ) : (
-                    <>
-                      New content will <strong>wait for you to opt in</strong> from the Knowledge Base panel before {aiAssistantName} indexes it.
-                    </>
-                  )}
+                  {ingestPolicy === 'Always'
+                    ? t('wizard.step6.auto_index_always_review', { name: aiAssistantName })
+                    : t('wizard.step6.auto_index_manual_review', { name: aiAssistantName })}
                 </p>
               </div>
             )}
 
             <Alert
-              title="Ready to Start"
-              message="Click 'Complete Setup' to begin installing apps and downloading content. This may take some time depending on your internet connection and the size of the downloads."
+              title={t('wizard.step6.ready_title')}
+              message={t('wizard.step6.ready_message')}
               type="info"
               variant="solid"
             />
@@ -1405,11 +1357,11 @@ export default function EasySetupWizard(props: {
 
   return (
     <AppLayout>
-      <Head title="Easy Setup Wizard" />
+      <Head title={t('wizard.head_title')} />
       {!isOnline && (
         <Alert
-          title="No Internet Connection"
-          message="You'll need an internet connection to proceed. Please connect to the internet and try again."
+          title={t('wizard.no_internet_title')}
+          message={t('wizard.no_internet_message')}
           type="warning"
           variant="solid"
           className="mb-8"
@@ -1444,7 +1396,7 @@ export default function EasySetupWizard(props: {
                     variant="outline"
                     icon="IconChevronLeft"
                   >
-                    Back
+                    {t('wizard.buttons.back')}
                   </StyledButton>
                 )}
 
@@ -1453,18 +1405,44 @@ export default function EasySetupWizard(props: {
                     const count = CORE_CAPABILITIES.filter((cap) =>
                       cap.services.some((s) => selectedServices.includes(s))
                     ).length
-                    return `${count} ${count === 1 ? 'capability' : 'capabilities'}`
+                    return count === 1
+                      ? t('wizard.summary.capabilities_one', { count })
+                      : t('wizard.summary.capabilities_other', { count })
                   })()}
-                  , {selectedMapCollections.length} map region
-                  {selectedMapCollections.length !== 1 && 's'}, {selectedTiers.size}{' '}
-                  content categor{selectedTiers.size !== 1 ? 'ies' : 'y'},{' '}
+                  {', '}
+                  {selectedMapCollections.length === 1
+                    ? t('wizard.summary.map_regions_one', {
+                        count: selectedMapCollections.length,
+                      })
+                    : t('wizard.summary.map_regions_other', {
+                        count: selectedMapCollections.length,
+                      })}
+                  {', '}
+                  {selectedTiers.size === 1
+                    ? t('wizard.summary.content_categories_one', {
+                        count: selectedTiers.size,
+                      })
+                    : t('wizard.summary.content_categories_other', {
+                        count: selectedTiers.size,
+                      })}
+                  {', '}
                   {creatorPacksConfigured && (
                     <>
-                      {selectedCreatorPacks.length} creator pack
-                      {selectedCreatorPacks.length !== 1 && 's'},{' '}
+                      {selectedCreatorPacks.length === 1
+                        ? t('wizard.summary.creator_packs_one', {
+                            count: selectedCreatorPacks.length,
+                          })
+                        : t('wizard.summary.creator_packs_other', {
+                            count: selectedCreatorPacks.length,
+                          })}
+                      {', '}
                     </>
                   )}
-                  {selectedAiModels.length} AI model{selectedAiModels.length !== 1 && 's'} selected
+                  {selectedAiModels.length === 1
+                    ? t('wizard.summary.ai_models_one', { count: selectedAiModels.length })
+                    : t('wizard.summary.ai_models_other', {
+                        count: selectedAiModels.length,
+                      })}
                 </p>
               </div>
 
@@ -1474,7 +1452,7 @@ export default function EasySetupWizard(props: {
                   disabled={isProcessing}
                   variant="outline"
                 >
-                  Cancel & Go to Home
+                  {t('wizard.buttons.cancel_and_home')}
                 </StyledButton>
 
                 {currentStep < finalStep ? (
@@ -1484,7 +1462,7 @@ export default function EasySetupWizard(props: {
                     variant="primary"
                     icon="IconChevronRight"
                   >
-                    Next
+                    {t('wizard.buttons.next')}
                   </StyledButton>
                 ) : (
                   <StyledButton
@@ -1494,7 +1472,7 @@ export default function EasySetupWizard(props: {
                     variant="success"
                     icon="IconCheck"
                   >
-                    Complete Setup
+                    {t('wizard.buttons.complete_setup')}
                   </StyledButton>
                 )}
               </div>
