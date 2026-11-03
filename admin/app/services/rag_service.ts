@@ -1970,10 +1970,8 @@ export class RagService {
    * has been deleted from disk.
    *
    * The decision (see `decideContentReindex` for the exhaustive, tested
-   * contract) mirrors the REPLACED file's prior indexed state instead of the
-   * global `rag.defaultIngestPolicy`. On a content update the user has already
-   * chosen whether this content belongs in the AI knowledge base, so we honor
-   * that choice in both directions:
+   * contract) mirrors the REPLACED file's prior indexed state, then gates any
+   * re-embed on the global `rag.defaultIngestPolicy` (#1455):
    *
    *   1. (caller already deleted the outdated file from disk)
    *   2. Qdrant not installed          → no-op (no knowledge base exists)
@@ -1981,8 +1979,14 @@ export class RagService {
    *      running                       → delete ONLY the old file's points
    *                                       (filter `source == oldFilePath`), drop
    *                                       its ingest-state row, and queue the new
-   *                                       file for embedding — BYPASSING the
-   *                                       Always/Manual policy on purpose.
+   *                                       file for embedding — under Always.
+   *                                       Under Manual the purge still happens
+   *                                       but the new file is recorded as
+   *                                       `pending_decision` instead of queued,
+   *                                       like any other new file (#1455): a
+   *                                       collection update can replace many
+   *                                       large ZIMs at once and Manual must not
+   *                                       start hours of embedding unasked.
    *   4. Old file NOT indexed          → no-op (respect the prior un-indexed /
    *                                       browse-only choice; do NOT auto-embed
    *                                       even under an Always policy)
@@ -2035,20 +2039,40 @@ export class RagService {
       qdrantRunning = (await this.checkQdrantHealth()).online
     }
 
+    // Only read the policy once we'd otherwise act — it's the final gate.
+    // Unset is treated as Always, matching scanAndSyncStorage.
+    let policy: IngestPolicy = 'Always'
+    if (qdrantRunning) {
+      const policyRaw = await KVStore.getValue('rag.defaultIngestPolicy')
+      policy = policyRaw === 'Manual' ? 'Manual' : 'Always'
+    }
+
     const outcome = decideContentReindex({
       isReplacement,
       qdrantInstalled,
       oldFileWasIndexed,
       qdrantRunning,
+      policy,
     })
 
-    if (outcome === 'reindex') {
+    if (outcome === 'reindex' || outcome === 'pending_decision') {
       // Order matters: remove the stale points and state row BEFORE queueing the
       // new embed so a fresh index can't be conflated with the old one. Each step
       // targets only `oldFilePath` / `newFilePath` — never another resource.
       await this.purgeIndexedSource(oldFilePath)
+    }
+
+    if (outcome === 'reindex') {
       const { EmbedFileJob } = await import('#jobs/embed_file_job')
       await EmbedFileJob.dispatch({ fileName, filePath: newFilePath })
+    } else if (outcome === 'pending_decision') {
+      // Manual (#1455): record the new version like a fresh file so the KB panel
+      // surfaces the per-file Index affordance. firstOrCreate mirrors the
+      // fresh-install path in RunDownloadJob — never demote an existing row.
+      await KbIngestState.firstOrCreate(
+        { file_path: newFilePath },
+        { file_path: newFilePath, state: 'pending_decision', chunks_embedded: 0 }
+      )
     }
 
     return outcome

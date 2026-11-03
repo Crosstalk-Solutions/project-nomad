@@ -221,14 +221,13 @@ export class RunDownloadJob {
                 const isReplacement = !!oldFilePath && oldFilePath !== filepath
 
                 if (isReplacement) {
-                  // CONTENT UPDATE: mirror the REPLACED file's prior indexed state
-                  // rather than the global Always/Manual policy. reconcileReplaced-
-                  // ContentFile removes the old file's points and re-queues the new
-                  // file IFF the old one was indexed and Qdrant is running; it is a
-                  // no-op otherwise (not installed / old not indexed / Qdrant down).
-                  // The user already chose whether this content is in the KB, so we
-                  // honor that choice in both directions. See the method for the
-                  // full 5-step contract.
+                  // CONTENT UPDATE: mirror the REPLACED file's prior indexed state.
+                  // reconcileReplacedContentFile removes the old file's points IFF
+                  // the old one was indexed and Qdrant is running, then re-queues
+                  // the new file under Always or records it as pending_decision
+                  // under Manual (#1455); it is a no-op otherwise (not installed /
+                  // old not indexed / Qdrant down). See the method for the full
+                  // contract.
                   try {
                     const ragService = new RagService(dockerService, new OllamaService())
                     const outcome = await ragService.reconcileReplacedContentFile({
