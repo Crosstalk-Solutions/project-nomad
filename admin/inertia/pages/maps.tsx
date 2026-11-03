@@ -1,70 +1,33 @@
 import { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
+import { IconArrowLeft } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 
 import MapsLayout from '~/layouts/MapsLayout'
 import MapComponent from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
-import { IconArrowLeft, IconCrosshair, IconMapPin, IconPlaneTilt } from '@tabler/icons-react'
-import { FileEntry } from '../../types/files'
 import Alert from '~/components/Alert'
 
-type MapCommand = {
-  id: number
-  lat: number
-  lng: number
-  action: 'fly' | 'marker'
-}
+import { FileEntry } from '../../types/files'
 
 export default function Maps(props: {
   maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
 }) {
+  const { t } = useTranslation('maps')
   const [isHoveringUI, setIsHoveringUI] = useState(false)
-
-  const [coordinateSearch, setCoordinateSearch] = useState('')
-  const [mapCommand, setMapCommand] = useState<MapCommand | null>(null)
-  const [showCoordinatesEnabled, setShowCoordinatesEnabled] = useState(true)
-
-  const parseCoordinates = () => {
-    const [latRaw, lngRaw] = coordinateSearch.split(',').map((value) => value.trim())
-    const lat = Number(latRaw)
-    const lng = Number(lngRaw)
-
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lng) ||
-      lat < -90 ||
-      lat > 90 ||
-      lng < -180 ||
-      lng > 180
-    ) {
-      return null
-    }
-
-    return { lat, lng }
-  }
-
-  const handleCoordinateAction = (action: 'fly' | 'marker') => {
-    const coordinates = parseCoordinates()
-    if (!coordinates) return
-
-    setMapCommand({
-      id: Date.now(),
-      ...coordinates,
-      action,
-    })
-  }
+  const [showMapCoordinates, setShowMapCoordinates] = useState(true)
 
   const alertMessage = !props.maps.baseAssetsExist
-    ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
+    ? t('view.base_assets_missing')
     : !props.maps.worldBasemapExists
-    ? 'The world base map has not been downloaded yet, so the map may appear blank outside downloaded regions. Connect this NOMAD to the internet and download it (~15 MB) from Map Settings.'
+    ? t('view.world_basemap_missing')
     : props.maps.regionFiles.length === 0
-    ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
+    ? t('view.no_regions_downloaded')
     : null
 
   return (
     <MapsLayout>
-      <Head title="Maps" />
+      <Head title={t('view.head_title')} />
 
       <div className="relative w-full h-screen overflow-hidden">
         {/* Navbar */}
@@ -75,55 +38,21 @@ export default function Maps(props: {
         >
           <Link href="/home" className="flex items-center">
             <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <p className="text-lg text-text-secondary">{t('view.back_to_home')}</p>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="lat,lng"
-              value={coordinateSearch}
-              onChange={(event) => setCoordinateSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') handleCoordinateAction('fly')
-              }}
-              className="w-52 rounded border border-border-default bg-surface-primary px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:border-desert-green focus:outline-none"
-            />
-
+          <div className="flex items-center gap-3 mr-4">
             <button
               type="button"
-              onClick={() => handleCoordinateAction('fly')}
-              className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
-              title="Fly to coordinates"
+              onClick={() => setShowMapCoordinates((prev) => !prev)}
+              className="rounded px-3 py-2 text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
             >
-              <IconPlaneTilt size={18}/>
+              {showMapCoordinates ? t('view.hide_coordinates') : t('view.show_coordinates')}
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleCoordinateAction('marker')}
-              className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
-              title="Add marker at coordinates"
-            >
-              <IconMapPin size={18}/>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowCoordinatesEnabled((prev) => !prev)}
-              className={`rounded border border-border-default p-2 transition-colors ${
-                showCoordinatesEnabled
-                  ? 'bg-desert-green text-white'
-                  : 'bg-surface-primary text-text-secondary hover:bg-surface-secondary'
-              }`}
-              title={showCoordinatesEnabled ? 'Hide coordinates' : 'Show coordinates'}
-            >
-              <IconCrosshair size={18}/>
-            </button>
-
-            <Link href="/settings/maps" className="mr-4">
+            <Link href="/settings/maps">
               <StyledButton variant="primary" icon="IconSettings">
-                Manage Map Regions
+                {t('view.manage_regions')}
               </StyledButton>
             </Link>
           </div>
@@ -143,7 +72,7 @@ export default function Maps(props: {
               className="w-full"
               buttonProps={{
                 variant: 'secondary',
-                children: 'Go to Map Settings',
+                children: t('view.go_to_settings'),
                 icon: 'IconSettings',
                 onClick: () => router.visit('/settings/maps'),
               }}
@@ -152,12 +81,10 @@ export default function Maps(props: {
         )}
 
         {/* Map */}
-
         <div className="absolute inset-0">
           <MapComponent
-            mapCommand={mapCommand}
             isHoveringUI={isHoveringUI}
-            showCoordinatesEnabled={showCoordinatesEnabled}
+            showCoordinatesEnabled={showMapCoordinates}
           />
         </div>
       </div>
