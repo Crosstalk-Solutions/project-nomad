@@ -1,4 +1,5 @@
 import { ChatService } from '#services/chat_service'
+import { ContextWindowService } from '#services/context_window_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService, type NomadChatUsage } from '#services/ollama_service'
 import { TokenCalibrationService } from '#services/token_calibration_service'
@@ -37,7 +38,8 @@ export default class OllamaController {
     private ollamaService: OllamaService,
     private ragPipelineService: RagPipelineService,
     private ragService: RagService,
-    private tokenCalibration: TokenCalibrationService
+    private tokenCalibration: TokenCalibrationService,
+    private contextWindowService: ContextWindowService
   ) { }
 
   async availableModels({ request }: HttpContext) {
@@ -48,7 +50,30 @@ export default class OllamaController {
       query: reqData.query || null,
       limit: reqData.limit || 15,
       force: reqData.force,
+      memoryBudgetBytes: reqData.recommendedOnly
+        ? await this._recommendationBudgetBytes()
+        : undefined,
     })
+  }
+
+  /**
+   * Memory budget to filter recommended models against (#1477): the same figure
+   * the context-window resolver uses (VRAM Ollama reports, else half of system
+   * RAM). Undefined, meaning "don't filter", when the AI backend is remote,
+   * because then neither the local Ollama logs nor this host's RAM describe the
+   * machine the model would run on.
+   */
+  private async _recommendationBudgetBytes(): Promise<number | undefined> {
+    try {
+      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (typeof remoteUrl === 'string' && remoteUrl.trim()) return undefined
+      return await this.contextWindowService.getAvailableBytes()
+    } catch (error) {
+      logger.warn(
+        `[OllamaController] Could not determine memory budget for recommendations: ${error instanceof Error ? error.message : error}`
+      )
+      return undefined
+    }
   }
 
   /**

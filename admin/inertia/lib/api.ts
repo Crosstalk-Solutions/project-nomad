@@ -330,6 +330,9 @@ class API {
       const response = await this.client.get<{
         models: NomadOllamaModel[]
         hasMore: boolean
+        // Present only on recommendedOnly requests filtered by memory (#1477).
+        memoryBudgetBytes?: number
+        noneFitMemory?: boolean
       }>('/ollama/models', {
         params: { sort: 'pulls', ...params },
       })

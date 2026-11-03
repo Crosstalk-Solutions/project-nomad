@@ -23,6 +23,7 @@ import classNames from 'classnames'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
 import { SERVICE_NAMES } from '../../../constants/service_names'
+import { formatBytes } from '~/lib/util'
 
 // Capability definitions - maps user-friendly categories to services
 interface Capability {
@@ -168,17 +169,19 @@ export default function EasySetupWizard(props: {
     refetchOnWindowFocus: false,
   })
 
-  const { data: recommendedModels, isLoading: isLoadingRecommendedModels } = useQuery({
+  const { data: recommendedModelsData, isLoading: isLoadingRecommendedModels } = useQuery({
     queryKey: ['recommended-ollama-models'],
     queryFn: async () => {
       const res = await api.getAvailableModels({ recommendedOnly: true })
-      if (!res) {
-        return []
-      }
-      return res.models
+      return res ?? { models: [], hasMore: false }
     },
     refetchOnWindowFocus: false,
   })
+  const recommendedModels = recommendedModelsData?.models
+  // When the server filtered recommendations by this machine's memory (#1477),
+  // each model carries the one tag chosen to fit, and that tag is what must be
+  // pulled: the bare model name would fetch `:latest`, which may be larger.
+  const recommendationIsMemoryFiltered = !!recommendedModelsData?.memoryBudgetBytes
 
   // Fetch Wikipedia options and current state
   const { data: wikipediaState, isLoading: isLoadingWikipedia } = useQuery({
@@ -433,7 +436,12 @@ export default function EasySetupWizard(props: {
         ...selectedMapCollections.map((slug) => api.downloadMapCollection(slug)),
         ...categoryTierPromises,
         ...selectedCreatorPacks.map((id) => api.installCreatorPack(id)),
-        ...selectedAiModels.map((modelName) => api.downloadModel(modelName)),
+        ...selectedAiModels.map((modelName) => {
+          const tagName = recommendationIsMemoryFiltered
+            ? recommendedModels?.find((m) => m.name === modelName)?.tags?.[0]?.name
+            : undefined
+          return api.downloadModel(tagName || modelName)
+        }),
       ]
 
       await Promise.all(downloadPromises)
@@ -1159,7 +1167,11 @@ export default function EasySetupWizard(props: {
           </div>
         ) : (
           <div className="text-center py-8 bg-surface-secondary rounded-lg">
-            <p className="text-text-secondary">No recommended AI models available at this time.</p>
+            <p className="text-text-secondary">
+              {recommendedModelsData?.noneFitMemory && recommendedModelsData.memoryBudgetBytes
+                ? `None of the recommended AI models fit in this machine's available memory (about ${formatBytes(recommendedModelsData.memoryBudgetBytes, 1)}). You can browse smaller models in Settings > AI Assistant after setup.`
+                : 'No recommended AI models available at this time.'}
+            </p>
           </div>
         )}
 
