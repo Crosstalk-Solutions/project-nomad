@@ -7,6 +7,7 @@ import { SERVICE_NAMES } from '../../constants/service_names'
 import { Link, router } from '@inertiajs/react'
 import { IconArrowLeft } from '@tabler/icons-react'
 import classNames from 'classnames'
+import { useTranslation } from 'react-i18next'
 
 export default function AppLayout({
   children,
@@ -20,24 +21,24 @@ export default function AppLayout({
    */
   compact?: boolean
 }) {
+  const { t } = useTranslation('common')
   const [isChatOpen, setIsChatOpen] = useState(false)
   const aiAssistantInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
   return (
     <div className="min-h-screen flex flex-col">
-      {
-        window.location.pathname !== '/home' && (
-          <Link
-            href="/home"
-            className={classNames(
-              'absolute left-4 flex items-center',
-              compact ? 'top-4' : 'top-60 md:top-48'
-            )}
-          >
-            <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
-          </Link>
-        )}
+      {window.location.pathname !== '/home' && (
+        <Link
+          href="/home"
+          className={classNames(
+            'absolute left-4 flex items-center',
+            compact ? 'top-4' : 'top-60 md:top-48'
+          )}
+        >
+          <IconArrowLeft className="mr-2" size={24} />
+          <p className="text-lg text-text-secondary">{t('navigation.back_to_home')}</p>
+        </Link>
+      )}
       <div
         className={classNames(
           'flex cursor-pointer items-center justify-center',
@@ -47,7 +48,7 @@ export default function AppLayout({
       >
         <img
           src="/project_nomad_logo.webp"
-          alt="Project NOMAD Logo"
+          alt={t('logo_alt')}
           className={compact ? 'h-12 w-12' : 'h-40 w-40'}
         />
         <h1
@@ -56,14 +57,15 @@ export default function AppLayout({
             compact ? 'text-2xl' : 'text-5xl'
           )}
         >
-          Command Center
+          {t('navigation.command_center')}
         </h1>
       </div>
-      <hr className={
-        classNames(
-          "text-desert-green font-semibold h-[1.5px] bg-desert-green border-none",
-          !compact && window.location.pathname !== '/home' ? "mt-12 md:mt-0" : "mt-0"
-        )} />
+      <hr
+        className={classNames(
+          'text-desert-green font-semibold h-[1.5px] bg-desert-green border-none',
+          !compact && window.location.pathname !== '/home' ? 'mt-12 md:mt-0' : 'mt-0'
+        )}
+      />
       <div className="flex-1 w-full bg-desert">{children}</div>
       <Footer />
 

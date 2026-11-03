@@ -12,7 +12,7 @@ import {
   IconMovie,
   IconSettings,
   IconWand,
-  IconZoom
+  IconZoom,
 } from '@tabler/icons-react'
 import { usePage } from '@inertiajs/react'
 import StyledSidebar from '~/components/StyledSidebar'
@@ -20,8 +20,10 @@ import { getServiceLink } from '~/lib/navigation'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import useCreatorPacks from '~/hooks/useCreatorPacks'
 import { SERVICE_NAMES } from '../../constants/service_names'
+import { useTranslation } from 'react-i18next'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation('settings')
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const aiAssistantInstallStatus = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   // Only show the Creator Packs entry on builds that can actually install packs
@@ -29,36 +31,40 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const { configured: creatorPacksConfigured } = useCreatorPacks()
 
   const navigation = [
-    ...(aiAssistantInstallStatus.isInstalled ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }] : []),
-    { name: 'Supply Depot', href: '/supply-depot', icon: IconBox, current: false },
-    { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
-    { name: 'Content Explorer', href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },
-    { name: 'Content Manager', href: '/settings/zim', icon: IconFolder, current: false },
-    ...(creatorPacksConfigured ? [{ name: 'Creator Packs', href: '/settings/creator-packs', icon: IconMovie, current: false }] : []),
-    { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
+    ...(aiAssistantInstallStatus.isInstalled
+      ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }]
+      : []),
+    { name: t('nav.supply_depot'), href: '/supply-depot', icon: IconBox, current: false },
+    { name: t('nav.benchmark'), href: '/settings/benchmark', icon: IconChartBar, current: false },
+    { name: t('nav.content_explorer'), href: '/settings/zim/remote-explorer', icon: IconZoom, current: false },
+    { name: t('nav.content_manager'), href: '/settings/zim', icon: IconFolder, current: false },
+    ...(creatorPacksConfigured
+      ? [{ name: t('nav.creator_packs'), href: '/settings/creator-packs', icon: IconMovie, current: false }]
+      : []),
+    { name: t('nav.maps_manager'), href: '/settings/maps', icon: IconMapRoute, current: false },
     {
-      name: 'Service Logs & Metrics',
+      name: t('nav.service_logs'),
       href: getServiceLink('9999'),
       icon: IconDashboard,
       current: false,
       target: '_blank',
     },
     {
-      name: 'Check for Updates',
+      name: t('nav.check_for_updates'),
       href: '/settings/update',
       icon: IconArrowBigUpLines,
       current: false,
     },
-    { name: 'System', href: '/settings/system', icon: IconSettings, current: false },
-    { name: 'Advanced', href: '/settings/advanced', icon: IconAdjustments, current: false },
-    { name: 'API Reference', href: '/reference', icon: IconCode, current: false },
-    { name: 'Support the Project', href: '/settings/support', icon: IconHeart, current: false },
-    { name: 'Legal Notices', href: '/settings/legal', icon: IconGavel, current: false },
+    { name: t('nav.system'), href: '/settings/system', icon: IconSettings, current: false },
+    { name: t('nav.advanced'), href: '/settings/advanced', icon: IconAdjustments, current: false },
+    { name: t('nav.api_reference'), href: '/reference', icon: IconCode, current: false },
+    { name: t('nav.support_the_project'), href: '/settings/support', icon: IconHeart, current: false },
+    { name: t('nav.legal_notices'), href: '/settings/legal', icon: IconGavel, current: false },
   ]
 
   return (
     <div className="min-h-screen flex flex-row bg-surface-secondary/90">
-      <StyledSidebar title="Settings" items={navigation} />
+      <StyledSidebar title={t('sidebar.title')} items={navigation} />
       {children}
     </div>
   )
