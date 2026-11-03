@@ -2,6 +2,8 @@ import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChatMessage } from '../../../types/chat'
+import { codeBlockText } from '~/lib/chat_copy'
+import ChatCopyButton from './ChatCopyButton'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
@@ -10,6 +12,11 @@ export interface ChatMessageBubbleProps {
 }
 
 export default function ChatMessageBubble({ message, onContinue }: ChatMessageBubbleProps) {
+  // Copy buttons only appear once the answer is complete (#1376): copying a
+  // half-streamed answer would silently hand the user a truncated result.
+  const showCopy =
+    message.role === 'assistant' && !message.isStreaming && message.content.trim().length > 0
+
   return (
     <div
       className={classNames(
@@ -62,6 +69,21 @@ export default function ChatMessageBubble({ message, onContinue }: ChatMessageBu
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
+              // Wrap fenced blocks so each gets its own Copy button that copies
+              // just the code (#1376). `node` is the hast element, which holds
+              // the raw code text independent of our `code` styling below.
+              pre: ({ node, children }: any) => (
+                <div className="relative">
+                  <pre>{children}</pre>
+                  {showCopy && (
+                    <ChatCopyButton
+                      getText={() => codeBlockText(node)}
+                      label="Copy code"
+                      className="absolute right-2 top-2 bg-gray-700 text-gray-100 hover:bg-gray-600"
+                    />
+                  )}
+                </div>
+              ),
               code: ({ node, className, children, ...props }: any) => {
                 const isInline = !className?.includes('language-')
                 if (isInline) {
@@ -145,14 +167,25 @@ export default function ChatMessageBubble({ message, onContinue }: ChatMessageBu
       )}
       <div
         className={classNames(
-          'text-xs mt-2',
+          'text-xs mt-2 flex items-center justify-between gap-2',
           message.role === 'user' ? 'text-white/70' : 'text-text-muted'
         )}
       >
-        {message.timestamp.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
+        <span>
+          {message.timestamp.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+        {showCopy && (
+          // Copies the raw markdown answer only: Sources and the timestamp are
+          // separate fields, so they are naturally left out (#1376).
+          <ChatCopyButton
+            getText={() => message.content}
+            label="Copy answer"
+            className="border border-border-default text-desert-green hover:bg-surface-primary"
+          />
+        )}
       </div>
     </div>
   )
