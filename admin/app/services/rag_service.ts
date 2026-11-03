@@ -604,9 +604,11 @@ export class RagService {
    *
    * Pages are judged one by one (see `decidePdfOcr`): a scanned book is OCR'd
    * in full, a text PDF is never rasterized, and a mix gets OCR only where
-   * needed. One tesseract worker serves the whole document.
+   * needed. One tesseract worker serves the whole document. Returns each
+   * page's text, index 0 = page 1; uploads and the PDFs inside ZIMs (#1445)
+   * both read through here.
    */
-  private async processPDFFile(fileBuffer: Buffer): Promise<string> {
+  private async extractPDFPageTexts(fileBuffer: Buffer): Promise<string[]> {
     const pages = await this.extractPDFPages(fileBuffer)
     const plan = decidePdfOcr(pages)
 
@@ -631,7 +633,7 @@ export class RagService {
       }
     }
 
-    return pages.join('\n\n')
+    return pages
   }
 
   /**
@@ -646,7 +648,7 @@ export class RagService {
     onProgress?: (percent: number) => Promise<void>,
     collection?: string
   ): Promise<ProcessZIMFileResponse> {
-    const zimExtractionService = new ZIMExtractionService()
+    const zimExtractionService = new ZIMExtractionService((pdf) => this.extractPDFPageTexts(pdf))
 
     // Process in batches to avoid lock timeout
     const startOffset = batchOffset || 0
@@ -932,7 +934,7 @@ export class RagService {
           extractedText = await this.processImageFile(fileBuffer!)
           break
         case 'pdf':
-          extractedText = await this.processPDFFile(fileBuffer!)
+          extractedText = (await this.extractPDFPageTexts(fileBuffer!)).join('\n\n')
           break
         case 'docx':
           extractedText = await this.processDocxFile(fileBuffer!)

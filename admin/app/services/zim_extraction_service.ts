@@ -7,8 +7,11 @@ import { ExtractZIMChunkingStrategy, ExtractZIMContentOptions, ZIMContentChunk, 
 import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
 import { isValidZimFile } from '../utils/fs.js'
+import { pagePassages } from '../utils/pdf_passages.js'
 
 export class ZIMExtractionService {
+    /** `readPdfPages` gives the text of each page of a PDF entry: RagService passes the reader its uploads use. */
+    constructor(private readPdfPages: (pdf: Buffer) => Promise<string[]>) {}
 
     private extractArchiveMetadata(archive: Archive): ZIMArchiveMetadata {
         try {
@@ -104,6 +107,17 @@ export class ZIMExtractionService {
 
                 const item = entry.item
                 const blob = item.data
+
+                // Shelves of PDFs (zimgit, Medicine Essentials) are nearly all PDF entries (#1445)
+                if (item.mimetype === 'application/pdf') {
+                    toReturn.push(...(await this.pdfChunks(entry, blob.data, archiveMetadata)))
+                    articlesProcessed++
+                    if (opts.onProgress) {
+                        opts.onProgress(articlesProcessed, archive.articleCount)
+                    }
+                    continue
+                }
+
                 const html = this.getCleanedHTMLString(blob.data)
 
                 const strategy = opts.strategy || this.chooseChunkingStrategy(html);
@@ -170,6 +184,31 @@ export class ZIMExtractionService {
             logger.error('Error processing ZIM file:', error)
             throw error
         }
+    }
+
+    /** A PDF entry as passages of consecutive pages, each labelled with its page range. */
+    private async pdfChunks(entry: Entry, pdf: Buffer, archiveMetadata: ZIMArchiveMetadata): Promise<ZIMContentChunk[]> {
+        let pages: string[]
+        try {
+            pages = await this.readPdfPages(pdf)
+        } catch (error) {
+            // One unreadable PDF must not stop the rest of the archive from being indexed
+            logger.warn(`[ZIMExtractionService]: Could not read the PDF at path ${entry.path}: ${error}`)
+            return []
+        }
+        const articleTitle = entry.title || entry.path
+        const documentId = randomUUID()
+        return pagePassages(pages).map(({ label, text }) => ({
+            text,
+            articleTitle,
+            articlePath: entry.path,
+            sectionTitle: label,
+            fullTitle: `${articleTitle} - ${label}`,
+            hierarchy: `${articleTitle} > ${label}`,
+            documentId,
+            archiveMetadata,
+            strategy: 'simple',
+        }))
     }
 
     private chooseChunkingStrategy(html: string, options = {
@@ -260,7 +299,7 @@ export class ZIMExtractionService {
             const item = entry.item;
             const mimeType = item.mimetype;
 
-            return mimeType === 'text/html' || mimeType === 'application/xhtml+xml';
+            return mimeType === 'text/html' || mimeType === 'application/xhtml+xml' || mimeType === 'application/pdf';
         } catch {
             return false;
         }
