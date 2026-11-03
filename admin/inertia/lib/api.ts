@@ -18,6 +18,7 @@ import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBui
 import type { CreateMapMarkerPayload, MapMarkerResponse, UpdateMapMarkerPayload } from '../../types/maps'
 import type { ChatSource } from '../../types/chat'
 import { chatStreamErrorMessage } from './chat_stream.js'
+import type { SearchableBook } from '../../app/utils/kiwix_search.js'
 
 type OllamaChatRequestWithImages = OllamaChatRequest & { images?: File[] }
 
@@ -916,6 +917,15 @@ class API {
   async listZimFiles() {
     return catchInternal(async () => {
       return await this.client.get<ListZimFilesResponse>('/zim/list')
+    })()
+  }
+
+  async listSearchableBooks() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ books: SearchableBook[] }>(
+        '/zim/searchable-books'
+      )
+      return response.data.books
     })()
   }
 
