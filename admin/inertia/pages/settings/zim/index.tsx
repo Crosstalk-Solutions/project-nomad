@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import StyledTable from '~/components/StyledTable'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import api from '~/lib/api'
@@ -20,6 +21,7 @@ type SortKey = 'name' | 'size'
 type SortDirection = 'asc' | 'desc'
 
 export default function ZimPage() {
+  const { t } = useTranslation('content')
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
   const { addNotification } = useNotifications()
@@ -84,19 +86,19 @@ export default function ZimPage() {
   async function confirmDeleteFile(file: ZimFileWithMetadata) {
     openModal(
       <StyledModal
-        title="Confirm Delete?"
+        title={t('manager.confirm_delete_title')}
         onConfirm={() => {
           deleteFileMutation.mutateAsync(file)
           closeAllModals()
         }}
         onCancel={closeAllModals}
         open={true}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t('common:buttons.confirm', { defaultValue: 'Delete' })}
+        cancelText={t('common:buttons.cancel', { defaultValue: 'Cancel' })}
         confirmVariant="danger"
       >
         <p className="text-text-secondary">
-          Are you sure you want to delete {file.name}? This action cannot be undone.
+          {t('manager.confirm_delete_msg', { name: file.name })}
         </p>
       </StyledModal>,
       'confirm-delete-file-modal'
@@ -113,29 +115,35 @@ export default function ZimPage() {
   const rescanMutation = useMutation({
     mutationFn: async () => api.rescanZimLibrary(),
     onSuccess: (result) => {
-      // catchInternal returns undefined on error (and shows its own error toast)
       if (!result) return
       queryClient.invalidateQueries({ queryKey: ['zim-files'] })
       addNotification({
         type: 'success',
         message:
           result.added > 0
-            ? `Found ${result.added} new ${result.added === 1 ? 'book' : 'books'}. Library now has ${result.after}.`
-            : `Library is up to date (${result.after} ${result.after === 1 ? 'book' : 'books'}).`,
+            ? t('manager.rescan_success_added', {
+                added: result.added,
+                count_unit: result.added === 1 ? t('manager.book_single') : t('manager.book_plural'),
+                after: result.after,
+              })
+            : t('manager.rescan_success_uptodate', {
+                after: result.after,
+                count_unit: result.after === 1 ? t('manager.book_single') : t('manager.book_plural'),
+              }),
       })
     },
   })
 
   return (
     <SettingsLayout>
-      <Head title="Content Manager | Project NOMAD" />
+      <Head title={t('manager.head_title')} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
+              <h1 className="text-4xl font-semibold mb-2">{t('manager.title')}</h1>
               <p className="text-text-muted">
-                Manage your stored content files.
+                {t('manager.subtitle')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -144,17 +152,17 @@ export default function ZimPage() {
                 icon={showUploader ? 'IconX' : 'IconUpload'}
                 onClick={() => setShowUploader((v) => !v)}
               >
-                {showUploader ? 'Hide Uploader' : 'Upload ZIM File'}
+                {showUploader ? t('manager.hide_uploader') : t('manager.upload_zim_file')}
               </StyledButton>
               {isInstalled && (
                 <StyledButton
                   variant="secondary"
                   icon={'IconRefresh'}
                   loading={rescanMutation.isPending}
-                  title="Rebuild the Kiwix library index from the files on disk. Use this after manually adding ZIM files outside of NOMAD."
+                  title={t('manager.rescan_tooltip')}
                   onClick={() => rescanMutation.mutate()}
                 >
-                  Rescan Library
+                  {t('manager.rescan_library')}
                 </StyledButton>
               )}
             </div>
@@ -162,7 +170,7 @@ export default function ZimPage() {
           {showUploader && (
             <div className="mt-6">
               <p className="text-text-muted text-sm mb-3">
-                Upload a ZIM file from your browser. Files up to 20 GB are supported. For best results upload from the same machine or over a stable LAN connection. Larger files should be copied directly to the storage volume.
+                {t('manager.upload_note')}
               </p>
               <ZimUploader
                 existingFilenames={data?.map((f) => f.name) ?? []}
@@ -175,8 +183,11 @@ export default function ZimPage() {
                     type: 'success',
                     message:
                       added > 0
-                        ? `Upload complete. ${added} new ${added === 1 ? 'book' : 'books'} added to the library.`
-                        : 'Upload complete. Library is up to date.',
+                        ? t('manager.upload_success_added', {
+                            added,
+                            count_unit: added === 1 ? t('manager.book_single') : t('manager.book_plural'),
+                          })
+                        : t('manager.upload_success_uptodate'),
                   })
                 }}
               />
@@ -184,7 +195,7 @@ export default function ZimPage() {
           )}
           {!isInstalled && (
             <Alert
-              title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
+              title={t('manager.kiwix_not_installed')}
               type="warning"
               variant='solid'
               className="!mt-6"
@@ -198,7 +209,7 @@ export default function ZimPage() {
             columns={[
               {
                 accessor: 'title',
-                title: renderSortHeader('Title', 'name'),
+                title: renderSortHeader(t('manager.th_title'), 'name'),
                 render: (record) => (
                   <span className="font-medium">
                     {record.title || record.name}
@@ -207,7 +218,7 @@ export default function ZimPage() {
               },
               {
                 accessor: 'summary',
-                title: 'Summary',
+                title: t('manager.th_summary'),
                 render: (record) => (
                   <span className="text-text-secondary text-sm line-clamp-2">
                     {record.summary || '—'}
@@ -216,7 +227,7 @@ export default function ZimPage() {
               },
               {
                 accessor: 'size_bytes',
-                title: renderSortHeader('Size', 'size'),
+                title: renderSortHeader(t('manager.th_size'), 'size'),
                 render: (record) => (
                   <span className="text-text-secondary tabular-nums">
                     {record.size_bytes ? formatBytes(record.size_bytes, 1) : '—'}
@@ -225,7 +236,7 @@ export default function ZimPage() {
               },
               {
                 accessor: 'actions',
-                title: 'Actions',
+                title: t('manager.th_actions'),
                 render: (record) => (
                   <div className="flex space-x-2">
                     <StyledButton
@@ -235,7 +246,7 @@ export default function ZimPage() {
                         confirmDeleteFile(record)
                       }}
                     >
-                      Delete
+                      {t('common:buttons.confirm', { defaultValue: 'Delete' })}
                     </StyledButton>
                   </div>
                 ),
