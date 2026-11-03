@@ -26,6 +26,10 @@ import { useBenchmarkRun } from '~/hooks/useBenchmarkRun'
 import BenchmarkRunView from '~/components/benchmark/BenchmarkRunView'
 import ScoreReveal from '~/components/benchmark/ScoreReveal'
 import { getScoreDisplay } from '~/lib/benchmarkScore'
+import StyledModal from '~/components/StyledModal'
+import { GPU_BANNER_DISMISS_KEY } from '~/components/GpuPassthroughAlert'
+import { useSystemInfo } from '~/hooks/useSystemInfo'
+import { shouldWarnGpuBeforeBenchmark } from '~/lib/benchmark_gpu_preflight'
 
 export default function BenchmarkPage(props: {
   benchmark: {
@@ -43,10 +47,16 @@ export default function BenchmarkPage(props: {
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
+  // Run type held back by the GPU pre-flight warning, while its modal is open (#1083).
+  const [gpuWarningFor, setGpuWarningFor] = useState<'full' | 'ai' | null>(null)
   const [shareAnonymously, setShareAnonymously] = useState(false)
   const [currentBuilderTag, setCurrentBuilderTag] = useState<string | null>(
     props.benchmark.latestResult?.builder_tag || null
   )
+
+  // gpuHealth for the GPU pre-flight (#1083). Paused while a run is in progress so
+  // the periodic refetch (which execs into the AI container) doesn't add load to it.
+  const { data: systemInfo } = useSystemInfo({ enabled: !isRunning })
 
   // Fetch latest result
   const { data: latestResult, refetch: refetchLatest } = useQuery({
@@ -182,6 +192,16 @@ export default function BenchmarkPage(props: {
   // NOMAD Score and are relabelled + flagged so users don't mistake them for it.
   const scoreInfo = latestResult ? getScoreDisplay(latestResult.benchmark_type) : null
 
+  // Runs that include AI inference: warn first if the host has a GPU the AI
+  // Assistant can't reach, since the AI score would silently reflect CPU (#1083).
+  const runWithGpuPreflight = (type: 'full' | 'ai') => {
+    if (shouldWarnGpuBeforeBenchmark(type, systemInfo?.gpuHealth)) {
+      setGpuWarningFor(type)
+      return
+    }
+    runBenchmark.mutate(type)
+  }
+
   // Handle Full Benchmark click with pre-flight check
   const handleFullBenchmarkClick = () => {
     if (!aiInstalled) {
@@ -189,7 +209,7 @@ export default function BenchmarkPage(props: {
       return
     }
     setShowAIRequiredAlert(false)
-    runBenchmark.mutate('full')
+    runWithGpuPreflight('full')
   }
 
   const formatBytes = (bytes: number) => {
@@ -301,7 +321,7 @@ export default function BenchmarkPage(props: {
                     </StyledButton>
                     <StyledButton
                       variant="secondary"
-                      onClick={() => runBenchmark.mutate('ai')}
+                      onClick={() => runWithGpuPreflight('ai')}
                       disabled={runBenchmark.isPending || !aiInstalled}
                       icon="IconWand"
                       title={
@@ -1005,6 +1025,41 @@ export default function BenchmarkPage(props: {
           )}
         </main>
       </div>
+      <StyledModal
+        open={gpuWarningFor !== null}
+        title={`GPU Not Accessible to ${aiAssistantName}`}
+        onClose={() => setGpuWarningFor(null)}
+        onCancel={() => setGpuWarningFor(null)}
+        onConfirm={() => {
+          const type = gpuWarningFor
+          setGpuWarningFor(null)
+          if (type) runBenchmark.mutate(type)
+        }}
+        cancelText="Cancel"
+        confirmText="Run on CPU Anyway"
+      >
+        <div className="space-y-3 text-text-primary">
+          <p>
+            Your system has {systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'}{' '}
+            GPU, but {aiAssistantName} can't currently access it. The AI portion of the benchmark
+            will run on CPU only, so your AI score will be much lower than your hardware is capable
+            of.
+          </p>
+          <Link
+            href="/settings/system"
+            onClick={() => {
+              // The fix lives in the GPU banner on the System page; make sure it shows
+              // even if the user dismissed it earlier.
+              try {
+                localStorage.removeItem(GPU_BANNER_DISMISS_KEY)
+              } catch {}
+            }}
+            className="text-sm text-desert-green hover:underline inline-block font-medium"
+          >
+            Fix GPU access on the System page →
+          </Link>
+        </div>
+      </StyledModal>
     </SettingsLayout>
   )
 }
