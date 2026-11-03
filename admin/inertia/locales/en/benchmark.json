@@ -1,1 +1,148 @@
-{}
+{
+  "page_title": "System Benchmark",
+  "header_title": "System Benchmark",
+  "header_desc": "Measure your hardware performance and get a NOMAD Score to see how well your system runs offline services.",
+  "errors": {
+    "benchmark_failed": "Benchmark failed",
+    "failed_to_start": "Failed to start benchmark",
+    "failed_update_tag": "Failed to update builder tag",
+    "failed_submit_repo": "Failed to submit benchmark to repository",
+    "benchmark_failed_title": "Benchmark Failed",
+    "submission_failed": "Submission Failed"
+  },
+  "alerts": {
+    "ai_required_title": "{{name}} Required",
+    "ai_required_desc": "A full benchmark requires {{name}} to be installed to measure AI inference performance. You can still run a System-only benchmark without AI.",
+    "go_to_settings": "Go to {{name}} Settings",
+    "partial_benchmark_title": "Partial Benchmark",
+    "partial_benchmark_desc": "This benchmark only tested system performance (AI was not tested). The NOMAD Score may be lower than a full benchmark. We recommend running a full benchmark before sharing.",
+    "shared_success_title": "Shared with Community",
+    "shared_anon_msg": "Your benchmark has been shared anonymously to the NOMAD hardware repository. Thank you for contributing!",
+    "shared_with_tag_msg": "Your benchmark has been shared with builder tag \"{{tag}}\" to the NOMAD hardware repository. Thank you for contributing!"
+  },
+  "common_actions": {
+    "dismiss": "Dismiss"
+  },
+  "actions": {
+    "run_full": "Run Full Benchmark",
+    "run_system_only": "System Only",
+    "run_ai_only": "AI Only",
+    "last_run": "Last run: {{time}}"
+  },
+  "badges": {
+    "exceptional": "Exceptional",
+    "great": "Great",
+    "good": "Good",
+    "fair": "Fair",
+    "needs_attention": "Needs Attention",
+    "partial_benchmark": "Partial Benchmark",
+    "very_fast": "Very Fast",
+    "fast": "Fast",
+    "moderate": "Moderate",
+    "slow": "Slow"
+  },
+  "tooltips": {
+    "partial_score": "This score reflects only system tests (CPU, memory, disk). AI inference was not tested. Run a full benchmark for a complete NOMAD Score.",
+    "full_score": "The NOMAD Score combines CPU, memory, disk I/O, and AI inference performance into a single number from 0 to 100.",
+    "community_sharing": "Help other NOMAD users know what hardware works best! Benchmark results include CPU model, memory, disk speeds, and AI performance. No personal data or IP addresses are ever shared."
+  },
+  "score_card": {
+    "out_of_100": "out of 100",
+    "partial_explainer": "This score is based on <1>{{label}}</1>. For a complete NOMAD Score, run a full benchmark including the AI inference test.",
+    "full_explainer": "The NOMAD Score reflects your system's overall readiness for running offline applications, search indexing, and AI workloads.",
+    "system_performance": "System Performance",
+    "ai_performance": "AI Performance",
+    "not_tested": "Not Tested"
+  },
+  "community": {
+    "heading": "NOMAD Hardware Database",
+    "shared_badge": "Shared",
+    "intro": "Contribute your benchmark results to the public NOMAD hardware repository. This helps other builders know what kind of performance to expect from similar hardware.",
+    "builder_tag_label": "Builder Tag",
+    "share_anonymously": "Share anonymously (without builder tag)",
+    "confirm_partial_submit": "This is a partial benchmark (not all tests were run). Are you sure you want to share it?",
+    "share_btn": "Share with Community"
+  },
+  "system_perf": {
+    "title": "System Performance",
+    "cpu": "CPU",
+    "events_sec": "events/sec",
+    "memory": "Memory",
+    "disk_read": "Disk Read",
+    "disk_write": "Disk Write"
+  },
+  "ai_perf": {
+    "title": "{{name}} Performance",
+    "tok_sec": "tokens/sec",
+    "model_used": "Model Used",
+    "time_to_first_token": "Time to First Token",
+    "disclaimer": "AI inference speed depends on your CPU/GPU, RAM speed, and model size. Higher is better.",
+    "not_tested_msg": "AI performance was not tested in this benchmark run."
+  },
+  "specs": {
+    "title": "System Specifications",
+    "processor": "Processor",
+    "cpu_model": "CPU Model",
+    "system": "System",
+    "total_memory": "Total Memory"
+  },
+  "history": {
+    "title": "Benchmark History ({{count}})",
+    "col_date": "Date",
+    "col_type": "Type",
+    "col_score": "Score",
+    "col_cpu": "CPU",
+    "col_memory": "Memory",
+    "col_disk": "Disk",
+    "col_ai": "AI",
+    "col_shared": "Shared"
+  },
+  "no_results": {
+    "title": "No Benchmark Results",
+    "desc": "Run a benchmark to test your hardware performance and see how well your system handles offline AI and system tasks."
+  },
+  "live_run": {
+    "results_so_far": "Results so far",
+    "thread_tooltip": "Thread {{index}}: {{load}}%",
+    "threads_count": "{{count}} thread",
+    "threads_count_plural": "{{count}} threads",
+    "ai_inference": "AI Inference",
+    "tokens_per_sec": "Tokens per Second",
+    "first_token_in": "First token in {{ms}} ms",
+    "waiting_first_token": "Waiting for first token...",
+    "gpu": "GPU",
+    "utilization": "Utilization",
+    "vram": "VRAM",
+    "vram_of": "VRAM (of {{total}} GB)",
+    "disk_read": "Disk Read",
+    "disk_write": "Disk Write",
+    "benchmark_throughput": "Benchmark throughput",
+    "system_disk_activity": "System disk activity",
+    "compiling_report": "Compiling Report",
+    "calculating_score": "Calculating your NOMAD Score...",
+    "identifying_hardware": "Identifying Hardware",
+    "detecting_system": "Detecting your system...",
+    "memory_throughput": "Memory Throughput",
+    "cpu_load": "CPU Load",
+    "events_per_sec": "Events per second",
+    "overall": "Overall",
+    "temperature": "Temperature",
+    "cpu_package": "CPU package",
+    "disk": "Disk",
+    "read": "Read",
+    "write": "Write",
+    "running_benchmark": "Running benchmark..."
+  },
+  "score_reveal": {
+    "benchmark_complete": "Benchmark complete",
+    "your_score": "Your {{label}}",
+    "continue_btn": "Continue",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "disk_read": "Disk Read",
+    "disk_write": "Disk Write",
+    "ai_score": "AI Score",
+    "score_summary": "System scored {{cpu}} CPU, {{mem}} memory, {{read}} disk read, {{write}} disk write.",
+    "ai_tok_sec": "AI generated at {{speed}} tokens/second."
+  }
+}

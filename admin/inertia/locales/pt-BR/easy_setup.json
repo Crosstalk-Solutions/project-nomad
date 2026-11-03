@@ -1,1 +1,213 @@
-{}
+{
+  "complete": {
+    "title": "Assistente de Configuração Rápida Concluído",
+    "no_internet_title": "Sem Conexão com a Internet",
+    "no_internet_message": "Parece que você não está conectado à internet. Instalar aplicativos e baixar conteúdo requer uma conexão ativa.",
+    "section_activity": "Atividade de Instalação de Aplicativos",
+    "background_alert_title": "Executando em Segundo Plano",
+    "background_alert_message": "Fique à vontade para sair desta página a qualquer momento — as instalações e downloads continuarão em segundo plano! A Biblioteca de Informações (se instalada) pode ficar indisponível até o término dos downloads iniciais.",
+    "go_to_home": "Ir para a Página Inicial"
+  },
+  "install_activity": {
+    "title": "Atividade de Instalação"
+  },
+  "category_card": {
+    "indexing": " (indexando)",
+    "downloading": " (baixando)",
+    "tiers_available": "{{count}} níveis disponíveis",
+    "click_to_choose": " - Clique para escolher",
+    "size_range": "Tamanho: {{min}} - {{max}}"
+  },
+  "country_picker": {
+    "title": "Baixar mapa por país ou região",
+    "start_download": "Iniciar Download",
+    "search_placeholder": "Pesquisar entre {{count}} países...",
+    "clear_all": "Limpar tudo",
+    "quick_picks": "Seleções rápidas",
+    "no_countries_match": "Nenhum país corresponde a \"{{search}}\".",
+    "installed": "Instalado",
+    "installed_tooltip": "Já baixado — selecione novamente para atualizar com um zoom diferente",
+    "selected_count": "{{count}} selecionados",
+    "remove_country": "Remover {{name}}",
+    "max_zoom": "Nível máximo de zoom:",
+    "zoom_world": "z{{zoom}} (mundial)",
+    "zoom_street": "z{{zoom}} (ruas)",
+    "zoom_help": "Zoom menor = arquivo menor, menos detalhes. Zoom 15 exibe ruas individuais; zoom 10 exibe nível de cidade.",
+    "pick_at_least_one": "Selecione pelo menos um país antes de baixar.",
+    "still_estimating": "Ainda calculando o tamanho — aguarde um momento.",
+    "estimate_failed": "Falha na estimativa",
+    "download_failed": "Falha no download",
+    "preflight": {
+      "estimating": "Calculando tamanho…",
+      "summary": "{{tiles}} blocos de mapa, ~{{bytes}} (versão de origem {{date}})",
+      "no_selection": "Selecione pelo menos um país para calcular o tamanho."
+    }
+  },
+  "wikipedia_selector": {
+    "title": "Wikipédia",
+    "subtitle": "Selecione o pacote desejado da Wikipédia",
+    "downloading_notice": "Baixando Wikipédia... Isso pode demorar para pacotes maiores.",
+    "failed_notice": "Falha no download da Wikipédia. Selecione um pacote e tente novamente.",
+    "badges": {
+      "installed": "Instalado",
+      "selected": "Selecionado",
+      "downloading": "Baixando",
+      "failed": "Falhou"
+    },
+    "no_download": "Sem download",
+    "remove_wikipedia": "Remover Wikipédia",
+    "download_selected": "Baixar Selecionado"
+  },
+  "tier_modal": {
+    "description": "Selecione um nível com base na capacidade de armazenamento e nas suas necessidades. Níveis mais altos incluem todo o conteúdo dos níveis anteriores.",
+    "includes_tier": "(inclui {{name}})",
+    "additional_resources_one": "{{count}} recurso adicional",
+    "additional_resources_other": "{{count}} recursos adicionais",
+    "plus_everything_in": " (mais tudo em {{name}})",
+    "included_resources_one": "{{count}} recurso incluído",
+    "included_resources_other": "{{count}} recursos incluídos",
+    "ai_assistant_estimate": "+~{{size}} de armazenamento adicional se forem indexados pelo Assistente de IA",
+    "estimate_excludes_unknown": " (estimativa desconsidera alguns arquivos sem histórico prévio)",
+    "auto_index_always": "Sua configuração de Auto-indexação está como Sempre, portanto estes arquivos serão indexados automaticamente após o download. Você pode alterar isso nas configurações da Base de Conhecimento.",
+    "auto_index_manual": "Sua configuração de Auto-indexação está como Manual, portanto estes arquivos ficarão sem indexar até que você os ative nas configurações da Base de Conhecimento.",
+    "change_anytime": "Você pode alterar sua escolha a qualquer momento. Clique em Confirmar para salvar.",
+    "submit": "Confirmar"
+  },
+  "wizard": {
+    "head_title": "Assistente de Configuração Rápida",
+    "no_internet_title": "Sem Conexão com a Internet",
+    "no_internet_message": "Você precisará de uma conexão com a internet para continuar. Por favor, conecte-se à internet e tente novamente.",
+    "step_labels": {
+      "1": "Aplicativos",
+      "2": "Mapas",
+      "3": "Conteúdo",
+      "4": "Pacotes de Criadores",
+      "5": "IA",
+      "6": "Revisão"
+    },
+    "capabilities": {
+      "information": {
+        "name": "Biblioteca de Informações",
+        "description": "Acesso offline à Wikipédia, referências médicas, guias práticos e enciclopédias",
+        "features": [
+          "Wikipédia completa offline",
+          "Referências médicas e guias de primeiros socorros",
+          "Guias de reparo 'faça você mesmo' e tutoriais práticos",
+          "Livros e literatura do Project Gutenberg"
+        ]
+      },
+      "education": {
+        "name": "Plataforma Educacional",
+        "description": "Plataforma de aprendizagem interativa com cursos em vídeo e exercícios",
+        "features": [
+          "Cursos de matemática e ciências da Khan Academy",
+          "Conteúdo curricular de ensino fundamental e médio",
+          "Exercícios e testes interativos",
+          "Acompanhamento de progresso dos alunos"
+        ]
+      },
+      "ai": {
+        "description": "Chat de IA local que roda totalmente no seu hardware - sem precisar de internet",
+        "features": [
+          "Conversas privadas que nunca saem do seu dispositivo",
+          "Sem necessidade de conexão com a internet após a configuração",
+          "Faça perguntas, obtenha ajuda na escrita e crie novas ideias",
+          "Executa no seu próprio hardware com modelos de IA locais"
+        ]
+      }
+    },
+    "step1": {
+      "title": "O que você deseja que o NOMAD faça?",
+      "subtitle": "Selecione as capacidades necessárias. Você sempre poderá adicionar mais depois.",
+      "all_installed": "Todas as capacidades disponíveis já estão instaladas!",
+      "manage_apps": "Gerenciar Aplicativos",
+      "core_capabilities": "Capacidades Principais",
+      "installed_badge": "Instalado",
+      "powered_by": "Desenvolvido por {{name}}",
+      "remote_ollama_checkbox": "Usar instância remota do Ollama",
+      "remote_ollama_default_error": "Falha ao configurar o Ollama remoto.",
+      "more_apps_title": "Procurando mais aplicativos?",
+      "more_apps_description": "Anotações, ferramentas de dados e todo o catálogo de aplicativos adicionais estão disponíveis a qualquer momento na Central de Recursos.",
+      "open_supply_depot": "Abrir Central de Recursos",
+      "confirm_turn_off_ai": "Desativar a IA descartará os modelos escolhidos, a política de indexação e a configuração do Ollama remoto. Deseja continuar?"
+    },
+    "step2": {
+      "title": "Escolha as Regiões de Mapas",
+      "subtitle": "Selecione coleções de regiões de mapas para baixar para uso offline. Você sempre poderá baixar mais regiões depois.",
+      "help_prefix": "Precisa apenas de um país específico ou quer o mundo inteiro? Países individuais e um mapa global completo podem ser instalados a qualquer momento pelo ",
+      "maps_manager_link": "Gerenciador de Mapas",
+      "help_suffix": ".",
+      "no_collections": "Nenhuma coleção de mapas disponível no momento."
+    },
+    "step3": {
+      "title": "Escolha o Conteúdo",
+      "subtitle_selected": "Selecione categorias de conteúdo para conhecimento offline.",
+      "subtitle_unselected": "Configure o conteúdo para as capacidades selecionadas.",
+      "additional_content_title": "Conteúdo Adicional",
+      "additional_content_subtitle": "Coleções selecionadas para consulta offline",
+      "no_content_capabilities": "Nenhuma capacidade baseada em conteúdo foi selecionada. Você pode pular este passo ou voltar para selecionar capacidades que requerem conteúdo."
+    },
+    "step4": {
+      "title": "Pacotes de Criadores Disponíveis",
+      "subtitle": "Coleções de vídeos de criadores de conteúdo, baixadas para visualização offline no Kiwix.",
+      "no_packs": "Nenhum pacote de criadores disponível no momento."
+    },
+    "step5": {
+      "title": "Configurar {{name}}",
+      "subtitle": "Escolha os modelos para download e defina como o {{name}} lida com novos conteúdos.",
+      "models_title": "Modelos de IA",
+      "models_subtitle": "Selecione modelos para baixar e usar a IA offline",
+      "remote_ollama_alert_title": "Ollama remoto selecionado",
+      "remote_ollama_alert_message": "Os modelos são gerenciados na máquina remota. Você poderá adicionar modelos em Configurações > Assistente de IA após a configuração; observe que isso é suportado apenas pelo Ollama, e não pelo LM Studio ou outros softwares compatíveis com a API OpenAI.",
+      "model_size": "Tamanho: {{size}}",
+      "no_models": "Nenhum modelo de IA recomendado disponível no momento.",
+      "auto_index_title": "Auto-indexar novo conteúdo para o {{name}}?",
+      "auto_index_desc": "Ao adicionar novos arquivos ZIM, documentos ou conteúdo selecionado, o {{name}} deve indexá-los automaticamente para consultá-los ao responder suas perguntas?",
+      "auto_index_always": "Sim, sempre",
+      "auto_index_manual": "Perguntar primeiro",
+      "auto_index_note": "Você pode alterar isso a qualquer momento no painel da Base de Conhecimento dentro do Chat de IA."
+    },
+    "step6": {
+      "title": "Revise Suas Escolhas",
+      "subtitle": "Revise suas escolhas antes de iniciar o processo de configuração.",
+      "no_selections_title": "Nenhuma Seleção Feita",
+      "no_selections_message": "Você não selecionou nada para instalar ou baixar. Você pode voltar para fazer escolhas ou retornar à página inicial.",
+      "capabilities_title": "Capacidades a Instalar",
+      "map_collections_title": "Coleções de Mapas a Baixar ({{count}})",
+      "creator_packs_title": "Pacotes de Criadores a Instalar ({{count}})",
+      "content_categories_title": "Categorias de Conteúdo ({{count}})",
+      "files_count": "({{count}} arquivos)",
+      "wikipedia_title": "Wikipédia",
+      "no_download": "Sem download",
+      "ai_models_title": "Modelos de IA a Baixar ({{count}})",
+      "auto_index_title": "Configuração de Auto-indexação",
+      "auto_index_always_review": "O novo conteúdo será indexado automaticamente assim que chegar para que o {{name}} possa consultá-lo.",
+      "auto_index_manual_review": "O novo conteúdo aguardará sua autorização no painel da Base de Conhecimento antes de ser indexado pelo {{name}}.",
+      "ready_title": "Pronto para Começar",
+      "ready_message": "Clique em 'Concluir Configuração' para iniciar a instalação dos aplicativos e download de conteúdo. Isso pode levar algum tempo dependendo da sua conexão e do tamanho dos arquivos."
+    },
+    "buttons": {
+      "back": "Voltar",
+      "next": "Próximo",
+      "cancel_and_home": "Cancelar e Ir para o Início",
+      "complete_setup": "Concluir Configuração"
+    },
+    "notifications": {
+      "internet_required": "Você precisa ter uma conexão com a internet para concluir a configuração.",
+      "completed": "Assistente concluído! Suas escolhas estão sendo processadas.",
+      "error": "Ocorreu um erro durante a configuração. Alguns itens podem não ter sido processados."
+    },
+    "summary": {
+      "capabilities_one": "{{count}} capacidade",
+      "capabilities_other": "{{count}} capacidades",
+      "map_regions_one": "{{count}} região de mapa",
+      "map_regions_other": "{{count}} regiões de mapas",
+      "content_categories_one": "{{count}} categoria de conteúdo",
+      "content_categories_other": "{{count}} categorias de conteúdo",
+      "creator_packs_one": "{{count}} pacote de criador",
+      "creator_packs_other": "{{count}} pacotes de criadores",
+      "ai_models_one": "{{count}} modelo de IA selecionado",
+      "ai_models_other": "{{count}} modelos de IA selecionados"
+    }
+  }
+}

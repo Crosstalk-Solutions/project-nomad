@@ -1,4 +1,22 @@
 {
+  "logo_alt": "Project NOMAD Logo",
+  "loading": "Loading...",
+  "navigation": {
+    "back_to_home": "Back to Home",
+    "command_center": "Command Center"
+  },
+  "sidebar": {
+    "close": "Close sidebar"
+  },
+  "alert": {
+    "dismiss": "Dismiss alert"
+  },
+  "debug_modal": {
+    "title": "Debug Info",
+    "description": "This is non-sensitive system info you can share when reporting issues. No passwords, IPs, or API keys are included.",
+    "failed_to_load": "Failed to load debug info. Please try again.",
+    "open_github_issue": "Open a GitHub Issue"
+  },
   "footer": {
     "command_center": "Project NOMAD™ Command Center v{{version}}",
     "debug_info": "Debug Info"
@@ -19,6 +37,8 @@
     "cancel": "Cancel",
     "close": "Close",
     "confirm": "Confirm",
-    "back": "Back"
+    "back": "Back",
+    "copy_to_clipboard": "Copy to Clipboard",
+    "copied": "Copied!"
   }
 }

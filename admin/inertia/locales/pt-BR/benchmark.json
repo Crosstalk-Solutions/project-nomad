@@ -1,1 +1,148 @@
-{}
+{
+  "page_title": "Benchmark do Sistema",
+  "header_title": "Benchmark do Sistema",
+  "header_desc": "Avalie o desempenho do seu hardware e obtenha uma Pontuação NOMAD para saber quão bem seu sistema executa serviços offline.",
+  "errors": {
+    "benchmark_failed": "O benchmark falhou",
+    "failed_to_start": "Falha ao iniciar benchmark",
+    "failed_update_tag": "Falha ao atualizar identificador do montador",
+    "failed_submit_repo": "Falha ao submeter benchmark ao repositório",
+    "benchmark_failed_title": "Benchmark Falhou",
+    "submission_failed": "Falha no Envio"
+  },
+  "alerts": {
+    "ai_required_title": "{{name}} Necessário",
+    "ai_required_desc": "Um benchmark completo requer que o {{name}} esteja instalado para medir a inferência de IA. Você ainda pode executar apenas o teste de Sistema sem IA.",
+    "go_to_settings": "Ir para Configurações de {{name}}",
+    "partial_benchmark_title": "Benchmark Parcial",
+    "partial_benchmark_desc": "Este benchmark testou apenas o desempenho do sistema (a IA não foi testada). A Pontuação NOMAD pode ser menor do que num benchmark completo. Recomendamos executar o teste completo antes de compartilhar.",
+    "shared_success_title": "Compartilhado com a Comunidade",
+    "shared_anon_msg": "Seu benchmark foi compartilhado anonimamente com o repositório público de hardware NOMAD. Obrigado pela contribuição!",
+    "shared_with_tag_msg": "Seu benchmark foi compartilhado com o identificador \"{{tag}}\" no repositório de hardware NOMAD. Obrigado pela contribuição!"
+  },
+  "common_actions": {
+    "dismiss": "Dispensar"
+  },
+  "actions": {
+    "run_full": "Executar Benchmark Completo",
+    "run_system_only": "Apenas Sistema",
+    "run_ai_only": "Apenas IA",
+    "last_run": "Última execução: {{time}}"
+  },
+  "badges": {
+    "exceptional": "Excepcional",
+    "great": "Excelente",
+    "good": "Bom",
+    "fair": "Regular",
+    "needs_attention": "Requer Atenção",
+    "partial_benchmark": "Benchmark Parcial",
+    "very_fast": "Muito Rápido",
+    "fast": "Rápido",
+    "moderate": "Moderado",
+    "slow": "Lento"
+  },
+  "tooltips": {
+    "partial_score": "Esta pontuação reflete apenas testes de sistema (CPU, memória, disco). Inferência de IA não foi testada. Execute um teste completo para obter a Pontuação NOMAD definitiva.",
+    "full_score": "A Pontuação NOMAD combina CPU, memória, E/S de disco e inferência de IA em um índice único de 0 a 100.",
+    "community_sharing": "Ajude outros usuários do NOMAD a saberem quais hardwares funcionam melhor! Os resultados incluem modelo de CPU, memória, velocidade de disco e velocidade de IA. Nenhum dado pessoal ou endereço IP é enviado."
+  },
+  "score_card": {
+    "out_of_100": "de 100",
+    "partial_explainer": "Esta pontuação é baseada em <1>{{label}}</1>. Para obter uma pontuação completa, execute o teste incluindo a inferência de IA.",
+    "full_explainer": "A Pontuação NOMAD indica a capacidade do seu sistema para rodar aplicações offline, indexação de busca e modelos de IA.",
+    "system_performance": "Desempenho do Sistema",
+    "ai_performance": "Desempenho de IA",
+    "not_tested": "Não Testado"
+  },
+  "community": {
+    "heading": "Base de Hardware do NOMAD",
+    "shared_badge": "Compartilhado",
+    "intro": "Envie os resultados do seu benchmark para o repositório público de hardware do NOMAD. Isso ajuda outros montadores a saber que desempenho esperar de hardwares semelhantes.",
+    "builder_tag_label": "Identificador do Montador (Builder Tag)",
+    "share_anonymously": "Compartilhar anonimamente (sem identificador)",
+    "confirm_partial_submit": "Este é um benchmark parcial (nem todos os testes foram executados). Tem certeza de que deseja compartilhá-lo?",
+    "share_btn": "Compartilhar com a Comunidade"
+  },
+  "system_perf": {
+    "title": "Desempenho do Sistema",
+    "cpu": "CPU",
+    "events_sec": "eventos/seg",
+    "memory": "Memória",
+    "disk_read": "Leitura de Disco",
+    "disk_write": "Gravação de Disco"
+  },
+  "ai_perf": {
+    "title": "Desempenho do {{name}}",
+    "tok_sec": "tokens/seg",
+    "model_used": "Modelo Utilizado",
+    "time_to_first_token": "Tempo até o Primeiro Token",
+    "disclaimer": "A velocidade de IA depende da sua CPU/GPU, velocidade de RAM e tamanho do modelo. Quanto maior, melhor.",
+    "not_tested_msg": "O desempenho de IA não foi avaliado nesta execução."
+  },
+  "specs": {
+    "title": "Especificações do Sistema",
+    "processor": "Processador",
+    "cpu_model": "Modelo do Processador",
+    "system": "Sistema",
+    "total_memory": "Memória Total"
+  },
+  "history": {
+    "title": "Histórico de Benchmarks ({{count}})",
+    "col_date": "Data",
+    "col_type": "Tipo",
+    "col_score": "Pontuação",
+    "col_cpu": "CPU",
+    "col_memory": "Memória",
+    "col_disk": "Disco",
+    "col_ai": "IA",
+    "col_shared": "Enviado"
+  },
+  "no_results": {
+    "title": "Nenhum Resultado de Benchmark",
+    "desc": "Execute um benchmark para avaliar o desempenho do seu hardware e descobrir como ele lida com IA offline e tarefas de sistema."
+  },
+  "live_run": {
+    "results_so_far": "Resultados até agora",
+    "thread_tooltip": "Thread {{index}}: {{load}}%",
+    "threads_count": "{{count}} thread",
+    "threads_count_plural": "{{count}} threads",
+    "ai_inference": "Inferência de IA",
+    "tokens_per_sec": "Tokens por Segundo",
+    "first_token_in": "Primeiro token em {{ms}} ms",
+    "waiting_first_token": "Aguardando primeiro token...",
+    "gpu": "GPU",
+    "utilization": "Utilização",
+    "vram": "VRAM",
+    "vram_of": "VRAM (de {{total}} GB)",
+    "disk_read": "Leitura de Disco",
+    "disk_write": "Gravação de Disco",
+    "benchmark_throughput": "Taxa do benchmark",
+    "system_disk_activity": "Atividade de disco do sistema",
+    "compiling_report": "Compilando Relatório",
+    "calculating_score": "Calculando sua Pontuação NOMAD...",
+    "identifying_hardware": "Identificando Hardware",
+    "detecting_system": "Detectando seu sistema...",
+    "memory_throughput": "Taxa de Transferência da Memória",
+    "cpu_load": "Carga da CPU",
+    "events_per_sec": "Eventos por segundo",
+    "overall": "Geral",
+    "temperature": "Temperatura",
+    "cpu_package": "Encapsulamento CPU",
+    "disk": "Disco",
+    "read": "Leitura",
+    "write": "Gravação",
+    "running_benchmark": "Executando benchmark..."
+  },
+  "score_reveal": {
+    "benchmark_complete": "Benchmark concluído",
+    "your_score": "Sua pontuação: {{label}}",
+    "continue_btn": "Continuar",
+    "cpu": "CPU",
+    "memory": "Memória",
+    "disk_read": "Leitura de Disco",
+    "disk_write": "Gravação de Disco",
+    "ai_score": "Pontuação de IA",
+    "score_summary": "O sistema atingiu {{cpu}} em CPU, {{mem}} em memória, {{read}} em leitura de disco e {{write}} em gravação de disco.",
+    "ai_tok_sec": "A IA gerou texto a {{speed}} tokens/segundo."
+  }
+}
