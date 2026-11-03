@@ -18,7 +18,7 @@ FROM python:3.10-slim
 RUN pip install --no-cache-dir bergamot==0.4.5
 
 WORKDIR /app
-COPY blocks.py proxy.py fetch_models.py entrypoint.sh /app/
+COPY blocks.py proxy.py fetch_models.py engine_check.py entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
 # Models are a mounted volume, not baked in: at ~37 MB per direction the image
