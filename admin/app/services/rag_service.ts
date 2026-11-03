@@ -636,7 +636,6 @@ export class RagService {
     // Process each chunk individually with its metadata. With a GPU embedder several run at once: each one
     // mostly waits on the embedder and then on Qdrant, so one at a time leaves the GPU idle. The first runs
     // alone, so the collection and the embedding model are checked once before the others start.
-    const inFlight = (await this.ollamaService.isEmbeddingGpuAccelerated()) ? RagService.ZIM_CHUNKS_IN_FLIGHT : 1
     let totalChunks = 0
     let next = 0
     let done = 0
@@ -685,6 +684,8 @@ export class RagService {
       }
     }
     if (zimChunks.length > 0) await embedNext()
+    // Asked after the first chunk, which loads the model: /api/ps lists it only while it is loaded
+    const inFlight = (await this.ollamaService.isEmbeddingGpuAccelerated()) ? RagService.ZIM_CHUNKS_IN_FLIGHT : 1
     await Promise.all(
       Array.from({ length: inFlight }, async () => {
         while (!failed && next < zimChunks.length) {
