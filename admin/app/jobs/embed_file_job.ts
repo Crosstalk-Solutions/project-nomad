@@ -9,6 +9,23 @@ import { createHash } from 'crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
+import { join } from 'node:path'
+import { isPathUnderRoot, KB_EXTERNAL_STORAGE_PATH } from '../utils/kb_external_source.js'
+
+/**
+ * Both cleanup paths below delete a job's source file when it looks like an
+ * upload. They match on a path *substring*, so a file in the read-only
+ * external folder (#1422) whose own sub-path happens to contain
+ * `storage/kb_uploads` would qualify. The `:ro` mount would make the unlink
+ * fail anyway; this keeps NOMAD from trying.
+ */
+function isRemovableUpload(filePath: string | undefined): filePath is string {
+  return (
+    !!filePath &&
+    filePath.includes(RagService.UPLOADS_STORAGE_PATH) &&
+    !isPathUnderRoot(filePath, join(process.cwd(), KB_EXTERNAL_STORAGE_PATH))
+  )
+}
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -484,7 +501,7 @@ export class EmbedFileJob {
 
     for (const job of failedJobs) {
       const filePath = (job.data as EmbedFileJobParams).filePath
-      if (filePath && filePath.includes(RagService.UPLOADS_STORAGE_PATH)) {
+      if (isRemovableUpload(filePath)) {
         try {
           await fs.unlink(filePath)
           filesDeleted++
@@ -519,7 +536,7 @@ export class EmbedFileJob {
       const filePath = (job.data as EmbedFileJobParams).filePath
       // Same guard as cleanupFailedJobs: only delete user uploads, never ZIM
       // library files or Nomad docs that live outside the uploads path.
-      if (filePath && filePath.includes(RagService.UPLOADS_STORAGE_PATH)) {
+      if (isRemovableUpload(filePath)) {
         try {
           await fs.unlink(filePath)
           filesDeleted++

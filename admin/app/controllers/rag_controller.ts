@@ -183,7 +183,11 @@ export default class RagController {
     const { source } = await request.validateUsing(deleteFileSchema)
     const result = await this.ragService.deleteFileBySource(source)
     if (!result.success) {
-      return response.status(500).json({ error: result.message })
+      // 409 for the read-only external folder (#1422): the request was fine,
+      // the file just isn't NOMAD's to remove while it's still in that folder.
+      return response
+        .status(result.code === 'read_only' ? 409 : 500)
+        .json({ error: result.message })
     }
     return response.status(200).json({ message: result.message })
   }
