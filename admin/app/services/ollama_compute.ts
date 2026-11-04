@@ -87,8 +87,30 @@ export type OllamaContainerSnapshot = {
   Config?: { Image?: string; Env?: string[] | null }
   HostConfig?: {
     Devices?: Array<{ PathOnHost?: string }> | null
-    DeviceRequests?: Array<{ Driver?: string }> | null
+    DeviceRequests?: Array<{ Driver?: string; DeviceIDs?: string[] | null }> | null
   }
+}
+
+/**
+ * Whether Docker can hand over a GPU that it exposes only as a CDI device (no nvidia
+ * runtime registered) through its nvidia device driver. Before Docker 29.2 that driver
+ * exists only when nvidia-container-runtime-hook is installed, which the base NVIDIA
+ * Container Toolkit doesn't ship. From 29.2 the base toolkit's nvidia-cdi-hook provides
+ * it too, and the request goes through CDI (moby/moby#50228).
+ */
+export function nvidiaDriverUsesCdi(dockerVersion: string | undefined): boolean {
+  const [major, minor] = (dockerVersion ?? '').split('.').map(Number)
+  return major > 29 || (major === 29 && minor >= 2)
+}
+
+/**
+ * The DeviceRequest for every NVIDIA GPU: through Docker's nvidia device driver, or by
+ * the GPU's CDI name. The CDI driver is there whenever Docker lists CDI devices.
+ */
+export function nvidiaDeviceRequest(cdi = false) {
+  return cdi
+    ? { Driver: 'cdi', DeviceIDs: ['nvidia.com/gpu=all'] }
+    : { Driver: 'nvidia', Count: -1, Capabilities: [['gpu']] }
 }
 
 function hasDevice(container: OllamaContainerSnapshot, path: string): boolean {
@@ -105,7 +127,7 @@ function isRocmImage(image: string | undefined): boolean {
  *
  * The container's own config comes first because it records what the install
  * actually set up, independent of how the host is detected today:
- *   - an nvidia DeviceRequest means NVIDIA
+ *   - an nvidia DeviceRequest, or a CDI one for nvidia.com/gpu, means NVIDIA
  *   - a ROCm image tag or a /dev/kfd device means AMD (/dev/dri alone is not
  *     AMD-specific, Intel and Vulkan setups pass it too)
  * A registered nvidia runtime comes next, which covers a container created
@@ -125,9 +147,12 @@ export function resolveExpectedGpuVendor(input: {
 }): GpuVendor | null {
   const { container } = input
   if (container) {
-    if ((container.HostConfig?.DeviceRequests ?? []).some((r) => r.Driver === 'nvidia')) {
-      return 'nvidia'
-    }
+    const nvidiaRequest = (container.HostConfig?.DeviceRequests ?? []).some(
+      (r) =>
+        r.Driver === 'nvidia' ||
+        (r.Driver === 'cdi' && (r.DeviceIDs ?? []).some((id) => id.startsWith('nvidia.com/gpu')))
+    )
+    if (nvidiaRequest) return 'nvidia'
     if (isRocmImage(container.Config?.Image) || hasDevice(container, '/dev/kfd')) {
       return 'amd'
     }
