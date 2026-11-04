@@ -39,6 +39,24 @@ export default function Chat({
   const [pendingModelSwitch, setPendingModelSwitch] = useState<string | null>(null)
   const pageLoadNormalizedRef = useRef(false)
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
+  // True from send until the stream ends, unlike isStreamingResponse (which
+  // drops at the first token). Drives the Stop button.
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [agentMode, setAgentModeState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nomad:chat-agent') !== 'off'
+    } catch {
+      return true
+    }
+  })
+  const setAgentMode = useCallback((on: boolean) => {
+    setAgentModeState(on)
+    try {
+      localStorage.setItem('nomad:chat-agent', on ? 'on' : 'off')
+    } catch {
+      // ignore (private mode)
+    }
+  }, [])
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
 
@@ -47,6 +65,13 @@ export default function Chat({
   }, [])
 
   useEffect(() => () => abortCurrentStream(), [abortCurrentStream])
+
+  // Stop button: closing the stream makes the server abort the model at once.
+  const handleStop = useCallback(() => {
+    abortCurrentStream()
+    setIsGenerating(false)
+    setIsStreamingResponse(false)
+  }, [abortCurrentStream])
 
   useEffect(() => {
     if (!enabled) {
@@ -357,6 +382,7 @@ export default function Chat({
             content: m.content,
             timestamp: new Date(m.timestamp),
             sources: m.sources,
+            steps: (m as any).steps,
           }))
         )
       } else {
@@ -436,12 +462,83 @@ export default function Chat({
 
       abortCurrentStream()
 
+      if (agentMode && images.length === 0) {
+        const abortController = new AbortController()
+        streamAbortRef.current = abortController
+        setIsGenerating(true)
+        const assistantMsgId = `msg-${Date.now()}-assistant`
+        // Text per model round; a round that ends in tool calls is the model
+        // narrating its plan, so the server retracts it (round_note) and it
+        // moves into the step list instead of the answer.
+        const roundText: Record<number, string> = {}
+        const retracted = new Set<number>()
+        const answerText = () =>
+          Object.keys(roundText)
+            .map(Number)
+            .sort((a, b) => a - b)
+            .filter((r) => !retracted.has(r))
+            .map((r) => roundText[r])
+            .join('')
+        const patch = (fn: (m: ChatMessage) => ChatMessage) =>
+          setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? fn(m) : m)))
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantMsgId, role: 'assistant', content: '', timestamp: new Date(), isStreaming: true, steps: [] },
+        ])
+        let completed = false
+        try {
+          await api.streamAgentChat(
+            {
+              model: selectedModel,
+              messages: chatMessages.filter((m) => m.role === 'user' || m.role === 'assistant') as any,
+              sessionId: sessionId ? Number(sessionId) : undefined,
+            },
+            (e) => {
+              if (e.type === 'token') {
+                roundText[e.round] = (roundText[e.round] ?? '') + e.content
+                patch((m) => ({ ...m, content: answerText() }))
+              } else if (e.type === 'round_note') {
+                retracted.add(e.round)
+                patch((m) => ({ ...m, content: answerText() }))
+              } else if (e.type === 'step_start') {
+                patch((m) => ({ ...m, steps: [...(m.steps ?? []), e.step] }))
+              } else if (e.type === 'step_end') {
+                patch((m) => ({ ...m, steps: (m.steps ?? []).map((st) => (st.id === e.step.id ? e.step : st)) }))
+              } else if (e.type === 'done') {
+                completed = true
+                patch((m) => ({ ...m, isStreaming: false, sources: e.sources?.length ? e.sources : undefined }))
+              }
+            },
+            abortController.signal
+          )
+        } catch (error: any) {
+          patch((m) => ({
+            ...m,
+            isStreaming: false,
+            steps: (m.steps ?? []).map((st) => (st.status === 'running' ? { ...st, status: 'error', summary: 'stopped' } : st)),
+            content:
+              error?.name === 'AbortError'
+                ? `${m.content}${m.content ? '\n\n' : ''}_(stopped)_`
+                : `${m.content}${m.content ? '\n\n' : ''}⚠️ ${error instanceof Error ? error.message : 'The agent failed.'}`,
+          }))
+        } finally {
+          if (!completed) patch((m) => ({ ...m, isStreaming: false }))
+          if (clearStreamIfCurrent(streamAbortRef, abortController)) setIsGenerating(false)
+          if (sessionId) {
+            queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+            setTimeout(() => queryClient.invalidateQueries({ queryKey: ['chatSessions'] }), 3000)
+          }
+        }
+        return
+      }
+
       if (streamingEnabled !== false) {
         // Streaming path
         const abortController = new AbortController()
         streamAbortRef.current = abortController
 
         setIsStreamingResponse(true)
+        setIsGenerating(true)
 
         const assistantMsgId = `msg-${Date.now()}-assistant`
         let isFirstChunk = true
@@ -546,6 +643,7 @@ export default function Chat({
         } finally {
           if (clearStreamIfCurrent(streamAbortRef, abortController)) {
             setIsStreamingResponse(false)
+            setIsGenerating(false)
           }
         }
 
@@ -571,7 +669,7 @@ export default function Chat({
         })
       }
     },
-    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking, abortCurrentStream]
+    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking, abortCurrentStream, agentMode]
   )
 
   return (
@@ -690,6 +788,15 @@ export default function Chat({
                 )}
               </div>
               <div className="flex items-center">
+                <span className="text-sm text-text-secondary select-none">Agent:</span>
+                <InfoTooltip
+                  position="bottom"
+                  align="right"
+                  text="When on, the assistant searches the offline library itself, reads articles and shows every step. You can stop it at any time. When off, the classic chat is used."
+                />
+                <Switch id="chat-agent-toggle" checked={agentMode} onChange={setAgentMode} />
+              </div>
+              <div className="flex items-center">
                 <span className="text-sm text-text-secondary select-none">Knowledge Base:</span>
                 <InfoTooltip
                   position="bottom"
@@ -738,6 +845,8 @@ export default function Chat({
             onSendMessage={handleSendMessage}
             visionCapability={selectedModelVisionCapability}
             isLoading={isStreamingResponse || chatMutation.isPending}
+            isGenerating={isGenerating}
+            onStop={handleStop}
             chatSuggestions={chatSuggestions}
             chatSuggestionsEnabled={suggestionsEnabled}
             chatSuggestionsLoading={chatSuggestionsLoading}
