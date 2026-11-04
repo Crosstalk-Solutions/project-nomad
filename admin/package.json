@@ -97,7 +97,7 @@
     "@tanstack/react-virtual": "3.13.18",
     "@uppy/core": "5.2.0",
     "@uppy/dashboard": "5.1.0",
-    "@uppy/react": "5.1.1",
+    "@uppy/react": "6.1.0",
     "@uppy/xhr-upload": "5.2.0",
     "@vinejs/vine": "4.4.0",
     "@vitejs/plugin-react": "4.7.0",
