@@ -1,4 +1,4 @@
-import { IconPhoto, IconSend, IconWand, IconX } from '@tabler/icons-react'
+import { IconPhoto, IconPlayerStopFilled, IconSend, IconWand, IconX } from '@tabler/icons-react'
 import { useState, useRef, useEffect } from 'react'
 import classNames from '~/lib/classNames'
 import { ChatImageAttachment, ChatMessage } from '../../../types/chat'
@@ -15,6 +15,9 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string, images: ChatImageAttachment[]) => void
   visionCapability: ModelVisionCapability
   isLoading?: boolean
+  // True from the moment a reply is requested until it finishes streaming.
+  isGenerating?: boolean
+  onStopGenerating?: () => void
   chatSuggestions?: string[]
   chatSuggestionsEnabled?: boolean
   chatSuggestionsLoading?: boolean
@@ -34,6 +37,8 @@ export default function ChatInterface({
   onSendMessage,
   visionCapability,
   isLoading = false,
+  isGenerating = false,
+  onStopGenerating,
   chatSuggestions = [],
   chatSuggestionsEnabled = false,
   chatSuggestionsLoading = false,
@@ -311,22 +316,34 @@ export default function ChatInterface({
               style={{ maxHeight: '200px' }}
             />
           </div>
-          <button
-            type="submit"
-            disabled={(!input.trim() && images.length === 0) || isLoading}
-            className={classNames(
-              'p-3 rounded-lg transition-all duration-200 flex-shrink-0 mb-2',
-              (!input.trim() && images.length === 0) || isLoading
-                ? 'bg-border-default text-text-muted cursor-not-allowed'
-                : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'
-            )}
-          >
-            {isLoading ? (
-              <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <IconSend className="h-6 w-6" />
-            )}
-          </button>
+          {isGenerating && onStopGenerating ? (
+            <button
+              type="button"
+              onClick={onStopGenerating}
+              className="p-3 rounded-lg transition-all duration-200 flex-shrink-0 mb-2 bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105"
+              aria-label="Stop generating"
+              title="Stop generating"
+            >
+              <IconPlayerStopFilled className="h-6 w-6" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={(!input.trim() && images.length === 0) || isLoading}
+              className={classNames(
+                'p-3 rounded-lg transition-all duration-200 flex-shrink-0 mb-2',
+                (!input.trim() && images.length === 0) || isLoading
+                  ? 'bg-border-default text-text-muted cursor-not-allowed'
+                  : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'
+              )}
+            >
+              {isLoading ? (
+                <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <IconSend className="h-6 w-6" />
+              )}
+            </button>
+          )}
         </form>
         <p className="mt-2 text-xs text-text-muted" aria-live="polite">
           {visionAttachmentGuidance(visionCapability)}
