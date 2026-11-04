@@ -329,15 +329,17 @@ export class RunDownloadJob {
       } catch (error) {
         // Failover: a mirror that is unreachable, hasn't synced this dated file
         // yet (404), or misbehaves gets one immediate try at the canonical source
-        // in the same attempt. A partial .tmp from the mirror resumes there, since
-        // it is the same file. Cancels/lock aborts (signal aborted) are not retried.
+        // in the same attempt. The mirror's partial .tmp is discarded (forceNew
+        // truncates it): nothing proves both hosts serve the same bytes, and
+        // appending canonical bytes to a stale mirror prefix would produce a
+        // full-size but corrupt ZIM. Cancels/lock aborts (signal aborted) are not retried.
         if (fetchUrl === url || userCancelled || abortController.signal.aborted) throw error
         console.warn(
           `[RunDownloadJob] Mirror download failed (${fetchUrl}): ${
             error instanceof Error ? error.message : String(error)
           }; falling back to ${url}`
         )
-        await doResumableDownload({ url, ...downloadOptions })
+        await doResumableDownload({ url, ...downloadOptions, forceNew: true })
       }
 
       return {
