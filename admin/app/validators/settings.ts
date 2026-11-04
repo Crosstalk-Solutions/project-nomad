@@ -78,6 +78,19 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'ai.remoteOllamaMemoryGB': {
+            // Empty clears the setting (no memory ceiling on a remote host).
+            // Anything else is gigabytes on that machine, and has to be a real
+            // positive number — zero or garbage would silently mean "unset".
+            if (value === '' || value === undefined || value === null) {
+                return null
+            }
+            const num = Number(value)
+            if (!Number.isFinite(num) || num <= 0) {
+                return 'Remote Ollama memory must be a number of gigabytes greater than 0, or empty.'
+            }
+            return null
+        }
         case 'rag.minRelevance': {
             // Empty/'auto' clears the setting and reverts to RAG_MIN_FINAL_SCORE.
             // An explicit 0 is a real choice — it turns the floor off — so it is

@@ -11,8 +11,25 @@ import {
   parseParameterBillions,
   parseUserContextCap,
   resolveContextWindow,
+  selectAvailableBytes,
   type ContextWindowDecision,
 } from '../utils/context_window.js'
+
+/**
+ * Process-wide on purpose. These services are constructed per request, so a
+ * map on the instance would be empty on the next turn and would make
+ * invalidate() a no-op. Ollama reloads a model whenever num_ctx changes, so
+ * the decision has to outlive the request that first computed it, and has to
+ * be droppable when a setting that feeds it changes.
+ */
+const contextWindowDecisions = new Map<string, Promise<ContextWindowDecision>>()
+let cachedAvailableBytes: Promise<number | undefined> | null = null
+
+/** Drop memoized decisions. ContextWindowService.invalidate() calls this. */
+export function invalidateContextWindowCache(): void {
+  contextWindowDecisions.clear()
+  cachedAvailableBytes = null
+}
 
 /**
  * Decides how large a context window each chat model gets, and then holds that
@@ -29,13 +46,11 @@ import {
  *   - the user's cap (`ai.contextWindow`), which can only lower the result
  *   - the model's trained context length, from /api/show `model_info`
  *   - what the hardware can actually afford, from the exact per-token KV cost in
- *     the GGUF metadata against detected VRAM (or a share of system RAM)
+ *     the GGUF metadata against detected VRAM, a share of system RAM, or the
+ *     configured memory of a remote Ollama host
  */
 @inject()
 export class ContextWindowService {
-  private decisions: Map<string, Promise<ContextWindowDecision>> = new Map()
-  private availableBytes: Promise<number | undefined> | null = null
-
   constructor(
     private ollamaService: OllamaService,
     private systemService: SystemService
@@ -50,7 +65,7 @@ export class ContextWindowService {
   }
 
   async decisionFor(model: string): Promise<ContextWindowDecision> {
-    const cached = this.decisions.get(model)
+    const cached = contextWindowDecisions.get(model)
     if (cached) return cached
 
     const pending = this._resolve(model).catch((error) => {
@@ -59,7 +74,7 @@ export class ContextWindowService {
       )
       return { contextWindow: UNKNOWN_BACKEND_CONTEXT, limitedBy: 'default' as const }
     })
-    this.decisions.set(model, pending)
+    contextWindowDecisions.set(model, pending)
     return pending
   }
 
@@ -114,14 +129,31 @@ export class ContextWindowService {
    * whichever device Ollama chose. Falls back to a conservative share of system
    * RAM for CPU-only hosts, which is the low end of the hardware NOMAD targets
    * and precisely where getting this wrong hurts most.
+   *
+   * A remote URL skips both of those. They describe this NOMAD host, not the
+   * machine running the model, and using them pins every window to the floor.
+   * `ai.remoteOllamaMemoryGB` is the ceiling then; unset means no ceiling.
    */
   private async _availableBytes(): Promise<number | undefined> {
-    if (!this.availableBytes) {
-      this.availableBytes = (async () => {
+    if (!cachedAvailableBytes) {
+      cachedAvailableBytes = (async () => {
+        const [remoteUrl, remoteMemoryGb] = await Promise.all([
+          KVStore.getValue('ai.remoteOllamaUrl'),
+          KVStore.getValue('ai.remoteOllamaMemoryGB'),
+        ])
+
+        if (remoteUrl?.trim()) {
+          return selectAvailableBytes({
+            remoteOllamaUrl: remoteUrl,
+            remoteOllamaMemoryGB: remoteMemoryGb,
+          })
+        }
+
+        let probedBytes: number | undefined
         try {
           const compute = await this.systemService.getOllamaInferenceComputeFromLogs()
           if (compute && compute.vramMiB > 0) {
-            return compute.vramMiB * 1024 * 1024
+            probedBytes = compute.vramMiB * 1024 * 1024
           }
         } catch (error) {
           logger.debug(
@@ -130,10 +162,13 @@ export class ContextWindowService {
         }
         // CPU inference shares host RAM with MySQL, Redis, Qdrant and every other
         // container on the box, so claim only a modest slice of it.
-        return os.totalmem() * CPU_RAM_SHARE
+        return selectAvailableBytes({
+          probedBytes,
+          hostShareBytes: os.totalmem() * CPU_RAM_SHARE,
+        })
       })()
     }
-    return this.availableBytes
+    return cachedAvailableBytes
   }
 
   private async _modelBytes(model: string): Promise<number | undefined> {
@@ -145,10 +180,9 @@ export class ContextWindowService {
     }
   }
 
-  /** Drop memoized decisions — call when the backend or the user's cap changes. */
+  /** Drop memoized decisions — call when the backend, the user's cap, or the remote host changes. */
   invalidate(): void {
-    this.decisions.clear()
-    this.availableBytes = null
+    invalidateContextWindowCache()
   }
 }
 
