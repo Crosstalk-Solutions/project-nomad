@@ -45,6 +45,7 @@ import { ZimFileWithMetadata } from '../../../../types/zim'
 const CURATED_CATEGORIES_KEY = 'curated-categories'
 const WIKIPEDIA_STATE_KEY = 'wikipedia-state'
 const CUSTOM_LIBRARIES_KEY = 'custom-libraries'
+const DOWNLOAD_MIRROR_KEY = 'zim-download-mirror'
 const CATALOG_LANGUAGES_KEY = 'catalog-languages'
 const ZIM_FILES_KEY = 'zim-files'
 
@@ -134,6 +135,16 @@ export default function ZimRemoteExplorer() {
   const { data: customLibraries } = useQuery({
     queryKey: [CUSTOM_LIBRARIES_KEY],
     queryFn: () => api.listCustomLibraries(),
+    refetchOnWindowFocus: false,
+  })
+
+  // Box-wide ZIM download source (#1115). Unlike the browse "Source" picker
+  // above (per-browser, only affects what you browse), this applies to every ZIM
+  // download: curated collections, Wikipedia, Easy Setup and content updates.
+  const { data: downloadMirror } = useQuery({
+    queryKey: [DOWNLOAD_MIRROR_KEY],
+    queryFn: () => api.getZimDownloadMirror(),
+    enabled: manageModalOpen,
     refetchOnWindowFocus: false,
   })
 
@@ -490,6 +501,35 @@ export default function ZimRemoteExplorer() {
       }
     },
   })
+
+  const setDownloadMirrorMutation = useMutation({
+    mutationFn: (source: string) => api.setZimDownloadMirror(source),
+    onSuccess: () => {
+      addNotification({ message: 'Download source updated.', type: 'success' })
+      queryClient.invalidateQueries({ queryKey: [DOWNLOAD_MIRROR_KEY] })
+    },
+    onError: () => {
+      addNotification({ message: 'Failed to update download source.', type: 'error' })
+    },
+  })
+
+  const remeasureMirrorMutation = useMutation({
+    mutationFn: () => api.remeasureZimDownloadMirror(),
+    onSuccess: () => {
+      addNotification({
+        message: 'Mirror speeds will be re-measured on the next download.',
+        type: 'success',
+      })
+      queryClient.invalidateQueries({ queryKey: [DOWNLOAD_MIRROR_KEY] })
+    },
+  })
+
+  const measuredMirrorName = (() => {
+    const baseUrl = downloadMirror?.measurement?.baseUrl
+    if (!baseUrl) return null
+    if (baseUrl === downloadMirror?.canonicalBaseUrl) return 'Kiwix'
+    return customLibraries?.find((l) => l.base_url === baseUrl)?.name ?? baseUrl
+  })()
 
   const hasCustomLibraries = customLibraries && customLibraries.length > 0
 
@@ -932,6 +972,50 @@ export default function ZimRemoteExplorer() {
             cancelText="Close"
           >
             <div className="space-y-6">
+              <div>
+                <label
+                  htmlFor="zim-download-mirror"
+                  className="block text-sm font-medium text-text-secondary mb-1"
+                >
+                  Download source
+                </label>
+                <p className="text-xs text-text-muted mb-2">
+                  Used for every ZIM download on this device, including curated collections,
+                  Wikipedia and content updates. Automatic picks the fastest mirror measured from
+                  here, and any mirror falls back to Kiwix if a file is missing.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    id="zim-download-mirror"
+                    value={downloadMirror?.override ?? 'auto'}
+                    onChange={(e) => setDownloadMirrorMutation.mutate(e.target.value)}
+                    disabled={!downloadMirror || setDownloadMirrorMutation.isPending}
+                    className="rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green"
+                  >
+                    <option value="auto">
+                      {measuredMirrorName
+                        ? `Automatic (fastest: ${measuredMirrorName})`
+                        : 'Automatic (not measured yet)'}
+                    </option>
+                    <option value="canonical">Kiwix (download.kiwix.org)</option>
+                    {customLibraries?.map((lib) => (
+                      <option key={lib.id} value={String(lib.id)}>
+                        {lib.name}
+                      </option>
+                    ))}
+                  </select>
+                  <StyledButton
+                    variant="outline"
+                    size="sm"
+                    icon="IconRefresh"
+                    onClick={() => remeasureMirrorMutation.mutate()}
+                    disabled={remeasureMirrorMutation.isPending}
+                  >
+                    Re-measure
+                  </StyledButton>
+                </div>
+              </div>
+
               <div>
                 <p className="text-sm text-text-muted mb-4">
                   Add Kiwix mirrors or other ZIM file sources for faster downloads.

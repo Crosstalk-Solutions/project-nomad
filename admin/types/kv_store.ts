@@ -102,6 +102,14 @@ export const KV_STORE_SCHEMA = {
   // herbal REMEDY sections stay hidden until this flips true. Defaults off
   // (null → false); flipped on after a clinician content-pass, not user-toggled.
   'drugReference.remediesEnabled': 'boolean',
+  // ZIM download source (#1115). `zim.downloadMirror` is the user override:
+  // 'auto' (unset) uses the measured fastest mirror, 'canonical' pins
+  // download.kiwix.org, a numeric string pins that custom_library_sources row.
+  // `zim.mirrorMeasurement` caches the last speed probe as JSON
+  // ({ baseUrl, measuredAt, results }); safe to clear, the next ZIM download
+  // re-measures.
+  'zim.downloadMirror':         'string',
+  'zim.mirrorMeasurement':      'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

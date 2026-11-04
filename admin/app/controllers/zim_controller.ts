@@ -6,7 +6,15 @@ import {
   remoteDownloadWithMetadataValidator,
   selectWikipediaValidator,
 } from '#validators/common'
-import { addCustomLibraryValidator, browseLibraryValidator, idParamValidator, listRemoteZimValidator } from '#validators/zim'
+import {
+  addCustomLibraryValidator,
+  browseLibraryValidator,
+  idParamValidator,
+  listRemoteZimValidator,
+  setZimDownloadMirrorValidator,
+} from '#validators/zim'
+import { ZimMirrorService } from '#services/zim_mirror_service'
+import type { ZimMirrorOverride } from '../utils/zim_mirror.js'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -215,6 +223,30 @@ export default class ZimController {
       }
       throw error
     }
+  }
+
+  // Download source endpoints (#1115)
+
+  async getDownloadMirror({}: HttpContext) {
+    return new ZimMirrorService().getStatus()
+  }
+
+  async setDownloadMirror({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(setZimDownloadMirrorValidator)
+    try {
+      await new ZimMirrorService().setOverride(payload.source as ZimMirrorOverride)
+      return { message: 'Download source updated' }
+    } catch (error) {
+      if (error.message === 'Download source not found') {
+        return response.status(404).send({ message: error.message })
+      }
+      throw error
+    }
+  }
+
+  async remeasureDownloadMirror({}: HttpContext) {
+    await new ZimMirrorService().clearMeasurement()
+    return { message: 'Mirror speeds will be re-measured on the next ZIM download' }
   }
 
   async browseLibrary({ request, response }: HttpContext) {

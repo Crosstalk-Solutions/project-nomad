@@ -35,6 +35,17 @@ export const browseLibraryValidator = vine.compile(
   })
 )
 
+// ZIM download source override (#1115): 'auto' (fastest measured mirror),
+// 'canonical' (download.kiwix.org), or a custom_library_sources id.
+export const setZimDownloadMirrorValidator = vine.compile(
+  vine.object({
+    source: vine
+      .string()
+      .trim()
+      .regex(/^(auto|canonical|[1-9]\d{0,9})$/),
+  })
+)
+
 export const idParamValidator = vine.compile(
   vine.object({
     params: vine.object({

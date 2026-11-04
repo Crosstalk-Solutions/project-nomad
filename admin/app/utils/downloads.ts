@@ -31,7 +31,7 @@ export class GatedContentAuthError extends Error {
 // dumps.wikimedia.org, which returns HTTP 403 for a default `axios/x` (or empty)
 // User-Agent per Wikimedia's UA policy. Identify ourselves descriptively so
 // those downloads succeed.
-const DOWNLOAD_HEADERS: Record<string, string> = {
+export const DOWNLOAD_HEADERS: Record<string, string> = {
   'User-Agent': 'ProjectNOMAD/1.0 (+https://projectnomad.us)',
 }
 
