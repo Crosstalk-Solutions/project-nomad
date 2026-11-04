@@ -67,6 +67,11 @@ export const KV_STORE_SCHEMA = {
   // "auto"/unset to let ContextWindowResolver size it from the model and the
   // hardware. A cap only ever lowers the resolved value.
   'ai.contextWindow':           'string',
+  // Gigabytes of memory on the machine `ai.remoteOllamaUrl` points at ("24").
+  // NOMAD cannot see that machine. Unset means no memory ceiling — guessing
+  // from this host's RAM pins every context window to the floor. Ignored
+  // when the remote URL is unset.
+  'ai.remoteOllamaMemoryGB':    'string',
   // How long Ollama keeps a chat model (and its KV cache) resident after a
   // request, in Ollama's duration format ("10m"). Unset inherits Ollama's 5m.
   'ai.keepAlive':               'string',
