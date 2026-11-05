@@ -88,3 +88,17 @@ test('auth and type coexist on one resource', async () => {
   assert.equal(resource.type, 'zim')
   assert.equal(resource.auth, 'nomad_app_key')
 })
+
+test('previous_ids survives manifest validation', async () => {
+  // Stripped, a renamed resource (#1171) would re-download content the user already has.
+  const validated: any = await vine.validate({
+    schema: zimCategoriesSpecSchema,
+    data: specWithResource({ ...baseResource, previous_ids: ['old-field-manuals_en'] }),
+  })
+
+  assert.deepEqual(
+    validated.categories[0].tiers[0].resources[0].previous_ids,
+    ['old-field-manuals_en'],
+    'previous_ids was stripped by the validator — renamed resources would re-download'
+  )
+})
