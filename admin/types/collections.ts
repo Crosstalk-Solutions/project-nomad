@@ -24,6 +24,13 @@ export type SpecResource = {
    * another schema change.
    */
   auth?: 'nomad_app_key'
+  /**
+   * Ids this resource was published under before openZIM renamed it (#1171).
+   * An installed file or row under one of these counts as this resource, so a
+   * rename doesn't re-download content the user already has. Absent == never
+   * renamed.
+   */
+  previous_ids?: string[]
 }
 
 export type SpecTier = {
