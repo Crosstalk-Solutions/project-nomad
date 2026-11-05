@@ -11,6 +11,7 @@ import { OllamaService } from '#services/ollama_service'
 import { EmbedFileJob } from './embed_file_job.js'
 import { basename, join, resolve, sep } from 'node:path'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
+import { filenameBelongsToResource } from '../utils/resource_aliases.js'
 
 /** Maps live under `<cwd>/storage/maps/pmtiles`; no shared constant exists. */
 const MAP_STORAGE_PATH = '/storage/maps'
@@ -26,7 +27,8 @@ const MAP_STORAGE_PATH = '/storage/maps'
 function isSafeOldContentPath(
   oldFilePath: string,
   resourceId: string,
-  filetype: string
+  filetype: string,
+  previousIds: string[] = []
 ): boolean {
   const root =
     filetype === 'zim'
@@ -34,7 +36,8 @@ function isSafeOldContentPath(
       : join(process.cwd(), MAP_STORAGE_PATH)
   const resolved = resolve(oldFilePath)
   if (!resolved.startsWith(root + sep)) return false
-  return basename(resolved).startsWith(`${resourceId}_`)
+  // A renamed resource's previous file still carries its former id (#1171).
+  return filenameBelongsToResource(basename(resolved), [resourceId, ...previousIds])
 }
 
 export class RunDownloadJob {
@@ -185,7 +188,25 @@ export class RunDownloadJob {
               // replaced resource's own previous file — never another resource's
               // file, even if the InstalledResource row is stale/malformed.
               if (oldFilePath && oldFilePath !== filepath) {
-                if (isSafeOldContentPath(oldFilePath, resourceMetadata.resource_id, filetype)) {
+                let previousIds: string[] = []
+                if (filetype === 'zim') {
+                  try {
+                    const { default: CollectionManifest } = await import('#models/collection_manifest')
+                    const { buildPreviousIdMap, previousIdsFor } = await import(
+                      '../utils/resource_aliases.js'
+                    )
+                    const manifest = await CollectionManifest.find('zim_categories')
+                    previousIds = previousIdsFor(
+                      resourceMetadata.resource_id,
+                      buildPreviousIdMap(manifest?.spec_data as any)
+                    )
+                  } catch {
+                    // No cached spec: fall back to the current-id check only.
+                  }
+                }
+                if (
+                  isSafeOldContentPath(oldFilePath, resourceMetadata.resource_id, filetype, previousIds)
+                ) {
                   try {
                     await deleteFileIfExists(oldFilePath)
                     console.log(`[RunDownloadJob] Deleted old file: ${oldFilePath}`)
