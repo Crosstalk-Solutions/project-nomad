@@ -6,7 +6,7 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import Alert from '~/components/Alert'
 import Input from '~/components/inputs/Input'
 import { useNotifications } from '~/context/NotificationContext'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '~/lib/api'
 
 export default function AdvancedPage(props: {
@@ -17,6 +17,7 @@ export default function AdvancedPage(props: {
   }
 }) {
   const { addNotification } = useNotifications()
+  const queryClient = useQueryClient()
   const { internetStatusTestUrlEnvOverride } = props.advanced
 
   const [internetStatusTestUrl, setInternetStatusTestUrl] = useState(
@@ -96,6 +97,9 @@ export default function AdvancedPage(props: {
       return await api.updateSetting('ui.serviceLogsUrl', value)
     },
     onSuccess: () => {
+      // The sidebar reads this setting through useSystemSetting; refresh it so the
+      // link picks up the new address without a page reload.
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'ui.serviceLogsUrl'] })
       addNotification({ message: 'Setting updated successfully.', type: 'success' })
     },
     onError: (error: any) => {
@@ -180,12 +184,9 @@ export default function AdvancedPage(props: {
           <StyledSectionHeader title="Reverse Proxy" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <p className="text-sm text-text-secondary mb-4">
-              NOMAD's per-app URL overrides cover everything in the Services list, but the
-              &ldquo;Service Logs &amp; Metrics&rdquo; entry in the Settings sidebar points at Dozzle,
-              which runs as a management-compose container rather than an installed app. Set its
-              address here if you serve NOMAD behind a reverse proxy or a local DNS name &mdash;
-              otherwise the link always resolves to <code>http://&lt;current-host&gt;:9999</code>. Leave
-              blank to use that port default.
+              If you reach NOMAD through a reverse proxy or a local DNS name, enter the address of
+              the &ldquo;Service Logs &amp; Metrics&rdquo; page here. Leave blank to use the default
+              (port 9999 on this server).
             </p>
 
             <div className="flex items-end gap-3">
