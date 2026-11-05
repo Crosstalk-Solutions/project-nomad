@@ -9,10 +9,16 @@ on:
       - 'collections/**.json'
   schedule:
     - cron: '17 6 * * 1'
+  workflow_dispatch:
 
 jobs:
   validate-urls:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Scheduled runs open (or update) a tracking issue when URLs break, so a
+      # failure on main reaches triage instead of sitting in the Actions tab.
+      issues: write
     steps:
       - uses: actions/checkout@v6
 
@@ -80,5 +86,45 @@ jobs:
             echo ""
             echo "Broken URLs:"
             printf "%b\n" "$FAILED_URLS"
+            printf "%b\n" "$FAILED_URLS" | sed '/^$/d' > broken-urls.txt
             exit 1
+          fi
+
+      # Only for runs against main itself (schedule / manual), never PRs or pushes:
+      # a PR that breaks a URL already shows a red check on the PR.
+      - name: Open or update the tracking issue
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: 'Catalog URLs failing on main'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -s broken-urls.txt ] || echo "  - (no URL list captured; see the run log)" > broken-urls.txt
+          {
+            echo "The weekly catalog URL check failed on \`main\` ($(date -u +%Y-%m-%d))."
+            echo ""
+            echo "Broken URLs:"
+            cat broken-urls.txt
+            echo ""
+            echo "A date-only change usually self-heals at download time. A 404 whose id no longer"
+            echo "exists upstream (a rename) does not, and needs a catalog fix. Run: $RUN_URL"
+          } > body.md
+          NUM=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$TITLE\"" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --repo "$GITHUB_REPOSITORY" --body-file body.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file body.md
+          fi
+
+      - name: Close the tracking issue once URLs pass
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: 'Catalog URLs failing on main'
+        run: |
+          NUM=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$TITLE\"" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ -n "$NUM" ]; then
+            gh issue close "$NUM" --repo "$GITHUB_REPOSITORY" --comment "All catalog URLs pass again as of $(date -u +%Y-%m-%d)."
           fi
