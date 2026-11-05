@@ -31,12 +31,12 @@
               "size_mb": 16
             },
             {
-              "id": "irp.fas.org_en_military-medicine",
-              "version": "2026-10",
+              "id": "fas-military-medicine_en",
+              "version": "2025-06",
               "title": "Military Medicine",
               "description": "Tactical and field medicine manuals",
-              "url": "https://download.kiwix.org/zim/zimit/irp.fas.org_en_military-medicine_2026-10.zim",
-              "size_mb": 62
+              "url": "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
+              "size_mb": 78
             },
             {
               "id": "wwwnc.cdc.gov_en_all",
