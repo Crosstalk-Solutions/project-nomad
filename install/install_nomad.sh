@@ -521,13 +521,13 @@ ensure_docker_installed() {
 
       # Check if Docker service is running
       if ! systemctl is-active --quiet docker; then
-        echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
-        ${SUDO} systemctl start docker
+        echo -e "${YELLOW}#${RESET} Docker is installed but not running. Enabling on boot and starting Docker...\\n"
+        ${SUDO} systemctl enable --now docker
         if ! systemctl is-active --quiet docker; then
           echo -e "${RED}#${RESET} Failed to start Docker. Please check the Docker service status and try again."
           exit 1
         else
-          echo -e "${GREEN}#${RESET} Docker service started successfully.\\n"
+          echo -e "${GREEN}#${RESET} Docker service enabled on boot and started successfully.\\n"
         fi
       else
         echo -e "${GREEN}#${RESET} Docker service is already running.\\n"
