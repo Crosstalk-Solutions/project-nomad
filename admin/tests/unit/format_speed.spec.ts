@@ -3,7 +3,7 @@ import { test } from 'node:test'
 
 import { formatSpeed } from '../../app/utils/misc.js'
 
-test('formatSpeed picks the unit after rounding', async (t) => {
+test('formatSpeed picks the unit after rounding', () => {
   // 1023.6 rounds up to 1024 bytes -> shown as the next unit.
   assert.equal(formatSpeed(1023.6), '1.0 KB/s')
   assert.equal(formatSpeed(1023.4), '1023 B/s')
