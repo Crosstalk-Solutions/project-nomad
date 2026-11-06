@@ -1,12 +1,31 @@
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useRef, type ReactNode } from 'react'
 import { ChatMessage } from '../../../types/chat'
+import CopyButton from './CopyButton'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
   // Offered on the latest answer when it was cut off at the length limit.
   onContinue?: () => void
+}
+
+// A fenced code block with its own Copy button. The text is read from the DOM at
+// click time, so it is exactly what the user sees.
+function CodeBlock({ children }: { children?: ReactNode }) {
+  const preRef = useRef<HTMLPreElement>(null)
+  return (
+    <div className="relative group my-2">
+      <pre ref={preRef} className="m-0 bg-transparent p-0">
+        {children}
+      </pre>
+      <CopyButton
+        getText={() => (preRef.current?.textContent ?? '').replace(/\n$/, '')}
+        className="absolute top-1.5 right-1.5 bg-gray-700/80 text-gray-100 hover:bg-gray-600"
+      />
+    </div>
+  )
 }
 
 export default function ChatMessageBubble({ message, onContinue }: ChatMessageBubbleProps) {
@@ -83,6 +102,7 @@ export default function ChatMessageBubble({ message, onContinue }: ChatMessageBu
                   </code>
                 )
               },
+              pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
               ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
               ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
@@ -145,7 +165,7 @@ export default function ChatMessageBubble({ message, onContinue }: ChatMessageBu
       )}
       <div
         className={classNames(
-          'text-xs mt-2',
+          'text-xs mt-2 flex items-center gap-2',
           message.role === 'user' ? 'text-white/70' : 'text-text-muted'
         )}
       >
@@ -153,6 +173,13 @@ export default function ChatMessageBubble({ message, onContinue }: ChatMessageBu
           hour: '2-digit',
           minute: '2-digit',
         })}
+        {/* Copies the answer as markdown: no Sources, timestamp or reasoning. */}
+        {message.role === 'assistant' && !message.isStreaming && message.content.trim() && (
+          <CopyButton
+            getText={() => message.content}
+            className="text-text-muted hover:text-text-primary hover:bg-surface-primary"
+          />
+        )}
       </div>
     </div>
   )
