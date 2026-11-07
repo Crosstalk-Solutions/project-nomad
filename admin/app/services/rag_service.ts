@@ -545,6 +545,12 @@ export class RagService {
       quality: 50,
       density: 200,
       format: 'png',
+      // pdf2pic resizes every page to width x height after rendering, and its defaults (768x512,
+      // aspect ratio ignored) squash a portrait page into a landscape thumbnail before OCR. Keep the
+      // page's aspect ratio and the 200 dpi render: 1700 px is 8.5 in at 200 dpi, applied as a minimum.
+      width: 1700,
+      height: 1700,
+      preserveAspectRatio: true,
     }).bulk(-1, {
       responseType: 'buffer',
     })
