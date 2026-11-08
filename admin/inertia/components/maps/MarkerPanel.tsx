@@ -11,6 +11,8 @@ import {
 
 import { PIN_COLORS } from '~/hooks/useMapMarkers'
 import type { MapMarker } from '~/hooks/useMapMarkers'
+import type { MarkerLayer } from '~/hooks/useMarkerLayers'
+import LayersSection from './LayersSection'
 
 interface MarkerPanelProps {
   markers: MapMarker[]
@@ -19,6 +21,16 @@ interface MarkerPanelProps {
   onSelect: (id: number | null) => void
   onToggleVisibility: (id: number, visible: boolean) => void
   selectedMarkerId: number | null
+  // Pin layers (#1387)
+  layers: MarkerLayer[]
+  activeLayerId: number | null
+  onSelectLayer: (id: number) => void
+  onToggleLayerVisible: (id: number, visible: boolean) => void
+  onCreateLayer: (name: string) => Promise<unknown>
+  onRenameLayer: (id: number, name: string) => Promise<unknown>
+  onDeleteLayer: (id: number) => Promise<string | null>
+  layerExportUrl: (layerId?: number) => string
+  onImportPins: () => void
 }
 
 type SortField = 'name' | 'color' | 'visibility' | 'icon'
@@ -81,6 +93,15 @@ export default function MarkerPanel({
                                       onSelect,
                                       onToggleVisibility,
                                       selectedMarkerId,
+                                      layers,
+                                      activeLayerId,
+                                      onSelectLayer,
+                                      onToggleLayerVisible,
+                                      onCreateLayer,
+                                      onRenameLayer,
+                                      onDeleteLayer,
+                                      layerExportUrl,
+                                      onImportPins,
                                     }: MarkerPanelProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -139,6 +160,21 @@ export default function MarkerPanel({
       })
   }, [markers, searchQuery, sortField, sortDirection])
 
+  // With more than one layer, list pins under their layer, in layer order.
+  const layerVisible = useMemo(
+    () => new Map(layers.map((layer) => [layer.id, layer.visible])),
+    [layers]
+  )
+  const groupedMarkers = useMemo(() => {
+    if (layers.length <= 1) return null
+    return layers
+      .map((layer) => ({
+        layer,
+        markers: filteredAndSortedMarkers.filter((marker) => marker.layerId === layer.id),
+      }))
+      .filter((group) => group.markers.length > 0)
+  }, [layers, filteredAndSortedMarkers])
+
   const allFilteredMarkersVisible =
     filteredAndSortedMarkers.length > 0 &&
     filteredAndSortedMarkers.every((marker) => marker.visible)
@@ -178,7 +214,7 @@ export default function MarkerPanel({
         key={marker.id}
         className={`group flex items-center gap-2 border-b border-border-subtle px-3 py-2 transition-colors last:border-b-0 ${
           marker.id === selectedMarkerId ? 'bg-desert-green/10' : 'hover:bg-surface-secondary'
-        } ${marker.visible ? '' : 'opacity-60'}`}
+        } ${marker.visible && layerVisible.get(marker.layerId) !== false ? '' : 'opacity-60'}`}
       >
         <MarkerIcon
           size={16}
@@ -314,6 +350,18 @@ export default function MarkerPanel({
         </span>
       </div>
 
+      <LayersSection
+        layers={layers}
+        activeLayerId={activeLayerId}
+        onSelect={onSelectLayer}
+        onToggleVisible={onToggleLayerVisible}
+        onCreate={onCreateLayer}
+        onRename={onRenameLayer}
+        onDelete={onDeleteLayer}
+        exportUrl={layerExportUrl}
+        onImport={onImportPins}
+      />
+
       <div className="space-y-2 border-b border-border-subtle px-3 py-2">
         <input
           type="search"
@@ -358,7 +406,7 @@ export default function MarkerPanel({
         )}
       </div>
 
-      <div className="max-h-[calc(100vh-244px)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-420px)] min-h-24 overflow-y-auto">
         {markers.length === 0 ? (
           <div className="px-3 py-6 text-center">
             <IconMapPinFilled size={24} className="mx-auto mb-2 text-text-muted" />
@@ -368,6 +416,19 @@ export default function MarkerPanel({
           <div className="px-3 py-6 text-center">
             <p className="text-sm text-text-muted">No pins match your search.</p>
           </div>
+        ) : groupedMarkers ? (
+          groupedMarkers.map(({ layer, markers: layerMarkers }) => (
+            <div key={layer.id}>
+              <p
+                className={`sticky top-0 bg-surface-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted ${
+                  layer.visible ? '' : 'opacity-60'
+                }`}
+              >
+                {layer.name}
+              </p>
+              <ul>{layerMarkers.map(renderMarkerRow)}</ul>
+            </div>
+          ))
         ) : (
           <ul>{filteredAndSortedMarkers.map(renderMarkerRow)}</ul>
         )}

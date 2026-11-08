@@ -66,6 +66,7 @@ export type CreateMapMarkerPayload = {
   icon?: string | null
   icon_color?: string | null
   visible?: boolean
+  layer_id?: number
 }
 
 export type UpdateMapMarkerPayload = Partial<CreateMapMarkerPayload>
@@ -81,6 +82,28 @@ export type MapMarkerResponse = {
   icon_color?: string | null
   visible?: boolean
   notes?: string | null
+  layer_id: number
   created_at: string
   updated_at?: string
+}
+
+// Map pin layers (#1387)
+export type MarkerLayerResponse = {
+  id: number
+  name: string
+  visible: boolean
+  sort_order: number
+  marker_count: number
+  created_at: string
+  updated_at?: string
+}
+
+export type MarkerLayerImportMode = 'new' | 'merge' | 'replace'
+
+export type ImportMarkerLayersResponse = {
+  mode: MarkerLayerImportMode
+  layers: Array<{ id: number; name: string }>
+  imported_pins: number
+  imported_routes: number
+  skipped_duplicates: number
 }

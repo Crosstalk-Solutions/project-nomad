@@ -246,6 +246,30 @@ router
       summary: 'Delete a map marker',
       tags: ['maps'],
     })
+    documented(router.get('/marker-layers', [MapsController, 'listMarkerLayers']), {
+      summary: 'List map pin layers',
+      tags: ['maps'],
+    })
+    documented(router.post('/marker-layers', [MapsController, 'createMarkerLayer']), {
+      summary: 'Create a map pin layer',
+      tags: ['maps'],
+    })
+    documented(router.get('/marker-layers/export', [MapsController, 'exportMarkerLayers']), {
+      summary: 'Export one map pin layer, or all of them, as a NOMAD pin file',
+      tags: ['maps'],
+    })
+    documented(router.post('/marker-layers/import', [MapsController, 'importMarkerLayers']), {
+      summary: 'Import a NOMAD pin file as a new layer, or into an existing one',
+      tags: ['maps'],
+    })
+    documented(
+      router.patch('/marker-layers/:id', [MapsController, 'updateMarkerLayer']).where('id', /^\d+$/),
+      { summary: 'Rename a map pin layer or change its visibility', tags: ['maps'] }
+    )
+    documented(
+      router.delete('/marker-layers/:id', [MapsController, 'deleteMarkerLayer']).where('id', /^\d+$/),
+      { summary: 'Delete a map pin layer and its pins', tags: ['maps'] }
+    )
     documented(router.delete('/:filename', [MapsController, 'delete']), {
       summary: 'Delete a map file',
       tags: ['maps'],

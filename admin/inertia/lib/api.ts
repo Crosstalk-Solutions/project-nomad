@@ -15,9 +15,26 @@ import { catchInternal } from './util'
 import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
-import type { CreateMapMarkerPayload, MapMarkerResponse, UpdateMapMarkerPayload } from '../../types/maps'
+import type {
+  CreateMapMarkerPayload,
+  ImportMarkerLayersResponse,
+  MapMarkerResponse,
+  MarkerLayerImportMode,
+  MarkerLayerResponse,
+  UpdateMapMarkerPayload,
+} from '../../types/maps'
 import type { ChatSource } from '../../types/chat'
 import { chatStreamErrorMessage } from './chat_stream.js'
+
+function serverMessage(error: unknown, fallback: string): string {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as { message?: unknown; errors?: Array<{ message?: unknown }> } | undefined
+    if (typeof data?.message === 'string' && data.message) return data.message
+    const first = data?.errors?.[0]?.message
+    if (typeof first === 'string' && first) return first
+  }
+  return fallback
+}
 
 type OllamaChatRequestWithImages = OllamaChatRequest & { images?: File[] }
 
@@ -837,6 +854,74 @@ class API {
     return catchInternal(async () => {
       await this.client.delete(`/maps/markers/${id}`)
     })()
+  }
+
+  // --- Map pin layers (#1387) ---
+
+  async listMarkerLayers() {
+    return catchInternal(async () => {
+      const response = await this.client.get<MarkerLayerResponse[]>('/maps/marker-layers')
+      return response.data
+    })()
+  }
+
+  async createMarkerLayer(name: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<MarkerLayerResponse>('/maps/marker-layers', { name })
+      return response.data
+    })()
+  }
+
+  async updateMarkerLayer(id: number, data: { name?: string; visible?: boolean }) {
+    return catchInternal(async () => {
+      const response = await this.client.patch<MarkerLayerResponse>(`/maps/marker-layers/${id}`, data)
+      return response.data
+    })()
+  }
+
+  // Not wrapped in catchInternal: the server's message (e.g. "You need at least
+  // one layer") is the useful part, and catchInternal replaces it with a generic one.
+  async deleteMarkerLayer(
+    id: number
+  ): Promise<{ ok: true; deletedMarkers: number } | { ok: false; message: string }> {
+    try {
+      const response = await this.client.delete<{ deleted_markers: number }>(
+        `/maps/marker-layers/${id}`
+      )
+      return { ok: true, deletedMarkers: response.data.deleted_markers }
+    } catch (error) {
+      return { ok: false, message: serverMessage(error, 'Could not delete the layer.') }
+    }
+  }
+
+  markerLayersExportUrl(layerId?: number) {
+    const query = layerId !== undefined ? `?layer_id=${layerId}` : ''
+    return `/api/maps/marker-layers/export${query}`
+  }
+
+  async importMarkerLayers(params: {
+    file: File
+    mode: MarkerLayerImportMode
+    targetLayerId?: number
+    name?: string
+  }): Promise<{ ok: true; result: ImportMarkerLayersResponse } | { ok: false; message: string }> {
+    const formData = new FormData()
+    formData.append('file', params.file)
+    formData.append('mode', params.mode)
+    if (params.targetLayerId !== undefined) {
+      formData.append('target_layer_id', String(params.targetLayerId))
+    }
+    if (params.name) formData.append('name', params.name)
+    try {
+      const response = await this.client.post<ImportMarkerLayersResponse>(
+        '/maps/marker-layers/import',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      return { ok: true, result: response.data }
+    } catch (error) {
+      return { ok: false, message: serverMessage(error, 'The import failed.') }
+    }
   }
 
   async listRemoteZimFiles({
