@@ -31,6 +31,7 @@ interface MarkerPanelProps {
   onDeleteLayer: (id: number) => Promise<string | null>
   layerExportUrl: (layerId?: number) => string
   onImportPins: () => void
+  onMovePins: (markerIds: number[], layerId: number) => Promise<void>
 }
 
 type SortField = 'name' | 'color' | 'visibility' | 'icon'
@@ -102,6 +103,7 @@ export default function MarkerPanel({
                                       onDeleteLayer,
                                       layerExportUrl,
                                       onImportPins,
+                                      onMovePins,
                                     }: MarkerPanelProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -403,6 +405,35 @@ export default function MarkerPanel({
           >
             {allFilteredMarkersVisible ? 'Hide all' : 'Show all'}
           </button>
+        )}
+
+        {/* Bulk move acts on whatever the list shows, like Hide all: search
+            "water", then move just those pins into a Water layer. */}
+        {layers.length > 1 && filteredAndSortedMarkers.length > 0 && (
+          <select
+            value=""
+            onChange={async (e) => {
+              const layerId = Number(e.target.value)
+              if (!layerId) return
+              await onMovePins(
+                filteredAndSortedMarkers.map((marker) => marker.id),
+                layerId
+              )
+            }}
+            className="block w-full rounded border border-border-default bg-surface-primary px-2 py-1 text-xs text-text-primary focus:border-desert-green focus:outline-none"
+            aria-label="Move the listed pins to a layer"
+          >
+            <option value="">
+              Move {filteredAndSortedMarkers.length === markers.length ? 'all' : 'these'}{' '}
+              {filteredAndSortedMarkers.length}{' '}
+              {filteredAndSortedMarkers.length === 1 ? 'pin' : 'pins'} to layer...
+            </option>
+            {layers.map((layer) => (
+              <option key={layer.id} value={layer.id}>
+                {layer.name}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 

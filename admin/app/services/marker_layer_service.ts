@@ -93,6 +93,34 @@ export class MarkerLayerService {
     })
   }
 
+  /**
+   * Move pins into another layer. A route moves as a whole: moving any of its
+   * points brings the rest along, so a route never ends up split across layers.
+   */
+  async movePins(markerIds: number[], layerId: number): Promise<{ moved: number; layer_id: number }> {
+    return db.transaction(async (trx) => {
+      const layer = await MarkerLayer.query({ client: trx }).where('id', layerId).first()
+      if (!layer) throw new MarkerLayerError('Layer not found', 404)
+
+      const selected = await MapMarker.query({ client: trx })
+        .whereIn('id', markerIds)
+        .select('id', 'route_id')
+      const routeIds = [...new Set(selected.map((m) => m.route_id).filter((id): id is string => !!id))]
+
+      const query = MapMarker.query({ client: trx }).where((q) => {
+        q.whereIn('id', selected.map((m) => m.id))
+        if (routeIds.length > 0) q.orWhereIn('route_id', routeIds)
+      })
+      const moving = await query.clone().select('id')
+      if (moving.length > 0) {
+        await MapMarker.query({ client: trx })
+          .whereIn('id', moving.map((m) => m.id))
+          .update({ layer_id: layer.id })
+      }
+      return { moved: moving.length, layer_id: layer.id }
+    })
+  }
+
   async export(layerId?: number): Promise<{ file: PinFile; label: string }> {
     const query = MarkerLayer.query().orderBy('sort_order', 'asc').orderBy('id', 'asc')
     if (layerId !== undefined) query.where('id', layerId)

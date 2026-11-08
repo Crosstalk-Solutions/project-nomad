@@ -238,6 +238,10 @@ router
       summary: 'Create a map marker',
       tags: ['maps'],
     })
+    documented(router.post('/markers/move', [MapsController, 'moveMarkers']), {
+      summary: 'Move map markers to another pin layer (a route moves as a whole)',
+      tags: ['maps'],
+    })
     documented(router.patch('/markers/:id', [MapsController, 'updateMarker']), {
       summary: 'Update a map marker',
       tags: ['maps'],

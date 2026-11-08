@@ -247,6 +247,7 @@ export default class MapsController {
           latitude: vine.number().min(-90).max(90).optional(),
           notes: vine.string().trim().maxLength(500).nullable().optional(),
           marker_type: vine.string().trim().maxLength(20).optional(),
+          layer_id: vine.number().withoutDecimals().positive().optional(),
         })
       )
     )
@@ -263,7 +264,33 @@ export default class MapsController {
     if (payload.marker_type !== undefined) marker.marker_type = payload.marker_type
 
     await marker.save()
+
+    // Moving layers goes through movePins so a route point brings its route along.
+    if (payload.layer_id !== undefined && payload.layer_id !== marker.layer_id) {
+      try {
+        await this.markerLayerService.movePins([marker.id], payload.layer_id)
+      } catch (error) {
+        return this.sendLayerError(error, response)
+      }
+      await marker.refresh()
+    }
     return marker
+  }
+
+  async moveMarkers({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(
+      vine.compile(
+        vine.object({
+          marker_ids: vine.array(vine.number().withoutDecimals().positive()).minLength(1).maxLength(5000),
+          layer_id: vine.number().withoutDecimals().positive(),
+        })
+      )
+    )
+    try {
+      return await this.markerLayerService.movePins(payload.marker_ids, payload.layer_id)
+    } catch (error) {
+      return this.sendLayerError(error, response)
+    }
   }
 
   async deleteMarker({ request, response }: HttpContext) {

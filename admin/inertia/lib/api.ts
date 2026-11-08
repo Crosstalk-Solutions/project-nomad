@@ -850,6 +850,16 @@ class API {
     })()
   }
 
+  async moveMapMarkers(markerIds: number[], layerId: number) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ moved: number; layer_id: number }>(
+        '/maps/markers/move',
+        { marker_ids: markerIds, layer_id: layerId }
+      )
+      return response.data
+    })()
+  }
+
   async deleteMapMarker(id: number) {
     return catchInternal(async () => {
       await this.client.delete(`/maps/markers/${id}`)

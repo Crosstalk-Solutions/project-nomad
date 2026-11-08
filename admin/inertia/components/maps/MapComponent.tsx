@@ -511,7 +511,9 @@ export default function MapComponent({
               latitude={placingMarker.lat}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ name, notes, color, customColor, icon }) => {
+              layers={layers}
+              defaultLayerId={activeLayerId}
+              onSave={async ({ name, notes, color, customColor, icon, layerId }) => {
                 const saved = await addMarker({
                   name,
                   longitude: placingMarker.lng,
@@ -520,7 +522,7 @@ export default function MapComponent({
                   customColor,
                   icon,
                   notes: notes || null,
-                  layerId: activeLayerId,
+                  layerId: layerId ?? activeLayerId,
                 })
 
                 // Leave the popup open on failure. api.ts already surfaces the
@@ -562,20 +564,29 @@ export default function MapComponent({
               longitude={selectedMarker.longitude}
               latitude={selectedMarker.latitude}
               initialMarker={selectedMarker}
+              layers={layers}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
-              onSave={async ({ id, name, notes, color, customColor, icon }) => {
+              onSave={async ({ id, name, notes, color, customColor, icon, layerId }) => {
                 if (!id) return
 
+                const moving = layerId !== null && layerId !== selectedMarker.layerId
                 const saved = await updateMarker(id, {
                   name,
                   notes: notes || null,
                   color,
                   customColor,
                   icon,
+                  ...(moving ? { layerId } : {}),
                 })
 
                 if (!saved) return
+
+                // A move can bring a whole route along, so refresh pins and counts.
+                if (moving) {
+                  await Promise.all([reloadMarkers(), reloadLayers()])
+                  if (hiddenLayerIds.has(saved.layerId)) setLayerVisible(saved.layerId, true)
+                }
 
                 setEditingMarkerId(null)
                 setHasUnsavedMarkerChanges(false)
@@ -608,6 +619,10 @@ export default function MapComponent({
           onDeleteLayer={handleDeleteLayer}
           layerExportUrl={(layerId) => api.markerLayersExportUrl(layerId)}
           onImportPins={() => setImportOpen(true)}
+          onMovePins={async (markerIds, layerId) => {
+            const result = await api.moveMapMarkers(markerIds, layerId)
+            if (result) await Promise.all([reloadMarkers(), reloadLayers()])
+          }}
         />
       </div>
 

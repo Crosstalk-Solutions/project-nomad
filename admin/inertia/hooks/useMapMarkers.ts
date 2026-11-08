@@ -48,6 +48,7 @@ type CreateMapMarkerValues = {
 
 type UpdateMapMarkerValues = {
   name?: string
+  layerId?: number
   color?: PinColorId
   customColor?: string | null
   icon?: MarkerIcon | string | null
@@ -122,6 +123,7 @@ export function useMapMarkers() {
       icon_color: updates.iconColor,
       visible: updates.visible,
       notes: updates.notes,
+      layer_id: updates.layerId,
     })
 
     if (result) {
