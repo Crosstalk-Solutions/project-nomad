@@ -2,7 +2,7 @@ import classNames from '~/lib/classNames'
 import StyledButton from '../StyledButton'
 import { router, usePage } from '@inertiajs/react'
 import { ChatSession } from '../../../types/chat'
-import { IconMessage } from '@tabler/icons-react'
+import { IconMessage, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import KnowledgeBaseModal from './KnowledgeBaseModal'
 import NomadMdModal from './NomadMdModal'
@@ -13,6 +13,7 @@ interface ChatSidebarProps {
   onSessionSelect: (id: string) => void
   onNewChat: () => void
   onClearHistory: () => void
+  onDeleteSession: (id: string, title: string) => void
   isInModal?: boolean
   isMobileOpen?: boolean
   onMobileClose?: () => void
@@ -24,6 +25,7 @@ export default function ChatSidebar({
   onSessionSelect,
   onNewChat,
   onClearHistory,
+  onDeleteSession,
   isInModal = false,
   isMobileOpen = false,
   onMobileClose,
@@ -74,41 +76,57 @@ export default function ChatSidebar({
         ) : (
           <div className="p-2 space-y-1">
             {sessions.map((session) => (
-              <button
-                key={session.id}
-                onClick={() => {
-                  onSessionSelect(session.id)
-                  onMobileClose?.()
-                }}
-                className={classNames(
-                  'w-full text-left px-3 py-2 rounded-lg transition-colors group',
-                  activeSessionId === session.id
-                    ? 'bg-desert-green text-white'
-                    : 'hover:bg-surface-secondary text-text-primary'
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <IconMessage
-                    className={classNames(
-                      'h-5 w-5 mt-0.5 shrink-0',
-                      activeSessionId === session.id ? 'text-white' : 'text-text-muted'
-                    )}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{session.title}</div>
-                    {session.lastMessage && (
-                      <div
-                        className={classNames(
-                          'text-xs truncate mt-0.5',
-                          activeSessionId === session.id ? 'text-white/80' : 'text-text-muted'
-                        )}
-                      >
-                        {session.lastMessage}
-                      </div>
-                    )}
+              <div key={session.id} className="relative group">
+                <button
+                  onClick={() => {
+                    onSessionSelect(session.id)
+                    onMobileClose?.()
+                  }}
+                  className={classNames(
+                    'w-full text-left pl-3 pr-9 py-2 rounded-lg transition-colors',
+                    activeSessionId === session.id
+                      ? 'bg-desert-green text-white'
+                      : 'hover:bg-surface-secondary text-text-primary'
+                  )}
+                >
+                  <div className="flex items-start gap-2">
+                    <IconMessage
+                      className={classNames(
+                        'h-5 w-5 mt-0.5 shrink-0',
+                        activeSessionId === session.id ? 'text-white' : 'text-text-muted'
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{session.title}</div>
+                      {session.lastMessage && (
+                        <div
+                          className={classNames(
+                            'text-xs truncate mt-0.5',
+                            activeSessionId === session.id ? 'text-white/80' : 'text-text-muted'
+                          )}
+                        >
+                          {session.lastMessage}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                {/* Delete just this chat. Always visible on touch screens, on hover elsewhere. */}
+                <button
+                  type="button"
+                  onClick={() => onDeleteSession(session.id, session.title)}
+                  aria-label={`Delete chat "${session.title}"`}
+                  title={`Delete chat "${session.title}"`}
+                  className={classNames(
+                    'absolute right-1.5 top-2 rounded p-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-desert-green',
+                    activeSessionId === session.id
+                      ? 'text-white/80 hover:text-white hover:bg-white/10'
+                      : 'text-text-muted hover:text-red-600 hover:bg-surface-primary'
+                  )}
+                >
+                  <IconTrash className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             ))}
           </div>
         )}
