@@ -40,6 +40,7 @@ import {
   applyAllContentUpdatesValidator,
   mapExtractPreflightValidator,
   mapExtractValidator,
+  mapPlaceSearchValidator,
 } from '#validators/common'
 import {
   listRemoteZimValidator,
@@ -229,6 +230,11 @@ router
       summary: 'Extract a map region',
       tags: ['maps'],
       request: mapExtractValidator,
+    })
+    documented(router.get('/search', [MapsController, 'searchPlaces']), {
+      summary: 'Search places in the downloaded map regions',
+      tags: ['maps'],
+      query: mapPlaceSearchValidator,
     })
     documented(router.get('/markers', [MapsController, 'listMarkers']), {
       summary: 'List map markers',

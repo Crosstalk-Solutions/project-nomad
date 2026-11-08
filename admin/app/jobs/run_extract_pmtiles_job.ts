@@ -169,6 +169,10 @@ export class RunExtractPmtilesJob {
         `[RunExtractPmtilesJob] Completed extract: out=${outputFilepath} size=${finalStat.size} bytes`
       )
 
+      // Make the new region searchable (and drop the replaced file's places, if any).
+      const { IndexMapPlacesJob } = await import('#jobs/index_map_places_job')
+      await IndexMapPlacesJob.dispatch()
+
       return { sourceUrl, outputFilepath }
     } catch (error: any) {
       if (userCancelled && !(error instanceof UnrecoverableError)) {

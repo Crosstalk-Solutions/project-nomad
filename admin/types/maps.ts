@@ -87,3 +87,31 @@ export type MapMarkerResponse = {
   created_at: string
   updated_at?: string
 }
+
+/** A place found by offline place search (GET /api/maps/search) */
+export type MapPlaceResult = {
+  name: string
+  nameEn: string | null
+  /** Tile kind, e.g. "city", "museum", "minor_road" */
+  kind: string
+  /** Tile layer: places, pois, water, roads or earth */
+  layer: string
+  lat: number
+  lng: number
+  /** From the lat/lng passed with the query, when given */
+  distanceKm: number | null
+}
+
+/** How many downloaded regions are searchable (counted per .pmtiles file) */
+export type MapPlaceIndexStatus = {
+  ready: number
+  /** Queued, being indexed, or changed since they were indexed */
+  pending: number
+  failed: number
+  places: number
+}
+
+export type MapPlaceSearchResponse = {
+  results: MapPlaceResult[]
+  status: MapPlaceIndexStatus
+}

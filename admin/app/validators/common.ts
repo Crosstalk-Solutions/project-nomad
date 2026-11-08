@@ -219,3 +219,13 @@ export const mapExtractValidator = vine.compile(
     estimatedBytes: vine.number().min(0).optional(),
   })
 )
+
+/** Offline place search; lat/lng (the current map view) rank nearby places higher. */
+export const mapPlaceSearchValidator = vine.compile(
+  vine.object({
+    q: vine.string().trim().maxLength(100),
+    lat: vine.number().min(-90).max(90).optional(),
+    lng: vine.number().min(-180).max(180).optional(),
+    limit: vine.number().min(1).max(25).optional(),
+  })
+)
