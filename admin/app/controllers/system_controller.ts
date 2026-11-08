@@ -779,9 +779,13 @@ export default class SystemController {
         service.friendly_name = payload.friendly_name
         service.container_image = payload.image
         service.container_config = JSON.stringify(containerConfig)
-        service.ui_location = prevScheme && uiLocation && /^\d+$/.test(uiLocation)
-            ? `${prevScheme}:${uiLocation}`
-            : uiLocation
+        // An app opened at a path inside NOMAD (the AI Assistant's "/chat") keeps it: its ports are
+        // an API, not its UI, so the first host port must not replace the link (#1581).
+        service.ui_location = service.ui_location?.startsWith('/')
+            ? service.ui_location
+            : prevScheme && uiLocation && /^\d+$/.test(uiLocation)
+                ? `${prevScheme}:${uiLocation}`
+                : uiLocation
         service.category = payload.category ?? service.category ?? 'custom'
         if (payload.icon) service.icon = payload.icon
         // Flag as user-modified so the seeder stops overwriting this app's config on future runs.
