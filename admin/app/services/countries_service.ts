@@ -117,10 +117,12 @@ export class CountriesService {
       const continent = typeof p.CONTINENT === 'string' ? p.CONTINENT : 'Other'
       if (continent === 'Antarctica' || continent === 'Seven seas (open ocean)') continue
 
+      const name = typeof p.NAME === 'string' ? p.NAME : code
       const country: Country = {
         code,
         code3: resolveIso3(p) ?? code,
-        name: typeof p.NAME === 'string' ? p.NAME : code,
+        name,
+        fullName: typeof p.NAME_EN === 'string' && p.NAME_EN ? p.NAME_EN : name,
         continent,
         subregion: typeof p.SUBREGION === 'string' ? p.SUBREGION : continent,
         population: typeof p.POP_EST === 'number' ? p.POP_EST : 0,
