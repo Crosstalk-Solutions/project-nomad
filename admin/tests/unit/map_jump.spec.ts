@@ -3,7 +3,12 @@ import { test } from 'node:test'
 
 import {
   crossesAntimeridian,
+  filterRegions,
   findRegionByLabel,
+  foldForMatch,
+  formatPlaceDistance,
+  placeKindLabel,
+  zoomForPlace,
   latToTileY,
   lngRangeFromOccupiedColumns,
   parseLatLng,
@@ -75,4 +80,34 @@ test('latToTileY maps latitudes to web-mercator rows', () => {
   assert.equal(latToTileY(-85, 1), 1)
   assert.equal(latToTileY(43.856, 14), 5966) // Sarajevo
   assert.equal(latToTileY(90, 3), 0) // clamped
+})
+
+test('filterRegions matches labels accent- and case-insensitively', () => {
+  const list = [
+    { file: 'a', label: 'Bosnia and Herzegovina', url: '/a' },
+    { file: 'b', label: 'Curaçao', url: '/b' },
+    { file: 'c', label: 'New York', url: '/c' },
+  ]
+  assert.deepEqual(
+    filterRegions('herz', list).map((r) => r.file),
+    ['a']
+  )
+  assert.deepEqual(
+    filterRegions('curac', list).map((r) => r.file),
+    ['b']
+  )
+  assert.equal(filterRegions('  ', list).length, 3)
+  assert.equal(foldForMatch('Đakovo'), 'dakovo')
+})
+
+test('placeKindLabel, zoomForPlace and formatPlaceDistance', () => {
+  assert.equal(placeKindLabel('tram_stop'), 'Tram stop')
+  assert.ok(zoomForPlace('places', 'city') < zoomForPlace('places', 'village'))
+  assert.ok(zoomForPlace('places', 'village') < zoomForPlace('roads', 'minor_road'))
+  assert.ok(zoomForPlace('roads', 'minor_road') < zoomForPlace('pois', 'museum'))
+  assert.equal(formatPlaceDistance(0.35, 'metric'), '350 m')
+  assert.equal(formatPlaceDistance(3.21, null), '3.2 km')
+  assert.equal(formatPlaceDistance(75.2, 'metric'), '75 km')
+  assert.equal(formatPlaceDistance(8.04672, 'imperial'), '5.0 mi')
+  assert.equal(formatPlaceDistance(1.852, 'nautical'), '1.0 nm')
 })

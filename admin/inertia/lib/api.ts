@@ -8,7 +8,13 @@ import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
 import { AppAutoUpdateStatus, AutoUpdateStatus, CheckLatestVersionResult, ContentAutoUpdateStatus, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
-import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps'
+import type {
+  Country,
+  CountryCode,
+  CountryGroup,
+  MapExtractPreflight,
+  MapPlaceSearchResponse,
+} from '../../types/maps'
 import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, CreatorPackWithStatus, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
@@ -717,6 +723,28 @@ class API {
     return catchInternal(async () => {
       const response = await this.client.get<{ countries: Country[] }>('/maps/countries')
       return response.data.countries
+    })()
+  }
+
+  /**
+   * Offline place search. Superseded requests (the user kept typing) are aborted through
+   * `signal` and resolve to undefined without the usual error toast.
+   */
+  async searchMapPlaces(
+    params: { q: string; lat?: number; lng?: number; limit?: number },
+    signal?: AbortSignal
+  ) {
+    return catchInternal(async () => {
+      try {
+        const response = await this.client.get<MapPlaceSearchResponse>('/maps/search', {
+          params,
+          signal,
+        })
+        return response.data
+      } catch (error) {
+        if (axios.isCancel(error)) return undefined
+        throw error
+      }
     })()
   }
 

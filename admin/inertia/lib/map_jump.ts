@@ -19,6 +19,61 @@ export type LngLatBounds = {
   north: number
 }
 
+export type { MapPlaceResult as PlaceResult } from '../../types/maps.js'
+
+/** Lowercase without diacritics, for client-side matching ("Bosna i Herceg" ~ "bosna"). */
+export function foldForMatch(text: string): string {
+  return text
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .trim()
+}
+
+/** Downloaded regions whose label contains the query (all of them for an empty query). */
+export function filterRegions<T extends JumpRegion>(query: string, regions: T[]): T[] {
+  const wanted = foldForMatch(query)
+  if (!wanted) return regions
+  return regions.filter((region) => foldForMatch(region.label).includes(wanted))
+}
+
+/** "tram_stop" -> "Tram stop" */
+export function placeKindLabel(kind: string): string {
+  const words = kind.replace(/[_-]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** How far to zoom in on a picked place: a city shows the city, a shop shows the street. */
+export function zoomForPlace(layer: string, kind: string): number {
+  if (layer === 'places') {
+    if (kind === 'country') return 6
+    if (kind === 'region') return 8
+    if (kind === 'city') return 12
+    if (kind === 'town') return 13
+    if (kind === 'village' || kind === 'macrohood') return 14
+    return 15
+  }
+  if (layer === 'water') return 14
+  if (layer === 'roads') return 16
+  if (layer === 'earth') return 12
+  return 17
+}
+
+/** "850 m" / "12 km" / "0.4 mi" for the search results, following the map scale unit. */
+export function formatPlaceDistance(km: number, unit: string | null): string {
+  if (unit === 'imperial') {
+    const miles = km / 1.609344
+    return miles < 10 ? `${miles.toFixed(1)} mi` : `${Math.round(miles)} mi`
+  }
+  if (unit === 'nautical') {
+    const nm = km / 1.852
+    return nm < 10 ? `${nm.toFixed(1)} nm` : `${Math.round(nm)} nm`
+  }
+  if (km < 1) return `${Math.round(km * 1000)} m`
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`
+}
+
 /** Parse "lat,lng" (spaces allowed). Returns null for anything else or out-of-range values. */
 export function parseLatLng(text: string): { lat: number; lng: number } | null {
   const parts = text.split(',').map((value) => value.trim())

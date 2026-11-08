@@ -8,10 +8,28 @@ import { IconArrowLeft, IconCrosshair, IconMapPin, IconPlaneTilt } from '@tabler
 import { FileEntry } from '../../types/files'
 import Alert from '~/components/Alert'
 import { useNotifications } from '~/context/NotificationContext'
-import { findRegionByLabel, parseLatLng, type JumpRegion } from '~/lib/map_jump'
+import {
+  findRegionByLabel,
+  parseLatLng,
+  zoomForPlace,
+  type JumpRegion,
+  type PlaceResult,
+} from '~/lib/map_jump'
 import { fetchRegionBounds } from '~/lib/map_region_bounds'
+import MapJumpSearch from '~/components/maps/MapJumpSearch'
 
-const JUMP_DATALIST_ID = 'map-jump-regions'
+/** The view MapComponent saves on every move: used to rank nearby search results first. */
+function currentMapCenter(): { lat: number; lng: number } | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nomad:map-view') ?? 'null')
+    if (Number.isFinite(saved?.latitude) && Number.isFinite(saved?.longitude)) {
+      return { lat: saved.latitude, lng: saved.longitude }
+    }
+  } catch {
+    // no saved view yet
+  }
+  return null
+}
 
 export default function Maps(props: {
   maps: {
@@ -31,7 +49,7 @@ export default function Maps(props: {
   const regions = props.maps.regions ?? []
 
   const jumpToRegion = async (region: JumpRegion) => {
-    // Clear right away so the datalist shows every region again on the next focus.
+    // Clear right away so the list shows every region again on the next focus.
     setJumpText('')
     try {
       const bounds = await fetchRegionBounds(region.url)
@@ -65,12 +83,15 @@ export default function Maps(props: {
     handleCoordinateAction('fly')
   }
 
-  const handleJumpTextChange = (value: string) => {
-    setJumpText(value)
-    // Picking an option from the datalist replaces the text without a keypress, so an exact
-    // label match is the signal to jump. Typing the full name by hand jumps the same way.
-    const region = findRegionByLabel(value, regions)
-    if (region) void jumpToRegion(region)
+  const jumpToPlace = (place: PlaceResult) => {
+    setJumpText('')
+    setMapCommand({
+      id: Date.now(),
+      action: 'fly',
+      lat: place.lat,
+      lng: place.lng,
+      zoom: zoomForPlace(place.layer, place.kind),
+    })
   }
 
   const alertMessage = !props.maps.baseAssetsExist
@@ -98,28 +119,15 @@ export default function Maps(props: {
           </Link>
 
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder={regions.length > 0 ? 'Jump to: region or lat,lng' : 'lat,lng'}
-              aria-label="Jump to a downloaded region or coordinates"
-              list={regions.length > 0 ? JUMP_DATALIST_ID : undefined}
-              value={jumpText}
-              // Leftover text would filter the datalist down to itself (or nothing), which
-              // reads as a broken dropdown; start each visit to the box empty.
-              onFocus={() => setJumpText('')}
-              onChange={(event) => handleJumpTextChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') handleJump()
-              }}
-              className="w-64 rounded border border-border-default bg-surface-primary px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:border-desert-green focus:outline-none"
+            <MapJumpSearch
+              text={jumpText}
+              onTextChange={setJumpText}
+              regions={regions}
+              onPickRegion={(region) => void jumpToRegion(region)}
+              onPickPlace={jumpToPlace}
+              onSubmitText={handleJump}
+              getNear={currentMapCenter}
             />
-            {regions.length > 0 && (
-              <datalist id={JUMP_DATALIST_ID}>
-                {regions.map((region) => (
-                  <option key={region.file} value={region.label} />
-                ))}
-              </datalist>
-            )}
 
             <button
               type="button"
