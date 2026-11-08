@@ -23,12 +23,22 @@ import ScaleUnitToggle from './ScaleUnitSelector'
 
 type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
-type MapCommand = {
-  id: number
-  lat: number
-  lng: number
-  action: 'fly' | 'marker'
-}
+export type MapCommand =
+  | {
+      id: number
+      lat: number
+      lng: number
+      action: 'fly' | 'marker'
+    }
+  | {
+      id: number
+      action: 'fit'
+      /** east may exceed 180 for a region that crosses the antimeridian */
+      bounds: { west: number; south: number; east: number; north: number }
+    }
+
+/** Keeps a framed region clear of the title bar (top) and the map controls (sides). */
+const FIT_REGION_PADDING = { top: 96, bottom: 48, left: 48, right: 96 }
 
 type MapComponentProps = {
   mapCommand?: MapCommand | null
@@ -213,6 +223,19 @@ export default function MapComponent({
     if (handledMapCommandIdRef.current === mapCommand.id) return
 
     handledMapCommandIdRef.current = mapCommand.id
+
+    if (mapCommand.action === 'fit') {
+      const { west, south, east, north } = mapCommand.bounds
+      setTargetIndicator(null)
+      mapRef.current?.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        { padding: FIT_REGION_PADDING, duration: 1500 }
+      )
+      return
+    }
 
     if (mapCommand.action === 'fly') {
       const currentZoom = mapRef.current?.getZoom() ?? 12
