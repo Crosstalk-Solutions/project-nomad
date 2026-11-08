@@ -130,10 +130,22 @@ export default function MarkerPanel({
             ? 'Hidden first'
             : 'Visible first'
 
+  // Unchecking a layer hides its pins from the list as well as the map. Pins
+  // hidden one at a time stay listed (greyed), since the row is where you
+  // turn them back on.
+  const hiddenLayerIds = useMemo(
+    () => new Set(layers.filter((layer) => !layer.visible).map((layer) => layer.id)),
+    [layers]
+  )
+  const pinsInShownLayers = useMemo(
+    () => markers.filter((marker) => !hiddenLayerIds.has(marker.layerId)),
+    [markers, hiddenLayerIds]
+  )
+
   const filteredAndSortedMarkers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
-    return [...markers]
+    return [...pinsInShownLayers]
       .filter((marker) => {
         if (!query) return true
         return marker.name.toLowerCase().includes(query)
@@ -160,13 +172,9 @@ export default function MarkerPanel({
 
         return sortDirection === 'asc' ? result : -result
       })
-  }, [markers, searchQuery, sortField, sortDirection])
+  }, [pinsInShownLayers, searchQuery, sortField, sortDirection])
 
   // With more than one layer, list pins under their layer, in layer order.
-  const layerVisible = useMemo(
-    () => new Map(layers.map((layer) => [layer.id, layer.visible])),
-    [layers]
-  )
   const groupedMarkers = useMemo(() => {
     if (layers.length <= 1) return null
     return layers
@@ -216,7 +224,7 @@ export default function MarkerPanel({
         key={marker.id}
         className={`group flex items-center gap-2 border-b border-border-subtle px-3 py-2 transition-colors last:border-b-0 ${
           marker.id === selectedMarkerId ? 'bg-desert-green/10' : 'hover:bg-surface-secondary'
-        } ${marker.visible && layerVisible.get(marker.layerId) !== false ? '' : 'opacity-60'}`}
+        } ${marker.visible ? '' : 'opacity-60'}`}
       >
         <MarkerIcon
           size={16}
@@ -424,7 +432,7 @@ export default function MarkerPanel({
             aria-label="Move the listed pins to a layer"
           >
             <option value="">
-              Move {filteredAndSortedMarkers.length === markers.length ? 'all' : 'these'}{' '}
+              Move {filteredAndSortedMarkers.length === pinsInShownLayers.length ? 'all' : 'these'}{' '}
               {filteredAndSortedMarkers.length}{' '}
               {filteredAndSortedMarkers.length === 1 ? 'pin' : 'pins'} to layer...
             </option>
@@ -445,16 +453,16 @@ export default function MarkerPanel({
           </div>
         ) : filteredAndSortedMarkers.length === 0 ? (
           <div className="px-3 py-6 text-center">
-            <p className="text-sm text-text-muted">No pins match your search.</p>
+            <p className="text-sm text-text-muted">
+              {pinsInShownLayers.length === 0
+                ? 'All layers with pins are hidden. Check a layer above to list its pins.'
+                : 'No pins match your search.'}
+            </p>
           </div>
         ) : groupedMarkers ? (
           groupedMarkers.map(({ layer, markers: layerMarkers }) => (
             <div key={layer.id}>
-              <p
-                className={`sticky top-0 bg-surface-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted ${
-                  layer.visible ? '' : 'opacity-60'
-                }`}
-              >
+              <p className="sticky top-0 bg-surface-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                 {layer.name}
               </p>
               <ul>{layerMarkers.map(renderMarkerRow)}</ul>
