@@ -4,18 +4,12 @@ import StyledSectionHeader from './StyledSectionHeader'
 import StyledModal from './StyledModal'
 import { IconAlertTriangle, IconLoader2, IconX } from '@tabler/icons-react'
 import api from '~/lib/api'
+import { formatSpeed } from '../../app/utils/misc'
 import { useModals } from '~/context/ModalContext'
 import { formatBytes } from '~/lib/util'
 
 interface ActiveModelDownloadsProps {
     withHeader?: boolean
-}
-
-function formatSpeed(bytesPerSec: number): string {
-    if (bytesPerSec <= 0) return '0 B/s'
-    if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`
-    if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
-    return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`
 }
 
 const ActiveModelDownloads = ({ withHeader = false }: ActiveModelDownloadsProps) => {
