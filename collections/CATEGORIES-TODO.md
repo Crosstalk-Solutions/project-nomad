@@ -6,17 +6,13 @@ Potential categories to add to the tiered collections system in `kiwix-categorie
 - [x] Medicine - Medical references, first aid, emergency care
 - [x] Survival & Preparedness - Food prep, prepper videos, repair guides
 - [x] Education & Reference - Wikipedia, textbooks, TED talks
+- [x] DIY & Repair - Woodworking, mechanics, home repair, iFixit
+- [x] Agriculture & Food - Cooking, gardening, homesteading, farming
+- [x] Computing & Technology - freeCodeCamp tutorials, DevDocs language references (C, C++, Rust, Go, Python, JS, TS, Bash, SQLite), Stack Exchange Q&A (Unix, CS, Software Engineering, ServerFault, DBA, Infosec, Arduino, Raspberry Pi, Electronics, Robotics)
 
 ---
 
 ## High Priority
-
-### Technology & Programming
-Stack Overflow, developer documentation, coding tutorials
-- Stack Overflow (multiple tags available)
-- DevDocs documentation
-- freeCodeCamp
-- Programming language references
 
 ### Children & Family
 Age-appropriate educational content for kids
