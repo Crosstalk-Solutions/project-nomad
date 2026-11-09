@@ -32,6 +32,9 @@
 .PARAMETER Prune
   Delete library and map files on the drive that are no longer part of the selected edition.
 
+.PARAMETER NoAI
+  Leave out the offline AI assistant (engine and model). The field manual search index is still built.
+
 .EXAMPLE
   .\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -DryRun
 .EXAMPLE
@@ -49,6 +52,7 @@ param(
   [switch]$DryRun,
   [switch]$SkipHashCheck,
   [switch]$Prune,
+  [switch]$NoAI,
   [switch]$Force
 )
 
@@ -132,12 +136,12 @@ function Resolve-Source($src, $platformSpec, [string]$fileName) {
     'github-release' {
       $assetTpl = if ($platformSpec) { $platformSpec.asset } else { $src.asset }
       # Prefer a mirrored copy of any version
-      $pattern = [regex]::Escape($assetTpl).Replace('\{tag}', 'v?[0-9][0-9A-Za-z.\-]*')
+      $pattern = [regex]::Escape($assetTpl).Replace('\{tag}', 'v?[0-9A-Za-z][0-9A-Za-z.\-]*').Replace('\{version}', '[0-9][0-9A-Za-z.\-]*')
       $m = Find-InMirror $null $pattern
       if ($m) { return @{ Url = $null; FileName = (Split-Path $m -Leaf); Mirror = $m } }
       $tag = Get-LatestGithubTag $src.repo
       if (-not $tag) { $tag = $src.pinned_tag; Say "   (using pinned version $tag of $($src.repo))" DarkGray }
-      $asset = $assetTpl.Replace('{tag}', $tag)
+      $asset = $assetTpl.Replace('{tag}', $tag).Replace('{version}', ($tag -replace '^v', ''))
       return @{ Url = "https://github.com/$($src.repo)/releases/download/$tag/$asset"; FileName = $asset; Mirror = $null }
     }
     'listing' {
@@ -163,6 +167,14 @@ function Get-RemoteSha256([string]$url) {
   return $null
 }
 
+function Invoke-DownloadAny([string[]]$urls, [string]$dest) {
+  $last = $null
+  foreach ($u in $urls) {
+    try { Invoke-Download $u $dest; return $u } catch { $last = $_; Say "   source failed, trying next: $u" DarkYellow }
+  }
+  throw $last
+}
+
 function Invoke-Download([string]$url, [string]$dest) {
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
   $part = "$dest.part"
@@ -175,6 +187,12 @@ function Invoke-Download([string]$url, [string]$dest) {
     Start-Sleep -Seconds 15
   }
   throw "Download failed: $url"
+}
+
+function Get-Remote($res, [string]$dest) {
+  if ($res.Urls) { return (Invoke-DownloadAny @($res.Urls) $dest) }
+  Invoke-Download $res.Url $dest
+  return $res.Url
 }
 
 # Get a file into $finalPath (drive or cache). Returns the local path of the file.
@@ -191,7 +209,7 @@ function Get-Item2($res, [string]$finalPath, [bool]$verify) {
   }
   if ($CacheDir) {
     $cached = Join $CacheDir $res.FileName
-    if (-not (Test-Path -LiteralPath $cached)) { Invoke-Download $res.Url $cached; if ($verify) { Test-Sha256 $res.Url $cached } }
+    if (-not (Test-Path -LiteralPath $cached)) { $used = Get-Remote $res $cached; if ($verify) { Test-Sha256 $used $cached } }
     $dst = Get-Item -LiteralPath $finalPath -ErrorAction SilentlyContinue
     if (-not $dst -or $dst.Length -ne (Get-Item -LiteralPath $cached).Length) {
       New-Item -ItemType Directory -Force -Path (Split-Path -Parent $finalPath) | Out-Null
@@ -200,8 +218,8 @@ function Get-Item2($res, [string]$finalPath, [bool]$verify) {
     }
     return $finalPath
   }
-  Invoke-Download $res.Url $finalPath
-  if ($verify) { Test-Sha256 $res.Url $finalPath }
+  $used = Get-Remote $res $finalPath
+  if ($verify) { Test-Sha256 $used $finalPath }
   return $finalPath
 }
 
@@ -223,9 +241,35 @@ function Expand-Any([string]$archive, [string]$to) {
   if ($archive -match '\.zip$') {
     Expand-Archive -LiteralPath $archive -DestinationPath $to -Force
   } elseif ($archive -match '\.(tar\.gz|tgz)$') {
-    & tar -xzf $archive -C $to
-    if ($LASTEXITCODE -ne 0) { throw "tar failed on $archive" }
+    & tar -xzf $archive -C $to 2>$null
+    $tarCode = $LASTEXITCODE
+    $links = Resolve-TarLinks $archive $to
+    if ($tarCode -ne 0 -and $links -eq 0) { throw "tar failed on $archive" }
   } else { throw "Don't know how to extract $archive" }
+}
+
+# Mac/Linux archives use symlinks for shared libraries (libllama.0.dylib -> libllama.0.4.1.dylib).
+# exFAT drives can't store links and Windows can't always create them, so replace every link with a
+# real copy of its target. Returns the number of links handled.
+function Resolve-TarLinks([string]$archive, [string]$to) {
+  $listing = & tar -tvzf $archive 2>$null
+  $n = 0
+  for ($pass = 0; $pass -lt 3; $pass++) {           # links to links resolve over a few passes
+    foreach ($line in $listing) {
+      if ($line -notmatch '^l' -or $line -notmatch '\s(\S+) -> (\S+)\s*$') { continue }
+      $linkRel = $Matches[1]; $targetRel = $Matches[2]
+      $linkPath = Join $to $linkRel
+      $targetPath = if ([System.IO.Path]::IsPathRooted($targetRel)) { $null } else { Join (Split-Path -Parent $linkPath) $targetRel }
+      if (-not $targetPath -or -not (Test-Path -LiteralPath $targetPath -PathType Leaf)) { continue }
+      $item = Get-Item -LiteralPath $linkPath -Force -ErrorAction SilentlyContinue
+      if ($item -and -not $item.LinkType -and $item.Length -gt 0) { continue }   # already a real file
+      if ($item) { Remove-Item -LiteralPath $linkPath -Force }
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $linkPath) | Out-Null
+      Copy-Item -LiteralPath $targetPath -Destination $linkPath -Force
+      $n++
+    }
+  }
+  return $n
 }
 
 function Get-StrippedRoot([string]$dir, [int]$strip) {
@@ -237,6 +281,159 @@ function Get-StrippedRoot([string]$dir, [int]$strip) {
 }
 
 function New-TempDir { $p = Join ([System.IO.Path]::GetTempPath()) ('rvgo-' + [guid]::NewGuid().ToString('N').Substring(0, 8)); New-Item -ItemType Directory -Path $p | Out-Null; $p }
+
+# ------------------------------------------------------------------ field manual search index
+# A small BM25 index the launcher's "Ask RhinoVault" page searches in the browser. Text comes from
+# pdftotext; pages are split into ~1200-character chunks. Terms are sharded by a hash so the browser
+# only loads the shards for the words in a question. The tokenizer and hash MUST match ask.js.
+$IndexVersion = 2   # bump whenever tokenizing changes (must match ask.js)
+$ChunkShardSize = 400
+$TermShards = 64
+$StopWords = New-Object 'System.Collections.Generic.HashSet[string]'
+@('the','and','for','are','but','not','you','all','any','can','had','her','was','one','our','out','has','his','how','its','may',
+  'new','now','see','two','who','did','get','him','let','say','she','too','use','with','that','this','from','they','will','have',
+  'been','were','what','when','which','their','there','into','than','then','them','these','those','such','shall','also','each',
+  'other','some','only','very','more','most','must','upon','over','under','about','after','before','while','where','being',
+  'would','could','should','does','done','your','yours','page','figure','table','chapter','section','paragraph','appendix','www','http','https',
+  'without','within','is','it','in','of','on','or','to','as','at','be','by','an','if','no','so','up','we','do','go','he','me','my','am','us') |
+  ForEach-Object { [void]$StopWords.Add($_) }
+
+function Get-Stem([string]$w) {
+  if ($w.Length -gt 5 -and $w.EndsWith('ing')) { return $w.Substring(0, $w.Length - 3) }
+  if ($w.Length -gt 4 -and $w.EndsWith('ed')) { return $w.Substring(0, $w.Length - 2) }
+  if ($w.Length -gt 4 -and $w.EndsWith('es')) { return $w.Substring(0, $w.Length - 2) }
+  if ($w.Length -gt 3 -and $w.EndsWith('s') -and -not $w.EndsWith('ss')) { return $w.Substring(0, $w.Length - 1) }
+  return $w
+}
+function Get-Tokens([string]$text) {
+  $out = New-Object System.Collections.Generic.List[string]
+  foreach ($w in [regex]::Split($text.ToLowerInvariant(), '[^a-z0-9]+')) {
+    if ($w.Length -lt 2 -or $w.Length -gt 30 -or $StopWords.Contains($w)) { continue }
+    if ($w -match '^\d+$' -and $w.Length -gt 4) { continue }
+    $out.Add((Get-Stem $w))
+  }
+  return , $out
+}
+function Get-TermShard([string]$t) {
+  [int64]$h = 0
+  foreach ($c in $t.ToCharArray()) { $h = ($h * 31 + [int]$c) % $TermShards }
+  return [int]$h
+}
+function ConvertTo-JStr([string]$s) {
+  '"' + ((($s -replace '\\', '\\') -replace '"', '\"') -replace '[\x00-\x1F]', ' ') + '"'
+}
+function Write-Utf8([string]$path, [string]$text) {
+  [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Get-PdfToText {
+  $cmd = Get-Command pdftotext -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  if (-not $OnWindows) { return $null }
+  $tool = $manifest.build_tools.'poppler-windows'
+  $toolsDir = if ($CacheDir) { Join $CacheDir 'tools' } else { Join $env:LOCALAPPDATA 'RhinoVaultGo/tools' }
+  $existing = Get-ChildItem -LiteralPath $toolsDir -Recurse -Filter $tool.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($existing) { return $existing.FullName }
+  Say '   getting pdftotext (Poppler) for text extraction...'
+  $res = Resolve-Source $tool.source $null $null
+  $zip = Join $toolsDir $res.FileName
+  if ($res.Mirror) { $zip = $res.Mirror } else { Invoke-Download $res.Url $zip }
+  Expand-Any $zip (Join $toolsDir 'poppler')
+  $found = Get-ChildItem -LiteralPath (Join $toolsDir 'poppler') -Recurse -Filter $tool.exe -File | Select-Object -First 1
+  if ($found) { return $found.FullName }
+  return $null
+}
+
+function Build-ManualIndex($manualList, [string]$outDir) {
+  if (-not $manualList.Count) { return $null }
+  $stampSrc = "v$IndexVersion|" + (($manualList | ForEach-Object { "$($_.file):$($_.size_mb)" }) -join '|')
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $stamp = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($stampSrc)) | ForEach-Object { $_.ToString('x2') })
+  $metaPath = Join $outDir 'meta.json'
+  if (Test-Path -LiteralPath $metaPath) {
+    $old = Read-Json $metaPath
+    if ($old.stamp -eq $stamp) { Say '   search index is up to date' DarkGreen; return $old }
+  }
+  $pdftotext = Get-PdfToText
+  if (-not $pdftotext) { Say '   pdftotext not found - skipping the manual search index (install poppler-utils)' DarkYellow; return $null }
+
+  if (Test-Path -LiteralPath $outDir) { Remove-Item -LiteralPath $outDir -Recurse -Force }
+  New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+  $postings = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[int]]'
+  $chunkLens = New-Object System.Collections.Generic.List[int]
+  $shard = New-Object System.Text.StringBuilder
+  $docs = New-Object System.Collections.Generic.List[string]
+  $chunkId = 0; $shardNo = 0; $inShard = 0; $noText = 0
+  $tmpTxt = [System.IO.Path]::GetTempFileName()
+
+  $flush = {
+    if ($inShard -gt 0) {
+      Write-Utf8 (Join $outDir ("chunks-$shardNo.json")) ('[' + $shard.ToString().TrimEnd(',') + ']')
+      [void]$shard.Clear(); $shardNo++; $inShard = 0
+    }
+  }
+
+  for ($d = 0; $d -lt $manualList.Count; $d++) {
+    $m = $manualList[$d]
+    $docs.Add('{"f":' + (ConvertTo-JStr $m.file) + ',"t":' + (ConvertTo-JStr $m.title) + ',"b":' + (ConvertTo-JStr $m.branch) + '}')
+    Write-Progress -Activity 'Indexing field manuals' -Status $m.title -PercentComplete (100 * $d / $manualList.Count)
+    & $pdftotext -q -enc UTF-8 (Join $Target $m.file) $tmpTxt 2>$null
+    if ($LASTEXITCODE -ne 0) { $noText++; continue }
+    $raw = [System.IO.File]::ReadAllText($tmpTxt, [System.Text.Encoding]::UTF8)
+    $pages = $raw -split "`f"
+    $hadText = $false
+    for ($p = 0; $p -lt $pages.Count; $p++) {
+      $text = ($pages[$p] -replace '\s+', ' ').Trim()
+      if ($text.Length -lt 80) { continue }
+      $hadText = $true
+      # split long pages into ~1200 char chunks on sentence-ish boundaries
+      $pieces = New-Object System.Collections.Generic.List[string]
+      while ($text.Length -gt 1500) {
+        $cut = $text.LastIndexOf('. ', 1200); if ($cut -lt 600) { $cut = 1200 } else { $cut += 1 }
+        $pieces.Add($text.Substring(0, $cut).Trim()); $text = $text.Substring($cut).Trim()
+      }
+      if ($text.Length -ge 80) { $pieces.Add($text) }
+      foreach ($piece in $pieces) {
+        $tokens = Get-Tokens $piece
+        if ($tokens.Count -lt 8) { continue }
+        $tf = @{}
+        foreach ($t in $tokens) { if ($tf.ContainsKey($t)) { $tf[$t]++ } else { $tf[$t] = 1 } }
+        foreach ($k in $tf.Keys) {
+          $list = $null
+          if (-not $postings.TryGetValue($k, [ref]$list)) { $list = New-Object System.Collections.Generic.List[int]; $postings[$k] = $list }
+          $list.Add($chunkId); $list.Add([int]$tf[$k])
+        }
+        $chunkLens.Add($tokens.Count)
+        [void]$shard.Append('[' + $d + ',' + ($p + 1) + ',' + (ConvertTo-JStr $piece) + '],')
+        $chunkId++; $inShard++
+        if ($inShard -ge $ChunkShardSize) { . $flush }
+      }
+    }
+    if (-not $hadText) { $noText++ }
+  }
+  . $flush
+  Remove-Item -LiteralPath $tmpTxt -Force -ErrorAction SilentlyContinue
+  Write-Progress -Activity 'Indexing field manuals' -Completed
+
+  # term shards
+  $shards = @{}
+  foreach ($kv in $postings.GetEnumerator()) {
+    $sid = Get-TermShard $kv.Key
+    if (-not $shards.ContainsKey($sid)) { $shards[$sid] = New-Object System.Text.StringBuilder }
+    $df = [int]($kv.Value.Count / 2)
+    [void]$shards[$sid].Append('"' + $kv.Key + '":[' + $df + ',[' + ($kv.Value -join ',') + ']],')
+  }
+  for ($i = 0; $i -lt $TermShards; $i++) {
+    $body = if ($shards.ContainsKey($i)) { $shards[$i].ToString().TrimEnd(',') } else { '' }
+    Write-Utf8 (Join $outDir ("terms-$i.json")) ('{' + $body + '}')
+  }
+  $avg = if ($chunkLens.Count) { ($chunkLens | Measure-Object -Average).Average } else { 0 }
+  $meta = '{"v":' + $IndexVersion + ',"stamp":"' + $stamp + '","n":' + $chunkId + ',"avgdl":' + ([math]::Round($avg, 2)).ToString([System.Globalization.CultureInfo]::InvariantCulture) +
+    ',"shardSize":' + $ChunkShardSize + ',"termShards":' + $TermShards + ',"docs":[' + ($docs -join ',') + '],"len":[' + ($chunkLens -join ',') + ']}'
+  Write-Utf8 $metaPath $meta
+  Say ("   indexed {0} passages from {1} manuals ({2} had no extractable text, e.g. scanned images)" -f $chunkId, ($manualList.Count - $noText), $noText)
+  return (Read-Json $metaPath)
+}
 
 # ------------------------------------------------------------------ plan
 $manifest = Read-Json $ManifestPath
@@ -299,8 +496,19 @@ foreach ($id in ($extraIds | Select-Object -Unique)) {
   Add-Plan @{ Kind = 'extra'; Id = $id; Title = $e.title; Category = $e.category; SizeMB = [double]$e.approx_mb; Spec = $e; Verify = $false }
 }
 
+# Offline AI model
+$aiModel = $null
+if (-not $NoAI -and $prof.ai_model) {
+  $aiModel = $manifest.ai_models.($prof.ai_model)
+  if ($aiModel) {
+    Add-Plan @{ Kind = 'model'; Id = $prof.ai_model; Title = "AI model: $($aiModel.title)"; Category = 'AI'
+      SizeMB = [double]$aiModel.approx_mb; Spec = $aiModel; Verify = $false }
+  }
+}
+
 # Runtime binaries for every platform, so the drive works on Windows, Mac and Linux
 foreach ($rt in $manifest.runtime) {
+  if ($NoAI -and $rt.id -eq 'llama-server') { continue }
   foreach ($pl in (Props $rt.platforms)) {
     Add-Plan @{ Kind = 'runtime'; Id = "$($rt.id)-$($pl.Name)"; Title = "$($rt.title) [$($pl.Name)]"; Platform = $pl.Name
       SizeMB = 15; Spec = $rt; PlatformSpec = $pl.Value; Verify = $false }
@@ -331,6 +539,7 @@ foreach ($it in $plan) {
   $done = switch ($it.Kind) {
     'zim' { Test-Path -LiteralPath (Get-ZimPath $it) }
     'map' { Test-Path -LiteralPath (Get-MapPath $it) }
+    'model' { Test-Path -LiteralPath (Join $Target ('AI/models/' + $it.Spec.file)) }
     default { (Test-Path -LiteralPath (Get-Marker $it)) }
   }
   if (-not $done) { $todo += $it; $needMB += $it.SizeMB }
@@ -347,7 +556,7 @@ Say "  Target  : $Target   (free: $(Fmt $freeMB))"
 Say "  Content : $($plan.Count) items, $(Fmt $totalMB) total, $(Fmt $needMB) still to download"
 Write-Host ''
 $plan | Group-Object Kind | ForEach-Object {
-  $label = @{ zim = 'Library collections'; map = 'Map regions'; extra = 'Extras'; runtime = 'Runtime tools' }[$_.Name]
+  $label = @{ zim = 'Library collections'; map = 'Map regions'; extra = 'Extras'; runtime = 'Runtime tools'; model = 'AI model' }[$_.Name]
   Say ('  {0,-22} {1,4} items  {2,10}' -f $label, $_.Count, (Fmt (($_.Group | Measure-Object SizeMB -Sum).Sum)))
 }
 
@@ -386,6 +595,15 @@ foreach ($it in $plan) {
         $dest = Get-MapPath $it
         if (Test-Path -LiteralPath $dest) { Say '   already on drive' DarkGreen; break }
         $res = @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) }
+        $null = Get-Item2 $res $dest $false
+      }
+      'model' {
+        $dest = Join $Target ('AI/models/' + $it.Spec.file)
+        if (Test-Path -LiteralPath $dest) { Say '   already on drive' DarkGreen; break }
+        $res = @{ Urls = @($it.Spec.urls); FileName = $it.Spec.file; Mirror = (Find-InMirror $it.Spec.file $null) }
+        # Only one model lives on the drive; drop an older one when the edition's model changes
+        Get-ChildItem -LiteralPath (Join $Target 'AI/models') -Filter *.gguf -File -ErrorAction SilentlyContinue |
+          Where-Object { $_.Name -ne $it.Spec.file } | ForEach-Object { Say "   replacing old model $($_.Name)"; Remove-Item -LiteralPath $_.FullName -Force }
         $null = Get-Item2 $res $dest $false
       }
       'extra' {
@@ -436,15 +654,21 @@ foreach ($it in $plan) {
           if (-not $res.Mirror -and -not (Test-Path -LiteralPath $archive)) { Invoke-Download $res.Url $archive }
           $x = Join $tmp 'x'; Expand-Any $archive $x
           $binDir = Join $Target ("RhinoVault/bin/" + $it.Platform)
+          if ($it.Spec.subdir) { $binDir = Join $binDir $it.Spec.subdir }
+          if ($it.Spec.keep_all -and (Test-Path -LiteralPath $binDir)) { Remove-Item -LiteralPath $binDir -Recurse -Force }
           New-Item -ItemType Directory -Force -Path $binDir | Out-Null
           $kept = 0
-          foreach ($pat in $it.Spec.keep) {
+          if ($it.Spec.keep_all) {
+            $srcRoot = Get-StrippedRoot $x 1
+            Get-ChildItem -LiteralPath $srcRoot -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $binDir -Recurse -Force; $kept++ }
+          }
+          foreach ($pat in @($it.Spec.keep | Where-Object { $_ })) {
             Get-ChildItem -LiteralPath $x -Recurse -File -Filter $pat | ForEach-Object {
               Copy-Item -LiteralPath $_.FullName -Destination (Join $binDir $_.Name) -Force; $kept++
             }
           }
           if ($kept -eq 0) { throw "No usable files found in $($res.FileName)" }
-          Say "   $kept file(s) -> RhinoVault/bin/$($it.Platform)"
+          Say "   $kept file(s) -> $($binDir.Substring($Target.Length).TrimStart('\', '/'))"
         } finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
         Set-Done $it $key
       }
@@ -495,6 +719,11 @@ if (Test-Path -LiteralPath $manualRoot) {
   })
 }
 
+Step 'Building the field manual search index (for Ask RhinoVault)'
+$indexMeta = $null
+try { $indexMeta = Build-ManualIndex $manuals (Join $Target 'RhinoVault/ai/index') }
+catch { Say "   index build failed: $($_.Exception.Message)" Red }
+
 $zims = @($plan | Where-Object Kind -eq 'zim' | Where-Object { Test-Path -LiteralPath (Get-ZimPath $_) } | ForEach-Object {
   $fn = FileNameFromUrl $_.Url
   [ordered]@{ name = [System.IO.Path]::GetFileNameWithoutExtension($fn); file = "Library/ZIM/$fn"; title = $_.Title
@@ -521,10 +750,23 @@ $credits = @(
 )
 foreach ($e in ($plan | Where-Object Kind -eq 'extra')) { if ($e.Spec.credit) { $credits += "$($e.Title): $($e.Spec.credit)" } }
 
+$modelFile = Get-ChildItem -LiteralPath (Join $Target 'AI/models') -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
+$modelSpec = $null
+if ($modelFile) { foreach ($mp in (Props $manifest.ai_models)) { if ($mp.Value.file -eq $modelFile.Name) { $modelSpec = $mp.Value } } }
+$ai = [ordered]@{
+  model_file = if ($modelFile) { "AI/models/$($modelFile.Name)" } else { $null }
+  model_title = if ($modelSpec) { $modelSpec.title } elseif ($modelFile) { $modelFile.BaseName } else { $null }
+  model_license = if ($modelSpec) { $modelSpec.license } else { $null }
+  context = if ($modelSpec) { [int]$modelSpec.context } else { 4096 }
+  index = [bool]$indexMeta
+  passages = if ($indexMeta) { [int]$indexMeta.n } else { 0 }
+}
+if ($modelSpec) { $credits += "AI model: $($modelSpec.credit). Runs on llama.cpp (MIT)." }
+
 $index = [ordered]@{
   version = $GoVersion; edition = $Edition; profile_label = $prof.label
   built = (Get-Date).ToUniversalTime().ToString('o')
-  zims = $zims; manuals = $manuals; maps = $maps; tools = $tools; apps = $apps; isos = $isos; credits = $credits
+  zims = $zims; manuals = $manuals; maps = $maps; tools = $tools; apps = $apps; isos = $isos; ai = $ai; credits = $credits
 }
 $indexPath = Join $Target 'RhinoVault/launcher/library.json'
 [System.IO.File]::WriteAllText($indexPath, ($index | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))

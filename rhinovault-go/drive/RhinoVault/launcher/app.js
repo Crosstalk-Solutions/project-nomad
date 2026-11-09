@@ -10,6 +10,7 @@
     else kiwixPort = sessionStorage.getItem('rv.kiwix');
   } catch (e) { /* storage unavailable */ }
   kiwixPort = kiwixPort || '8090';
+  try { var aiPort = params.get('ai'); if (aiPort) sessionStorage.setItem('rv.ai', aiPort); } catch (e) { /* storage unavailable */ }
   var KIWIX = location.protocol + '//' + location.hostname + ':' + kiwixPort;
   // Drive root is two levels up from /RhinoVault/launcher/
   var ROOT = new URL('../../', location.href).href;
@@ -60,6 +61,8 @@
     var z = lib.zims.length, m = lib.manuals.length, r = lib.maps.length;
     var tools = (lib.tools || []).length + (lib.apps || []).length;
     return '<div class="tiles">' +
+      tile('ask.html', '💬', 'Ask RhinoVault', 'Offline AI assistant that answers from the field manuals on this drive and cites the page.',
+        lib.ai && lib.ai.model_file ? 'AI on board' : 'no AI model') +
       tile('#/library', '📚', 'Library', 'Wikipedia, medical references, survival, repair, farming and more. Fully searchable.', z + ' collections') +
       tile('#/manuals', '🎖️', 'Field Manuals', 'Public-domain U.S. military field manuals: survival, first aid, land navigation, shelters.', m + ' manuals') +
       tile('maps.html', '🗺️', 'Offline Maps', 'Street and terrain maps that work with no signal and no GPS service.', r + ' regions') +

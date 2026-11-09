@@ -9,14 +9,19 @@
 .PARAMETER NoBrowser
   Don't open a browser window.
 
+.PARAMETER NoAI
+  Don't start the offline AI assistant (saves memory on older computers).
+
   Works with Windows PowerShell 5.1 and PowerShell 7.
 #>
 [CmdletBinding()]
 param(
   [switch]$Share,
   [switch]$NoBrowser,
+  [switch]$NoAI,
   [int]$WebPort = 8088,
-  [int]$LibraryPort = 8090
+  [int]$LibraryPort = 8090,
+  [int]$AiPort = 8091
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,6 +79,30 @@ try {
     Write-Host '  No library collections found on this drive.' -ForegroundColor DarkYellow
   }
 
+  # --- Offline AI (llama.cpp) - optional; RhinoVault works without it ---
+  $aiProc = $null
+  $llamaDir = Join-Path $Bin 'llama'
+  $llama = Join-Path $llamaDir 'llama-server.exe'
+  $model = Get-ChildItem -Path (Join-Path $Root 'AI\models') -Filter '*.gguf' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($NoAI) {
+    Write-Host '  AI assistant turned off (-NoAI).' -ForegroundColor DarkYellow
+  } elseif ($model -and (Test-Path $llama)) {
+    $ramGB = 0
+    try { $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1) } catch { }
+    $needGB = [math]::Ceiling($model.Length / 1GB) + 2
+    if ($ramGB -gt 0 -and $ramGB -lt $needGB) {
+      Write-Host "  Skipping the AI assistant: this computer has $ramGB GB of memory and the model needs about $needGB GB." -ForegroundColor DarkYellow
+    } else {
+      Get-ChildItem -Path $llamaDir -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+      $AiPort = Get-FreePort $AiPort
+      $aArgs = @('-m', ('"' + $model.FullName + '"'), '--host', $address, '--port', "$AiPort", '-c', '4096', '-np', '1')
+      Write-Host "  Starting AI assistant ($($model.BaseName))..." -ForegroundColor Gray
+      $aiProc = Start-Process -FilePath $llama -ArgumentList $aArgs -WorkingDirectory $llamaDir -NoNewWindow -PassThru `
+        -RedirectStandardOutput (Join-Path $LogDir 'ai.log') -RedirectStandardError (Join-Path $LogDir 'ai.err.log')
+      $procs += $aiProc
+    }
+  }
+
   # --- Web server for launcher, manuals and maps (supports byte ranges for maps) ---
   # 'E:\' must not become 'E:' (cwd of E) or end in a backslash before the closing quote
   $rootArg = '"' + $Root.TrimEnd('\') + '\."'
@@ -85,17 +114,20 @@ try {
 
   Start-Sleep -Seconds 2
   foreach ($p in $procs) {
-    if ($p.HasExited) { throw "A RhinoVault service stopped unexpectedly. Logs: $LogDir" }
+    if ($p.HasExited -and $p -ne $aiProc) { throw "A RhinoVault service stopped unexpectedly. Logs: $LogDir" }
+  }
+  if ($aiProc -and $aiProc.HasExited) {
+    Write-Host "  The AI assistant could not start (see $LogDir\ai.err.log). Everything else works." -ForegroundColor DarkYellow
   }
 
-  $url = "http://127.0.0.1:$WebPort/RhinoVault/launcher/?kiwix=$LibraryPort"
+  $url = "http://127.0.0.1:$WebPort/RhinoVault/launcher/?kiwix=$LibraryPort&ai=$AiPort"
   Write-Host ''
   Write-Host "  RhinoVault is running:  $url" -ForegroundColor Green
   if ($Share) {
     $ips = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
       Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
       Select-Object -ExpandProperty IPAddress
-    foreach ($ip in $ips) { Write-Host "  On other devices:       http://${ip}:$WebPort/RhinoVault/launcher/?kiwix=$LibraryPort" -ForegroundColor Green }
+    foreach ($ip in $ips) { Write-Host "  On other devices:       http://${ip}:$WebPort/RhinoVault/launcher/?kiwix=$LibraryPort&ai=$AiPort" -ForegroundColor Green }
     Write-Host '  (Windows Firewall may ask to allow access - choose Private networks.)' -ForegroundColor Gray
   }
   if (-not $NoBrowser) { Start-Process $url }

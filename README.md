@@ -20,7 +20,19 @@ RhinoVault is built and supported by **RhinoPCTec**. It is based on [Project N.O
 ## Two editions
 
 - **RhinoVault Base** (this server): install on a PC or mini server and reach it from any browser on your network. Instructions below.
-- **RhinoVault Go** (portable drive): the same library, plus ~180 U.S. military field manuals, offline maps and portable tools on a USB drive that runs on Windows, Mac and Linux with nothing to install. See [rhinovault-go/README.md](rhinovault-go/README.md).
+- **RhinoVault Go** (portable drive): the same library, plus ~180 U.S. military field manuals, an offline AI assistant that answers from them, offline maps and portable tools on a USB drive that runs on Windows, Mac and Linux with nothing to install. See [rhinovault-go/README.md](rhinovault-go/README.md).
+
+### Field manuals in the server's AI Knowledge Base
+
+After installing the AI Assistant, load the public-domain U.S. military field manuals so the assistant can answer from them:
+
+```bash
+sudo bash /opt/project-nomad/rhinovault/add-field-manuals.sh
+# or only some topics:
+sudo bash /opt/project-nomad/rhinovault/add-field-manuals.sh --only 'surviv|first.aid|land.nav|water|shelter'
+```
+
+Servers installed before this script existed can download it with `sudo mkdir -p /opt/project-nomad/rhinovault && sudo curl -fsSL -o /opt/project-nomad/rhinovault/add-field-manuals.sh https://raw.githubusercontent.com/rhinopctec/project-RhinoVault/refs/heads/main/install/rhinovault/add-field-manuals.sh`.
 
 ## Installation & Quickstart
 RhinoVault can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup RhinoVault as a "server" and access it through other clients.

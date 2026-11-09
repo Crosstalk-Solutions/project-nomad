@@ -34,6 +34,7 @@ MANAGEMENT_COMPOSE_FILE_URL="https://raw.githubusercontent.com/rhinopctec/projec
 START_SCRIPT_URL="https://raw.githubusercontent.com/rhinopctec/project-RhinoVault/refs/heads/main/install/start_nomad.sh"
 STOP_SCRIPT_URL="https://raw.githubusercontent.com/rhinopctec/project-RhinoVault/refs/heads/main/install/stop_nomad.sh"
 UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/rhinopctec/project-RhinoVault/refs/heads/main/install/update_nomad.sh"
+FIELD_MANUALS_SCRIPT_URL="https://raw.githubusercontent.com/rhinopctec/project-RhinoVault/refs/heads/main/install/rhinovault/add-field-manuals.sh"
 script_option_debug='true'
 accepted_terms='false'
 local_ip_address=''
@@ -465,6 +466,14 @@ download_helper_scripts() {
     exit 1
   fi
   chmod +x "$update_script_path"
+
+  # RhinoVault extra: optional loader for the field manuals Knowledge Base (not required to run)
+  mkdir -p "${NOMAD_DIR}/rhinovault"
+  if curl -fsSL --retry 5 --retry-delay 3 "$FIELD_MANUALS_SCRIPT_URL" -o "${NOMAD_DIR}/rhinovault/add-field-manuals.sh"; then
+    chmod +x "${NOMAD_DIR}/rhinovault/add-field-manuals.sh"
+  else
+    echo -e "${YELLOW}#${RESET} Could not download the optional field manuals script; you can fetch it later from GitHub.\\n"
+  fi
 
   echo -e "${GREEN}#${RESET} Helper scripts downloaded successfully to $start_script_path, $stop_script_path, and $update_script_path.\\n"
 }

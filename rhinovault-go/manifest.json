@@ -18,7 +18,12 @@
         "computing": "computing-essential"
       },
       "map_regions": "all",
-      "extras": ["field-manuals", "cyberchef", "keepassxc-windows"]
+      "extras": [
+        "field-manuals",
+        "cyberchef",
+        "keepassxc-windows"
+      ],
+      "ai_model": "qwen2.5-1.5b"
     },
     "standard": {
       "label": "Standard - fits a 128 GB drive",
@@ -32,7 +37,12 @@
         "computing": "computing-standard"
       },
       "map_regions": "all",
-      "extras": ["field-manuals", "cyberchef", "keepassxc-windows"]
+      "extras": [
+        "field-manuals",
+        "cyberchef",
+        "keepassxc-windows"
+      ],
+      "ai_model": "qwen3-4b"
     },
     "full": {
       "label": "Full - 256 GB drive minimum (512 GB leaves room to grow)",
@@ -46,7 +56,13 @@
         "computing": "computing-comprehensive"
       },
       "map_regions": "all",
-      "extras": ["field-manuals", "cyberchef", "keepassxc-windows", "ubuntu-live-iso"]
+      "extras": [
+        "field-manuals",
+        "cyberchef",
+        "keepassxc-windows",
+        "ubuntu-live-iso"
+      ],
+      "ai_model": "qwen3-4b"
     }
   },
   "runtime": [
@@ -54,27 +70,85 @@
       "id": "static-web-server",
       "title": "Static Web Server (serves the launcher, manuals and maps)",
       "license": "Apache-2.0 OR MIT",
-      "source": { "type": "github-release", "repo": "static-web-server/static-web-server", "pinned_tag": "v2.38.0" },
-      "platforms": {
-        "windows-x64": { "asset": "static-web-server-{tag}-x86_64-pc-windows-msvc.zip" },
-        "mac-arm64":   { "asset": "static-web-server-{tag}-aarch64-apple-darwin.tar.gz" },
-        "mac-x64":     { "asset": "static-web-server-{tag}-x86_64-apple-darwin.tar.gz" },
-        "linux-x64":   { "asset": "static-web-server-{tag}-x86_64-unknown-linux-musl.tar.gz" }
+      "source": {
+        "type": "github-release",
+        "repo": "static-web-server/static-web-server",
+        "pinned_tag": "v2.38.0"
       },
-      "keep": ["static-web-server", "static-web-server.exe"]
+      "platforms": {
+        "windows-x64": {
+          "asset": "static-web-server-{tag}-x86_64-pc-windows-msvc.zip"
+        },
+        "mac-arm64": {
+          "asset": "static-web-server-{tag}-aarch64-apple-darwin.tar.gz"
+        },
+        "mac-x64": {
+          "asset": "static-web-server-{tag}-x86_64-apple-darwin.tar.gz"
+        },
+        "linux-x64": {
+          "asset": "static-web-server-{tag}-x86_64-unknown-linux-musl.tar.gz"
+        }
+      },
+      "keep": [
+        "static-web-server",
+        "static-web-server.exe"
+      ]
     },
     {
       "id": "kiwix-tools",
       "title": "Kiwix Tools (kiwix-serve for the offline library)",
       "license": "GPL-3.0",
-      "source": { "type": "listing", "url": "https://download.kiwix.org/release/kiwix-tools/" },
-      "platforms": {
-        "windows-x64": { "pattern": "kiwix-tools_win-(x86_64|i686)-[0-9][0-9.\\-]*\\.zip", "prefer": "x86_64" },
-        "mac-arm64":   { "pattern": "kiwix-tools_macos-(arm64|x86_64)-[0-9][0-9.\\-]*\\.tar\\.gz", "prefer": "arm64" },
-        "mac-x64":     { "pattern": "kiwix-tools_macos-x86_64-[0-9][0-9.\\-]*\\.tar\\.gz" },
-        "linux-x64":   { "pattern": "kiwix-tools_linux-x86_64-[0-9][0-9.\\-]*\\.tar\\.gz" }
+      "source": {
+        "type": "listing",
+        "url": "https://download.kiwix.org/release/kiwix-tools/"
       },
-      "keep": ["kiwix-serve", "kiwix-serve.exe", "*.dll"]
+      "platforms": {
+        "windows-x64": {
+          "pattern": "kiwix-tools_win-(x86_64|i686)-[0-9][0-9.\\-]*\\.zip",
+          "prefer": "x86_64"
+        },
+        "mac-arm64": {
+          "pattern": "kiwix-tools_macos-(arm64|x86_64)-[0-9][0-9.\\-]*\\.tar\\.gz",
+          "prefer": "arm64"
+        },
+        "mac-x64": {
+          "pattern": "kiwix-tools_macos-x86_64-[0-9][0-9.\\-]*\\.tar\\.gz"
+        },
+        "linux-x64": {
+          "pattern": "kiwix-tools_linux-x86_64-[0-9][0-9.\\-]*\\.tar\\.gz"
+        }
+      },
+      "keep": [
+        "kiwix-serve",
+        "kiwix-serve.exe",
+        "*.dll"
+      ]
+    },
+    {
+      "id": "llama-server",
+      "title": "llama.cpp server (offline AI engine)",
+      "license": "MIT",
+      "source": {
+        "type": "github-release",
+        "repo": "ggml-org/llama.cpp",
+        "pinned_tag": "b11048"
+      },
+      "platforms": {
+        "windows-x64": {
+          "asset": "llama-{tag}-bin-win-cpu-x64.zip"
+        },
+        "mac-arm64": {
+          "asset": "llama-{tag}-bin-macos-arm64.tar.gz"
+        },
+        "mac-x64": {
+          "asset": "llama-{tag}-bin-macos-x64.tar.gz"
+        },
+        "linux-x64": {
+          "asset": "llama-{tag}-bin-ubuntu-x64.tar.gz"
+        }
+      },
+      "keep_all": true,
+      "subdir": "llama"
     }
   ],
   "extras": {
@@ -87,7 +161,11 @@
         "url": "https://archive.org/compress/military-field-manuals-and-guides/formats=TEXT%20PDF,IMAGE%20CONTAINER%20PDF"
       },
       "file": "military-field-manuals.zip",
-      "extract": { "to": "Library/Field-Manuals", "only": "*.pdf", "strip": 1 },
+      "extract": {
+        "to": "Library/Field-Manuals",
+        "only": "*.pdf",
+        "strip": 1
+      },
       "credit": "Internet Archive collection 'military-field-manuals-and-guides'"
     },
     "map-base-assets": {
@@ -99,23 +177,41 @@
         "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/base-assets.tar.gz"
       },
       "file": "base-assets.tar.gz",
-      "extract": { "to": "Maps/assets", "strip": 1 },
+      "extract": {
+        "to": "Maps/assets",
+        "strip": 1
+      },
       "credit": "Project N.O.M.A.D. maps / Protomaps basemaps (BSD-3 and OFL fonts)"
     },
     "cyberchef": {
       "title": "CyberChef (encoding, encryption, hashing - runs in the browser)",
       "category": "Tools",
       "approx_mb": 50,
-      "source": { "type": "github-release", "repo": "gchq/CyberChef", "pinned_tag": "v10.19.4", "asset": "CyberChef_{tag}.zip" },
-      "extract": { "to": "Tools/CyberChef" },
+      "source": {
+        "type": "github-release",
+        "repo": "gchq/CyberChef",
+        "pinned_tag": "v10.19.4",
+        "asset": "CyberChef_{tag}.zip"
+      },
+      "extract": {
+        "to": "Tools/CyberChef"
+      },
       "credit": "GCHQ, Apache-2.0"
     },
     "keepassxc-windows": {
       "title": "KeePassXC password manager (Windows portable)",
       "category": "Apps",
       "approx_mb": 60,
-      "source": { "type": "github-release", "repo": "keepassxreboot/keepassxc", "pinned_tag": "2.7.10", "asset": "KeePassXC-{tag}-Win64.zip" },
-      "extract": { "to": "Apps/Windows/KeePassXC", "strip": 1 },
+      "source": {
+        "type": "github-release",
+        "repo": "keepassxreboot/keepassxc",
+        "pinned_tag": "2.7.10",
+        "asset": "KeePassXC-{tag}-Win64.zip"
+      },
+      "extract": {
+        "to": "Apps/Windows/KeePassXC",
+        "strip": 1
+      },
       "credit": "KeePassXC Team, GPL-3.0"
     },
     "ubuntu-live-iso": {
@@ -129,6 +225,44 @@
       },
       "dest": "ISOs",
       "credit": "Canonical Ltd."
+    }
+  },
+  "ai_models": {
+    "qwen2.5-1.5b": {
+      "title": "Qwen2.5 1.5B Instruct (fast, small)",
+      "license": "Apache-2.0",
+      "approx_mb": 1120,
+      "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "context": 4096,
+      "urls": [
+        "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+      ],
+      "credit": "Qwen2.5-1.5B-Instruct by Alibaba Cloud Qwen team, Apache-2.0"
+    },
+    "qwen3-4b": {
+      "title": "Qwen3 4B Instruct 2507 (smarter, needs 8 GB RAM)",
+      "license": "Apache-2.0",
+      "approx_mb": 2500,
+      "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "context": 8192,
+      "urls": [
+        "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+        "https://huggingface.co/alphaduriendur/Qwen3-4B-Instruct-2507-Q4_K_M-GGUF/resolve/main/qwen3-4b-instruct-2507-q4_k_m.gguf"
+      ],
+      "credit": "Qwen3-4B-Instruct-2507 by Alibaba Cloud Qwen team, Apache-2.0"
+    }
+  },
+  "build_tools": {
+    "poppler-windows": {
+      "title": "Poppler pdftotext (build-time PDF text extraction, Windows)",
+      "license": "GPL-2.0 (Poppler), MIT (packaging)",
+      "source": {
+        "type": "github-release",
+        "repo": "oschwartz10612/poppler-windows",
+        "pinned_tag": "v25.07.0-0",
+        "asset": "Release-{version}.zip"
+      },
+      "exe": "pdftotext.exe"
     }
   }
 }

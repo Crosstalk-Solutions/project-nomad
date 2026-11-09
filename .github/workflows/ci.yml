@@ -1,0 +1,65 @@
+name: RhinoVault CI
+
+# Checks every push and pull request to main: the Command Center typechecks and builds,
+# and the RhinoVault Go scripts, launcher and manifest are valid.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  command-center:
+    name: Command Center (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      # --ignore-scripts skips the native ZIM library build, which only the Docker image needs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx vite build
+
+  rhinovault-go:
+    name: RhinoVault Go (scripts + launcher)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $bad = 0
+          foreach ($f in @('rhinovault-go/build/Build-RhinoVaultGo.ps1', 'rhinovault-go/drive/RhinoVault/bin/Start-RhinoVault.ps1')) {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errs)
+            if ($errs) { $errs | ForEach-Object { Write-Host "::error file=$f::$_" }; $bad++ }
+            if ((Get-Content $f -Raw) -match '[^\x00-\x7F]') { Write-Host "::error file=$f::non-ASCII characters break Windows PowerShell 5.1"; $bad++ }
+          }
+          if ($bad) { exit 1 }
+      - name: Shell scripts parse
+        run: |
+          bash -n rhinovault-go/drive/RhinoVault/bin/start-rhinovault.sh
+          bash -n install/rhinovault/add-field-manuals.sh
+      - name: Launcher JavaScript parses
+        run: |
+          for f in rhinovault-go/drive/RhinoVault/launcher/*.js; do node --check "$f"; done
+      - name: Manifest and collections are valid JSON
+        run: |
+          for f in rhinovault-go/manifest.json collections/*.json; do python3 -m json.tool "$f" > /dev/null || exit 1; done
+      - name: Builder dry run (all editions)
+        shell: pwsh
+        run: |
+          foreach ($e in 'lite', 'standard', 'full') {
+            New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP/drive-$e" | Out-Null
+            ./rhinovault-go/build/Build-RhinoVaultGo.ps1 -Drive "$env:RUNNER_TEMP/drive-$e" -Edition $e -DryRun
+          }

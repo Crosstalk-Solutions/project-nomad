@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask RhinoVault - RhinoVault Go</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html, body { height: 100%; }
+    body { display: flex; flex-direction: column; }
+    .chat { flex: 1; overflow: auto; }
+    .chat-inner { max-width: 900px; margin: 0 auto; padding: 20px 28px 10px; }
+    .msg { margin: 0 0 18px; display: flex; gap: 12px; }
+    .msg .who { flex: 0 0 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+    .msg.user .who { background: var(--slate); }
+    .msg.bot .who { background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+    .msg.bot .who img { width: 30px; height: 30px; }
+    .bubble { flex: 1; min-width: 0; line-height: 1.55; }
+    .msg.user .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; white-space: pre-wrap; }
+    .bubble p { margin: 0 0 10px; }
+    .bubble h1, .bubble h2, .bubble h3 { font-size: 17px; margin: 14px 0 8px; }
+    .bubble ul, .bubble ol { margin: 0 0 10px; padding-left: 22px; }
+    .bubble pre { background: var(--panel-2); padding: 10px; border-radius: 8px; overflow: auto; }
+    .bubble sup a { text-decoration: none; color: var(--olive-bright); font-weight: 700; }
+    .sources { margin-top: 8px; font-size: 13px; color: var(--sand-dim); }
+    .sources a { display: block; padding: 4px 0; color: var(--sand-dim); }
+    .sources a:hover { color: var(--sand); }
+    .cursor::after { content: '▍'; animation: blink 1s steps(1) infinite; color: var(--olive-bright); }
+    @keyframes blink { 50% { opacity: 0; } }
+    .composer { border-top: 1px solid var(--line); background: var(--panel); }
+    .composer-inner { max-width: 900px; margin: 0 auto; padding: 14px 28px; }
+    .row2 { display: flex; gap: 10px; align-items: flex-end; }
+    textarea {
+      flex: 1; resize: none; min-height: 48px; max-height: 180px; padding: 12px 14px; font: inherit; font-size: 15px;
+      border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--sand); outline: none;
+    }
+    textarea:focus { border-color: var(--olive-bright); }
+    .btn { padding: 12px 18px; border-radius: 10px; border: 0; cursor: pointer; font-weight: 600; background: var(--olive); color: #fff; }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn.secondary { background: var(--panel-2); color: var(--sand); border: 1px solid var(--line); }
+    .opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--sand-dim); margin-top: 8px; }
+    .opts label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+    .welcome { text-align: center; color: var(--sand-dim); padding: 30px 0 10px; }
+    .welcome h2 { color: var(--sand); margin: 8px 0; }
+    .suggest { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+    .suggest button { border: 1px solid var(--line); background: var(--panel); color: var(--sand); padding: 8px 12px; border-radius: 99px; cursor: pointer; }
+    .suggest button:hover { border-color: var(--olive-bright); }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <img src="rhinovault-logo.webp" alt="RhinoVault logo">
+    <div class="brand"><h1>Ask RhinoVault</h1><p>Offline AI assistant. Answers from the field manuals on this drive.</p></div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#/library">Library</a>
+      <a href="index.html#/manuals">Field Manuals</a>
+      <a href="maps.html">Maps</a>
+      <a href="ask.html" class="active">Ask AI</a>
+    </nav>
+  </header>
+
+  <div class="chat" id="chat"><div class="chat-inner" id="log">
+    <div class="welcome" id="welcome">
+      <h2>What do you need to know?</h2>
+      <div id="aiStatus">Checking the AI engine…</div>
+      <div class="suggest">
+        <button>How do I purify water without a filter?</button>
+        <button>How do I stop heavy bleeding from a leg wound?</button>
+        <button>How can I find north without a compass?</button>
+        <button>How do I build an emergency shelter?</button>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="composer"><div class="composer-inner">
+    <div class="row2">
+      <textarea id="input" rows="1" placeholder="Ask a question… (Enter to send, Shift+Enter for a new line)"></textarea>
+      <button class="btn" id="send">Ask</button>
+      <button class="btn secondary" id="stop" hidden>Stop</button>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="useManuals" checked> Search the field manuals</label>
+      <button class="btn secondary" id="clear" style="padding:5px 10px">New conversation</button>
+      <span id="modelName"></span>
+      <span>AI can be wrong. In an emergency, contact emergency services if you can.</span>
+    </div>
+  </div></div>
+
+  <script src="ask.js"></script>
+</body>
+</html>
