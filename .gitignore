@@ -41,3 +41,6 @@ admin/public/assets
 
 # Admin specific development files
 admin/storage
+
+# RhinoVault Go builder scripts (not a build output)
+!rhinovault-go/build/

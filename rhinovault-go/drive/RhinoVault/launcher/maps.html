@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maps - RhinoVault Go</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html, body { height: 100%; }
+    body { display: flex; flex-direction: column; }
+    .wrap { flex: 1; display: flex; min-height: 0; }
+    #side { width: 270px; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 14px; }
+    #side h2 { margin: 4px 0 10px; font-size: 16px; }
+    #side input { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--sand); margin-bottom: 10px; }
+    #regions button {
+      display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 9px 11px; cursor: pointer;
+      border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--sand);
+    }
+    #regions button:hover { border-color: var(--olive-bright); }
+    #map { flex: 1; }
+    #msg { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); z-index: 3; max-width: 560px; }
+    @media (max-width: 700px) { #side { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <img src="rhinovault-logo.webp" alt="RhinoVault logo">
+    <div class="brand"><h1>Offline Maps</h1><p>Pan and zoom anywhere on this drive's regions. No signal needed.</p></div>
+    <nav><a href="index.html">&larr; Back to RhinoVault</a></nav>
+  </header>
+  <div class="wrap">
+    <aside id="side">
+      <h2>Regions on this drive</h2>
+      <input id="filter" type="search" placeholder="Filter states…">
+      <div id="regions"></div>
+    </aside>
+    <div id="map"></div>
+  </div>
+  <div id="msg"></div>
+
+  <script src="vendor/maplibre-gl.js"></script>
+  <script src="vendor/pmtiles.js"></script>
+  <script src="maps.js"></script>
+</body>
+</html>

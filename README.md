@@ -17,6 +17,11 @@ RhinoVault is a self-contained, offline digital survival computer that combines 
 
 RhinoVault is built and supported by **RhinoPCTec**. It is based on [Project N.O.M.A.D.](https://github.com/Crosstalk-Solutions/project-nomad) by Crosstalk Solutions, LLC, used under the Apache License 2.0. See [NOTICE](NOTICE) for attribution details.
 
+## Two editions
+
+- **RhinoVault Base** (this server): install on a PC or mini server and reach it from any browser on your network. Instructions below.
+- **RhinoVault Go** (portable drive): the same library, plus ~180 U.S. military field manuals, offline maps and portable tools on a USB drive that runs on Windows, Mac and Linux with nothing to install. See [rhinovault-go/README.md](rhinovault-go/README.md).
+
 ## Installation & Quickstart
 RhinoVault can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup RhinoVault as a "server" and access it through other clients.
 

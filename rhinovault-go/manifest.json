@@ -1,0 +1,134 @@
+{
+  "spec_version": "2026-11-09",
+  "description": "RhinoVault Go - portable offline drive. Content collections are shared with the RhinoVault server (../collections) so both stay in sync.",
+  "collections": {
+    "zim_categories": "../collections/kiwix-categories.json",
+    "wikipedia": "../collections/wikipedia.json",
+    "maps": "../collections/maps.json"
+  },
+  "profiles": {
+    "lite": {
+      "label": "Lite - fits a 64 GB drive",
+      "wikipedia": "top-nopic",
+      "tiers": {
+        "medicine": "medicine-essential",
+        "survival": "survival-essential",
+        "diy": "diy-essential",
+        "agriculture": "agriculture-standard",
+        "computing": "computing-essential"
+      },
+      "map_regions": "all",
+      "extras": ["field-manuals", "cyberchef", "keepassxc-windows"]
+    },
+    "standard": {
+      "label": "Standard - fits a 128 GB drive",
+      "wikipedia": "all-nopic",
+      "tiers": {
+        "medicine": "medicine-standard",
+        "survival": "survival-standard",
+        "education": "education-standard",
+        "diy": "diy-standard",
+        "agriculture": "agriculture-standard",
+        "computing": "computing-standard"
+      },
+      "map_regions": "all",
+      "extras": ["field-manuals", "cyberchef", "keepassxc-windows"]
+    },
+    "full": {
+      "label": "Full - 256 GB drive minimum (512 GB leaves room to grow)",
+      "wikipedia": "all-maxi",
+      "tiers": {
+        "medicine": "medicine-comprehensive",
+        "survival": "survival-comprehensive",
+        "education": "education-comprehensive",
+        "diy": "diy-comprehensive",
+        "agriculture": "agriculture-comprehensive",
+        "computing": "computing-comprehensive"
+      },
+      "map_regions": "all",
+      "extras": ["field-manuals", "cyberchef", "keepassxc-windows", "ubuntu-live-iso"]
+    }
+  },
+  "runtime": [
+    {
+      "id": "static-web-server",
+      "title": "Static Web Server (serves the launcher, manuals and maps)",
+      "license": "Apache-2.0 OR MIT",
+      "source": { "type": "github-release", "repo": "static-web-server/static-web-server", "pinned_tag": "v2.38.0" },
+      "platforms": {
+        "windows-x64": { "asset": "static-web-server-{tag}-x86_64-pc-windows-msvc.zip" },
+        "mac-arm64":   { "asset": "static-web-server-{tag}-aarch64-apple-darwin.tar.gz" },
+        "mac-x64":     { "asset": "static-web-server-{tag}-x86_64-apple-darwin.tar.gz" },
+        "linux-x64":   { "asset": "static-web-server-{tag}-x86_64-unknown-linux-musl.tar.gz" }
+      },
+      "keep": ["static-web-server", "static-web-server.exe"]
+    },
+    {
+      "id": "kiwix-tools",
+      "title": "Kiwix Tools (kiwix-serve for the offline library)",
+      "license": "GPL-3.0",
+      "source": { "type": "listing", "url": "https://download.kiwix.org/release/kiwix-tools/" },
+      "platforms": {
+        "windows-x64": { "pattern": "kiwix-tools_win-(x86_64|i686)-[0-9][0-9.\\-]*\\.zip", "prefer": "x86_64" },
+        "mac-arm64":   { "pattern": "kiwix-tools_macos-(arm64|x86_64)-[0-9][0-9.\\-]*\\.tar\\.gz", "prefer": "arm64" },
+        "mac-x64":     { "pattern": "kiwix-tools_macos-x86_64-[0-9][0-9.\\-]*\\.tar\\.gz" },
+        "linux-x64":   { "pattern": "kiwix-tools_linux-x86_64-[0-9][0-9.\\-]*\\.tar\\.gz" }
+      },
+      "keep": ["kiwix-serve", "kiwix-serve.exe", "*.dll"]
+    }
+  ],
+  "extras": {
+    "field-manuals": {
+      "title": "U.S. Military Field Manuals (public domain, ~180 PDFs)",
+      "category": "Field Manuals",
+      "approx_mb": 2100,
+      "source": {
+        "type": "url",
+        "url": "https://archive.org/compress/military-field-manuals-and-guides/formats=TEXT%20PDF,IMAGE%20CONTAINER%20PDF"
+      },
+      "file": "military-field-manuals.zip",
+      "extract": { "to": "Library/Field-Manuals", "only": "*.pdf", "strip": 1 },
+      "credit": "Internet Archive collection 'military-field-manuals-and-guides'"
+    },
+    "map-base-assets": {
+      "title": "Map styles, fonts and icons",
+      "approx_mb": 10,
+      "always": true,
+      "source": {
+        "type": "url",
+        "url": "https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/base-assets.tar.gz"
+      },
+      "file": "base-assets.tar.gz",
+      "extract": { "to": "Maps/assets", "strip": 1 },
+      "credit": "Project N.O.M.A.D. maps / Protomaps basemaps (BSD-3 and OFL fonts)"
+    },
+    "cyberchef": {
+      "title": "CyberChef (encoding, encryption, hashing - runs in the browser)",
+      "category": "Tools",
+      "approx_mb": 50,
+      "source": { "type": "github-release", "repo": "gchq/CyberChef", "pinned_tag": "v10.19.4", "asset": "CyberChef_{tag}.zip" },
+      "extract": { "to": "Tools/CyberChef" },
+      "credit": "GCHQ, Apache-2.0"
+    },
+    "keepassxc-windows": {
+      "title": "KeePassXC password manager (Windows portable)",
+      "category": "Apps",
+      "approx_mb": 60,
+      "source": { "type": "github-release", "repo": "keepassxreboot/keepassxc", "pinned_tag": "2.7.10", "asset": "KeePassXC-{tag}-Win64.zip" },
+      "extract": { "to": "Apps/Windows/KeePassXC", "strip": 1 },
+      "credit": "KeePassXC Team, GPL-3.0"
+    },
+    "ubuntu-live-iso": {
+      "title": "Ubuntu Desktop LTS (bootable with Ventoy)",
+      "category": "Bootable OS",
+      "approx_mb": 6200,
+      "source": {
+        "type": "listing",
+        "url": "https://releases.ubuntu.com/noble/",
+        "pattern": "ubuntu-24\\.04(\\.[0-9]+)?-desktop-amd64\\.iso"
+      },
+      "dest": "ISOs",
+      "credit": "Canonical Ltd."
+    }
+  }
+}

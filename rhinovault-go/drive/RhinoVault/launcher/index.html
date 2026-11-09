@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RhinoVault Go</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <img src="rhinovault-logo.webp" alt="RhinoVault logo">
+    <div class="brand">
+      <h1>RhinoVault Go</h1>
+      <p>Offline knowledge, maps and tools. No internet required.</p>
+    </div>
+    <nav id="nav">
+      <a href="#/" data-route="">Home</a>
+      <a href="#/library" data-route="library">Library</a>
+      <a href="#/manuals" data-route="manuals">Field Manuals</a>
+      <a href="maps.html">Maps</a>
+      <a href="#/tools" data-route="tools">Tools &amp; Apps</a>
+      <a href="#/about" data-route="about">About</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="search">
+      <input id="q" type="search" placeholder="Search books, references and field manuals by title…" autocomplete="off">
+    </div>
+    <div class="status" id="status"></div>
+    <div id="view"></div>
+    <footer id="footer"></footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

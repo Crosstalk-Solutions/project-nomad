@@ -1,0 +1,94 @@
+:root {
+  --bg: #1f1f12;
+  --panel: #2a2a19;
+  --panel-2: #33331f;
+  --line: #4a4a2e;
+  --olive: #6f7a3e;
+  --olive-bright: #879064;
+  --sand: #e8dfc8;
+  --sand-dim: #b9b19b;
+  --brown: #9b7b5b;
+  --slate: #33434c;
+  --ok: #8fbf6a;
+  --warn: #d9a441;
+  --radius: 10px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--sand); }
+a { color: var(--sand); }
+button { font: inherit; }
+
+.top {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 28px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #2c2c1a, #22221399);
+  position: sticky; top: 0; z-index: 5;
+}
+.top img { width: 52px; height: 52px; }
+.brand h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
+.brand p { margin: 2px 0 0; font-size: 13px; color: var(--sand-dim); }
+.top nav { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.top nav a {
+  text-decoration: none; padding: 8px 12px; border-radius: 8px; color: var(--sand-dim); font-size: 14px;
+}
+.top nav a.active, .top nav a:hover { background: var(--panel-2); color: var(--sand); }
+
+main { max-width: 1180px; margin: 0 auto; padding: 24px 28px 60px; }
+
+.search {
+  display: flex; gap: 10px; margin: 6px 0 22px;
+}
+.search input {
+  flex: 1; padding: 13px 16px; font-size: 16px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--panel); color: var(--sand); outline: none;
+}
+.search input:focus { border-color: var(--olive-bright); }
+
+.status { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--sand-dim); margin-bottom: 18px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--warn); margin-right: 6px; }
+.dot.ok { background: var(--ok); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.tile {
+  display: block; text-decoration: none; padding: 20px; border-radius: var(--radius);
+  background: var(--panel); border: 1px solid var(--line); min-height: 132px;
+  transition: border-color .15s, transform .15s;
+}
+.tile:hover { border-color: var(--olive-bright); transform: translateY(-2px); }
+.tile .icon { font-size: 28px; }
+.tile h3 { margin: 8px 0 6px; font-size: 18px; }
+.tile p { margin: 0; color: var(--sand-dim); font-size: 14px; line-height: 1.4; }
+.tile .count { float: right; font-size: 12px; color: var(--sand-dim); background: var(--panel-2); padding: 2px 8px; border-radius: 99px; }
+
+h2 { margin: 28px 0 12px; font-size: 20px; }
+h2 small { font-weight: normal; color: var(--sand-dim); font-size: 14px; margin-left: 8px; }
+
+.list { display: grid; gap: 8px; }
+.row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--line); text-decoration: none;
+}
+.row:hover { border-color: var(--olive-bright); }
+.row .main { flex: 1; min-width: 0; }
+.row .title { font-weight: 600; }
+.row .sub { color: var(--sand-dim); font-size: 13px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--slate); color: var(--sand); white-space: nowrap; }
+.size { font-size: 12px; color: var(--sand-dim); white-space: nowrap; }
+
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip {
+  border: 1px solid var(--line); background: var(--panel); color: var(--sand-dim);
+  border-radius: 99px; padding: 5px 12px; cursor: pointer; font-size: 13px;
+}
+.chip.on { background: var(--olive); color: #fff; border-color: var(--olive); }
+
+.note {
+  background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--brown);
+  padding: 14px 16px; border-radius: 8px; color: var(--sand-dim); line-height: 1.5;
+}
+.note strong { color: var(--sand); }
+.empty { color: var(--sand-dim); padding: 18px; text-align: center; }
+code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; }
+footer { text-align: center; color: var(--sand-dim); font-size: 12px; padding: 30px 0 10px; line-height: 1.6; }

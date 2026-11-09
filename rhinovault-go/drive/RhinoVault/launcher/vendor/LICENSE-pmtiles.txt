@@ -1,0 +1,2 @@
+pmtiles.js v4.4.0 - https://github.com/protomaps/PMTiles
+License: BSD-3-Clause (see the PMTiles repository for the full license text).
