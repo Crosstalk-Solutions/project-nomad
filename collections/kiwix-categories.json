@@ -32,6 +32,7 @@
             },
             {
               "id": "irp.fas.org_en_military-medicine",
+              "previous_ids": ["fas-military-medicine_en"],
               "version": "2026-10",
               "title": "Military Medicine",
               "description": "Tactical and field medicine manuals",
@@ -146,6 +147,7 @@
             },
             {
               "id": "canadian-prepper_en_winterprepping",
+              "previous_ids": ["canadian_prepper_winterprepping_en"],
               "version": "2026-08",
               "title": "Canadian Prepper: Winter Prepping",
               "description": "Video guides for winter survival and cold weather emergencies",
@@ -154,6 +156,7 @@
             },
             {
               "id": "canadian-prepper_en_bugoutroll",
+              "previous_ids": ["canadian_prepper_bugoutroll_en"],
               "version": "2026-07",
               "title": "Canadian Prepper: Bug Out Roll",
               "description": "Essential gear selection for your bug-out bag",
@@ -194,6 +197,7 @@
             },
             {
               "id": "canadian-prepper_en_bugoutconcepts",
+              "previous_ids": ["canadian_prepper_bugoutconcepts_en"],
               "version": "2026-08",
               "title": "Canadian Prepper: Bug Out Concepts",
               "description": "Strategies and planning for emergency evacuation",
@@ -218,6 +222,7 @@
           "resources": [
             {
               "id": "canadian-prepper_en_preppingfood",
+              "previous_ids": ["canadian_prepper_preppingfood_en"],
               "version": "2026-07",
               "title": "Canadian Prepper: Prepping Food",
               "description": "Long-term food storage and survival meal preparation",
