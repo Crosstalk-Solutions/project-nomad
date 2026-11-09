@@ -4,7 +4,7 @@ import SettingsLayout from '~/layouts/SettingsLayout'
 export default function LegalPage() {
   return (
     <SettingsLayout>
-      <Head title="Legal Notices | Project N.O.M.A.D." />
+      <Head title="Legal Notices | RhinoVault" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6 max-w-4xl">
           <h1 className="text-4xl font-semibold mb-8">Legal Notices</h1>
@@ -12,7 +12,12 @@ export default function LegalPage() {
           {/* License Agreement */}
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">License Agreement</h2>
-            <p className="text-text-primary mb-3">Copyright 2024-2026 Crosstalk Solutions, LLC</p>
+            <p className="text-text-primary mb-3">RhinoVault modifications copyright 2026 RhinoPCTec</p>
+            <p className="text-text-primary mb-3">
+              Based on Project N.O.M.A.D., copyright 2024-2026 Crosstalk Solutions, LLC. Project
+              N.O.M.A.D. is a trademark of Crosstalk Solutions, LLC. RhinoVault is an independent
+              project and is not affiliated with or endorsed by Crosstalk Solutions, LLC.
+            </p>
             <p className="text-text-primary mb-3">
               Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
               you may not use this file except in compliance with the License.
@@ -34,7 +39,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Third-Party Software Attribution</h2>
             <p className="text-text-primary mb-4">
-              Project N.O.M.A.D. integrates the following open source projects. We are grateful to
+              RhinoVault integrates the following open source projects. We are grateful to
               their developers and communities:
             </p>
             <ul className="space-y-3 text-text-primary">
@@ -75,7 +80,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Privacy Statement</h2>
             <p className="text-text-primary mb-3">
-              Project N.O.M.A.D. is designed with privacy as a core principle:
+              RhinoVault is designed with privacy as a core principle:
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary">
               <li><strong>Zero Telemetry:</strong> N.O.M.A.D. does not collect, transmit, or store any usage data, analytics, or telemetry.</li>
@@ -89,12 +94,12 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Content Disclaimer</h2>
             <p className="text-text-primary mb-3">
-              Project N.O.M.A.D. provides tools to download and access content from third-party sources
+              RhinoVault provides tools to download and access content from third-party sources
               including Wikipedia, Wikibooks, medical references, educational platforms, and other
               publicly available resources.
             </p>
             <p className="text-text-primary mb-3">
-              Crosstalk Solutions, LLC does not create, control, verify, or guarantee the accuracy,
+              RhinoPCTec and Crosstalk Solutions, LLC do not create, control, verify, or guarantee the accuracy,
               completeness, or reliability of any third-party content. The inclusion of any content
               does not constitute an endorsement.
             </p>
@@ -127,7 +132,7 @@ export default function LegalPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-semibold mb-4">Data Storage</h2>
             <p className="text-text-primary mb-3">
-              All data associated with Project N.O.M.A.D. is stored locally on your device:
+              All data associated with RhinoVault is stored locally on your device:
             </p>
             <ul className="list-disc list-inside space-y-2 text-text-primary">
               <li><strong>Installation Directory:</strong> /opt/project-nomad</li>

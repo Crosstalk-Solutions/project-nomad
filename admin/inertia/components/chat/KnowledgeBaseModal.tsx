@@ -74,7 +74,7 @@ function renderSortHeader(
  * with no `kb_ingest_state` row (`state === null`) are legacy/pre-RFC-883
  * installs whose chunks are real, so we display them as "Indexed" rather than
  * surfacing the absent-row detail. Admin-docs group has no pill (the "Managed
- * by NOMAD" message in the action column carries the same signal).
+ * by RhinoVault" message in the action column carries the same signal).
  */
 function renderStatePill(record: KbFileGroup): React.ReactNode {
   if (record.bucket === 'admin_docs') return null
@@ -414,7 +414,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
         confirmVariant='primary'
       >
         <p className='text-text-primary'>
-          This will scan the NOMAD's storage directories for any new files and queue them for processing. This is useful if you've manually added files to the storage or want to ensure everything is up to date.
+          This will scan the RhinoVault's storage directories for any new files and queue them for processing. This is useful if you've manually added files to the storage or want to ensure everything is up to date.
           This may cause a temporary increase in resource usage if new files are found and being processed. Are you sure you want to proceed?
         </p>
       </StyledModal>,
@@ -488,7 +488,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       {aiAssistantName} Knowledge Base Integration
                     </p>
                     <p className="text-sm text-desert-stone">
-                      When you upload documents to your Knowledge Base, NOMAD processes and embeds
+                      When you upload documents to your Knowledge Base, RhinoVault processes and embeds
                       the content, making it directly accessible to {aiAssistantName}. This allows{' '}
                       {aiAssistantName} to reference your specific documents during conversations,
                       providing more accurate and personalized responses based on your uploaded
@@ -505,10 +505,10 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       Enhanced Document Processing with OCR
                     </p>
                     <p className="text-sm text-desert-stone">
-                      NOMAD includes built-in Optical Character Recognition (OCR) capabilities,
+                      RhinoVault includes built-in Optical Character Recognition (OCR) capabilities,
                       allowing it to extract text from image-based documents such as scanned PDFs or
                       photos. This means that even if your documents are not in a standard text
-                      format, NOMAD can still process and embed their content for AI access.
+                      format, RhinoVault can still process and embed their content for AI access.
                     </p>
                   </div>
                 </div>
@@ -521,7 +521,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                       Information Library Integration
                     </p>
                     <p className="text-sm text-desert-stone">
-                      NOMAD will automatically discover and extract any content you save to your
+                      RhinoVault will automatically discover and extract any content you save to your
                       Information Library (if installed), making it instantly available to {aiAssistantName} without any extra steps.
                     </p>
                   </div>
@@ -729,14 +729,14 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
                   accessor: 'source',
                   title: '',
                   render(record) {
-                    // Admin docs are auto-discovered and managed by NOMAD itself —
+                    // Admin docs are auto-discovered and managed by RhinoVault itself —
                     // deleting one would just be re-embedded on the next sync, so
                     // we surface them as informational only and hide Delete.
                     if (record.bucket === 'admin_docs') {
                       return (
                         <div className="flex justify-end">
                           <span className="text-sm text-text-muted italic">
-                            Managed by NOMAD
+                            Managed by RhinoVault
                           </span>
                         </div>
                       )
@@ -849,7 +849,7 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
             <p>
               This will re-process every document currently in your knowledge base — about
               <strong> {storedFiles.length} file{storedFiles.length === 1 ? '' : 's'}</strong>.
-              For each file, NOMAD will delete the existing embeddings from Qdrant and queue a fresh
+              For each file, RhinoVault will delete the existing embeddings from Qdrant and queue a fresh
               embedding job using the current chunking and embedding model.
             </p>
             <div className='rounded border border-border-subtle bg-surface-secondary p-3'>

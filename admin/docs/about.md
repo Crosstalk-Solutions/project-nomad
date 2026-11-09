@@ -1,17 +1,15 @@
-# About Project N.O.M.A.D.
+# About RhinoVault
 
-Project N.O.M.A.D. (Node for Offline Media, Archives, and Data; "Nomad" for short) is a project started in 2025 by Chris Sherwood of [Crosstalk Solutions, LLC](https://crosstalksolutions.com). The goal of the project is not to create just another utility for storing offline resources, but rather to allow users to run their own ultimate "survival computer".
+RhinoVault is a self-contained, offline digital survival computer from RhinoPCTec. It brings together essential tools, a trusted knowledge base, emergency resources and private AI in one platform, so you stay informed and prepared even without an internet connection.
 
-While many similar offline survival computers are designed to be run on bare-minimum, lightweight hardware, Project N.O.M.A.D. is quite the opposite. To install and run the available AI tools, we highly encourage the use of a beefy, GPU-backed device to make the most of your install. See the [Hardware Guide](https://www.projectnomad.us/hardware) for detailed build recommendations at three price points.
+RhinoVault is built on [Project N.O.M.A.D.](https://github.com/Crosstalk-Solutions/project-nomad) (Node for Offline Media, Archives, and Data), the open-source offline knowledge server started in 2025 by Chris Sherwood of [Crosstalk Solutions, LLC](https://crosstalksolutions.com). RhinoVault keeps N.O.M.A.D.'s Command Center, AI chat with Knowledge Base, curated content collections, maps, education platform and benchmark, and adds RhinoPCTec branding, support and content.
 
-Since its initial release, NOMAD has grown to include built-in AI chat with a Knowledge Base for document-aware responses, a System Benchmark with a community leaderboard, curated content collections with tiered options, and an Easy Setup Wizard to get new users up and running quickly.
+To get the most out of the AI tools, run RhinoVault on a capable, GPU-backed device.
 
-Project N.O.M.A.D. is open source, released under the [Apache License 2.0](https://github.com/Crosstalk-Solutions/project-nomad/blob/main/LICENSE).
+RhinoVault is open source, released under the [Apache License 2.0](https://github.com/rhinopctec/project-RhinoVault/blob/main/LICENSE). Project N.O.M.A.D. is a trademark of Crosstalk Solutions, LLC; RhinoVault is an independent project and is not affiliated with or endorsed by Crosstalk Solutions.
 
 ## Links
 
-- **Website:** [www.projectnomad.us](https://www.projectnomad.us)
-- **Hardware Guide:** [www.projectnomad.us/hardware](https://www.projectnomad.us/hardware)
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions)
-- **GitHub:** [Crosstalk-Solutions/project-nomad](https://github.com/Crosstalk-Solutions/project-nomad)
-- **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us)
+- **GitHub:** [rhinopctec/project-RhinoVault](https://github.com/rhinopctec/project-RhinoVault)
+- **Report an issue:** [RhinoVault issues](https://github.com/rhinopctec/project-RhinoVault/issues)
+- **Upstream project:** [Crosstalk-Solutions/project-nomad](https://github.com/Crosstalk-Solutions/project-nomad)

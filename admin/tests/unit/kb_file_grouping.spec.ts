@@ -62,7 +62,7 @@ test('groupAndSortKbFiles collapses all admin docs into a single row', () => {
   assert.equal(groups.length, 1)
   assert.equal(groups[0].bucket, 'admin_docs')
   assert.equal(groups[0].count, 4)
-  assert.equal(groups[0].displayName, 'Project NOMAD documentation · 4 files')
+  assert.equal(groups[0].displayName, 'RhinoVault documentation · 4 files')
   assert.deepEqual(groups[0].members.sort(), [
     '/app/README.md',
     '/app/docs/getting-started.md',
@@ -100,7 +100,7 @@ test('groupAndSortKbFiles alphabetizes within a bucket', () => {
 
 test('groupAndSortKbFiles uses singular noun when only one admin doc exists', () => {
   const groups = groupAndSortKbFiles(asInfos(['/app/docs/release-notes.md']))
-  assert.equal(groups[0].displayName, 'Project NOMAD documentation · 1 file')
+  assert.equal(groups[0].displayName, 'RhinoVault documentation · 1 file')
 })
 
 test('groupAndSortKbFiles handles empty input', () => {

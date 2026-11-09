@@ -932,7 +932,7 @@ export class DockerService {
      * We'll download the lightweight mini Wikipedia Top 100 zim file for this purpose.
      **/
     const WIKIPEDIA_ZIM_URL =
-      'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/install/wikipedia_en_100_mini_2026-01.zim'
+      'https://github.com/rhinopctec/project-RhinoVault/raw/refs/heads/main/install/wikipedia_en_100_mini_2026-01.zim'
     const filename = 'wikipedia_en_100_mini_2026-01.zim'
     const filepath = join(process.cwd(), ZIM_STORAGE_PATH, filename)
     logger.info(`[DockerService] Kiwix Serve pre-install: Downloading ZIM file to ${filepath}`)
@@ -1100,7 +1100,7 @@ export class DockerService {
     )
 
     try {
-      await this._ensureSelfSignedCert(dataDir, 'Project NOMAD Vaultwarden')
+      await this._ensureSelfSignedCert(dataDir, 'RhinoVault Vaultwarden')
       this._broadcast(
         SERVICE_NAMES.VAULTWARDEN,
         'preinstall',
@@ -1136,7 +1136,7 @@ export class DockerService {
     )
 
     try {
-      await this._ensureSelfSignedCert(certDir, 'Project NOMAD MeshCore Web')
+      await this._ensureSelfSignedCert(certDir, 'RhinoVault MeshCore Web')
 
       // SSL server block bind-mounted over the image's default.conf. Serves the Flutter build that
       // already lives at /usr/share/nginx/html in the image, over HTTPS only, with the SPA fallback

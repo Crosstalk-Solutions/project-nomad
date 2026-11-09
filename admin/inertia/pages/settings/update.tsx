@@ -17,6 +17,9 @@ import AppAutoUpdateSection from '~/components/updates/AppAutoUpdateSection'
 import ContentAutoUpdateSection from '~/components/updates/ContentAutoUpdateSection'
 import ContentUpdatesSection from '~/components/updates/ContentUpdatesSection'
 
+// Upstream release-notes newsletter (api.projectnomad.us). Disabled for RhinoVault.
+const SHOW_RELEASE_NOTES_SIGNUP = false
+
 type Props = {
   updateAvailable: boolean
   latestVersion: string
@@ -239,7 +242,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Update</h1>
             <p className="text-desert-stone-dark">
-              Keep your Project N.O.M.A.D. instance up to date with the latest features and
+              Keep your RhinoVault instance up to date with the latest features and
               improvements.
             </p>
           </div>
@@ -287,7 +290,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                   </h2>
                   <p className="text-desert-stone-dark mb-6">
                     {versionInfo.updateAvailable
-                      ? `A new version (${versionInfo.latestVersion}) is available for your Project N.O.M.A.D. instance.`
+                      ? `A new version (${versionInfo.latestVersion}) is available for your RhinoVault instance.`
                       : 'Your system is running the latest version!'}
                   </p>
                 </>
@@ -456,43 +459,46 @@ export default function SystemUpdatePage(props: { system: Props }) {
           <AppAutoUpdateSection />
           <ContentAutoUpdateSection />
           <ContentUpdatesSection />
-          <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden py-6 mt-12">
-            <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
-              <div>
-                <h2 className="max-w-xl text-lg font-bold text-desert-green sm:text-xl lg:col-span-7">
-                  Want to stay updated with the latest from Project N.O.M.A.D.? Subscribe to receive
-                  release notes directly to your inbox. Unsubscribe anytime.
-                </h2>
-              </div>
-              <div className="flex flex-col">
-                <div className="flex gap-x-3">
-                  <Input
-                    name="email"
-                    label=""
-                    type="email"
-                    placeholder="Your email address"
-                    disabled={false}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full"
-                    containerClassName="!mt-0"
-                  />
-                  <StyledButton
-                    variant="primary"
-                    disabled={!email}
-                    onClick={() => subscribeToReleaseNotesMutation.mutateAsync(email)}
-                    loading={subscribeToReleaseNotesMutation.isPending}
-                  >
-                    Subscribe
-                  </StyledButton>
+          {/* RhinoVault: release-notes signup goes to the upstream N.O.M.A.D. mailing list, so it is hidden. */}
+          {SHOW_RELEASE_NOTES_SIGNUP && (
+            <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden py-6 mt-12">
+              <div className="flex flex-col md:flex-row justify-between items-center p-8 gap-y-8 md:gap-y-0 gap-x-8">
+                <div>
+                  <h2 className="max-w-xl text-lg font-bold text-desert-green sm:text-xl lg:col-span-7">
+                    Want to stay updated with the latest from RhinoVault? Subscribe to receive
+                    release notes directly to your inbox. Unsubscribe anytime.
+                  </h2>
                 </div>
-                <p className="mt-2 text-sm text-desert-stone-dark">
-                  We care about your privacy. Project N.O.M.A.D. will never share your email with
-                  third parties or send you spam.
-                </p>
+                <div className="flex flex-col">
+                  <div className="flex gap-x-3">
+                    <Input
+                      name="email"
+                      label=""
+                      type="email"
+                      placeholder="Your email address"
+                      disabled={false}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full"
+                      containerClassName="!mt-0"
+                    />
+                    <StyledButton
+                      variant="primary"
+                      disabled={!email}
+                      onClick={() => subscribeToReleaseNotesMutation.mutateAsync(email)}
+                      loading={subscribeToReleaseNotesMutation.isPending}
+                    >
+                      Subscribe
+                    </StyledButton>
+                  </div>
+                  <p className="mt-2 text-sm text-desert-stone-dark">
+                    We care about your privacy. RhinoVault will never share your email with
+                    third parties or send you spam.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {showLogs && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

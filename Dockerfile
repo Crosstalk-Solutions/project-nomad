@@ -62,14 +62,14 @@ RUN set -eux; \
     /usr/local/bin/pmtiles version
 
 # Labels
-LABEL org.opencontainers.image.title="Project N.O.M.A.D" \
-      org.opencontainers.image.description="The Project N.O.M.A.D Official Docker image" \
+LABEL org.opencontainers.image.title="RhinoVault" \
+      org.opencontainers.image.description="RhinoVault Command Center (based on Project N.O.M.A.D.)" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.vendor="Crosstalk Solutions, LLC" \
-      org.opencontainers.image.documentation="https://github.com/CrosstalkSolutions/project-nomad/blob/main/README.md" \
-      org.opencontainers.image.source="https://github.com/CrosstalkSolutions/project-nomad" \
+      org.opencontainers.image.vendor="RhinoPCTec" \
+      org.opencontainers.image.documentation="https://github.com/rhinopctec/project-RhinoVault/blob/main/README.md" \
+      org.opencontainers.image.source="https://github.com/rhinopctec/project-RhinoVault" \
       org.opencontainers.image.licenses="Apache-2.0"
 
 ENV NODE_ENV=production
@@ -84,6 +84,7 @@ RUN echo "{\"version\":\"${VERSION}\"}" > /app/version.json
 # Copy docs and README for access within the container
 COPY admin/docs /app/docs
 COPY README.md /app/README.md
+COPY LICENSE NOTICE /app/
 
 # Empty Calibre library, seeded into storage/books on Calibre-Web install
 # (see DockerService._runPreinstallActions__CalibreWeb)

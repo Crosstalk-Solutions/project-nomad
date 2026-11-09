@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "author": "Crosstalk Solutions, LLC",
+  "author": "RhinoPCTec (based on Project N.O.M.A.D. by Crosstalk Solutions, LLC)",
   "scripts": {
     "start": "node bin/server.js",
     "build": "node ace build",

@@ -1,0 +1,20 @@
+RhinoVault
+Copyright 2026 RhinoPCTec
+
+This product is a modified version of Project N.O.M.A.D.
+(Node for Offline Media, Archives, and Data)
+Copyright 2024-2026 Crosstalk Solutions, LLC
+https://github.com/Crosstalk-Solutions/project-nomad
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Modifications by RhinoPCTec include rebranding of the user interface,
+documentation and logos; publishing images under ghcr.io/rhinopctec;
+and pointing update checks, content manifests and support links at the
+RhinoVault repository. Original copyright and license headers in the
+source files are retained.
+
+"Project N.O.M.A.D." is a trademark of Crosstalk Solutions, LLC.
+RhinoVault is an independent project and is not affiliated with or
+endorsed by Crosstalk Solutions, LLC. The RhinoVault name and logo
+are not covered by the Apache License grant.

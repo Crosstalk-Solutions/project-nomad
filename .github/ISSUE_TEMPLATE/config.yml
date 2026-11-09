@@ -1,17 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Discord Community
-    url: https://discord.com/invite/crosstalksolutions
-    about: Join our Discord community for general questions, support, and discussions
-  - name: 📖 Documentation
-    url: https://projectnomad.us
-    about: Check the official documentation and guides
-  - name: 🏆 Community Leaderboard
-    url: https://benchmark.projectnomad.us
-    about: View the N.O.M.A.D. benchmark leaderboard
+  - name: 💬 GitHub Discussions
+    url: https://github.com/rhinopctec/project-RhinoVault/discussions
+    about: Ask general questions and get help from RhinoPCTec and other RhinoVault users
   - name: 🤝 Contributing Guide
-    url: https://github.com/Crosstalk-Solutions/project-nomad/blob/main/CONTRIBUTING.md
-    about: Learn how to contribute to Project N.O.M.A.D.
-  - name: 📅 Roadmap
-    url: https://roadmap.projectnomad.us
-    about: See our public roadmap, vote on features, and suggest new ones
+    url: https://github.com/rhinopctec/project-RhinoVault/blob/main/CONTRIBUTING.md
+    about: Learn how to contribute to RhinoVault
+  - name: 🧭 Upstream Project N.O.M.A.D.
+    url: https://github.com/Crosstalk-Solutions/project-nomad
+    about: RhinoVault is based on Project N.O.M.A.D. by Crosstalk Solutions

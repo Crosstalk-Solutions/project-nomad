@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. — Disk Collector Migration Script
+# RhinoVault — Disk Collector Migration Script
 #
-# Script                | Project N.O.M.A.D. Disk Collector Migration Script
+# Script                | RhinoVault Disk Collector Migration Script
 # Version               | 1.0.0
 # Author                | Crosstalk Solutions, LLC
 # Website               | https://crosstalksolutions.com
@@ -63,13 +63,13 @@ check_has_sudo() {
 }
 
 check_confirmation() {
-  echo -e "${YELLOW}#${RESET} This script migrates your Project N.O.M.A.D. installation from the"
+  echo -e "${YELLOW}#${RESET} This script migrates your RhinoVault installation from the"
   echo -e "${YELLOW}#${RESET} host-based disk info collector to the new disk-collector sidecar."
   echo -e "${YELLOW}#${RESET} It will modify compose.yml and restart the full compose stack"
   echo -e "${YELLOW}#${RESET} to drop the old /tmp bind mount and start the disk-collector sidecar."
   echo -e "${YELLOW}#${RESET} Please ensure you have a backup of your data before proceeding.\n"
 
-  echo -e "${RED}#${RESET} STOP: If you have customized your compose.yml or Nomad's storage setup (not common), please make these changes manually instead of using this script!\n"
+  echo -e "${RED}#${RESET} STOP: If you have customized your compose.yml or RhinoVault's storage setup (not common), please make these changes manually instead of using this script!\n"
   read -rp "Do you want to continue? (y/N) " response
   if [[ ! "$response" =~ ^[Yy]$ ]]; then
     echo -e "${RED}#${RESET} Aborting. No changes have been made."
@@ -93,7 +93,7 @@ check_docker_running() {
 check_compose_file() {
   if [[ ! -f "$COMPOSE_FILE" ]]; then
     echo -e "${RED}#${RESET} compose.yml not found at ${COMPOSE_FILE}."
-    echo -e "${RED}#${RESET} Project N.O.M.A.D. does not appear to be installed or compose.yml is missing."
+    echo -e "${RED}#${RESET} RhinoVault does not appear to be installed or compose.yml is missing."
     exit 1
   fi
   echo -e "${GREEN}#${RESET} Found compose.yml at ${COMPOSE_FILE}.\n"
@@ -161,7 +161,7 @@ add_disk_collector_service() {
   # Insert the disk-collector service block before the top-level `volumes:` key
   awk '/^volumes:/{
     print "  disk-collector:"
-    print "    image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest"
+    print "    image: ghcr.io/rhinopctec/rhinovault-disk-collector:latest"
     print "    pull_policy: always"
     print "    container_name: nomad_disk_collector"
     print "    restart: unless-stopped"
@@ -213,7 +213,7 @@ verify_disk_collector_running() {
 
 # Main
 echo -e "${GREEN}#########################################################################${RESET}"
-echo -e "${GREEN}#${RESET}      Project N.O.M.A.D. — Disk Collector Migration Script             ${GREEN}#${RESET}"
+echo -e "${GREEN}#${RESET}      RhinoVault — Disk Collector Migration Script             ${GREEN}#${RESET}"
 echo -e "${GREEN}#########################################################################${RESET}\n"
 
 check_is_bash

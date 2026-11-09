@@ -1,12 +1,12 @@
-# What Can You Do With N.O.M.A.D.?
+# What Can You Do With RhinoVault?
 
-N.O.M.A.D. is designed to be your information lifeline when internet isn't available. Here's how different people use it.
+RhinoVault is designed to be your information lifeline when internet isn't available. Here's how different people use it.
 
 ---
 
 ## Emergency Preparedness
 
-When disasters strike, internet and cell service often go down first. N.O.M.A.D. keeps critical information at your fingertips.
+When disasters strike, internet and cell service often go down first. RhinoVault keeps critical information at your fingertips.
 
 **What you can do:**
 - Look up first aid and emergency medical procedures
@@ -184,18 +184,18 @@ Add your own documents to the [Knowledge Base](/knowledge-base) — emergency pl
 Keep your server updated while you have internet. You never know when you'll need to go offline.
 
 ### Step 5: Practice
-Try using N.O.M.A.D. before you need it. Familiarity with the tools makes them more useful in a crisis.
+Try using RhinoVault before you need it. Familiarity with the tools makes them more useful in a crisis.
 
 ---
 
 ## Need Something Specific?
 
-N.O.M.A.D. content is customizable. If you don't see what you need:
+RhinoVault content is customizable. If you don't see what you need:
 
 1. **Browse [Content Explorer](/settings/zim/remote-explorer)** — Thousands of ZIM files including Wikipedia packages
 2. **Check [Content Manager](/settings/zim)** — Manage your installed content
 3. **Browse Kolibri channels** — Educational content for many subjects
 4. **Upload your own documents** — Add files to the [Knowledge Base](/knowledge-base) for AI-aware reference
-5. **Request features** — Let us know what content would help you on [Discord](https://discord.com/invite/crosstalksolutions)
+5. **Request features** — Let us know what content would help you on [GitHub Discussions](https://github.com/rhinopctec/project-RhinoVault/discussions)
 
 Your offline server, your content choices.

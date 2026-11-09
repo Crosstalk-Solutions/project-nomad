@@ -128,7 +128,7 @@ export default function ZimPage() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Manager | Project N.O.M.A.D." />
+      <Head title="Content Manager | RhinoVault" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex items-center justify-between gap-4">
@@ -151,7 +151,7 @@ export default function ZimPage() {
                   variant="secondary"
                   icon={'IconRefresh'}
                   loading={rescanMutation.isPending}
-                  title="Rebuild the Kiwix library index from the files on disk. Use this after manually adding ZIM files outside of NOMAD."
+                  title="Rebuild the Kiwix library index from the files on disk. Use this after manually adding ZIM files outside of RhinoVault."
                   onClick={() => rescanMutation.mutate()}
                 >
                   Rescan Library

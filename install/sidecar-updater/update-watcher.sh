@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Project N.O.M.A.D. Update Sidecar - Polls for update requests and executes them
+# RhinoVault Update Sidecar - Polls for update requests and executes them
 
 SHARED_DIR="/shared"
 REQUEST_FILE="${SHARED_DIR}/update-request"
@@ -43,7 +43,7 @@ perform_update() {
 
     # Apply target image tag to compose.yml before pulling
     log "Applying image tag '${target_tag}' to compose.yml..."
-    if sed -i "s|\(image: ghcr\.io/crosstalk-solutions/project-nomad\):.*|\1:${target_tag}|" "$COMPOSE_FILE" 2>> "$LOG_FILE"; then
+    if sed -i "s|\(image: ghcr\.io/rhinopctec/rhinovault\):.*|\1:${target_tag}|" "$COMPOSE_FILE" 2>> "$LOG_FILE"; then
         log "Successfully updated compose.yml admin image tag to '${target_tag}'"
     else
         log "ERROR: Failed to update compose.yml image tag"

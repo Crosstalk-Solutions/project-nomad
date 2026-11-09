@@ -91,7 +91,7 @@ export function getPrimaryDiskInfo(
 ): { totalSize: number; totalUsed: number } | null {
   // First, check if /app/storage is on a dedicated filesystem (e.g. NFS mount).
   // This is the most accurate source since it reflects the actual backing
-  // store for NOMAD content, regardless of whether it's a local disk or
+  // store for RhinoVault content, regardless of whether it's a local disk or
   // network-attached storage.
   const storageMount = fsSize?.find((fs) => fs.mount === '/app/storage' && fs.size > 0)
   if (storageMount) {

@@ -5,7 +5,7 @@ import type { StoredFileInfo } from '../../types/rag.js'
  * Knowledge-base files come back as a list of `{source, state, chunksEmbedded}`
  * objects from `/api/rag/files`. The UI groups them so the user sees the
  * categories that matter to them — ZIMs, uploaded documents, and a single
- * rolled-up entry for Project NOMAD's bundled docs (rather than the 12+
+ * rolled-up entry for RhinoVault's bundled docs (rather than the 12+
  * individual markdown files those break into).
  *
  * Bucket assignment is purely by path prefix; matching is done on `/` so the
@@ -99,7 +99,7 @@ function compareForSort(a: StoredFileInfo, b: StoredFileInfo, sort: KbFileSort):
  * Group stored-file rows into table rows for the Stored Files panel.
  *
  * - Admin docs (`/app/docs/*`, README) collapse into a single
- *   "Project NOMAD documentation · N files" row.
+ *   "RhinoVault documentation · N files" row.
  * - ZIMs, uploads, and others stay as individual rows, sorted within their
  *   bucket by the active sort key. Bucket order itself is fixed — sorting
  *   never flattens or reorders the groups themselves.
@@ -128,7 +128,7 @@ export function groupAndSortKbFiles(
       groups.push({
         bucket,
         source: '__admin_docs_group__',
-        displayName: `Project NOMAD documentation · ${members.length} file${members.length === 1 ? '' : 's'}`,
+        displayName: `RhinoVault documentation · ${members.length} file${members.length === 1 ? '' : 's'}`,
         count: members.length,
         members: members.map((m) => m.source),
         state: null,

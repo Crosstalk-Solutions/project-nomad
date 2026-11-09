@@ -18,8 +18,8 @@ import {
 } from '../utils/image_disk_preflight.js'
 
 /** Docker image repository for the NOMAD admin/core image (tag applied per-release). */
-const NOMAD_IMAGE_REPO = 'ghcr.io/crosstalk-solutions/project-nomad'
-const RELEASES_URL = 'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases'
+const NOMAD_IMAGE_REPO = 'ghcr.io/rhinopctec/rhinovault'
+const RELEASES_URL = 'https://api.github.com/repos/rhinopctec/project-RhinoVault/releases'
 
 /** Defaults for user-configurable settings (server-local time window + cool-off). */
 const DEFAULT_WINDOW_START = '02:00'
