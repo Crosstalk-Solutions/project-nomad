@@ -12,6 +12,7 @@ RhinoVault Go uses the same content collections as the RhinoVault server (`../co
 | `Share RhinoVault on Network (Windows).cmd` | Same, but other devices on the Wi-Fi can open it too. |
 | `Library/ZIM` | Kiwix library: Wikipedia, medicine, survival, repair, farming, education, computing |
 | `Library/Field-Manuals` | ~180 public-domain U.S. military field manuals (PDF) |
+| `Library/Books` | Public-domain how-to ebooks by category (from your books folder) |
 | `AI/models` | The offline AI model (GGUF) used by Ask RhinoVault |
 | `Maps` | Offline U.S. state maps (PMTiles) plus styles and fonts |
 | `Tools/CyberChef` | Encoding, encryption and hashing in the browser |
@@ -23,9 +24,9 @@ RhinoVault Go uses the same content collections as the RhinoVault server (`../co
 
 | Edition | Wikipedia | Library tiers | Maps | Size | Drive |
 |---|---|---|---|---|---|
-| `lite` | Popular articles (no images) | Essential | All U.S. states | ~29 GB | 64 GB |
-| `standard` | Complete (no images) | Standard | All U.S. states | ~102 GB | 128 GB |
-| `full` | Complete with images | Comprehensive | All U.S. states + Ubuntu ISO | ~224 GB | 256 GB min, 512 GB recommended |
+| `lite` | Popular articles (no images) | Essential | All U.S. states | ~29 GB + ~8 GB books | 64 GB |
+| `standard` | Complete (no images) | Standard | All U.S. states | ~102 GB + ~8 GB books | 128 GB |
+| `full` | Complete with images | Comprehensive | All U.S. states + Ubuntu ISO | ~224 GB + ~96 GB books | 512 GB |
 
 AI model per edition: **Lite** uses Qwen2.5 1.5B Instruct (~1.1 GB, runs on 4 GB RAM machines); **Standard** and **Full** use Qwen3 4B Instruct 2507 (~2.5 GB, best with 8 GB RAM). Both are Apache-2.0, so they can be included on drives you sell.
 
@@ -50,6 +51,9 @@ Downloads resume where they stopped. If anything fails, run the same command aga
 
 | Option | What it does |
 |---|---|
+| `-BooksFolder S:\Files\Survial\SolomonDigital\EBooks` | Copy the public-domain ebooks from this folder (see *Ebooks* below). |
+| `-Books essential` | Ebook tier: `none`, `essential` (~8 GB), `core` (~38 GB) or `all` (~96 GB). Default: Lite/Standard `essential`, Full `all`. |
+| `-IndexBooks core` | Which books Ask RhinoVault can search: `none`, `essential` (default), `core`, `all`. Bigger = longer build. |
 | `-MapRegions texas,illinois` | Only these states. Region names also work (`west-south-central`, `east-north-central`), or `none`. |
 | `-CacheDir D:\RhinoVaultCache` | Keep downloads and copy them to each drive, so making several client drives only downloads once. |
 | `-LocalMirror \\nas\rhinovault` | Use files you already have (ZIMs, maps, archives) from a folder or NAS share instead of downloading. |
@@ -65,6 +69,24 @@ Double-click the start file for the computer you're on. A small window shows the
 - **Mac:** the first time, right-click `Start RhinoVault (Mac).command` and choose **Open**, because macOS blocks downloaded scripts by default.
 - **Sharing:** the "Share on Network" start file binds to all network interfaces and prints addresses that phones and laptops on the same network can open.
 - **Booting:** on a Ventoy drive, restart the computer, open its boot menu (F12, F11, Esc, or Option on a Mac) and choose the USB drive. Ventoy lists the ISOs.
+
+## Ebooks
+
+RhinoVault Go can carry a large library of old how-to books (farming, medicine, food preservation, smithing, building, trades, schoolbooks). The files stay on your own storage; the repo only holds the list in [`books/ebooks.csv`](books/ebooks.csv) with a decision per file:
+
+| decision | meaning | count |
+|---|---|---|
+| `include` | Public domain: published before 1931, a U.S. government work, or Machinery's Reference Series (1908-1914) | 6,422 (~96 GB) |
+| `review` | Published 1931 or later, or no date in the file name. Not copied until someone checks the copyright (many US books from 1931-1963 are public domain because the copyright was never renewed) | 338 (~7 GB) |
+| `exclude` | Known to be under copyright (Foxfire, Food for Fifty, etc.) | 7 |
+
+To add a reviewed book, change its decision to `include`. Only `include` rows are ever copied to a drive, so drives you sell carry public domain material only.
+
+```powershell
+.\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -BooksFolder "S:\Files\Survial\SolomonDigital\EBooks"
+```
+
+Essential books are also indexed for Ask RhinoVault, so the AI can answer from them and cite the page (indexing ~870 books takes a while on the first build; later builds reuse it until the list changes).
 
 ## Ask RhinoVault (offline AI)
 

@@ -155,7 +155,7 @@
     if (!aiReady) { addMsg('bot', '<p>The AI engine is not running. Start RhinoVault with the <em>Start RhinoVault</em> shortcut on the drive.</p>'); return; }
     busy = true; sendBtn.disabled = true; stopBtn.hidden = false;
     addMsg('user', esc(question));
-    var bubble = addMsg('bot', '<p class="cursor">' + (useManuals.checked ? 'Searching the field manuals' : 'Thinking') + '</p>');
+    var bubble = addMsg('bot', '<p class="cursor">' + (useManuals.checked ? 'Searching the manuals and books' : 'Thinking') + '</p>');
     var found = useManuals.checked ? search(question, 4).catch(function () { return []; }) : Promise.resolve([]);
     var answer = '';
     found.then(function (sources) {

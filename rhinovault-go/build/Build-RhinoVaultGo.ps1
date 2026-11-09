@@ -32,6 +32,18 @@
 .PARAMETER Prune
   Delete library and map files on the drive that are no longer part of the selected edition.
 
+.PARAMETER BooksFolder
+  Folder holding the ebook library (e.g. S:\Files\Survial\SolomonDigital\EBooks). Only books marked
+  "include" in books/ebooks.csv are copied - public domain titles - in the categories of the
+  chosen -Books tier.
+
+.PARAMETER Books
+  Book tier to copy: none, essential (~7 GB), core (~38 GB) or all (~96 GB). Defaults to the edition's tier.
+
+.PARAMETER IndexBooks
+  Which books the Ask RhinoVault search index covers: none, essential, core or all. Default: essential.
+  Indexing everything takes a long time and adds several GB, so larger tiers are opt-in.
+
 .PARAMETER NoAI
   Leave out the offline AI assistant (engine and model). The field manual search index is still built.
 
@@ -53,6 +65,9 @@ param(
   [switch]$SkipHashCheck,
   [switch]$Prune,
   [switch]$NoAI,
+  [string]$BooksFolder,
+  [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$Books = '',
+  [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$IndexBooks = '',
   [switch]$Force
 )
 
@@ -346,7 +361,7 @@ function Get-PdfToText {
 
 function Build-ManualIndex($manualList, [string]$outDir) {
   if (-not $manualList.Count) { return $null }
-  $stampSrc = "v$IndexVersion|" + (($manualList | ForEach-Object { "$($_.file):$($_.size_mb)" }) -join '|')
+  $stampSrc = "v$IndexVersion|" + (($manualList | ForEach-Object { "$($_.file):$($_.size_mb):$($_.title)" }) -join '|')
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $stamp = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($stampSrc)) | ForEach-Object { $_.ToString('x2') })
   $metaPath = Join $outDir 'meta.json'
@@ -431,9 +446,19 @@ function Build-ManualIndex($manualList, [string]$outDir) {
   $meta = '{"v":' + $IndexVersion + ',"stamp":"' + $stamp + '","n":' + $chunkId + ',"avgdl":' + ([math]::Round($avg, 2)).ToString([System.Globalization.CultureInfo]::InvariantCulture) +
     ',"shardSize":' + $ChunkShardSize + ',"termShards":' + $TermShards + ',"docs":[' + ($docs -join ',') + '],"len":[' + ($chunkLens -join ',') + ']}'
   Write-Utf8 $metaPath $meta
-  Say ("   indexed {0} passages from {1} manuals ({2} had no extractable text, e.g. scanned images)" -f $chunkId, ($manualList.Count - $noText), $noText)
+  Say ("   indexed {0} passages from {1} documents ({2} had no searchable text, e.g. image-only scans)" -f $chunkId, ($manualList.Count - $noText), $noText)
   return (Read-Json $metaPath)
 }
+
+function Get-BookRows([string]$tier) {
+  if (-not $tier -or $tier -eq 'none' -or -not $manifest.books) { return @() }
+  $listPath = Join $GoDir $manifest.books.list
+  if (-not (Test-Path -LiteralPath $listPath)) { return @() }
+  $cats = @($manifest.books.tiers.$tier)
+  $all = $cats -contains '*'
+  return @(Import-Csv -LiteralPath $listPath -Encoding UTF8 | Where-Object { $_.decision -eq 'include' -and ($all -or $cats -contains $_.category) })
+}
+function Get-BookDest($row) { Join $Target ('Library/Books/' + $row.file) }
 
 # ------------------------------------------------------------------ plan
 $manifest = Read-Json $ManifestPath
@@ -496,6 +521,21 @@ foreach ($id in ($extraIds | Select-Object -Unique)) {
   Add-Plan @{ Kind = 'extra'; Id = $id; Title = $e.title; Category = $e.category; SizeMB = [double]$e.approx_mb; Spec = $e; Verify = $false }
 }
 
+# Ebooks from a local folder (public domain titles only, see books/ebooks.csv)
+$bookTier = if ($Books) { $Books } elseif ($prof.books) { $prof.books } else { 'none' }
+$indexTier = if ($IndexBooks) { $IndexBooks } elseif ($manifest.books.index_tiers) { @($manifest.books.index_tiers)[0] } else { 'none' }
+$bookRows = @()
+if ($bookTier -ne 'none') {
+  if ($BooksFolder) {
+    if (-not (Test-Path -LiteralPath $BooksFolder)) { throw "Books folder not found: $BooksFolder" }
+    $bookRows = Get-BookRows $bookTier
+    Add-Plan @{ Kind = 'books'; Id = "books-$bookTier"; Title = "Ebooks ($bookTier tier, $($bookRows.Count) public domain titles)"; Category = 'Books'
+      SizeMB = [double](($bookRows | Measure-Object -Property size_mb -Sum).Sum); Verify = $false }
+  } else {
+    Say "  (no -BooksFolder given, so the $bookTier ebook tier is skipped)" DarkGray
+  }
+}
+
 # Offline AI model
 $aiModel = $null
 if (-not $NoAI -and $prof.ai_model) {
@@ -540,7 +580,13 @@ foreach ($it in $plan) {
     'zim' { Test-Path -LiteralPath (Get-ZimPath $it) }
     'map' { Test-Path -LiteralPath (Get-MapPath $it) }
     'model' { Test-Path -LiteralPath (Join $Target ('AI/models/' + $it.Spec.file)) }
+    'books' { $false }
     default { (Test-Path -LiteralPath (Get-Marker $it)) }
+  }
+  if ($it.Kind -eq 'books') {
+    $missing = @($bookRows | Where-Object { -not (Test-Path -LiteralPath (Get-BookDest $_)) })
+    if ($missing.Count) { $todo += $it; $needMB += ($missing | Measure-Object -Property size_mb -Sum).Sum }
+    continue
   }
   if (-not $done) { $todo += $it; $needMB += $it.SizeMB }
 }
@@ -556,7 +602,7 @@ Say "  Target  : $Target   (free: $(Fmt $freeMB))"
 Say "  Content : $($plan.Count) items, $(Fmt $totalMB) total, $(Fmt $needMB) still to download"
 Write-Host ''
 $plan | Group-Object Kind | ForEach-Object {
-  $label = @{ zim = 'Library collections'; map = 'Map regions'; extra = 'Extras'; runtime = 'Runtime tools'; model = 'AI model' }[$_.Name]
+  $label = @{ zim = 'Library collections'; map = 'Map regions'; extra = 'Extras'; runtime = 'Runtime tools'; model = 'AI model'; books = 'Ebooks' }[$_.Name]
   Say ('  {0,-22} {1,4} items  {2,10}' -f $label, $_.Count, (Fmt (($_.Group | Measure-Object SizeMB -Sum).Sum)))
 }
 
@@ -596,6 +642,24 @@ foreach ($it in $plan) {
         if (Test-Path -LiteralPath $dest) { Say '   already on drive' DarkGreen; break }
         $res = @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) }
         $null = Get-Item2 $res $dest $false
+      }
+      'books' {
+        $copied = 0; $skipped = 0; $missingSrc = 0; $n = 0
+        foreach ($row in $bookRows) {
+          $n++
+          $src = Join $BooksFolder $row.file
+          $dst = Get-BookDest $row
+          $srcItem = Get-Item -LiteralPath $src -ErrorAction SilentlyContinue
+          if (-not $srcItem) { $missingSrc++; continue }
+          $dstItem = Get-Item -LiteralPath $dst -ErrorAction SilentlyContinue
+          if ($dstItem -and $dstItem.Length -eq $srcItem.Length) { $skipped++; continue }
+          if ($n % 25 -eq 0) { Write-Progress -Activity 'Copying ebooks' -Status $row.title -PercentComplete (100 * $n / $bookRows.Count) }
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
+          Copy-Item -LiteralPath $src -Destination $dst -Force
+          $copied++
+        }
+        Write-Progress -Activity 'Copying ebooks' -Completed
+        Say "   $copied copied, $skipped already on drive$(if ($missingSrc) { ", $missingSrc not found in the books folder" })"
       }
       'model' {
         $dest = Join $Target ('AI/models/' + $it.Spec.file)
@@ -686,6 +750,12 @@ if ($Prune) {
   $keepMap = @($plan | Where-Object Kind -eq 'map' | ForEach-Object { FileNameFromUrl $_.Url })
   Get-ChildItem -LiteralPath (Join $Target 'Library/ZIM') -Filter *.zim -File -ErrorAction SilentlyContinue |
     Where-Object { $keepZim -notcontains $_.Name } | ForEach-Object { Say "   removing $($_.Name)"; Remove-Item -LiteralPath $_.FullName -Force }
+  if ($BooksFolder -or $bookTier -eq 'none') {
+    $keepBooks = New-Object 'System.Collections.Generic.HashSet[string]'
+    foreach ($r in $bookRows) { [void]$keepBooks.Add(((Get-BookDest $r) -replace '\\', '/')) }
+    Get-ChildItem -LiteralPath (Join $Target 'Library/Books') -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { -not $keepBooks.Contains(($_.FullName -replace '\\', '/')) } | ForEach-Object { Say "   removing book $($_.Name)"; Remove-Item -LiteralPath $_.FullName -Force }
+  }
   Get-ChildItem -LiteralPath (Join $Target 'Maps/pmtiles') -Filter *.pmtiles -File -ErrorAction SilentlyContinue |
     Where-Object { $keepMap -notcontains $_.Name } | ForEach-Object { Say "   removing $($_.Name)"; Remove-Item -LiteralPath $_.FullName -Force }
 }
@@ -719,9 +789,17 @@ if (Test-Path -LiteralPath $manualRoot) {
   })
 }
 
-Step 'Building the field manual search index (for Ask RhinoVault)'
+# Books on the drive (whatever is there, so a drive built earlier keeps its list without -BooksFolder)
+$bookList = @(Get-BookRows 'all' | Where-Object { Test-Path -LiteralPath (Get-BookDest $_) } | ForEach-Object {
+  [ordered]@{ title = $_.title; category = $_.category; year = $_.year; size_mb = [double]$_.size_mb; file = 'Library/Books/' + ($_.file -replace '\\', '/') }
+})
+$indexCats = if ($indexTier -eq 'none') { @() } else { @($manifest.books.tiers.$indexTier) }
+$booksToIndex = @($bookList | Where-Object { $indexCats -contains '*' -or $indexCats -contains $_.category } |
+  ForEach-Object { [ordered]@{ title = $_.title; branch = $_.category; size_mb = $_.size_mb; file = $_.file } })
+
+Step "Building the Ask RhinoVault search index (field manuals + $($booksToIndex.Count) books)"
 $indexMeta = $null
-try { $indexMeta = Build-ManualIndex $manuals (Join $Target 'RhinoVault/ai/index') }
+try { $indexMeta = Build-ManualIndex (@($manuals) + @($booksToIndex)) (Join $Target 'RhinoVault/ai/index') }
 catch { Say "   index build failed: $($_.Exception.Message)" Red }
 
 $zims = @($plan | Where-Object Kind -eq 'zim' | Where-Object { Test-Path -LiteralPath (Get-ZimPath $_) } | ForEach-Object {
@@ -749,6 +827,7 @@ $credits = @(
   'Map data (c) OpenStreetMap contributors (ODbL); basemap style and fonts from Protomaps.'
 )
 foreach ($e in ($plan | Where-Object Kind -eq 'extra')) { if ($e.Spec.credit) { $credits += "$($e.Title): $($e.Spec.credit)" } }
+if ($bookList.Count) { $credits += 'Ebooks: public domain titles (published before 1931, or U.S. government works), mostly digitized by the Internet Archive and its partner libraries.' }
 
 $modelFile = Get-ChildItem -LiteralPath (Join $Target 'AI/models') -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 $modelSpec = $null
@@ -766,7 +845,7 @@ if ($modelSpec) { $credits += "AI model: $($modelSpec.credit). Runs on llama.cpp
 $index = [ordered]@{
   version = $GoVersion; edition = $Edition; profile_label = $prof.label
   built = (Get-Date).ToUniversalTime().ToString('o')
-  zims = $zims; manuals = $manuals; maps = $maps; tools = $tools; apps = $apps; isos = $isos; ai = $ai; credits = $credits
+  zims = $zims; manuals = $manuals; books = $bookList; maps = $maps; tools = $tools; apps = $apps; isos = $isos; ai = $ai; credits = $credits
 }
 $indexPath = Join $Target 'RhinoVault/launcher/library.json'
 [System.IO.File]::WriteAllText($indexPath, ($index | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
@@ -785,13 +864,13 @@ RhinoVault window, then eject the drive safely.
 
 Edition: $($prof.label)
 Built:   $(Get-Date -Format 'yyyy-MM-dd')
-Content: $($zims.Count) library collections, $($manuals.Count) field manuals, $($maps.Count) map regions
+Content: $($zims.Count) library collections, $($manuals.Count) field manuals, $($bookList.Count) ebooks, $($maps.Count) map regions
 "@
 [System.IO.File]::WriteAllText((Join $Target 'README - Start Here.txt'), ($readme -replace "`r?`n", "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
 
 Step 'Done'
-Say ("  {0} library collections, {1} field manuals, {2} map regions, {3} tools, {4} apps, {5} ISOs" -f `
-  $zims.Count, $manuals.Count, $maps.Count, $tools.Count, $apps.Count, $isos.Count) Green
+Say ("  {0} library collections, {1} field manuals, {2} ebooks, {3} map regions, {4} tools, {5} apps, {6} ISOs" -f `
+  $zims.Count, $manuals.Count, $bookList.Count, $maps.Count, $tools.Count, $apps.Count, $isos.Count) Green
 if ($failed.Count) {
   Say "  $($failed.Count) item(s) failed - run the same command again to retry:" Red
   $failed | ForEach-Object { Say "   - $($_.Title)" Red }

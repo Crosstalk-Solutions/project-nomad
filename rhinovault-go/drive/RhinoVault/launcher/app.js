@@ -19,6 +19,7 @@
   var view = document.getElementById('view');
   var q = document.getElementById('q');
   var manualBranch = 'All';
+  var bookCategory = 'All', bookLimit = 200;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -64,6 +65,8 @@
       tile('ask.html', '💬', 'Ask RhinoVault', 'Offline AI assistant that answers from the field manuals on this drive and cites the page.',
         lib.ai && lib.ai.model_file ? 'AI on board' : 'no AI model') +
       tile('#/library', '📚', 'Library', 'Wikipedia, medical references, survival, repair, farming and more. Fully searchable.', z + ' collections') +
+      tile('#/books', '📖', 'Books', 'Thousands of public-domain how-to books: farming, medicine, food preservation, smithing, building and more.',
+        (lib.books || []).length + ' books') +
       tile('#/manuals', '🎖️', 'Field Manuals', 'Public-domain U.S. military field manuals: survival, first aid, land navigation, shelters.', m + ' manuals') +
       tile('maps.html', '🗺️', 'Offline Maps', 'Street and terrain maps that work with no signal and no GPS service.', r + ' regions') +
       tile('#/tools', '🧰', 'Tools & Apps', 'Encryption and data tools, password manager and bootable rescue systems.', tools + ' items') +
@@ -87,6 +90,32 @@
     return '<a class="row" href="' + fileUrl(m.file) + '" target="_blank" rel="noopener">' +
       '<div class="main"><div class="title">' + esc(m.title) + '</div><div class="sub">' + esc(m.file.split('/').pop()) + '</div></div>' +
       '<span class="tag">' + esc(m.branch) + '</span><span class="size">' + fmtSize(m.size_mb) + '</span></a>';
+  }
+
+  function bookRow(b) {
+    return '<a class="row" href="' + fileUrl(b.file) + '" target="_blank" rel="noopener">' +
+      '<div class="main"><div class="title">' + esc(b.title) + '</div><div class="sub">' + esc(b.category) + '</div></div>' +
+      '<span class="size">' + fmtSize(b.size_mb) + '</span></a>';
+  }
+
+  function viewBooks() {
+    var books = lib.books || [];
+    if (!books.length) return '<div class="empty">No ebooks on this drive.</div>';
+    var cats = Array.from(new Set(books.map(function (b) { return b.category; }))).sort();
+    var term = q.value.trim().toLowerCase();
+    var items = books.filter(function (b) {
+      return (bookCategory === 'All' || b.category === bookCategory) &&
+        (!term || (b.title + ' ' + b.category).toLowerCase().indexOf(term) >= 0);
+    });
+    return '<h2>Books <small>' + items.length + ' of ' + books.length + '</small></h2>' +
+      '<div class="filters"><select id="bookCat" class="chip on" style="padding:7px 12px">' +
+      ['All'].concat(cats).map(function (c) {
+        return '<option' + (c === bookCategory ? ' selected' : '') + '>' + esc(c) + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="list">' + (items.slice(0, bookLimit).map(bookRow).join('') || '<div class="empty">No books match.</div>') + '</div>' +
+      (items.length > bookLimit ? '<p style="text-align:center"><button class="chip" data-more="1">Show more (' + (items.length - bookLimit) + ' left)</button></p>' : '') +
+      '<p class="note" style="margin-top:18px">All books here are in the public domain (published before 1931, or U.S. government works). ' +
+      'Old medical and technical books reflect the knowledge of their time; check modern references before relying on them.</p>';
   }
 
   function viewLibrary() {
@@ -154,8 +183,11 @@
     term = term.toLowerCase();
     var z = lib.zims.filter(function (x) { return (x.title + ' ' + (x.description || '') + ' ' + x.category).toLowerCase().indexOf(term) >= 0; });
     var m = lib.manuals.filter(function (x) { return (x.title + ' ' + x.file).toLowerCase().indexOf(term) >= 0; });
+    var bk = (lib.books || []).filter(function (x) { return (x.title + ' ' + x.category).toLowerCase().indexOf(term) >= 0; });
     return '<h2>Library <small>' + z.length + '</small></h2><div class="list">' + (z.map(zimRow).join('') || '<div class="empty">No matching collections.</div>') + '</div>' +
-      '<h2>Field Manuals <small>' + m.length + '</small></h2><div class="list">' + (m.slice(0, 200).map(manualRow).join('') || '<div class="empty">No matching manuals.</div>') + '</div>';
+      '<h2>Field Manuals <small>' + m.length + '</small></h2><div class="list">' + (m.slice(0, 200).map(manualRow).join('') || '<div class="empty">No matching manuals.</div>') + '</div>' +
+      '<h2>Books <small>' + bk.length + '</small></h2><div class="list">' + (bk.slice(0, 200).map(bookRow).join('') || '<div class="empty">No matching books.</div>') + '</div>' +
+      (bk.length > 200 ? '<p class="note">Showing the first 200 books. Open the Books section to filter by category.</p>' : '');
   }
 
   function route() {
@@ -165,9 +197,10 @@
     });
     var term = q.value.trim();
     if (!lib) return;
-    if (term && r !== 'manuals') { view.innerHTML = viewSearch(term); return; }
+    if (term && r !== 'manuals' && r !== 'books') { view.innerHTML = viewSearch(term); return; }
     view.innerHTML = r === 'library' ? viewLibrary()
       : r === 'manuals' ? viewManuals()
+      : r === 'books' ? viewBooks()
       : r === 'tools' ? viewTools()
       : r === 'about' ? viewAbout()
       : viewHome();
@@ -176,6 +209,10 @@
   view.addEventListener('click', function (e) {
     var chip = e.target.closest('[data-branch]');
     if (chip) { manualBranch = chip.getAttribute('data-branch'); route(); }
+    if (e.target.closest('[data-more]')) { bookLimit += 400; route(); }
+  });
+  view.addEventListener('change', function (e) {
+    if (e.target.id === 'bookCat') { bookCategory = e.target.value; bookLimit = 200; route(); }
   });
   q.addEventListener('input', route);
   window.addEventListener('hashchange', route);
@@ -184,7 +221,7 @@
     .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function (data) {
       lib = data;
-      lib.zims = lib.zims || []; lib.manuals = lib.manuals || []; lib.maps = lib.maps || [];
+      lib.zims = lib.zims || []; lib.manuals = lib.manuals || []; lib.maps = lib.maps || []; lib.books = lib.books || [];
       document.getElementById('footer').innerHTML =
         'RhinoVault Go ' + esc(lib.version || '') + ' &middot; by RhinoPCTec &middot; built on open-source software including ' +
         'Project N.O.M.A.D., Kiwix, MapLibre and Protomaps';

@@ -23,7 +23,8 @@
         "cyberchef",
         "keepassxc-windows"
       ],
-      "ai_model": "qwen2.5-1.5b"
+      "ai_model": "qwen2.5-1.5b",
+      "books": "essential"
     },
     "standard": {
       "label": "Standard - fits a 128 GB drive",
@@ -42,10 +43,11 @@
         "cyberchef",
         "keepassxc-windows"
       ],
-      "ai_model": "qwen3-4b"
+      "ai_model": "qwen3-4b",
+      "books": "essential"
     },
     "full": {
-      "label": "Full - 256 GB drive minimum (512 GB leaves room to grow)",
+      "label": "Full - 512 GB drive",
       "wikipedia": "all-maxi",
       "tiers": {
         "medicine": "medicine-comprehensive",
@@ -62,7 +64,8 @@
         "keepassxc-windows",
         "ubuntu-live-iso"
       ],
-      "ai_model": "qwen3-4b"
+      "ai_model": "qwen3-4b",
+      "books": "all"
     }
   },
   "runtime": [
@@ -264,5 +267,95 @@
       },
       "exe": "pdftotext.exe"
     }
+  },
+  "books": {
+    "description": "Public-domain ebooks copied from a local folder (-BooksFolder). The list and per-file decisions live in books/ebooks.csv; only rows with decision \"include\" are copied.",
+    "list": "books/ebooks.csv",
+    "tiers": {
+      "essential": [
+        "Survival Individual",
+        "Medical Emergency",
+        "Medical Courses US Army",
+        "Medical Nursing 1900 1921",
+        "Canning",
+        "Baking",
+        "Butchering",
+        "Cheese Butter Making",
+        "Farming2",
+        "Livestock Cattle",
+        "Livestock Rabbit and Cavies",
+        "Livestock Sheep",
+        "Livestock Swine",
+        "Poultry",
+        "Berries",
+        "Mushrooms",
+        "Shelter",
+        "Trapping Hunting",
+        "Stone and Masonry",
+        "Wind and Water",
+        "Radio",
+        "Shoemaking",
+        "Teaching Readers McGuffey",
+        "Teaching Arithmetic",
+        "Teaching Phonics",
+        "Rat Control",
+        "Hemp Flax"
+      ],
+      "core": [
+        "Survival Individual",
+        "Medical Emergency",
+        "Medical Courses US Army",
+        "Medical Nursing 1900 1921",
+        "Canning",
+        "Baking",
+        "Butchering",
+        "Cheese Butter Making",
+        "Farming2",
+        "Livestock Cattle",
+        "Livestock Rabbit and Cavies",
+        "Livestock Sheep",
+        "Livestock Swine",
+        "Poultry",
+        "Berries",
+        "Mushrooms",
+        "Shelter",
+        "Trapping Hunting",
+        "Stone and Masonry",
+        "Wind and Water",
+        "Radio",
+        "Shoemaking",
+        "Teaching Readers McGuffey",
+        "Teaching Arithmetic",
+        "Teaching Phonics",
+        "Rat Control",
+        "Hemp Flax",
+        "Medical Surgery 1900 1922",
+        "Medical Medicine 1900 1922",
+        "Medical Obstetrics 1900 1922",
+        "Medical Diagnostics",
+        "Beekeeping",
+        "Herbalism",
+        "Sanitation",
+        "Fishing",
+        "Smithing",
+        "Forging and Casting",
+        "Wood Carpentry",
+        "Heating",
+        "Fuels",
+        "Veterinary",
+        "Navigation",
+        "Sewing",
+        "Weaving",
+        "Leather",
+        "Knitting Crochet Needlework",
+        "Pottery"
+      ],
+      "all": [
+        "*"
+      ]
+    },
+    "index_tiers": [
+      "essential"
+    ]
   }
 }
