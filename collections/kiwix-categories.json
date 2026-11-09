@@ -555,13 +555,13 @@
       "name": "Computing & Technology",
       "slug": "computing",
       "icon": "IconCode",
-      "description": "Programming tutorials, electronics projects, and technical documentation for makers and developers.",
+      "description": "Programming tutorials, developer documentation, electronics projects, and technical Q&A.",
       "language": "en",
       "tiers": [
         {
           "name": "Essential",
           "slug": "computing-essential",
-          "description": "Learn to code with interactive tutorials and core programming documentation.",
+          "description": "Learn to code with interactive tutorials, shell scripting, Git, and core web programming docs.",
           "recommended": true,
           "resources": [
             {
@@ -574,59 +574,107 @@
             },
             {
               "id": "devdocs_en_python",
-              "version": "2026-08",
+              "version": "2026-10",
               "title": "Python Documentation",
               "description": "Complete Python language reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-08.zim",
-              "size_mb": 4
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-10.zim",
+              "size_mb": 5
             },
             {
               "id": "devdocs_en_javascript",
-              "version": "2026-07",
+              "version": "2026-10",
               "title": "JavaScript Documentation",
               "description": "MDN JavaScript reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-07.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-10.zim",
               "size_mb": 3
             },
             {
               "id": "devdocs_en_html",
-              "version": "2026-07",
+              "version": "2026-10",
               "title": "HTML Documentation",
               "description": "MDN HTML elements and attributes reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-07.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-10.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_css",
-              "version": "2026-07",
+              "version": "2026-10",
               "title": "CSS Documentation",
               "description": "MDN CSS properties and selectors reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-07.zim",
-              "size_mb": 5
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-10.zim",
+              "size_mb": 3
+            },
+            {
+              "id": "devdocs_en_bash",
+              "version": "2026-10",
+              "title": "Bash & Shell Documentation",
+              "description": "Linux bash shell command reference and scripting guides",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-10.zim",
+              "size_mb": 1
+            },
+            {
+              "id": "devdocs_en_git",
+              "version": "2026-10",
+              "title": "Git Documentation",
+              "description": "Git version control reference and user manual",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-10.zim",
+              "size_mb": 2
+            },
+            {
+              "id": "devdocs_en_sqlite",
+              "version": "2026-10",
+              "title": "SQLite Documentation",
+              "description": "SQLite database engine reference and SQL syntax",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_sqlite_2026-10.zim",
+              "size_mb": 3
             }
           ]
         },
         {
           "name": "Standard",
           "slug": "computing-standard",
-          "description": "Maker projects with Arduino and Raspberry Pi, plus more programming docs. Includes Essential.",
+          "description": "Systems languages, full-stack frameworks, maker hardware, and developer Q&A. Includes Essential.",
           "includesTier": "computing-essential",
           "resources": [
             {
-              "id": "arduino.stackexchange.com_en_all",
-              "version": "2026-02",
-              "title": "Arduino Q&A",
-              "description": "Stack Exchange Q&A for Arduino microcontroller projects",
-              "url": "https://download.kiwix.org/zim/stack_exchange/arduino.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 247
+              "id": "devdocs_en_c",
+              "version": "2026-10",
+              "title": "C Documentation",
+              "description": "C standard library reference and language guide",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_c_2026-10.zim",
+              "size_mb": 1
             },
             {
-              "id": "raspberrypi.stackexchange.com_en_all",
-              "version": "2026-02",
-              "title": "Raspberry Pi Q&A",
-              "description": "Stack Exchange Q&A for Raspberry Pi projects and troubleshooting",
-              "url": "https://download.kiwix.org/zim/stack_exchange/raspberrypi.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 285
+              "id": "devdocs_en_cpp",
+              "version": "2026-10",
+              "title": "C++ Documentation",
+              "description": "C++ language, standard library, and algorithms reference",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_cpp_2026-10.zim",
+              "size_mb": 8
+            },
+            {
+              "id": "devdocs_en_rust",
+              "version": "2026-10",
+              "title": "Rust Documentation",
+              "description": "Rust standard library reference and guides",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_rust_2026-10.zim",
+              "size_mb": 6
+            },
+            {
+              "id": "devdocs_en_go",
+              "version": "2026-10",
+              "title": "Go Documentation",
+              "description": "Go programming language packages and language specification",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_go_2026-10.zim",
+              "size_mb": 2
+            },
+            {
+              "id": "devdocs_en_typescript",
+              "version": "2026-10",
+              "title": "TypeScript Documentation",
+              "description": "TypeScript language handbook and type system reference",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_typescript_2026-10.zim",
+              "size_mb": 1
             },
             {
               "id": "devdocs_en_node",
@@ -638,59 +686,123 @@
             },
             {
               "id": "devdocs_en_react",
-              "version": "2026-02",
+              "version": "2026-05",
               "title": "React Documentation",
               "description": "React library reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_react_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_react_2026-05.zim",
               "size_mb": 3
             },
             {
-              "id": "devdocs_en_git",
-              "version": "2026-07",
-              "title": "Git Documentation",
-              "description": "Git version control reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-07.zim",
-              "size_mb": 2
+              "id": "cs.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Computer Science Q&A",
+              "description": "Stack Exchange Q&A for computer science, algorithms, and theory",
+              "url": "https://download.kiwix.org/zim/stack_exchange/cs.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 264
+            },
+            {
+              "id": "softwareengineering.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Software Engineering Q&A",
+              "description": "Stack Exchange Q&A for software architecture, design patterns, and engineering practices",
+              "url": "https://download.kiwix.org/zim/stack_exchange/softwareengineering.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 458
+            },
+            {
+              "id": "arduino.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Arduino Q&A",
+              "description": "Stack Exchange Q&A for Arduino microcontroller projects",
+              "url": "https://download.kiwix.org/zim/stack_exchange/arduino.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 247
+            },
+            {
+              "id": "raspberrypi.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Raspberry Pi Q&A",
+              "description": "Stack Exchange Q&A for Raspberry Pi projects and troubleshooting",
+              "url": "https://download.kiwix.org/zim/stack_exchange/raspberrypi.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 285
+            },
+            {
+              "id": "unix.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Unix & Linux Q&A",
+              "description": "Stack Exchange Q&A for Unix, Linux, shell utilities, and system troubleshooting",
+              "url": "https://download.kiwix.org/zim/stack_exchange/unix.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 1255
             }
           ]
         },
         {
           "name": "Comprehensive",
           "slug": "computing-comprehensive",
-          "description": "Deep electronics knowledge and extensive Q&A for hardware projects. Includes Standard.",
+          "description": "DevOps, database administration, sysadmin servers, infosec, and electronics engineering. Includes Standard.",
           "includesTier": "computing-standard",
           "resources": [
             {
+              "id": "devdocs_en_docker",
+              "version": "2026-10",
+              "title": "Docker Documentation",
+              "description": "Docker container reference and guides",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-10.zim",
+              "size_mb": 2
+            },
+            {
+              "id": "devdocs_en_postgresql",
+              "version": "2026-10",
+              "title": "PostgreSQL Documentation",
+              "description": "PostgreSQL relational database manual and SQL reference",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_postgresql_2026-10.zim",
+              "size_mb": 3
+            },
+            {
+              "id": "devops.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "DevOps Q&A",
+              "description": "Stack Exchange Q&A for continuous delivery, deployment, and infrastructure",
+              "url": "https://download.kiwix.org/zim/stack_exchange/devops.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 33
+            },
+            {
+              "id": "dba.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Database Administrators Q&A",
+              "description": "Stack Exchange Q&A for database administration, SQL optimization, and storage engines",
+              "url": "https://download.kiwix.org/zim/stack_exchange/dba.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 670
+            },
+            {
+              "id": "security.stackexchange.com_en_all",
+              "version": "2026-10",
+              "title": "Information Security Q&A",
+              "description": "Stack Exchange Q&A for cybersecurity, cryptography, and network defense",
+              "url": "https://download.kiwix.org/zim/stack_exchange/security.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 419
+            },
+            {
+              "id": "serverfault.com_en_all",
+              "version": "2026-10",
+              "title": "Server Fault Q&A",
+              "description": "Stack Exchange Q&A for system administration, networking, and server infrastructure",
+              "url": "https://download.kiwix.org/zim/stack_exchange/serverfault.com_en_all_2026-10.zim",
+              "size_mb": 1561
+            },
+            {
               "id": "electronics.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Electronics Q&A",
               "description": "Stack Exchange Q&A for circuit design, components, and electrical engineering",
-              "url": "https://download.kiwix.org/zim/stack_exchange/electronics.stackexchange.com_en_all_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/stack_exchange/electronics.stackexchange.com_en_all_2026-10.zim",
               "size_mb": 3800
             },
             {
               "id": "robotics.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Robotics Q&A",
               "description": "Stack Exchange Q&A for robotics projects and automation",
-              "url": "https://download.kiwix.org/zim/stack_exchange/robotics.stackexchange.com_en_all_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/stack_exchange/robotics.stackexchange.com_en_all_2026-10.zim",
               "size_mb": 233
-            },
-            {
-              "id": "devdocs_en_docker",
-              "version": "2026-07",
-              "title": "Docker Documentation",
-              "description": "Docker container reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-07.zim",
-              "size_mb": 2
-            },
-            {
-              "id": "devdocs_en_bash",
-              "version": "2026-01",
-              "title": "Linux Documentation",
-              "description": "Linux command reference and system administration",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-01.zim",
-              "size_mb": 1
             }
           ]
         }

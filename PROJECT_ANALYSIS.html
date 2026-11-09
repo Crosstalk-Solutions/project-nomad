@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project NOMAD — Architecture & Technical Analysis</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+      background: #0d1117;
+      color: #c9d1d9;
+    }
+    .markdown-body {
+      background: transparent !important;
+      color: #c9d1d9 !important;
+    }
+    .markdown-body table tr {
+      background-color: #161b22 !important;
+    }
+    .markdown-body table tr:nth-child(2n) {
+      background-color: #0d1117 !important;
+    }
+    .markdown-body table th, .markdown-body table td {
+      border: 1px solid #30363d !important;
+    }
+    .mermaid {
+      background: #161b22;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      text-align: center;
+    }
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0;
+      }
+      .markdown-body {
+        color: #000000 !important;
+      }
+      .mermaid {
+        background: #ffffff !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="content" class="markdown-body">Loading analysis...</div>
+  <script>
+    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+
+    fetch('PROJECT_ANALYSIS.md')
+      .then(res => res.text())
+      .then(md => {
+        // Render markdown
+        document.getElementById('content').innerHTML = marked.parse(md);
+        
+        // Find mermaid codeblocks and convert them to mermaid containers
+        document.querySelectorAll('pre code.language-mermaid').forEach(block => {
+          const pre = block.parentElement;
+          const container = document.createElement('div');
+          container.className = 'mermaid';
+          container.textContent = block.textContent;
+          pre.replaceWith(container);
+        });
+        
+        mermaid.run();
+      })
+      .catch(err => {
+        document.getElementById('content').innerHTML = '<p>Error loading PROJECT_ANALYSIS.md: ' + err + '</p>';
+      });
+  </script>
+</body>
+</html>
