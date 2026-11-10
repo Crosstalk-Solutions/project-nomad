@@ -114,7 +114,7 @@
       }).join('') + '</select></div>' +
       '<div class="list">' + (items.slice(0, bookLimit).map(bookRow).join('') || '<div class="empty">No books match.</div>') + '</div>' +
       (items.length > bookLimit ? '<p style="text-align:center"><button class="chip" data-more="1">Show more (' + (items.length - bookLimit) + ' left)</button></p>' : '') +
-      '<p class="note" style="margin-top:18px">All books here are in the public domain (published before 1931, or U.S. government works). ' +
+      '<p class="note" style="margin-top:18px">' + (lib.use && lib.use !== 'sale' ? 'Most books here are in the public domain; a few are shared with permission for ' + (lib.use === 'personal' ? 'personal use only' : 'free distribution only') + ' (see About). ' : 'All books here are in the public domain (published before 1931, U.S. government works, or U.S. books whose copyright was not renewed). ') +
       'Old medical and technical books reflect the knowledge of their time; check modern references before relying on them.</p>';
   }
 

@@ -51,7 +51,8 @@ Downloads resume where they stopped. If anything fails, run the same command aga
 
 | Option | What it does |
 |---|---|
-| `-BooksFolder S:\Files\Survial\SolomonDigital\EBooks` | Copy the public-domain ebooks from this folder (see *Ebooks* below). |
+| `-BooksFolder "S:\...\EBooks","C:\...\Survival Project"` | Folders holding the books in `books/ebooks.csv` (see *Ebooks* below). |
+| `-Use sale` | Who the drive is for: `sale` (default), `free` or `personal` (see *Ebooks*). |
 | `-Books essential` | Ebook tier: `none`, `essential` (~8 GB), `core` (~38 GB) or `all` (~96 GB). Default: Lite/Standard `essential`, Full `all`. |
 | `-IndexBooks core` | Which books Ask RhinoVault can search: `none`, `essential` (default), `core`, `all`. Bigger = longer build. |
 | `-MapRegions texas,illinois` | Only these states. Region names also work (`west-south-central`, `east-north-central`), or `none`. |
@@ -72,22 +73,35 @@ Double-click the start file for the computer you're on. A small window shows the
 
 ## Ebooks
 
-RhinoVault Go can carry a large library of old how-to books (farming, medicine, food preservation, smithing, building, trades, schoolbooks). The files stay on your own storage; the repo only holds the list in [`books/ebooks.csv`](books/ebooks.csv) with a decision per file:
+RhinoVault Go can carry a large library of how-to books (farming, medicine, food preservation, smithing, building, trades, schoolbooks, survival manuals) from your own folders. The files stay on your storage; the repo only holds the list in [`books/ebooks.csv`](books/ebooks.csv) with a decision per file:
 
 | decision | meaning | count |
 |---|---|---|
-| `include` | Public domain: published before 1931; a U.S. government work (USDA, Army, NACA, patents...); or a U.S. book from 1931-1963 whose copyright was never renewed | 6,602 (~99 GB) |
-| `exclude` | Still under copyright: renewed, foreign (U.S. copyright restored in 1996), recent, or status could not be confirmed | 165 (~5 GB) |
+| `include` | Public domain: published before 1931; a U.S. government work (USDA, Army, FEMA, NACA, patents...); or a U.S. book from 1931-1963 whose copyright was never renewed | 6,618 (~99 GB) |
+| `noncommercial` | May be copied and shared free, but not sold (Hesperian's *Where There Is No Doctor / Dentist*) | 2 |
+| `personal` | Your own copyrighted books, magazines and checklists, for your personal drives only | 193 (~6 GB) |
 
-The `note` column records why. Titles from 1931-1963 were checked against the U.S. Copyright Office renewal records (NYPL's transcription of the *Catalog of Copyright Entries*, 1950-1991), and the title and copyright pages of each book were read to identify government, foreign and recent publications. Anything that could not be confirmed is excluded. This is a careful good-faith review, not legal advice.
+The `note` column records why. Titles from 1931-1963 were checked against the U.S. Copyright Office renewal records (NYPL's transcription of the *Catalog of Copyright Entries*, 1950-1991), and the title and copyright pages of each book were read to identify government, foreign and recent publications. This is a careful good-faith review, not legal advice.
 
-To change a decision, edit its row. Only `include` rows are ever copied to a drive, so drives you sell carry public domain material only.
+**Who the drive is for** (`-Use`) decides what may go on it:
+
+| `-Use` | Copies | For |
+|---|---|---|
+| `sale` (default) | `include` only | Drives you sell to clients |
+| `free` | + `noncommercial` | Drives you give away free |
+| `personal` | + `personal` | Your own drives only. Never sell or give these away. |
+
+Rebuilding a drive with a stricter `-Use` removes anything it doesn't allow, so a personal drive can safely be reused for a client.
 
 ```powershell
-.\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -BooksFolder "S:\Files\Survial\SolomonDigital\EBooks"
+# Client drive (public domain only)
+.\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -BooksFolder "S:\Files\Survial\SolomonDigital\EBooks","C:\Users\Ralph Castillo\Desktop\Survival Project"
+
+# Your own drive with everything
+.\Build-RhinoVaultGo.ps1 -Drive F: -Edition full -Use personal -BooksFolder "S:\Files\Survial\SolomonDigital\EBooks","C:\Users\Ralph Castillo\Desktop\Survival Project"
 ```
 
-Essential books are also indexed for Ask RhinoVault, so the AI can answer from them and cite the page (indexing ~870 books takes a while on the first build; later builds reuse it until the list changes).
+Essential-tier books (which include the survival manuals, checklists and personal library) are also indexed for Ask RhinoVault, so the AI can answer from them and cite the page. Indexing ~1,000 books takes a while on the first build; later builds reuse it until the list changes.
 
 ## Ask RhinoVault (offline AI)
 

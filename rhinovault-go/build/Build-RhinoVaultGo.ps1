@@ -33,9 +33,16 @@
   Delete library and map files on the drive that are no longer part of the selected edition.
 
 .PARAMETER BooksFolder
-  Folder holding the ebook library (e.g. S:\Files\Survial\SolomonDigital\EBooks). Only books marked
-  "include" in books/ebooks.csv are copied - public domain titles - in the categories of the
-  chosen -Books tier.
+  One or more folders holding the ebooks listed in books/ebooks.csv, e.g.
+  "S:\Files\Survial\SolomonDigital\EBooks","C:\Users\Ralph Castillo\Desktop\Survival Project".
+  Each listed file is looked up in these folders by its path in the list.
+
+.PARAMETER Use
+  Who the drive is for, which decides what may go on it:
+  sale (default) - public domain only, safe for drives you sell;
+  free - also books that may be shared free but not sold (e.g. Hesperian's Where There Is No Doctor);
+  personal - also personal-use-only material: your own copyrighted books and magazines, TruePrepper
+  checklists. For your own drives only - never sell or give away a personal drive.
 
 .PARAMETER Books
   Book tier to copy: none, essential (~7 GB), core (~38 GB) or all (~96 GB). Defaults to the edition's tier.
@@ -65,7 +72,8 @@ param(
   [switch]$SkipHashCheck,
   [switch]$Prune,
   [switch]$NoAI,
-  [string]$BooksFolder,
+  [string[]]$BooksFolder,
+  [ValidateSet('sale', 'free', 'personal')][string]$Use = 'sale',
   [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$Books = '',
   [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$IndexBooks = '',
   [switch]$Force
@@ -450,13 +458,21 @@ function Build-ManualIndex($manualList, [string]$outDir) {
   return (Read-Json $metaPath)
 }
 
-function Get-BookRows([string]$tier) {
+function Get-BookRows([string]$tier, [string]$use = $Use) {
   if (-not $tier -or $tier -eq 'none' -or -not $manifest.books) { return @() }
   $listPath = Join $GoDir $manifest.books.list
   if (-not (Test-Path -LiteralPath $listPath)) { return @() }
   $cats = @($manifest.books.tiers.$tier)
   $all = $cats -contains '*'
-  return @(Import-Csv -LiteralPath $listPath -Encoding UTF8 | Where-Object { $_.decision -eq 'include' -and ($all -or $cats -contains $_.category) })
+  $allowed = @($manifest.books.uses.$use)
+  return @(Import-Csv -LiteralPath $listPath -Encoding UTF8 | Where-Object { $allowed -contains $_.decision -and ($all -or $cats -contains $_.category) })
+}
+function Find-BookSource($row) {
+  foreach ($folder in @($BooksFolder)) {
+    $p = Join $folder $row.file
+    if (Test-Path -LiteralPath $p -PathType Leaf) { return (Get-Item -LiteralPath $p) }
+  }
+  return $null
 }
 function Get-BookDest($row) { Join $Target ('Library/Books/' + $row.file) }
 
@@ -499,6 +515,10 @@ foreach ($p in (Props $prof.tiers)) {
 }
 
 # Maps
+# -BooksFolder "a","b" arrives as one string from pwsh -File / .cmd callers; split it unless it's one real folder
+if ($BooksFolder -and @($BooksFolder).Count -eq 1 -and -not (Test-Path -LiteralPath $BooksFolder[0]) -and $BooksFolder[0] -match '[,;]') {
+  $BooksFolder = @($BooksFolder[0] -split '\s*[,;]\s*' | Where-Object { $_ })
+}
 # Accept 'a,b' as well as @('a','b') (pwsh -File and .cmd callers pass one string)
 $MapRegions = @($MapRegions | ForEach-Object { $_ -split '[,;\s]+' } | Where-Object { $_ } | ForEach-Object { $_.ToLower() })
 $regionSel = if ($MapRegions.Count) { $MapRegions } else { @($prof.map_regions) }
@@ -527,9 +547,10 @@ $indexTier = if ($IndexBooks) { $IndexBooks } elseif ($manifest.books.index_tier
 $bookRows = @()
 if ($bookTier -ne 'none') {
   if ($BooksFolder) {
-    if (-not (Test-Path -LiteralPath $BooksFolder)) { throw "Books folder not found: $BooksFolder" }
+    foreach ($bf in @($BooksFolder)) { if (-not (Test-Path -LiteralPath $bf)) { throw "Books folder not found: $bf" } }
     $bookRows = Get-BookRows $bookTier
-    Add-Plan @{ Kind = 'books'; Id = "books-$bookTier"; Title = "Ebooks ($bookTier tier, $($bookRows.Count) public domain titles)"; Category = 'Books'
+    $useLabel = @{ sale = 'public domain only'; free = 'public domain + free-to-share'; personal = 'personal use' }[$Use]
+    Add-Plan @{ Kind = 'books'; Id = "books-$bookTier"; Title = "Ebooks ($bookTier tier, $($bookRows.Count) titles, $useLabel)"; Category = 'Books'
       SizeMB = [double](($bookRows | Measure-Object -Property size_mb -Sum).Sum); Verify = $false }
   } else {
     Say "  (no -BooksFolder given, so the $bookTier ebook tier is skipped)" DarkGray
@@ -647,19 +668,24 @@ foreach ($it in $plan) {
         $copied = 0; $skipped = 0; $missingSrc = 0; $n = 0
         foreach ($row in $bookRows) {
           $n++
-          $src = Join $BooksFolder $row.file
           $dst = Get-BookDest $row
-          $srcItem = Get-Item -LiteralPath $src -ErrorAction SilentlyContinue
+          $srcItem = Find-BookSource $row
           if (-not $srcItem) { $missingSrc++; continue }
           $dstItem = Get-Item -LiteralPath $dst -ErrorAction SilentlyContinue
           if ($dstItem -and $dstItem.Length -eq $srcItem.Length) { $skipped++; continue }
           if ($n % 25 -eq 0) { Write-Progress -Activity 'Copying ebooks' -Status $row.title -PercentComplete (100 * $n / $bookRows.Count) }
           New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
-          Copy-Item -LiteralPath $src -Destination $dst -Force
+          Copy-Item -LiteralPath $srcItem.FullName -Destination $dst -Force
           $copied++
         }
         Write-Progress -Activity 'Copying ebooks' -Completed
         Say "   $copied copied, $skipped already on drive$(if ($missingSrc) { ", $missingSrc not found in the books folder" })"
+        # Never leave material on a drive that its -Use doesn't allow (e.g. a personal build reused for sale)
+        $notAllowed = @(Get-BookRows 'all' 'personal' | Where-Object { @($manifest.books.uses.$Use) -notcontains $_.decision })
+        foreach ($r in $notAllowed) {
+          $p = Get-BookDest $r
+          if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force; Say "   removed (not allowed for -Use $Use): $($r.title)" DarkYellow }
+        }
       }
       'model' {
         $dest = Join $Target ('AI/models/' + $it.Spec.file)
@@ -790,7 +816,7 @@ if (Test-Path -LiteralPath $manualRoot) {
 }
 
 # Books on the drive (whatever is there, so a drive built earlier keeps its list without -BooksFolder)
-$bookList = @(Get-BookRows 'all' | Where-Object { Test-Path -LiteralPath (Get-BookDest $_) } | ForEach-Object {
+$bookList = @(Get-BookRows 'all' 'personal' | Where-Object { Test-Path -LiteralPath (Get-BookDest $_) } | ForEach-Object {
   [ordered]@{ title = $_.title; category = $_.category; year = $_.year; size_mb = [double]$_.size_mb; file = 'Library/Books/' + ($_.file -replace '\\', '/') }
 })
 $indexCats = if ($indexTier -eq 'none') { @() } else { @($manifest.books.tiers.$indexTier) }
@@ -827,7 +853,9 @@ $credits = @(
   'Map data (c) OpenStreetMap contributors (ODbL); basemap style and fonts from Protomaps.'
 )
 foreach ($e in ($plan | Where-Object Kind -eq 'extra')) { if ($e.Spec.credit) { $credits += "$($e.Title): $($e.Spec.credit)" } }
-if ($bookList.Count) { $credits += 'Ebooks: public domain titles (published before 1931, or U.S. government works), mostly digitized by the Internet Archive and its partner libraries.' }
+if ($bookList.Count) { $credits += 'Ebooks: public domain titles (published before 1931, U.S. government works, or U.S. books whose copyright was not renewed), mostly digitized by the Internet Archive and its partner libraries.' }
+if ($Use -ne 'sale') { $credits += "Where There Is No Doctor / Dentist (c) Hesperian Health Guides, shared under Hesperian's free-distribution terms. Not for sale." }
+if ($Use -eq 'personal') { $credits += 'Checklists (c) 2024 trueprepper.com, for personal use only.' }
 
 $modelFile = Get-ChildItem -LiteralPath (Join $Target 'AI/models') -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 $modelSpec = $null
@@ -843,7 +871,7 @@ $ai = [ordered]@{
 if ($modelSpec) { $credits += "AI model: $($modelSpec.credit). Runs on llama.cpp (MIT)." }
 
 $index = [ordered]@{
-  version = $GoVersion; edition = $Edition; profile_label = $prof.label
+  version = $GoVersion; edition = $Edition; profile_label = $prof.label; use = $Use
   built = (Get-Date).ToUniversalTime().ToString('o')
   zims = $zims; manuals = $manuals; books = $bookList; maps = $maps; tools = $tools; apps = $apps; isos = $isos; ai = $ai; credits = $credits
 }

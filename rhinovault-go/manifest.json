@@ -269,10 +269,13 @@
     }
   },
   "books": {
-    "description": "Public-domain ebooks copied from a local folder (-BooksFolder). The list and per-file decisions live in books/ebooks.csv; only rows with decision \"include\" are copied.",
+    "description": "Ebooks copied from local folders (-BooksFolder, one or more). The list and per-file decisions live in books/ebooks.csv. Decisions: include = public domain; noncommercial = may be shared free but not sold; personal = personal use only; exclude = never copied. -Use sale|free|personal picks which are allowed.",
     "list": "books/ebooks.csv",
     "tiers": {
       "essential": [
+        "Personal Library",
+        "Checklists",
+        "Survival Manuals",
         "Survival Individual",
         "Medical Emergency",
         "Medical Courses US Army",
@@ -302,6 +305,9 @@
         "Hemp Flax"
       ],
       "core": [
+        "Personal Library",
+        "Checklists",
+        "Survival Manuals",
         "Survival Individual",
         "Medical Emergency",
         "Medical Courses US Army",
@@ -356,6 +362,20 @@
     },
     "index_tiers": [
       "essential"
-    ]
+    ],
+    "uses": {
+      "sale": [
+        "include"
+      ],
+      "free": [
+        "include",
+        "noncommercial"
+      ],
+      "personal": [
+        "include",
+        "noncommercial",
+        "personal"
+      ]
+    }
   }
 }
