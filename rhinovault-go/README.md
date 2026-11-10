@@ -76,11 +76,12 @@ RhinoVault Go can carry a large library of old how-to books (farming, medicine, 
 
 | decision | meaning | count |
 |---|---|---|
-| `include` | Public domain: published before 1931, a U.S. government work, or Machinery's Reference Series (1908-1914) | 6,422 (~96 GB) |
-| `review` | Published 1931 or later, or no date in the file name. Not copied until someone checks the copyright (many US books from 1931-1963 are public domain because the copyright was never renewed) | 338 (~7 GB) |
-| `exclude` | Known to be under copyright (Foxfire, Food for Fifty, etc.) | 7 |
+| `include` | Public domain: published before 1931; a U.S. government work (USDA, Army, NACA, patents...); or a U.S. book from 1931-1963 whose copyright was never renewed | 6,602 (~99 GB) |
+| `exclude` | Still under copyright: renewed, foreign (U.S. copyright restored in 1996), recent, or status could not be confirmed | 165 (~5 GB) |
 
-To add a reviewed book, change its decision to `include`. Only `include` rows are ever copied to a drive, so drives you sell carry public domain material only.
+The `note` column records why. Titles from 1931-1963 were checked against the U.S. Copyright Office renewal records (NYPL's transcription of the *Catalog of Copyright Entries*, 1950-1991), and the title and copyright pages of each book were read to identify government, foreign and recent publications. Anything that could not be confirmed is excluded. This is a careful good-faith review, not legal advice.
+
+To change a decision, edit its row. Only `include` rows are ever copied to a drive, so drives you sell carry public domain material only.
 
 ```powershell
 .\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -BooksFolder "S:\Files\Survial\SolomonDigital\EBooks"
