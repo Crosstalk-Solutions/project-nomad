@@ -5,6 +5,7 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { pickAmdHsaOverride } from '../utils/amd_hsa_override.js'
+import { affectedRowCount, containerOnlyLabels, isValidImageTag } from '../utils/container_ops.js'
 import { join } from 'path'
 import os from 'node:os'
 import env from '#start/env'
@@ -34,7 +35,6 @@ const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
 @inject()
 export class DockerService {
   public docker: Docker
-  private activeInstallations: Set<string> = new Set()
   public static NOMAD_NETWORK = 'project-nomad_default'
   public static ADMIN_CONTAINER_NAME = 'nomad_admin'
   // The admin's own storage mount destination inside its container (compose maps
@@ -200,6 +200,12 @@ export class DockerService {
     this._servicesStatusInflight = null
   }
 
+  /**
+   * Contract: resolves with the current nomad_* containers ([] genuinely means "no containers"),
+   * and REJECTS when Docker could not be listed. Callers must not treat a rejection as "nothing
+   * installed" — reconciling the DB against it would mark every app uninstalled and let a later
+   * Install collide with the live container. getServicesStatus() caches successes only.
+   */
   private async _fetchServicesStatus(): Promise<{ service_name: string; status: string }[]> {
     try {
       const containers = await this.docker.listContainers({ all: true })
@@ -217,7 +223,36 @@ export class DockerService {
       }))
     } catch (error: any) {
       logger.error(`Error fetching services status: ${error.message}`)
-      return []
+      throw error
+    }
+  }
+
+  /**
+   * Atomically claim a service for a mutating operation (install, reinstall, update, recreate,
+   * uninstall, remove). The conditional UPDATE is the lock: it is shared by the web and queue
+   * worker processes, so only one of two concurrent callers can win. On success the model is
+   * refreshed so later saves of installation_status are seen as changes. Release with
+   * `_releaseService` (or by the install path setting 'idle'/'error') on every exit.
+   */
+  private async _claimService(service: Service): Promise<boolean> {
+    const result = await Service.query()
+      .where('service_name', service.service_name)
+      .whereIn('installation_status', ['idle', 'error'])
+      .update({ installation_status: 'installing' })
+    if (affectedRowCount(result) !== 1) return false
+    await service.refresh()
+    return true
+  }
+
+  /** Release a claim taken with `_claimService`. Never throws: it runs in finally blocks. */
+  private async _releaseService(serviceName: string): Promise<void> {
+    try {
+      await Service.query()
+        .where('service_name', serviceName)
+        .where('installation_status', 'installing')
+        .update({ installation_status: 'idle' })
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] Failed to release ${serviceName}`)
     }
   }
 
@@ -297,26 +332,13 @@ export class DockerService {
       }
     }
 
-    // Check if installation is already in progress (database-level)
-    if (service.installation_status === 'installing') {
+    // Atomic claim: fails if another install/update/recreate holds this service (any process).
+    if (!(await this._claimService(service))) {
       return {
         success: false,
         message: `Service ${serviceName} installation is already in progress`,
       }
     }
-
-    // Double-check with in-memory tracking (race condition protection)
-    if (this.activeInstallations.has(serviceName)) {
-      return {
-        success: false,
-        message: `Service ${serviceName} installation is already in progress`,
-      }
-    }
-
-    // Mark installation as in progress
-    this.activeInstallations.add(serviceName)
-    service.installation_status = 'installing'
-    await service.save()
 
     // Check if a service wasn't marked as installed but has an existing container
     // This can happen if the service was created but not properly installed
@@ -331,12 +353,18 @@ export class DockerService {
     //   }
     // }
 
-    const containerConfig = this._parseContainerConfig(service.container_config)
+    let containerConfig: any
+    try {
+      containerConfig = this._parseContainerConfig(service.container_config)
+    } catch (error) {
+      await this._releaseService(serviceName)
+      throw error
+    }
 
-    // Execute installation asynchronously and handle cleanup
-    this._createContainer(service, containerConfig).catch(async (error) => {
+    // Execute installation asynchronously. _createContainer cleans up after itself on failure
+    // (status 'error', removal of only the container it created), so only log here.
+    this._createContainer(service, containerConfig).catch((error) => {
       logger.error(`Installation failed for ${serviceName}: ${error.message}`)
-      await this._cleanupFailedInstallation(serviceName)
     })
 
     return {
@@ -355,6 +383,7 @@ export class DockerService {
    * Anonymous volumes (random hash names) are also not matched.
    */
   async forceReinstall(serviceName: string): Promise<{ success: boolean; message: string }> {
+    let claimed = false
     try {
       const service = await Service.query().where('service_name', serviceName).first()
       if (!service) {
@@ -364,18 +393,14 @@ export class DockerService {
         }
       }
 
-      // Check if installation is already in progress
-      if (this.activeInstallations.has(serviceName)) {
+      // Atomic claim to prevent concurrent operations (from this or the worker process)
+      if (!(await this._claimService(service))) {
         return {
           success: false,
           message: `Service ${serviceName} installation is already in progress`,
         }
       }
-
-      // Mark as installing to prevent concurrent operations
-      this.activeInstallations.add(serviceName)
-      service.installation_status = 'installing'
-      await service.save()
+      claimed = true
 
       this._broadcast(
         serviceName,
@@ -474,10 +499,9 @@ export class DockerService {
       this._broadcast(serviceName, 'recreating', `Recreating container...`)
       const containerConfig = this._parseContainerConfig(service.container_config)
 
-      // Execute installation asynchronously and handle cleanup
-      this._createContainer(service, containerConfig).catch(async (error) => {
+      // Execute installation asynchronously; _createContainer cleans up after itself on failure.
+      this._createContainer(service, containerConfig).catch((error) => {
         logger.error(`Reinstallation failed for ${serviceName}: ${error.message}`)
-        await this._cleanupFailedInstallation(serviceName)
       })
 
       return {
@@ -486,7 +510,8 @@ export class DockerService {
       }
     } catch (error: any) {
       logger.error({ err: error }, `[DockerService] Force reinstall failed for ${serviceName}`)
-      await this._cleanupFailedInstallation(serviceName)
+      // Only touch the record if we hold the claim; this path never created a container.
+      if (claimed) await this._cleanupFailedInstallation(serviceName)
       return {
         success: false,
         message: `Failed to force reinstall service ${serviceName}. Check server logs for details.`,
@@ -618,6 +643,136 @@ export class DockerService {
   }
 
   /**
+   * GPU-aware image, HostConfig and runtime env for a service container. Only Ollama gets
+   * anything extra (GPU passthrough, ROCm image, OLLAMA_* env); other services pass through
+   * unchanged. Shared by install and Edit so a reconfigure keeps the GPU setup.
+   */
+  private async _prepareGpuRuntime(
+    serviceName: string,
+    image: string,
+    hostConfig: any
+  ): Promise<{ image: string; hostConfig: any; env: string[]; amdGpuConfigured: boolean }> {
+    let finalImage = image
+    let gpuHostConfig = hostConfig
+    let amdGpuConfigured = false
+
+    if (serviceName === SERVICE_NAMES.OLLAMA) {
+      const gpuResult = await this._detectGPUType()
+
+      if (gpuResult.type === 'nvidia') {
+        this._broadcast(
+          serviceName,
+          'gpu-config',
+          `NVIDIA container runtime detected. Configuring container with GPU support...`
+        )
+
+        // Add GPU support for NVIDIA
+        gpuHostConfig = {
+          ...gpuHostConfig,
+          DeviceRequests: [
+            {
+              Driver: 'nvidia',
+              Count: -1, // -1 means all GPUs
+              Capabilities: [['gpu']],
+            },
+          ],
+        }
+      } else if (gpuResult.type === 'amd') {
+        // AMD acceleration is opt-out via the 'ai.amdGpuAcceleration' KV key (default-on).
+        // Per memory feedback: KV values can be string or boolean — coerce explicitly.
+        const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
+        const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
+
+        if (amdAccelerationEnabled) {
+          this._broadcast(
+            serviceName,
+            'gpu-config',
+            `AMD GPU detected. Using ROCm image with /dev/kfd and /dev/dri passthrough...`
+          )
+
+          finalImage = 'ollama/ollama:rocm'
+
+          // The pull-if-missing earlier in this function used service.container_image
+          // (the DB-pinned tag, e.g. ollama/ollama:0.18.2). The AMD branch overrides
+          // to a different tag — so we need to pull :rocm separately if it's not local.
+          const rocmImageExists = await this._checkImageExists(finalImage)
+          if (!rocmImageExists) {
+            this._broadcast(
+              serviceName,
+              'pulling',
+              `Pulling Docker image ${finalImage}...`
+            )
+            await this.pullImage(finalImage)
+          }
+
+          const amdDevices = await this._discoverAMDDevices()
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            Devices: amdDevices,
+          }
+          amdGpuConfigured = true
+          logger.info(
+            `[DockerService] Configured ROCm image and ${amdDevices.length} AMD device entries for Ollama`
+          )
+        } else {
+          this._broadcast(
+            serviceName,
+            'gpu-config',
+            `AMD GPU detected but acceleration is disabled via ai.amdGpuAcceleration. Using CPU-only configuration.`
+          )
+          logger.info('[DockerService] AMD GPU acceleration disabled by KV opt-out; using CPU-only configuration.')
+        }
+      } else if (gpuResult.toolkitMissing) {
+        this._broadcast(
+          serviceName,
+          'gpu-config',
+          `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
+        )
+      } else {
+        this._broadcast(
+          serviceName,
+          'gpu-config',
+          `No GPU detected. Using CPU-only configuration...`
+        )
+      }
+    }
+
+    const ollamaEnv: string[] = []
+    if (serviceName === SERVICE_NAMES.OLLAMA) {
+      ollamaEnv.push('OLLAMA_NO_CLOUD=1')
+      const flashAttentionEnabled = await KVStore.getValue('ai.ollamaFlashAttention')
+      if (flashAttentionEnabled !== false) {
+        ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
+        // KV cache quantization requires flash attention. q8_0 roughly halves the
+        // memory a context window costs for a perplexity delta in the noise, which is
+        // what makes an 8-16k window affordable on modest hardware. Ollama silently
+        // falls back to f16 on architectures that don't support it, so this is treated
+        // as headroom — the context-window resolver still budgets against f16.
+        ollamaEnv.push('OLLAMA_KV_CACHE_TYPE=q8_0')
+      }
+      // Floor for any request that doesn't carry its own num_ctx (the OpenAI-compatible
+      // path can't set one at all). Ollama's own default is 4096 on machines under 24GB
+      // VRAM, and anything past the window is silently truncated with no error — so a
+      // conversation that outgrows it just quietly loses its early turns.
+      ollamaEnv.push(`OLLAMA_CONTEXT_LENGTH=${DEFAULT_OLLAMA_CONTEXT_LENGTH}`)
+      if (amdGpuConfigured) {
+        // gfx-aware HSA override — only set for cards that actually need it. See
+        // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.
+        const hsaOverride = await this._resolveAmdHsaOverride()
+        if (hsaOverride) {
+          ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
+        }
+        // Ollama's scheduler drops integrated GPUs unless this is set (issue #1056), so
+        // AMD APUs (780M/890M/8060S) fall back to CPU-only despite correct device
+        // passthrough. It's a no-op on discrete AMD cards, so it's safe to set whenever
+        // AMD acceleration is configured.
+        ollamaEnv.push('OLLAMA_IGPU_ENABLE=1')
+      }
+    }
+    return { image: finalImage, hostConfig: gpuHostConfig, env: ollamaEnv, amdGpuConfigured }
+  }
+
+  /**
    * Handles the long-running process of creating a Docker container for a service.
    * NOTE: This method should not be called directly. Instead, use `createContainerPreflight` to check prerequisites first
    * This method will also transmit server-sent events to the client to notify of progress.
@@ -628,6 +783,9 @@ export class DockerService {
     service: Service & { dependencies?: Service[] },
     containerConfig: any
   ): Promise<void> {
+    // Id of the container this attempt created; on failure only that one is removed, never a
+    // pre-existing container that merely shares the service name.
+    let createdContainerId: string | undefined
     try {
       this._broadcast(service.service_name, 'initializing', '')
 
@@ -657,6 +815,11 @@ export class DockerService {
               'dependency-not-installed',
               `Dependency service ${dependency.service_name} is not installed. Installing it first...`
             )
+            if (!(await this._claimService(dependency))) {
+              throw new Error(
+                `Dependency service ${dependency.service_name} has an operation in progress. Try again shortly.`
+              )
+            }
             await this._createContainer(
               dependency,
               this._parseContainerConfig(dependency.container_config)
@@ -734,123 +897,16 @@ export class DockerService {
       }
 
       // GPU-aware configuration for Ollama
-      let finalImage = service.container_image
-      let gpuHostConfig = containerConfig?.HostConfig || {}
-      let amdGpuConfigured = false
-
-      if (service.service_name === SERVICE_NAMES.OLLAMA) {
-        const gpuResult = await this._detectGPUType()
-
-        if (gpuResult.type === 'nvidia') {
-          this._broadcast(
-            service.service_name,
-            'gpu-config',
-            `NVIDIA container runtime detected. Configuring container with GPU support...`
-          )
-
-          // Add GPU support for NVIDIA
-          gpuHostConfig = {
-            ...gpuHostConfig,
-            DeviceRequests: [
-              {
-                Driver: 'nvidia',
-                Count: -1, // -1 means all GPUs
-                Capabilities: [['gpu']],
-              },
-            ],
-          }
-        } else if (gpuResult.type === 'amd') {
-          // AMD acceleration is opt-out via the 'ai.amdGpuAcceleration' KV key (default-on).
-          // Per memory feedback: KV values can be string or boolean — coerce explicitly.
-          const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
-          const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
-
-          if (amdAccelerationEnabled) {
-            this._broadcast(
-              service.service_name,
-              'gpu-config',
-              `AMD GPU detected. Using ROCm image with /dev/kfd and /dev/dri passthrough...`
-            )
-
-            finalImage = 'ollama/ollama:rocm'
-
-            // The pull-if-missing earlier in this function used service.container_image
-            // (the DB-pinned tag, e.g. ollama/ollama:0.18.2). The AMD branch overrides
-            // to a different tag — so we need to pull :rocm separately if it's not local.
-            const rocmImageExists = await this._checkImageExists(finalImage)
-            if (!rocmImageExists) {
-              this._broadcast(
-                service.service_name,
-                'pulling',
-                `Pulling Docker image ${finalImage}...`
-              )
-              await this.pullImage(finalImage)
-            }
-
-            const amdDevices = await this._discoverAMDDevices()
-            gpuHostConfig = {
-              ...gpuHostConfig,
-              Devices: amdDevices,
-            }
-            amdGpuConfigured = true
-            logger.info(
-              `[DockerService] Configured ROCm image and ${amdDevices.length} AMD device entries for Ollama`
-            )
-          } else {
-            this._broadcast(
-              service.service_name,
-              'gpu-config',
-              `AMD GPU detected but acceleration is disabled via ai.amdGpuAcceleration. Using CPU-only configuration.`
-            )
-            logger.info('[DockerService] AMD GPU acceleration disabled by KV opt-out; using CPU-only configuration.')
-          }
-        } else if (gpuResult.toolkitMissing) {
-          this._broadcast(
-            service.service_name,
-            'gpu-config',
-            `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Using CPU-only configuration. Install the toolkit and reinstall AI Assistant for GPU acceleration: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
-          )
-        } else {
-          this._broadcast(
-            service.service_name,
-            'gpu-config',
-            `No GPU detected. Using CPU-only configuration...`
-          )
-        }
-      }
-
-      const ollamaEnv: string[] = []
-      if (service.service_name === SERVICE_NAMES.OLLAMA) {
-        ollamaEnv.push('OLLAMA_NO_CLOUD=1')
-        const flashAttentionEnabled = await KVStore.getValue('ai.ollamaFlashAttention')
-        if (flashAttentionEnabled !== false) {
-          ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
-          // KV cache quantization requires flash attention. q8_0 roughly halves the
-          // memory a context window costs for a perplexity delta in the noise, which is
-          // what makes an 8-16k window affordable on modest hardware. Ollama silently
-          // falls back to f16 on architectures that don't support it, so this is treated
-          // as headroom — the context-window resolver still budgets against f16.
-          ollamaEnv.push('OLLAMA_KV_CACHE_TYPE=q8_0')
-        }
-        // Floor for any request that doesn't carry its own num_ctx (the OpenAI-compatible
-        // path can't set one at all). Ollama's own default is 4096 on machines under 24GB
-        // VRAM, and anything past the window is silently truncated with no error — so a
-        // conversation that outgrows it just quietly loses its early turns.
-        ollamaEnv.push(`OLLAMA_CONTEXT_LENGTH=${DEFAULT_OLLAMA_CONTEXT_LENGTH}`)
-        if (amdGpuConfigured) {
-          // gfx-aware HSA override — only set for cards that actually need it. See
-          // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.
-          const hsaOverride = await this._resolveAmdHsaOverride()
-          if (hsaOverride) {
-            ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
-          }
-          // Ollama's scheduler drops integrated GPUs unless this is set (issue #1056), so
-          // AMD APUs (780M/890M/8060S) fall back to CPU-only despite correct device
-          // passthrough. It's a no-op on discrete AMD cards, so it's safe to set whenever
-          // AMD acceleration is configured.
-          ollamaEnv.push('OLLAMA_IGPU_ENABLE=1')
-        }
-      }
+      let {
+        image: finalImage,
+        hostConfig: gpuHostConfig,
+        env: ollamaEnv,
+        amdGpuConfigured,
+      } = await this._prepareGpuRuntime(
+        service.service_name,
+        service.container_image,
+        containerConfig?.HostConfig || {}
+      )
 
       const appEnv: string[] = []
       if (service.service_name === SERVICE_NAMES.HOMEBOX) {
@@ -897,6 +953,7 @@ export class DockerService {
           ...appEnv,
         ])
       )
+      createdContainerId = container.id
 
       this._broadcast(
         service.service_name,
@@ -936,9 +993,14 @@ export class DockerService {
 
         // The created container carries the rejected device config, so it cannot be
         // started as-is and has to go before the name can be reused.
-        await container.remove({ force: true }).catch((removeError: any) => {
-          logger.warn(`[DockerService] Could not remove the failed container: ${removeError?.message}`)
-        })
+        await container
+          .remove({ force: true })
+          .then(() => {
+            createdContainerId = undefined
+          })
+          .catch((removeError: any) => {
+            logger.warn(`[DockerService] Could not remove the failed container: ${removeError?.message}`)
+          })
 
         const { Devices, ...cpuHostConfig } = gpuHostConfig as any
         // Drop the ROCm-only env along with the devices. HSA_OVERRIDE_GFX_VERSION and
@@ -958,6 +1020,7 @@ export class DockerService {
             ...appEnv,
           ])
         )
+        createdContainerId = container.id
         await container.start()
       }
 
@@ -970,9 +1033,8 @@ export class DockerService {
       service.installation_status = 'idle'
       await service.save()
       this.invalidateServicesStatusCache()
-
-      // Remove from active installs tracking
-      this.activeInstallations.delete(service.service_name)
+      // The container is now the installed app: a later failure must not remove it.
+      createdContainerId = undefined
 
       // If Ollama was just installed, trigger Nomad docs discovery and embedding
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
@@ -1002,8 +1064,8 @@ export class DockerService {
         'error',
         `Error installing service ${service.service_name}: ${friendly}`
       )
-      // Mark install as failed and cleanup
-      await this._cleanupFailedInstallation(service.service_name)
+      // Mark install as failed and remove only the container this attempt created
+      await this._cleanupFailedInstallation(service.service_name, createdContainerId)
       throw new Error(`Failed to install service ${service.service_name}: ${friendly}`)
     }
   }
@@ -1325,24 +1387,44 @@ export class DockerService {
     }
   }
 
-  private async _cleanupFailedInstallation(serviceName: string): Promise<void> {
+  /**
+   * Mark a failed install/migration and release its claim. Only the container this attempt
+   * created (`createdContainerId`) is removed — never a pre-existing container that shares the
+   * service name, which may be the user's live app (e.g. after a transient Docker error made
+   * an installed app look uninstalled).
+   */
+  private async _cleanupFailedInstallation(
+    serviceName: string,
+    createdContainerId?: string
+  ): Promise<void> {
     try {
+      if (createdContainerId) {
+        await this.docker
+          .getContainer(createdContainerId)
+          .remove({ force: true })
+          .catch((error: any) => {
+            logger.warn(`[DockerService] Could not remove failed container for ${serviceName}: ${error.message}`)
+          })
+      }
+
       const service = await Service.query().where('service_name', serviceName).first()
       if (service) {
-        if (service.is_custom) {
+        // A container may still carry this name (a pre-existing one we did not create, or one
+        // whose removal failed). If listing fails, assume it does.
+        const containerRemains = await this._findContainerByName(serviceName)
+          .then((c) => c !== null)
+          .catch(() => true)
+        if (service.is_custom && !containerRemains) {
           // Custom apps have no seeder definition to fall back to — leaving the row would
           // surface a phantom, un-installable card. Remove the record entirely so a failed
           // install cleanly disappears. (The 'error' broadcast has already fired upstream.)
+          // Kept when a container remains so it is not orphaned from its record.
           await service.delete()
         } else {
           service.installation_status = 'error'
           await service.save()
         }
       }
-      this.activeInstallations.delete(serviceName)
-
-      // Ensure any partially created container is removed
-      await this._removeServiceContainer(serviceName)
 
       logger.info(`[DockerService] Cleaned up failed installation for ${serviceName}`)
     } catch (error: any) {
@@ -1382,13 +1464,16 @@ export class DockerService {
    * trusting the DB to have been pre-updated by a separate migration.
    */
   async migrateKiwixToLibraryMode(): Promise<void> {
-    if (this.activeInstallations.has(SERVICE_NAMES.KIWIX)) {
-      logger.warn('[DockerService] Kiwix migration already in progress, skipping duplicate call.')
+    const service = await Service.query().where('service_name', SERVICE_NAMES.KIWIX).first()
+    if (!service) {
+      throw new Error('Kiwix service record not found in DB during migration')
+    }
+    if (!(await this._claimService(service))) {
+      logger.warn('[DockerService] Kiwix has an operation in progress, skipping migration.')
       return
     }
 
-    this.activeInstallations.add(SERVICE_NAMES.KIWIX)
-
+    let createdContainerId: string | undefined
     try {
       // Step 1: Build/update the XML from current disk state
       this._broadcast(SERVICE_NAMES.KIWIX, 'migrating', 'Migrating kiwix to library mode...')
@@ -1411,14 +1496,9 @@ export class DockerService {
         )
       }
 
-      // Step 3: Read the service record and authoritatively set the correct command.
+      // Step 3: Authoritatively set the correct command on the service record.
       // Do NOT rely on prior DB state — we write container_command here so the record
       // stays consistent regardless of whether the DB migration ran.
-      const service = await Service.query().where('service_name', SERVICE_NAMES.KIWIX).first()
-      if (!service) {
-        throw new Error('Kiwix service record not found in DB during migration')
-      }
-
       service.container_command = KIWIX_LIBRARY_CMD
       service.installed = false
       service.installation_status = 'installing'
@@ -1444,19 +1524,20 @@ export class DockerService {
           },
         }),
       })
+      createdContainerId = newContainer.id
 
       await newContainer.start()
 
       service.installed = true
       service.installation_status = 'idle'
       await service.save()
-      this.activeInstallations.delete(SERVICE_NAMES.KIWIX)
+      createdContainerId = undefined
 
       this._broadcast(SERVICE_NAMES.KIWIX, 'migrated', 'Kiwix successfully migrated to library mode.')
       logger.info('[DockerService] Kiwix migration to library mode complete.')
     } catch (error: any) {
       logger.error(`[DockerService] Kiwix migration failed: ${error.message}`)
-      await this._cleanupFailedInstallation(SERVICE_NAMES.KIWIX)
+      await this._cleanupFailedInstallation(SERVICE_NAMES.KIWIX, createdContainerId)
       throw error
     }
   }
@@ -1737,6 +1818,26 @@ export class DockerService {
     serviceName: string,
     targetVersion: string
   ): Promise<{ success: boolean; message: string }> {
+    // The tag becomes part of the image reference we pull and record; accept only a Docker tag.
+    if (!isValidImageTag(targetVersion)) {
+      return { success: false, message: 'Invalid target version' }
+    }
+
+    let claimed = false
+    // Rollback state lives outside the try so the outer catch can restore the previous
+    // container after an unexpected exception, instead of leaving the service down.
+    const oldName = `${serviceName}_old`
+    let oldContainer: Docker.Container | undefined
+    let stopped = false // we stopped the original container
+    let renamed = false // the original is renamed aside to `<name>_old`
+    let newContainer: any
+    // Restore the previous container after a failed update: rename the renamed-aside old
+    // container (by id, never a stale `_old`) back into place and start it.
+    const rollbackToOld = async () => {
+      if (!oldContainer) return
+      await oldContainer.rename({ name: serviceName }).catch(() => {})
+      await oldContainer.start().catch(() => {})
+    }
     try {
       const service = await Service.query().where('service_name', serviceName).first()
       if (!service) {
@@ -1745,22 +1846,14 @@ export class DockerService {
       if (!service.installed) {
         return { success: false, message: `Service ${serviceName} is not installed` }
       }
-      if (this.activeInstallations.has(serviceName)) {
+      // Atomic DB claim, shared with install/recreate/uninstall and with the queue worker
+      // process (app auto-update), so a second Update click, another tab or a scheduled update
+      // is rejected cleanly instead of racing two runs into Docker 304/400 errors. It also lets
+      // the Apps page durably disable the Update button. Released in the finally below.
+      if (!(await this._claimService(service))) {
         return { success: false, message: `Service ${serviceName} already has an operation in progress` }
       }
-      // DB-level guard mirrors the install path. Unlike the in-memory Set above, this survives a
-      // page reload and is visible to other clients, so a second Update click (or one from another
-      // tab) is rejected cleanly instead of racing two updateContainer runs into Docker 304/400
-      // errors (stop/rename on a container the first run already moved).
-      if (service.installation_status === 'installing') {
-        return { success: false, message: `Service ${serviceName} already has an update in progress` }
-      }
-
-      this.activeInstallations.add(serviceName)
-      // Persist the in-progress flag so the Apps page can durably disable the Update button while
-      // the (often multi-GB, multi-minute) pull runs. Cleared in the finally below.
-      service.installation_status = 'installing'
-      await service.save()
+      claimed = true
 
       // newImage = the semver tag we record in the DB after the update (e.g. ollama/ollama:0.23.2).
       // runtimeImage = the tag we actually pull and run. For AMD-on-Ollama these diverge: we run
@@ -1831,21 +1924,27 @@ export class DockerService {
       const existingContainer = containers.find((c) => c.Names.includes(`/${serviceName}`))
 
       if (!existingContainer) {
-        this.activeInstallations.delete(serviceName)
         return { success: false, message: `Container for ${serviceName} not found` }
       }
 
-      const oldContainer = this.docker.getContainer(existingContainer.Id)
+      oldContainer = this.docker.getContainer(existingContainer.Id)
 
       // Inspect to capture full config before stopping
       const inspectData = await oldContainer.inspect()
+      // Labels inherited from the old image are dropped so the new image's own labels apply.
+      let oldImageLabels: Record<string, string> | undefined
+      try {
+        oldImageLabels = (await this.docker.getImage(inspectData.Image).inspect()).Config?.Labels
+      } catch {
+        // Image gone or unreadable: keep every label the container had.
+      }
 
       if (existingContainer.State === 'running') {
         await oldContainer.stop({ t: 15 })
+        stopped = true
       }
 
       // Step 3: Rename old container as safety net
-      const oldName = `${serviceName}_old`
 
       // Clear any stale rollback container left behind by a previously failed update.
       // Otherwise the rename below collides with the existing `<name>_old` and throws,
@@ -1862,19 +1961,7 @@ export class DockerService {
       }
 
       await oldContainer.rename({ name: oldName })
-
-      // Restore the previous container after a failed update: rename the renamed-aside
-      // old container back into place and start it, so a failure anywhere between here
-      // and the health check never leaves the service down.
-      const rollbackToOld = async () => {
-        const containers = await this.docker.listContainers({ all: true })
-        const oldRef = containers.find((c) => c.Names.includes(`/${oldName}`))
-        if (oldRef) {
-          const rollbackContainer = this.docker.getContainer(oldRef.Id)
-          await rollbackContainer.rename({ name: serviceName }).catch(() => {})
-          await rollbackContainer.start().catch(() => {})
-        }
-      }
+      renamed = true
 
       // Step 4: Create new container with inspected config + new image
       this._broadcast(serviceName, 'update-creating', `Creating updated container...`)
@@ -1917,12 +2004,16 @@ export class DockerService {
         ExposedPorts: inspectData.Config?.ExposedPorts || undefined,
         WorkingDir: inspectData.Config?.WorkingDir || undefined,
         User: inspectData.Config?.User || undefined,
+        // Container-set labels (io.project-nomad.managed, compose project, custom-app labels).
+        Labels: containerOnlyLabels(inspectData.Config?.Labels, oldImageLabels),
+        // Carry the whole HostConfig over (memory/CPU limits, ExtraHosts, CapAdd, ShmSize, ...)
+        // and override only the GPU fields the update re-detects for Ollama.
         HostConfig: {
-          Binds: hostConfig.Binds || undefined,
-          PortBindings: hostConfig.PortBindings || undefined,
-          RestartPolicy: hostConfig.RestartPolicy || undefined,
-          DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
-          Devices: serviceName === SERVICE_NAMES.OLLAMA && updatedAmdDevices ? updatedAmdDevices : (hostConfig.Devices || undefined),
+          ...hostConfig,
+          ...(serviceName === SERVICE_NAMES.OLLAMA && {
+            DeviceRequests: updatedDeviceRequests,
+            Devices: updatedAmdDevices ?? hostConfig.Devices,
+          }),
         },
         NetworkingConfig: inspectData.NetworkSettings?.Networks
           ? {
@@ -1940,14 +2031,13 @@ export class DockerService {
         }
       })
 
-      let newContainer: any
       try {
         newContainer = await this.docker.createContainer(newContainerConfig)
       } catch (createError: any) {
         // Rollback: rename old container back
         this._broadcast(serviceName, 'update-rollback', `Failed to create new container: ${createError.message}. Rolling back...`)
         await rollbackToOld()
-        this.activeInstallations.delete(serviceName)
+        renamed = false
         return { success: false, message: `Failed to create updated container: ${createError.message}` }
       }
 
@@ -1969,7 +2059,7 @@ export class DockerService {
           // Best effort — leave the half-created container for manual cleanup if needed.
         }
         await rollbackToOld()
-        this.activeInstallations.delete(serviceName)
+        renamed = false
         return {
           success: false,
           message: `Update failed: new container did not start (${startError.message}). Rolled back to previous version.`,
@@ -1981,14 +2071,12 @@ export class DockerService {
       const newContainerInfo = await newContainer.inspect()
 
       if (newContainerInfo.State?.Running) {
-        // Healthy — clean up old container
+        // Healthy — the new container is now the service. From here on nothing may roll back
+        // to (or restart) the old one.
+        renamed = false
+        stopped = false
         try {
-          const oldContainerRef = this.docker.getContainer(
-            (await this.docker.listContainers({ all: true })).find((c) =>
-              c.Names.includes(`/${oldName}`)
-            )?.Id || ''
-          )
-          await oldContainerRef.remove({ force: true })
+          await oldContainer.remove({ force: true })
         } catch {
           // Old container may already be gone
         }
@@ -1998,7 +2086,6 @@ export class DockerService {
         service.available_update_version = null
         await service.save()
 
-        this.activeInstallations.delete(serviceName)
         this._broadcast(
           serviceName,
           'update-complete',
@@ -2021,37 +2108,35 @@ export class DockerService {
         }
 
         await rollbackToOld()
+        renamed = false
 
-        this.activeInstallations.delete(serviceName)
         return {
           success: false,
           message: `Update failed: new container did not stay running. Rolled back to previous version.`,
         }
       }
     } catch (error: any) {
-      this.activeInstallations.delete(serviceName)
+      logger.error({ err: error }, `[DockerService] Update failed for ${serviceName}`)
+      if (renamed) {
+        // An exception the inner blocks did not handle: drop the container we created (it may
+        // hold the service name) and put the original back.
+        if (newContainer) await newContainer.remove({ force: true }).catch(() => {})
+        await rollbackToOld()
+      } else if (stopped && oldContainer) {
+        // Never renamed (e.g. a stale `_old` that could not be removed blocked the rename): the
+        // original still holds its name. Start it again; it is never removed here.
+        await oldContainer.start().catch(() => {})
+      }
       this._broadcast(
         serviceName,
         'update-rollback',
         'Update failed. Check server logs for details.'
       )
-      logger.error({ err: error }, `[DockerService] Update failed for ${serviceName}`)
       return { success: false, message: 'Update failed. Check server logs for details.' }
     } finally {
-      // Always clear the in-progress flag we set above, on every exit path (success, rollback,
-      // not-found, or thrown error). The success path already persisted the new image/version on
-      // this same in-memory model, so saving again with idle preserves that — it only flips the
-      // status. The existing activeInstallations.delete() calls on each branch handle the
-      // in-memory lock; this just keeps the durable DB flag honest.
-      const svc = await Service.query().where('service_name', serviceName).first()
-      if (svc && svc.installation_status === 'installing') {
-        svc.installation_status = 'idle'
-        try {
-          await svc.save()
-        } catch (saveErr: any) {
-          logger.error({ err: saveErr }, `[DockerService] Failed to reset installation_status for ${serviceName}`)
-        }
-      }
+      // Release the claim on every exit path (success, rollback, not-found, or thrown error) —
+      // but only if we took it, never another operation's.
+      if (claimed) await this._releaseService(serviceName)
     }
   }
 
@@ -2124,6 +2209,23 @@ export class DockerService {
     serviceName: string,
     removeImage = false
   ): Promise<{ success: boolean; message: string }> {
+    const service = await Service.query().where('service_name', serviceName).first()
+    if (!service) return { success: false, message: `Service ${serviceName} not found` }
+    if (!(await this._claimService(service))) {
+      return { success: false, message: `Service ${serviceName} has an operation in progress` }
+    }
+    try {
+      return await this._removeContainerAndImage(serviceName, removeImage)
+    } finally {
+      await this._releaseService(serviceName)
+    }
+  }
+
+  /** Stop and remove a service's container (and optionally its image). Caller holds the claim. */
+  private async _removeContainerAndImage(
+    serviceName: string,
+    removeImage: boolean
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const containers = await this.docker.listContainers({ all: true })
       const container = containers.find((c) => c.Names.includes(`/${serviceName}`))
@@ -2166,18 +2268,25 @@ export class DockerService {
     if (!service || !service.installed) {
       return { success: false, message: `Service ${serviceName} not found or not installed` }
     }
+    if (!(await this._claimService(service))) {
+      return { success: false, message: `Service ${serviceName} has an operation in progress` }
+    }
 
-    // Container/image removal is shared with custom-app deletion — the lookup is by container
-    // name, which is the service_name for curated and custom apps alike.
-    const removal = await this.removeCustomAppContainer(serviceName, removeImage)
-    if (!removal.success) return removal
+    try {
+      // Container/image removal is shared with custom-app deletion — the lookup is by container
+      // name, which is the service_name for curated and custom apps alike.
+      const removal = await this._removeContainerAndImage(serviceName, removeImage)
+      if (!removal.success) return removal
 
-    service.installed = false
-    service.installation_status = 'idle'
-    await service.save()
-    this.invalidateServicesStatusCache()
+      service.installed = false
+      service.installation_status = 'idle'
+      await service.save()
+      this.invalidateServicesStatusCache()
 
-    return { success: true, message: `Service ${serviceName} uninstalled` }
+      return { success: true, message: `Service ${serviceName} uninstalled` }
+    } finally {
+      await this._releaseService(serviceName)
+    }
   }
 
   /** Find a container by its managed service name (`/serviceName`), or null. */
@@ -2330,25 +2439,49 @@ export class DockerService {
   ): Promise<{ success: boolean; message: string }> {
     const service = await Service.query().where('service_name', serviceName).first()
     if (!service) return { success: false, message: `Service ${serviceName} not found` }
-
-    const containerConfig = this._parseContainerConfig(service.container_config)
-    const oldInfo = await this._findContainerByName(serviceName)
-    const oldName = `${serviceName}_old`
-
-    // Clear any stale `_old` left behind by a previous recreate that died mid-flight. Without this,
-    // the rename below would fail (name in use) and the rollback path would then destroy the live
-    // container and resurrect the stale one in its place.
-    const staleOld = await this._findContainerByName(oldName)
-    if (staleOld) {
-      await this.docker.getContainer(staleOld.Id).remove({ force: true }).catch(() => {})
+    if (!(await this._claimService(service))) {
+      return { success: false, message: `Service ${serviceName} has an operation in progress` }
     }
 
+    const oldName = `${serviceName}_old`
+    // Rollback state: only the container this call created is ever removed, and the original is
+    // renamed back only if this call renamed it.
+    let oldContainer: Docker.Container | undefined
+    let stopped = false
+    let renamed = false
+    let newContainer: Docker.Container | undefined
+
     try {
+      const containerConfig = this._parseContainerConfig(service.container_config)
+      // Same storage-root rewrite as install, so binds follow a relocated storage volume (#938).
+      await this._applyHostStorageRoot(containerConfig)
+      const oldInfo = await this._findContainerByName(serviceName)
+
+      // Clear any stale `_old` left behind by a previous recreate that died mid-flight. If it
+      // cannot be removed, the rename below fails and the live container stays as it is.
+      const staleOld = await this._findContainerByName(oldName)
+      if (staleOld) {
+        await this.docker.getContainer(staleOld.Id).remove({ force: true }).catch(() => {})
+      }
+
       // Stop + rename the existing container aside as a rollback safety net.
       if (oldInfo) {
-        const oldContainer = this.docker.getContainer(oldInfo.Id)
-        if (oldInfo.State === 'running') await oldContainer.stop({ t: 10 }).catch(() => {})
+        oldContainer = this.docker.getContainer(oldInfo.Id)
+        if (serviceName === SERVICE_NAMES.OLLAMA) {
+          // The recreate builds env from scratch, so keep a working HSA override (#1377).
+          try {
+            const inspect = await oldContainer.inspect()
+            await this._adoptContainerHsaOverride(inspect.Config?.Env)
+          } catch (error: any) {
+            logger.warn(`[DockerService] Could not preserve the Ollama HSA override: ${error.message}`)
+          }
+        }
+        if (oldInfo.State === 'running') {
+          await oldContainer.stop({ t: 10 }).catch(() => {})
+          stopped = true
+        }
         await oldContainer.rename({ name: oldName })
+        renamed = true
       }
 
       // Pull the image if it's missing locally, or always when forcePull (e.g. :latest updates).
@@ -2367,8 +2500,16 @@ export class DockerService {
         recreateEnv = [...recreateEnv, `HBOX_AUTH_API_KEY_PEPPER=${await this._resolveHomeboxPepper()}`]
       }
 
-      const newContainer = await this.docker.createContainer({
-        Image: service.container_image,
+      // GPU passthrough and the Ollama runtime env, built exactly as on install (no-op for others).
+      const runtime = await this._prepareGpuRuntime(
+        serviceName,
+        service.container_image,
+        containerConfig?.HostConfig ?? {}
+      )
+      recreateEnv = [...recreateEnv, ...runtime.env]
+
+      newContainer = await this.docker.createContainer({
+        Image: runtime.image,
         name: serviceName,
         Labels: {
           ...(containerConfig?.Labels ?? {}),
@@ -2376,7 +2517,7 @@ export class DockerService {
           'io.project-nomad.managed': 'true',
         },
         ...(containerConfig?.User && { User: containerConfig.User }),
-        HostConfig: containerConfig?.HostConfig ?? {},
+        HostConfig: runtime.hostConfig,
         ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
         ...(recreateEnv.length ? { Env: recreateEnv } : {}),
         ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
@@ -2390,9 +2531,14 @@ export class DockerService {
       const readiness = await this._awaitContainerReady(newContainer)
       if (!readiness.ready) throw new Error(`recreated container ${readiness.reason}`)
 
-      if (oldInfo) {
-        const oldRef = await this._findContainerByName(oldName)
-        if (oldRef) await this.docker.getContainer(oldRef.Id).remove({ force: true })
+      // The new container is now the service: nothing below may roll back or remove it.
+      newContainer = undefined
+      renamed = false
+      stopped = false
+      if (oldContainer) {
+        await oldContainer.remove({ force: true }).catch((error: any) => {
+          logger.warn(`[DockerService] Could not remove ${oldName}: ${error.message}`)
+        })
       }
       service.installed = true
       service.installation_status = 'idle'
@@ -2401,25 +2547,26 @@ export class DockerService {
       return { success: true, message: `Service ${serviceName} reconfigured successfully` }
     } catch (error: any) {
       logger.error({ err: error }, `[DockerService] recreateCustomAppContainer failed for ${serviceName}`)
-      // Roll back: discard the failed new container and restore the renamed original.
+      // Roll back: discard only the container this call created and restore the original.
       try {
-        const failedNew = await this._findContainerByName(serviceName)
-        if (failedNew) {
-          const c = this.docker.getContainer(failedNew.Id)
-          await c.stop({ t: 5 }).catch(() => {})
-          await c.remove({ force: true }).catch(() => {})
+        if (newContainer) {
+          await newContainer.stop({ t: 5 }).catch(() => {})
+          await newContainer.remove({ force: true }).catch(() => {})
         }
-        const renamed = await this._findContainerByName(oldName)
-        if (renamed) {
-          const c = this.docker.getContainer(renamed.Id)
-          await c.rename({ name: serviceName })
-          await c.start().catch(() => {})
+        if (oldContainer && renamed) {
+          await oldContainer.rename({ name: serviceName })
+          await oldContainer.start().catch(() => {})
+        } else if (oldContainer && stopped) {
+          // Rename never happened: the original still holds its name, just start it again.
+          await oldContainer.start().catch(() => {})
         }
       } catch (rollbackError: any) {
         logger.error({ err: rollbackError }, `[DockerService] rollback failed for ${serviceName}`)
       }
       this.invalidateServicesStatusCache()
       return { success: false, message: `Reconfigure failed and was rolled back: ${error.message}` }
+    } finally {
+      await this._releaseService(serviceName)
     }
   }
 

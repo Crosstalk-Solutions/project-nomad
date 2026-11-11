@@ -309,7 +309,9 @@ export class AutoUpdateService {
 
     // 4. No app (container) install/update in progress.
     try {
-      const installing = await Service.query().whereNot('installation_status', 'idle')
+      // Only a live install blocks. 'error' is a finished (failed) attempt, and stale
+      // 'installing' rows are reset to 'error' at boot by ServiceSeeder.
+      const installing = await Service.query().where('installation_status', 'installing')
       if (installing.length > 0) {
         blockers.push({
           reason: `${installing.length} app install/update(s) in progress`,

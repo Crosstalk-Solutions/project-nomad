@@ -14,8 +14,10 @@
  * preference the catalog should get a vote on.
  *
  * These helpers keep the running install's host ports while still applying every
- * other catalog change, so an app on an alternate port continues to receive image,
- * env, metadata and scheme updates. The alternative considered was flagging such
+ * other catalog change to container_config/ui_location, so an app on an alternate
+ * port continues to receive env, metadata and scheme updates. (The seeder never
+ * rewrites an installed app's container_image: that moves only through the app
+ * update flow. Not-installed rows take the catalog image verbatim.) The alternative considered was flagging such
  * rows `is_user_modified` so the sync skips them entirely, which also protects the
  * port but permanently opts that install out of all future catalog updates. This
  * is the narrower fix: preserve the one field the machine owns, sync the rest.

@@ -7,6 +7,9 @@ REQUEST_FILE="${SHARED_DIR}/update-request"
 STATUS_FILE="${SHARED_DIR}/update-status"
 LOG_FILE="${SHARED_DIR}/update-log"
 COMPOSE_FILE="/opt/project-nomad/compose.yml"
+COMPOSE_BACKUP="${COMPOSE_FILE}.pre-update"
+# Services this updater recreates (everything but itself). Also used for rollback.
+SERVICES_TO_UPDATE="admin mysql redis dozzle disk-collector"
 COMPOSE_PROJECT_NAME="project-nomad"
 
 log() {
@@ -28,8 +31,29 @@ write_status() {
 EOF
 }
 
+# Put compose.yml back as it was before this update and bring the stack back up, so a failed
+# update never leaves the admin (or a service we removed) down. Best-effort per service.
+rollback_update() {
+    log "Rolling back: restoring compose.yml from ${COMPOSE_BACKUP}..."
+    if [ -f "$COMPOSE_BACKUP" ] && cp "$COMPOSE_BACKUP" "$COMPOSE_FILE" 2>> "$LOG_FILE"; then
+        log "Restored compose.yml"
+    else
+        log "ERROR: Could not restore compose.yml from ${COMPOSE_BACKUP}"
+    fi
+    for service in $SERVICES_TO_UPDATE; do
+        docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d --no-deps "$service" >> "$LOG_FILE" 2>&1             || log "  ERROR: Failed to bring $service back up during rollback"
+    done
+}
+
 perform_update() {
     local target_tag="$1"
+
+    # The tag goes into a sed expression and an image reference: accept only release tags.
+    if ! [[ "$target_tag" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|latest)$ ]]; then
+        log "ERROR: Refusing invalid target tag '${target_tag}'"
+        write_status "error" 0 "Invalid target tag - check logs"
+        return 1
+    fi
 
     log "Update request received - starting system update (target tag: ${target_tag})"
 
@@ -41,12 +65,20 @@ perform_update() {
     log "System update initiated"
     sleep 1
 
+    # Keep a copy so any failure below can be rolled back
+    if ! cp "$COMPOSE_FILE" "$COMPOSE_BACKUP" 2>> "$LOG_FILE"; then
+        log "ERROR: Failed to back up compose.yml"
+        write_status "error" 0 "Failed to back up compose.yml - check logs"
+        return 1
+    fi
+
     # Apply target image tag to compose.yml before pulling
     log "Applying image tag '${target_tag}' to compose.yml..."
     if sed -i "s|\(image: ghcr\.io/crosstalk-solutions/project-nomad\):.*|\1:${target_tag}|" "$COMPOSE_FILE" 2>> "$LOG_FILE"; then
         log "Successfully updated compose.yml admin image tag to '${target_tag}'"
     else
         log "ERROR: Failed to update compose.yml image tag"
+        rollback_update
         write_status "error" 0 "Failed to update compose.yml image tag - check logs"
         return 1
     fi
@@ -64,6 +96,7 @@ perform_update() {
         write_status "pulled" 60 "Images pulled successfully"
     else
         log "ERROR: Failed to pull images"
+        rollback_update
         write_status "error" 0 "Failed to pull Docker images - check logs"
         return 1
     fi
@@ -74,11 +107,8 @@ perform_update() {
     write_status "recreating" 65 "Recreating containers individually..."
     log "Recreating containers individually (excluding updater)..."
     
-    # List of services to update (excluding updater)
-    SERVICES_TO_UPDATE="admin mysql redis dozzle"
-    
     local current_progress=65
-    local progress_per_service=8  # (95 - 65) / 4 services ≈ 8% per service
+    local progress_per_service=6  # (95 - 65) / 5 services = 6% per service
     
     for service in $SERVICES_TO_UPDATE; do
         log "Updating service: $service"
@@ -98,6 +128,7 @@ perform_update() {
             log "  ✓ Successfully recreated $service"
         else
             log "  ERROR: Failed to recreate $service"
+            rollback_update
             write_status "error" $current_progress "Failed to recreate $service - check logs"
             return 1
         fi

@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import KVStore from '#models/kv_store'
+import { isValidReleaseTag } from '../utils/version.js'
 
 interface UpdateStatus {
   stage: 'idle' | 'starting' | 'pulling' | 'pulled' | 'recreating' | 'complete' | 'error'
@@ -45,6 +46,11 @@ export class SystemUpdateService {
       if (!targetTag) {
         const latestVersion = await KVStore.getValue('system.latestVersion')
         targetTag = latestVersion ? `v${latestVersion}` : 'latest'
+      }
+      // The sidecar puts this tag into a sed expression and an image reference.
+      if (!isValidReleaseTag(targetTag)) {
+        logger.warn(`[SystemUpdateService]: Refusing update to invalid tag ${JSON.stringify(targetTag)}`)
+        return { success: false, message: 'Invalid target version tag.' }
       }
 
       const requestData = {

@@ -29,7 +29,7 @@ export const checkLatestVersionValidator = vine.compile(
 export const updateServiceValidator = vine.compile(
   vine.object({
     service_name: vine.string().trim(),
-    target_version: vine.string().trim(),
+    target_version: vine.string().trim().regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/),
   })
 )
 
