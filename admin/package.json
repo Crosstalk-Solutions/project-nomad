@@ -107,7 +107,7 @@
     "bullmq": "5.77.6",
     "cheerio": "1.2.0",
     "codemirror": "6.0.2",
-    "compression": "1.8.1",
+    "compression": "1.8.2",
     "dockerode": "5.0.0",
     "edge.js": "6.4.0",
     "fast-xml-parser": "5.7.0",
