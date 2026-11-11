@@ -57,10 +57,7 @@ import {
   IconAlertTriangle,
   IconXboxX,
   IconBug,
-  IconCopy,
   IconLibrary,
-  IconServer,
-  IconMenu2,
   IconArrowLeft,
   IconArrowRight,
 } from '@tabler/icons-react'

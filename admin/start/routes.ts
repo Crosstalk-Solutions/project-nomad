@@ -15,6 +15,11 @@ import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
+import MapPacksController from '#controllers/map_packs_controller'
+import OfflineRoutesController from '#controllers/offline_routes_controller'
+import MapRegionsController from '#controllers/map_regions_controller'
+import MapRegionEstimatesController from '#controllers/map_region_estimates_controller'
+import MapRoutingSettingsController from '#controllers/map_routing_settings_controller'
 import NomadMdController from '#controllers/nomad_md_controller'
 import OllamaController from '#controllers/ollama_controller'
 import OpenApiController from '#controllers/openapi_controller'
@@ -92,6 +97,30 @@ import {
 import { updateNomadMdSchema } from '#validators/nomad_md'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
 import { conditionDrugsValidator } from '#validators/conditions'
+import {
+  mapRegionRequestValidator,
+  mapRegionCheckUpdatesValidator,
+  mapRegionCancelValidator,
+  mapRegionEstimateParamsValidator,
+  mapRegionEstimateQueryValidator,
+  mapRoutingSettingsValidator,
+  mapRegionComponentParamsValidator,
+  mapOfflineRouteValidator,
+} from '#validators/maps'
+import {
+  mapAcceptedResponse,
+  mapRegionEstimateResponse,
+  mapRoutingSettingsResponse,
+  mapCatalogRefreshResponse,
+  mapMessageResponse,
+  mapRegionsResponse,
+  mapRegionOperationsResponse,
+  mapRouteResponse,
+  mapRouteErrorResponse,
+  mapRoutingCoverageResponse,
+  mapUpdateCheckResponse,
+  mapValidationResponse,
+} from '#validators/responses/maps'
 
 transmit.registerRoutes()
 
@@ -164,6 +193,194 @@ router
 
 router
   .group(() => {
+    documented(router.get('/packs', [MapPacksController, 'index']), {
+      summary: 'Inspect previously imported routing packs',
+      tags: ['maps'],
+      description:
+        'Compatibility inventory for local version 1 routing packs. The region catalog is the unified manager; these assets retain their original coverage and versions.',
+    })
+    documented(router.get('/operations', [MapRegionsController, 'operations']), {
+      summary: 'Read lightweight offline map operations and real preparation phases',
+      tags: ['maps'],
+      description:
+        'Local read-only snapshot of queue state, transfer counters, preparation phases and liveness. Legacy jobs expose file activity when reported counters are unavailable. Polling does not advance jobs or require internet. A worker heartbeat is distinct from actual progress.',
+      responses: { 200: mapRegionOperationsResponse, 503: mapMessageResponse },
+    })
+    documented(router.post('/regions/retry', [MapRegionsController, 'retry']), {
+      summary:
+        'Retry stopped map operations while preserving their original intent and cached source',
+      tags: ['maps'],
+      description:
+        'Retries a failed or cancelled country or published subregion routing operation only after reconciling prior preparation. A validated local source is reused without a provider request; a partial transfer may resume against its original source. Continents and multi-country preparations cannot be retried. Active or unconfirmed jobs cannot be retried.',
+      request: mapRegionCancelValidator,
+      responses: {
+        202: mapAcceptedResponse,
+        400: mapMessageResponse,
+        404: mapMessageResponse,
+        409: mapMessageResponse,
+        422: mapMessageResponse,
+        503: mapMessageResponse,
+      },
+    })
+    documented(router.get('/regions/catalog', [MapRegionsController, 'index']), {
+      summary: 'Get the offline region tree and effective component availability',
+      tags: ['maps'],
+      description:
+        'Reads the local public-provider routing catalog and installed data. territoryScope and countryCodes identify countries, actual provider subregions and navigation collections. A compatible installed country can cover its descendants; continents and multi-country graphs never provide automatic routing coverage. pendingProvider avoids redundant downloads without implying readiness. This request never checks remote updates or initiates downloads.',
+      responses: { 200: mapRegionsResponse, 503: mapMessageResponse },
+    })
+    documented(router.post('/regions/install', [MapRegionsController, 'install']), {
+      summary: 'Queue missing components of a published region',
+      tags: ['maps'],
+      description:
+        'Install routing for one published country or subregion. Existing coverage and cached local sources avoid duplicate transfers. Download, verification and routing preparation are one operation. Continents and multi-country sources cannot be installed or joined. Example body: {"regionId":"brazil","components":["routing"]}.',
+      request: mapRegionRequestValidator,
+      responses: {
+        202: mapAcceptedResponse,
+        400: mapMessageResponse,
+        404: mapMessageResponse,
+        409: mapMessageResponse,
+        422: mapValidationResponse,
+        503: mapMessageResponse,
+      },
+    })
+    documented(router.post('/regions/check-updates', [MapRegionsController, 'checkUpdates']), {
+      summary: 'Check source updates for a region or all installed components',
+      tags: ['maps'],
+      description:
+        'Checks public source identity without downloading source datasets or queueing preparation. Omit regionId to check all installed components. A covered child checks its owning ancestor package. up_to_date is a confirmed check; unknown or unavailable does not mean current. checkedAt records when the source was checked, separately from its data date. Installed data remains usable offline.',
+      request: mapRegionCheckUpdatesValidator,
+      responses: {
+        200: mapUpdateCheckResponse,
+        400: mapMessageResponse,
+        404: mapMessageResponse,
+        422: mapValidationResponse,
+      },
+    })
+    documented(router.get('/regions/:regionId/estimate', [MapRegionEstimatesController, 'show']), {
+      summary: 'Preview source transfer and preparation space',
+      tags: ['maps'],
+      params: mapRegionEstimateParamsValidator,
+      query: mapRegionEstimateQueryValidator,
+      description:
+        'Uses bounded public HEAD metadata with a one-hour local cache. components is routing; operation=update previews replacement inputs. Shared input is counted once. Cached bytes are reusable subject to verification. minimumFreeBytes is a conservative preparation admission requirement, not the final installed size. Offline last-known sizes are marked stale. Collections and multi-country packages are navigation only and cannot be estimated or installed.',
+      responses: {
+        200: mapRegionEstimateResponse,
+        400: mapMessageResponse,
+        404: mapMessageResponse,
+        409: mapMessageResponse,
+      },
+    })
+    documented(router.post('/regions/cancel', [MapRegionsController, 'cancel']), {
+      summary: 'Cancel queued, downloading or preparing region components',
+      tags: ['maps'],
+      request: mapRegionCancelValidator,
+      description:
+        'Requests cooperative cancellation of routing (also the default when components is omitted). cancelling remains visible until the worker and preparation process confirm their stop. Eligible country and subregion operations may be retried after cancellation. Existing installed versions and cached sources are preserved; cancellation does not uninstall a region.',
+      responses: {
+        202: mapAcceptedResponse,
+        400: mapMessageResponse,
+        404: mapMessageResponse,
+        409: mapMessageResponse,
+        503: mapMessageResponse,
+      },
+    })
+    documented(router.post('/regions/update', [MapRegionsController, 'update']), {
+      summary: 'Queue an explicit update of an installed region component',
+      tags: ['maps'],
+      description:
+        'Queues an explicit source download/preparation while keeping the installed version usable. The prepared artifact is verified before its version becomes installed. An inherited child must be managed through the owner shown in providedBy. Checking updates is a separate operation and never calls this endpoint automatically.',
+      request: mapRegionRequestValidator,
+      responses: {
+        202: mapAcceptedResponse,
+        400: mapMessageResponse,
+        404: mapMessageResponse,
+        409: mapMessageResponse,
+        422: mapValidationResponse,
+        503: mapMessageResponse,
+      },
+    })
+    documented(router.post('/regions/refresh-catalog', [MapRegionsController, 'refreshCatalog']), {
+      summary: 'Refresh the published region catalog',
+      tags: ['maps'],
+      description:
+        'Online maintenance operation that refreshes the Geofabrik public hierarchy for independent routing countries and actual published subregions. Stores the refreshed catalog locally for offline browsing. It does not create custom geographic extracts, install newly listed regions, or remove installed data when a provider changes its catalog.',
+      responses: { 200: mapCatalogRefreshResponse, 503: mapMessageResponse },
+    })
+    documented(router.delete('/regions/:regionId/:component', [MapRegionsController, 'remove']), {
+      summary: 'Remove a directly owned component',
+      tags: ['maps'],
+      description:
+        'Remove a directly owned routing region. Busy components cannot be removed. Inspect dependents in the region catalog before removing an ancestor package; its descendant coverage disappears with that owner. A covered child does not own another copy of the artifact. Pins, other routing graphs and visual map archives remain installed.',
+      params: mapRegionComponentParamsValidator,
+      responses: {
+        200: mapAcceptedResponse,
+        400: mapMessageResponse,
+        409: mapMessageResponse,
+        503: mapMessageResponse,
+      },
+    })
+    documented(router.get('/routing/coverage', [OfflineRoutesController, 'coverage']), {
+      summary: 'List installed routing graphs and supported profiles',
+      tags: ['maps'],
+      description:
+        'Returns the graph IDs and versions available to the routing API, including configured prepared packs. IDs are namespaced, for example regions:brazil or packs:monaco. Separate country graphs are not joined.',
+      responses: { 200: mapRoutingCoverageResponse },
+    })
+    documented(router.get('/routing/settings', [MapRoutingSettingsController, 'index']), {
+      summary: 'Read the persistent routing-region preference',
+      tags: ['maps'],
+      description:
+        'Shared NOMAD configuration: automatic chooses an installed graph covering the trip; fixed selects one namespaced installed graph. Missing fixed data is reported explicitly. Navigation does not contain a region selector.',
+      responses: { 200: mapRoutingSettingsResponse, 503: mapMessageResponse },
+    })
+    documented(router.put('/routing/settings', [MapRoutingSettingsController, 'update']), {
+      summary: 'Configure automatic routing or a fixed installed region',
+      tags: ['maps'],
+      request: mapRoutingSettingsValidator,
+      description:
+        'Persists locally. Fixed mode requires a currently installed graph; automatic clears a fixed selection. Explicit regionId in a route API request or map URL takes precedence, then this preference, then automatic selection. A missing selected region returns an error instead of silently falling back.',
+      responses: {
+        200: mapRoutingSettingsResponse,
+        400: mapMessageResponse,
+        409: mapMessageResponse,
+        503: mapMessageResponse,
+      },
+    })
+    documented(router.post('/packs/install', [MapPacksController, 'install']), {
+      summary: 'Install a configured version 1 routing pack',
+      tags: ['maps'],
+      description:
+        'Queue an artifact from the administrator-configured prepared-pack catalog. To prepare routes from public country/region data, use /api/maps/regions/install.',
+    })
+    documented(router.post('/packs/activate', [MapPacksController, 'activate']), {
+      summary: 'Activate a version 1 routing pack for legacy clients',
+      tags: ['maps'],
+    })
+    documented(router.post('/packs/deactivate', [MapPacksController, 'deactivate']), {
+      summary: 'Deactivate the legacy routing pack',
+      tags: ['maps'],
+    })
+    documented(router.delete('/packs/:packageId', [MapPacksController, 'uninstall']), {
+      summary: 'Remove a retained version 1 routing pack',
+      tags: ['maps'],
+    })
+    documented(router.post('/route', [OfflineRoutesController, 'route']), {
+      summary: 'Calculate an offline car or walking route',
+      tags: ['maps'],
+      description:
+        'Recommended request: {"automatic":true,"profile":"auto","locations":[{"lat":-22.9068,"lon":-43.1729},{"lat":-23.5505,"lon":-46.6333}]}. profile is auto for car or pedestrian for walking. Accepts 2 to 7 ordered points A to G, producing up to 6 route legs. Automatic routing chooses one installed graph covering every point. Optional regionId selects the namespaced graph from /routing/coverage; packageVersion pins its exact installed version and requires regionId. Missing explicit region/version returns 409 rather than silently selecting another graph. Errors include a machine-readable code; engineCode and distanceLimitMeters are included when known. DISTANCE_LIMIT_EXCEEDED is a navigation-engine limit, not missing coverage. OUTSIDE_COVERAGE means no installed graph covers all points; separate graphs are not joined. NO_PATH, UNCONNECTED_POINTS and NO_ROUTABLE_EDGE describe mode-specific graph/access failures. ENGINE_TIMEOUT and ENGINE_BUSY can be retried. The legacy request without automatic:true uses packageId/packageVersion and the active version 1 pack. Locations are WGS84 lat/lon objects; returned GeoJSON coordinates are [longitude,latitude]. Distances are meters and durations seconds. Times exclude live traffic and temporary closures.',
+      request: mapOfflineRouteValidator,
+      responses: {
+        200: mapRouteResponse,
+        400: mapRouteErrorResponse,
+        409: mapRouteErrorResponse,
+        422: mapRouteErrorResponse,
+        502: mapRouteErrorResponse,
+        503: mapRouteErrorResponse,
+        504: mapRouteErrorResponse,
+      },
+    })
     documented(router.get('/regions', [MapsController, 'listRegions']), {
       summary: 'List available map regions',
       tags: ['maps'],

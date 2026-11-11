@@ -1,0 +1,14 @@
+# Optional overlay for a virtual data disk backed by another physical filesystem.
+# Point this at an EMPTY directory on the drive holding the virtual disk.
+# Nothing is written there; statfs reads the physical volume's available space.
+services:
+  admin:
+    environment:
+      MAP_REGIONS_BACKING_DISK_PATH: /host-storage
+    volumes:
+      - type: bind
+        source: ${NOMAD_BACKING_DISK_PROBE_PATH:?Set an empty directory on the physical backing drive}
+        target: /host-storage
+        read_only: true
+        bind:
+          create_host_path: false

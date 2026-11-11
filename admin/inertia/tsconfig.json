@@ -8,5 +8,10 @@
       "~/*": ["./*"],
     },
   },
-  "include": ["./**/*.ts", "./**/*.tsx", "components/markdoc/nodes/heading.markdoc.js"],
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "components/markdoc/nodes/heading.markdoc.js",
+    "../types/better-sqlite3.d.ts"
+  ],
 }

@@ -1,0 +1,20 @@
+# Optional resource tuning for the SINGLE routing-only preparer.
+# Add after compose.regions.example.yaml; use the same map-preparation profile.
+# Current routing builds already report progress. No second builder is created.
+# Stop/finish existing jobs before intentionally replacing an older worker image.
+services:
+  admin:
+    environment:
+      MAP_REGION_BUILDER_URL: http://map-builder:8083
+      MAP_REGION_PREPARATION_BUILDER_URL: http://map-builder:8083
+  map-builder:
+    profiles: [map-preparation]
+    image: nomad-maps-builder:local
+    build:
+      context: ${NOMAD_MAPS_MODULE_DIR:?Set the module directory}
+      dockerfile: Dockerfile.builder
+    environment:
+      MAP_REGIONS_PATH: /regions
+      MAP_REGION_JOBS_SUBDIR: builder-jobs
+    mem_limit: ${NOMAD_MAP_PREPARATION_MEMORY:-6g}
+    cpus: ${NOMAD_MAP_PREPARATION_CPUS:-2}

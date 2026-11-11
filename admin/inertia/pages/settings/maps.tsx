@@ -19,6 +19,8 @@ import ActiveDownloads from '~/components/ActiveDownloads'
 import Alert from '~/components/Alert'
 import { formatBytes } from '~/lib/util'
 import { hasDownloadedGlobalMap } from '~/lib/global_map_banner'
+import OfflineRegionsManager from '~/components/maps/OfflineRegionsManager'
+import MapRoutingSettings from '~/components/maps/MapRoutingSettings'
 
 const CURATED_COLLECTIONS_KEY = 'curated-map-collections'
 const GLOBAL_MAP_INFO_KEY = 'global-map-info'
@@ -298,8 +300,8 @@ export default function MapsManager(props: {
   return (
     <SettingsLayout>
       <Head title="Maps Manager" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
+      <div className="w-full min-w-0 xl:pl-72">
+        <main className="px-4 py-6 sm:px-8 xl:px-12">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
@@ -379,11 +381,11 @@ export default function MapsManager(props: {
             type="info-inverted"
             variant="bordered"
             className="mt-8"
-            icon="IconMap2"
+            icon="IconMap"
             buttonProps={{
               variant: 'primary',
               children: 'Choose Countries',
-              icon: 'IconMap2',
+              icon: 'IconMap',
               onClick: openCountryPickerModal,
             }}
           />
@@ -448,6 +450,8 @@ export default function MapsManager(props: {
             ]}
             data={props.maps.regionFiles || []}
           />
+          <MapRoutingSettings />
+          <OfflineRegionsManager />
           <ActiveDownloads filetype="map" withHeader />
         </main>
       </div>

@@ -19,6 +19,8 @@ interface MarkerPanelProps {
   onSelect: (id: number | null) => void
   onToggleVisibility: (id: number, visible: boolean) => void
   selectedMarkerId: number | null
+  routeSelectionLabel?: string
+  onChooseForRoute?: (marker: MapMarker) => boolean
 }
 
 type SortField = 'name' | 'color' | 'visibility' | 'icon'
@@ -75,13 +77,15 @@ const getColorSortValue = (color: string, customColor?: string | null): ColorSor
 }
 
 export default function MarkerPanel({
-                                      markers,
-                                      onDelete,
-                                      onFlyTo,
-                                      onSelect,
-                                      onToggleVisibility,
-                                      selectedMarkerId,
-                                    }: MarkerPanelProps) {
+  markers,
+  onDelete,
+  onFlyTo,
+  onSelect,
+  onToggleVisibility,
+  selectedMarkerId,
+  routeSelectionLabel,
+  onChooseForRoute,
+}: MarkerPanelProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   // The pin whose delete is armed. Deleting a place is not undoable and the
@@ -191,6 +195,10 @@ export default function MarkerPanel({
         <button
           type="button"
           onClick={() => {
+            if (onChooseForRoute) {
+              if (onChooseForRoute(marker)) onFlyTo(marker.longitude, marker.latitude)
+              return
+            }
             onSelect(marker.id)
             onFlyTo(marker.longitude, marker.latitude)
           }}
@@ -260,7 +268,7 @@ export default function MarkerPanel({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="absolute left-4 top-[72px] z-40 flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-primary/95 px-3 py-2 shadow-lg backdrop-blur-sm transition-colors hover:bg-surface-secondary"
+        className="absolute left-4 top-[152px] z-40 flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-primary/95 px-3 py-2 shadow-lg backdrop-blur-sm transition-colors hover:bg-surface-secondary md:top-[72px]"
         title="Show saved locations"
       >
         <IconMapPin size={18} className="text-desert-orange" />
@@ -276,7 +284,7 @@ export default function MarkerPanel({
   }
 
   return (
-    <div className="absolute left-4 top-[72px] z-40 w-72 rounded-lg border border-border-subtle bg-surface-primary/95 shadow-lg backdrop-blur-sm">
+    <div className="absolute left-4 top-[152px] z-40 w-72 rounded-lg border border-border-subtle bg-surface-primary/95 shadow-lg backdrop-blur-sm md:top-[72px]">
       {/* The whole title bar closes the panel, mirroring the "Pins" button that
           opens it -- clicking the title to open but having to find the X to
           close is the kind of asymmetry that makes a panel feel fiddly. The X
@@ -315,6 +323,11 @@ export default function MarkerPanel({
       </div>
 
       <div className="space-y-2 border-b border-border-subtle px-3 py-2">
+        {routeSelectionLabel && (
+          <p role="status" className="rounded bg-desert-orange/10 p-2 text-xs text-text-primary">
+            Select a saved pin to set {routeSelectionLabel}.
+          </p>
+        )}
         <input
           type="search"
           placeholder="Search pins..."
@@ -358,7 +371,7 @@ export default function MarkerPanel({
         )}
       </div>
 
-      <div className="max-h-[calc(100vh-244px)] overflow-y-auto">
+      <div className="max-h-[calc(100dvh-276px)] overflow-y-auto md:max-h-[calc(100vh-244px)]">
         {markers.length === 0 ? (
           <div className="px-3 py-6 text-center">
             <IconMapPinFilled size={24} className="mx-auto mb-2 text-text-muted" />

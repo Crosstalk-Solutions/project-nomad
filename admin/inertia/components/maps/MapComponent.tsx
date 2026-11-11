@@ -4,6 +4,8 @@ import Map, {
   MapProvider,
   NavigationControl,
   ScaleControl,
+  Source,
+  Layer,
 } from 'react-map-gl/maplibre'
 import type { MapLayerMouseEvent, MapRef } from 'react-map-gl/maplibre'
 import maplibregl from 'maplibre-gl'
@@ -20,6 +22,14 @@ import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitSelector'
+import type { OfflineRouteResult, RoutePoint } from './OfflineRoutePanel'
+import { formatMapPoint, mapPointerMoved } from '../../../app/utils/map_route_link'
+import {
+  mapFramingBounds,
+  normalizeMapEventPoint,
+  normalizedMapBounds,
+  type SearchMapView,
+} from '../../../app/utils/map_omnibox'
 
 type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
@@ -34,6 +44,23 @@ type MapComponentProps = {
   mapCommand?: MapCommand | null
   isHoveringUI?: boolean
   showCoordinatesEnabled?: boolean
+  route?: OfflineRouteResult | null
+  routePoints?: {
+    id: string
+    point: RoutePoint | null
+    label: string
+    placeLabel?: string
+    placePrecision?: string
+    placeSource?: string
+  }[]
+  pickingRoutePoint?: boolean
+  pickingRouteLabel?: string
+  onRoutePoint?: (
+    point: RoutePoint & { label?: string; precision?: string; source?: string }
+  ) => void
+  onViewChange?: (point: SearchMapView) => void
+  boundsCommand?: { id: number; bounds: [number, number, number, number] } | null
+  routePanelOpen?: boolean
 }
 
 type MapLocationParams = {
@@ -44,6 +71,14 @@ type MapLocationParams = {
 
 const SAVED_MAP_VIEW_KEY = 'nomad:map-view'
 const DEFAULT_MAP_VIEW = { longitude: -101, latitude: 40, zoom: 3.5 }
+
+const getRouteColors = () => {
+  const tokens = getComputedStyle(document.documentElement)
+  return {
+    line: tokens.getPropertyValue('--color-desert-orange').trim(),
+    halo: tokens.getPropertyValue('--color-surface-primary').trim(),
+  }
+}
 
 type SavedMapView = { longitude: number; latitude: number; zoom: number }
 
@@ -131,13 +166,32 @@ const isValidMarkerCoordinate = (marker: { longitude: number; latitude: number }
   marker.latitude >= -90 &&
   marker.latitude <= 90
 export default function MapComponent({
-                                       mapCommand,
-                                       isHoveringUI = false,
-                                       showCoordinatesEnabled = true,
-                                     }: MapComponentProps) {
+  mapCommand,
+  isHoveringUI = false,
+  showCoordinatesEnabled = true,
+  route = null,
+  routePoints,
+  pickingRoutePoint = false,
+  pickingRouteLabel,
+  onRoutePoint,
+  boundsCommand,
+  routePanelOpen = false,
+  onViewChange,
+}: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
   const handledMapCommandIdRef = useRef<number | null>(null)
+  const rightGesture = useRef<{
+    x: number
+    y: number
+    moved: boolean
+    copied: boolean
+    released: boolean
+    pending?: RoutePoint
+  } | null>(null)
+  const [clipboardNotice, setClipboardNotice] = useState<{ value: string; copied: boolean } | null>(
+    null
+  )
 
   const { markers, addMarker, updateMarker, deleteMarker } = useMapMarkers()
 
@@ -148,13 +202,13 @@ export default function MapComponent({
   const [editingMarkerId, setEditingMarkerId] = useState<number | null>(null)
   const [hasUnsavedMarkerChanges, setHasUnsavedMarkerChanges] = useState(false)
   const [showCoordinates, setShowCoordinates] = useState(false)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const [routeColors, setRouteColors] = useState(getRouteColors)
 
   const getInitialScaleUnit = (): ScaleUnit => {
     const stored = localStorage.getItem('nomad:map-scale-unit')
 
-    return stored === 'metric' || stored === 'imperial' || stored === 'nautical'
-      ? stored
-      : 'metric'
+    return stored === 'metric' || stored === 'imperial' || stored === 'nautical' ? stored : 'metric'
   }
 
   const [scaleUnit, setScaleUnit] = useState<ScaleUnit>(getInitialScaleUnit)
@@ -199,6 +253,63 @@ export default function MapComponent({
       maplibregl.removeProtocol('pmtiles')
     }
   }, [])
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => setRouteColors(getRouteColors()))
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'class', 'style'],
+    })
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'class', 'style'],
+    })
+    return () => observer.disconnect()
+  }, [])
+
+  const fitMapBounds = useCallback((bounds: [number, number, number, number]) => {
+    const map = mapRef.current
+    const frame = mapFramingBounds(bounds)
+    if (!map || !frame) return
+    const [west, south, east, north] = frame
+    const wideScreen = map.getContainer().clientWidth >= 768
+    try {
+      map.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: {
+            top: wideScreen ? 100 : 190,
+            bottom: 80,
+            left: 50,
+            right: wideScreen ? 400 : 50,
+          },
+          maxZoom: 16,
+          duration: 900,
+        }
+      )
+    } catch (error) {
+      console.warn('Unable to frame the selected map area.', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!mapLoaded || !route) return
+    const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity]
+    for (const [longitude, latitude] of route.geometry.coordinates) {
+      bounds[0] = Math.min(bounds[0], longitude)
+      bounds[1] = Math.min(bounds[1], latitude)
+      bounds[2] = Math.max(bounds[2], longitude)
+      bounds[3] = Math.max(bounds[3], latitude)
+    }
+    if (bounds.every(Number.isFinite)) fitMapBounds(bounds)
+  }, [route, mapLoaded, fitMapBounds])
+
+  useEffect(() => {
+    if (mapLoaded && boundsCommand) fitMapBounds(boundsCommand.bounds)
+  }, [boundsCommand, mapLoaded, fitMapBounds])
 
   useEffect(() => {
     return () => {
@@ -274,20 +385,83 @@ export default function MapComponent({
   }, [])
 
   const handleMapLoad = useCallback(() => {
+    setMapLoaded(true)
     flyToLocationParams()
-  }, [flyToLocationParams])
+    const center = mapRef.current?.getCenter()
+    const bounds = mapRef.current?.getBounds()
+    if (center)
+      onViewChange?.({
+        lat: center.lat,
+        lon: center.lng,
+        bounds: bounds
+          ? normalizedMapBounds([
+              bounds.getWest(),
+              bounds.getSouth(),
+              bounds.getEast(),
+              bounds.getNorth(),
+            ])
+          : undefined,
+      })
+  }, [flyToLocationParams, onViewChange])
 
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
       if (!confirmDiscardMarkerChanges()) return
+      const point = normalizeMapEventPoint({ lat: e.lngLat.lat, lon: e.lngLat.lng })
 
-      setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+      if (pickingRoutePoint && onRoutePoint) {
+        onRoutePoint(point)
+        setPlacingMarker(null)
+        setSelectedMarkerId(null)
+        setEditingMarkerId(null)
+        setHasUnsavedMarkerChanges(false)
+        setTargetIndicator(null)
+        return
+      }
+
+      setPlacingMarker({ lng: point.lon, lat: point.lat })
       setSelectedMarkerId(null)
       setEditingMarkerId(null)
       setHasUnsavedMarkerChanges(false)
       setTargetIndicator(null)
     },
-    [confirmDiscardMarkerChanges]
+    [confirmDiscardMarkerChanges, pickingRoutePoint, onRoutePoint]
+  )
+
+  const copyPoint = useCallback(async (point: RoutePoint) => {
+    const value = formatMapPoint(point)
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(value)
+      setClipboardNotice({ value, copied: true })
+    } catch {
+      setClipboardNotice({ value, copied: false })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!clipboardNotice?.copied) return
+    const timer = window.setTimeout(() => setClipboardNotice(null), 4500)
+    return () => window.clearTimeout(timer)
+  }, [clipboardNotice])
+
+  const handleContextMenu = useCallback(
+    (event: MapLayerMouseEvent) => {
+      const target = event.originalEvent.target as HTMLElement | null
+      if (target?.closest('.maplibregl-ctrl,.maplibregl-popup,input,button,a,textarea')) return
+      event.originalEvent.preventDefault()
+      const gesture = rightGesture.current
+      if (!gesture || gesture.moved || gesture.copied) return
+      const point = normalizeMapEventPoint({ lat: event.lngLat.lat, lon: event.lngLat.lng })
+      // MapLibre may defer a mousedown contextmenu until after mouseup while
+      // preserving the original event's buttons=2 (macOS/Linux).
+      if (!gesture.released && event.originalEvent.buttons & 2) gesture.pending = point
+      else {
+        gesture.copied = true
+        void copyPoint(point)
+      }
+    },
+    [copyPoint]
   )
 
   const handleMouseMove = useCallback(
@@ -309,10 +483,11 @@ export default function MapComponent({
       }
 
       animationFrameRef.current = requestAnimationFrame(() => {
+        const point = normalizeMapEventPoint({ lat: e.lngLat.lat, lon: e.lngLat.lng })
         setShowCoordinates(true)
         setCursorLngLat({
-          lng: e.lngLat.lng,
-          lat: e.lngLat.lat,
+          lng: point.lon,
+          lat: point.lat,
           x: e.point.x,
           y: e.point.y,
         })
@@ -320,7 +495,6 @@ export default function MapComponent({
     },
     [hideCoordinates, isHoveringUI, isDraggingMap, showCoordinatesEnabled]
   )
-
 
   const handleFlyTo = useCallback((longitude: number, latitude: number) => {
     setTargetIndicator(null)
@@ -344,12 +518,19 @@ export default function MapComponent({
   return (
     <MapProvider>
       <div
-        style={{ position: 'relative', width: '100%', height: '100vh' }}
+        style={{ position: 'relative', width: '100%', height: '100%' }}
         onMouseLeave={() => {
+          if (rightGesture.current) rightGesture.current.moved = true
           setIsDraggingMap(false)
           hideCoordinates()
         }}
         onMouseMoveCapture={(e) => {
+          if (
+            rightGesture.current &&
+            !rightGesture.current.released &&
+            mapPointerMoved(rightGesture.current, { x: e.clientX, y: e.clientY })
+          )
+            rightGesture.current.moved = true
           const target = e.target as HTMLElement | null
 
           if (
@@ -364,7 +545,7 @@ export default function MapComponent({
         <Map
           ref={mapRef}
           reuseMaps
-          style={{ width: '100%', height: '100vh' }}
+          style={{ width: '100%', height: '100%' }}
           cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
           mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
           mapLib={maplibregl}
@@ -372,6 +553,19 @@ export default function MapComponent({
           onMoveEnd={(e) => {
             // Persist the view so a refresh restores where the user was, not the default.
             const { longitude, latitude, zoom } = e.viewState
+            const bounds = mapRef.current?.getBounds()
+            onViewChange?.({
+              lat: latitude,
+              lon: longitude,
+              bounds: bounds
+                ? normalizedMapBounds([
+                    bounds.getWest(),
+                    bounds.getSouth(),
+                    bounds.getEast(),
+                    bounds.getNorth(),
+                  ])
+                : undefined,
+            })
             try {
               localStorage.setItem(
                 SAVED_MAP_VIEW_KEY,
@@ -382,14 +576,34 @@ export default function MapComponent({
             }
           }}
           onLoad={handleMapLoad}
-          onMouseDown={() => {
+          onMouseDown={(event) => {
+            if (event.originalEvent.button === 2)
+              rightGesture.current = {
+                x: event.originalEvent.clientX,
+                y: event.originalEvent.clientY,
+                moved: false,
+                copied: false,
+                released: false,
+              }
             setIsDraggingMap(true)
             hideCoordinates()
           }}
-          onMouseUp={() => {
+          onMouseUp={(event) => {
             setIsDraggingMap(false)
+            const gesture = rightGesture.current
+            if (event.originalEvent.button === 2 && gesture) gesture.released = true
+            if (
+              event.originalEvent.button === 2 &&
+              gesture?.pending &&
+              !gesture.moved &&
+              !gesture.copied
+            ) {
+              gesture.copied = true
+              void copyPoint(gesture.pending)
+            }
           }}
           onDragStart={() => {
+            if (rightGesture.current) rightGesture.current.moved = true
             setIsDraggingMap(true)
             hideCoordinates()
           }}
@@ -398,12 +612,71 @@ export default function MapComponent({
             hideCoordinates()
           }}
           onClick={handleMapClick}
+          onContextMenu={handleContextMenu}
           onMouseMove={handleMouseMove}
           onMouseLeave={hideCoordinates}
         >
-          <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
-          <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
+          <NavigationControl
+            position="bottom-right"
+            style={{ marginBottom: '16px', marginRight: '16px' }}
+          />
+          <FullscreenControl
+            position="bottom-right"
+            style={{ marginBottom: '32px', marginRight: '16px' }}
+          />
           <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
+
+          {route && (
+            <Source
+              id="offline-route"
+              type="geojson"
+              data={{ type: 'Feature', geometry: route.geometry, properties: {} }}
+            >
+              <Layer
+                id="offline-route-halo"
+                type="line"
+                layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                paint={{ 'line-color': routeColors.halo, 'line-width': 8, 'line-opacity': 0.9 }}
+              />
+              <Layer
+                id="offline-route-line"
+                type="line"
+                layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                paint={{ 'line-color': routeColors.line, 'line-width': 5 }}
+              />
+            </Source>
+          )}
+
+          {routePoints?.map(
+            ({ id, point, label, placeLabel, placePrecision, placeSource }, index) => {
+              if (!point) return null
+              return (
+                <Marker
+                  key={id}
+                  longitude={point.lon}
+                  latitude={point.lat}
+                  anchor="center"
+                  onClick={(event) => {
+                    event.originalEvent.stopPropagation()
+                    if (pickingRoutePoint && onRoutePoint && confirmDiscardMarkerChanges())
+                      onRoutePoint({
+                        ...point,
+                        label: placeLabel,
+                        precision: placePrecision,
+                        source: placeSource,
+                      })
+                  }}
+                >
+                  <div
+                    aria-label={`Route ${label}`}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface-primary text-sm font-bold text-white shadow-lg ${index === 0 ? 'bg-desert-green' : 'bg-desert-orange'}`}
+                  >
+                    {String.fromCharCode(65 + index)}
+                  </div>
+                </Marker>
+              )
+            }
+          )}
 
           {showCoordinates && cursorLngLat && (
             <CoordinateOverlay
@@ -446,6 +719,16 @@ export default function MapComponent({
                   e.originalEvent.stopPropagation()
 
                   if (!confirmDiscardMarkerChanges()) return
+                  if (pickingRoutePoint && onRoutePoint) {
+                    onRoutePoint({
+                      lat: marker.latitude,
+                      lon: marker.longitude,
+                      label: marker.name,
+                      precision: 'saved point',
+                      source: 'Saved pin',
+                    })
+                    return
+                  }
 
                   setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
                   setPlacingMarker(null)
@@ -545,16 +828,74 @@ export default function MapComponent({
         </Map>
       </div>
 
-      <div onMouseEnter={hideCoordinates}>
+      <div
+        onMouseEnter={hideCoordinates}
+        className={routePanelOpen ? 'hidden md:block' : undefined}
+      >
         <MarkerPanel
           markers={markers}
           onDelete={handleDeleteMarker}
           onFlyTo={handleFlyTo}
           onSelect={setSelectedMarkerId}
+          routeSelectionLabel={pickingRoutePoint ? pickingRouteLabel : undefined}
+          onChooseForRoute={
+            pickingRoutePoint && onRoutePoint
+              ? (marker) => {
+                  if (!isValidMarkerCoordinate(marker) || !confirmDiscardMarkerChanges())
+                    return false
+                  onRoutePoint({
+                    lat: marker.latitude,
+                    lon: marker.longitude,
+                    label: marker.name,
+                    precision: 'saved point',
+                    source: 'Saved pin',
+                  })
+                  setPlacingMarker(null)
+                  setSelectedMarkerId(null)
+                  setEditingMarkerId(null)
+                  setHasUnsavedMarkerChanges(false)
+                  setTargetIndicator(null)
+                  return true
+                }
+              : undefined
+          }
           selectedMarkerId={selectedMarkerId}
           onToggleVisibility={(id, visible) => updateMarker(id, { visible })}
         />
       </div>
+
+      {clipboardNotice && (
+        <div
+          className="absolute bottom-12 left-4 z-50 max-w-[calc(100%-2rem)] rounded border border-border-default bg-surface-primary p-3 text-sm text-text-primary shadow-lg"
+          role="status"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span>
+              {clipboardNotice.copied
+                ? 'Coordinates copied'
+                : 'Select these coordinates and press Ctrl+C'}
+            </span>
+            <button
+              aria-label="Dismiss coordinate copy notice"
+              onClick={() => setClipboardNotice(null)}
+            >
+              ×
+            </button>
+          </div>
+          {clipboardNotice.copied ? (
+            <code className="mt-1 block">{clipboardNotice.value}</code>
+          ) : (
+            <input
+              aria-label="Coordinates to copy"
+              className="mt-2 w-full select-all rounded border border-border-default bg-surface-secondary px-2 py-1"
+              readOnly
+              value={clipboardNotice.value}
+              onFocus={(e) => e.currentTarget.select()}
+              autoFocus
+            />
+          )}
+        </div>
+      )}
     </MapProvider>
   )
 }

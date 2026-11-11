@@ -1,0 +1,48 @@
+# Optional overlay for a NOMAD image that includes the offline-regions code.
+# Set NOMAD_MAPS_MODULE_DIR to the absolute path of this install/maps directory.
+# Start with: docker compose -f compose.yml -f /path/to/this/file --profile map-preparation up -d --build
+# Omit the profile to keep installed routing while disabling new preparation.
+services:
+  admin:
+    environment:
+      MAP_REGIONS_PATH: /app/storage/map-regions
+      MAP_REGION_BUILDER_URL: http://map-builder:8083
+      MAP_REGION_PREPARATION_BUILDER_URL: http://map-builder:8083
+      MAP_ROUTER_URL: http://map-router:8082
+    networks: [default, offline-maps]
+  map-router:
+    image: ghcr.io/valhalla/valhalla@sha256:aceb31f88f3d7d54fc9c152942a10f306e43eef37cc7da47365ef7999fec6cb1
+    restart: unless-stopped
+    entrypoint: [python3, /router/router_broker.py]
+    environment:
+      MAP_PACKS_PATH: /packs
+      MAP_REGIONS_PATH: /regions
+    volumes:
+      - ${NOMAD_MAPS_MODULE_DIR:?Set the module directory}/router_broker.py:/router/router_broker.py:ro
+      - ${NOMAD_STORAGE_PATH:-/opt/project-nomad/storage}/map-packs:/packs:ro
+      - ${NOMAD_STORAGE_PATH:-/opt/project-nomad/storage}/map-regions:/regions:ro
+    networks: [offline-maps]
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    mem_limit: 2g
+    cpus: 2
+  map-builder:
+    profiles: [map-preparation]
+    image: nomad-maps-builder:local
+    build:
+      context: ${NOMAD_MAPS_MODULE_DIR:?Set the module directory}
+      dockerfile: Dockerfile.builder
+    restart: unless-stopped
+    entrypoint: [python3, /builder/map_regions_builder.py]
+    environment:
+      MAP_REGIONS_PATH: /regions
+    volumes:
+      - ${NOMAD_STORAGE_PATH:-/opt/project-nomad/storage}/map-regions:/regions
+    networks: [offline-maps]
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    mem_limit: 8g
+    cpus: 3
+networks:
+  offline-maps:
+    internal: true

@@ -1,0 +1,27 @@
+.route-card-floating {
+  box-shadow:
+    0 10px 24px rgb(0 0 0 / 0.14),
+    0 2px 6px rgb(0 0 0 / 0.08);
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+}
+
+.route-card-label-enter {
+  animation: route-card-label-enter 120ms ease-out;
+}
+
+@keyframes route-card-label-enter {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-card-label-enter {
+    animation: none;
+  }
+}

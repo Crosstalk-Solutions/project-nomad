@@ -115,6 +115,14 @@ export default defineConfig({
       reloadServer: false,
     },
     {
+      pattern: 'resources/map-regions/**/*.json',
+      reloadServer: false,
+    },
+    {
+      pattern: 'docs/**/*.md',
+      reloadServer: false,
+    },
+    {
       pattern: 'public/**',
       reloadServer: false,
     },

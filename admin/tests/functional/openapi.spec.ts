@@ -28,6 +28,56 @@ function routeKeys(nodes: { methods: string[]; pattern: string }[]): Set<string>
 }
 
 test.group('OpenAPI docs', () => {
+  test('maps contracts include the region tree, explicit updates and route schemas', ({
+    assert,
+  }) => {
+    resetOpenApiCache()
+    const doc = buildOpenApiDocument()
+    for (const [path, method] of [
+      ['/api/maps/regions/catalog', 'get'],
+      ['/api/maps/regions/install', 'post'],
+      ['/api/maps/regions/{regionId}/estimate', 'get'],
+      ['/api/maps/regions/cancel', 'post'],
+      ['/api/maps/regions/check-updates', 'post'],
+      ['/api/maps/regions/update', 'post'],
+      ['/api/maps/regions/refresh-catalog', 'post'],
+      ['/api/maps/regions/{regionId}/{component}', 'delete'],
+      ['/api/maps/routing/coverage', 'get'],
+      ['/api/maps/routing/settings', 'get'],
+      ['/api/maps/routing/settings', 'put'],
+      ['/api/maps/route', 'post'],
+    ]) {
+      assert.isObject(doc.paths[path]?.[method], `${method} ${path} is not documented`)
+      assert.include(doc.paths[path][method].tags, 'maps')
+    }
+    const install =
+      doc.paths['/api/maps/regions/install'].post.requestBody.content['application/json'].schema
+    assert.deepEqual(install.properties.components.items.enum, ['routing'])
+    assert.equal(install.properties.components.maxItems, 1)
+    const request = doc.paths['/api/maps/route'].post.requestBody.content['application/json'].schema
+    assert.deepEqual(request.properties.profile.enum, ['auto', 'pedestrian'])
+    assert.equal(request.properties.locations.maxItems, 7)
+    const routeResponses = doc.paths['/api/maps/route'].post.responses
+    const routeError = routeResponses['422'].content['application/json'].schema
+    assert.include(routeError.properties.code.enum, 'DISTANCE_LIMIT_EXCEEDED')
+    assert.property(routeError.properties, 'engineCode')
+    assert.property(routeError.properties, 'distanceLimitMeters')
+    assert.property(routeResponses, '504')
+    const routeLegs = routeResponses['200'].content['application/json'].schema.properties.legs
+    assert.equal(routeLegs.maxItems, 6)
+    assert.equal(routeLegs.items.properties.toIndex.maximum, 6)
+    assert.property(
+      doc.paths['/api/maps/route'].post.responses['200'].content['application/json'].schema
+        .properties,
+      'geometry'
+    )
+    assert.property(
+      doc.paths['/api/maps/regions/catalog'].get.responses['200'].content['application/json'].schema
+        .properties,
+      'regions'
+    )
+  })
+
   test('generates a structurally valid OpenAPI 3.1 document', ({ assert }) => {
     resetOpenApiCache()
     const doc = buildOpenApiDocument()
@@ -41,16 +91,18 @@ test.group('OpenAPI docs', () => {
     for (const [path, methods] of Object.entries<any>(doc.paths)) {
       for (const [method, op] of Object.entries<any>(methods)) {
         assert.isObject(op.responses, `${method.toUpperCase()} ${path} is missing responses`)
-        assert.isAbove(Object.keys(op.responses).length, 0, `${method.toUpperCase()} ${path} has empty responses`)
+        assert.isAbove(
+          Object.keys(op.responses).length,
+          0,
+          `${method.toUpperCase()} ${path} has empty responses`
+        )
       }
     }
   })
 
   test('every /api route is documented (completeness gate)', ({ assert }) => {
     // All committed routes under /api.
-    const apiRoutes = router
-      .toJSON()
-      .root.filter((node) => node.pattern.startsWith('/api'))
+    const apiRoutes = router.toJSON().root.filter((node) => node.pattern.startsWith('/api'))
 
     const allApiKeys = routeKeys(apiRoutes)
 

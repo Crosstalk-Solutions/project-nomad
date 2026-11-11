@@ -14,6 +14,10 @@ import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
 import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
 import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
 import { IngestDrugDataJob } from '#jobs/ingest_drug_data_job'
+import { InstallMapPackJob } from '#jobs/install_map_pack_job'
+import { InstallMapRegionJob } from '#jobs/install_map_region_job'
+import { MapRegionService } from '#services/map_region_service'
+import { MapPackService } from '#services/map_pack_service'
 import { stallOptionsForQueue, type StallOptions } from '../../app/utils/queue_stall_options.js'
 
 export default class QueueWork extends BaseCommand {
@@ -144,6 +148,38 @@ export default class QueueWork extends BaseCommand {
       this.logger.info(`Worker started for queue: ${queueName}`)
     }
 
+    let workflowRecoveryTimer: ReturnType<typeof setInterval> | undefined
+    if (
+      MapRegionService.preparationConfigured() &&
+      queuesToProcess.includes(InstallMapRegionJob.queue)
+    ) {
+      const regions = new MapRegionService()
+      const dispatch = InstallMapRegionJob.dispatch.bind(InstallMapRegionJob)
+      await regions
+        .recoverPending(dispatch)
+        .catch((error) =>
+          this.logger.error(
+            `Could not recover pending routing regions: ${(error as Error).message}`
+          )
+        )
+      let recoveringWorkflow = false
+      workflowRecoveryTimer = setInterval(() => {
+        if (recoveringWorkflow) return
+        recoveringWorkflow = true
+        void regions
+          .recoverPending(dispatch, true)
+          .catch((error) =>
+            this.logger.error(
+              `Could not recover a queued routing region: ${(error as Error).message}`
+            )
+          )
+          .finally(() => {
+            recoveringWorkflow = false
+          })
+      }, 15000)
+      workflowRecoveryTimer.unref()
+    }
+
     // Schedule nightly update checks (idempotent, will persist over restarts)
     await CheckUpdateJob.scheduleNightly()
     await CheckServiceUpdatesJob.scheduleNightly()
@@ -162,6 +198,7 @@ export default class QueueWork extends BaseCommand {
 
     // Graceful shutdown for all workers
     process.on('SIGTERM', async () => {
+      if (workflowRecoveryTimer) clearInterval(workflowRecoveryTimer)
       this.logger.info('SIGTERM received. Shutting down workers...')
       await Promise.all(workers.map((worker) => worker.close()))
       this.logger.info('All workers shut down gracefully.')
@@ -185,6 +222,8 @@ export default class QueueWork extends BaseCommand {
     handlers.set(ContentAutoUpdateJob.key, new ContentAutoUpdateJob())
     handlers.set(DownloadDrugDataJob.key, new DownloadDrugDataJob())
     handlers.set(IngestDrugDataJob.key, new IngestDrugDataJob())
+    handlers.set(InstallMapPackJob.key, new InstallMapPackJob())
+    handlers.set(InstallMapRegionJob.key, new InstallMapRegionJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
@@ -198,6 +237,10 @@ export default class QueueWork extends BaseCommand {
     queues.set(ContentAutoUpdateJob.key, ContentAutoUpdateJob.queue)
     queues.set(DownloadDrugDataJob.key, DownloadDrugDataJob.queue)
     queues.set(IngestDrugDataJob.key, IngestDrugDataJob.queue)
+    if (MapPackService.downloadsConfigured())
+      queues.set(InstallMapPackJob.key, InstallMapPackJob.queue)
+    if (MapRegionService.preparationConfigured())
+      queues.set(InstallMapRegionJob.key, InstallMapRegionJob.queue)
 
     return [handlers, queues]
   }
@@ -233,6 +276,8 @@ export default class QueueWork extends BaseCommand {
       // Drug download: one part at a time — a ~150 MB resumable HTTP pull per
       // part, no benefit to parallelism and easier on the storage volume.
       [DownloadDrugDataJob.queue]: 1,
+      [InstallMapPackJob.queue]: 1,
+      [InstallMapRegionJob.queue]: 1,
       // Drug ingest: one heavy stream at a time — unzipping + parsing ~150 MB
       // of JSON into batched DB inserts; serial keeps memory bounded.
       [IngestDrugDataJob.queue]: 1,

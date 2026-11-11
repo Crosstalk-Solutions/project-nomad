@@ -27,6 +27,16 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   NOMAD_STORAGE_PATH: Env.schema.string.optional(),
+  MAP_PACKS_PATH: Env.schema.string.optional(),
+  MAP_PACK_CATALOG_PATH: Env.schema.string.optional(),
+  MAP_PACK_ALLOW_LOCAL_DOWNLOADS: Env.schema.boolean.optional(),
+  MAP_ROUTER_URL: Env.schema.string.optional(),
+  MAP_REGIONS_PATH: Env.schema.string.optional(),
+  MAP_REGIONS_CATALOG_PATH: Env.schema.string.optional(),
+  MAP_REGION_BUILDER_URL: Env.schema.string.optional(),
+  MAP_REGION_PREPARATION_BUILDER_URL: Env.schema.string.optional(),
+  MAP_REGIONS_BACKING_DISK_PATH: Env.schema.string.optional(),
+  MAP_VISUAL_PATH: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------

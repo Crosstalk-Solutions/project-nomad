@@ -1,0 +1,107 @@
+# Independent integration environment. Paths are relative to this Compose file.
+name: nomad-maps-dev
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: nomad_maps
+      MYSQL_USER: nomad_maps
+      MYSQL_PASSWORD: ${MAPS_DEV_DB_PASSWORD:?Set a local development password}
+      MYSQL_ROOT_PASSWORD: ${MAPS_DEV_ROOT_PASSWORD:?Set a local development root password}
+    volumes:
+      - maps_dev_db:/var/lib/mysql
+    healthcheck:
+      test: [CMD-SHELL, 'mysqladmin ping -h localhost --silent']
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    mem_limit: 1g
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - maps_dev_redis:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  admin:
+    image: ${MAPS_DEV_ADMIN_IMAGE:-nomad-maps-admin:dev}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        VERSION: 0.0.0-maps-dev
+    ports:
+      - '127.0.0.1:${MAPS_DEV_PORT:-8081}:8080'
+    environment:
+      NODE_ENV: production
+      PORT: '8080'
+      HOST: 0.0.0.0
+      URL: http://localhost:${MAPS_DEV_PORT:-8081}
+      LOG_LEVEL: info
+      APP_KEY: ${MAPS_DEV_APP_KEY:?Set a local development app key}
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_USER: nomad_maps
+      DB_PASSWORD: ${MAPS_DEV_DB_PASSWORD}
+      DB_DATABASE: nomad_maps
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      MAP_PACKS_PATH: /app/storage/map-packs
+      MAP_ROUTER_URL: http://map_router:8082
+      MAP_REGIONS_PATH: /app/storage/map-regions
+      MAP_REGION_BUILDER_URL: http://map_builder:8083
+      MAP_REGION_PREPARATION_BUILDER_URL: http://map_builder:8083
+    volumes:
+      - maps_dev_storage:/app/storage
+      - maps_dev_packs:/app/storage/map-packs
+      - maps_dev_regions:/app/storage/map-regions
+    networks: [default, offline-maps]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      map_router:
+        condition: service_started
+      map_builder:
+        condition: service_started
+  map_router:
+    image: ghcr.io/valhalla/valhalla@sha256:aceb31f88f3d7d54fc9c152942a10f306e43eef37cc7da47365ef7999fec6cb1
+    entrypoint: [python3, /router/router_broker.py]
+    environment:
+      MAP_PACKS_PATH: /packs
+      MAP_REGIONS_PATH: /regions
+    volumes:
+      - ./router_broker.py:/router/router_broker.py:ro
+      - maps_dev_packs:/packs:ro
+      - maps_dev_regions:/regions:ro
+    networks: [offline-maps]
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    mem_limit: 2g
+    cpus: 2
+  map_builder:
+    image: ${MAPS_DEV_BUILDER_IMAGE:-nomad-maps-builder:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.builder
+    environment:
+      MAP_REGIONS_PATH: /regions
+    volumes:
+      - maps_dev_regions:/regions
+    networks: [offline-maps]
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    mem_limit: 8g
+    cpus: 3
+volumes:
+  maps_dev_db:
+  maps_dev_redis:
+  maps_dev_storage:
+  maps_dev_packs:
+  maps_dev_regions:
+networks:
+  offline-maps:
+    internal: true

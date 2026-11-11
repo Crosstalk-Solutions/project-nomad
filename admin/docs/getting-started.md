@@ -166,21 +166,26 @@ The Knowledge Base lets you upload documents so the AI can reference them when a
 
 ![Offline maps viewer](/docs/maps.webp)
 
-View maps without internet. Download the regions you need before going offline.
+View maps and calculate routes without internet after installing the data you need.
 
 **How to use it:**
-1. Click **Maps** from the Command Center
-2. Navigate by dragging and zooming
-3. Search for locations using the search bar
+
+1. Click **Maps** from the Command Center.
+2. Navigate by dragging and zooming, or enter latitude and longitude to center the map.
+3. To plan a route, select a route field and enter coordinates, click the map or use a saved Pin.
+4. Choose **Car** or **Walking**, then calculate the route. You can use up to seven points.
 
 **To add more map regions:**
-1. Go to **Settings → Maps Manager**
-2. Select the regions you need
-3. Click Download
+
+1. Go to **Settings → Maps Manager**.
+2. Use **Choose Countries** or the curated collections to download visual map coverage.
+3. With the optional routing services configured, open **Offline territories**. Choose a country or published region and select **Install routes**. NOMAD prepares the graph automatically.
 
 **Tip:** Download maps for areas you travel to frequently, plus neighboring regions just in case.
 
 **[Open Maps →](/maps)**
+
+See the **[Maps guide →](/docs/maps)** for coverage, Pins, source updates and offline limitations.
 
 ---
 

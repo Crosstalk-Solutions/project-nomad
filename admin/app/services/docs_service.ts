@@ -12,6 +12,7 @@ export class DocsService {
     'home': 1,
     'getting-started': 2,
     'use-cases': 3,
+    'maps': 3.5,
     'supply-depot-apps': 4,
     'drug-reference': 5,
     'community-add-ons': 6,
@@ -94,6 +95,7 @@ export class DocsService {
   }
 
   private static readonly TITLE_OVERRIDES: Record<string, string> = {
+    'maps': 'Maps',
     'faq': 'FAQ',
     'community-add-ons': 'Community Add-Ons',
   }
