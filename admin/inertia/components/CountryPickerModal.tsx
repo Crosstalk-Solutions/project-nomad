@@ -127,7 +127,10 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
   // so rapid multi-select clicks and slider drags collapse into a single CDN
   // round-trip. Loading state only flips after the debounce expires so the UI
   // stays interactive during the wait. Stale-safe via requestId so an earlier
-  // slow response can't clobber a later one.
+  // slow response can't clobber a later one. The cleanup also aborts the in-flight
+  // request, which kills the server's pmtiles child instead of leaving it to run
+  // out the timeout (up to 10 minutes) after the user changed the selection or
+  // closed the modal.
   useEffect(() => {
     if (selected.size === 0) {
       setPreflight(null)
@@ -138,27 +141,35 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
     }
 
     setErrorMessage(null)
+    const abort = new AbortController()
     const timer = setTimeout(async () => {
       const requestId = ++preflightRequestIdRef.current
       setLoading(true)
       try {
-        const res = await api.extractMapPreflight({
-          countries: [...selected],
-          maxzoom,
-        })
-        if (requestId !== preflightRequestIdRef.current) return
+        const res = await api.extractMapPreflight(
+          { countries: [...selected], maxzoom },
+          abort.signal
+        )
+        if (abort.signal.aborted || requestId !== preflightRequestIdRef.current) return
         if (!res) throw new Error('Preflight returned no data')
         setPreflight(res)
       } catch (err: any) {
-        if (requestId !== preflightRequestIdRef.current) return
+        // An abort means a newer run of this effect (or unmount) took over. Leave
+        // loading and the error alone so the stale request doesn't flash "canceled".
+        if (abort.signal.aborted || requestId !== preflightRequestIdRef.current) return
         console.error('Preflight failed:', err)
         setErrorMessage(err?.message ?? 'Estimate failed')
       } finally {
-        if (requestId === preflightRequestIdRef.current) setLoading(false)
+        if (!abort.signal.aborted && requestId === preflightRequestIdRef.current) {
+          setLoading(false)
+        }
       }
     }, 1500)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      abort.abort()
+    }
   }, [selected, maxzoom])
 
   async function startDownload() {
@@ -197,7 +208,9 @@ const CountryPickerModal: React.FC<CountryPickerModalProps> = ({
       cancelText="Cancel"
       confirmVariant="primary"
       confirmLoading={loading || downloading}
-      cancelLoading={loading || downloading}
+      // Only block Cancel while the download is being dispatched. An estimate can run
+      // for minutes on a large selection, and closing the modal aborts it.
+      cancelLoading={downloading}
       onConfirm={startDownload}
       large
     >
