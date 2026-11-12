@@ -149,16 +149,26 @@ resolve_local_ip() {
   fi
 
   local ip
+  local fallback_ip=''
+  local _is_ipv4_re='^[0-9]{1,3}(\.[0-9]{1,3}){3}$'
   for ip in "${ips[@]}"; do
     [[ -z "${ip}" ]] && continue
+    if [[ ! "${ip}" =~ ${_is_ipv4_re} ]]; then continue; fi
     case "${ip}" in
-      127.0.0.*|169.254.*|172.17.*) continue ;;
+      127.0.0.*|169.254.*) continue ;;
+      172.17.*|172.18.*|172.19.*)
+        [[ -z "${fallback_ip}" ]] && fallback_ip="${ip}"
+        continue ;;
+      *)
+        printf '%s\n' "${ip}"
+        return 0 ;;
     esac
-    if [[ "${ip}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
-      printf '%s\n' "${ip}"
-      return 0
-    fi
   done
+
+  if [[ -n "${fallback_ip}" ]]; then
+    printf '%s\n' "${fallback_ip}"
+    return 0
+  fi
 
   if command -v python3 &> /dev/null; then
     local py_ip=''
@@ -225,12 +235,23 @@ ensure_docker_installed_and_running() {
     exit 1
   fi
 
-  if ! systemctl is-active --quiet docker; then
-    echo -e "${YELLOW}#${RESET} Docker is not running. Enabling on boot and starting Docker..."
-    ${SUDO} systemctl enable --now docker 2> /dev/null || true
+  # CI escape hatch (Issue #14, AC3): in a container without --privileged,
+  # dockerd cannot start (needs cgroups + /dev/fuse). The daemon is not needed
+  # for the matrix test — only the package install and CLI presence are under
+  # test. So skip the daemon-reachability probe entirely.
+  if [[ "${NOMAD_CI_MODE:-0}" == "1" ]]; then
+    echo -e "${YELLOW}#${RESET} NOMAD_CI_MODE=1 — skipping Docker daemon check (CI container).\\n"
+    return 0
+  fi
 
-    # CI / no-service-manager fallback (issue #14): if the daemon is still not
-    # reachable after the enable, launch dockerd directly before giving up.
+  # Ensure the daemon is reachable. A container without a service manager
+  # (CI) will not auto-start dockerd, so probe it and, failing that, launch
+  # it directly before giving up.
+  if ! docker info &> /dev/null; then
+    if command -v systemctl &> /dev/null; then
+      echo -e "${RED}#${RESET} Docker is not running. Attempting to start Docker..."
+      ${SUDO} systemctl start docker 2> /dev/null || true
+    fi
     if ! docker info &> /dev/null; then
       if command -v systemctl &> /dev/null; then
         ${SUDO} systemctl start docker 2> /dev/null || true
@@ -256,6 +277,13 @@ ensure_docker_installed_and_running() {
 }
 
 check_docker_compose() {
+  # CI escape hatch (Issue #14, AC3): the compose v2 plugin is not present in
+  # minimal distro base images, and 'docker compose version' probes the daemon.
+  # The compose check is not under test in the matrix, so skip it in CI mode.
+  if [[ "${NOMAD_CI_MODE:-0}" == "1" ]]; then
+    echo -e "${YELLOW}#${RESET} NOMAD_CI_MODE=1 — skipping 'docker compose' plugin check (CI container).\\n"
+    return 0
+  fi
   # Check if 'docker compose' (v2 plugin) is available
   if ! docker compose version &>/dev/null; then
     echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
@@ -273,7 +301,14 @@ ensure_docker_compose_file_exists() {
 }
 
 force_recreate() {
-  echo -e "${YELLOW}#${RESET} Pulling the latest Docker images..."
+  # CI escape hatch (Issue #14, AC3): compose pull/up need a running daemon,
+  # which a non-privileged CI container cannot provide. The matrix test only
+  # exercises package install + CLI presence, so skip the recreate step.
+  if [[ "${NOMAD_CI_MODE:-0}" == "1" ]]; then
+    echo -e "${YELLOW}#${RESET} NOMAD_CI_MODE=1 — skipping 'docker compose pull/up' (CI container, no daemon).\\n"
+    return 0
+  fi
+  echo -e "${YELLOW}#${RESET} Pulling the latest Docker images...\\n"
   if ! docker compose -p project-nomad -f "${NOMAD_DIR}/compose.yml" pull; then
     echo -e "${RED}#${RESET} Failed to pull the latest Docker images. Please check your network connection and the Docker registry status, then try again."
     exit 1

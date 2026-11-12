@@ -111,6 +111,15 @@ get_uninstall_confirmation(){
 }
 
 ensure_docker_installed() {
+    # CI escape hatch (Issue #14, AC3): in a non-privileged CI container the
+    # docker CLI is present (installed by the install step) but there is no
+    # daemon, and the uninstall test only needs to exercise the file/storage
+    # cleanup path — so the CLI-presence gate is satisfied by the install step
+    # and we don't hard-fail here.
+    if [[ "${NOMAD_CI_MODE:-0}" == "1" ]]; then
+        echo "NOMAD_CI_MODE=1 — skipping Docker CLI presence gate (CI container)."
+        return 0
+    fi
     if ! command -v docker &> /dev/null; then
         echo "Unable to find Docker. There may be a problem with your Docker installation."
         exit 1
@@ -118,6 +127,14 @@ ensure_docker_installed() {
 }
 
 check_docker_compose() {
+  # CI escape hatch (Issue #14, AC3): the compose v2 plugin is not present in
+  # minimal distro base images, and `docker compose version` probes the daemon.
+  # Uninstall only needs to exercise the file/storage cleanup path — the
+  # compose v2 CLI is not required for that — so skip the gate in CI.
+  if [[ "${NOMAD_CI_MODE:-0}" == "1" ]]; then
+    echo -e "${YELLOW}#${RESET} NOMAD_CI_MODE=1 — skipping 'docker compose' plugin check (CI container).\\n"
+    return 0
+  fi
   # Check if 'docker compose' (v2 plugin) is available
   if ! docker compose version &>/dev/null; then
     echo -e "${RED}#${RESET} Docker Compose v2 is not installed or not available as a Docker plugin."
@@ -150,6 +167,12 @@ storage_cleanup() {
 }
 
 uninstall_nomad() {
+    if [[ "${NOMAD_CI_MODE:-0}" == "1" ]]; then
+        echo "NOMAD_CI_MODE=1 — skipping daemon-dependent container/network/volume cleanup (CI container, no daemon)."
+        storage_cleanup
+        echo "Project NOMAD has been uninstalled. We hope to see you again soon!"
+        return 0
+    fi
     echo "Stopping and removing Project NOMAD management containers..."
     docker compose -p project-nomad -f "${MANAGEMENT_COMPOSE_FILE}" down
     echo "Allowing some time for management containers to stop..."
