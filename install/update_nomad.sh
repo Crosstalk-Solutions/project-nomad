@@ -110,7 +110,10 @@ resolve_local_ip() {
   local -a tmp=()
 
   if command -v hostname &> /dev/null; then
-    mapfile -t tmp < <(hostname -I 2>/dev/null)
+    # hostname -I prints all addresses space-separated on ONE line; split on
+    # whitespace (mapfile reads lines and would yield a single multi-IP token
+    # that fails the single-IPv4 match below).
+    read -ra tmp <<< "$(hostname -I 2>/dev/null)"
     ips+=("${tmp[@]}")
     tmp=()
   fi
@@ -123,6 +126,24 @@ resolve_local_ip() {
 
   if command -v ifconfig &> /dev/null; then
     mapfile -t tmp < <(ifconfig 2>/dev/null | awk '$1 ~ /^inet/{print $2}' | sed 's/^addr://')
+    ips+=("${tmp[@]}")
+    tmp=()
+  fi
+
+  # Last resort: read the kernel's IPv4 routing trie directly. This needs no
+  # userspace tool at all (no hostname/ip/ifconfig/python3) and is present on
+  # every Linux. Structure: the address is on the line BEFORE '/32 host':
+  #        |-- 10.10.100.13
+  #           /32 host LOCAL
+  if [[ -r /proc/net/fib_trie ]]; then
+    mapfile -t tmp < <(awk '
+      $0 ~ /\/32 host/ {
+        ip=prev
+        sub(/^.*-- */, "", ip)
+        if (ip ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print ip
+      }
+      { prev=$0 }
+    ' /proc/net/fib_trie 2>/dev/null)
     ips+=("${tmp[@]}")
     tmp=()
   fi
@@ -167,7 +188,20 @@ check_supported_distro() {
   fi
 }
 
+# Returns 0 (true) when the caller wants non-interactive "yes to all" behavior.
+# Used by CI and any automation that must run the scripts without a TTY.
+_nomad_assume_yes() {
+  case "${NOMAD_ASSUME_YES:-}" in
+    1|true|TRUE|True|yes|YES|Yes|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 get_update_confirmation(){
+  if _nomad_assume_yes; then
+    echo -e "${GREEN}#${RESET} NOMAD_ASSUME_YES set - continuing with the update."
+    return 0
+  fi
   read -p "This script will update Project NOMAD and its dependencies on your machine. No data loss is expected, but you should always back up your data before proceeding. Are you sure you want to continue? (y/n): " choice
   case "$choice" in
     y|Y )
@@ -193,8 +227,28 @@ ensure_docker_installed_and_running() {
 
   if ! systemctl is-active --quiet docker; then
     echo -e "${YELLOW}#${RESET} Docker is not running. Enabling on boot and starting Docker..."
-    ${SUDO} systemctl enable --now docker
-    if ! systemctl is-active --quiet docker; then
+    ${SUDO} systemctl enable --now docker 2> /dev/null || true
+
+    # CI / no-service-manager fallback (issue #14): if the daemon is still not
+    # reachable after the enable, launch dockerd directly before giving up.
+    if ! docker info &> /dev/null; then
+      if command -v systemctl &> /dev/null; then
+        ${SUDO} systemctl start docker 2> /dev/null || true
+      fi
+      if ! docker info &> /dev/null; then
+        echo -e "${YELLOW}#${RESET} Starting the Docker daemon (no service manager detected)...\\n"
+        ${SUDO} sh -c 'nohup dockerd >/tmp/dockerd-update.log 2>&1 &'
+        local _attempt
+        for _attempt in $(seq 1 30); do
+          if docker info &> /dev/null; then
+            break
+          fi
+          sleep 1
+        done
+      fi
+    fi
+
+    if ! docker info &> /dev/null; then
       echo -e "${RED}#${RESET} Failed to start Docker. Please start Docker and try again."
       exit 1
     fi
@@ -256,6 +310,16 @@ success_message() {
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
+# ---------------------------------------------------------------------------#
+# Sourcing guard (AC2)
+#
+# When this file is sourced (e.g. for unit-testing its functions in isolation),
+# only define the functions and skip the main flow. Direct execution is
+# detected via BASH_SOURCE. NOMAD_INSTALL_SOURCING=1 additionally forces
+# "sourcing" mode, skipping the main block even if the file is being executed.
+# ---------------------------------------------------------------------------#
+if [[ "${BASH_SOURCE[0]}" == "${0}" && -z "${NOMAD_INSTALL_SOURCING:-}" ]]; then
+
 # Pre-flight checks
 check_supported_distro
 check_is_bash
@@ -269,3 +333,5 @@ ensure_docker_compose_file_exists
 force_recreate
 get_local_ip
 success_message
+
+fi  # sourcing guard

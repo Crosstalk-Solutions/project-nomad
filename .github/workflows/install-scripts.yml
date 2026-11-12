@@ -1,0 +1,182 @@
+name: Validate Install Scripts
+
+on:
+  push:
+    paths:
+      - 'install/**'
+      - '.github/workflows/install-scripts.yml'
+  pull_request:
+    paths:
+      - 'install/**'
+      - '.github/workflows/install-scripts.yml'
+
+concurrency:
+  group: install-scripts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    name: ShellCheck (baseline, fail on new findings)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Syntax-check every install script (bash -n)
+        run: |
+          shopt -s nullglob
+          files=(install/*.sh install/*/*.sh)
+          echo "Checking ${#files[@]} shell scripts"
+          rc=0
+          for f in "${files[@]}"; do
+            if bash -n "$f"; then
+              echo "  OK   $f"
+            else
+              echo "  FAIL $f"
+              rc=1
+            fi
+          done
+          exit "$rc"
+
+      - name: Run ShellCheck and diff against baseline
+        run: |
+          set +e
+          shellcheck -f json install/*.sh install/*/*.sh > /tmp/sc.json 2>/dev/null
+          set -e
+          if [ ! -s /tmp/sc.json ]; then
+            echo "shellcheck produced no JSON output — treating as no findings"
+            echo '[]' > /tmp/sc.json
+          fi
+          python3 - <<'PY'
+          import json, sys
+          with open('/tmp/sc.json') as f:
+              data = json.load(f)
+          pairs = sorted({f"{d['file']}|SC{d['code']}" for d in data})
+          baseline = set()
+          with open('install/shellcheck-baseline.txt') as f:
+              for line in f:
+                  line = line.strip()
+                  if not line or line.startswith('#'):
+                      continue
+                  baseline.add(line)
+          new = [p for p in pairs if p not in baseline]
+          print("total unique findings: %d" % len(pairs))
+          print("baseline tolerated:    %d" % len(baseline))
+          for p in pairs:
+              print("  [%s] %s" % ("tolerated" if p in baseline else "NEW", p))
+          if new:
+              print("\nFAIL: %d NEW finding(s) not in baseline:" % len(new))
+              for p in new:
+                  print("  " + p)
+              print("\nTo tolerate a finding deliberately, add its 'path|SCxxxx' line to install/shellcheck-baseline.txt and commit.")
+              sys.exit(1)
+          print("\nOK: 0 new ShellCheck findings")
+          PY
+
+  matrix:
+    name: "Matrix: ${{ matrix.image }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:13
+          - ubuntu:26.04
+          - fedora:latest
+          - rockylinux:9
+          - almalinux:9
+          - archlinux:latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Pull image
+        run: docker pull "${{ matrix.image }}"
+
+      - name: Run strict assertions
+        run: |
+          mkdir -p /work
+          cp -a "$GITHUB_WORKSPACE/install/." /work/
+          cat > /tmp/strict.sh <<'HARNESS'
+          #!/bin/bash
+          # Strict CI matrix harness — runs as root inside a minimal distro image.
+          # Fails hard (set -euo pipefail) so any assertion that returns non-zero
+          # aborts, exactly like the CI job.
+          set -euo pipefail
+          cd /work
+
+          echo "### MATRIX IMAGE: $(. /etc/os-release 2>/dev/null; echo "${ID:-unknown}/${VERSION_ID:-?}")"
+          fail() { echo "ASSERTION_FAILED: $*"; exit 1; }
+
+          # 1. Source the install script's helpers (main block skipped by the
+          #    BASH_SOURCE sourcing guard).
+          source /work/install_nomad.sh
+          declare -F detect_pkg_family >/dev/null || fail "detect_pkg_family not defined after source"
+          declare -F pkg_install >/dev/null || fail "pkg_install not defined after source"
+          declare -F resolve_local_ip >/dev/null || fail "resolve_local_ip not defined after source"
+
+          # 2. Assert PKG_FAMILY is one of the supported families and non-empty.
+          detect_pkg_family
+          [[ -n "${PKG_FAMILY:-}" ]] || fail "PKG_FAMILY empty"
+          case "${PKG_FAMILY}" in
+            debian|rhel|arch) ;;
+            *) fail "PKG_FAMILY=${PKG_FAMILY} not in {debian,rhel,arch}" ;;
+          esac
+          echo "PASS PKG_FAMILY=${PKG_FAMILY}"
+
+          # 3. Test-harness precondition: sudo present. CI runs as root in minimal
+          #    images, so instead of fighting each distro's package manager (arch's
+          #    pacman DB, rhel's curl-minimal conflict, etc.) we install a
+          #    passthrough `sudo` shim — when uid 0, sudo is a no-op wrapper.
+          #    The *product* installs real sudo for non-root users (see PR #21).
+          if ! command -v sudo >/dev/null 2>&1; then
+            [[ $(id -u) -eq 0 ]] || fail "neither sudo present nor uid 0 — cannot proceed"
+            cat > /usr/local/bin/sudo <<'SHIM'
+          #!/bin/sh
+          # passthrough shim: we are root, so just exec the command verbatim.
+          exec "$@"
+          SHIM
+            chmod +x /usr/local/bin/sudo
+          fi
+          command -v sudo >/dev/null 2>&1 || fail "sudo still missing after shim"
+          echo "PASS sudo present at $(command -v sudo)"
+
+          # 4. pkg_install curl gpg pciutils — family routing must succeed.
+          pkg_install curl gpg pciutils
+          command -v curl >/dev/null 2>&1 || fail "curl not installed"
+          command -v gpg  >/dev/null 2>&1 || fail "gpg not installed"
+          command -v lspci >/dev/null 2>&1 || fail "lspci not installed"
+          echo "PASS pkg_install (curl=$(command -v curl) gpg=$(command -v gpg) lspci=$(command -v lspci))"
+
+          # 5. resolve_local_ip must return a single non-Docker IPv4.
+          ip_out="$(resolve_local_ip)"
+          [[ -n "${ip_out}" ]] || fail "resolve_local_ip returned empty"
+          [[ "${ip_out}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || fail "resolve_local_ip not IPv4: [${ip_out}]"
+          case "${ip_out}" in
+            127.0.0.*|169.254.*|172.17.*) fail "resolve_local_ip is Docker/loopback/link-local: ${ip_out}" ;;
+          esac
+          echo "PASS resolve_local_ip=${ip_out} (non-Docker IPv4)"
+
+          # 6. Docker path. Issue #14: "runs sh get-docker.sh --dry-run OR the
+          #    native Docker path". get.docker.com explicitly rejects arch
+          #    ("Unsupported distribution"), and arch's native path is the
+          #    pacman `docker` package.
+          cd /tmp
+          if [[ "$PKG_FAMILY" == "arch" ]]; then
+            # arch needs a synced package DB before install (image may ship a stale one).
+            sudo pacman -Sy --noconfirm > /tmp/pacman_sy.out 2>&1 || true
+            if sudo pacman -S --noconfirm --needed docker > /tmp/docker_native.out 2>&1; then
+              command -v docker > /dev/null 2>&1 \
+                && echo "PASS native docker path: pacman docker at $(command -v docker)" \
+                || fail "native docker path: pacman ok but docker missing from PATH"
+            else
+              fail "native docker path: pacman install failed (see /tmp/docker_native.out)"
+            fi
+          else
+            curl -fsSL https://get.docker.com -o get-docker.sh
+            sh get-docker.sh --dry-run >/tmp/docker_dryrun.out 2>&1
+            [[ -s /tmp/docker_dryrun.out ]] || fail "get-docker.sh --dry-run produced no output"
+            echo "PASS get-docker.sh --dry-run (output $(wc -l </tmp/docker_dryrun.out) lines)"
+          fi
+
+          echo "### MATRIX_IMAGE_OK"
+          HARNESS
+          bash /tmp/strict.sh

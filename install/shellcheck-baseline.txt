@@ -1,0 +1,30 @@
+# shellcheck baseline — install/*.sh (all shell scripts under install/, incl. subdirs)
+#
+# Format: one line per tolerated finding, "<repo-relative-path>|<SC-code>".
+# Sorted and deduplicated, line-number-independent.
+#
+# How the CI job uses this (see .github/workflows/install-scripts.yml):
+#   it runs shellcheck over the current tree, extracts the same path|SC-code
+#   pairs, and fails ONLY if a current pair is absent from this file. Findings
+#   already listed here (pre-existing at the base commit) are tolerated; any
+#   NEW finding fails the build. To tolerate a new finding deliberately, add
+#   its path|code line here and commit; to stop tolerating one, remove the
+#   line.
+#
+# Generated from origin/main (base of this change) on 2026-11-11. The current
+# tree is a strict subset of this set — it removes a couple of findings and
+# introduces none, so "fails only on new findings" passes.
+
+install/install_nomad.sh|SC2024
+install/install_nomad.sh|SC2034
+install/install_nomad.sh|SC2162
+install/migrate-disk-collector.sh|SC2155
+install/run_updater_fixes.sh|SC2155
+install/sidecar-disk-collector/collect-disk-info.sh|SC2034
+install/sidecar-updater/update-watcher.sh|SC2188
+install/uninstall_nomad.sh|SC2034
+install/uninstall_nomad.sh|SC2154
+install/uninstall_nomad.sh|SC2162
+install/update_nomad.sh|SC2034
+install/update_nomad.sh|SC2154
+install/update_nomad.sh|SC2162

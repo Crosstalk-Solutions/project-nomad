@@ -169,15 +169,41 @@ pkg_map_name() {
   fi
 }
 
+# Map a logical dep to the binary its package provides (so we can check whether
+# it is already present before installing). gpg is the exception — it can come
+# from the `gpg` package (debian/rhel) or `gnupg` (arch), but the binary name
+# is `gpg` either way. pciutils -> lspci.
+pkg_dep_bin() {
+  case "$1" in
+    pciutils) printf '%s\n' 'lspci' ;;
+    gpg)      printf '%s\n' 'gpg' ;;
+    *)        printf '%s\n' "$1" ;;
+  esac
+}
+
 # pkg_install <logical-dep...> — install packages with the detected family's
 # manager, remapping logical dep names where a distro names the package
 # differently (e.g. gpg -> gnupg on Arch).
+#
+# Idempotent: a dep whose binary is ALREADY on PATH is skipped. This is what
+# keeps a minimal RHEL image (rockylinux/almalinux) from tripping the
+# `curl-minimal` vs `curl` dnf conflict, and it makes re-runs cheap and safe.
 pkg_install() {
   local -a pkgs=()
-  local logical
+  local logical bin
   for logical in "$@"; do
+    bin="$(pkg_dep_bin "${logical}")"
+    # Skip if the dependency's binary is already available (idempotency).
+    if command -v "${bin}" &> /dev/null; then
+      continue
+    fi
     pkgs+=("$(pkg_map_name "${logical}")")
   done
+
+  # Nothing to do — every dependency is already satisfied.
+  if [[ ${#pkgs[@]} -eq 0 ]]; then
+    return 0
+  fi
 
   case "${PKG_FAMILY}" in
     debian)
@@ -205,7 +231,10 @@ resolve_local_ip() {
   local -a tmp=()
 
   if command -v hostname &> /dev/null; then
-    mapfile -t tmp < <(hostname -I 2>/dev/null)
+    # hostname -I prints all addresses space-separated on ONE line; split on
+    # whitespace (mapfile reads lines and would yield a single multi-IP token
+    # that fails the single-IPv4 match below).
+    read -ra tmp <<< "$(hostname -I 2>/dev/null)"
     ips+=("${tmp[@]}")
     tmp=()
   fi
@@ -218,6 +247,24 @@ resolve_local_ip() {
 
   if command -v ifconfig &> /dev/null; then
     mapfile -t tmp < <(ifconfig 2>/dev/null | awk '$1 ~ /^inet/{print $2}' | sed 's/^addr://')
+    ips+=("${tmp[@]}")
+    tmp=()
+  fi
+
+  # Last resort: read the kernel's IPv4 routing trie directly. This needs no
+  # userspace tool at all (no hostname/ip/ifconfig/python3) and is present on
+  # every Linux. Structure: the address is on the line BEFORE '/32 host':
+  #        |-- 10.10.100.13
+  #           /32 host LOCAL
+  if [[ -r /proc/net/fib_trie ]]; then
+    mapfile -t tmp < <(awk '
+      $0 ~ /\/32 host/ {
+        ip=prev
+        sub(/^.*-- */, "", ip)
+        if (ip ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print ip
+      }
+      { prev=$0 }
+    ' /proc/net/fib_trie 2>/dev/null)
     ips+=("${tmp[@]}")
     tmp=()
   fi
@@ -534,6 +581,42 @@ ensure_docker_installed() {
       fi
     fi
   fi
+
+  # Ensure the daemon is actually reachable. A container without a service
+  # manager (CI) will not auto-start dockerd, so probe it and, failing that,
+  # launch it directly before giving up.
+  _ensure_docker_daemon
+}
+
+_ensure_docker_daemon() {
+  if docker info &> /dev/null; then
+    return 0
+  fi
+
+  if command -v systemctl &> /dev/null; then
+    echo -e "${YELLOW}#${RESET} Docker is installed but not reachable. Attempting to start the service...\\n"
+    sudo systemctl start docker 2> /dev/null || true
+  fi
+
+  if docker info &> /dev/null; then
+    echo -e "${GREEN}#${RESET} Docker daemon is running.\\n"
+    return 0
+  fi
+
+  echo -e "${YELLOW}#${RESET} Starting the Docker daemon (no service manager detected)...\\n"
+  sudo sh -c 'nohup dockerd >/tmp/dockerd.log 2>&1 &'
+
+  local _attempt
+  for _attempt in $(seq 1 30); do
+    if docker info &> /dev/null; then
+      echo -e "${GREEN}#${RESET} Docker daemon is running.\\n"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo -e "${RED}#${RESET} Failed to start the Docker daemon. Please start Docker and try again."
+  exit 1
 }
 
 check_docker_compose() {
@@ -748,7 +831,20 @@ setup_nvidia_container_toolkit() {
   echo -e "${GREEN}#${RESET} NVIDIA container toolkit configuration completed.\\n"
 }
 
+# Returns 0 (true) when the caller wants non-interactive "yes to all" behavior.
+# Used by CI and any automation that must run the scripts without a TTY.
+_nomad_assume_yes() {
+  case "${NOMAD_ASSUME_YES:-}" in
+    1|true|TRUE|True|yes|YES|Yes|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 get_install_confirmation(){
+  if _nomad_assume_yes; then
+    echo -e "${GREEN}#${RESET} NOMAD_ASSUME_YES set - continuing with the installation."
+    return 0
+  fi
   echo -e "${YELLOW}#${RESET} This script will install Project NOMAD and its dependencies on your machine."
   echo -e "${YELLOW}#${RESET} If you already have Project NOMAD installed with customized config or data, please be aware that running this installation script may overwrite existing files and configurations. It is highly recommended to back up any important data/configs before proceeding."
   read -p "Are you sure you want to continue? (y/N): " choice
@@ -764,6 +860,11 @@ get_install_confirmation(){
 }
 
 accept_terms() {
+  if _nomad_assume_yes; then
+    accepted_terms='true'
+    echo -e "${GREEN}#${RESET} NOMAD_ASSUME_YES set - License Agreement & Terms of Use accepted."
+    return 0
+  fi
   printf "\n\n"
   echo "License Agreement & Terms of Use"
   echo "__________________________"
@@ -1094,6 +1195,16 @@ success_message() {
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
+# ---------------------------------------------------------------------------#
+# Sourcing guard (AC2)
+#
+# When this file is sourced (e.g. for unit-testing its functions in isolation),
+# only define the functions and skip the main flow. Direct execution is
+# detected via BASH_SOURCE. NOMAD_INSTALL_SOURCING=1 additionally forces
+# "sourcing" mode, skipping the main block even if the file is being executed.
+# ---------------------------------------------------------------------------#
+if [[ "${BASH_SOURCE[0]}" == "${0}" && -z "${NOMAD_INSTALL_SOURCING:-}" ]]; then
+
 # Pre-flight checks
 check_supported_distro
 check_is_x86_64
@@ -1116,6 +1227,8 @@ download_management_compose_file
 start_management_containers
 verify_gpu_setup
 success_message
+
+fi  # sourcing guard
 
 # free_space_check() {
 #   if [[ "$(df -B1 / | awk 'NR==2{print $4}')" -le '5368709120' ]]; then

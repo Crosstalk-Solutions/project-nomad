@@ -79,7 +79,20 @@ ensure_management_compose_file_exists(){
   fi
 }
 
+# Returns 0 (true) when the caller wants non-interactive "yes to all" behavior.
+# Used by CI and any automation that must run the scripts without a TTY.
+_nomad_assume_yes() {
+  case "${NOMAD_ASSUME_YES:-}" in
+    1|true|TRUE|True|yes|YES|Yes|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 get_uninstall_confirmation(){
+  if _nomad_assume_yes; then
+    echo "NOMAD_ASSUME_YES set - continuing with the uninstallation."
+    return 0
+  fi
   read -p "This script will remove ALL Project NOMAD files and containers. THIS CANNOT BE UNDONE. Are you sure you want to continue? (y/n): " choice
   case "$choice" in
     y|Y )
@@ -115,7 +128,12 @@ check_docker_compose() {
 }
 
 storage_cleanup() {
-  read -p "Do you want to delete the Project NOMAD storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored NOMAD data and can't be undone! (y/N): " delete_dir_choice
+  if _nomad_assume_yes; then
+    echo "NOMAD_ASSUME_YES set - deleting the Project NOMAD storage directory (${NOMAD_DIR})."
+    delete_dir_choice='y'
+  else
+    read -p "Do you want to delete the Project NOMAD storage directory (${NOMAD_DIR})? This is best if you want to start a completely fresh install. This will PERMANENTLY DELETE all stored NOMAD data and can't be undone! (y/N): " delete_dir_choice
+  fi
   case "$delete_dir_choice" in
       y|Y )
           echo "Removing Project NOMAD files..."
@@ -165,6 +183,15 @@ uninstall_nomad() {
 #                                                                                       Main                                                                                                      #
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
+# ---------------------------------------------------------------------------#
+# Sourcing guard (AC2)
+#
+# When this file is sourced (e.g. for unit-testing its functions in isolation),
+# only define the functions and skip the main flow. Direct execution is
+# detected via BASH_SOURCE. NOMAD_INSTALL_SOURCING=1 additionally forces
+# "sourcing" mode, skipping the main block even if the file is being executed.
+# ---------------------------------------------------------------------------#
+if [[ "${BASH_SOURCE[0]}" == "${0}" && -z "${NOMAD_INSTALL_SOURCING:-}" ]]; then
 check_has_sudo
 check_current_directory
 ensure_management_compose_file_exists
@@ -172,3 +199,4 @@ ensure_docker_installed
 check_docker_compose
 get_uninstall_confirmation
 uninstall_nomad
+fi  # sourcing guard
