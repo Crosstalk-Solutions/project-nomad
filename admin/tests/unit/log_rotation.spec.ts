@@ -18,7 +18,7 @@ test('an inspected container with an empty json-file config gets a size cap', ()
   assert.deepEqual(withLogRotation({ Type: 'json-file', Config: {} }, 'json-file'), ROTATED)
 })
 
-test('an existing max-size is kept, whether from the daemon log-opts or the user', () => {
+test('an existing max-size on the container config is kept', () => {
   const existing = { Type: 'json-file', Config: { 'max-size': '50m', 'max-file': '5' } }
   assert.deepEqual(withLogRotation(existing, 'json-file'), existing)
 })
