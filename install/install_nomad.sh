@@ -331,60 +331,207 @@ generateRandomPass() {
   echo "$password"
 }
 
+# install_docker_native — install Docker from the distro's own package repo.
+# Routed here for two groups (issue #7 AC-1):
+#   1. Distro IDs get.docker.com (SCRIPT_COMMIT ada7a567, 2026-11-03) rejects
+#      at install time: Arch / CachyOS / Manjaro / EndeavourOS (its "arch"
+#      family isn't in the supported list) and AlmaLinux ("almalinux") / Oracle
+#      Linux ("ol") (neither is in the centos|fedora|rhel|rocky accept-list);
+#      the convenience script exits 1 with "Unsupported distribution" before
+#      installing anything.
+#   2. The RHEL-family IDs the card names for the native path — `rhel` and
+#      `rocky` — which, although *accept-listed*, are routed to the Docker CE
+#      RPM repo so every `dnf`-based host installs identically; this matches
+#      the per-family house style already used by setup_nvidia_container_toolkit.
+# Only the fedora IDs stay on the get.docker.com convenience path to keep the
+# change thin and rebaseable against upstream (see AC-4).
+#
+# Upstream references (issue #7 "Upstream path"):
+#   - Crosstalk-Solutions/project-nomad PR #243 — "Docker installs from
+#     native repos on Arch and openSUSE since get.docker.com doesn't support
+#     them." Same approach we're re-applying here; got a positive maintainer
+#     review ("Clean distro detection, good fallback handling… No concerns")
+#     but was closed unmerged on 2026-04-02 when its base branch was deleted,
+#     so we carry the approach in a thin, rebaseable fork patch.
+#   - Crosstalk-Solutions/project-nomad issue #1402 — a get.docker.com failure
+#     on Zorin (a fork-detection case of the same underlying problem).
+#     Related but separate.
+#
+# Per-family behavior:
+#   arch  — `pacman -S --noconfirm --needed docker docker-compose` followed
+#           by `systemctl enable --now docker`. Arch's `docker-compose`
+#           package IS the Compose v2 CLI plugin binary.
+#   rhel  — `dnf config-manager --add-repo https://download.docker.com/linux/rhel/
+#           docker-ce.repo` followed by `dnf install -y docker-ce docker-ce-cli
+#           containerd.io docker-buildx-plugin docker-compose-plugin`,
+#           followed by `systemctl enable --now docker`. The same Docker CE
+#           repo that Debian/Ubuntu uses is the documented source for
+#           AlmaLinux 9, Oracle Linux, RHEL and Rocky (all ship `dnf
+#           config-manager`).
+#
+# On a failure this function returns non-zero — the caller (
+# ensure_docker_installed) is responsible for printing the failure line and
+# exiting, so the message stays consistent with the get.docker.com path.
+install_docker_native() {
+  local family="${1}"
+  local distro=""
+  if [[ -r /etc/os-release ]]; then
+    distro="$(sed -nE 's/^ID=//p' /etc/os-release 2>/dev/null | sed 's/"//g' | head -n 1)"
+  fi
+
+  case "${family}" in
+    arch)
+      echo -e "${YELLOW}#${RESET} (arch) Installing docker via pacman...\\n"
+      # Prerequisites, routed through the family's dispatcher.
+      pkg_install ca-certificates curl
+      if ! sudo pacman -S --noconfirm --needed docker docker-compose; then
+        return 1
+      fi
+      ;;
+    rhel)
+      echo -e "${YELLOW}#${RESET} (rhel/${distro:-unknown}) Installing docker-ce via dnf...\\n"
+      pkg_install ca-certificates curl
+      # dnf config-manager ships in RHEL-compatible distros (Alma 9, Oracle
+      # Linux 8+, Rocky 9+). If the caller somehow ends up here without it,
+      # give a targeted error rather than a bare dnf failure.
+      if ! command -v dnf &> /dev/null || ! dnf config-manager --version &> /dev/null 2>&1; then
+        echo -e "${RED}#${RESET} dnf (with config-manager plugin) is required for the Docker CE RPM repo. Please install it (e.g. dnf install dnf-plugins-core) and try again.\\n"
+        return 1
+      fi
+      if ! sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo; then
+        echo -e "${RED}#${RESET} Failed to add the Docker CE RPM repository (https://download.docker.com/linux/rhel/docker-ce.repo).\\n"
+        return 1
+      fi
+      if ! sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+        echo -e "${RED}#${RESET} Failed to install Docker CE packages via dnf.\\n"
+        return 1
+      fi
+      ;;
+  esac
+
+  # Bring the Docker daemon up and leave it enabled across reboots, so the
+  # "is docker active" check in the caller and the downstream `docker
+  # compose version` check both succeed without needing a separate start.
+  if ! sudo systemctl enable --now docker; then
+    echo -e "${RED}#${RESET} Failed to enable & start the Docker service after the package install.\\n"
+    return 1
+  fi
+  return 0
+}
+
 ensure_docker_installed() {
-  if ! command -v docker &> /dev/null; then
-    echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
-    
-    # Prerequisites, routed through the detected package family.
-    pkg_install ca-certificates curl
-    
-    # Create directory for keyrings
-    # sudo install -m 0755 -d /etc/apt/keyrings
-    
-    # # Download Docker's official GPG key
-    # sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-    # sudo chmod a+r /etc/apt/keyrings/docker.asc
+  local family="${PKG_FAMILY}"
+  local osid=""
+  local native_tried="no"
+  local podman_shim=0
 
-    # # Add the repository to Apt sources
-    # echo \
-    #   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    #   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    #   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  # RHEL-family hosts commonly ship `podman-docker`, which aliases /usr/bin/docker
+  # to podman. `command -v docker` then succeeds even though the Docker Engine unit
+  # was never installed, and the "docker version" check reports
+  # "podman version …" and passes — but downstream `docker compose version` will
+  # still work and everything will appear green while the daemon we're
+  # actually talking to is podman. Detect this up front and print a clear
+  # warning rather than continuing into `systemctl start docker` on a unit
+  # that isn't Docker Engine. (Issue #7, "Related" note.)
+  if command -v docker &> /dev/null; then
+    local docker_ver_line
+    docker_ver_line="$(docker --version 2>&1 | head -n 1)"
+    if printf '%s' "${docker_ver_line}" | grep -qi 'podman'; then
+      podman_shim=1
+    fi
+  fi
 
-    # # Update the package database with the Docker packages from the newly added repo
-    # sudo apt-get update
+  if [[ -n "${family}" ]]; then
+    case "${family}" in
+      arch)
+        native_tried="yes"
+        install_docker_native arch || { echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."; exit 1; }
+        ;;
+      rhel)
+        if [[ -r /etc/os-release ]]; then
+          osid="$(sed -nE 's/^ID=//p' /etc/os-release 2>/dev/null | sed 's/"//g' | head -n 1)"
+        fi
+        # get.docker.com's accept-list is ubuntu|debian|raspbian +
+        # centos|fedora|rhel|rocky. AlmaLinux's ID is "almalinux" and Oracle
+        # Linux's is "ol"; the script keys off the primary ID, so both hit
+        # "Unsupported distribution" and exit 1 before installing anything
+        # (issue #7).
+        #
+        # Per issue #7 AC-1, `almalinux/ol/rhel/rocky` are all routed to
+        # dnf (native Docker CE RPM repo). Only the fedora IDs stay on the
+        # get.docker.com path (that family is in the script's accept-list)
+        # to keep the change thin and rebaseable against upstream.
+        case "${osid}" in
+          almalinux|ol|oracle|rhel|rocky)
+            native_tried="yes"
+            install_docker_native rhel || { echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."; exit 1; }
+            ;;
+          *)
+            :; # fedora and other: fall through to get.docker.com
+            ;;
+        esac
+        ;;
+      debian)
+        :; # get.docker.com default path
+        ;;
+    esac
+  fi
 
-    # # Install Docker packages
-    # sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    # Download the Docker convenience script
-    curl -fsSL https://get.docker.com -o get-docker.sh
-
-    # Run the Docker installation script
-    ${SUDO} sh get-docker.sh
-
-    # Check if Docker was installed successfully
-    if ! command -v docker &> /dev/null; then
+  # On any host where the native path was not taken (debian, or fedora-family
+  # IDs like centos that get.docker.com accepts), run the existing
+  # get.docker.com convenience script. The Debian/Ubuntu path is therefore
+  # byte-for-byte the same code as before; only the entry point into this
+  # function has changed.
+  if [[ "${native_tried}" == "yes" ]]; then
+    # A native install was attempted on this run. If docker still doesn't
+    # resolve to a real Engine, exit with a clear message (the failure was
+    # already reported by install_docker_native).
+    if ! command -v docker &> /dev/null || ! docker version &> /dev/null 2>&1; then
       echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."
       exit 1
     fi
-    
     echo -e "${GREEN}#${RESET} Docker installation completed.\\n"
+  elif [[ "${podman_shim}" -eq 1 ]]; then
+    echo -e "${YELLOW}#${RESET} Found a podman shim for 'docker' — 'docker --version' reads:${RESET}\\n"
+    echo -e "  $(docker --version 2>&1 | head -n 1)\\n"
+    echo -e "${RED}#${RESET} NOMAD requires the Docker Engine unit (dockerd), not podman. Uninstall the podman-docker shim (or remove the alias) and re-run the installer.\\n"
+    exit 1
   else
-    echo -e "${GREEN}#${RESET} Docker is already installed.\\n"
-    
-    # Check if Docker service is running
-    if ! systemctl is-active --quiet docker; then
-      echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
-      ${SUDO} systemctl start docker
-      if ! systemctl is-active --quiet docker; then
-        echo -e "${RED}#${RESET} Failed to start Docker. Please check the Docker service status and try again."
+    if ! command -v docker &> /dev/null; then
+      echo -e "${YELLOW}#${RESET} Docker not found. Installing Docker...\\n"
+
+      # Prerequisites, routed through the detected package family.
+      pkg_install ca-certificates curl
+
+      # Download the Docker convenience script
+      curl -fsSL https://get.docker.com -o get-docker.sh
+
+      # Run the Docker installation script
+      ${SUDO} sh get-docker.sh
+
+      # Check if Docker was installed successfully
+      if ! command -v docker &> /dev/null; then
+        echo -e "${RED}#${RESET} Docker installation failed. Please check the logs and try again."
         exit 1
-      else
-        echo -e "${GREEN}#${RESET} Docker service started successfully.\\n"
       fi
+
+      echo -e "${GREEN}#${RESET} Docker installation completed.\\n"
     else
-      echo -e "${GREEN}#${RESET} Docker service is already running.\\n"
+      echo -e "${GREEN}#${RESET} Docker is already installed.\\n"
+
+      # Check if Docker service is running
+      if ! systemctl is-active --quiet docker; then
+        echo -e "${YELLOW}#${RESET} Docker is installed but not running. Attempting to start Docker...\\n"
+        ${SUDO} systemctl start docker
+        if ! systemctl is-active --quiet docker; then
+          echo -e "${RED}#${RESET} Failed to start Docker. Please check the Docker service status and try again."
+          exit 1
+        else
+          echo -e "${GREEN}#${RESET} Docker service started successfully.\\n"
+        fi
+      else
+        echo -e "${GREEN}#${RESET} Docker service is already running.\\n"
+      fi
     fi
   fi
 }
