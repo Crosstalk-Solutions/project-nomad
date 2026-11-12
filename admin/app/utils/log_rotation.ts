@@ -22,8 +22,11 @@ export type LogConfig = { Type?: string; Config?: Record<string, string> }
  * Only `json-file` is ever touched. Any other driver (journald, local, syslog...)
  * was chosen by someone on purpose, and `max-size` is not even a valid option for
  * most of them, so passing it would make container creation fail. Likewise a
- * json-file config that already sets `max-size` (from the container's own config
- * or the daemon's `log-opts`) is the user's call and is kept as-is.
+ * json-file config that already sets `max-size` on the container itself is the
+ * user's call and is kept as-is. Daemon-level `log-opts` are not visible through
+ * the API, so on a fresh create the cap below takes precedence over them. An
+ * inspected container (the update path) already carries the merged daemon opts,
+ * so those are kept.
  */
 export function withLogRotation(
   existing: LogConfig | undefined,
