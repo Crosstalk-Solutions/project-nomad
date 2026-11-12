@@ -1,4 +1,8 @@
-import { MapService, MapPreflightTimeoutError } from '#services/map_service'
+import {
+  MapService,
+  MapPreflightAbortedError,
+  MapPreflightTimeoutError,
+} from '#services/map_service'
 import MapMarker from '#models/map_marker'
 import {
   assertNotPrivateUrl,
@@ -121,9 +125,26 @@ export default class MapsController {
 
   async extractPreflight({ request, response }: HttpContext) {
     const payload = await request.validateUsing(mapExtractPreflightValidator)
+
+    // The picker fires a new estimate on every selection change and aborts the old
+    // one. Kill the pmtiles child when the connection drops before we answer, or each
+    // abandoned estimate keeps reading the remote archive for up to the full timeout.
+    // Listen on the ServerResponse: IncomingMessage 'close' fires once the body is
+    // read, not when the client goes away.
+    const abort = new AbortController()
+    const res = response.response
+    const onClose = () => {
+      if (!res.writableFinished) abort.abort()
+    }
+    res.once('close', onClose)
+
     try {
-      return await this.mapService.extractPreflight(payload)
+      return await this.mapService.extractPreflight(payload, abort.signal)
     } catch (error) {
+      if (error instanceof MapPreflightAbortedError) {
+        // Nobody is listening. Skip the error handler so this isn't logged as a 500.
+        return
+      }
       // A timeout is the user's selection being too big for this box, not a server
       // fault, so say so instead of a bare 500 (#1258).
       if (error instanceof MapPreflightTimeoutError) {
