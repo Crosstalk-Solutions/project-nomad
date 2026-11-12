@@ -727,13 +727,18 @@ class API {
     })()
   }
 
-  async extractMapPreflight(params: { countries: CountryCode[]; maxzoom?: number }) {
+  async extractMapPreflight(
+    params: { countries: CountryCode[]; maxzoom?: number },
+    signal?: AbortSignal
+  ) {
     // Not wrapped in catchInternal: the country picker shows the error inline, and the
     // server's message (e.g. a timeout on a very large selection, #1258) is the useful part.
+    // Aborting `signal` drops the connection, which kills the server's pmtiles child.
     try {
       const response = await this.client.post<MapExtractPreflight>(
         '/maps/extract-preflight',
-        params
+        params,
+        { signal }
       )
       return response.data
     } catch (error) {
