@@ -2,49 +2,50 @@ import { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
 
 import MapsLayout from '~/layouts/MapsLayout'
-import MapComponent from '~/components/maps/MapComponent'
+import MapComponent, { type MapCommand } from '~/components/maps/MapComponent'
 import StyledButton from '~/components/StyledButton'
 import { IconArrowLeft, IconCrosshair, IconMapPin, IconPlaneTilt } from '@tabler/icons-react'
 import { FileEntry } from '../../types/files'
 import Alert from '~/components/Alert'
+import { useNotifications } from '~/context/NotificationContext'
+import { findRegionByLabel, parseLatLng, type JumpRegion } from '~/lib/map_jump'
+import { fetchRegionBounds } from '~/lib/map_region_bounds'
 
-type MapCommand = {
-  id: number
-  lat: number
-  lng: number
-  action: 'fly' | 'marker'
-}
+const JUMP_DATALIST_ID = 'map-jump-regions'
 
 export default function Maps(props: {
-  maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
+  maps: {
+    baseAssetsExist: boolean
+    worldBasemapExists: boolean
+    regionFiles: FileEntry[]
+    regions: JumpRegion[]
+  }
 }) {
+  const { addNotification } = useNotifications()
   const [isHoveringUI, setIsHoveringUI] = useState(false)
 
-  const [coordinateSearch, setCoordinateSearch] = useState('')
+  const [jumpText, setJumpText] = useState('')
   const [mapCommand, setMapCommand] = useState<MapCommand | null>(null)
   const [showCoordinatesEnabled, setShowCoordinatesEnabled] = useState(true)
 
-  const parseCoordinates = () => {
-    const [latRaw, lngRaw] = coordinateSearch.split(',').map((value) => value.trim())
-    const lat = Number(latRaw)
-    const lng = Number(lngRaw)
+  const regions = props.maps.regions ?? []
 
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lng) ||
-      lat < -90 ||
-      lat > 90 ||
-      lng < -180 ||
-      lng > 180
-    ) {
-      return null
+  const jumpToRegion = async (region: JumpRegion) => {
+    // Clear right away so the datalist shows every region again on the next focus.
+    setJumpText('')
+    try {
+      const bounds = await fetchRegionBounds(region.url)
+      setMapCommand({ id: Date.now(), action: 'fit', bounds })
+    } catch {
+      addNotification({
+        type: 'error',
+        message: `Could not read the map file for ${region.label}.`,
+      })
     }
-
-    return { lat, lng }
   }
 
   const handleCoordinateAction = (action: 'fly' | 'marker') => {
-    const coordinates = parseCoordinates()
+    const coordinates = parseLatLng(jumpText)
     if (!coordinates) return
 
     setMapCommand({
@@ -52,6 +53,24 @@ export default function Maps(props: {
       ...coordinates,
       action,
     })
+  }
+
+  // Enter and the fly button: a downloaded region by name, otherwise lat,lng.
+  const handleJump = () => {
+    const region = findRegionByLabel(jumpText, regions)
+    if (region) {
+      void jumpToRegion(region)
+      return
+    }
+    handleCoordinateAction('fly')
+  }
+
+  const handleJumpTextChange = (value: string) => {
+    setJumpText(value)
+    // Picking an option from the datalist replaces the text without a keypress, so an exact
+    // label match is the signal to jump. Typing the full name by hand jumps the same way.
+    const region = findRegionByLabel(value, regions)
+    if (region) void jumpToRegion(region)
   }
 
   const alertMessage = !props.maps.baseAssetsExist
@@ -81,20 +100,32 @@ export default function Maps(props: {
           <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="lat,lng"
-              value={coordinateSearch}
-              onChange={(event) => setCoordinateSearch(event.target.value)}
+              placeholder={regions.length > 0 ? 'Jump to: region or lat,lng' : 'lat,lng'}
+              aria-label="Jump to a downloaded region or coordinates"
+              list={regions.length > 0 ? JUMP_DATALIST_ID : undefined}
+              value={jumpText}
+              // Leftover text would filter the datalist down to itself (or nothing), which
+              // reads as a broken dropdown; start each visit to the box empty.
+              onFocus={() => setJumpText('')}
+              onChange={(event) => handleJumpTextChange(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') handleCoordinateAction('fly')
+                if (event.key === 'Enter') handleJump()
               }}
-              className="w-52 rounded border border-border-default bg-surface-primary px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:border-desert-green focus:outline-none"
+              className="w-64 rounded border border-border-default bg-surface-primary px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:border-desert-green focus:outline-none"
             />
+            {regions.length > 0 && (
+              <datalist id={JUMP_DATALIST_ID}>
+                {regions.map((region) => (
+                  <option key={region.file} value={region.label} />
+                ))}
+              </datalist>
+            )}
 
             <button
               type="button"
-              onClick={() => handleCoordinateAction('fly')}
+              onClick={handleJump}
               className="rounded border border-border-default bg-surface-primary p-2 text-text-secondary hover:bg-surface-secondary"
-              title="Fly to coordinates"
+              title="Fly to region or coordinates"
             >
               <IconPlaneTilt size={18}/>
             </button>

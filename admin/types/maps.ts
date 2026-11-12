@@ -28,7 +28,10 @@ export type CountryCode = string
 export type Country = {
   code: CountryCode
   code3: string
+  /** Short display name from Natural Earth (`NAME`), abbreviated for some countries ("Bosnia and Herz.") */
   name: string
+  /** Full English name (`NAME_EN`, e.g. "Bosnia and Herzegovina"); falls back to `name` */
+  fullName: string
   continent: string
   subregion: string
   population: number

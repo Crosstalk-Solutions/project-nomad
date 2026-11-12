@@ -22,6 +22,7 @@ import { assertNotPrivateUrl } from '#validators/common'
 import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { decideSupersededDeletion } from '../utils/superseded_resource.js'
+import { labelMapRegions, type MapRegion } from '../utils/map_region_label.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps.js'
 import {
@@ -92,6 +93,39 @@ export class MapService implements IMapService {
     return {
       files,
     }
+  }
+
+  /**
+   * Downloaded regions with human-readable names (country, group or curated pack title)
+   * for the map's "Jump to" box. A failed lookup only degrades labels to a cleaned-up
+   * filename; it never hides a region.
+   */
+  async listRegionsForNavigation(): Promise<Array<MapRegion & { url: string }>> {
+    const { files } = await this.listRegions()
+    const filenames = files.map((f) => f.name)
+    if (filenames.length === 0) return []
+
+    const countriesService = CountriesService.getInstance()
+    const [countries, groups, spec] = await Promise.all([
+      countriesService.list().catch(() => [] as Country[]),
+      countriesService.listGroups().catch(() => [] as CountryGroup[]),
+      new CollectionManifestService().getSpecWithFallback<MapsSpec>('maps').catch(() => null),
+    ])
+
+    const labelled = labelMapRegions(filenames, {
+      countries: Object.fromEntries(countries.map((c) => [c.code, c.fullName])),
+      groups: Object.fromEntries(groups.map((g) => [g.id, g.name])),
+      curated: Object.fromEntries(
+        (spec?.collections ?? []).flatMap((c) => c.resources.map((r) => [r.id, r.title]))
+      ),
+    })
+
+    // Root-relative, so the browser fetches it from whatever host/proxy served the page.
+    const basePath = this.getPublicFilePath('pmtiles')
+    return labelled.map((region) => ({
+      ...region,
+      url: urlJoin(basePath, encodeURIComponent(region.file)),
+    }))
   }
 
   async downloadBaseAssets(url?: string) {
@@ -969,11 +1003,15 @@ export class MapService implements IMapService {
 
     const host = specifiedHostOrDefault();
     const withProtocol = `${protocol}://${host}`
-    const baseUrlPath =
-      process.env.NODE_ENV === 'production' ? childPath : urlJoin(this.mapStoragePath, childPath)
-
-    const baseUrl = new URL(baseUrlPath, withProtocol).toString()
+    const baseUrl = new URL(this.getPublicFilePath(childPath), withProtocol).toString()
     return baseUrl
+  }
+
+  /** Path (no host) that map storage files under `childPath` are served from. */
+  private getPublicFilePath(childPath: string): string {
+    return process.env.NODE_ENV === 'production'
+      ? urlJoin('/', childPath)
+      : urlJoin(this.mapStoragePath, childPath)
   }
 }
 
