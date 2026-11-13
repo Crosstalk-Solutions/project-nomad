@@ -90,11 +90,16 @@ export default class QueueWork extends BaseCommand {
       worker.on('failed', async (job, err) => {
         this.logger.error(`[${queueName}] Job failed: ${job?.id}, Error: ${err.message}`)
 
-        // If this was a Wikipedia download, mark it as failed in the DB — only once retries are
-        // exhausted, otherwise a transient error shows "failed" while the next attempt runs
-        const retriesExhausted = !!job && job.attemptsMade >= (job.opts.attempts ?? 1)
+        // BullMQ emits `failed` on every attempt. `finishedOn` is set only when the job moved to
+        // the failed set for good: retries exhausted OR an UnrecoverableError (disk full, gated
+        // auth, cancel) that skipped them. Comparing attemptsMade to opts.attempts misses the
+        // second case, since an UnrecoverableError on attempt 1 of 10 leaves attemptsMade at 1.
+        const isTerminalFailure = !!job?.finishedOn
+
+        // If this was a Wikipedia download, mark it as failed in the DB — only on terminal
+        // failure, otherwise a transient error shows "failed" while the next attempt runs
         if (
-          retriesExhausted &&
+          isTerminalFailure &&
           job?.data?.filetype === 'zim' &&
           job?.data?.url?.includes('wikipedia_en_')
         ) {
@@ -112,13 +117,18 @@ export default class QueueWork extends BaseCommand {
         }
 
         // Terminal failure of an AUTO content update → advance that resource's
-        // backoff (self-disables after MAX_CONSECUTIVE_FAILURES). BullMQ emits
-        // `failed` on every attempt, so gate on the final attempt to count each
-        // doomed download once, not once per retry. Manual downloads (auto !== true)
-        // are deliberately excluded.
+        // backoff (self-disables after MAX_CONSECUTIVE_FAILURES). Gated on terminal
+        // failure so each doomed download counts once, not once per retry. Manual
+        // downloads (auto !== true) are deliberately excluded, and so are user cancels:
+        // they are terminal too now, and must not count toward self-disabling the update.
         const meta = job?.data?.resourceMetadata
-        const isTerminal = (job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 1)
-        if (job?.name === RunDownloadJob.key && meta?.auto === true && isTerminal) {
+        const userCancelled = err?.message?.startsWith(RunDownloadJob.CANCELLED_PREFIX) ?? false
+        if (
+          job?.name === RunDownloadJob.key &&
+          meta?.auto === true &&
+          isTerminalFailure &&
+          !userCancelled
+        ) {
           try {
             const { default: InstalledResource } = await import('#models/installed_resource')
             const { recordResourceUpdateFailure } = await import(
