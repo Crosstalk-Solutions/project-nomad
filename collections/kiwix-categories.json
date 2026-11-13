@@ -32,11 +32,11 @@
             },
             {
               "id": "fas-military-medicine_en",
-              "version": "2025-06",
+              "version": "2026-10",
               "title": "Military Medicine",
               "description": "Tactical and field medicine manuals",
-              "url": "https://download.kiwix.org/zim/zimit/fas-military-medicine_en_2025-06.zim",
-              "size_mb": 78
+              "url": "https://download.kiwix.org/zim/zimit/irp.fas.org_en_military-medicine_2026-10.zim",
+              "size_mb": 62
             },
             {
               "id": "wwwnc.cdc.gov_en_all",
@@ -88,11 +88,11 @@
             },
             {
               "id": "librepathology_en_all_maxi",
-              "version": "2025-09",
+              "version": "2026-09",
               "title": "LibrePathology",
               "description": "Pathology reference for disease identification",
-              "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2025-09.zim",
-              "size_mb": 76
+              "url": "https://download.kiwix.org/zim/other/librepathology_en_all_maxi_2026-09.zim",
+              "size_mb": 95
             }
           ]
         }
@@ -113,19 +113,19 @@
           "resources": [
             {
               "id": "canadian_prepper_winterprepping_en",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Canadian Prepper: Winter Prepping",
               "description": "Video guides for winter survival and cold weather emergencies",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_winterprepping_en_2026-02.zim",
-              "size_mb": 1340
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_winterprepping_2026-08.zim",
+              "size_mb": 1342
             },
             {
               "id": "canadian_prepper_bugoutroll_en",
-              "version": "2025-08",
+              "version": "2026-07",
               "title": "Canadian Prepper: Bug Out Roll",
               "description": "Essential gear selection for your bug-out bag",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutroll_en_2025-08.zim",
-              "size_mb": 975
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_bugoutroll_2026-07.zim",
+              "size_mb": 879
             }
           ]
         },
@@ -137,19 +137,19 @@
           "resources": [
             {
               "id": "canadian_prepper_bugoutconcepts_en",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Canadian Prepper: Bug Out Concepts",
               "description": "Strategies and planning for emergency evacuation",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_bugoutconcepts_en_2026-02.zim",
-              "size_mb": 2890
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_bugoutconcepts_2026-08.zim",
+              "size_mb": 2886
             },
             {
               "id": "urban-prepper_en_all",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Urban Prepper",
               "description": "Comprehensive urban emergency preparedness video series",
-              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2026-02.zim",
-              "size_mb": 2240
+              "url": "https://download.kiwix.org/zim/videos/urban-prepper_en_all_2026-08.zim",
+              "size_mb": 2245
             }
           ]
         },
@@ -161,10 +161,10 @@
           "resources": [
             {
               "id": "canadian_prepper_preppingfood_en",
-              "version": "2025-09",
+              "version": "2026-07",
               "title": "Canadian Prepper: Prepping Food",
               "description": "Long-term food storage and survival meal preparation",
-              "url": "https://download.kiwix.org/zim/videos/canadian_prepper_preppingfood_en_2025-09.zim",
+              "url": "https://download.kiwix.org/zim/videos/canadian-prepper_en_preppingfood_2026-07.zim",
               "size_mb": 2160
             },
             {
@@ -210,11 +210,11 @@
           "resources": [
             {
               "id": "ted_mul_ted-ed",
-              "version": "2026-01",
+              "version": "2026-09",
               "title": "TED-Ed",
               "description": "Educational video lessons on science, history, literature, and more",
-              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-ed_2026-01.zim",
-              "size_mb": 5610
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-ed_2026-09.zim",
+              "size_mb": 6381
             },
             {
               "id": "wikiversity_en_all_maxi",
@@ -274,11 +274,11 @@
             },
             {
               "id": "ted_mul_ted-conference",
-              "version": "2026-02",
+              "version": "2026-09",
               "title": "TED Conference",
               "description": "Main TED conference talks on ideas worth spreading",
-              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-conference_2026-02.zim",
-              "size_mb": 16500
+              "url": "https://download.kiwix.org/zim/ted/ted_mul_ted-conference_2026-09.zim",
+              "size_mb": 18136
             },
             {
               "id": "libretexts.org_en_human",
@@ -404,10 +404,10 @@
             },
             {
               "id": "based.cooking_en_all",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Based.Cooking",
               "description": "Simple, practical recipes from the community",
-              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/zimit/based.cooking_en_all_2026-08.zim",
               "size_mb": 16
             }
           ]
@@ -452,11 +452,11 @@
           "resources": [
             {
               "id": "lrnselfreliance_en_all",
-              "version": "2025-12",
+              "version": "2026-06",
               "title": "Learning Self-Reliance: Homesteading",
               "description": "Beekeeping, animal husbandry, and sustainable living practices",
-              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2025-12.zim",
-              "size_mb": 3970
+              "url": "https://download.kiwix.org/zim/videos/lrnselfreliance_en_all_2026-06.zim",
+              "size_mb": 3790
             },
             {
               "id": "gutenberg_en_lcc-s",
@@ -485,42 +485,42 @@
           "resources": [
             {
               "id": "freecodecamp_en_all",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "freeCodeCamp",
               "description": "Interactive programming tutorials - JavaScript, algorithms, and data structures",
-              "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/freecodecamp/freecodecamp_en_all_2026-08.zim",
               "size_mb": 8
             },
             {
               "id": "devdocs_en_python",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Python Documentation",
               "description": "Complete Python language reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-08.zim",
               "size_mb": 4
             },
             {
               "id": "devdocs_en_javascript",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "JavaScript Documentation",
               "description": "MDN JavaScript reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-07.zim",
               "size_mb": 3
             },
             {
               "id": "devdocs_en_html",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "HTML Documentation",
               "description": "MDN HTML elements and attributes reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_html_2026-07.zim",
               "size_mb": 2
             },
             {
               "id": "devdocs_en_css",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "CSS Documentation",
               "description": "MDN CSS properties and selectors reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-07.zim",
               "size_mb": 5
             }
           ]
@@ -549,10 +549,10 @@
             },
             {
               "id": "devdocs_en_node",
-              "version": "2026-02",
+              "version": "2026-08",
               "title": "Node.js Documentation",
               "description": "Node.js API reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_node_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_node_2026-08.zim",
               "size_mb": 1
             },
             {
@@ -565,11 +565,11 @@
             },
             {
               "id": "devdocs_en_git",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "Git Documentation",
               "description": "Git version control reference",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-01.zim",
-              "size_mb": 1
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-07.zim",
+              "size_mb": 2
             }
           ]
         },
@@ -597,10 +597,10 @@
             },
             {
               "id": "devdocs_en_docker",
-              "version": "2026-01",
+              "version": "2026-07",
               "title": "Docker Documentation",
               "description": "Docker container reference and guides",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-01.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-07.zim",
               "size_mb": 2
             },
             {

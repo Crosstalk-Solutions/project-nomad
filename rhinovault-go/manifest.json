@@ -134,7 +134,8 @@
       "source": {
         "type": "github-release",
         "repo": "ggml-org/llama.cpp",
-        "pinned_tag": "b11048"
+        "pinned_tag": "b11048",
+        "tag_pattern": "^b[0-9]+$"
       },
       "platforms": {
         "windows-x64": {
@@ -194,7 +195,8 @@
         "type": "github-release",
         "repo": "gchq/CyberChef",
         "pinned_tag": "v10.19.4",
-        "asset": "CyberChef_{tag}.zip"
+        "asset": "CyberChef_{tag}.zip",
+        "asset_pattern": "CyberChef_[0-9A-Za-z.]+\\.zip"
       },
       "extract": {
         "to": "Tools/CyberChef"
@@ -209,7 +211,8 @@
         "type": "github-release",
         "repo": "keepassxreboot/keepassxc",
         "pinned_tag": "2.7.10",
-        "asset": "KeePassXC-{tag}-Win64.zip"
+        "asset": "KeePassXC-{tag}-Win64.zip",
+        "asset_pattern": "KeePassXC-[0-9.]+-(x64|Win64)\\.zip"
       },
       "extract": {
         "to": "Apps/Windows/KeePassXC",

@@ -26,6 +26,11 @@
   Folder with files you already have (ZIMs, map files, archives). Any file whose name matches
   a download is copied from here instead of downloaded, e.g. a NAS share.
 
+.PARAMETER DownloadOnly
+  Download everything into -CacheDir and stop - no drive is built. Use with -Edition all to keep
+  one complete offline copy (for example on G:), then build drives from it with -LocalMirror.
+  Files already in the folder are kept, so running it again only fetches what is missing.
+
 .PARAMETER DryRun
   Show what would be downloaded and how much space it needs, without changing anything.
 
@@ -60,11 +65,15 @@
   .\Build-RhinoVaultGo.ps1 -Drive E: -Edition lite -MapRegions east-north-central,west-south-central
 .EXAMPLE
   .\Build-RhinoVaultGo.ps1 -Drive F: -Edition full -CacheDir D:\RhinoVaultCache
+.EXAMPLE
+  .\Build-RhinoVaultGo.ps1 -DownloadOnly -Edition all -CacheDir "G:\RhinoVault Project\Downloads"
+.EXAMPLE
+  .\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -LocalMirror "G:\RhinoVault Project\Downloads"
 #>
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$Drive,
-  [ValidateSet('lite', 'standard', 'full')][string]$Edition = 'standard',
+  [string]$Drive,
+  [ValidateSet('lite', 'standard', 'full', 'all')][string]$Edition = 'standard',
   [string[]]$MapRegions,
   [string]$CacheDir,
   [string]$LocalMirror,
@@ -76,7 +85,8 @@ param(
   [ValidateSet('sale', 'free', 'personal')][string]$Use = 'sale',
   [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$Books = '',
   [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$IndexBooks = '',
-  [switch]$Force
+  [switch]$Force,
+  [switch]$DownloadOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -111,6 +121,24 @@ function Get-LatestGithubTag([string]$repo) {
   } catch { }
   finally { Remove-Item -LiteralPath $sink -Force -ErrorAction SilentlyContinue }
   return $null
+}
+
+function Get-NewestGithubTag([string]$repo, [string]$tagPattern) {
+  # Newest tag on the releases page that has the expected shape (e.g. ^b[0-9]+$)
+  try {
+    $html = Invoke-CurlText "https://github.com/$repo/releases"
+    $tags = @([regex]::Matches($html, 'releases/tag/([^"/?#]+)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -match $tagPattern })
+    if ($tags.Count) { return (Select-Best $tags $null) }
+  } catch { }
+  return $null
+}
+
+function Get-GithubAssets([string]$repo, [string]$tag) {
+  # File names attached to a release (GitHub's expanded_assets page; no API token needed)
+  try {
+    $html = Invoke-CurlText "https://github.com/$repo/releases/expanded_assets/$tag"
+    return @([regex]::Matches($html, 'releases/download/[^/"]+/([^"/?#]+)"') | ForEach-Object { [System.Uri]::UnescapeDataString($_.Groups[1].Value) } | Sort-Object -Unique)
+  } catch { return @() }
 }
 
 function Compare-Version([string]$a, [string]$b) {
@@ -158,14 +186,33 @@ function Resolve-Source($src, $platformSpec, [string]$fileName) {
     }
     'github-release' {
       $assetTpl = if ($platformSpec) { $platformSpec.asset } else { $src.asset }
+      $assetPat = if ($platformSpec -and $platformSpec.asset_pattern) { $platformSpec.asset_pattern } else { $src.asset_pattern }
       # Prefer a mirrored copy of any version
       $pattern = [regex]::Escape($assetTpl).Replace('\{tag}', 'v?[0-9A-Za-z][0-9A-Za-z.\-]*').Replace('\{version}', '[0-9][0-9A-Za-z.\-]*')
       $m = Find-InMirror $null $pattern
+      if (-not $m -and $assetPat) { $m = Find-InMirror $null $assetPat }
       if ($m) { return @{ Url = $null; FileName = (Split-Path $m -Leaf); Mirror = $m } }
+      $urls = @()
       $tag = Get-LatestGithubTag $src.repo
-      if (-not $tag) { $tag = $src.pinned_tag; Say "   (using pinned version $tag of $($src.repo))" DarkGray }
-      $asset = $assetTpl.Replace('{tag}', $tag).Replace('{version}', ($tag -replace '^v', ''))
-      return @{ Url = "https://github.com/$($src.repo)/releases/download/$tag/$asset"; FileName = $asset; Mirror = $null }
+      # Some projects publish odd "latest" releases (e.g. llama.cpp v0.9.0 with no binaries): require the usual tag shape
+      if ($tag -and $src.tag_pattern -and $tag -notmatch $src.tag_pattern) { $tag = Get-NewestGithubTag $src.repo $src.tag_pattern }
+      if ($tag) {
+        $want = $assetTpl.Replace('{tag}', $tag).Replace('{version}', ($tag -replace '^v', ''))
+        $assets = @(Get-GithubAssets $src.repo $tag)
+        $pick = $null
+        if (-not $assets.Count) { $pick = $want }                       # could not list assets: try the usual name
+        elseif ($assets -contains $want) { $pick = $want }
+        elseif ($assetPat) { $hits = @($assets | Where-Object { $_ -match "^$assetPat$" }); if ($hits.Count) { $pick = Select-Best $hits $null } }
+        if ($pick) { $urls += "https://github.com/$($src.repo)/releases/download/$tag/$pick" }
+        else { Say "   (newest release $tag of $($src.repo) has no matching download)" DarkGray }
+      }
+      if ($src.pinned_tag) {
+        $pinAsset = $assetTpl.Replace('{tag}', $src.pinned_tag).Replace('{version}', ($src.pinned_tag -replace '^v', ''))
+        $pinUrl = "https://github.com/$($src.repo)/releases/download/$($src.pinned_tag)/$pinAsset"
+        if ($urls -notcontains $pinUrl) { $urls += $pinUrl }
+      }
+      if (-not $urls.Count) { throw "No download found for $($src.repo)" }
+      return @{ Url = $urls[0]; Urls = $urls; FileName = (FileNameFromUrl $urls[0]); Mirror = $null }
     }
     'listing' {
       $pattern = if ($platformSpec) { $platformSpec.pattern } else { $src.pattern }
@@ -305,6 +352,24 @@ function Get-StrippedRoot([string]$dir, [int]$strip) {
 
 function New-TempDir { $p = Join ([System.IO.Path]::GetTempPath()) ('rvgo-' + [guid]::NewGuid().ToString('N').Substring(0, 8)); New-Item -ItemType Directory -Path $p | Out-Null; $p }
 
+# Kiwix replaces dated files (name_2026-01.zim) and deletes old ones, so a fixed URL stops working.
+# Keep the copy already on the drive; otherwise use the newest file in the mirror or the Kiwix folder.
+$ZimListings = @{}
+function Resolve-LatestZim([string]$url) {
+  $name = FileNameFromUrl $url
+  if ($name -notmatch '^(.+)_(\d{4}-\d{2})\.zim$') { return $url }
+  $base = $Matches[1]
+  $dir = $url.Substring(0, $url.LastIndexOf('/') + 1)
+  $pat = [regex]::Escape($base) + '_\d{4}-\d{2}\.zim'
+  $onDrive = @(Get-ChildItem -LiteralPath (Join $Target 'Library/ZIM') -Filter '*.zim' -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^$pat$" } | ForEach-Object { $_.Name })
+  if ($onDrive.Count) { return $dir + (Select-Best $onDrive $null) }
+  $m = Find-InMirror $null $pat
+  if ($m) { return $dir + (Split-Path $m -Leaf) }
+  if (-not $ZimListings.ContainsKey($dir)) { try { $ZimListings[$dir] = Invoke-CurlText $dir } catch { $ZimListings[$dir] = '' } }
+  $names = @([regex]::Matches($ZimListings[$dir], "href=""($pat)""") | ForEach-Object { $_.Groups[1].Value })
+  if (-not $names.Count) { return $url }
+  return $dir + (Select-Best $names $null)
+}
 # ------------------------------------------------------------------ field manual search index
 # A small BM25 index the launcher's "Ask RhinoVault" page searches in the browser. Text comes from
 # pdftotext; pages are split into ~1200-character chunks. Terms are sharded by a hash so the browser
@@ -360,7 +425,7 @@ function Get-PdfToText {
   Say '   getting pdftotext (Poppler) for text extraction...'
   $res = Resolve-Source $tool.source $null $null
   $zip = Join $toolsDir $res.FileName
-  if ($res.Mirror) { $zip = $res.Mirror } else { Invoke-Download $res.Url $zip }
+  if ($res.Mirror) { $zip = $res.Mirror } else { $null = Get-Remote $res $zip }
   Expand-Any $zip (Join $toolsDir 'poppler')
   $found = Get-ChildItem -LiteralPath (Join $toolsDir 'poppler') -Recurse -Filter $tool.exe -File | Select-Object -First 1
   if ($found) { return $found.FullName }
@@ -481,10 +546,20 @@ $manifest = Read-Json $ManifestPath
 $colWiki = Read-Json (Join $GoDir $manifest.collections.wikipedia)
 $colZim = Read-Json (Join $GoDir $manifest.collections.zim_categories)
 $colMaps = Read-Json (Join $GoDir $manifest.collections.maps)
-$prof = $manifest.profiles.$Edition
+if ($DownloadOnly) {
+  if (-not $CacheDir) { throw "-DownloadOnly needs -CacheDir, the folder that keeps every download, e.g. -CacheDir 'G:\RhinoVault Project\Downloads'" }
+  if (-not $LocalMirror) { $LocalMirror = $CacheDir }   # keep what is already there
+} else {
+  if (-not $Drive) { throw 'Give -Drive: the USB drive or folder to build, e.g. -Drive E:' }
+  if ($Edition -eq 'all') { throw "-Edition all only works with -DownloadOnly. Build a drive with lite, standard or full." }
+}
+$editions = if ($Edition -eq 'all') { @('lite', 'standard', 'full') } else { @($Edition) }
 
 $plan = New-Object System.Collections.Generic.List[object]
 function Add-Plan($item) { if (-not ($plan | Where-Object { $_.Kind -eq $item.Kind -and $_.Id -eq $item.Id })) { $plan.Add([pscustomobject]$item) } }
+
+foreach ($ed in $editions) {
+$prof = $manifest.profiles.$ed
 
 # Wikipedia
 if ($prof.wikipedia -and $prof.wikipedia -ne 'none') {
@@ -567,6 +642,8 @@ if (-not $NoAI -and $prof.ai_model) {
   }
 }
 
+}  # editions
+
 # Runtime binaries for every platform, so the drive works on Windows, Mac and Linux
 foreach ($rt in $manifest.runtime) {
   if ($NoAI -and $rt.id -eq 'llama-server') { continue }
@@ -574,6 +651,74 @@ foreach ($rt in $manifest.runtime) {
     Add-Plan @{ Kind = 'runtime'; Id = "$($rt.id)-$($pl.Name)"; Title = "$($rt.title) [$($pl.Name)]"; Platform = $pl.Name
       SizeMB = 15; Spec = $rt; PlatformSpec = $pl.Value; Verify = $false }
   }
+}
+
+# ------------------------------------------------------------------ download only
+if ($DownloadOnly) {
+  New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
+  $Target = (Resolve-Path -LiteralPath $CacheDir).Path
+  $items = @($plan | Where-Object Kind -ne 'books')
+  Write-Host ''
+  Write-Host '  RhinoVault Go downloader' -ForegroundColor Yellow -NoNewline; Write-Host "  v$GoVersion" -ForegroundColor DarkGray
+  Say "  Editions : $($editions -join ', ')"
+  Say "  Saving to: $Target"
+  Say "  Checking for the newest library files..." DarkGray
+  foreach ($it in @($items | Where-Object Kind -eq 'zim')) { $new = Resolve-LatestZim $it.Url; if ($new -ne $it.Url) { $it.Url = $new } }
+  $totalMB = ($items | Measure-Object SizeMB -Sum).Sum
+  $have = @(Get-ChildItem -LiteralPath $Target -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB
+  $psd = Get-PSDrive -Name ((Get-Item -LiteralPath $Target).PSDrive.Name) -ErrorAction SilentlyContinue
+  $freeMB = if ($psd) { [math]::Floor($psd.Free / 1MB) } else { [double]::MaxValue }
+  Say "  Content  : $($items.Count) items, about $(Fmt $totalMB) in all ($(Fmt $have) already in the folder, $(Fmt $freeMB) free)"
+  if ($DryRun) {
+    Step 'Dry run - everything that belongs in the folder'
+    foreach ($it in $items) { Say ('  [{0,-7}] {1,-60} {2,10}' -f $it.Kind, $it.Title, (Fmt $it.SizeMB)) }
+    return
+  }
+  if (-not $Force -and ($totalMB - $have) * 1.05 -gt $freeMB) {
+    throw "Not enough space: about $(Fmt (($totalMB - $have) * 1.05)) more is needed, $(Fmt $freeMB) free. Free up space or use -Force."
+  }
+  $failed = @(); $i = 0
+  foreach ($it in $items) {
+    $i++
+    Step ("[{0}/{1}] {2}" -f $i, $items.Count, $it.Title)
+    try {
+      $res = switch ($it.Kind) {
+        'zim' { @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) } }
+        'map' { @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) } }
+        'model' { @{ Urls = @($it.Spec.urls); FileName = $it.Spec.file; Mirror = (Find-InMirror $it.Spec.file $null) } }
+        'extra' { Resolve-Source $it.Spec.source $null $it.Spec.file }
+        'runtime' { Resolve-Source $it.Spec.source $it.PlatformSpec $null }
+      }
+      $dest = Join $Target $res.FileName
+      if ($res.Mirror -or (Test-Path -LiteralPath $dest)) { Say '   already downloaded' DarkGreen; continue }
+      $used = Get-Remote $res $dest
+      if ($it.Verify) { Test-Sha256 $used $dest }
+      Say '   saved' DarkGreen
+    } catch {
+      Say "   FAILED: $($_.Exception.Message)" Red
+      $failed += $it
+    }
+  }
+  # pdftotext (Poppler) builds the field-manual search index on Windows
+  $pop = $manifest.build_tools.'poppler-windows'
+  if ($pop) {
+    Step 'pdftotext (Poppler) for the field-manual search index'
+    try {
+      $res = Resolve-Source $pop.source $null $null
+      $dest = Join $Target $res.FileName
+      if ($res.Mirror -or (Test-Path -LiteralPath $dest)) { Say '   already downloaded' DarkGreen } else { $null = Get-Remote $res $dest; Say '   saved' DarkGreen }
+    } catch { Say "   FAILED: $($_.Exception.Message)" Red; $failed += [pscustomobject]@{ Title = 'pdftotext (Poppler)' } }
+  }
+  Write-Host ''
+  if ($failed.Count) {
+    Say "  $($failed.Count) item(s) failed - run the same command again to retry:" Red
+    $failed | ForEach-Object { Say "   - $($_.Title)" Red }
+  } else {
+    Say '  Everything is downloaded. Build drives from this folder with:' Green
+    Say "  .\Build-RhinoVaultGo.ps1 -Drive E: -Edition standard -LocalMirror `"$Target`"" Green
+  }
+  Say '  Ebooks are not downloaded here: copy your books folders to G: and pass them with -BooksFolder.' DarkGray
+  return
 }
 
 # ------------------------------------------------------------------ target + space
@@ -593,6 +738,13 @@ function Test-Done($it, [string]$key) {
   (Test-Path -LiteralPath $m) -and ((Get-Content -LiteralPath $m -Raw).Trim() -eq $key)
 }
 function Set-Done($it, [string]$key) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null; Set-Content -LiteralPath (Get-Marker $it) -Value $key -Encoding UTF8 }
+
+$zims = @($plan | Where-Object Kind -eq 'zim')
+if ($zims.Count) { Say "  Checking for the newest library files ($($zims.Count))..." DarkGray }
+foreach ($it in $zims) {
+  $new = Resolve-LatestZim $it.Url
+  if ($new -ne $it.Url) { Say "   $($it.Title): $(FileNameFromUrl $it.Url) -> $(FileNameFromUrl $new)" DarkGray; $it.Url = $new }
+}
 
 # Work out what still needs downloading
 $todo = @(); $needMB = 0
@@ -707,7 +859,7 @@ foreach ($it in $plan) {
           try {
             $archive = if ($CacheDir) { Join $CacheDir $res.FileName } else { Join $tmp $res.FileName }
             if ($res.Mirror) { $archive = $res.Mirror }
-            elseif (-not (Test-Path -LiteralPath $archive)) { Invoke-Download $res.Url $archive }
+            elseif (-not (Test-Path -LiteralPath $archive)) { $null = Get-Remote $res $archive }
             Say '   unpacking...'
             $x = Join $tmp 'x'; Expand-Any $archive $x
             $srcRoot = Get-StrippedRoot $x ([int]$e.extract.strip)
@@ -741,7 +893,7 @@ foreach ($it in $plan) {
         $tmp = New-TempDir
         try {
           $archive = if ($res.Mirror) { $res.Mirror } elseif ($CacheDir) { Join $CacheDir $res.FileName } else { Join $tmp $res.FileName }
-          if (-not $res.Mirror -and -not (Test-Path -LiteralPath $archive)) { Invoke-Download $res.Url $archive }
+          if (-not $res.Mirror -and -not (Test-Path -LiteralPath $archive)) { $null = Get-Remote $res $archive }
           $x = Join $tmp 'x'; Expand-Any $archive $x
           $binDir = Join $Target ("RhinoVault/bin/" + $it.Platform)
           if ($it.Spec.subdir) { $binDir = Join $binDir $it.Spec.subdir }
