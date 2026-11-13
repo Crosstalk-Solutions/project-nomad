@@ -21,9 +21,16 @@ import logger from '@adonisjs/core/services/logger'
 import { assertNotPrivateUrl } from '#validators/common'
 import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
+import { readPmtilesMaxZoom } from '../utils/pmtiles_header.js'
 import { decideSupersededDeletion } from '../utils/superseded_resource.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
-import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps.js'
+import type {
+  Country,
+  CountryCode,
+  CountryGroup,
+  MapExtractPreflight,
+  MapSource,
+} from '../../types/maps.js'
 import {
   EXTRACT_DEFAULT_MAX_ZOOM,
   EXTRACT_MAX_ZOOM,
@@ -365,7 +372,7 @@ export class MapService implements IMapService {
     * e.g. user is accessing from "example.com", but we would by default generate "localhost:8080/..." so maps would
     * fail to load.
     */
-    const sources = this.generateSourcesArray(host, regions, protocol)
+    const sources = await this.generateSourcesArray(host, regions, protocol)
     const baseUrl = this.getPublicFileBaseUrl(host, this.basemapsAssetsDir, protocol)
 
     const styles = await this.generateStylesFile(
@@ -535,7 +542,11 @@ export class MapService implements IMapService {
     return a < b ? -1 : 1
   }
 
-  private generateSourcesArray(host: string | null, regions: FileEntry[], protocol: string = 'http'): BaseStylesFile['sources'][] {
+  private async generateSourcesArray(
+    host: string | null,
+    regions: FileEntry[],
+    protocol: string = 'http'
+  ): Promise<BaseStylesFile['sources'][]> {
     const sources: BaseStylesFile['sources'][] = []
     const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
 
@@ -581,15 +592,41 @@ export class MapService implements IMapService {
       }
     }
 
+    // Order regions by the max zoom recorded in each PMTiles archive header — coarser
+    // archives render FIRST, more detailed ones LAST (on top). Every style layer is
+    // duplicated once per source, so with arbitrary source order a low-maxzoom archive
+    // stacked last would overzoom-paint its coarse tiles over higher-detail regional
+    // extracts: e.g. a z12 full-US extract hides z13-15 detail in a z15 New Jersey
+    // extract because its layers draw on top of everything below. Reading the header
+    // keeps this O(1) per archive. Unreadable headers order last to preserve previous
+    // rendering for those files.
+    const orderedRegions: { regionName: string; region: FileEntry; maxZoom: number }[] = []
     for (const [regionName, { region }] of bestByRegion) {
+      if (region.type !== 'file') continue
+      const maxZoom = await readPmtilesMaxZoom(region.key)
+      if (maxZoom === null) {
+        logger.warn(
+          `[MapService] Could not read PMTiles header for "${region.name}"; ordering it last in style stack`
+        )
+      }
+      orderedRegions.push({ regionName, region, maxZoom: maxZoom ?? Number.POSITIVE_INFINITY })
+    }
+    orderedRegions.sort((a, b) => a.maxZoom - b.maxZoom) // stable in V8: ties keep Map insertion order
+
+    for (const { regionName, region, maxZoom } of orderedRegions) {
       const source: BaseStylesFile['sources'] = {}
       const sourceUrl = urlJoin(baseUrl, region.name)
 
-      source[regionName] = {
+      const sourceSpec: MapSource = {
         type: 'vector',
         attribution: PMTILES_ATTRIBUTION,
         url: `pmtiles://${sourceUrl}`,
       }
+      // Tell the client the archive's true zoom ceiling so it stops requesting tiles
+      // past it (the client renders overzoomed tiles from this source beyond the ceiling).
+      if (Number.isFinite(maxZoom)) sourceSpec.maxzoom = maxZoom
+
+      source[regionName] = sourceSpec
       sources.push(source)
     }
 
