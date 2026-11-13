@@ -42,6 +42,9 @@ function isSafeOldContentPath(
 }
 
 export class RunDownloadJob {
+  /** Prefix of the failure reason for a user cancel; the worker uses it to tell cancels apart */
+  static readonly CANCELLED_PREFIX = 'Download cancelled: '
+
   static get queue() {
     return 'downloads'
   }
@@ -318,7 +321,7 @@ export class RunDownloadJob {
       // can also abort the stream, and those should be retried with backoff.
       // Check both the flag (Redis poll) and abort reason (in-process cancel).
       if (userCancelled || abortController.signal.reason === 'user-cancel') {
-        throw new UnrecoverableError(`Download cancelled: ${error.message}`)
+        throw new UnrecoverableError(`${RunDownloadJob.CANCELLED_PREFIX}${error.message}`)
       }
       // A rejected entitlement is permanent - this build either has the key or it
       // doesn't. Left as a plain Error it consumes all 10 attempts with exponential
