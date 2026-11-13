@@ -11,6 +11,7 @@ import {
   readModelfileNumCtx,
   resolveContextWindow,
   snapToLadder,
+  withheldKvHeadsKey,
 } from '../../app/utils/context_window.js'
 
 const GB = 2 ** 30
@@ -59,6 +60,52 @@ test('uses grouped-query KV head count, not attention head count', () => {
   // would hand every GQA model a quarter of the window it can afford.
   const noGqa = { ...LLAMA3_8B_INFO, 'llama.attention.head_count_kv': 32 }
   assert.equal(computeKvBytesPerToken(noGqa), 4 * computeKvBytesPerToken(LLAMA3_8B_INFO)!)
+})
+
+/** GGUF metadata for qwen3.5:0.8b: a scalar KV head count, full attention every 4th layer. */
+const QWEN35_08B_INFO = {
+  'general.architecture': 'qwen35',
+  'qwen35.attention.head_count': 8,
+  'qwen35.attention.head_count_kv': 2,
+  'qwen35.attention.key_length': 256,
+  'qwen35.block_count': 24,
+  'qwen35.full_attention_interval': 4,
+}
+
+/** GGUF metadata for qwen3.5:122b: KV heads listed per layer, 0 on the linear-attention layers. */
+const QWEN35_122B_INFO = {
+  'general.architecture': 'qwen35moe',
+  'qwen35moe.attention.head_count': 32,
+  'qwen35moe.attention.head_count_kv': Array.from({ length: 48 }, (_, i) => (i % 4 === 3 ? 2 : 0)),
+  'qwen35moe.attention.key_length': 256,
+  'qwen35moe.block_count': 48,
+  'qwen35moe.full_attention_interval': 4,
+}
+
+test('hybrid attention: only every Nth layer keeps a KV cache (#1406)', () => {
+  // 2 (K+V) * 6 full-attention layers * 2 kv-heads * 256 head_dim * 2 bytes.
+  assert.equal(computeKvBytesPerToken(QWEN35_08B_INFO), 12 * KIB)
+})
+
+test('hybrid attention: per-layer KV head counts are summed (#1406)', () => {
+  // 2 (K+V) * (12 layers * 2 kv-heads) * 256 head_dim * 2 bytes. Charging all 48
+  // layers at head_count 32 came to 1.5 MiB/token and held the 122b to 8K.
+  assert.equal(computeKvBytesPerToken(QWEN35_122B_INFO), 24 * KIB)
+})
+
+test('flags a KV head array that /api/show withheld', () => {
+  const key = 'qwen35moe.attention.head_count_kv'
+  assert.equal(withheldKvHeadsKey({ ...QWEN35_122B_INFO, [key]: null }), key)
+  assert.equal(withheldKvHeadsKey({ ...QWEN35_122B_INFO, [key]: [] }), key)
+  assert.equal(withheldKvHeadsKey(QWEN35_122B_INFO), undefined)
+  assert.equal(withheldKvHeadsKey(LLAMA3_8B_INFO), undefined)
+  assert.equal(withheldKvHeadsKey(undefined), undefined)
+})
+
+test('a withheld KV head array still counts only full-attention layers', () => {
+  const withheld = { ...QWEN35_122B_INFO, 'qwen35moe.attention.head_count_kv': null }
+  // Falls back to head_count (32) over the 12 full-attention layers.
+  assert.equal(computeKvBytesPerToken(withheld), 2 * 12 * 32 * 256 * 2)
 })
 
 test('KV computation returns undefined on incomplete metadata', () => {
