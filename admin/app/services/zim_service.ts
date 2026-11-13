@@ -457,8 +457,17 @@ export class ZimService {
 
   async downloadRemoteSuccessCallback(urls: string[], restart = true) {
     const wikipediaOptionUrls = await this.wikipediaOptionUrls()
-    const isSelectorWikipedia = (url: string) =>
-      isWikipediaSelectorFile(url.split('/').pop() ?? '', wikipediaOptionUrls)
+    // The current selection's variant also counts, so the selected Wikipedia is still recognized
+    // when the option list is unavailable (no cached manifest and the remote fetch failed)
+    const selection = await this.getWikipediaSelection()
+    const selectionStem = selection?.filename ? zimFilenameStem(selection.filename) : null
+    const isSelectorWikipedia = (url: string) => {
+      const name = url.split('/').pop() ?? ''
+      return (
+        isWikipediaSelectorFile(name, wikipediaOptionUrls) ||
+        (!!selectionStem && zimFilenameStem(name) === selectionStem)
+      )
+    }
 
     // Only the Wikipedia selector's own files update the selection; other wikipedia_en_* corpora
     // (e.g. the Medicine tier) are ordinary ZIMs
