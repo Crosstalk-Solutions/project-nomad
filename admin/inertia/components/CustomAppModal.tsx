@@ -67,6 +67,7 @@ const ICON_OPTIONS = [
   { value: 'IconWorld', label: 'Web' },
   { value: 'IconShieldLock', label: 'Security' },
   { value: 'IconMovie', label: 'Media' },
+  { value: 'IconDeviceGamepad2', label: 'Gaming' },
   { value: 'IconBook', label: 'Book' },
   { value: 'IconNotes', label: 'Notes' },
   { value: 'IconCpu', label: 'Compute' },

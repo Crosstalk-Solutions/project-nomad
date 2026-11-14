@@ -3,9 +3,8 @@
  * six across and six down.
  *
  * Every name here must exist in the `DynamicIcon` registry (`inertia/lib/icons.ts`).
- * `DynamicIcon` renders nothing at all for a name it does not know, so an icon
- * that is not in that registry produces a tile with a silent hole where its icon
- * should be. Shared by the picker and the server-side validator so the two can
+ * `DynamicIcon` falls back to a generic box for a name it does not know, so an
+ * icon that is not in that registry produces a tile with the wrong icon. Shared by the picker and the server-side validator so the two can
  * never disagree about what is selectable.
  *
  * Chosen for "a thing on my network": storage, media, documents, tooling,
