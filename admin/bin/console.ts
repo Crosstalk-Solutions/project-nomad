@@ -12,6 +12,7 @@
 */
 
 import 'reflect-metadata'
+import '../app/utils/jsonschema_compat.js'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'
 
 /**
