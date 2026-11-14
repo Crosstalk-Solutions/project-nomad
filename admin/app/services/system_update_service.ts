@@ -83,7 +83,7 @@ export class SystemUpdateService {
       const statusContent = readFileSync(SystemUpdateService.STATUS_FILE, 'utf-8')
       return JSON.parse(statusContent) as UpdateStatus
     } catch (error) {
-      logger.error('[SystemUpdateService]: Failed to read update status:', error)
+      logger.error({ err: error }, '[SystemUpdateService]: Failed to read update status')
       return null
     }
   }
@@ -96,7 +96,7 @@ export class SystemUpdateService {
 
       return readFileSync(SystemUpdateService.LOG_FILE, 'utf-8')
     } catch (error) {
-      logger.error('[SystemUpdateService]: Failed to read update logs:', error)
+      logger.error({ err: error }, '[SystemUpdateService]: Failed to read update logs')
       return `Error reading logs: ${error.message}`
     }
   }
