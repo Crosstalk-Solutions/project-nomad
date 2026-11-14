@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import {
   ELISION_MARKER,
   HISTORY_EVICTION_BLOCK,
+  IMAGE_TOKENS_PER_IMAGE,
   MAX_RESPONSE_RESERVE,
+  SYSTEM_MAX_SHARE,
+  truncateToTokens,
   groupIntoTurns,
   planPrompt,
   type BudgetChunk,
@@ -279,4 +282,49 @@ test('empty history and no chunks still produces a valid prompt', () => {
   assert.equal(result.trace.chunksKept, 0)
   assert.equal(result.trace.turnsKept, 0)
   assert.equal(result.trace.historyElided, false)
+})
+
+test('an oversized NOMAD.md is cut to its share of the window, visibly', () => {
+  const contextWindow = 4096
+  const result = planPrompt(
+    makeInputs({
+      contextWindow,
+      systemBlocks: [
+        { role: 'system', content: words(20000, 'nomad') },
+        { role: 'system', content: 'Format answers in Markdown.' },
+      ],
+      history: history(3),
+    })
+  )
+  const systems = result.messages.filter((m) => m.role === 'system')
+  assert.ok(systems[0].content.endsWith('[truncated]'))
+  // The short formatting prompt survives intact; the large block took the cut.
+  assert.equal(systems[1].content, 'Format answers in Markdown.')
+  assert.equal(result.trace.systemTruncated, true)
+  assert.ok(result.trace.systemTokens <= Math.floor(contextWindow * SYSTEM_MAX_SHARE))
+  // The whole prompt now fits, with room left for the question.
+  assert.ok(result.trace.estimatedPromptTokens <= result.trace.promptBudget)
+  assert.equal(result.trace.queryTruncated, false)
+})
+
+test('system blocks under the cap are left untouched', () => {
+  const result = planPrompt(makeInputs())
+  assert.equal(result.trace.systemTruncated, false)
+  assert.equal(result.messages[0].content, 'You are helpful.')
+})
+
+test('truncateToTokens respects the token limit', () => {
+  const cut = truncateToTokens(words(1000), 100)
+  assert.ok(cut.endsWith('[truncated]'))
+  assert.ok(estimateMessagesTokens([{ role: 'system', content: cut }]) <= 100 + 20)
+  assert.equal(truncateToTokens('anything', 0), '[truncated]')
+})
+
+test('images are reserved in the budget and counted in the estimate', () => {
+  const base = planPrompt(makeInputs({ history: history(200) }))
+  const withImages = planPrompt(makeInputs({ history: history(200), imageCount: 2 }))
+  assert.equal(withImages.trace.imageTokens, 2 * IMAGE_TOKENS_PER_IMAGE)
+  assert.ok(withImages.trace.historyTokens < base.trace.historyTokens)
+  assert.ok(withImages.trace.estimatedPromptTokens <= withImages.trace.promptBudget)
+  assert.equal(base.trace.imageTokens, 0)
 })

@@ -29,6 +29,7 @@ import type {
   RunEnvironmentInfo,
 } from '../../types/benchmark.js'
 import KVStore from '#models/kv_store'
+import db from '@adonisjs/lucid/services/db'
 import { normalizeArchitecture, deriveOsName } from '../utils/platform_metadata.js'
 import { isUnresolvedGpuModel } from '../utils/gpu_model.js'
 import { getFreeBytes } from '../utils/image_disk_preflight.js'
@@ -206,6 +207,15 @@ const REFERENCE_SCORES = {
   ai_ttft_ms: 500, // 500ms time to first token for ~50 score (lower is better)
 }
 
+/**
+ * The run in progress in this process, if any. Module-level on purpose:
+ * `@inject()` builds a fresh BenchmarkService per request, so instance fields
+ * alone always read idle to every other request. Runs in whichever process
+ * executes them (the web process for `?sync=true`, the queue worker otherwise);
+ * the controller also checks the queue for runs in the worker.
+ */
+let activeRun: BenchmarkService | null = null
+
 @inject()
 export class BenchmarkService {
   private currentBenchmarkId: string | null = null
@@ -332,12 +342,29 @@ export class BenchmarkService {
     // AI ran on the hardware being submitted, so blocking it is a false
     // positive — see isSelfHostedOllamaUrl for which forms qualify and why a
     // LAN address deliberately does not.
-    const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
-    if (remoteOllamaUrl && isSelfHostedOllamaUrl(remoteOllamaUrl)) {
-      logger.info(
-        `[BenchmarkService] ai.remoteOllamaUrl (${remoteOllamaUrl}) points at this machine; treating the AI result as local for submission purposes`
-      )
-    } else if (remoteOllamaUrl) {
+    //
+    // Decided from what the run recorded (ai_remote), not from the setting now:
+    // the setting can change between running and sharing. Rows from before the
+    // column was added have null and fall back to the current setting.
+    const recorded = await db
+      .from('benchmark_results')
+      .where('id', result.id)
+      .select('ai_remote')
+      .first()
+    let aiWasRemote: boolean
+    if (recorded?.ai_remote !== null && recorded?.ai_remote !== undefined) {
+      // MySQL hands booleans back as 0/1.
+      aiWasRemote = Boolean(Number(recorded.ai_remote))
+    } else {
+      const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (remoteOllamaUrl && isSelfHostedOllamaUrl(remoteOllamaUrl)) {
+        logger.info(
+          `[BenchmarkService] ai.remoteOllamaUrl (${remoteOllamaUrl}) points at this machine; treating the AI result as local for submission purposes`
+        )
+      }
+      aiWasRemote = !!remoteOllamaUrl && !isSelfHostedOllamaUrl(remoteOllamaUrl)
+    }
+    if (aiWasRemote) {
       throw new Error(
         // Name the setting and where it lives. The previous wording told the
         // user to install the AI Assistant, but configuring a remote host
@@ -502,9 +529,10 @@ export class BenchmarkService {
    * Get current benchmark status
    */
   getStatus(): { status: BenchmarkStatus; benchmarkId: string | null } {
+    const run = activeRun ?? this
     return {
-      status: this.currentStatus,
-      benchmarkId: this.currentBenchmarkId,
+      status: run.currentStatus,
+      benchmarkId: run.currentBenchmarkId,
     }
   }
 
@@ -658,7 +686,9 @@ export class BenchmarkService {
    * Main benchmark execution method
    */
   private async _runBenchmark(type: BenchmarkType, includeAI: boolean): Promise<BenchmarkResult> {
-    if (this.currentStatus !== 'idle') {
+    // Checked here and claimed just before the try, with no await in between, so
+    // two calls in this process cannot both get past it.
+    if (activeRun || this.currentStatus !== 'idle') {
       throw new Error('A benchmark is already running')
     }
 
@@ -673,6 +703,7 @@ export class BenchmarkService {
 
     this._updateStatus('starting', 'Starting benchmark...')
 
+    activeRun = this
     try {
       // Fail fast: if this run will download the (large) AI model, make sure there's
       // room BEFORE spending minutes on the system benchmarks.
@@ -699,7 +730,7 @@ export class BenchmarkService {
       }
 
       // Run AI benchmark if requested and Ollama is available
-      let aiScores: Partial<AIScores> = {}
+      let aiScores: Partial<AIScores> & { ai_remote?: boolean } = {}
       if (includeAI && (type === 'full' || type === 'ai')) {
         try {
           aiScores = await this._runAIBenchmark()
@@ -793,6 +824,19 @@ export class BenchmarkService {
         os_version: env.os_version,
       })
 
+      // Not a model column (the model is shared with other work), so written
+      // directly. Best-effort: on failure the row keeps null and submission
+      // falls back to checking the current setting, the previous behaviour.
+      if (aiScores.ai_remote !== undefined) {
+        await db
+          .from('benchmark_results')
+          .where('id', result.id)
+          .update({ ai_remote: aiScores.ai_remote })
+          .catch((error: any) => {
+            logger.warn(`[BenchmarkService] Could not record ai_remote: ${error?.message ?? error}`)
+          })
+      }
+
       this._updateStatus('completed', 'Benchmark completed successfully')
       this.currentStatus = 'idle'
       this.currentBenchmarkId = null
@@ -807,6 +851,7 @@ export class BenchmarkService {
       this.telemetry?.stop()
       this.telemetry = null
       this.currentStages = []
+      if (activeRun === this) activeRun = null
     }
   }
 
@@ -949,7 +994,7 @@ export class BenchmarkService {
   /**
    * Run AI benchmark using Ollama
    */
-  private async _runAIBenchmark(): Promise<AIScores> {
+  private async _runAIBenchmark(): Promise<AIScores & { ai_remote: boolean }> {
     let gpuPollTimer: NodeJS.Timeout | null = null
     try {
       // Live GPU-util overlay poller. Side-effect-only: it feeds telemetry frames
@@ -961,6 +1006,11 @@ export class BenchmarkService {
       if (!ollamaAPIURL) {
         throw new Error('AI Assistant service location could not be determined. Ensure AI Assistant is installed and running.')
       }
+      // Whether this run measures another machine, decided now rather than at
+      // submit time. getServiceURL() prefers ai.remoteOllamaUrl, so the same
+      // setting tells us where the URL above points. See isSelfHostedOllamaUrl.
+      const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      const aiRemote = !!remoteOllamaUrl && !isSelfHostedOllamaUrl(remoteOllamaUrl)
 
       // Check if Ollama is available
       try {
@@ -1058,6 +1108,7 @@ export class BenchmarkService {
         ai_model_used: AI_BENCHMARK_MODEL,
         ai_time_to_first_token: Math.round(median.ttft * 100) / 100,
         ai_ollama_version: ollamaVersion,
+        ai_remote: aiRemote,
       }
     } catch (error: any) {
       throw new Error(`AI benchmark failed: ${error.message}`)
@@ -1072,8 +1123,8 @@ export class BenchmarkService {
   /**
    * Run a single Ollama inference and return its tokens/sec and time-to-first-token
    * (TTFT in milliseconds). Extracted so the AI benchmark can run it N times for a
-   * median. Prefers Ollama's eval_count/eval_duration; falls back to wall-clock
-   * word-count estimation if those fields are absent.
+   * median. Throughput comes only from Ollama's eval_count/eval_duration; a
+   * response without them fails the run rather than reporting an estimate.
    */
   private async _runSingleAIInference(
     ollamaAPIURL: string
@@ -1108,10 +1159,9 @@ export class BenchmarkService {
       return { tps: tokensPerSecond, ttft }
     }
 
-    // Fallback calculation
-    const estimatedTokens = response.data.response?.split(' ').length * 1.3 || 100
-    const tokensPerSecond = estimatedTokens / totalTime
-    return { tps: tokensPerSecond, ttft: (totalTime * 1000) / 2 }
+    // No made-up throughput: a word-count guess over wall-clock time (which
+    // includes load and prefill) is not comparable with measured results.
+    throw new Error('Ollama response is missing eval_count/eval_duration; cannot measure tokens per second')
   }
 
   /**

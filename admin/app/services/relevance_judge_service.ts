@@ -12,6 +12,7 @@ import {
 } from '../utils/relevance_judge.js'
 import { resolveStructured } from '../utils/structured_output.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
+import type { SideCallResidency } from '../utils/side_call.js'
 
 export type JudgeResult = {
   /** Every chunk when the model said they fit the question, none when it said not. */
@@ -54,7 +55,16 @@ export class RelevanceJudgeService {
     return resolveTasksModel(this.ollamaService, chatModel, undefined, '[RAG]')
   }
 
-  async judge(question: string, chunks: RetrievedChunk[], model: string): Promise<JudgeResult> {
+  /**
+   * `callOpts` carries the chat's num_ctx/keep_alive when `model` is the chat
+   * model (see side_call.ts), and the request's abort signal.
+   */
+  async judge(
+    question: string,
+    chunks: RetrievedChunk[],
+    model: string,
+    callOpts: SideCallResidency & { signal?: AbortSignal } = {}
+  ): Promise<JudgeResult> {
     const started = Date.now()
     const unjudged = (): JudgeResult => ({
       kept: chunks,
@@ -90,6 +100,7 @@ export class RelevanceJudgeService {
         think: false,
         thinkingCapable,
         format: ON_TOPIC_SCHEMA,
+        ...callOpts,
       })
 
       const verdict = resolveStructured(
