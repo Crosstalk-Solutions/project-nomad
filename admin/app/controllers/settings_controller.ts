@@ -75,6 +75,7 @@ export default class SettingsController {
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    const remoteOllamaMemoryGB = await KVStore.getValue('ai.remoteOllamaMemoryGB')
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const tasksModel = await KVStore.getValue('ai.tasksModel')
@@ -104,6 +105,7 @@ export default class SettingsController {
           chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
           aiAssistantCustomName: aiAssistantCustomName ?? '',
           remoteOllamaUrl: remoteOllamaUrl ?? '',
+          remoteOllamaMemoryGB: remoteOllamaMemoryGB ?? '',
           ollamaFlashAttention: ollamaFlashAttention ?? true,
           autoThinking: autoThinking ?? false,
           tasksModel: tasksModel ?? '',
@@ -183,6 +185,16 @@ export default class SettingsController {
       return response.status(422).send({ success: false, message: valueError })
     }
     await this.systemService.updateSetting(reqData.key, reqData.value)
+    // The decision memo is process-wide. These three are its inputs; a stale
+    // entry keeps asking Ollama for the old num_ctx. The remote URL is also
+    // written by OllamaController.configureRemote, which clears the memo there.
+    if (
+      reqData.key === 'ai.contextWindow' ||
+      reqData.key === 'ai.remoteOllamaMemoryGB' ||
+      reqData.key === 'ai.remoteOllamaUrl'
+    ) {
+      this.contextWindowService.invalidate()
+    }
     return response.status(200).send({ success: true, message: 'Setting updated successfully' })
   }
 }

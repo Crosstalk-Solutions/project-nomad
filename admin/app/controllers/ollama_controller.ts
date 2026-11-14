@@ -2,6 +2,7 @@ import { ChatService } from '#services/chat_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService, type NomadChatUsage } from '#services/ollama_service'
 import { TokenCalibrationService } from '#services/token_calibration_service'
+import { invalidateContextWindowCache } from '#services/context_window_service'
 import { RagPipelineService } from '#services/rag_pipeline_service'
 import { RagService } from '#services/rag_service'
 import Service from '#models/service'
@@ -419,6 +420,10 @@ export default class OllamaController {
     // the service marked installed. Otherwise fall back to uninstalled.
     if (!remoteUrl || remoteUrl.trim() === '') {
       await KVStore.clearValue('ai.remoteOllamaUrl')
+      // This path writes the URL directly, not through updateSetting, so the
+      // context-window memo has to be dropped here too. The next turn should
+      // size from this host again.
+      invalidateContextWindowCache()
       const hasLocalContainer = await this._startLocalOllamaContainerIfExists()
       ollamaService.installed = hasLocalContainer
       ollamaService.installation_status = 'idle'
@@ -460,6 +465,9 @@ export default class OllamaController {
 
     // Save remote URL and mark service as installed
     await KVStore.setValue('ai.remoteOllamaUrl', remoteUrl.trim())
+    // Same clear as ContextWindowService.invalidate(). A window sized from
+    // this host's RAM must not stick once inference moves off the box.
+    invalidateContextWindowCache()
     ollamaService.installed = true
     ollamaService.installation_status = 'idle'
     await ollamaService.save()
