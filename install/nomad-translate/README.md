@@ -31,12 +31,15 @@ Reimplementing or wrapping the Kiwix reading view is explicitly out of scope.
 | `proxy.py` | The proxy, the language control, and the rewrite step |
 | `blocks.py` | Finds translatable blocks; decides HTML mode versus plain text |
 | `fetch_models.py` | Pulls models from Firefox Remote Settings on first start |
+| `engine_check.py` | Checks at startup that this CPU can load Bergamot at all |
 | `test_blocks.py` | Tests for the block planner. No Bergamot, no network |
 | `test_fetch_models.py` | Tests for which model files get downloaded. No network |
+| `test_engine_check.py` | Tests for the startup CPU check. No Bergamot |
 | `entrypoint.sh` | Fetch models, then serve. Fetch failure is non-fatal |
 
-Run the tests with `python3 install/nomad-translate/test_blocks.py` and
-`python3 install/nomad-translate/test_fetch_models.py`.
+Run the tests with `python3 install/nomad-translate/test_blocks.py`,
+`python3 install/nomad-translate/test_fetch_models.py` and
+`python3 install/nomad-translate/test_engine_check.py`.
 
 ## Configuration
 
@@ -72,6 +75,16 @@ Not just packaging. Bergamot's `intgemm` backend is x86 specific and there is no
 aarch64 wheel; ARM would need marian's `ruy` path. The build workflow pins
 `linux/amd64` so this fails at build time rather than producing an image that
 pulls cleanly on ARM and dies at start.
+
+## CPUs without AVX
+
+The `bergamot` wheel needs AVX. On a CPU without it (Celeron N5105, N100-class
+mini PCs) importing it dies with `Illegal instruction` (exit 132), which used to
+crash-loop the container on every translated page
+([#1512](https://github.com/Crosstalk-Solutions/project-nomad/issues/1512)).
+At startup the proxy now tries the import once in a child process; if that
+fails it offers no languages, forwards the library untranslated, and shows
+"translation unavailable" with the reason in the bar and the container log.
 
 ## Known gaps
 
