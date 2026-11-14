@@ -140,6 +140,18 @@ export default function SettingsPage(props: {
                   },
                 ]}
               />
+              {info?.gpuHealth?.status === 'unsupported' && (
+                <div className="lg:col-span-2">
+                  <Alert
+                    type="info"
+                    title="No GPU acceleration available"
+                    message={`${
+                      info.gpuHealth.gpuVendor === 'intel' ? 'An Intel' : 'A'
+                    } GPU is present, but NOMAD can only accelerate the AI Assistant on NVIDIA (CUDA) and AMD (ROCm) hardware. Inference will run on the CPU, so expect lower throughput than the hardware suggests.`}
+                    variant="bordered"
+                  />
+                </div>
+              )}
               {info?.gpuHealth?.status === 'passthrough_failed' && (
                 <div className="lg:col-span-2">
                   <GpuPassthroughAlert gpuHealth={info.gpuHealth} assistantName="AI Assistant" />

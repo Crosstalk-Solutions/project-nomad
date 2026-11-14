@@ -1,3 +1,51 @@
+/** GPU vendors named by the acceleration paths NOMAD actually ships. */
+export type GpuVendorKey = 'nvidia' | 'amd' | 'intel'
+
+/**
+ * Which of the known GPU vendors is this `si.graphics()` vendor string?
+ *
+ * The AMD arm is deliberately loose: pci.ids reports "Advanced Micro Devices,
+ * Inc." on some cards and "ATI Technologies Inc." on older ones, and lspci output
+ * reaches us with whatever casing the host had.
+ *
+ * Returns null for a vendor that is none of the three. Callers must treat that as
+ * "no opinion" rather than "unsupported" — an unidentified card may well be a
+ * future NVIDIA part behind a newer pci.ids.
+ */
+export function classifyGpuVendor(vendor: string | null | undefined): GpuVendorKey | null {
+  const v = (vendor ?? '').trim()
+  if (/intel/i.test(v)) return 'intel'
+  if (/nvidia/i.test(v)) return 'nvidia'
+  if (/advanced micro devices|\bamd\b|\bati\b/i.test(v)) return 'amd'
+  return null
+}
+
+/**
+ * The GPU vendor on this box that NOMAD has no acceleration path for, if any.
+ *
+ * NOMAD accelerates Ollama over CUDA (NVIDIA) or ROCm (AMD) and nothing else, so
+ * a box whose only visible controller is an Intel iGPU can never run inference
+ * on it — Ollama has no Intel backend. Returning null when an NVIDIA or AMD
+ * controller is present keeps hybrid laptops (Intel iGPU + NVIDIA dGPU) on the
+ * existing path: those boxes do have a working route, so the runtime probe above
+ * stays authoritative for them and this must not pre-empt it.
+ *
+ * An unidentified vendor is deliberately not reported. This runs on the branch
+ * where nothing was probed, so guessing "unsupported" from an unrecognised vendor
+ * string would turn a healthy NVIDIA box into a false alarm.
+ */
+export function findUnacceleratedGpuVendor(
+  controllers: ReadonlyArray<{ vendor?: string | null }> | null | undefined
+): GpuVendorKey | null {
+  let unaccelerated: GpuVendorKey | null = null
+  for (const controller of controllers ?? []) {
+    const vendor = classifyGpuVendor(controller?.vendor)
+    if (vendor === 'nvidia' || vendor === 'amd') return null
+    if (vendor === 'intel' && !unaccelerated) unaccelerated = 'intel'
+  }
+  return unaccelerated
+}
+
 /**
  * Is this GPU "model" a placeholder rather than a real name?
  *

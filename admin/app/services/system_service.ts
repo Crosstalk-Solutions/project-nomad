@@ -21,7 +21,7 @@ import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
-import { isUnresolvedGpuModel } from '../utils/gpu_model.js'
+import { findUnacceleratedGpuVendor, isUnresolvedGpuModel } from '../utils/gpu_model.js'
 import {
   classifyOllamaComputeBackend,
   diagnoseAmdCpuFallback,
@@ -635,9 +635,23 @@ export class SystemService {
           }
         } else {
           // si.graphics() returned usable controllers and no GPU runtime is expected
-          // (host install, not Docker). Still unprobed, see #1325.
-          gpuHealth.status = 'ok'
-          gpuHealth.ollamaGpuAccessible = true
+          // (host install, not Docker). A controller here says a GPU exists, not
+          // that anything can use it: NOMAD only has CUDA and ROCm paths, so an
+          // Intel-only box (Core Ultra iGPU, for example) can never accelerate
+          // Ollama. Reporting 'ok' from the bare presence of a controller is what
+          // let such a box show a healthy GPU while inference ran CPU-only (#1325).
+          const unacceleratedVendor = findUnacceleratedGpuVendor(graphics.controllers)
+          if (unacceleratedVendor) {
+            gpuHealth.status = 'unsupported'
+            gpuHealth.gpuVendor = unacceleratedVendor
+            gpuHealth.ollamaGpuAccessible = false
+            logger.warn(
+              `GPU present (${unacceleratedVendor}) but NOMAD has no acceleration path for it; the AI Assistant will run on CPU`
+            )
+          } else {
+            gpuHealth.status = 'ok'
+            gpuHealth.ollamaGpuAccessible = true
+          }
         }
       } catch {
         // Docker info query failed, skip host-level enrichment
