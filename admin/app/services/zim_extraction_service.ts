@@ -7,6 +7,7 @@ import { ExtractZIMChunkingStrategy, ExtractZIMContentOptions, ZIMContentChunk, 
 import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
 import { isValidZimFile } from '../utils/fs.js'
+import { classifyZimEntry, emptyZimEntryCounts, parseZimCounterMetadata, ZimEntryCounts } from '../utils/zim_entry_counts.js'
 
 export class ZIMExtractionService {
 
@@ -169,6 +170,54 @@ export class ZIMExtractionService {
         } catch (error) {
             logger.error('Error processing ZIM file:', error)
             throw error
+        }
+    }
+
+    /**
+     * Count the archive's entries by type (HTML pages the extractor indexes,
+     * PDF documents it skips, everything else). One pass over the entry list,
+     * no content is read; a 100k-entry archive takes a few seconds. (#1445)
+     */
+    /**
+     * Count the archive's entries by kind (#1445). Reads the `Counter`
+     * metadata the ZIM writer stores in modern archives (one lookup, ~15 ms)
+     * and falls back to walking every entry, which can take minutes on a large
+     * archive. Callers that run inside a storage sync pass
+     * `allowFullScan: false` and get null instead of the walk.
+     */
+    async countEntryTypes(
+        filePath: string,
+        options: { allowFullScan?: boolean } = {}
+    ): Promise<ZimEntryCounts | null> {
+        const { allowFullScan = true } = options
+        if (!(await isValidZimFile(filePath))) {
+            throw new Error(`ZIM file is invalid or corrupted: ${filePath}`)
+        }
+        const archive = new Archive(filePath)
+        const fromMetadata = parseZimCounterMetadata(this.readMetadata(archive, 'Counter'))
+        if (fromMetadata) return fromMetadata
+        if (!allowFullScan) return null
+
+        const counts = emptyZimEntryCounts()
+        for (const entry of archive.iterByPath()) {
+            if (entry.isRedirect) continue
+            let mimeType: string | undefined
+            try {
+                mimeType = entry.item.mimetype
+            } catch {
+                mimeType = undefined
+            }
+            counts[classifyZimEntry(mimeType)]++
+        }
+        return counts
+    }
+
+    /** libzim throws on a missing metadata key; treat that as "none". */
+    private readMetadata(archive: Archive, name: string): string | null {
+        try {
+            return archive.getMetadata(name)
+        } catch {
+            return null
         }
     }
 

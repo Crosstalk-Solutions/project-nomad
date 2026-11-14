@@ -37,6 +37,13 @@ export default class KbIngestState extends BaseModel {
   @column()
   declare last_error: string | null
 
+  /** ZIM entry census taken when indexing starts; null when not a ZIM or not yet censused. (#1445) */
+  @column()
+  declare html_entries: number | null
+
+  @column()
+  declare pdf_entries: number | null
+
   @column.dateTime({ autoCreate: true })
   declare created_at: DateTime
 
@@ -56,6 +63,17 @@ export default class KbIngestState extends BaseModel {
     row.chunks_embedded = chunksEmbedded
     row.last_error = null
     if (collection) row.collection = collection
+    await row.save()
+  }
+
+  static async recordEntryCounts(
+    filePath: string,
+    counts: { html: number; pdf: number },
+    collection?: string
+  ): Promise<void> {
+    const row = await this.getOrCreate(filePath, collection)
+    row.html_entries = counts.html
+    row.pdf_entries = counts.pdf
     await row.save()
   }
 
