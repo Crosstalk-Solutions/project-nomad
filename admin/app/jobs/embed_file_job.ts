@@ -98,6 +98,15 @@ export class EmbedFileJob {
         throw new UnrecoverableError('Qdrant service is not installed. Install AI Assistant to enable file embeddings.')
       }
 
+      // The embedding model was changed without a Reset & Rebuild. Every upsert
+      // would be rejected, so fail once here instead of 30 retries of extraction
+      // and embedding that can never be stored.
+      if (!(await ragService.embeddingModelMatchesCollection())) {
+        throw new UnrecoverableError(
+          'The knowledge base was built with a different embedding model. Run Reset & Rebuild to re-embed it.'
+        )
+      }
+
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
       // Anchor initial progress to where we are in the overall file. For a

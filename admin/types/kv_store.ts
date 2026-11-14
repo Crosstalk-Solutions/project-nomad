@@ -4,6 +4,10 @@ export const KV_STORE_SCHEMA = {
   'chat.lastModel':             'string',
   'rag.docsEmbedded':           'boolean',
   'rag.defaultIngestPolicy':    'string',
+  // Key of EMBEDDING_MODELS; null → EMBEDDING_MODEL_NAME. Changing it needs a Reset & Rebuild.
+  'rag.embeddingModel':         'string',
+  // Model the knowledge base collection was created with; written by RagService, not user-set.
+  'rag.embeddingModelIndexed':  'string',
   // Master switch for chat-time knowledge base retrieval. Unset/null means ON —
   // the pre-existing behaviour. Turning it off skips the whole retrieval
   // pipeline (hasDocuments, the query-rewrite LLM call, and the Qdrant search),

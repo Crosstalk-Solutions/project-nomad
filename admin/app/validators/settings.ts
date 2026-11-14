@@ -2,7 +2,7 @@ import vine from "@vinejs/vine";
 import { SETTINGS_KEYS } from "../../constants/kv_store.js";
 import type { KVStoreKey } from "../../types/kv_store.js";
 import { CONTEXT_LADDER } from "../utils/context_window.js";
-import { RESPONSE_STYLE_PRESETS } from "../../constants/ollama.js";
+import { EMBEDDING_MODELS, RESPONSE_STYLE_PRESETS } from "../../constants/ollama.js";
 
 export const getSettingSchema = vine.compile(vine.object({
     key: vine.enum(SETTINGS_KEYS),
@@ -64,6 +64,16 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'rag.embeddingModel': {
+            // Empty clears the setting (reverts to the default model).
+            if (value === '' || value === undefined || value === null) {
+                return null
+            }
+            if (typeof value !== 'string' || !Object.hasOwn(EMBEDDING_MODELS, value)) {
+                return `Embedding model must be one of: ${Object.keys(EMBEDDING_MODELS).join(', ')}.`
+            }
+            return null
+        }
         case 'ai.contextWindow': {
             // "auto" (or empty) hands sizing to ContextWindowService. An explicit
             // value is a *cap*, so it only ever lowers the resolved window — but it
@@ -79,7 +89,7 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             return null
         }
         case 'rag.minRelevance': {
-            // Empty/'auto' clears the setting and reverts to RAG_MIN_FINAL_SCORE.
+            // Empty/'auto' clears the setting and reverts to the embedding model's default floor.
             // An explicit 0 is a real choice — it turns the floor off — so it is
             // deliberately not treated as "unset".
             // Trimmed first so the accepted set matches parseMinRelevance's:

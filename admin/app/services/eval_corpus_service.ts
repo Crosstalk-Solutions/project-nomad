@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
-import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
+import KVStore from '#models/kv_store'
+import { pickEmbeddingModel } from '../utils/misc.js'
 import {
   assertGoldensMatchCorpus,
   computeCorpusFingerprint,
@@ -135,14 +136,15 @@ export class EvalCorpusService {
    */
   async fingerprint(): Promise<string> {
     const corpus = await this.loadCorpus()
+    const embedding = pickEmbeddingModel(await KVStore.getValue('rag.embeddingModel'))
     return computeCorpusFingerprint(
       {
         documents: new Map(corpus.map((d) => [d.docId, d.text])),
         chunkTokens: RagService.TARGET_TOKENS_PER_CHUNK,
         chunkOverlapTokens: RagService.CHUNK_OVERLAP_TOKENS,
         charToTokenRatio: RagService.CHAR_TO_TOKEN_RATIO,
-        embeddingModel: EMBEDDING_MODEL_NAME,
-        embeddingDimension: RagService.EMBEDDING_DIMENSION,
+        embeddingModel: embedding.name,
+        embeddingDimension: embedding.dimension,
       },
       (input) => createHash('sha256').update(input).digest('hex')
     )
