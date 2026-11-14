@@ -10,6 +10,7 @@ import { QueueService } from './queue_service.js'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema, creatorPacksSpecSchema } from '#validators/curated_collections'
 import { isGatedResource } from '../utils/hosted_content.js'
+import { buildPreviousIdMap, currentResourceId } from '../utils/resource_aliases.js'
 import {
   ensureDirectoryExists,
   listDirectoryContents,
@@ -58,24 +59,31 @@ export class CollectionManifestService {
 
       const existing = await CollectionManifest.find(type)
       const specVersion = validated.spec_version
+      let changed = true
 
       if (existing) {
-        const changed = existing.spec_version !== specVersion
+        changed = existing.spec_version !== specVersion
         existing.spec_version = specVersion
         existing.spec_data = validated
         existing.fetched_at = DateTime.now()
         await existing.save()
-        return changed
+      } else {
+        await CollectionManifest.create({
+          type,
+          spec_version: specVersion,
+          spec_data: validated,
+          fetched_at: DateTime.now(),
+        })
       }
 
-      await CollectionManifest.create({
-        type,
-        spec_version: specVersion,
-        spec_data: validated,
-        fetched_at: DateTime.now(),
-      })
+      // Move install rows off renamed ids now, not at the next boot: the cache an
+      // older version wrote has `previous_ids` stripped, so reconcile alone would
+      // only catch up one reboot later.
+      if (type === 'zim_categories') {
+        await this.migrateRenamedResources(validated as ZimCategoriesSpec)
+      }
 
-      return true
+      return changed
     } catch (error) {
       logger.error(`[CollectionManifestService] Failed to fetch spec for ${type}:`, error?.message || error)
       return false
@@ -412,6 +420,43 @@ export class CollectionManifestService {
     return { resource_id: match[1], version: match[2] }
   }
 
+  // ---- Renamed resources (#1171) ----
+
+  /**
+   * Re-key install rows recorded under a renamed resource's former id onto its
+   * current id, so the existing file counts as installed and the updater looks
+   * up the name that still exists upstream. Never overwrites: if a row for the
+   * current id already exists, the old row is left for reconcile to settle.
+   */
+  async migrateRenamedResources(spec: ZimCategoriesSpec): Promise<number> {
+    let migrated = 0
+    try {
+      const previousIdMap = buildPreviousIdMap(spec)
+      for (const [previousId, currentId] of previousIdMap) {
+        const oldRow = await InstalledResource.query()
+          .where('resource_id', previousId)
+          .where('resource_type', 'zim')
+          .first()
+        if (!oldRow) continue
+        const currentRow = await InstalledResource.query()
+          .where('resource_id', currentId)
+          .where('resource_type', 'zim')
+          .first()
+        if (currentRow) continue
+        oldRow.resource_id = currentId
+        await oldRow.save()
+        migrated++
+        logger.info(`[CollectionManifestService] Renamed resource ${previousId} -> ${currentId}`)
+      }
+    } catch (error) {
+      logger.error(
+        '[CollectionManifestService] Failed to migrate renamed resources:',
+        error instanceof Error ? error.message : error
+      )
+    }
+    return migrated
+  }
+
   // ---- Filesystem reconciliation ----
 
   async reconcileFromFilesystem(): Promise<{ zim: number; map: number }> {
@@ -443,6 +488,13 @@ export class CollectionManifestService {
       }
 
       const seenZimIds = new Set<string>()
+      // A file named under a renamed resource's former id belongs to its current
+      // id (#1171). Without this, boot would recreate the old-id row and then drop
+      // the migrated one as "not on disk".
+      const previousIdMap = buildPreviousIdMap(zimSpec)
+      // Newest version recorded per id this pass. Two files can now resolve to one
+      // id (old name + new name both on disk), so keep the row on the newer file.
+      const recordedVersion = new Map<string, string>()
 
       // Only skip the single Wikipedia file tracked by WikipediaSelection — not every file
       // starting with `wikipedia_en_`. Curated category tiers (e.g. Medicine → Comprehensive)
@@ -460,14 +512,19 @@ export class CollectionManifestService {
         console.log(`Parsed ZIM filename:`, parsed)
         if (!parsed) continue
 
-        seenZimIds.add(parsed.resource_id)
+        const resourceId = currentResourceId(parsed.resource_id, previousIdMap)
+        seenZimIds.add(resourceId)
 
-        const specRes = specResourceMap.get(parsed.resource_id)
+        const recorded = recordedVersion.get(resourceId)
+        if (recorded && recorded >= parsed.version) continue
+        recordedVersion.set(resourceId, parsed.version)
+
+        const specRes = specResourceMap.get(resourceId)
         const filePath = join(zimDir, file.name)
         const stats = await getFileStatsIfExists(filePath)
 
         await InstalledResource.updateOrCreate(
-          { resource_id: parsed.resource_id, resource_type: 'zim' },
+          { resource_id: resourceId, resource_type: 'zim' },
           {
             version: parsed.version,
             url: specRes?.url || '',
