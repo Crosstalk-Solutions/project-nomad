@@ -57,7 +57,10 @@
         "agriculture": "agriculture-comprehensive",
         "computing": "computing-comprehensive"
       },
-      "map_regions": "all",
+      "map_regions": [
+        "all",
+        "latin-america"
+      ],
       "extras": [
         "field-manuals",
         "cyberchef",
@@ -269,6 +272,18 @@
         "asset": "Release-{version}.zip"
       },
       "exe": "pdftotext.exe"
+    },
+    "pmtiles": {
+      "title": "pmtiles CLI (cuts country maps from the Protomaps daily world map)",
+      "license": "BSD-3-Clause",
+      "source": {
+        "type": "github-release",
+        "repo": "protomaps/go-pmtiles",
+        "pinned_tag": "v1.31.2",
+        "asset": "go-pmtiles_{version}_Windows_x86_64.zip",
+        "asset_pattern": "go-pmtiles_[0-9.]+_Windows_x86_64\\.zip"
+      },
+      "exe": "pmtiles.exe"
     }
   },
   "books": {
@@ -380,5 +395,10 @@
         "personal"
       ]
     }
+  },
+  "protomaps": {
+    "builds": "https://build.protomaps.com/",
+    "max_age_days": 14,
+    "credit": "Protomaps basemap (BSD-3) from OpenStreetMap (ODbL) and Natural Earth; country outlines from Natural Earth (public domain)"
   }
 }

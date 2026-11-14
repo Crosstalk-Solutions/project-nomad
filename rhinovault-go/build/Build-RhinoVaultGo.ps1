@@ -15,6 +15,9 @@
   lite (64 GB drive), standard (128 GB), full (512 GB recommended).
 
 .PARAMETER MapRegions
+  Outside the U.S.: mexico, central-america, south-america, latin-america (all three) or single countries
+  such as brazil or costa_rica. These are cut from the Protomaps daily world map (internet needed once).
+  The Full edition includes latin-america; 'all' means every U.S. region.
   Override the map selection: 'all', 'none', region slugs (e.g. west-south-central)
   or state ids (e.g. texas, illinois).
 
@@ -370,6 +373,82 @@ function Get-StrippedRoot([string]$dir, [int]$strip) {
 
 function New-TempDir { $p = Join ([System.IO.Path]::GetTempPath()) ('rvgo-' + [guid]::NewGuid().ToString('N').Substring(0, 8)); New-Item -ItemType Directory -Path $p | Out-Null; $p }
 
+# Run a native program with errors allowed (Windows PowerShell 5.1 turns stderr into errors under 'Stop')
+function Invoke-Native([string]$exe, [string[]]$exeArgs) {
+  $old = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { $out = & $exe @exeArgs 2>&1; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+  return [pscustomobject]@{ Code = $code; Lines = @($out | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { "$_" }) }
+}
+
+# A build tool from manifest.build_tools (downloaded once into the tools folder)
+function Get-BuildTool([string]$key) {
+  $tool = $manifest.build_tools.$key
+  $name = [System.IO.Path]::GetFileNameWithoutExtension($tool.exe)
+  $cmd = Get-Command $name -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  if (-not $OnWindows) { return $null }
+  $toolsDir = if ($CacheDir) { Join $CacheDir 'tools' } else { Join $env:LOCALAPPDATA 'RhinoVaultGo/tools' }
+  $existing = Get-ChildItem -LiteralPath (Join $toolsDir $key) -Recurse -Filter $tool.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($existing) { return $existing.FullName }
+  Say "   getting $($tool.title)..."
+  New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+  $res = Resolve-Source $tool.source $null $null
+  $zip = Join $toolsDir $res.FileName
+  if ($res.Mirror) { $zip = $res.Mirror } elseif (-not (Test-Path -LiteralPath $zip)) { $null = Get-Remote $res $zip }
+  Expand-Any $zip (Join $toolsDir $key)
+  $found = Get-ChildItem -LiteralPath (Join $toolsDir $key) -Recurse -Filter $tool.exe -File | Select-Object -First 1
+  if ($found) { return $found.FullName }
+  return $null
+}
+
+# Newest Protomaps daily world map (they keep about a week of daily builds)
+$ProtomapsBuild = $null
+function Get-ProtomapsBuild {
+  if ($script:ProtomapsBuild) { return $script:ProtomapsBuild }
+  $base = if ($manifest.protomaps.builds) { $manifest.protomaps.builds } else { 'https://build.protomaps.com/' }
+  $days = if ($manifest.protomaps.max_age_days) { [int]$manifest.protomaps.max_age_days } else { 14 }
+  $null_ = if ($OnWindows) { 'NUL' } else { '/dev/null' }
+  for ($i = 0; $i -lt $days; $i++) {
+    $d = [DateTime]::UtcNow.AddDays(-$i).ToString('yyyyMMdd')
+    $u = "$base$d.pmtiles"
+    $r = Invoke-Native $Curl @('-sS', '-o', $null_, '-I', '-L', '--max-time', '30', '-w', '%{http_code}', $u)
+    if (($r.Lines -join '') -match '200$') { $script:ProtomapsBuild = $u; Say "   using the Protomaps world map of $d" DarkGray; return $u }
+  }
+  throw "No Protomaps daily world map found in the last $days days at $base"
+}
+
+# Cut one country (GeoJSON outline) out of the Protomaps world map into $dest
+function Invoke-PmtilesExtract($ex, [string]$dest) {
+  $exe = Get-BuildTool 'pmtiles'
+  if (-not $exe) { throw 'The pmtiles tool is not available (install it or run on Windows).' }
+  $src = Get-ProtomapsBuild
+  $region = Join (Split-Path -Parent (Join $GoDir $manifest.collections.maps)) $ex.region
+  if (-not (Test-Path -LiteralPath $region)) { throw "Map outline not found: $region" }
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+  $part = "$dest.part"
+  if (Test-Path -LiteralPath $part) { Remove-Item -LiteralPath $part -Force }
+  $maxz = if ($ex.maxzoom) { $ex.maxzoom } else { 15 }
+  Say "   cutting from the world map (this downloads only this area)..."
+  $argLine = "extract `"$src`" `"$part`" `"--region=$region`" --maxzoom=$maxz"
+  $p = Start-Process -FilePath $exe -ArgumentList $argLine -NoNewWindow -Wait -PassThru
+  if ($p.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $part)) {
+    Remove-Item -LiteralPath $part -Force -ErrorAction SilentlyContinue
+    throw "pmtiles extract failed (exit $($p.ExitCode))"
+  }
+  Move-Item -LiteralPath $part -Destination $dest -Force
+  Say ("   saved {0}" -f (Fmt ((Get-Item -LiteralPath $dest).Length / 1MB))) DarkGreen
+}
+
+# Country maps are named id_YYYY-MM.pmtiles. Keep a copy already on the drive or in the mirror.
+function Resolve-ExtractName($it) {
+  $pat = [regex]::Escape($it.Id) + '_\d{4}-\d{2}\.pmtiles'
+  $onDrive = @(Get-ChildItem -LiteralPath (Join $Target 'Maps/pmtiles') -Filter '*.pmtiles' -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^$pat$" } | ForEach-Object { $_.Name })
+  if ($onDrive.Count) { $it.Url = 'protomaps-extract:///' + (Select-Best $onDrive $null); return }
+  $m = Find-InMirror $null $pat
+  if ($m) { $it.Url = 'protomaps-extract:///' + (Split-Path $m -Leaf) }
+}
+
 # Kiwix replaces dated files (name_2026-01.zim) and deletes old ones, so a fixed URL stops working.
 # Keep the copy already on the drive; otherwise use the newest file in the mirror or the Kiwix folder.
 $ZimListings = @{}
@@ -624,12 +703,19 @@ if ($BooksFolder -and @($BooksFolder).Count -eq 1 -and -not (Test-Path -LiteralP
 # Accept 'a,b' as well as @('a','b') (pwsh -File and .cmd callers pass one string)
 $MapRegions = @($MapRegions | ForEach-Object { $_ -split '[,;\s]+' } | Where-Object { $_ } | ForEach-Object { $_.ToLower() })
 $regionSel = if ($MapRegions.Count) { $MapRegions } else { @($prof.map_regions) }
+$regionSel = @($regionSel | ForEach-Object { if ($_ -eq 'latin-america') { 'mexico', 'central-america', 'south-america' } else { $_ } })
 if (-not ($regionSel -contains 'none')) {
   foreach ($c in $colMaps.collections) {
     foreach ($r in $c.resources) {
-      if ($regionSel -contains 'all' -or $regionSel -contains $c.slug -or $regionSel -contains $r.id) {
-        Add-Plan @{ Kind = 'map'; Id = $r.id; Title = $r.title; Category = $c.name; Description = $r.description
-          SizeMB = [double]$r.size_mb; Url = $r.url; Verify = $false }
+      if (($regionSel -contains 'all' -and -not $c.optional) -or $regionSel -contains $c.slug -or $regionSel -contains $r.id) {
+        if ($r.source -and $r.source.type -eq 'protomaps-extract') {
+          Add-Plan @{ Kind = 'map'; Id = $r.id; Title = $r.title; Category = $c.name; Description = $r.description
+            SizeMB = [double]$r.size_mb; Url = ('protomaps-extract:///' + $r.id + '_' + [DateTime]::UtcNow.ToString('yyyy-MM') + '.pmtiles')
+            Extract = $r.source; Verify = $false }
+        } else {
+          Add-Plan @{ Kind = 'map'; Id = $r.id; Title = $r.title; Category = $c.name; Description = $r.description
+            SizeMB = [double]$r.size_mb; Url = $r.url; Verify = $false }
+        }
       }
     }
   }
@@ -703,6 +789,7 @@ if ($DownloadOnly) {
   Say "  Saving to: $Target"
   Say "  Checking for the newest library files..." DarkGray
   foreach ($it in @($items | Where-Object Kind -eq 'zim')) { $new = Resolve-LatestZim $it.Url; if ($new -ne $it.Url) { $it.Url = $new } }
+  foreach ($it in @($items | Where-Object { $_.Kind -eq 'map' -and $_.Extract })) { Resolve-ExtractName $it }
   $totalMB = ($items | Measure-Object SizeMB -Sum).Sum
   $have = @(Get-ChildItem -LiteralPath $Target -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB
   $psd = Get-PSDrive -Name ((Get-Item -LiteralPath $Target).PSDrive.Name) -ErrorAction SilentlyContinue
@@ -721,6 +808,13 @@ if ($DownloadOnly) {
     $i++
     Step ("[{0}/{1}] {2}" -f $i, $items.Count, $it.Title)
     try {
+      if ($it.Kind -eq 'map' -and $it.Extract) {
+        $fn = FileNameFromUrl $it.Url
+        $dest = Join $Target $fn
+        if ((Find-InMirror $fn $null) -or (Test-Path -LiteralPath $dest)) { Say '   already downloaded' DarkGreen; continue }
+        Invoke-PmtilesExtract $it.Extract $dest
+        continue
+      }
       $res = switch ($it.Kind) {
         'zim' { @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) } }
         'map' { @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) } }
@@ -737,6 +831,14 @@ if ($DownloadOnly) {
       Say "   FAILED: $($_.Exception.Message)" Red
       $failed += $it
     }
+  }
+  # pmtiles cuts the country maps; keep its zip in the folder so offline builds can use it too
+  if (@($items | Where-Object { $_.Extract }).Count -and $manifest.build_tools.pmtiles) {
+    try {
+      $res = Resolve-Source $manifest.build_tools.pmtiles.source $null $null
+      $dest = Join $Target $res.FileName
+      if (-not $res.Mirror -and -not (Test-Path -LiteralPath $dest)) { Step 'pmtiles tool'; $null = Get-Remote $res $dest; Say '   saved' DarkGreen }
+    } catch { Say "   FAILED: pmtiles tool: $($_.Exception.Message)" Red }
   }
   # pdftotext (Poppler) builds the field-manual search index on Windows
   $pop = $manifest.build_tools.'poppler-windows'
@@ -778,6 +880,7 @@ function Test-Done($it, [string]$key) {
 }
 function Set-Done($it, [string]$key) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null; Set-Content -LiteralPath (Get-Marker $it) -Value $key -Encoding UTF8 }
 
+foreach ($it in @($plan | Where-Object { $_.Kind -eq 'map' -and $_.Extract })) { Resolve-ExtractName $it }
 $zims = @($plan | Where-Object Kind -eq 'zim')
 if ($zims.Count) { Say "  Checking for the newest library files ($($zims.Count))..." DarkGray }
 foreach ($it in $zims) {
@@ -858,6 +961,18 @@ foreach ($it in $plan) {
       'map' {
         $dest = Get-MapPath $it
         if (Test-Path -LiteralPath $dest) { Say '   already on drive' DarkGreen; break }
+        if ($it.Extract) {
+          $fn = FileNameFromUrl $it.Url
+          $m = Find-InMirror $fn $null
+          if ($m) { Say '   copying from the local mirror'; Copy-Item -LiteralPath $m -Destination $dest -Force; break }
+          if ($CacheDir) {
+            $cached = Join $CacheDir $fn
+            if (-not (Test-Path -LiteralPath $cached)) { Invoke-PmtilesExtract $it.Extract $cached }
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+            Copy-Item -LiteralPath $cached -Destination $dest -Force
+          } else { Invoke-PmtilesExtract $it.Extract $dest }
+          break
+        }
         $res = @{ Url = $it.Url; FileName = (FileNameFromUrl $it.Url); Mirror = (Find-InMirror (FileNameFromUrl $it.Url) $null) }
         $null = Get-Item2 $res $dest $false
       }
