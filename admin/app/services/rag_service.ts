@@ -30,6 +30,7 @@ import { decideOrphans } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
+import { describeKbSyncOutcome } from '../utils/kb_sync_message.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
 import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
@@ -2401,6 +2402,8 @@ export class RagService {
     message: string
     filesScanned?: number
     filesQueued?: number
+    /** State rows this sync created without queueing anything (#1465). */
+    filesAdded?: number
   }> {
     try {
       logger.info('[RAG] Starting knowledge base sync scan')
@@ -2563,22 +2566,42 @@ export class RagService {
           ? `; purged ${orphansPurged} orphaned source${orphansPurged !== 1 ? 's' : ''}`
           : '') + withheldNote
 
+      // Rows created without a job (Manual policy, or files whose chunks were
+      // already in Qdrant) are a visible change too: the files just appeared in
+      // Stored Files. Say so instead of "already in sync" (#1465).
+      const filesAdded = createdPending + backfilled
+
       if (filesToEmbed.length === 0) {
         return {
           success: true,
-          message: `Knowledge base is already in sync${orphanNote}`,
+          message: describeKbSyncOutcome({
+            filesScanned: filesInStorage.length,
+            queued: 0,
+            deduped: 0,
+            createdPending,
+            backfilled,
+            note: orphanNote,
+          }),
           filesScanned: filesInStorage.length,
           filesQueued: 0,
+          filesAdded,
         }
       }
 
       const { queuedCount, dedupedCount } = await this._dispatchEmbedJobsFor(filesToEmbed)
-      const dedupeNote = dedupedCount > 0 ? ` (${dedupedCount} already queued)` : ''
       return {
         success: true,
-        message: `Scanned ${filesInStorage.length} files, queued ${queuedCount} for embedding${dedupeNote}${orphanNote}`,
+        message: describeKbSyncOutcome({
+          filesScanned: filesInStorage.length,
+          queued: queuedCount,
+          deduped: dedupedCount,
+          createdPending,
+          backfilled,
+          note: orphanNote,
+        }),
         filesScanned: filesInStorage.length,
         filesQueued: queuedCount,
+        filesAdded,
       }
     } catch (error) {
       logger.error('[RAG] Error scanning and syncing knowledge base:', error)
