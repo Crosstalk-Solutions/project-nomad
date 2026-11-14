@@ -30,6 +30,7 @@ import { decideOrphans } from '../utils/kb_orphan_decision.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
+import { facetHitsWithPoints } from '../utils/qdrant_facet.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
 import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
@@ -1344,9 +1345,7 @@ export class RagService {
         // its fixture paths would render as broken/missing files in the KB UI.
         filter: EXCLUDE_EVAL_FILTER,
       })
-      for (const hit of facetResult.hits) {
-        if (typeof hit.value === 'string') sources.add(hit.value)
-      }
+      for (const hit of facetHitsWithPoints(facetResult.hits)) sources.add(hit.value)
 
       // Union the Qdrant-derived list with the disk-backed file paths the
       // state machine has tracked. Without this, files known to the scanner
@@ -1434,11 +1433,9 @@ export class RagService {
       exact: true,
     })
     const collections = new Set<string>()
-    for (const hit of facetResult.hits) {
+    for (const hit of facetHitsWithPoints(facetResult.hits)) {
       // The reserved eval tag is internal; never offer it in a subject picker.
-      if (typeof hit.value === 'string' && hit.value !== KB_EVAL_COLLECTION) {
-        collections.add(hit.value)
-      }
+      if (hit.value !== KB_EVAL_COLLECTION) collections.add(hit.value)
     }
     return Array.from(collections).sort()
   }
@@ -1861,8 +1858,8 @@ export class RagService {
         // and counting them here would raise bogus zero_chunks warnings.
         filter: EXCLUDE_EVAL_FILTER,
       })
-      for (const hit of facetResult.hits) {
-        if (typeof hit.value === 'string') chunksBySource.set(hit.value, hit.count)
+      for (const hit of facetHitsWithPoints(facetResult.hits)) {
+        chunksBySource.set(hit.value, hit.count)
       }
 
       // Scan the filesystem the same way scanAndSyncStorage does so Warning A
@@ -1887,10 +1884,19 @@ export class RagService {
         }
       }
 
+      // Row state, so Warning A stays quiet for files the user has not
+      // indexed yet (Manual policy) or opted out of: "Embedded 0 chunks" is
+      // only a finding about a file that was actually embedded.
+      const stateByPath = new Map<string, KbIngestStateValue>()
+      for (const row of await KbIngestState.query().select('file_path', 'state')) {
+        stateByPath.set(row.file_path, row.state)
+      }
+
       const out: Record<string, FileWarning[]> = {}
       for (const source of allSources) {
         const fileSizeBytes = sizeByPath.get(source) ?? 0
         const chunksInQdrant = chunksBySource.get(source) ?? 0
+        const state = stateByPath.get(source) ?? null
         const fileName = source.split(/[/\\]/).pop() ?? source
         // ignoreCatchAll: the partial_stall warning must only fire when the
         // registry has a *specific* expectation for this file. The empty-pattern
@@ -1904,7 +1910,7 @@ export class RagService {
               })
             : null
 
-        const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks })
+        const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks, state })
         if (warnings.length > 0) out[source] = warnings
       }
 
@@ -2426,9 +2432,7 @@ export class RagService {
         limit: RagService.FACET_SOURCE_LIMIT,
         exact: true,
       })
-      for (const hit of facetResult.hits) {
-        if (typeof hit.value === 'string') sourcesInQdrant.add(hit.value)
-      }
+      for (const hit of facetHitsWithPoints(facetResult.hits)) sourcesInQdrant.add(hit.value)
 
       logger.info(`[RAG] Found ${sourcesInQdrant.size} unique sources in Qdrant`)
 
