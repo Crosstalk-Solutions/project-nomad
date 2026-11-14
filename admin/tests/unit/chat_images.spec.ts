@@ -17,11 +17,17 @@ import {
   visionCapabilityFromLlamaProps,
 } from '../../app/utils/model_capabilities.js'
 
-function uploadedFile(path: string, size: number, name = 'sample.png'): MultipartFile {
+function uploadedFile(
+  path: string,
+  size: number,
+  name = 'sample.png',
+  extname = 'png'
+): MultipartFile {
   return {
     tmpPath: path,
     size,
     clientName: name,
+    extname,
     isValid: true,
   } as MultipartFile
 }
@@ -72,7 +78,8 @@ test('normalizes image bytes when the filename extension does not match the enco
 
   try {
     const [image] = await normalizeChatImages([
-      uploadedFile(path, input.byteLength, 'mislabeled.png'),
+      // The parser reads the type from the bytes behind a lower-case name.
+      uploadedFile(path, input.byteLength, 'mislabeled.png', 'webp'),
     ])
     assert.equal(image.name, 'mislabeled.png')
     assert.match(image.dataUrl, /^data:image\/jpeg;base64,/)
