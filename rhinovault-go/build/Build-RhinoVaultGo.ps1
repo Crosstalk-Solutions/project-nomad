@@ -306,13 +306,25 @@ function Test-Sha256([string]$url, [string]$path) {
   Say '   checksum OK' DarkGreen
 }
 
+# Windows PowerShell 5.1 turns any stderr line from a native command into a terminating error while
+# $ErrorActionPreference is 'Stop', even when it is redirected. tar warns on every symlink it can't create,
+# so run it with errors allowed and judge it by its exit code.
+function Invoke-Tar([string[]]$tarArgs) {
+  $old = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $out = & tar @tarArgs 2>&1
+    $code = $LASTEXITCODE
+  } finally { $ErrorActionPreference = $old }
+  return [pscustomobject]@{ Code = $code; Lines = @($out | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { "$_" }) }
+}
+
 function Expand-Any([string]$archive, [string]$to) {
   New-Item -ItemType Directory -Force -Path $to | Out-Null
   if ($archive -match '\.zip$') {
     Expand-Archive -LiteralPath $archive -DestinationPath $to -Force
   } elseif ($archive -match '\.(tar\.gz|tgz)$') {
-    & tar -xzf $archive -C $to 2>$null
-    $tarCode = $LASTEXITCODE
+    $tarCode = (Invoke-Tar @('-xzf', $archive, '-C', $to)).Code
     $links = Resolve-TarLinks $archive $to
     if ($tarCode -ne 0 -and $links -eq 0) { throw "tar failed on $archive" }
   } else { throw "Don't know how to extract $archive" }
@@ -322,7 +334,7 @@ function Expand-Any([string]$archive, [string]$to) {
 # exFAT drives can't store links and Windows can't always create them, so replace every link with a
 # real copy of its target. Returns the number of links handled.
 function Resolve-TarLinks([string]$archive, [string]$to) {
-  $listing = & tar -tvzf $archive 2>$null
+  $listing = (Invoke-Tar @('-tvzf', $archive)).Lines
   $n = 0
   for ($pass = 0; $pass -lt 3; $pass++) {           # links to links resolve over a few passes
     foreach ($line in $listing) {
