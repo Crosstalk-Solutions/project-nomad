@@ -48,6 +48,8 @@ import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { hasMoreArticleBatches } from '../utils/zim_batch_decision.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
+import { chunkPointId } from '../utils/point_id.js'
+import { assertZipWithinLimits } from '../utils/zip_limits.js'
 import {
   ProcessAndEmbedFileResponse,
   ProcessZIMFileResponse,
@@ -64,6 +66,13 @@ export type EmbedSingleFileFailureCode =
 export type EmbedSingleFileResult =
   | { success: true; message: string }
   | { success: false; code: EmbedSingleFileFailureCode; message: string }
+
+/** `permanent: true` marks a failure retrying cannot fix (bad file), so the job stops. */
+export type EmbedFileResult = ProcessAndEmbedFileResponse & { permanent?: boolean }
+
+// Scanned PDFs past this are OCR'd only up to here (each page is rendered and
+// OCR'd at 200 dpi, which is slow on CPU-only installs).
+const MAX_OCR_PAGES = 300
 
 @inject()
 export class RagService {
@@ -349,7 +358,10 @@ export class RagService {
   public async embedAndStoreText(
     text: string,
     metadata: Record<string, any> = {},
-    onProgress?: (percent: number) => Promise<void>
+    onProgress?: (percent: number) => Promise<void>,
+    // When set, point ids derive from it + chunk index, so re-embedding the same
+    // content overwrites its points instead of adding duplicates.
+    pointIdSeed?: string
   ): Promise<{ chunks: number } | null> {
     try {
       await this._ensureCollection(
@@ -489,7 +501,8 @@ export class RagService {
         }
 
         return {
-          id: randomUUID(), // qdrant requires either uuid or unsigned int
+          // qdrant requires either uuid or unsigned int
+          id: pointIdSeed ? chunkPointId(pointIdSeed, index) : randomUUID(),
           vector: embeddings[index],
           payload: {
             ...metadata,
@@ -540,22 +553,14 @@ export class RagService {
       .toBuffer()
   }
 
-  private async convertPDFtoImages(filebuffer: Buffer): Promise<Buffer[]> {
-    const converted = await fromBuffer(filebuffer, {
-      quality: 50,
-      density: 200,
-      format: 'png',
-    }).bulk(-1, {
-      responseType: 'buffer',
-    })
-    return converted.filter((res) => res.buffer).map((res) => res.buffer!)
-  }
-
-  private async extractPDFText(filebuffer: Buffer): Promise<string> {
+  private async extractPDFText(filebuffer: Buffer): Promise<{ text: string; pages: number }> {
     const parser = new PDFParse({ data: filebuffer })
-    const data = await parser.getText()
-    await parser.destroy()
-    return data.text
+    try {
+      const data = await parser.getText()
+      return { text: data.text, pages: data.total }
+    } finally {
+      await parser.destroy()
+    }
   }
 
   private async extractTXTText(filebuffer: Buffer): Promise<string> {
@@ -564,9 +569,12 @@ export class RagService {
 
   private async extractImageText(filebuffer: Buffer): Promise<string> {
     const worker = await createWorker('eng')
-    const result = await worker.recognize(filebuffer)
-    await worker.terminate()
-    return result.data.text
+    try {
+      const result = await worker.recognize(filebuffer)
+      return result.data.text
+    } finally {
+      await worker.terminate()
+    }
   }
 
   private async processImageFile(fileBuffer: Buffer): Promise<string> {
@@ -579,19 +587,31 @@ export class RagService {
    * If the extracted text is minimal, it will fallback to OCR on each page.
    */
   private async processPDFFile(fileBuffer: Buffer): Promise<string> {
-    let extractedText = await this.extractPDFText(fileBuffer)
+    const { text, pages } = await this.extractPDFText(fileBuffer)
+    let extractedText = text
 
     // Check if there was no extracted text or it was very minimal
     if (!extractedText || extractedText.trim().length < 100) {
       logger.debug('[RAG] PDF text extraction minimal, attempting OCR on pages')
-      // Convert PDF pages to images for OCR if text extraction was poor
-      const imageBuffers = await this.convertPDFtoImages(fileBuffer)
+      const pageCount = Math.min(pages, MAX_OCR_PAGES)
+      if (pages > MAX_OCR_PAGES) {
+        logger.warn(`[RAG] Scanned PDF has ${pages} pages; OCR limited to the first ${MAX_OCR_PAGES}`)
+      }
+      // Render and OCR one page at a time so only one page image is in memory,
+      // reusing a single tesseract worker for the whole document.
+      const convert = fromBuffer(fileBuffer, { quality: 50, density: 200, format: 'png' })
+      const worker = await createWorker('eng')
       extractedText = ''
-
-      for (const imgBuffer of imageBuffers) {
-        const preprocessedImg = await this.preprocessImage(imgBuffer)
-        const pageText = await this.extractImageText(preprocessedImg)
-        extractedText += pageText + '\n'
+      try {
+        for (let page = 1; page <= pageCount; page++) {
+          const image = await convert(page, { responseType: 'buffer' })
+          if (!image.buffer) continue
+          const preprocessedImg = await this.preprocessImage(image.buffer)
+          const result = await worker.recognize(preprocessedImg)
+          extractedText += result.data.text + '\n'
+        }
+      } finally {
+        await worker.terminate()
       }
     }
 
@@ -634,8 +654,13 @@ export class RagService {
 
     // Process each chunk individually with its metadata
     let totalChunks = 0
+    // Section ordinal within its article: with the article path it gives each chunk
+    // a stable point id (documentId is random per extraction, so it cannot).
+    const sectionOrdinals = new Map<string, number>()
     for (let i = 0; i < zimChunks.length; i++) {
       const zimChunk = zimChunks[i]
+      const sectionOrdinal = sectionOrdinals.get(zimChunk.documentId) ?? 0
+      sectionOrdinals.set(zimChunk.documentId, sectionOrdinal + 1)
       const result = await this.embedAndStoreText(zimChunk.text, {
         source: filepath,
         content_type: 'zim_article',
@@ -666,11 +691,18 @@ export class RagService {
 
         // Extraction metadata - not overly relevant for search, but could be useful for debugging and future features...
         extraction_strategy: zimChunk.strategy,
-      })
+      }, undefined, `${filepath}\u0000${zimChunk.articlePath}\u0000${sectionOrdinal}`)
 
-      if (result) {
-        totalChunks += result.chunks
+      // Fail the whole batch rather than skip the article: the job retries from the
+      // same offset, and the deterministic point ids make the re-run overwrite the
+      // articles that already made it instead of duplicating them.
+      if (!result) {
+        return {
+          success: false,
+          message: `Failed to embed ZIM article "${zimChunk.articleTitle}" (batch offset ${startOffset}); the batch will be retried.`,
+        }
       }
+      totalChunks += result.chunks
 
       if (onProgress) {
         await onProgress(((i + 1) / zimChunks.length) * 100)
@@ -730,6 +762,8 @@ export class RagService {
    * this parses the document XML properly and returns clean plain text.
    */
   private async processDocxFile(fileBuffer: Buffer): Promise<string> {
+    // mammoth inflates the whole archive itself, so check it for a zip bomb first.
+    await assertZipWithinLimits(await JSZip.loadAsync(fileBuffer), fileBuffer.length)
     const { value: text } = await mammoth.extractRawText({ buffer: fileBuffer })
     return text
   }
@@ -742,6 +776,7 @@ export class RagService {
    */
   private async processEPUBFile(fileBuffer: Buffer): Promise<string> {
     const zip = await JSZip.loadAsync(fileBuffer)
+    await assertZipWithinLimits(zip, fileBuffer.length)
 
     // Read container.xml to find the OPF file path
     const containerXml = await zip.file('META-INF/container.xml')?.async('text')
@@ -820,10 +855,11 @@ export class RagService {
     deleteAfterEmbedding: boolean = false,
     onProgress?: (percent: number) => Promise<void>,
     collection?: string
-  ): Promise<{ success: boolean; message: string; chunks?: number }> {
+  ): Promise<EmbedFileResult> {
     if (!extractedText || extractedText.trim().length === 0) {
       return {
         success: false,
+        permanent: true,
         message: 'Process completed succesfully, but no text was found to embed.',
       }
     }
@@ -866,13 +902,13 @@ export class RagService {
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>,
     collection?: string
-  ): Promise<ProcessAndEmbedFileResponse> {
+  ): Promise<EmbedFileResult> {
     try {
       const fileType = determineFileType(filepath)
       logger.debug(`[RAG] Processing file: ${filepath} (detected type: ${fileType})`)
 
       if (fileType === 'unknown') {
-        return { success: false, message: 'Unsupported file type.' }
+        return { success: false, permanent: true, message: 'Unsupported file type.' }
       }
 
       // Read file buffer (not needed for ZIM as it reads directly)
@@ -891,23 +927,34 @@ export class RagService {
       // Report ~10% when extraction begins; actual embedding progress follows via callback
       if (onProgress) await onProgress(10)
       let extractedText: string
-      switch (fileType) {
-        case 'image':
-          extractedText = await this.processImageFile(fileBuffer!)
-          break
-        case 'pdf':
-          extractedText = await this.processPDFFile(fileBuffer!)
-          break
-        case 'docx':
-          extractedText = await this.processDocxFile(fileBuffer!)
-          break
-        case 'epub':
-          extractedText = await this.processEPUBFile(fileBuffer!)
-          break
-        case 'text':
-        default:
-          extractedText = await this.processTextFile(fileBuffer!)
-          break
+      try {
+        switch (fileType) {
+          case 'image':
+            extractedText = await this.processImageFile(fileBuffer!)
+            break
+          case 'pdf':
+            extractedText = await this.processPDFFile(fileBuffer!)
+            break
+          case 'docx':
+            extractedText = await this.processDocxFile(fileBuffer!)
+            break
+          case 'epub':
+            extractedText = await this.processEPUBFile(fileBuffer!)
+            break
+          case 'text':
+          default:
+            extractedText = await this.processTextFile(fileBuffer!)
+            break
+        }
+      } catch (extractError) {
+        // A file that cannot be parsed (corrupt, zip bomb, ...) fails the same way
+        // on every retry, so report it as permanent.
+        logger.error('[RAG] Error extracting text from file:', extractError)
+        return {
+          success: false,
+          permanent: true,
+          message: `Could not extract text from the file: ${extractError instanceof Error ? extractError.message : String(extractError)}`,
+        }
       }
 
       // Extraction done — scale remaining embedding progress from 15% to 100%

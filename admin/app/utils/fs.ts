@@ -192,7 +192,7 @@ export function matchesDevice(fsPath: string, deviceName: string): boolean {
 
 export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 'docx' | 'epub' | 'zim' | 'unknown' {
   const ext = path.extname(filename).toLowerCase()
-  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'].includes(ext)) {
+  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tif', '.tiff', '.webp'].includes(ext)) {
     return 'image'
   } else if (ext === '.pdf') {
     return 'pdf'

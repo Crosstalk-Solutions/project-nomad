@@ -152,7 +152,9 @@ export class EmbedFileJob {
 
       if (!result.success) {
         logger.error(`[EmbedFileJob] Failed to process file ${fileName}: ${result.message}`)
-        throw new Error(result.message)
+        // Bad files (unsupported, unparseable, no text) fail identically on every
+        // attempt; only transient failures (backend unreachable) are worth retrying.
+        throw result.permanent ? new UnrecoverableError(result.message) : new Error(result.message)
       }
 
       // For ZIM files with batching, check if more batches are needed
