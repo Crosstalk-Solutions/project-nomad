@@ -346,6 +346,23 @@ export class RagService {
     return [...new Set(keywords)]
   }
 
+  /**
+   * Heading line put in front of a chunk's text for embedding: "Article > Section\n".
+   * Built from the ZIM extractor's `hierarchy`, or from the article and section
+   * titles when only those are present. Empty for content with no headings, so
+   * plain uploads embed exactly as before.
+   */
+  private embeddingContextFor(metadata: Record<string, any>): string {
+    const hierarchy = typeof metadata.hierarchy === 'string' ? metadata.hierarchy.trim() : ''
+    const context =
+      hierarchy ||
+      [metadata.article_title, metadata.section_title]
+        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+        .map((part) => part.trim())
+        .join(' > ')
+    return context ? `${context}\n` : ''
+  }
+
   public async embedAndStoreText(
     text: string,
     metadata: Record<string, any> = {},
@@ -402,13 +419,20 @@ export class RagService {
       // Extract text from chunk results
       const chunks = chunkResults.map((chunk) => chunk.text)
 
+      // Heading context for the embedding only. A section's text rarely names its
+      // subject (a recipe's ingredient list, a drug's dosage table), so embedded
+      // bare it sits far from any query that asks for the subject by name, and
+      // index pages that merely list the name outrank it. The stored `text`
+      // stays bare; only the vector sees the heading.
+      const embeddingContext = this.embeddingContextFor(metadata)
+
       // Prepare all chunk texts with prefix and truncation
       const prefixedChunks: string[] = []
       for (let i = 0; i < chunks.length; i++) {
         let chunkText = chunks[i]
 
-        // Final safety check: ensure chunk + prefix fits
-        const prefixText = RagService.SEARCH_DOCUMENT_PREFIX
+        // Final safety check: ensure chunk + prefix + heading context fits
+        const prefixText = RagService.SEARCH_DOCUMENT_PREFIX + embeddingContext
         const withPrefix = prefixText + chunkText
         const estimatedTokens = this.estimateTokenCount(withPrefix)
 
@@ -421,7 +445,7 @@ export class RagService {
           chunkText = this.truncateToTokenLimit(chunkText, maxTokensForText)
         }
 
-        prefixedChunks.push(RagService.SEARCH_DOCUMENT_PREFIX + chunkText)
+        prefixedChunks.push(RagService.SEARCH_DOCUMENT_PREFIX + embeddingContext + chunkText)
       }
 
       // Batch embed chunks for performance
