@@ -481,6 +481,288 @@
           "size_mb": 400
         }
       ]
+    },
+    {
+      "description": "Map assets for Mexico.",
+      "icon": "IconMap",
+      "language": "en",
+      "name": "Mexico",
+      "resources": [
+        {
+          "id": "mexico",
+          "title": "Mexico",
+          "description": "Topographic maps for Mexico.",
+          "size_mb": 2850,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/mexico.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        }
+      ],
+      "slug": "mexico",
+      "optional": true
+    },
+    {
+      "description": "Map assets for Central America, including Belize, Costa Rica, El Salvador, Guatemala, Honduras, Nicaragua, and Panama.",
+      "icon": "IconMap",
+      "language": "en",
+      "name": "Central America",
+      "resources": [
+        {
+          "id": "belize",
+          "title": "Belize",
+          "description": "Topographic maps for Belize.",
+          "size_mb": 50,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/belize.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "costa_rica",
+          "title": "Costa Rica",
+          "description": "Topographic maps for Costa Rica.",
+          "size_mb": 100,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/costa_rica.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "el_salvador",
+          "title": "El Salvador",
+          "description": "Topographic maps for El Salvador.",
+          "size_mb": 50,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/el_salvador.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "guatemala",
+          "title": "Guatemala",
+          "description": "Topographic maps for Guatemala.",
+          "size_mb": 200,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/guatemala.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "honduras",
+          "title": "Honduras",
+          "description": "Topographic maps for Honduras.",
+          "size_mb": 200,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/honduras.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "nicaragua",
+          "title": "Nicaragua",
+          "description": "Topographic maps for Nicaragua.",
+          "size_mb": 200,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/nicaragua.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "panama",
+          "title": "Panama",
+          "description": "Topographic maps for Panama.",
+          "size_mb": 150,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/panama.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        }
+      ],
+      "slug": "central-america",
+      "optional": true
+    },
+    {
+      "description": "Map assets for South America, including Argentina, Bolivia, Brazil, Chile, Colombia, Ecuador, French Guiana, Guyana, Paraguay, Peru, Suriname, Uruguay, and Venezuela.",
+      "icon": "IconMap",
+      "language": "en",
+      "name": "South America",
+      "resources": [
+        {
+          "id": "argentina",
+          "title": "Argentina",
+          "description": "Topographic maps for Argentina.",
+          "size_mb": 3950,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/argentina.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "bolivia",
+          "title": "Bolivia",
+          "description": "Topographic maps for Bolivia.",
+          "size_mb": 1550,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/bolivia.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "brazil",
+          "title": "Brazil",
+          "description": "Topographic maps for Brazil.",
+          "size_mb": 12000,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/brazil.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "chile",
+          "title": "Chile",
+          "description": "Topographic maps for Chile.",
+          "size_mb": 1150,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/chile.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "colombia",
+          "title": "Colombia",
+          "description": "Topographic maps for Colombia.",
+          "size_mb": 1650,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/colombia.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "ecuador",
+          "title": "Ecuador",
+          "description": "Topographic maps for Ecuador.",
+          "size_mb": 400,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/ecuador.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "french_guiana",
+          "title": "French Guiana",
+          "description": "Topographic maps for French Guiana.",
+          "size_mb": 150,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/french_guiana.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "guyana",
+          "title": "Guyana",
+          "description": "Topographic maps for Guyana.",
+          "size_mb": 350,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/guyana.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "paraguay",
+          "title": "Paraguay",
+          "description": "Topographic maps for Paraguay.",
+          "size_mb": 600,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/paraguay.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "peru",
+          "title": "Peru",
+          "description": "Topographic maps for Peru.",
+          "size_mb": 1850,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/peru.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "suriname",
+          "title": "Suriname",
+          "description": "Topographic maps for Suriname.",
+          "size_mb": 250,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/suriname.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "uruguay",
+          "title": "Uruguay",
+          "description": "Topographic maps for Uruguay.",
+          "size_mb": 300,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/uruguay.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        },
+        {
+          "id": "venezuela",
+          "title": "Venezuela",
+          "description": "Topographic maps for Venezuela.",
+          "size_mb": 1350,
+          "source": {
+            "type": "protomaps-extract",
+            "region": "regions/venezuela.geojson",
+            "maxzoom": 15
+          },
+          "version": "daily"
+        }
+      ],
+      "slug": "south-america",
+      "optional": true
     }
   ]
 }
