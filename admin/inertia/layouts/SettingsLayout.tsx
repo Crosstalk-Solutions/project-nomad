@@ -19,6 +19,7 @@ import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import useCreatorPacks from '~/hooks/useCreatorPacks'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   // Only show the Creator Packs entry on builds that can actually install packs
   // (release-injected key present) — a fork built from source has no key.
   const { configured: creatorPacksConfigured } = useCreatorPacks()
+  // Dozzle is a management-compose container rather than a `services` row, so the
+  // per-app custom_url override has nothing to attach to. Fall back to the override
+  // set in Advanced settings so the link works behind a reverse proxy / local DNS.
+  const { data: serviceLogsUrlSetting } = useSystemSetting({ key: 'ui.serviceLogsUrl' })
 
   const navigation = [
     ...(aiAssistantInstallStatus.isInstalled ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }] : []),
@@ -38,7 +43,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
     {
       name: 'Service Logs & Metrics',
-      href: getServiceLink('9999'),
+      href: getServiceLink('9999', serviceLogsUrlSetting?.value),
       icon: IconDashboard,
       current: false,
       target: '_blank',
