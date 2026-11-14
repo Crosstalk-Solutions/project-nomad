@@ -1478,7 +1478,8 @@ export class OllamaService {
   private sortModels(models: NomadOllamaModel[], sort?: 'pulls' | 'name'): NomadOllamaModel[] {
     if (sort === 'pulls') {
       models.sort((a, b) => {
-        const parsePulls = (pulls: string) => {
+        const parsePulls = (pulls: string | null) => {
+          if (!pulls) return 0
           const multiplier = pulls.endsWith('K')
             ? 1_000
             : pulls.endsWith('M')
@@ -1497,7 +1498,8 @@ export class OllamaService {
     models.forEach((model) => {
       if (model.tags && Array.isArray(model.tags)) {
         model.tags.sort((a, b) => {
-          const parseSize = (size: string) => {
+          const parseSize = (size: string | null) => {
+            if (!size) return Infinity
             const multiplier = size.endsWith('KB')
               ? 1 / 1_000
               : size.endsWith('MB')
