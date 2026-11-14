@@ -1063,6 +1063,8 @@ export class RagService {
         // carries no equivalent embedded metadata.
         archive_title: result.payload?.archive_title as string | undefined,
         archive_date: result.payload?.archive_date as string | undefined,
+        // Where the article lives inside its ZIM, so a citation can link to it.
+        article_path: result.payload?.article_path as string | undefined,
       }))
 
       const rerankedResults = this.rerankResults(resultsWithMetadata, keywords, query)
@@ -1151,6 +1153,7 @@ export class RagService {
           // Citation metadata (#1179)
           archive_title: result.archive_title,
           archive_date: result.archive_date,
+          article_path: result.article_path,
         },
       }))
     } catch (error) {

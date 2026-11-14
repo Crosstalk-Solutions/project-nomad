@@ -87,7 +87,7 @@ export function buildContextBlock(docs: BudgetableChunk[]): string {
  * user cannot act on is worse than one fewer entry.
  */
 export function buildCitations(docs: BudgetableChunk[]): ChatSource[] {
-  const seen = new Set<string>()
+  const byKey = new Map<string, ChatSource>()
   const sources: ChatSource[] = []
 
   for (const doc of docs) {
@@ -95,16 +95,34 @@ export function buildCitations(docs: BudgetableChunk[]): ChatSource[] {
       doc.metadata?.archive_title || doc.metadata?.full_title || doc.metadata?.article_title
     const path = doc.metadata?.source as string | undefined
     const key = path || title
-    if (!key || seen.has(key)) continue
-    seen.add(key)
+    if (!key) continue
 
-    sources.push({
-      // A user-uploaded PDF carries no embedded title, so fall back to its
-      // filename -- which is what the user named it and will recognise.
-      title: title || path!.split('/').pop() || path!,
-      date: doc.metadata?.archive_date,
-      source: path,
-    })
+    let entry = byKey.get(key)
+    if (!entry) {
+      entry = {
+        // A user-uploaded PDF carries no embedded title, so fall back to its
+        // filename -- which is what the user named it and will recognise.
+        title: title || path!.split('/').pop() || path!,
+        date: doc.metadata?.archive_date,
+        source: path,
+      }
+      byKey.set(key, entry)
+      sources.push(entry)
+    }
+
+    // ZIM chunks also name the exact article they came from. Keep each injected
+    // article once, so the UI can link straight to what the model read rather
+    // than only to the archive as a whole.
+    const articlePath = doc.metadata?.article_path as string | undefined
+    if (articlePath) {
+      const articles = (entry.articles ??= [])
+      if (!articles.some((a) => a.path === articlePath)) {
+        articles.push({
+          title: (doc.metadata?.article_title as string | undefined) || articlePath,
+          path: articlePath,
+        })
+      }
+    }
   }
 
   return sources

@@ -41,6 +41,8 @@ export type RAGResult = {
   source?: string
   archive_title?: string
   archive_date?: string
+  /** Path of the article inside its ZIM archive; undefined for non-ZIM content. */
+  article_path?: string
 }
 
 export type RerankedRAGResult = Omit<RAGResult, 'keywords'> & {
