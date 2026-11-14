@@ -23,6 +23,7 @@ import {
   isExportDateNewer,
 } from '../../util/drug_labels.js'
 import KVStore from '#models/kv_store'
+import { escapeLike } from '../utils/sql.js'
 import { parseCompareIds, MAX_COMPARE } from '../../util/compare_ids.js'
 import type {
   DrugSearchResult,
@@ -83,7 +84,7 @@ export class DrugReferenceService {
     if (scope === 'indication') {
       if (!useLike) {
         try {
-          return await this.searchIndicationFulltext(normalized, options.productType, limit, offset)
+          return await this.searchIndicationFulltext(normalized, options, limit, offset)
         } catch (err) {
           logger.warn(
             `[DrugReferenceService] FULLTEXT indication search failed, falling back to LIKE: ${
@@ -92,7 +93,7 @@ export class DrugReferenceService {
           )
         }
       }
-      return await this.searchIndicationLike(normalized, options.productType, limit, offset)
+      return await this.searchIndicationLike(normalized, options, limit, offset)
     }
 
     if (!useLike) {
@@ -140,7 +141,7 @@ export class DrugReferenceService {
     if (opts.route) {
       // `route` is a comma-joined uppercase list (e.g. "ORAL, TOPICAL").
       sql += ' AND route LIKE ?'
-      bindings.push(`%${opts.route.toUpperCase()}%`)
+      bindings.push(`%${escapeLike(opts.route.toUpperCase())}%`)
     }
 
     sql += `
@@ -160,7 +161,7 @@ export class DrugReferenceService {
     limit: number,
     offset: number
   ): Promise<DrugSearchResult[]> {
-    const term = `%${normalized}%`
+    const term = `%${escapeLike(normalized)}%`
     let sql = `
       SELECT
         MIN(id) AS id,
@@ -181,7 +182,7 @@ export class DrugReferenceService {
     }
     if (opts.route) {
       sql += ' AND route LIKE ?'
-      bindings.push(`%${opts.route.toUpperCase()}%`)
+      bindings.push(`%${escapeLike(opts.route.toUpperCase())}%`)
     }
 
     sql += `
@@ -206,7 +207,7 @@ export class DrugReferenceService {
    */
   private async searchIndicationFulltext(
     normalized: string,
-    productType: string | undefined,
+    opts: { productType?: string; route?: string; sort?: 'relevance' | 'name' },
     limit: number,
     offset: number
   ): Promise<DrugSearchResult[]> {
@@ -225,14 +226,18 @@ export class DrugReferenceService {
     `
     const bindings: unknown[] = [normalized, normalized]
 
-    if (productType) {
+    if (opts.productType) {
       sql += ' AND product_type = ?'
-      bindings.push(productType)
+      bindings.push(opts.productType)
+    }
+    if (opts.route) {
+      sql += ' AND route LIKE ?'
+      bindings.push(`%${escapeLike(opts.route.toUpperCase())}%`)
     }
 
     sql += `
       GROUP BY brand_name, generic_name
-      ORDER BY relevance DESC
+      ORDER BY ${opts.sort === 'name' ? 'COALESCE(brand_name, generic_name) ASC' : 'relevance DESC'}
       LIMIT ? OFFSET ?
     `
     bindings.push(limit, offset)
@@ -249,11 +254,11 @@ export class DrugReferenceService {
    */
   private async searchIndicationLike(
     normalized: string,
-    productType: string | undefined,
+    opts: { productType?: string; route?: string; sort?: 'relevance' | 'name' },
     limit: number,
     offset: number
   ): Promise<DrugSearchResult[]> {
-    const term = `%${normalized}%`
+    const term = `%${escapeLike(normalized)}%`
     let sql = `
       SELECT
         MIN(id) AS id,
@@ -268,14 +273,18 @@ export class DrugReferenceService {
     `
     const bindings: unknown[] = [term, term]
 
-    if (productType) {
+    if (opts.productType) {
       sql += ' AND product_type = ?'
-      bindings.push(productType)
+      bindings.push(opts.productType)
+    }
+    if (opts.route) {
+      sql += ' AND route LIKE ?'
+      bindings.push(`%${escapeLike(opts.route.toUpperCase())}%`)
     }
 
     sql += `
       GROUP BY brand_name, generic_name
-      ORDER BY brand_name ASC
+      ORDER BY ${opts.sort === 'name' ? 'COALESCE(brand_name, generic_name) ASC' : 'brand_name ASC'}
       LIMIT ? OFFSET ?
     `
     bindings.push(limit, offset)

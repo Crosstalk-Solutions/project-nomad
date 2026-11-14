@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
+import { errors as vineErrors } from '@vinejs/vine'
 import { DrugReferenceService } from '#services/drug_reference_service'
 import { ConditionService } from '#services/condition_service'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
@@ -109,9 +110,12 @@ export default class DrugReferenceController {
       })
       return { results }
     } catch (err) {
+      // Bad input keeps the framework's 422 with field messages; anything else is
+      // a DB/server fault whose raw message stays in the log, not the response.
+      if (err instanceof vineErrors.E_VALIDATION_ERROR) throw err
       const msg = err instanceof Error ? err.message : String(err)
-      logger.warn(`[DrugReferenceController] search failed: ${msg}`)
-      return response.badRequest({ error: msg })
+      logger.error(`[DrugReferenceController] search failed: ${msg}`)
+      return response.internalServerError({ error: 'Search failed' })
     }
   }
 

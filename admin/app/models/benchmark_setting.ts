@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
 import type { BenchmarkSettingKey } from '../../types/benchmark.js'
+import { isDuplicateKeyError } from '../utils/sql.js'
 
 export default class BenchmarkSetting extends BaseModel {
   static namingStrategy = new SnakeCaseNamingStrategy()
@@ -32,12 +33,13 @@ export default class BenchmarkSetting extends BaseModel {
    * Set a setting value by key (creates if not exists)
    */
   static async setValue(key: BenchmarkSettingKey, value: string | null): Promise<BenchmarkSetting> {
-    const setting = await this.firstOrCreate({ key }, { key, value })
-    if (setting.value !== value) {
-      setting.value = value
-      await setting.save()
+    try {
+      return await this.updateOrCreate({ key }, { value })
+    } catch (err) {
+      // Concurrent first write won the INSERT; the retry takes the update path.
+      if (!isDuplicateKeyError(err)) throw err
+      return await this.updateOrCreate({ key }, { value })
     }
-    return setting
   }
 
   /**

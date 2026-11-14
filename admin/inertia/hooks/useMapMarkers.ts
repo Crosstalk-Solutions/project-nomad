@@ -131,7 +131,8 @@ export function useMapMarkers() {
   }, [])
 
   const deleteMarker = useCallback(async (id: number) => {
-    await api.deleteMapMarker(id)
+    // undefined means the request failed (catchInternal already showed an error toast)
+    if (!(await api.deleteMapMarker(id))) return
     setMarkers((prev) => prev.filter((marker) => marker.id !== id))
   }, [])
 

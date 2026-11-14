@@ -14,6 +14,7 @@ import {
   remediesForFreeText,
 } from '../../util/conditions.js'
 import { PRODUCT_TYPES } from '../../types/drug_reference.js'
+import { escapeLike } from '../utils/sql.js'
 import type {
   Condition,
   ConditionSummary,
@@ -238,7 +239,7 @@ export class ConditionService {
 
     if (opts?.route) {
       sql += ' AND route LIKE ?'
-      bindings.push(`%${opts.route.toUpperCase()}%`)
+      bindings.push(`%${escapeLike(opts.route.toUpperCase())}%`)
     }
 
     sql += `
@@ -280,11 +281,11 @@ export class ConditionService {
       WHERE (${likeClauses})
         AND product_type = ?
     `
-    const bindings: unknown[] = [...terms.map((t) => `%${t}%`), PRODUCT_TYPES.OTC]
+    const bindings: unknown[] = [...terms.map((t) => `%${escapeLike(t)}%`), PRODUCT_TYPES.OTC]
 
     if (opts?.route) {
       sql += ' AND route LIKE ?'
-      bindings.push(`%${opts.route.toUpperCase()}%`)
+      bindings.push(`%${escapeLike(opts.route.toUpperCase())}%`)
     }
 
     sql += `
