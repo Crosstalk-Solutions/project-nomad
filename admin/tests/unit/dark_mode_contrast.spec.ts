@@ -7,6 +7,11 @@ const builderTagSelector = await readFile(
   new URL('../../inertia/components/BuilderTagSelector.tsx', import.meta.url),
   'utf8'
 )
+const alert = await readFile(new URL('../../inertia/components/Alert.tsx', import.meta.url), 'utf8')
+const supplyDepot = await readFile(
+  new URL('../../inertia/pages/supply-depot.tsx', import.meta.url),
+  'utf8'
+)
 
 const darkTheme = css.match(/\[data-theme="dark"\]\s*\{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens
 
@@ -88,5 +93,52 @@ test('Builder Tag controls pair their inverted background with semantic text', (
   assert.ok(
     contrast(token('--color-text-primary'), token('--color-desert-stone-lighter')) >= 4.5,
     'Builder Tag text and background must have at least 4.5:1 contrast'
+  )
+})
+
+test('dark muted text clears WCAG AA on the page and card surfaces (#1418)', () => {
+  const muted = token('--color-text-muted')
+  for (const surface of [
+    token('--color-desert-sand'),
+    token('--color-surface-primary'),
+    token('--color-surface-secondary'),
+  ]) {
+    assert.ok(contrast(muted, surface) >= 4.5, `${muted} on ${surface} must have at least 4.5:1`)
+  }
+})
+
+test('dark category chips pair each tinted background with primary text (#1418)', () => {
+  for (const family of ['tan', 'red', 'stone', 'olive', 'orange']) {
+    assert.doesNotMatch(
+      supplyDepot,
+      new RegExp(`bg-desert-${family}-lighter text-desert-${family}-dark`),
+      `${family} chips must not pair two tokens that both invert in dark mode`
+    )
+    const background = token(`--color-desert-${family}-lighter`)
+    assert.ok(
+      contrast(token('--color-text-primary'), background) >= 4.5,
+      `chip text on ${background} must have at least 4.5:1`
+    )
+  }
+})
+
+test('dark warning alerts pair the orange background with primary text (#1418)', () => {
+  assert.doesNotMatch(alert, /case 'warning':\s*return 'text-desert-orange-dark/)
+  assert.ok(
+    contrast(token('--color-text-primary'), token('--color-desert-orange-lighter')) >= 4.5,
+    'warning alert text must have at least 4.5:1 contrast'
+  )
+})
+
+test('dark secondary buttons keep white text readable at rest, hover and active (#1418)', () => {
+  for (const name of ['--color-desert-tan', '--color-btn-tan-hover', '--color-btn-tan-active']) {
+    assert.ok(contrast('#ffffff', token(name)) >= 4.5, `white on ${name} must have at least 4.5:1`)
+  }
+})
+
+test('dark: utilities follow the in-app theme, not the OS color scheme (#1418)', () => {
+  assert.match(
+    css,
+    /@custom-variant dark \(&:where\(\[data-theme="dark"\], \[data-theme="dark"\] \*\)\);/
   )
 })

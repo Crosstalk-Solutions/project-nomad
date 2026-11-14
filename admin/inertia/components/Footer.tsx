@@ -18,7 +18,7 @@ export default function Footer() {
         <span className="text-gray-300">|</span>
         <button
           onClick={() => setDebugModalOpen(true)}
-          className="text-sm/6 text-gray-500 hover:text-desert-green flex items-center gap-1 cursor-pointer"
+          className="text-sm/6 text-text-secondary hover:text-desert-green flex items-center gap-1 cursor-pointer"
         >
           <IconBug className="size-3.5" />
           Debug Info

@@ -115,7 +115,7 @@ export default function Alert({
 
     switch (type) {
       case 'warning':
-        return 'text-desert-orange-dark'
+        return 'text-text-primary'
       case 'error':
         return 'text-desert-red-dark'
       case 'success':
@@ -134,7 +134,7 @@ export default function Alert({
 
     switch (type) {
       case 'warning':
-        return 'text-desert-orange-dark text-opacity-80'
+        return 'text-text-primary text-opacity-80'
       case 'error':
         return 'text-desert-red-dark text-opacity-80'
       case 'success':

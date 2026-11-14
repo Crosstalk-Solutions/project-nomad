@@ -90,7 +90,7 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
           <p>Project NOMAD&trade; Command Center v{appVersion}</p>
           <button
             onClick={() => setDebugModalOpen(true)}
-            className="text-gray-500 hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
+            className="text-text-secondary hover:text-desert-green inline-flex items-center gap-1 cursor-pointer"
           >
             <IconBug className="size-3.5" />
             Debug Info
