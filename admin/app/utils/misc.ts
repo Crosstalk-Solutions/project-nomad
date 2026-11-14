@@ -1,6 +1,15 @@
+/**
+ * A download speed for display: "512 B/s", "1.5 KB/s", "5.0 MB/s".
+ *
+ * The unit is chosen after rounding, so a speed just under 1024 of a unit reads
+ * as 1 of the next one ("1.0 MB/s") rather than "1024.0 KB/s".
+ */
 export function formatSpeed(bytesPerSecond: number): string {
-  if (bytesPerSecond < 1024) return `${bytesPerSecond.toFixed(0)} B/s`
-  if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(1)} KB/s`
+  if (!(bytesPerSecond > 0)) return '0 B/s'
+  const bytes = Math.round(bytesPerSecond)
+  if (bytes < 1024) return `${bytes} B/s`
+  const kilobytes = (bytesPerSecond / 1024).toFixed(1)
+  if (Number(kilobytes) < 1024) return `${kilobytes} KB/s`
   return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`
 }
 
