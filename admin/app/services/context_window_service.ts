@@ -8,6 +8,7 @@ import {
   UNKNOWN_BACKEND_CONTEXT,
   computeKvBytesPerToken,
   estimateKvBytesPerToken,
+  inferenceMemoryBudget,
   parseParameterBillions,
   parseUserContextCap,
   resolveContextWindow,
@@ -93,7 +94,7 @@ export class ContextWindowService {
       modelMaxCtx: info.contextLength,
       modelfileNumCtx: info.modelfileNumCtx,
       kvBytesPerToken,
-      availableBytes: await this._availableBytes(),
+      availableBytes: await this.getAvailableBytes(),
       modelBytes: await this._modelBytes(model),
       userCap,
     })
@@ -114,15 +115,17 @@ export class ContextWindowService {
    * whichever device Ollama chose. Falls back to a conservative share of system
    * RAM for CPU-only hosts, which is the low end of the hardware NOMAD targets
    * and precisely where getting this wrong hurts most.
+   *
+   * Public because the recommended-model list (#1477) budgets against the same
+   * figure; the arithmetic itself lives in `inferenceMemoryBudget`.
    */
-  private async _availableBytes(): Promise<number | undefined> {
+  async getAvailableBytes(): Promise<number | undefined> {
     if (!this.availableBytes) {
       this.availableBytes = (async () => {
+        let vramMiB: number | undefined
         try {
           const compute = await this.systemService.getOllamaInferenceComputeFromLogs()
-          if (compute && compute.vramMiB > 0) {
-            return compute.vramMiB * 1024 * 1024
-          }
+          vramMiB = compute?.vramMiB
         } catch (error) {
           logger.debug(
             `[ContextWindow] GPU probe failed, assuming CPU inference: ${error instanceof Error ? error.message : error}`
@@ -130,7 +133,7 @@ export class ContextWindowService {
         }
         // CPU inference shares host RAM with MySQL, Redis, Qdrant and every other
         // container on the box, so claim only a modest slice of it.
-        return os.totalmem() * CPU_RAM_SHARE
+        return inferenceMemoryBudget(vramMiB, os.totalmem())
       })()
     }
     return this.availableBytes
@@ -151,10 +154,3 @@ export class ContextWindowService {
     this.availableBytes = null
   }
 }
-
-/**
- * Share of system RAM assumed available for CPU inference. The rest of the NOMAD
- * stack (MySQL, Redis, Qdrant, Kiwix, the admin app itself) lives in the same
- * pool, and a machine that starts swapping is worse than one with a small window.
- */
-const CPU_RAM_SHARE = 0.5
