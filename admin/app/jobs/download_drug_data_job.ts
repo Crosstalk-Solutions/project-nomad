@@ -1,5 +1,6 @@
 import { Job } from 'bullmq'
 import { access, mkdir, constants } from 'node:fs/promises'
+import { join } from 'node:path'
 import logger from '@adonisjs/core/services/logger'
 import { QueueService } from '#services/queue_service'
 import { doResumableDownload } from '../utils/downloads.js'
@@ -12,7 +13,7 @@ import type {
 } from '../../types/drug_reference.js'
 
 /** Where all part zips are staged on the bind-mounted storage volume. */
-export const STORAGE_BASE = '/app/storage/drug-data'
+export const STORAGE_BASE = join(process.cwd(), 'storage', 'drug-data')
 const MANIFEST_URL = 'https://api.fda.gov/download.json'
 
 /**
