@@ -116,6 +116,29 @@ You can also remove documents from the Knowledge Base when they're no longer nee
 
 NOMAD documentation is automatically added to the Knowledge Base when the AI Assistant is installed.
 
+### Can the Knowledge Base index a folder I already have (like a NAS share) without copying it?
+Yes. You can give NOMAD one external folder to index **read-only**. Your files stay where they are; NOMAD only reads them and keeps its search index in sync. If you ever rebuild NOMAD, point it at the same folder again and the index is rebuilt from your originals.
+
+1. Make the folder available on the NOMAD machine (for a NAS, mount the share on the host first, e.g. at `/mnt/nas/library`).
+2. Open `/opt/project-nomad/compose.yml` and add one line under the `admin` service's `volumes:`, ending in `:ro` so NOMAD can never change your files:
+   ```yaml
+   - /mnt/nas/library:/app/kb_external:ro
+   ```
+   The part on the right (`/app/kb_external:ro`) must be exactly that. Only the host path on the left is yours to choose. Don't point it at anything inside NOMAD's own storage folder.
+3. Recreate the admin container so it picks up the new mount (a plain restart is not enough):
+   ```bash
+   sudo docker compose -p project-nomad -f /opt/project-nomad/compose.yml up -d admin
+   ```
+4. Open the **[Knowledge Base →](/knowledge-base)** and click **Sync Storage**. Supported files anywhere in the folder (including subfolders) are picked up under your normal indexing setting: indexed right away on **Always**, or listed with an **Index** button on **Manual**.
+
+How it behaves:
+- **New files** are picked up the next time you click **Sync Storage**. There is no automatic background scan yet.
+- **Deleted files** are removed from the index on the next sync. A **renamed or moved** file counts as one removed and one new file, so it gets re-indexed.
+- **Edited files** are not re-read automatically. Use **Re-embed All** after you change existing documents.
+- Files from the folder show **External (read-only)** in Stored Files instead of a Delete button. To remove one, delete it from the folder itself and sync. Uploads through NOMAD always go to NOMAD's own storage, never into this folder.
+- **If the folder disappears** (the NAS is offline, the share didn't mount, or it's empty), NOMAD leaves the existing index alone instead of wiping it, and the sync message tells you why. The same happens if a single sync would remove more than half of the folder's files at once, since that usually means the wrong drive is mounted. If you really did remove that many files, use **Reset & Rebuild**.
+- To stop using the folder, remove the line from `compose.yml` and run the same command again. Its entries stay in the index until you delete them from Stored Files or run **Reset & Rebuild**.
+
 ### What is the System Benchmark?
 The System Benchmark tests your hardware performance and generates a NOMAD Score — a weighted composite of CPU, memory, disk, and AI performance. You can create a Builder Tag (a NOMAD-themed identity like "Tactical-Llama-1234") and share your results with the [community leaderboard](https://benchmark.projectnomad.us).
 

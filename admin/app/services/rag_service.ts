@@ -27,6 +27,13 @@ import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
 import { decideOrphans } from '../utils/kb_orphan_decision.js'
+import {
+  buildKbScanRoots,
+  decideKbFileDelete,
+  decideScanRootError,
+  isPathUnderRoot,
+  KB_EXTERNAL_STORAGE_PATH,
+} from '../utils/kb_external_source.js'
 import { decideContentReindex, type ReindexOutcome } from '../utils/content_reindex_decision.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { decideWarnings } from '../utils/kb_warning_decision.js'
@@ -873,6 +880,15 @@ export class RagService {
 
       if (fileType === 'unknown') {
         return { success: false, message: 'Unsupported file type.' }
+      }
+
+      // The external source folder is read-only to NOMAD (#1422). Nothing in
+      // the scan path asks for delete-after-embed today, but this is the one
+      // place a file gets removed after ingestion, so pin it here rather than
+      // trusting every future caller to remember.
+      if (deleteAfterEmbedding && isPathUnderRoot(filepath, this._kbScanRoots().externalPath)) {
+        logger.warn(`[RAG] Ignoring delete-after-embed for read-only external source: ${filepath}`)
+        deleteAfterEmbedding = false
       }
 
       // Read file buffer (not needed for ZIM as it reads directly)
@@ -1868,12 +1884,11 @@ export class RagService {
       // Scan the filesystem the same way scanAndSyncStorage does so Warning A
       // can fire on files with zero qdrant points (the headline "video-only
       // ZIM" case).
-      const KB_UPLOADS_PATH = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
-      const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
       const allSources = new Set<string>(chunksBySource.keys())
       const sizeByPath = new Map<string, number>()
 
-      for (const dir of [KB_UPLOADS_PATH, ZIM_PATH]) {
+      const scanRoots = this._kbScanRoots()
+      for (const dir of buildKbScanRoots(scanRoots)) {
         try {
           const entries = await listDirectoryContentsRecursive(dir)
           for (const entry of entries) {
@@ -1883,7 +1898,11 @@ export class RagService {
             if (stat) sizeByPath.set(entry.key, Number(stat.size))
           }
         } catch (error: any) {
-          if (error?.code !== 'ENOENT') throw error
+          // Same tolerance as the sync scan: an unreachable external folder
+          // must not take the whole warnings panel down with it.
+          if (decideScanRootError(error?.code, dir === scanRoots.externalPath) === 'throw') {
+            throw error
+          }
         }
       }
 
@@ -1920,8 +1939,30 @@ export class RagService {
    * the corresponding file from disk if it lives under the uploads directory.
    * @param source - Full source path as stored in Qdrant payloads
    */
-  public async deleteFileBySource(source: string): Promise<{ success: boolean; message: string }> {
+  public async deleteFileBySource(
+    source: string
+  ): Promise<{ success: boolean; message: string; code?: 'read_only' }> {
     try {
+      // Decided before touching Qdrant: an external file (#1422) that still
+      // exists is refused outright, because the next sync would simply
+      // re-index it. The source folder is authoritative; removing the file
+      // there is how it leaves the knowledge base.
+      const { kbUploadsPath, externalPath } = this._kbScanRoots()
+      const deleteAction = decideKbFileDelete({
+        source,
+        uploadsRoot: kbUploadsPath,
+        externalRoot: externalPath,
+        existsOnDisk: !!(await getFileStatsIfExists(source)),
+      })
+      if (deleteAction === 'refuse_external') {
+        return {
+          success: false,
+          code: 'read_only',
+          message:
+            'This file lives in the read-only external folder. Remove it from that folder and run a sync to drop it from the knowledge base.',
+        }
+      }
+
       await this._ensureCollection(
         RagService.CONTENT_COLLECTION_NAME,
         RagService.EMBEDDING_DIMENSION
@@ -1940,9 +1981,8 @@ export class RagService {
        * check to prevent path traversal vulns
        * The trailing sep is to ensure a prefix like "kb_uploads_{something_incorrect}" can't slip through.
        */
-      const uploadsAbsPath = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
       const resolvedSource = resolve(source)
-      if (resolvedSource.startsWith(uploadsAbsPath + sep)) {
+      if (deleteAction === 'delete_file_and_index') {
         await deleteFileIfExists(resolvedSource)
         logger.info(`[RAG] Deleted uploaded file from disk: ${resolvedSource}`)
       } else {
@@ -2135,17 +2175,22 @@ export class RagService {
    * outside kb_uploads/zim would otherwise be silently misclassified as
    * orphaned and purged the first time it's added (see _nomadDocsRoots()
    * for exactly that lesson learned with README.md/docs).
+   *
+   * `externalPath` is the optional read-only source folder (#1422). It is
+   * only ever read: see kb_external_source.ts for why it's a fixed path and
+   * how the delete/cleanup paths keep their hands off it.
    */
-  private _kbScanRoots(): { kbUploadsPath: string; zimPath: string } {
+  private _kbScanRoots(): { kbUploadsPath: string; zimPath: string; externalPath: string } {
     return {
       kbUploadsPath: join(process.cwd(), RagService.UPLOADS_STORAGE_PATH),
       zimPath: join(process.cwd(), ZIM_STORAGE_PATH),
+      externalPath: join(process.cwd(), KB_EXTERNAL_STORAGE_PATH),
     }
   }
 
   /**
-   * Walk kb_uploads and zim storage directories, returning the full path of
-   * every embeddable file. Non-embeddable types (e.g. kiwix-library.xml) are
+   * Walk kb_uploads, zim, and (when mounted) the external source folder,
+   * returning the full path of every embeddable file. Non-embeddable types (e.g. kiwix-library.xml) are
    * filtered out so they aren't dispatched only to fail with "Unsupported file
    * type" and retry on every sync.
    */
@@ -2173,19 +2218,24 @@ export class RagService {
    * empty" therefore passes, and every ZIM in the index gets purged in one
    * batch. Reporting the roots lets the sweep confine itself to ground it
    * actually stood on.
+   *
+   * The external source folder (#1422) goes through exactly the same walk and
+   * the same rules. It's the root most likely to vanish — a NAS share that
+   * drops off the network — and when it does, it's either missing (skipped,
+   * so its sources are untouchable) or an empty mountpoint (withheld by
+   * decideOrphans). Files removed from it while it IS mounted are purged from
+   * the index on the next sync like any other root's.
    */
   private async _discoverKbFilesWithRoots(): Promise<{
     files: string[]
     scannedRoots: string[]
   }> {
-    const { kbUploadsPath: KB_UPLOADS_PATH, zimPath: ZIM_PATH } = this._kbScanRoots()
     const filesInStorage: string[] = []
     const scannedRoots: string[] = []
 
-    for (const [label, dirPath] of [
-      [RagService.UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH] as const,
-      [ZIM_STORAGE_PATH, ZIM_PATH] as const,
-    ]) {
+    const roots = this._kbScanRoots()
+    for (const dirPath of buildKbScanRoots(roots)) {
+      const label = relative(process.cwd(), dirPath)
       try {
         const contents = await listDirectoryContentsRecursive(dirPath)
         contents.forEach((entry) => {
@@ -2194,8 +2244,13 @@ export class RagService {
         scannedRoots.push(dirPath)
         logger.debug(`[RAG] Found ${contents.length} files in ${label}`)
       } catch (error) {
-        if (error.code === 'ENOENT') {
+        const action = decideScanRootError(error?.code, dirPath === roots.externalPath)
+        if (action === 'skip_missing') {
           logger.debug(`[RAG] ${label} directory does not exist, skipping`)
+        } else if (action === 'skip_unreadable') {
+          logger.warn(
+            `[RAG] External knowledge base folder ${dirPath} could not be read (${error?.code ?? error}); skipping it this sync and leaving its indexed files untouched`
+          )
         } else {
           throw error
         }

@@ -1038,6 +1038,11 @@ export default function KnowledgeBaseModal({
                       isViewableExtension(record.displayName) &&
                       record.size !== null
                     const canDownload = record.isUserUpload && record.size !== null
+                    // Files in the read-only external folder (#1422) are removed by
+                    // deleting them at the source; the server refuses a Delete while
+                    // the file still exists. Once it's gone (size is null) the stale
+                    // index entry can be cleaned up here like any other row.
+                    const isReadOnlyExternal = record.bucket === 'external' && record.size !== null
 
                     return (
                       <div className="flex justify-end items-center gap-2">
@@ -1086,18 +1091,27 @@ export default function KnowledgeBaseModal({
                             Download
                           </StyledButton>
                         )}
-                        <StyledButton
-                          variant="danger"
-                          size="sm"
-                          icon="IconTrash"
-                          onClick={() => setConfirmDeleteSource(record.source)}
-                          disabled={deleteMutation.isPending || embedMutation.isPending}
-                          loading={
-                            deleteMutation.isPending && confirmDeleteSource === record.source
-                          }
-                        >
-                          Delete
-                        </StyledButton>
+                        {isReadOnlyExternal ? (
+                          <span
+                            className="text-sm text-text-muted italic"
+                            title="This file is in the read-only external folder. Remove it there and run a sync to drop it from the knowledge base."
+                          >
+                            External (read-only)
+                          </span>
+                        ) : (
+                          <StyledButton
+                            variant="danger"
+                            size="sm"
+                            icon="IconTrash"
+                            onClick={() => setConfirmDeleteSource(record.source)}
+                            disabled={deleteMutation.isPending || embedMutation.isPending}
+                            loading={
+                              deleteMutation.isPending && confirmDeleteSource === record.source
+                            }
+                          >
+                            Delete
+                          </StyledButton>
+                        )}
                       </div>
                     )
                   },
