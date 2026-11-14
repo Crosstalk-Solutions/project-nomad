@@ -6,6 +6,8 @@ import {
   diagnoseAmdCpuFallback,
   diffAmdOllamaConfig,
   parseAmdGfxTargetFromLogs,
+  nvidiaDeviceRequest,
+  nvidiaDriverUsesCdi,
   parseOllamaGpuFromLogs,
   resolveExpectedGpuVendor,
 } from '../../app/services/ollama_compute.js'
@@ -135,6 +137,39 @@ test('an nvidia DeviceRequest is expected on NVIDIA even without the runtime', (
     resolveExpectedGpuVendor({ hasNvidiaRuntime: false, amdConfigured: false, container }),
     'nvidia'
   )
+})
+
+test('either NVIDIA DeviceRequest NOMAD creates is expected on NVIDIA without the runtime', () => {
+  for (const request of [nvidiaDeviceRequest(), nvidiaDeviceRequest(true)]) {
+    const container = {
+      Config: { Image: 'ollama/ollama:0.18.2' },
+      HostConfig: { DeviceRequests: [request] },
+    }
+    assert.equal(
+      resolveExpectedGpuVendor({ hasNvidiaRuntime: false, amdConfigured: false, container }),
+      'nvidia'
+    )
+  }
+})
+
+test('a CDI DeviceRequest for another vendor is not expected on NVIDIA', () => {
+  const container = {
+    Config: { Image: 'ollama/ollama:0.18.2' },
+    HostConfig: { DeviceRequests: [{ Driver: 'cdi', DeviceIDs: ['intel.com/gpu=all'] }] },
+  }
+  assert.equal(
+    resolveExpectedGpuVendor({ hasNvidiaRuntime: false, amdConfigured: false, container }),
+    null
+  )
+})
+
+test("Docker's nvidia driver reaches CDI-only GPUs from 29.2 on (moby/moby#50228)", () => {
+  for (const version of ['29.2.0', '29.6.2', '30.0.0']) {
+    assert.equal(nvidiaDriverUsesCdi(version), true, version)
+  }
+  for (const version of ['29.1.5', '28.5.2', '26.1.5+dfsg1', undefined]) {
+    assert.equal(nvidiaDriverUsesCdi(version), false, version)
+  }
 })
 
 test('a CPU container is expected on NVIDIA when the runtime was registered after install', () => {
