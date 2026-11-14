@@ -42,6 +42,11 @@
   "S:\Files\Survial\SolomonDigital\EBooks","C:\Users\Ralph Castillo\Desktop\Survival Project".
   Each listed file is looked up in these folders by its path in the list.
 
+.PARAMETER AllBooksFrom
+  Personal drives only (-Use personal). Copies EVERY file in these folders into Library/Books, keeping
+  subfolders, including files that are not in books/ebooks.csv. Unlisted files have not been checked for
+  copyright, so this is refused for sale and free drives. The folders can also be given in -BooksFolder.
+
 .PARAMETER Use
   Who the drive is for, which decides what may go on it:
   sale (default) - public domain only, safe for drives you sell;
@@ -82,6 +87,7 @@ param(
   [switch]$Prune,
   [switch]$NoAI,
   [string[]]$BooksFolder,
+  [string[]]$AllBooksFrom,
   [ValidateSet('sale', 'free', 'personal')][string]$Use = 'sale',
   [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$Books = '',
   [ValidateSet('', 'none', 'essential', 'core', 'all')][string]$IndexBooks = '',
@@ -602,6 +608,15 @@ foreach ($p in (Props $prof.tiers)) {
 }
 
 # Maps
+$allBookFiles = @()
+# -AllBooksFrom: same one-string handling as -BooksFolder below
+if ($AllBooksFrom -and @($AllBooksFrom).Count -eq 1 -and -not (Test-Path -LiteralPath $AllBooksFrom[0]) -and $AllBooksFrom[0] -match '[,;]') {
+  $AllBooksFrom = @($AllBooksFrom[0] -split '\s*[,;]\s*' | Where-Object { $_ })
+}
+if ($AllBooksFrom -and -not $DownloadOnly) {
+  if ($Use -ne 'personal') { throw "-AllBooksFrom copies books that have not been checked for copyright, so it only works with -Use personal." }
+  foreach ($bf in @($AllBooksFrom)) { if (-not (Test-Path -LiteralPath $bf -PathType Container)) { throw "Books folder not found: $bf" } }
+}
 # -BooksFolder "a","b" arrives as one string from pwsh -File / .cmd callers; split it unless it's one real folder
 if ($BooksFolder -and @($BooksFolder).Count -eq 1 -and -not (Test-Path -LiteralPath $BooksFolder[0]) -and $BooksFolder[0] -match '[,;]') {
   $BooksFolder = @($BooksFolder[0] -split '\s*[,;]\s*' | Where-Object { $_ })
@@ -644,6 +659,18 @@ if ($bookTier -ne 'none') {
   }
 }
 
+# Every file from -AllBooksFrom (personal drives only)
+if ($AllBooksFrom -and -not $DownloadOnly) {
+  $allBookFiles = @(foreach ($bf in @($AllBooksFrom)) {
+    $root = (Resolve-Path -LiteralPath $bf).Path.TrimEnd('\', '/')
+    Get-ChildItem -LiteralPath $root -Recurse -File -Force -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -notmatch '^(desktop\.ini|thumbs\.db|\.ds_store)$' -and -not ($_.Attributes -band [IO.FileAttributes]::System) } |
+      ForEach-Object { [pscustomobject]@{ Src = $_; Rel = $_.FullName.Substring($root.Length).TrimStart('\', '/') } }
+  })
+  Add-Plan @{ Kind = 'allbooks'; Id = 'allbooks'; Title = "All files from $((@($AllBooksFrom) | ForEach-Object { Split-Path $_ -Leaf }) -join ', ') ($($allBookFiles.Count) files)"
+    Category = 'Books'; SizeMB = [double](($allBookFiles | ForEach-Object { $_.Src.Length } | Measure-Object -Sum).Sum / 1MB); Verify = $false }
+}
+
 # Offline AI model
 $aiModel = $null
 if (-not $NoAI -and $prof.ai_model) {
@@ -669,7 +696,7 @@ foreach ($rt in $manifest.runtime) {
 if ($DownloadOnly) {
   New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
   $Target = (Resolve-Path -LiteralPath $CacheDir).Path
-  $items = @($plan | Where-Object Kind -ne 'books')
+  $items = @($plan | Where-Object { $_.Kind -notin @('books', 'allbooks') })
   Write-Host ''
   Write-Host '  RhinoVault Go downloader' -ForegroundColor Yellow -NoNewline; Write-Host "  v$GoVersion" -ForegroundColor DarkGray
   Say "  Editions : $($editions -join ', ')"
@@ -766,7 +793,13 @@ foreach ($it in $plan) {
     'map' { Test-Path -LiteralPath (Get-MapPath $it) }
     'model' { Test-Path -LiteralPath (Join $Target ('AI/models/' + $it.Spec.file)) }
     'books' { $false }
+    'allbooks' { $false }
     default { (Test-Path -LiteralPath (Get-Marker $it)) }
+  }
+  if ($it.Kind -eq 'allbooks') {
+    $missing = @($allBookFiles | Where-Object { $d = Get-Item -LiteralPath (Join $Target ('Library/Books/' + $_.Rel)) -ErrorAction SilentlyContinue; -not $d -or $d.Length -ne $_.Src.Length })
+    if ($missing.Count) { $todo += $it; $needMB += ($missing | ForEach-Object { $_.Src.Length } | Measure-Object -Sum).Sum / 1MB }
+    continue
   }
   if ($it.Kind -eq 'books') {
     $missing = @($bookRows | Where-Object { -not (Test-Path -LiteralPath (Get-BookDest $_)) })
@@ -787,7 +820,7 @@ Say "  Target  : $Target   (free: $(Fmt $freeMB))"
 Say "  Content : $($plan.Count) items, $(Fmt $totalMB) total, $(Fmt $needMB) still to download"
 Write-Host ''
 $plan | Group-Object Kind | ForEach-Object {
-  $label = @{ zim = 'Library collections'; map = 'Map regions'; extra = 'Extras'; runtime = 'Runtime tools'; model = 'AI model'; books = 'Ebooks' }[$_.Name]
+  $label = @{ zim = 'Library collections'; map = 'Map regions'; extra = 'Extras'; runtime = 'Runtime tools'; model = 'AI model'; books = 'Ebooks'; allbooks = 'All book files' }[$_.Name]
   Say ('  {0,-22} {1,4} items  {2,10}' -f $label, $_.Count, (Fmt (($_.Group | Measure-Object SizeMB -Sum).Sum)))
 }
 
@@ -850,6 +883,21 @@ foreach ($it in $plan) {
           $p = Get-BookDest $r
           if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force; Say "   removed (not allowed for -Use $Use): $($r.title)" DarkYellow }
         }
+      }
+      'allbooks' {
+        $copied = 0; $skipped = 0; $n = 0
+        foreach ($f in $allBookFiles) {
+          $n++
+          $dst = Join $Target ('Library/Books/' + $f.Rel)
+          $dstItem = Get-Item -LiteralPath $dst -ErrorAction SilentlyContinue
+          if ($dstItem -and $dstItem.Length -eq $f.Src.Length) { $skipped++; continue }
+          if ($n % 25 -eq 0) { Write-Progress -Activity 'Copying all book files' -Status $f.Rel -PercentComplete (100 * $n / $allBookFiles.Count) }
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
+          Copy-Item -LiteralPath $f.Src.FullName -Destination $dst -Force
+          $copied++
+        }
+        Write-Progress -Activity 'Copying all book files' -Completed
+        Say "   $copied copied, $skipped already on drive"
       }
       'model' {
         $dest = Join $Target ('AI/models/' + $it.Spec.file)
@@ -943,6 +991,7 @@ if ($Prune) {
   if ($BooksFolder -or $bookTier -eq 'none') {
     $keepBooks = New-Object 'System.Collections.Generic.HashSet[string]'
     foreach ($r in $bookRows) { [void]$keepBooks.Add(((Get-BookDest $r) -replace '\\', '/')) }
+    foreach ($f in @($allBookFiles)) { [void]$keepBooks.Add(((Join $Target ('Library/Books/' + $f.Rel)) -replace '\\', '/')) }
     Get-ChildItem -LiteralPath (Join $Target 'Library/Books') -Recurse -File -ErrorAction SilentlyContinue |
       Where-Object { -not $keepBooks.Contains(($_.FullName -replace '\\', '/')) } | ForEach-Object { Say "   removing book $($_.Name)"; Remove-Item -LiteralPath $_.FullName -Force }
   }
@@ -983,6 +1032,24 @@ if (Test-Path -LiteralPath $manualRoot) {
 $bookList = @(Get-BookRows 'all' 'personal' | Where-Object { Test-Path -LiteralPath (Get-BookDest $_) } | ForEach-Object {
   [ordered]@{ title = $_.title; category = $_.category; year = $_.year; size_mb = [double]$_.size_mb; file = 'Library/Books/' + ($_.file -replace '\\', '/') }
 })
+# Files on the drive that are not in ebooks.csv (copied with -AllBooksFrom): list them by file name
+$booksRoot = Join $Target 'Library/Books'
+if (Test-Path -LiteralPath $booksRoot) {
+  $listed = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+  foreach ($b in $bookList) { [void]$listed.Add($b.file) }
+  $rootLen = (Resolve-Path -LiteralPath $booksRoot).Path.TrimEnd('\', '/').Length
+  $bookList += @(Get-ChildItem -LiteralPath $booksRoot -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -match '^\.(pdf|epub|mobi|azw3?|djvu|cbz|cbr|txt|rtf|docx?|html?|mp3|m4a|m4b)$' } |
+    ForEach-Object {
+      $rel = $_.FullName.Substring($rootLen).TrimStart('\', '/') -replace '\\', '/'
+      $file = 'Library/Books/' + $rel
+      if (-not $listed.Contains($file)) {
+        $top = ($rel -split '/')[0]
+        [ordered]@{ title = [System.IO.Path]::GetFileNameWithoutExtension($_.Name) -replace '[_]+', ' '
+          category = $(if ($rel -match '/') { $top } else { 'Other' }); year = ''; size_mb = [math]::Round($_.Length / 1MB, 1); file = $file }
+      }
+    })
+}
 $indexCats = if ($indexTier -eq 'none') { @() } else { @($manifest.books.tiers.$indexTier) }
 $booksToIndex = @($bookList | Where-Object { $indexCats -contains '*' -or $indexCats -contains $_.category } |
   ForEach-Object { [ordered]@{ title = $_.title; branch = $_.category; size_mb = $_.size_mb; file = $_.file } })
