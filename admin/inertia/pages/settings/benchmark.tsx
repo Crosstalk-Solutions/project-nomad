@@ -24,6 +24,7 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import { useBenchmarkRun } from '~/hooks/useBenchmarkRun'
 import BenchmarkRunView from '~/components/benchmark/BenchmarkRunView'
+import CancelBenchmarkButton from '~/components/benchmark/CancelBenchmarkButton'
 import ScoreReveal from '~/components/benchmark/ScoreReveal'
 import { getScoreDisplay } from '~/lib/benchmarkScore'
 
@@ -40,6 +41,7 @@ export default function BenchmarkPage(props: {
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
   const [revealing, setRevealing] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [cancelledMsg, setCancelledMsg] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
@@ -68,6 +70,8 @@ export default function BenchmarkPage(props: {
       if (status === 'completed') {
         refetchLatest()
         setRevealing(true)
+      } else if (status === 'cancelled') {
+        setCancelledMsg(message || 'Benchmark cancelled.')
       } else {
         setErrorMsg(message || 'Benchmark failed')
       }
@@ -91,6 +95,7 @@ export default function BenchmarkPage(props: {
   const runBenchmark = useMutation({
     mutationFn: async (type: 'full' | 'system' | 'ai') => {
       setErrorMsg(null)
+      setCancelledMsg(null)
       run.reset()
       setIsRunning(true)
 
@@ -100,6 +105,12 @@ export default function BenchmarkPage(props: {
     onSuccess: (data) => {
       // Dispatch only confirms the job started; the 'completed'/'error' SSE event
       // drives the rest (see useBenchmarkRun's onFinished).
+      if (data?.cancelled) {
+        // Normally the 'cancelled' SSE event got here first; this covers a missed event.
+        setIsRunning(false)
+        setCancelledMsg((current) => current ?? 'Benchmark cancelled.')
+        return
+      }
       if (!data?.success) {
         setIsRunning(false)
         setErrorMsg('Failed to start benchmark')
@@ -231,7 +242,10 @@ export default function BenchmarkPage(props: {
             </h2>
 
             {isRunning ? (
-              <BenchmarkRunView run={run} />
+              <div className="space-y-4">
+                <BenchmarkRunView run={run} />
+                <CancelBenchmarkButton run={run} />
+              </div>
             ) : revealing ? (
               // Reveal slot: wait for the refetched latest result to be the one
               // from this run, then hand it to the score reveal.
@@ -252,6 +266,16 @@ export default function BenchmarkPage(props: {
             ) : (
               <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
                 <div className="space-y-6">
+                  {cancelledMsg && (
+                    <Alert
+                      type="info"
+                      title="Benchmark Cancelled"
+                      message={cancelledMsg}
+                      variant="bordered"
+                      dismissible
+                      onDismiss={() => setCancelledMsg(null)}
+                    />
+                  )}
                   {errorMsg && (
                     <Alert
                       type="error"

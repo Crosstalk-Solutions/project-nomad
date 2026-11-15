@@ -82,7 +82,11 @@ import {
   addMessageSchema,
 } from '#validators/chat'
 import { downloadJobsByFiletypeSchema, modelNameSchema } from '#validators/download'
-import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
+import {
+  cancelBenchmarkValidator,
+  runBenchmarkValidator,
+  submitBenchmarkValidator,
+} from '#validators/benchmark'
 import { healthResponse, errorResponse } from '#validators/responses/common'
 import {
   chatSessionResponse,
@@ -790,6 +794,11 @@ router
       summary: 'Run a benchmark',
       tags: ['benchmark'],
       request: runBenchmarkValidator,
+    })
+    documented(router.post('/cancel', [BenchmarkController, 'cancel']), {
+      summary: 'Cancel the running benchmark',
+      tags: ['benchmark'],
+      request: cancelBenchmarkValidator,
     })
     documented(router.post('/run/system', [BenchmarkController, 'runSystem']), {
       summary: 'Run a system benchmark',

@@ -39,6 +39,13 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { BenchmarkTelemetrySampler } from './benchmark_telemetry.js'
 import Dockerode from 'dockerode'
+import {
+  BenchmarkCancelledError,
+  decideModelCleanup,
+  describeModelCleanup,
+  type BenchmarkModelState,
+} from '../utils/benchmark_cancel.js'
+import { clearBenchmarkCancel, takeBenchmarkCancel } from '../utils/benchmark_cancel_signal.js'
 
 // HMAC secret for signing submissions to the benchmark repository
 // This provides basic protection against casual API abuse.
@@ -212,6 +219,11 @@ export class BenchmarkService {
   private currentStatus: BenchmarkStatus = 'idle'
   private currentStages: BenchmarkStageDescriptor[] = []
   private telemetry: BenchmarkTelemetrySampler | null = null
+  // Cancellation: aborted when the Redis cancel flag appears (see _startCancelWatch).
+  private abort: AbortController | null = null
+  private cancelPoll: NodeJS.Timeout | null = null
+  // What the AI stage did with the benchmark model, for cleanup after a cancel.
+  private aiModelState: (BenchmarkModelState & { ollamaAPIURL: string }) | null = null
 
   constructor(private dockerService: DockerService) {}
 
@@ -664,6 +676,8 @@ export class BenchmarkService {
 
     this.currentBenchmarkId = randomUUID()
     this.currentStages = this._buildStageList(type, includeAI)
+    this.aiModelState = null
+    await this._startCancelWatch()
 
     // Start live host-telemetry sampling for the duration of the run. This runs
     // in the orchestration process, not inside the sysbench container, so it
@@ -699,6 +713,7 @@ export class BenchmarkService {
       }
 
       // Run AI benchmark if requested and Ollama is available
+      this._checkCancelled()
       let aiScores: Partial<AIScores> = {}
       if (includeAI && (type === 'full' || type === 'ai')) {
         try {
@@ -712,6 +727,8 @@ export class BenchmarkService {
             })
           }
         } catch (error: any) {
+          // A cancel must end the run, not be treated as "AI skipped".
+          if (this._isCancelled()) throw error
           // For AI-only benchmarks, failing is fatal - don't save useless results with all zeros
           if (type === 'ai') {
             throw new Error(`AI benchmark failed: ${error.message}. Make sure AI Assistant is installed and running.`)
@@ -726,7 +743,9 @@ export class BenchmarkService {
       // AI-only benchmark never pulls the image.
       const sysbenchDigest = systemRaws ? await this._resolveSysbenchDigest() : null
 
-      // Calculate NOMAD scores (v1 legacy + v2 uncapped)
+      // Calculate NOMAD scores (v1 legacy + v2 uncapped). Last point a cancel
+      // can stop the run: past here the result is saved.
+      this._checkCancelled()
       this._updateStatus('calculating_score', 'Calculating NOMAD score...')
       const nomadScore = this._calculateNomadScore(systemScores, aiScores)
 
@@ -799,15 +818,128 @@ export class BenchmarkService {
 
       return result
     } catch (error: any) {
+      if (this._isCancelled()) {
+        const reason = this.abort?.signal.reason
+        const cancelled = reason instanceof BenchmarkCancelledError ? reason : new BenchmarkCancelledError()
+        const note = await this._cleanupAfterCancel(cancelled)
+        this._updateStatus('cancelled', `Benchmark cancelled. Results from this run were not saved. ${note}`.trim())
+        this.currentStatus = 'idle'
+        this.currentBenchmarkId = null
+        throw cancelled
+      }
       this._updateStatus('error', `Benchmark failed: ${error.message}`)
       this.currentStatus = 'idle'
       this.currentBenchmarkId = null
       throw error
     } finally {
+      this._stopCancelWatch()
       this.telemetry?.stop()
       this.telemetry = null
       this.currentStages = []
+      this.aiModelState = null
     }
+  }
+
+  /**
+   * Poll the Redis cancel flag once a second for the length of the run. The flag
+   * is set by POST /api/benchmark/cancel, which can arrive in a different request
+   * (or process) than the one running the benchmark. A stale flag from an earlier
+   * cancel is cleared first so it can't stop this run.
+   */
+  private async _startCancelWatch() {
+    this.abort = new AbortController()
+    await clearBenchmarkCancel().catch((error) =>
+      logger.warn(`[BenchmarkService] Could not clear the benchmark cancel flag: ${error.message}`)
+    )
+    let polling = false
+    this.cancelPoll = setInterval(() => {
+      if (polling || !this.abort || this.abort.signal.aborted) return
+      polling = true
+      takeBenchmarkCancel()
+        .then((choice) => {
+          if (choice && this.abort && !this.abort.signal.aborted) {
+            logger.info(`[BenchmarkService] Cancel requested (model cleanup: ${choice})`)
+            this.abort.abort(new BenchmarkCancelledError(choice))
+          }
+        })
+        .catch(() => {
+          // Redis hiccup: try again on the next tick.
+        })
+        .finally(() => {
+          polling = false
+        })
+    }, 1000)
+  }
+
+  private _stopCancelWatch() {
+    if (this.cancelPoll) clearInterval(this.cancelPoll)
+    this.cancelPoll = null
+    this.abort = null
+  }
+
+  private _isCancelled(): boolean {
+    return !!this.abort?.signal.aborted
+  }
+
+  private _checkCancelled() {
+    if (this._isCancelled()) {
+      throw this.abort!.signal.reason ?? new BenchmarkCancelledError()
+    }
+  }
+
+  /**
+   * Wait for a promise, but stop waiting as soon as the run is cancelled. onCancel
+   * runs first so the underlying work (e.g. a sysbench container) is stopped too.
+   */
+  private _untilCancelled<T>(work: Promise<T>, onCancel?: () => Promise<unknown>): Promise<T> {
+    const signal = this.abort?.signal
+    if (!signal) return work
+    return new Promise<T>((resolve, reject) => {
+      const onAbort = () => {
+        // Settle first: stopping the work (e.g. killing a container) can make
+        // `work` resolve, and the cancel must win that race.
+        reject(signal.reason)
+        work.catch(() => {})
+        Promise.resolve()
+          .then(() => onCancel?.())
+          .catch(() => {})
+      }
+      if (signal.aborted) return onAbort()
+      signal.addEventListener('abort', onAbort, { once: true })
+      work.then(
+        (value) => {
+          signal.removeEventListener('abort', onAbort)
+          resolve(value)
+        },
+        (error) => {
+          signal.removeEventListener('abort', onAbort)
+          reject(error)
+        }
+      )
+    })
+  }
+
+  /**
+   * After a cancel: free the GPU and apply the user's choice for the benchmark
+   * model. Returns a sentence for the "cancelled" message. Never throws.
+   */
+  private async _cleanupAfterCancel(cancelled: BenchmarkCancelledError): Promise<string> {
+    const state = this.aiModelState
+    if (!state) return ''
+    await this._unloadResidentModels(state.ollamaAPIURL)
+    const action = decideModelCleanup(cancelled.choice, state)
+    let deleted = true
+    if (action === 'delete-model') {
+      deleted = await axios
+        .delete(`${state.ollamaAPIURL}/api/delete`, { data: { model: AI_BENCHMARK_MODEL }, timeout: 15000 })
+        .then(() => true)
+        .catch((error) => {
+          logger.warn(`[BenchmarkService] Could not delete ${AI_BENCHMARK_MODEL} after cancel: ${error.message}`)
+          return false
+        })
+      if (deleted) logger.info(`[BenchmarkService] Deleted ${AI_BENCHMARK_MODEL} after cancel (user choice)`)
+    }
+    return describeModelCleanup(action, cancelled.choice, AI_BENCHMARK_MODEL, state, deleted)
   }
 
   /**
@@ -825,13 +957,16 @@ export class BenchmarkService {
     await this._ensureSysbenchImage()
 
     // Run CPU benchmarks: single-thread then all-thread.
+    this._checkCancelled()
     this._updateStatus('running_cpu', 'Running CPU benchmark (single-thread)...')
     const cpuSingle = await this._runSysbenchCpu(1)
 
+    this._checkCancelled()
     this._updateStatus('running_cpu', `Running CPU benchmark (${multiThreads}-thread)...`)
     const cpuMulti = await this._runSysbenchCpu(multiThreads)
 
     // Run memory benchmark
+    this._checkCancelled()
     this._updateStatus('running_memory', 'Running memory benchmark...')
     const memoryResult = await this._runSysbenchMemory()
     this._emitPartialResult({
@@ -842,6 +977,7 @@ export class BenchmarkService {
     })
 
     // Run disk benchmarks
+    this._checkCancelled()
     this._updateStatus('running_disk_read', 'Running disk read benchmark...')
     const diskReadResult = await this._runSysbenchDiskRead()
     this._emitPartialResult({
@@ -851,6 +987,7 @@ export class BenchmarkService {
       unit: 'MB/s',
     })
 
+    this._checkCancelled()
     this._updateStatus('running_disk_write', 'Running disk write benchmark...')
     const diskWriteResult = await this._runSysbenchDiskWrite()
     this._emitPartialResult({
@@ -997,9 +1134,35 @@ export class BenchmarkService {
         // GPU overlay is cosmetic; ignore probe failures entirely.
       }
 
-      // Check if the benchmark model is available, pull if not
+      // Check if the benchmark model is available, pull if not. Record whether
+      // this run is the one downloading it, so a cancel never deletes a model
+      // the user already had.
+      const hadModelBefore = await this._isBenchmarkModelInstalled(ollamaAPIURL)
+      const modelState = {
+        ollamaAPIURL,
+        // Unknown (Ollama didn't answer) counts as "had it": never risk deleting it.
+        hadModelBefore: hadModelBefore !== false,
+        pullStarted: hadModelBefore === false,
+        pullCompleted: false,
+      }
+      this.aiModelState = modelState
+      this._checkCancelled()
       const ollamaService = new (await import('./ollama_service.js')).OllamaService()
-      const modelResponse = await ollamaService.downloadModel(AI_BENCHMARK_MODEL)
+      let lastPercent = -1
+      const modelResponse = await ollamaService.downloadModel(
+        AI_BENCHMARK_MODEL,
+        hadModelBefore !== false
+          ? undefined
+          : (percent) => {
+              const rounded = Math.floor(percent)
+              if (rounded === lastPercent) return
+              lastPercent = rounded
+              this._updateStatus('running_ai', `Downloading AI benchmark model ${AI_BENCHMARK_MODEL} (${rounded}%)...`)
+            },
+        this.abort?.signal
+      )
+      if (modelResponse.success) modelState.pullCompleted = true
+      this._checkCancelled()
       if (!modelResponse.success) {
         throw new Error(`Model does not exist and failed to download: ${modelResponse.message}`)
       }
@@ -1024,8 +1187,10 @@ export class BenchmarkService {
       // reproducibility guarantee did not actually apply indistinguishable from
       // a clean one after the fact. Matches _unloadResidentModels, the sibling
       // best-effort helper, which already warns on every swallowed error.
+      this._checkCancelled()
       this._updateStatus('running_ai', 'Warming up AI model...')
       await this._runSingleAIInference(ollamaAPIURL).catch((error) => {
+        if (this._isCancelled()) throw error
         logger.warn(
           `[BenchmarkService] AI warm-up failed (${error?.message ?? error}); the first timed run may be cold.`
         )
@@ -1040,6 +1205,7 @@ export class BenchmarkService {
       // inference.
       const runs: { tps: number; ttft: number }[] = []
       for (let i = 0; i < AI_BENCHMARK_RUNS; i++) {
+        this._checkCancelled()
         this._updateStatus('running_ai', `Running AI benchmark (${i + 1}/${AI_BENCHMARK_RUNS})...`)
         runs.push(await this._runSingleAIInference(ollamaAPIURL))
       }
@@ -1060,6 +1226,7 @@ export class BenchmarkService {
         ai_ollama_version: ollamaVersion,
       }
     } catch (error: any) {
+      if (this._isCancelled()) throw error
       throw new Error(`AI benchmark failed: ${error.message}`)
     } finally {
       if (gpuPollTimer) {
@@ -1088,7 +1255,7 @@ export class BenchmarkService {
         stream: false,
         options: { num_predict: AI_BENCHMARK_NUM_PREDICT },
       },
-      { timeout: 120000 }
+      { timeout: 120000, signal: this.abort?.signal }
     )
 
     const endTime = Date.now()
@@ -1112,6 +1279,17 @@ export class BenchmarkService {
     const estimatedTokens = response.data.response?.split(' ').length * 1.3 || 100
     const tokensPerSecond = estimatedTokens / totalTime
     return { tps: tokensPerSecond, ttft: (totalTime * 1000) / 2 }
+  }
+
+  /** Whether the benchmark model is installed; null if Ollama couldn't be asked. */
+  private async _isBenchmarkModelInstalled(ollamaAPIURL: string): Promise<boolean | null> {
+    try {
+      const tags = await axios.get(`${ollamaAPIURL}/api/tags`, { timeout: 5000 })
+      const models: string[] = (tags.data?.models ?? []).map((m: { name?: string }) => m.name)
+      return models.includes(AI_BENCHMARK_MODEL)
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -1569,9 +1747,12 @@ export class BenchmarkService {
       // Start container
       await container.start()
 
-      // Wait for completion
-      await container.wait()
-      
+      // Wait for completion. On cancel, kill the container instead of waiting
+      // for the step to finish; the catch below force-removes it, which also
+      // deletes sysbench's 1 GB disk-test files (they live inside the container).
+      const running = container
+      await this._untilCancelled(running.wait(), () => running.kill())
+
       // Get logs after container has finished
       const logs = await container.logs({
         stdout: true,
@@ -1601,6 +1782,7 @@ export class BenchmarkService {
           // Ignore removal errors
         }
       }
+      if (this._isCancelled()) throw error
       logger.error(`Sysbench command failed: ${error.message}`)
       throw new Error(`Sysbench command failed: ${error.message}`)
     }
@@ -1698,6 +1880,7 @@ export class BenchmarkService {
           // Ignore removal errors
         }
       }
+      if (this._isCancelled()) throw error
       logger.error(`Sysbench command failed: ${error.message}`)
       throw new Error(`Sysbench command failed: ${error.message}`)
     }
@@ -1770,6 +1953,7 @@ export class BenchmarkService {
       calculating_score: 95,
       completed: 100,
       error: 0,
+      cancelled: 0,
     }
     return progressMap[status] || 0
   }
@@ -1791,6 +1975,7 @@ export class BenchmarkService {
       calculating_score: 'Calculating Score',
       completed: 'Complete',
       error: 'Error',
+      cancelled: 'Cancelled',
     }
     return labelMap[status] || status
   }
