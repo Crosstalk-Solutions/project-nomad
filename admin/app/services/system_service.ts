@@ -21,7 +21,11 @@ import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
-import { findUnacceleratedGpuVendor, isUnresolvedGpuModel } from '../utils/gpu_model.js'
+import {
+  classifyGpuVendor,
+  findUnacceleratedGpuVendor,
+  isUnresolvedGpuModel,
+} from '../utils/gpu_model.js'
 import {
   classifyOllamaComputeBackend,
   diagnoseAmdCpuFallback,
@@ -451,10 +455,14 @@ export class SystemService {
         // Applies to both NVIDIA and AMD; Intel iGPUs are exempt because their
         // shared-system-memory VRAM reading via lspci can legitimately be small.
         const DGPU_BOGUS_VRAM_THRESHOLD_MIB = 256
-        const isDiscreteGpuVendor = (vendor: string) =>
-          /nvidia|advanced micro devices|amd|ati/i.test(vendor)
+        // classifyGpuVendor, not a bare /ati/ regex: "Intel Corporation" contains
+        // "ati", which used to flag Intel iGPUs as discrete cards with bogus VRAM.
+        const isDiscreteGpuVendor = (vendor?: string) => {
+          const v = classifyGpuVendor(vendor)
+          return v === 'nvidia' || v === 'amd'
+        }
         const isBogusDgpuVram = (c: { vendor?: string; vram?: number | null }) =>
-          isDiscreteGpuVendor(c.vendor || '') &&
+          isDiscreteGpuVendor(c.vendor) &&
           typeof c.vram === 'number' &&
           c.vram < DGPU_BOGUS_VRAM_THRESHOLD_MIB
 
@@ -640,8 +648,11 @@ export class SystemService {
           // Intel-only box (Core Ultra iGPU, for example) can never accelerate
           // Ollama. Reporting 'ok' from the bare presence of a controller is what
           // let such a box show a healthy GPU while inference ran CPU-only (#1325).
+          // A remote Ollama URL or a custom local image (e.g. an IPEX-LLM build) may
+          // run on a GPU this host's lspci knows nothing about, so a reachable
+          // external Ollama vetoes the verdict.
           const unacceleratedVendor = findUnacceleratedGpuVendor(graphics.controllers)
-          if (unacceleratedVendor) {
+          if (unacceleratedVendor && !(await this.getExternalOllamaGpuInfo())) {
             gpuHealth.status = 'unsupported'
             gpuHealth.gpuVendor = unacceleratedVendor
             gpuHealth.ollamaGpuAccessible = false
