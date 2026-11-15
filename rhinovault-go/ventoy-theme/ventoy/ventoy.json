@@ -1,0 +1,12 @@
+{
+  "theme": {
+    "file": "/ventoy/theme/rhinovault/theme.txt",
+    "gfxmode": "1920x1080",
+    "display_mode": "GUI",
+    "fonts": [
+      "/ventoy/theme/rhinovault/dejavu_sans_16.pf2",
+      "/ventoy/theme/rhinovault/dejavu_sans_20.pf2",
+      "/ventoy/theme/rhinovault/dejavu_sans_bold_20.pf2"
+    ]
+  }
+}

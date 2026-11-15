@@ -1118,6 +1118,33 @@ if ($Prune) {
 Step 'Installing launcher and start shortcuts'
 Get-ChildItem -LiteralPath $TemplateDir -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $Target -Recurse -Force }
 
+# Ventoy boot-menu theme: on Full drives (they carry ISOs for Ventoy) or any drive that already has a ventoy folder
+$themeSrc = Join $GoDir 'ventoy-theme/ventoy'
+if ((Test-Path -LiteralPath $themeSrc) -and ($Edition -eq 'full' -or (Test-Path -LiteralPath (Join $Target 'ventoy')))) {
+  Step 'Installing the RhinoVault Ventoy boot-menu theme'
+  $themeDst = Join $Target 'ventoy/theme/rhinovault'
+  New-Item -ItemType Directory -Force -Path $themeDst | Out-Null
+  Copy-Item -Path (Join $themeSrc 'theme/rhinovault/*') -Destination $themeDst -Recurse -Force
+  $vjDst = Join $Target 'ventoy/ventoy.json'
+  $ours = Get-Content -LiteralPath (Join $themeSrc 'ventoy.json') -Raw | ConvertFrom-Json
+  if (-not (Test-Path -LiteralPath $vjDst)) {
+    Copy-Item -LiteralPath (Join $themeSrc 'ventoy.json') -Destination $vjDst -Force
+    Say '   theme installed'
+  } else {
+    try {
+      $cur = Get-Content -LiteralPath $vjDst -Raw | ConvertFrom-Json
+      if ($cur.PSObject.Properties['theme']) {
+        if ("$($cur.theme.file)" -eq "$($ours.theme.file)") { Say '   theme files updated (ventoy.json already uses it)' }
+        else { Say "   ventoy.json already has its own theme; RhinoVault theme copied but not switched on" DarkYellow }
+      } else {
+        $cur | Add-Member -NotePropertyName theme -NotePropertyValue $ours.theme
+        [System.IO.File]::WriteAllText($vjDst, ($cur | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding $false))  # no BOM: Ventoy's JSON reader rejects it
+        Say '   theme added to the existing ventoy.json'
+      }
+    } catch { Say "   could not read ventoy.json ($($_.Exception.Message)); theme copied but not switched on" DarkYellow }
+  }
+}
+
 Step 'Writing drive index'
 # Branch from the publication designator anywhere in the title, e.g. "FM 21-76", "Ranger Handbook TC 3-21.76"
 $branchRules = @(
