@@ -14,7 +14,7 @@
 #   0 - All assertions passed
 #   1 - One or more assertions failed (each is printed as "not ok - ...")
 
-# shellcheck disable=SC2016,SC2329
+# shellcheck disable=SC2016,SC2088,SC2329
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,10 +56,34 @@ assert_failure_with() {
   fi
 }
 
-if ! grep -Fq '[[ "${BASH_SOURCE[0]}" == "$0" ]]' "$INSTALLER"; then
+# The source guard is tested by what it does, not by how it is written: a copy
+# of the installer whose main only prints a marker is sourced, run as a file,
+# and piped to bash.
+guard_copy=$(mktemp)
+sed 's/^main() {$/main() { echo NOMAD_MAIN_RAN; }\n__installer_main() {/' "$INSTALLER" > "$guard_copy"
+if ! grep -Fq 'NOMAD_MAIN_RAN' "$guard_copy"; then
+  fail "installer defines main() for the source guard tests"
+  exit 1
+fi
+
+if bash -c 'source "$1"' _ "$guard_copy" 2>&1 | grep -Fq 'NOMAD_MAIN_RAN'; then
   fail "installer can be sourced without running main"
   exit 1
 fi
+pass "installer can be sourced without running main"
+
+if bash "$guard_copy" 2>&1 | grep -Fq 'NOMAD_MAIN_RAN'; then
+  pass "installer runs main when run as a file"
+else
+  fail "installer runs main when run as a file"
+fi
+
+if bash < "$guard_copy" 2>&1 | grep -Fq 'NOMAD_MAIN_RAN'; then
+  pass "installer runs main when piped to bash"
+else
+  fail "installer runs main when piped to bash"
+fi
+rm -f "$guard_copy"
 
 # shellcheck source=install/install_nomad.sh
 source "$INSTALLER"
@@ -107,6 +131,68 @@ if [[ "${propagation_mounts[*]}" == "/" ]]; then
 else
   fail "derives every propagation-sensitive host mount"
 fi
+
+path_root=$(mktemp -d)
+mkdir -p "$path_root/install/storage" "$path_root/home"
+(
+  NOMAD_DIR="$path_root/install"
+  compose_home_directory() { printf '%s' "$path_root/home"; }
+  [[ "$(resolve_compose_host_path /srv/data)" == "/srv/data" ]] &&
+    [[ "$(resolve_compose_host_path ./storage)" == "$path_root/install/storage" ]] &&
+    [[ "$(resolve_compose_host_path ../shared)" == "$path_root/shared" ]] &&
+    [[ "$(resolve_compose_host_path '~')" == "$path_root/home" ]] &&
+    [[ "$(resolve_compose_host_path '~/data')" == "$path_root/home/data" ]] &&
+    ! resolve_compose_host_path '~other/data' >/dev/null
+)
+if [[ $? -eq 0 ]]; then
+  pass "resolves relative and home volume paths the way Docker Compose does"
+else
+  fail "resolves relative and home volume paths the way Docker Compose does"
+fi
+
+if [[ "$(nearest_existing_path "$path_root/install/storage/zim/new")" == "$path_root/install/storage" ]] &&
+   [[ "$(nearest_existing_path "$path_root/install")" == "$path_root/install" ]] &&
+   [[ "$(nearest_existing_path /nomad-preflight-test-missing/a/b)" == "/" ]]; then
+  pass "falls back to the nearest existing parent of a missing path"
+else
+  fail "falls back to the nearest existing parent of a missing path"
+fi
+
+relative_compose=$(mktemp)
+cat > "$relative_compose" <<'YAML'
+services:
+  a:
+    volumes:
+      - ./storage/zim/new:/data:rshared
+      - ~/library:/library:rslave
+YAML
+inspected_paths=$(
+  NOMAD_DIR="$path_root/install"
+  compose_home_directory() { printf '%s' "$path_root/home"; }
+  mount_propagation_for_path() { printf '%s\n' "$1" >&2; printf '%s\n' shared; }
+  is_port_in_use() { return 1; }
+  run_host_preflight "$relative_compose" 2>&1 >/dev/null
+)
+if [[ "$inspected_paths" == "$path_root/install/storage"$'\n'"$path_root/home" ]]; then
+  pass "preflight inspects the resolved mount path"
+else
+  fail "preflight inspects the resolved mount path"
+  printf '  got: %s\n' "$inspected_paths"
+fi
+
+(
+  compose_home_directory() { return 1; }
+  mount_propagation_for_path() { printf '%s\n' shared; }
+  is_port_in_use() { return 1; }
+  run_host_preflight "$relative_compose"
+) >/tmp/nomad-preflight-test.out 2>&1
+if [[ $? -ne 0 ]] && grep -Fq "Unable to inspect mount propagation for ~/library" /tmp/nomad-preflight-test.out; then
+  pass "an unresolvable home path fails clearly"
+else
+  fail "an unresolvable home path fails clearly"
+  cat /tmp/nomad-preflight-test.out
+fi
+rm -rf "$path_root" "$relative_compose"
 
 mount_propagation_for_path() { printf '%s\n' shared; }
 is_port_in_use() { return 1; }

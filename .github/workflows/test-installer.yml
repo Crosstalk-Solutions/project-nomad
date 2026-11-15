@@ -1,0 +1,26 @@
+name: Test Installer
+
+on:
+  push:
+    paths:
+      - 'install/install_nomad.sh'
+      - 'install/management_compose.yaml'
+      - 'install/tests/**'
+      - '.github/workflows/test-installer.yml'
+  pull_request:
+    paths:
+      - 'install/install_nomad.sh'
+      - 'install/management_compose.yaml'
+      - 'install/tests/**'
+      - '.github/workflows/test-installer.yml'
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # The test sources the installer and stubs findmnt, ss, sudo and curl,
+      # so it needs no root, Docker, or network.
+      - name: Run installer preflight tests
+        run: bash install/tests/install_nomad_preflight_test.sh

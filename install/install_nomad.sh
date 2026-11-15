@@ -561,6 +561,51 @@ get_propagation_mount_paths() {
   ' "$compose_file" | sort -u
 }
 
+# Home directory Docker Compose expands "~" to. The management containers are
+# started with `sudo docker compose`, so it is sudo's HOME, not the caller's.
+compose_home_directory() {
+  sudo sh -c 'printf "%s" "$HOME"' 2>/dev/null
+}
+
+# Prints the absolute host path Docker Compose binds for a volume source.
+# Relative sources resolve against NOMAD_DIR, where the compose file is
+# installed; "~" and "~/..." resolve against the Compose home directory.
+resolve_compose_host_path() {
+  local path="$1"
+  local home_directory
+
+  # shellcheck disable=SC2088 # literal "~" from the compose file, not a shell path
+  case "$path" in
+    "~"|"~/"*)
+      home_directory=$(compose_home_directory)
+      [[ -z "$home_directory" ]] && return 1
+      path="${home_directory}${path:1}"
+      ;;
+    "~"*)
+      return 1
+      ;;
+    /*)
+      ;;
+    *)
+      path="${NOMAD_DIR}/${path}"
+      ;;
+  esac
+
+  realpath -m -- "$path"
+}
+
+# findmnt needs a path that exists, and a fresh install has not created its
+# directories yet. Docker creates a missing bind source on the mount that holds
+# its nearest existing parent, so that parent is the one to inspect.
+nearest_existing_path() {
+  local path="$1"
+
+  while [[ ! -e "$path" && "$path" != "/" ]]; do
+    path=$(dirname "$path")
+  done
+  printf '%s\n' "$path"
+}
+
 mount_propagation_for_path() {
   findmnt -no PROPAGATION --target "$1" 2>/dev/null
 }
@@ -576,13 +621,14 @@ is_port_in_use() {
 
 run_host_preflight() {
   local compose_file="$1"
-  local mount_path propagation port protocol
+  local mount_path host_path propagation port protocol
   local failed=false
   local port_conflict=false
 
   while IFS= read -r mount_path; do
     [[ -z "$mount_path" ]] && continue
-    if ! propagation=$(mount_propagation_for_path "$mount_path"); then
+    if ! host_path=$(resolve_compose_host_path "$mount_path") ||
+       ! propagation=$(mount_propagation_for_path "$(nearest_existing_path "$host_path")"); then
       echo -e "${RED}#${RESET} Unable to inspect mount propagation for ${mount_path}. Ensure findmnt is installed and the path exists."
       failed=true
     elif [[ "$propagation" != shared* && "$propagation" != slave* ]]; then
