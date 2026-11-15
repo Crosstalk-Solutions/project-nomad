@@ -1,0 +1,53 @@
+# RhinoVault Go - Ventoy / GRUB theme (1920x1080, whole-pixel positions)
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#1E2528"
+terminal-font: "DejaVu Sans Regular 16"
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "1920"
+terminal-height: "1080"
+terminal-border: "0"
+
++ boot_menu {
+    left = 904
+    top = 228
+    width = 852
+    height = 632
+    item_font = "DejaVu Sans Regular 20"
+    item_color = "#D6CDB6"
+    selected_item_font = "DejaVu Sans Bold 20"
+    selected_item_color = "#FFFFFF"
+    selected_item_pixmap_style = "select_*.png"
+    item_height = 42
+    item_padding = 14
+    item_spacing = 6
+    item_icon_space = 0
+    scrollbar = true
+    scrollbar_width = 8
+    scrollbar_frame = "scrollframe_*.png"
+    scrollbar_thumb = "slider_*.png"
+}
+
+# Ventoy hotkey tips and memdisk status
++ label {
+    top = 1026
+    left = 0
+    width = 1920
+    height = 24
+    align = "center"
+    font = "DejaVu Sans Regular 16"
+    color = "#9AA58A"
+    text = "@VTOY_HOTKEY_TIP@"
+}
+
++ label {
+    top = 994
+    left = 0
+    width = 1920
+    height = 24
+    align = "center"
+    font = "DejaVu Sans Regular 16"
+    color = "#C9A66B"
+    text = "@VTOY_MEM_DISK@"
+}
