@@ -7,6 +7,8 @@
  * the article just embedded. `offset(cursor, size)` seeks within the range.
  */
 
+import { UnrecoverableError } from 'bullmq'
+
 export type SeekableEntryRange<T> = Iterable<T> & {
   size: number
   offset(start: number, maxResults: number): Iterable<T>
@@ -22,6 +24,13 @@ export function openZimBatchRange<T>(
 ): Iterable<T> {
   const range = archive.iterByPath()
   if (!hasResumeCursor(resumeAtDirent)) return range
+  // An empty seek at a valid cursor is a normal end. A cursor past the end
+  // means the file changed under the job, and retrying cannot fix that.
+  if (resumeAtDirent > range.size) {
+    throw new UnrecoverableError(
+      `ZIM resume cursor ${resumeAtDirent} is past the end of the archive (${range.size} entries); the file changed since the last batch`
+    )
+  }
   // `size` reaches the end of the range. libzim takes a signed 32-bit
   // maxResults, and a real archive's entry count fits in that.
   return range.offset(resumeAtDirent, range.size)
