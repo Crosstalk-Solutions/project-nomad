@@ -11,6 +11,7 @@ import { generateUUID } from '~/lib/util'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import NotificationsProvider from '~/providers/NotificationProvider'
+import DownloadsIndicator from '~/components/DownloadsIndicator'
 import { ThemeProvider } from '~/providers/ThemeProvider'
 import { UsePageProps } from '../../types/system'
 
@@ -44,6 +45,7 @@ createInertiaApp({
             <NotificationsProvider>
               <ModalsProvider>
                 <App {...props} />
+                <DownloadsIndicator />
                 {showDevtools && <ReactQueryDevtools initialIsOpen={false} buttonPosition='bottom-left' />}
               </ModalsProvider>
             </NotificationsProvider>
