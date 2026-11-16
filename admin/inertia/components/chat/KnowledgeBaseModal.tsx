@@ -827,6 +827,9 @@ export default function KnowledgeBaseModal({
                 {
                   accessor: 'source',
                   title: renderSortHeader('File Name', 'name', sort, setSort),
+                  // Wrap long file names and warning badges instead of clipping them
+                  // at the cell's max width (#1615).
+                  noTruncate: true,
                   render(record) {
                     if (record.isCollectionHeader) {
                       const key = record.collection ?? UNCATEGORIZED_COLLECTION_KEY
@@ -987,6 +990,9 @@ export default function KnowledgeBaseModal({
                 {
                   accessor: 'source',
                   title: '',
+                  // The inline delete confirmation is wider than the cell's max width;
+                  // let it wrap instead of clipping its start (#1615).
+                  noTruncate: true,
                   render(record) {
                     if (record.bucket === 'admin_docs') {
                       return (
@@ -1004,7 +1010,7 @@ export default function KnowledgeBaseModal({
                       deleteMutation.isPending && confirmDeleteSource === record.source
                     if (isConfirming) {
                       return (
-                        <div className="flex items-center gap-2 justify-end">
+                        <div className="flex flex-wrap items-center gap-2 justify-end">
                           <span className="text-sm text-text-secondary">
                             Remove from knowledge base?
                           </span>
@@ -1040,7 +1046,7 @@ export default function KnowledgeBaseModal({
                     const canDownload = record.isUserUpload && record.size !== null
 
                     return (
-                      <div className="flex justify-end items-center gap-2">
+                      <div className="flex flex-wrap justify-end items-center gap-2">
                         {action && (
                           <StyledButton
                             variant={action.variant}
