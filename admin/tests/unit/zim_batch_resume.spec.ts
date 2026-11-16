@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { UnrecoverableError } from 'bullmq'
 
 import { hasResumeCursor, openZimBatchRange } from '../../app/utils/zim_batch_resume.js'
 
@@ -25,18 +26,6 @@ function fakeArchive(entries: FakeEntry[]) {
     },
   }
   return { iterByPath: () => range }
-}
-
-function takeArticleBatch(entries: Iterable<FakeEntry>, batchSize: number) {
-  const accepted: string[] = []
-  let direntsConsumed = 0
-  for (const entry of entries) {
-    if (accepted.length >= batchSize) break
-    direntsConsumed++
-    if (!entry.article) continue
-    accepted.push(entry.path)
-  }
-  return { accepted, direntsConsumed }
 }
 
 test('hasResumeCursor rejects an empty or zero cursor', () => {
@@ -77,14 +66,13 @@ test('openZimBatchRange seeks with offset at the dirent cursor', () => {
   assert.deepEqual(paths, ['C.html', 'C_files/style.css', 'D.html'])
 })
 
-test('a later batch continues at the next dirent instead of rereading earlier ones', () => {
-  const archive = fakeArchive(directory)
+test('openZimBatchRange treats a cursor at the end as an empty batch', () => {
+  assert.deepEqual([...openZimBatchRange(fakeArchive(directory), directory.length)], [])
+})
 
-  const first = takeArticleBatch(openZimBatchRange(archive), 2)
-  assert.deepEqual(first.accepted, ['A.html', 'B.html'])
-  assert.equal(first.direntsConsumed, 3)
-
-  const second = takeArticleBatch(openZimBatchRange(archive, first.direntsConsumed), 2)
-  assert.deepEqual(second.accepted, ['C.html', 'D.html'])
-  assert.equal(second.direntsConsumed, 3)
+test('openZimBatchRange rejects a cursor past the end as unrecoverable', () => {
+  assert.throws(
+    () => openZimBatchRange(fakeArchive(directory), directory.length + 1),
+    (err: unknown) => err instanceof UnrecoverableError
+  )
 })

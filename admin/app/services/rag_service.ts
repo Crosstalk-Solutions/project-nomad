@@ -33,6 +33,7 @@ import { decideWarnings } from '../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
 import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
+import { UnrecoverableError } from 'bullmq'
 
 /**
  * Qdrant filter that hides the developer eval corpus from every read path that
@@ -631,21 +632,6 @@ export class RagService {
       resumeAtDirent,
     })
 
-    // A seek that returns nothing while articles remain is a bad cursor, not
-    // the deliberate one-batch overrun at the real end of the archive. That
-    // overrun happens after the article offset has already passed articleCount.
-    if (
-      resumeAtDirent !== undefined &&
-      articlesProcessed === 0 &&
-      startOffset < totalArticles
-    ) {
-      const message =
-        `ZIM resume seek at dirent ${resumeAtDirent} found no further articles ` +
-        `(${startOffset} of ${totalArticles} done).`
-      logger.error(`[RAG] ${message}`)
-      return { success: false, message }
-    }
-
     logger.info(
       `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
     )
@@ -951,6 +937,8 @@ export class RagService {
       )
     } catch (error) {
       logger.error('[RAG] Error processing and embedding file:', error)
+      // Let the job see it so BullMQ skips the 30 retries that cannot succeed.
+      if (error instanceof UnrecoverableError) throw error
       return { success: false, message: 'Error processing and embedding file.' }
     }
   }
