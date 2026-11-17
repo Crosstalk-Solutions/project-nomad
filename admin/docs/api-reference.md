@@ -15,7 +15,7 @@ routes and validators and served as an interactive [Scalar](https://scalar.com) 
 Because it is derived from the same VineJS validators the API validates against, it never drifts
 from the implementation. Prefer it over any hand-written endpoint list.
 
-The [World offline API notes](/docs/world-offline-api) explain package management and local point elevation, A–B profiles, and contour queries. The [World offline manual](/docs/world-offline) covers the corresponding Maps controls.
+The [World offline API notes](/docs/world-offline-api) explain package management and local 100 m contour queries. The [World offline manual](/docs/world-offline) covers the corresponding Maps controls.
 
 ---
 

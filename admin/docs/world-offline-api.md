@@ -8,19 +8,17 @@ The [interactive API reference](/reference) and the [OpenAPI document](/api/open
 
 The offline inventory can keep reporting verified local archives while the download service is unavailable. In that state, the response can omit worker-only details such as an active transfer or a free-space estimate. Treat missing estimates as unknown and use the availability field before calling mutations.
 
-## Read installed elevation data
+## Read contour lines from installed elevation data
 
-The elevation endpoints use the locally installed archive and remain available while the download worker is stopped. Coordinates use decimal degrees and elevations use meters.
+The contour endpoint uses the locally installed archive and remains available while the download worker is stopped. Coordinates use decimal degrees and elevations use meters. The contour interval is fixed at 100 m.
 
 | GET path | Query | Result |
 | --- | --- | --- |
-| `/api/maps/elevation` | `lat`, `lng` | Approximate elevation at one point and the native data zoom used. |
-| `/api/maps/elevation/profile` | `latA`, `lngA`, `latB`, `lngB` | Samples along the direct A–B line. Samples with a null elevation represent gaps. |
 | `/api/maps/elevation/contours` | `west`, `south`, `east`, `north`, `zoom` | GeoJSON lines at 100 m intervals for a bounded viewport, plus the native data zoom. |
 
 A successful contour response can contain zero features over flat terrain. A `zoom-in` response asks the caller to narrow the viewport. `not-installed` and `no-data` identify an unavailable archive and missing samples, respectively.
 
-Invalid query values return HTTP 422. An unreadable installed archive returns HTTP 503. Profile sampling and visible contour geometry have bounded work budgets. Cancel obsolete requests when the user changes points or the map view.
+Invalid query values return HTTP 422. An unreadable installed archive returns HTTP 503. Visible contour geometry has a bounded work budget. The service caches geographic blocks by the installed archive revision. Callers can keep displaying the current result while a new view loads and cancel obsolete requests when the view changes. Invalidate cached results when the installed package changes.
 
 ## Manage an operation
 

@@ -1,6 +1,4 @@
 export const WORLD_OFFLINE_API = '/api/maps/world-offline'
-export const ELEVATION_API = '/api/maps/elevation'
-export const ELEVATION_PROFILE_API = '/api/maps/elevation/profile'
 export const ELEVATION_CONTOURS_API = '/api/maps/elevation/contours'
 
 export const WORLD_PACK_IDS = [
@@ -13,22 +11,6 @@ export const WORLD_PACK_IDS = [
 
 export type WorldPackId = (typeof WORLD_PACK_IDS)[number]
 export type WorldJobStatus = 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'discarded'
-
-export type ElevationLookup =
-  | { status: 'ok'; elevationMeters: number; zoom: number }
-  | { status: 'not-installed' | 'no-data' }
-
-export type ElevationProfileSample = {
-  lat: number
-  lng: number
-  distanceMeters: number
-  elevationMeters: number | null
-  zoom: number | null
-}
-
-export type ElevationProfileLookup =
-  | { status: 'ok'; distanceMeters: number; stepMeters: number; samples: ElevationProfileSample[] }
-  | { status: 'not-installed' | 'no-data' }
 
 type ElevationContourPosition = [longitude: number, latitude: number]
 

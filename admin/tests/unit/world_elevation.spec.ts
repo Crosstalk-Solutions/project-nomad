@@ -7,10 +7,9 @@ import { test, type TestContext } from 'node:test'
 import { TileType, zxyToTileId } from 'pmtiles'
 import sharp from 'sharp'
 import { buildContourTile, lookupElevationContours } from '../../app/services/world_elevation_contours.js'
-import { lookupElevationProfile } from '../../app/services/world_elevation_profile.js'
-import { lookupElevation, type LocalElevationArchive } from '../../app/services/world_elevation_service.js'
+import { withElevationTiles, type LocalElevationArchive } from '../../app/services/world_elevation_service.js'
 import {
-  validateWorldElevationContoursQuery, validateWorldElevationProfileQuery, validateWorldElevationQuery,
+  validateWorldElevationContoursQuery,
 } from '../../app/validators/world_offline.js'
 
 function varint(value: number) {
@@ -77,59 +76,6 @@ async function fixtureDirectory(context: TestContext) {
     } satisfies LocalElevationArchive
   }
 }
-
-test('accepts decimal query parameters and rejects missing or invalid coordinates', async () => {
-  assert.deepEqual(await validateWorldElevationQuery({ lat: '-23.55', lng: '-46.63' }), { lat: -23.55, lng: -46.63 })
-  assert.deepEqual(await validateWorldElevationQuery({ lat: '1e-7', lng: '0' }), { lat: 1e-7, lng: 0 })
-  for (const input of [{ lat: '', lng: '0' }, { lat: '0' }, { lat: '91', lng: '0' },
-    { lat: '0', lng: '181' }, { lat: '0x1a', lng: '0' }, { lat: '0', lng: ['1', '2'] }]) {
-    await assert.rejects(validateWorldElevationQuery(input))
-  }
-})
-
-test('reads the exact lossless WebP sample for zero and negative elevations at wrapped longitudes', async (context) => {
-  const fixture = await fixtureDirectory(context)
-  const pack = await fixture('world.pmtiles', 0, 0, 0, (pixel) => pixel < 256 ? -6.5 : 0)
-  assert.deepEqual(await lookupElevation([pack], 0, 0), { status: 'ok', elevationMeters: 0, zoom: 0 })
-  assert.deepEqual(await lookupElevation([pack], 0, 180), { status: 'ok', elevationMeters: -6.5, zoom: 0 })
-  assert.deepEqual(await lookupElevation([pack], 0, -180), { status: 'ok', elevationMeters: -6.5, zoom: 0 })
-  assert.deepEqual(await lookupElevation([pack], 0, 179.99999999999997), { status: 'ok', elevationMeters: 0, zoom: 0 })
-})
-
-test('takes the best available installed level and can fall back when a finer tile is omitted', async (context) => {
-  const fixture = await fixtureDirectory(context)
-  const coarse = await fixture('world.pmtiles', 0, 0, 0, 201)
-  const fine = await fixture('fine.pmtiles', 1, 0, 0, 1240.25)
-  assert.deepEqual(await lookupElevation([coarse, fine], 50, -100), { status: 'ok', elevationMeters: 1240.25, zoom: 1 })
-  assert.deepEqual(await lookupElevation([fine, coarse], 0, 0), { status: 'ok', elevationMeters: 201, zoom: 0 })
-})
-
-test('distinguishes an absent package, no sample, and the polar area outside Web Mercator', async (context) => {
-  const fixture = await fixtureDirectory(context)
-  const transparent = await fixture('transparent.pmtiles', 0, 0, 0, 0, { transparent: true })
-  assert.deepEqual(await lookupElevation([], 0, 0), { status: 'not-installed' })
-  assert.deepEqual(await lookupElevation([transparent], 0, 0), { status: 'no-data' })
-  assert.deepEqual(await lookupElevation([transparent], 86, 0), { status: 'no-data' })
-})
-
-test('rejects wrong tile dimensions and reads a verified file anew after replacement', async (context) => {
-  const fixture = await fixtureDirectory(context)
-  const invalid = await fixture('undersized.pmtiles', 0, 0, 0, 0, { width: 16 })
-  await assert.rejects(lookupElevation([invalid], 0, 0), /invalid elevation tile dimensions/i)
-
-  const first = await fixture('world.pmtiles', 0, 0, 0, 20)
-  assert.deepEqual(await lookupElevation([first], 0, 0), { status: 'ok', elevationMeters: 20, zoom: 0 })
-  const next = await fixture('world.pmtiles', 0, 0, 0, 23)
-  assert.deepEqual(await lookupElevation([next], 0, 0), { status: 'ok', elevationMeters: 23, zoom: 0 })
-})
-
-test('validates both profile endpoints without coercing blank or duplicate parameters to zero', async () => {
-  const query = { latA: '-23.55', lngA: '-46.63', latB: '-2.4e1', lngB: '-46.5' }
-  assert.deepEqual(await validateWorldElevationProfileQuery(query), { latA: -23.55, lngA: -46.63, latB: -24, lngB: -46.5 })
-  await assert.rejects(validateWorldElevationProfileQuery({ ...query, latB: '' }))
-  await assert.rejects(validateWorldElevationProfileQuery({ ...query, lngA: ['-46', '-47'] }))
-  await assert.rejects(validateWorldElevationProfileQuery({ ...query, lngB: '-181' }))
-})
 
 test('validates decimal viewport bounds and preserves antimeridian wraps', async () => {
   const query = { west: '179.5', south: '-1', east: '181.25', north: '1', zoom: '9.5' }
@@ -217,54 +163,45 @@ test('clips contours at the viewport and antimeridian at one native DEM resoluti
   }
 })
 
-test('profiles the short geodesic across the antimeridian and keeps zero and negative heights', async (context) => {
+test('reuses decoded Terrarium samples across requests and retains zero and negative elevations', async (context) => {
   const fixture = await fixtureDirectory(context)
-  const pack = await fixture('world.pmtiles', 0, 0, 0, (pixel) => pixel < 256 ? -10 : 0)
-  const profile = await lookupElevationProfile([pack], { lat: 0, lng: 179 }, { lat: 0, lng: -179 })
-  assert.equal(profile.status, 'ok')
-  assert.ok(Math.abs(profile.distanceMeters - 222_390) < 1)
-  assert.ok(profile.samples.every((sample) => sample.lat === 0 && Math.abs(sample.lng) >= 179))
-  assert.deepEqual(profile.samples[0], { lat: 0, lng: 179, distanceMeters: 0, elevationMeters: 0, zoom: 0 })
-  assert.deepEqual(profile.samples.at(-1), {
-    lat: 0, lng: -179, distanceMeters: profile.distanceMeters, elevationMeters: -10, zoom: 0,
-  })
-  for (let i = 1; i < profile.samples.length; i++) {
-    assert.ok(Math.abs(profile.samples[i].distanceMeters - profile.samples[i - 1].distanceMeters - profile.stepMeters) < 1e-6)
-  }
-
-  const coincident = await lookupElevationProfile([pack], { lat: 0, lng: -180 }, { lat: 0, lng: 180 })
-  assert.deepEqual(coincident, {
-    status: 'ok', distanceMeters: 0, stepMeters: 0,
-    samples: [{ lat: 0, lng: -180, distanceMeters: 0, elevationMeters: -10, zoom: 0 }],
-  })
+  const pack = await fixture('decoded.pmtiles', 0, 0, 0, (pixel) => pixel < 256 ? -6.5 : 0)
+  const first = await withElevationTiles(pack, (read) => read(0, 0, 0))
+  assert.equal(first?.(0), -6.5)
+  assert.equal(first?.(256), 0)
+  const repeated = await withElevationTiles(pack, (read) => read(0, 0, 0))
+  assert.equal(first, repeated)
+  await assert.rejects(withElevationTiles(pack, (read) => read(0, 0, 0), AbortSignal.abort()), { name: 'AbortError' })
 })
 
-test('keeps gaps at the selected native profile level rather than mixing in coarser values', async (context) => {
+test('rejects invalid dimensions and replaces cached samples with a new source revision', async (context) => {
   const fixture = await fixtureDirectory(context)
-  const coarse = await fixture('world.pmtiles', 0, 0, 0, 250)
-  const partial = await fixture('partial.pmtiles', 2, 1, 2, 80)
-  const a = { lat: 0, lng: -10 }
-  const b = { lat: 0, lng: 10 }
-  const profile = await lookupElevationProfile([coarse, partial], a, b)
-  assert.equal(profile.status, 'ok')
-  assert.ok(profile.samples.some((sample) => sample.zoom === 2))
-  assert.deepEqual(profile.samples.at(-1), { ...b, distanceMeters: profile.distanceMeters, elevationMeters: null, zoom: null })
-  assert.ok(profile.samples.every((sample) => sample.zoom === null || sample.zoom === 2))
-  assert.deepEqual(await lookupElevationProfile([], a, b), { status: 'not-installed' })
-  assert.deepEqual(await lookupElevationProfile([partial], b, { lat: 0, lng: 30 }), { status: 'no-data' })
+  const invalid = await fixture('invalid.pmtiles', 0, 0, 0, 0, { width: 16 })
+  await assert.rejects(withElevationTiles(invalid, (read) => read(0, 0, 0)), /invalid elevation tile dimensions/i)
+  const first = await fixture('replacement.pmtiles', 0, 0, 0, 20)
+  const original = await withElevationTiles(first, (read) => read(0, 0, 0))
+  assert.equal(original?.(0), 20)
+  const next = await fixture('replacement.pmtiles', 0, 0, 0, 23)
+  const changed = await withElevationTiles(next, (read) => read(0, 0, 0))
+  assert.notEqual(first.archive.sha256, next.archive.sha256)
+  assert.notEqual(original, changed)
+  assert.equal(changed?.(0), 23)
 })
 
-test('bounds tile work for a long high-zoom profile and supports cancellation', async (context) => {
+test('keeps block geometry stable on nearby views and invalidates contours by source digest', async (context) => {
   const fixture = await fixtureDirectory(context)
-  const fine = await fixture('high.pmtiles', 12, 2048, 2048, 123)
-  const a = { lat: 0, lng: 0 }
-  const antipode = { lat: 0, lng: 180 }
-  const profile = await lookupElevationProfile([fine], a, antipode)
-  assert.equal(profile.status, 'ok')
-  assert.ok(Math.abs(profile.distanceMeters - 20_015_114) < 1)
-  assert.ok(profile.samples.length <= 128)
-  assert.ok(profile.stepMeters > 1_000)
-  assert.equal(profile.samples[0].elevationMeters, 123)
-  assert.equal(profile.samples.at(-1)?.lng, antipode.lng)
-  await assert.rejects(lookupElevationProfile([fine], a, antipode, AbortSignal.abort()), { name: 'AbortError' })
+  const view = { west: -3, south: -2, east: 3, north: 2, zoom: 10 }
+  const original = await fixture('contours.pmtiles', 0, 0, 0, (_x, y) => 50 * (y - 255))
+  const first = await lookupElevationContours([original], view)
+  const pan = await lookupElevationContours([original], { ...view, west: -2, east: 4 })
+  assert.equal(first.status, 'ok')
+  assert.equal(pan.status, 'ok')
+  assert.deepEqual(first.geojson.features.map(({ properties }) => properties),
+    pan.geojson.features.map(({ properties }) => properties))
+  const next = await fixture('contours.pmtiles', 0, 0, 0, (_x, y) => 1000 + 50 * (y - 255))
+  const changed = await lookupElevationContours([next], view)
+  assert.equal(changed.status, 'ok')
+  assert.deepEqual(first.geojson.features.map(({ properties }) => properties.elevationMeters + 1000),
+    changed.geojson.features.map(({ properties }) => properties.elevationMeters))
+  await assert.rejects(lookupElevationContours([next], view, AbortSignal.abort()), { name: 'AbortError' })
 })

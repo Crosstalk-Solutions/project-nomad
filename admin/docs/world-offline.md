@@ -7,7 +7,7 @@ Open **Settings → Maps**, then find **World offline** under **Offline imagery 
 | **Blue Marble 2004** | NASA's historical monthly composites for January through December 2004. Use the month selector to compare seasons in the same view. | 0–4, 0–6, or 0–8 |
 | **Worldwide satellite** | VersaTiles satellite and orthophoto mosaics. Image detail varies with location and source coverage. | 0–8 through 0–12 |
 | **Earth Relief** | VersaTiles shaded relief for visual terrain reference, with a local land and water background. | 0–8 through 0–12 |
-| **Elevation** | Numeric terrain heights for point inspection, A–B profiles, and contour lines in 2D. | 0–6 through 0–12 |
+| **Elevation** | Numeric terrain heights for automatic 100 m contour lines in the 2D Topography layer. | 0–6 through 0–12 |
 
 **Street** remains available for the vector basemap. **Street overlay** adds available roads and labels to your selected imagery or relief. Install the relevant street map data when you need detailed offline labels.
 
@@ -21,29 +21,19 @@ Open **Settings → Maps**, then find **World offline** under **Offline imagery 
 
 Your NOMAD retrieves source data from NASA or VersaTiles and prepares the map on your storage. After installation, your browser gets the selected layer from your NOMAD over the local connection. Keep a local connection to NOMAD when using it from another device.
 
-## Inspect elevation offline
+## Show contour lines offline
 
 1. In **Settings → Maps → World offline**, install one **Elevation** package. The seven choices range from zoom 0–6 to 0–12.
-2. In **Maps → Layers**, select **Topography** and turn on **Inspect elevation**.
-3. Click or tap the map for an approximate elevation in meters and the data zoom used. Select **Done** to leave inspection mode.
+2. In **Maps → Layers**, select **Topography**. Contour lines appear automatically at a fixed 100 m interval when the view is sufficiently close.
+3. Pan and zoom to inspect the terrain. Map clicks continue to use the normal Pins workflow.
 
-The lookup uses the installed elevation archive in the 2D map and works independently of the download worker. The resolution beside each package is the horizontal spacing between samples at the equator. Elevation accuracy also depends on the provider data. [Elevation data © Mapterhorn](https://mapterhorn.com/attribution) · [VersaTiles Elevation](https://docs.versatiles.org/basics/tilesets.html#elevation)
+Contours use the installed elevation archive in the 2D map and work independently of the download worker. The resolution beside each package is the horizontal spacing between samples at the equator. Elevation accuracy also depends on the provider data. [Elevation data © Mapterhorn](https://mapterhorn.com/attribution) · [VersaTiles Elevation](https://docs.versatiles.org/basics/tilesets.html#elevation)
 
-With only Elevation installed, Topography uses the existing Street basemap as its background. Install Earth Relief when you also want shaded terrain behind the elevation tools.
+With only Elevation installed, Topography uses the existing Street basemap as its background. Install Earth Relief when you also want shaded terrain behind the contour lines. When Topography has shaded relief but Elevation is missing, use **Download elevation data** to open the package settings.
 
-## Compare elevation between two points
+The 100 m interval is the vertical difference between adjacent contour levels. The installed package determines horizontal sample spacing. For example, elevation zoom 8 provides approximately 306 m spacing at the equator, even when the map is zoomed further in. Small terrain features can be absent. The map asks you to zoom in when the visible area would require too many calculations or line points.
 
-1. In **Maps → Layers → Topography**, turn on **Elevation profile**.
-2. Select two points on the map. The graph shows the approximate elevation along the direct line from A to B, with gaps where the installed data has no samples.
-3. Move across the graph or use **Inspect sample** to locate a sample on the map. Select **New line** to start over or **Done** to return to the normal map controls.
-
-The profile shows the distance between samples and the elevations at A and B, the lowest sample, and the highest sample. Long lines use wider spacing to keep the calculation responsive. Its distance follows the direct line between the points.
-
-## Show contour lines
-
-In **Maps → Layers → Topography**, turn on **Contour lines (100 m)** and zoom in to the area you want to inspect. NOMAD calculates and labels the contours for the visible area using the installed elevation data. The lines follow the resolution of that package, so small terrain features can be absent. You can keep the contours visible while comparing elevations with the profile.
-
-The 100 m interval is the vertical difference between adjacent contour levels. The installed package determines horizontal sample spacing. For example, elevation zoom 8 provides approximately 306 m spacing at the equator, even when the map is zoomed further in. The map asks you to zoom in when the visible area would require too many calculations or line points. Contours start disabled and use a bounded memory cache after activation.
+Loaded contours stay visible while nearby data is prepared. NOMAD reuses cached geographic blocks and a small area around the view to reduce work during short movements. Memory use is bounded. Selecting another layer changes the map view and clears the displayed contours for Topography.
 
 ## Compare levels and storage
 

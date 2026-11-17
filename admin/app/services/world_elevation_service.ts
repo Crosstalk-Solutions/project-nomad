@@ -2,14 +2,15 @@ import { constants } from 'node:fs'
 import { open, type FileHandle } from 'node:fs/promises'
 import { PMTiles, TileType, type Source } from 'pmtiles'
 import sharp from 'sharp'
-import type { ElevationLookup, WorldArchive } from '../../types/world_offline.js'
+import type { WorldArchive } from '../../types/world_offline.js'
 
 export type LocalElevationArchive = { path: string; archive: WorldArchive }
 
-const maxMercatorLatitude = 85.0511287798066
 const maxRangeBytes = 16 * 1024 * 1024
+const maximumDecodedTiles = 16
 export type ElevationTile = (pixelOffset: number) => number | null
 export type ReadElevationTile = (zoom: number, x: number, y: number) => Promise<ElevationTile | null>
+const decodedTiles = new Map<string, ElevationTile | null>()
 
 function localSource(file: FileHandle, archive: WorldArchive): Source {
   return {
@@ -35,23 +36,6 @@ function localSource(file: FileHandle, archive: WorldArchive): Source {
       return { data }
     },
   }
-}
-
-export function elevationTilePixel(lat: number, lng: number, zoom: number, tileSize: number) {
-  const width = tileSize * 2 ** zoom
-  const mercatorY = (1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2
-  const x = Math.min(width - 1, Math.max(0, Math.floor((lng + 180) / 360 * width)))
-  const y = Math.min(width - 1, Math.max(0, Math.floor(mercatorY * width)))
-  return {
-    tileX: Math.floor(x / tileSize),
-    tileY: Math.floor(y / tileSize),
-    pixelOffset: (y % tileSize) * tileSize + x % tileSize,
-  }
-}
-
-export function withinElevationCoverage(archive: WorldArchive, lat: number, lng: number) {
-  const [west, south, east, north] = archive.bounds
-  return Math.abs(lat) <= maxMercatorLatitude && lat >= south && lat <= north && lng >= west && lng <= east
 }
 
 async function decodeTerrarium(data: ArrayBuffer, tileSize: number): Promise<ElevationTile> {
@@ -95,36 +79,21 @@ export async function withElevationTiles<T>(
 
     return await read(async (zoom, x, y) => {
       signal?.throwIfAborted()
+      const key = `${archive.sha256}/${stat.ino}/${stat.mtimeMs}/${archive.tileSize}/${zoom}/${x}/${y}`
+      if (decodedTiles.has(key)) {
+        const present = decodedTiles.get(key)!
+        decodedTiles.delete(key)
+        decodedTiles.set(key, present)
+        return present
+      }
       const tile = await pmtiles.getZxy(zoom, x, y, signal)
-      return tile ? decodeTerrarium(tile.data, archive.tileSize) : null
+      const decoded = tile ? await decodeTerrarium(tile.data, archive.tileSize) : null
+      signal?.throwIfAborted()
+      if (decodedTiles.size >= maximumDecodedTiles) decodedTiles.delete(decodedTiles.keys().next().value!)
+      decodedTiles.set(key, decoded)
+      return decoded
     })
   } finally {
     await file.close()
   }
-}
-
-async function readElevation(entry: LocalElevationArchive, lat: number, lng: number) {
-  const { archive } = entry
-  return withElevationTiles(entry, async (readTile) => {
-    // Sampling follows the native elevation resolution, independent of the camera zoom.
-    for (let zoom = archive.maxzoom; zoom >= archive.minzoom; zoom -= 1) {
-      const { tileX, tileY, pixelOffset } = elevationTilePixel(lat, lng, zoom, archive.tileSize)
-      const sample = await readTile(zoom, tileX, tileY)
-      const elevationMeters = sample?.(pixelOffset) ?? null
-      if (elevationMeters !== null) return { elevationMeters, zoom }
-    }
-    return null
-  })
-}
-
-export async function lookupElevation(archives: LocalElevationArchive[], lat: number, lng: number): Promise<ElevationLookup> {
-  if (!archives.length) return { status: 'not-installed' }
-
-  const longitude = lng === 180 ? -180 : lng
-  for (const entry of [...archives].sort((a, b) => b.archive.maxzoom - a.archive.maxzoom)) {
-    if (!withinElevationCoverage(entry.archive, lat, longitude)) continue
-    const elevation = await readElevation(entry, lat, longitude)
-    if (elevation) return { status: 'ok', ...elevation }
-  }
-  return { status: 'no-data' }
 }

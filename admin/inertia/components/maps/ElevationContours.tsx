@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Layer, Source } from 'react-map-gl/maplibre'
 import { ELEVATION_CONTOURS_API, type ElevationContoursLookup } from '../../../types/world_offline.js'
-import { ELEVATION_SETTINGS_LINK } from './ElevationInspection'
 import type { MapCamera } from './mapLayerStyles'
 
 type ContourResult = ElevationContoursLookup | { status: 'loading' | 'error' }
 type ContourData = Extract<ElevationContoursLookup, { status: 'ok' }>
+type Bounds = [number, number, number, number]
+type CachedView = { scope: string; bounds: Bounds; data: ContourData; positions: number }
 const MIN_CAMERA_ZOOM = 8
-const VIEW_SETTLE_MS = 220
+const VIEW_SETTLE_MS = 60
 const LOADING_INDICATOR_MS = 350
 const REQUEST_TIMEOUT_MS = 20_000
+const MAX_CACHED_VIEWS = 8
+const MAX_CACHED_POSITIONS = 120_000
+const MAX_LATITUDE = 85.0511287798066
 const CREDIT = '<a href="https://mapterhorn.com/attribution">Elevation data © Mapterhorn</a>'
 
 function readContours(value: unknown): ElevationContoursLookup {
@@ -20,27 +24,78 @@ function readContours(value: unknown): ElevationContoursLookup {
   throw new Error('Invalid contour response')
 }
 
-function viewQuery(camera: MapCamera) {
-  if (!camera.view) return undefined
-  const [west, south, east, north] = camera.view
+function alignView(view: Bounds, reference: Bounds): Bounds {
+  const offset = Math.round((reference[0] + reference[2] - view[0] - view[2]) / 720) * 360
+  return [view[0] + offset, view[1], view[2] + offset, view[3]]
+}
+
+function containsView(bounds: Bounds, view: Bounds) {
+  const [west, south, east, north] = alignView(view, bounds)
+  return west >= bounds[0] && south >= bounds[1] && east <= bounds[2] && north <= bounds[3]
+}
+
+function intersectsView(bounds: Bounds, view: Bounds) {
+  const [west, south, east, north] = alignView(view, bounds)
+  return west < bounds[2] && east > bounds[0] && south < bounds[3] && north > bounds[1]
+}
+
+function roundedBounds([west, south, east, north]: Bounds): Bounds {
+  return [
+    Math.floor(west * 1e6) / 1e6, Math.floor(south * 1e6) / 1e6,
+    Math.ceil(east * 1e6) / 1e6, Math.ceil(north * 1e6) / 1e6,
+  ]
+}
+
+function bufferedBounds(view: Bounds): Bounds {
+  const width = (view[2] - view[0]) * 0.15
+  const height = (view[3] - view[1]) * 0.15
+  return roundedBounds([
+    view[0] - width, Math.max(-MAX_LATITUDE, view[1] - height),
+    view[2] + width, Math.min(MAX_LATITUDE, view[3] + height),
+  ])
+}
+
+function viewQuery([west, south, east, north]: Bounds, zoom: number) {
   return new URLSearchParams({
-    west: west.toFixed(5), south: south.toFixed(5), east: east.toFixed(5), north: north.toFixed(5),
-    zoom: camera.zoom.toFixed(4),
+    west: String(west), south: String(south), east: String(east), north: String(north), zoom: String(zoom),
   }).toString()
 }
 
-export function useElevationContours(enabled: boolean, camera: MapCamera, inventoryKey?: string) {
+function countPositions(data: ContourData) {
+  let positions = 0
+  for (const { geometry } of data.geojson.features) {
+    const lines = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
+    for (const line of lines) positions += line.length
+  }
+  return positions
+}
+
+export function useElevationContours(enabled: boolean, camera: MapCamera, inventoryKey?: string, installedZoom = 12) {
+  const cache = useRef<CachedView[]>([])
+  const [settled, setSettled] = useState<CachedView | null>(null)
   const [entry, setEntry] = useState<{ key: string; result: ContourResult } | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const zoomIn = camera.zoom < MIN_CAMERA_ZOOM
-  const query = enabled && inventoryKey && !zoomIn ? viewQuery(camera) : undefined
-  const key = query && inventoryKey + '|' + query + '|' + retryCount
+  const dataZoom = Math.min(Math.floor(camera.zoom), installedZoom)
+  const scope = inventoryKey && inventoryKey + '|' + dataZoom
+  const view = camera.view && roundedBounds(camera.view)
+  const queryZoom = Math.max(MIN_CAMERA_ZOOM, dataZoom)
+  const query = enabled && scope && !zoomIn && view ? viewQuery(view, queryZoom) : undefined
+  const key = query && scope + '|' + query + '|' + retryCount
+  const hit = query && view ? cache.current.find((cached) =>
+    cached.scope === scope && containsView(cached.bounds, view)) : undefined
 
   useEffect(() => {
-    if (!key || !query) {
-      setEntry(null)
+    if (!key || !query || !scope) return
+    const currentView = view!
+    const cached = cache.current.find((candidate) =>
+      candidate.scope === scope && containsView(candidate.bounds, currentView))
+    if (cached) {
+      cache.current = [cached, ...cache.current.filter((candidate) => candidate !== cached)]
+      setSettled(cached)
       return
     }
+
     let cancelled = false
     const request = new AbortController()
     const delay = window.setTimeout(async () => {
@@ -49,10 +104,33 @@ export function useElevationContours(enabled: boolean, camera: MapCamera, invent
       }, LOADING_INDICATOR_MS)
       const timeout = window.setTimeout(() => request.abort(), REQUEST_TIMEOUT_MS)
       try {
-        const response = await fetch(ELEVATION_CONTOURS_API + '?' + query, { signal: request.signal, cache: 'no-store' })
-        if (!response.ok) throw new Error('Contour lookup failed')
-        const result = readContours(await response.json())
-        if (!cancelled) setEntry({ key, result })
+        let bounds = bufferedBounds(currentView)
+        const read = async (area: Bounds) => {
+          const response = await fetch(ELEVATION_CONTOURS_API + '?' + viewQuery(area, queryZoom),
+            { signal: request.signal, cache: 'no-store' })
+          if (!response.ok) throw new Error('Contour lookup failed')
+          return readContours(await response.json())
+        }
+        let result = await read(bounds)
+        // Keep the margin from forcing a zoom warning in a usable dense viewport.
+        if (result.status === 'zoom-in') {
+          bounds = currentView
+          result = await read(bounds)
+        }
+        if (cancelled) return
+        if (result.status === 'ok') {
+          const next = { scope, bounds, data: result, positions: countPositions(result) }
+          cache.current = [next, ...cache.current.filter((candidate) =>
+            candidate.scope !== scope || candidate.bounds.some((coordinate, index) => coordinate !== bounds[index]))]
+          while (cache.current.length > MAX_CACHED_VIEWS ||
+              cache.current.reduce((sum, candidate) => sum + candidate.positions, 0) > MAX_CACHED_POSITIONS) {
+            cache.current.pop()
+          }
+          setSettled(next)
+        } else {
+          setSettled(null)
+        }
+        setEntry({ key, result })
       } catch {
         if (!cancelled) setEntry({ key, result: { status: 'error' } })
       } finally {
@@ -65,13 +143,18 @@ export function useElevationContours(enabled: boolean, camera: MapCamera, invent
       window.clearTimeout(delay)
       request.abort()
     }
-  }, [key, query])
+  }, [key, query, scope])
 
+  const active = enabled && inventoryKey && !zoomIn
+  const data = !active || !view ? null
+    : hit ? hit.data
+    : settled && settled.scope === scope && intersectsView(settled.bounds, view) ? settled.data : null
   const result: ContourResult | null = !enabled ? null
     : !inventoryKey ? { status: 'not-installed' }
     : zoomIn ? { status: 'zoom-in' }
+    : hit ? hit.data
     : entry && entry.key === key ? entry.result : null
-  return { result, retry: () => setRetryCount((count) => count + 1) }
+  return { data, result, retry: () => setRetryCount((count) => count + 1) }
 }
 
 export function ElevationContourLayer({ data, glyphsAvailable }: {
@@ -120,7 +203,7 @@ export function ContourStatus({ result, onRetry }: { result: ContourResult | nul
     <div className="absolute right-3 top-[76px] z-[3] max-w-[calc(100%-8rem)] rounded-md border border-border-subtle bg-surface-primary px-2.5 py-1.5 text-xs text-text-primary shadow">
       <p role={result.status === 'loading' ? undefined : 'status'}>{labels[result.status]}</p>
       {result.status === 'not-installed' && (
-        <a href={ELEVATION_SETTINGS_LINK}
+        <a href="/settings/maps?pack=elevation#world-offline-elevation"
           className="inline-flex min-h-8 items-center rounded font-semibold text-desert-orange underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">
           Download elevation data
         </a>

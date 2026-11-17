@@ -5,7 +5,6 @@ const id = () => vine.string().regex(/^[a-f0-9]{32}$/)
 const bytes = () => vine.number().min(0).withoutDecimals()
 const zoom = () => vine.number().min(0).max(24).withoutDecimals()
 const latitude = () => vine.number({ strict: true }).min(-90).max(90)
-const longitude = () => vine.number({ strict: true }).min(-180).max(180)
 
 export const worldDownloadValidator = vine.compile(vine.object({
   packIds: vine.array(vine.enum(WORLD_PACK_IDS)).minLength(1).maxLength(1),
@@ -14,16 +13,6 @@ export const worldDownloadValidator = vine.compile(vine.object({
 export const worldRemoveValidator = vine.compile(vine.object({ packId: vine.enum(WORLD_PACK_IDS) }))
 export const worldJobActionValidator = vine.compile(vine.object({ id: id() }))
 export const worldErrorResponse = vine.compile(vine.object({ message: vine.string() }))
-export const worldElevationQuery = vine.compile(vine.object({
-  lat: latitude(),
-  lng: longitude(),
-}))
-export const worldElevationProfileQuery = vine.compile(vine.object({
-  latA: latitude(),
-  lngA: longitude(),
-  latB: latitude(),
-  lngB: longitude(),
-}))
 const viewportLongitude = () => vine.number({ strict: true }).min(-1e6).max(1e6)
 export const worldElevationContoursQuery = vine.compile(vine.object({
   west: viewportLongitude(),
@@ -39,17 +28,6 @@ function parseElevationCoordinate(value: unknown) {
   return typeof value === 'string' && decimal.test(value.trim()) ? Number(value) : value
 }
 
-export function validateWorldElevationQuery(query: Record<string, unknown>) {
-  return worldElevationQuery.validate({ lat: parseElevationCoordinate(query.lat), lng: parseElevationCoordinate(query.lng) })
-}
-
-export function validateWorldElevationProfileQuery(query: Record<string, unknown>) {
-  return worldElevationProfileQuery.validate({
-    latA: parseElevationCoordinate(query.latA), lngA: parseElevationCoordinate(query.lngA),
-    latB: parseElevationCoordinate(query.latB), lngB: parseElevationCoordinate(query.lngB),
-  })
-}
-
 export function validateWorldElevationContoursQuery(query: Record<string, unknown>) {
   return worldElevationContoursQuery.validate({
     west: parseElevationCoordinate(query.west), south: parseElevationCoordinate(query.south),
@@ -57,25 +35,6 @@ export function validateWorldElevationContoursQuery(query: Record<string, unknow
     zoom: parseElevationCoordinate(query.zoom),
   })
 }
-
-export const worldElevationResponse = vine.compile(vine.object({
-  status: vine.enum(['ok', 'not-installed', 'no-data']),
-  elevationMeters: vine.number().optional(),
-  zoom: zoom().optional(),
-}))
-
-export const worldElevationProfileResponse = vine.compile(vine.object({
-  status: vine.enum(['ok', 'not-installed', 'no-data']),
-  distanceMeters: vine.number().min(0).optional(),
-  stepMeters: vine.number().min(0).optional(),
-  samples: vine.array(vine.object({
-    lat: latitude(),
-    lng: longitude(),
-    distanceMeters: vine.number().min(0),
-    elevationMeters: vine.number().nullable(),
-    zoom: zoom().nullable(),
-  })).optional(),
-}))
 
 export const worldElevationContoursResponse = vine.compile(vine.object({
   status: vine.enum(['ok', 'not-installed', 'no-data', 'zoom-in']),

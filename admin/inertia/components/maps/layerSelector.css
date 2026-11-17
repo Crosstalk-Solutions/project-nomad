@@ -77,30 +77,6 @@
   overscroll-behavior: contain;
 }
 
-.nomad-elevation-popup .maplibregl-popup-content {
-  background: var(--color-surface-primary);
-}
-
-.nomad-elevation-popup .maplibregl-popup-tip {
-  --nomad-popup-background: var(--color-surface-primary);
-}
-
-.nomad-elevation-popup:is(.maplibregl-popup-anchor-top, .maplibregl-popup-anchor-top-left, .maplibregl-popup-anchor-top-right) .maplibregl-popup-tip {
-  border-bottom-color: var(--nomad-popup-background);
-}
-
-.nomad-elevation-popup:is(.maplibregl-popup-anchor-bottom, .maplibregl-popup-anchor-bottom-left, .maplibregl-popup-anchor-bottom-right) .maplibregl-popup-tip {
-  border-top-color: var(--nomad-popup-background);
-}
-
-.nomad-elevation-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: var(--nomad-popup-background);
-}
-
-.nomad-elevation-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: var(--nomad-popup-background);
-}
-
 @media (max-height: 420px) {
   .nomad-offline-map .maplibregl-ctrl-top-right:has(.nomad-layer-control) {
     --nomad-map-button-size: clamp(28px, calc((100dvh - var(--nomad-map-toolbar-top) - 24px) / 5), var(--nomad-map-button-target));

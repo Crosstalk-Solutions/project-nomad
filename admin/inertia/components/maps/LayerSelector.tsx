@@ -3,12 +3,10 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useControl } from 'react-map-gl/maplibre'
-import { ELEVATION_SETTINGS_LINK } from './ElevationInspection'
 
 export type MapLayerMode = 'street' | 'aerial' | 'topographic' | 'blue-marble'
 type OfflineMode = Exclude<MapLayerMode, 'street'>
 export type LayerAvailability = Record<Exclude<MapLayerMode, 'street' | 'blue-marble'>, boolean>
-export type ElevationTool = 'point' | 'profile'
 
 type LayerSelectorProps = {
   mode: MapLayerMode
@@ -36,10 +34,6 @@ type LayerSelectorProps = {
   elevationOnStreet?: boolean
   elevation?: {
     availability: 'checking' | 'unavailable' | 'not-installed' | 'installed'
-    tool: ElevationTool | null
-    onChange: (tool: ElevationTool | null) => void
-    contours: boolean
-    onContoursChange: (enabled: boolean) => void
   }
 }
 
@@ -392,31 +386,16 @@ export default function LayerSelector({
                   <div className="mt-1 border-t border-border-subtle">
                     {elevationOnStreet && (
                       <div className="px-2.5 pt-2 pb-1">
-                        <p className="text-xs text-text-secondary">Elevation tools are using the Street background.</p>
+                        <p className="text-xs text-text-secondary">Contour lines are using the Street background.</p>
                         <LayerSetupLink mode="topographic" />
                       </div>
                     )}
-                    {(elevation.availability === 'installed' || elevation.tool || elevation.contours) ? (
-                      <fieldset aria-label="Elevation tools">
-                        {([['point', 'Inspect elevation'], ['profile', 'Elevation profile']] as const).map(([tool, label]) => (
-                          <label key={tool} className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 text-sm text-text-primary hover:bg-surface-secondary">
-                            <input type="checkbox" checked={elevation.tool === tool}
-                              onChange={(event) => elevation.onChange(event.currentTarget.checked ? tool : null)}
-                              className="size-4 shrink-0 accent-desert-orange focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desert-orange" />
-                            {label}
-                          </label>
-                        ))}
-                        <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 text-sm text-text-primary hover:bg-surface-secondary">
-                          <input type="checkbox" checked={elevation.contours}
-                            onChange={(event) => elevation.onContoursChange(event.currentTarget.checked)}
-                            className="size-4 shrink-0 accent-desert-orange focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desert-orange" />
-                          Contour lines (100 m)
-                        </label>
-                      </fieldset>
+                    {elevation.availability === 'installed' ? (
+                      <p className="px-2.5 py-2 text-xs text-text-secondary">Contour interval 100 m</p>
                     ) : elevation.availability === 'not-installed' ? (
                       <div className="px-2.5 pt-2 pb-1">
                         <p className="text-xs text-text-secondary">Elevation data is not installed.</p>
-                        <a href={ELEVATION_SETTINGS_LINK}
+                        <a href="/settings/maps?pack=elevation#world-offline-elevation"
                           className="inline-flex min-h-9 items-center rounded text-xs font-semibold text-desert-orange underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-primary">
                           Download elevation data
                         </a>

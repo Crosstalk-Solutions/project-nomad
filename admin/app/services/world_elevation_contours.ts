@@ -10,8 +10,9 @@ const maximumOwnerTiles = 16
 const maximumTileSegments = 75_000
 const maximumResponsePositions = 45_000
 const maximumMercatorLatitude = 85.0511287798066
-const maximumCachedTiles = 24
+const maximumCachedTiles = 128
 const maximumCachedPositions = 160_000
+const contourBlockSize = 128
 
 type Point = [number, number]
 type Segment = [Point, Point]
@@ -190,6 +191,7 @@ async function readContours(key: string, size: number, grid: () => Promise<Float
   const result = samples ? buildContourTile(samples, size) : emptyTile
   if (contourCache.has(key)) return result
   const positions = result === 'too-dense' ? 0 : result.positions
+  if (positions > maximumCachedPositions) return result
   while (contourCache.size >= maximumCachedTiles || cachedPositions + positions > maximumCachedPositions) {
     const oldest = contourCache.keys().next().value!
     const entry = contourCache.get(oldest)!
@@ -199,6 +201,37 @@ async function readContours(key: string, size: number, grid: () => Promise<Float
   contourCache.set(key, result)
   cachedPositions += positions
   return result
+}
+
+// Fixed blocks survive a small pan. Dense blocks subdivide on the same grid,
+// retaining matching sample-centred endpoints along every shared boundary.
+async function* readContourBlock(
+  key: string, nativeGrid: () => Promise<Float32Array | null>, nativeSize: number,
+  offsetX: number, offsetY: number, size: number, bounds: Rectangle, signal?: AbortSignal,
+): AsyncGenerator<{ tile: TileContours | 'too-dense'; size: number; offsetX: number; offsetY: number }> {
+  if (bounds.right <= offsetX + 0.5 || bounds.left >= offsetX + size + 0.5 ||
+      bounds.bottom <= offsetY + 0.5 || bounds.top >= offsetY + size + 0.5) return
+  signal?.throwIfAborted()
+  const tile = await readContours(`${key}/${offsetX}/${offsetY}/${size}`, size, async () => {
+    const native = await nativeGrid()
+    if (!native) return null
+    const block = new Float32Array((size + 1) ** 2)
+    for (let row = 0; row <= size; row += 1) {
+      const start = (offsetY + row) * (nativeSize + 1) + offsetX
+      block.set(native.subarray(start, start + size + 1), row * (size + 1))
+    }
+    return block
+  }, signal)
+  if (tile !== 'too-dense' || size === 1) {
+    yield { tile, size, offsetX, offsetY }
+    return
+  }
+  const half = size / 2
+  for (const row of [offsetY, offsetY + half]) {
+    for (const column of [offsetX, offsetX + half]) {
+      yield* readContourBlock(key, nativeGrid, nativeSize, column, row, half, bounds, signal)
+    }
+  }
 }
 
 function hasVisibleData(coverage: TileContours['coverage'], bounds: Rectangle, size: number) {
@@ -302,8 +335,8 @@ export async function lookupElevationContours(
       for (let x = firstX; x <= lastX; x += 1) {
         signal?.throwIfAborted()
         const key = `${archive.sha256}/${dataZoom}/${size}/${wrap(x, tileCount)}/${y}`
-        const fullTile = await readContours(key, size, () => grid(x, y), signal)
-        const denseGrid = fullTile === 'too-dense' ? await grid(x, y) : null
+        let currentGrid: Promise<Float32Array | null> | undefined
+        const nativeGrid = () => currentGrid ??= grid(x, y)
         const originX = x * size
         const originY = y * size
         // Cut at the antimeridian before converting to GeoJSON longitudes.
@@ -316,25 +349,36 @@ export async function lookupElevationContours(
             top: top - originY, bottom: bottom - originY,
           }
           if (bounds.right <= bounds.left) continue
-          // At high camera zoom only a small part of a very rough DEM tile is
-          // visible. Restrict work to those cells so zooming in can still help.
-          const tile = fullTile === 'too-dense'
-            ? denseGrid ? buildContourTile(denseGrid, size, bounds) : emptyTile
-            : fullTile
-          if (tile === 'too-dense') return { status: 'zoom-in' }
-          visibleData ||= hasVisibleData(tile.coverage, bounds, size)
-          for (const [level, lines] of tile.byElevation) {
-            for (const line of lines) {
-              for (const part of clipLine(line, bounds)) {
-                positions += part.length
-                if (positions > maximumResponsePositions) return { status: 'zoom-in' }
-                let destination = byElevation.get(level)
-                if (!destination) byElevation.set(level, destination = [])
-                const geographic: Point[] = part.map(([px, py]) => [
-                  Math.max(-180, Math.min(180, (px + originX - worldX) / width * 360 - 180)),
-                  Math.atan(Math.sinh(Math.PI * (1 - (py + originY) / width * 2))) * 180 / Math.PI,
-                ])
-                destination.push(geographic)
+          const blockSize = Math.min(contourBlockSize, size)
+          const firstBlockX = Math.max(0, Math.floor((bounds.left - 0.5) / blockSize))
+          const lastBlockX = Math.min(size / blockSize - 1, Math.floor((bounds.right - 0.5) / blockSize))
+          const firstBlockY = Math.max(0, Math.floor((bounds.top - 0.5) / blockSize))
+          const lastBlockY = Math.min(size / blockSize - 1, Math.floor((bounds.bottom - 0.5) / blockSize))
+          for (let row = firstBlockY; row <= lastBlockY; row += 1) {
+            for (let column = firstBlockX; column <= lastBlockX; column += 1) {
+              for await (const block of readContourBlock(key, nativeGrid, size,
+                column * blockSize, row * blockSize, blockSize, bounds, signal)) {
+                if (block.tile === 'too-dense') return { status: 'zoom-in' }
+                const blockBounds = {
+                  left: bounds.left - block.offsetX, right: bounds.right - block.offsetX,
+                  top: bounds.top - block.offsetY, bottom: bounds.bottom - block.offsetY,
+                }
+                visibleData ||= hasVisibleData(block.tile.coverage, blockBounds, block.size)
+                for (const [level, lines] of block.tile.byElevation) {
+                  for (const line of lines) {
+                    for (const part of clipLine(line, blockBounds)) {
+                      positions += part.length
+                      if (positions > maximumResponsePositions) return { status: 'zoom-in' }
+                      let destination = byElevation.get(level)
+                      if (!destination) byElevation.set(level, destination = [])
+                      const geographic: Point[] = part.map(([px, py]) => [
+                        Math.max(-180, Math.min(180, (px + originX + block.offsetX - worldX) / width * 360 - 180)),
+                        Math.atan(Math.sinh(Math.PI * (1 - (py + originY + block.offsetY) / width * 2))) * 180 / Math.PI,
+                      ])
+                      destination.push(geographic)
+                    }
+                  }
+                }
               }
             }
           }
