@@ -15,6 +15,7 @@ import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
+import WorldOfflineController from '#controllers/world_offline_controller'
 import NomadMdController from '#controllers/nomad_md_controller'
 import OllamaController from '#controllers/ollama_controller'
 import OpenApiController from '#controllers/openapi_controller'
@@ -92,6 +93,10 @@ import {
 import { updateNomadMdSchema } from '#validators/nomad_md'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
 import { conditionDrugsValidator } from '#validators/conditions'
+import {
+  worldDownloadValidator, worldErrorResponse, worldInventoryResponse,
+  worldJobActionValidator, worldOperationResponse, worldRemoveValidator,
+} from '#validators/world_offline'
 
 transmit.registerRoutes()
 
@@ -253,6 +258,51 @@ router
     })
   })
   .prefix('/api/maps')
+
+const worldWriteErrors = {
+  400: worldErrorResponse,
+  403: worldErrorResponse,
+  404: worldErrorResponse,
+  409: worldErrorResponse,
+  415: worldErrorResponse,
+  422: { description: 'Invalid request' },
+  503: worldErrorResponse,
+  507: worldErrorResponse,
+}
+router.group(() => {
+  documented(router.get('/', [WorldOfflineController, 'index']), {
+    summary: 'List worldwide packs and current map activity',
+    tags: ['maps'],
+    responses: { 200: worldInventoryResponse, 404: worldErrorResponse },
+  })
+  documented(router.post('/download', [WorldOfflineController, 'download']), {
+    summary: 'Queue a worldwide map package',
+    tags: ['maps'],
+    request: worldDownloadValidator,
+    responses: { 202: worldOperationResponse, ...worldWriteErrors },
+  })
+  documented(router.post('/remove', [WorldOfflineController, 'remove']), {
+    summary: 'Remove a managed worldwide map package',
+    tags: ['maps'],
+    request: worldRemoveValidator,
+    responses: { 200: worldOperationResponse, ...worldWriteErrors },
+  })
+  const controls = [
+    ['cancel', 'Cancel the current map task', 200],
+    ['pause', 'Pause the current map task', 200],
+    ['resume', 'Queue resumption of the paused map task', 202],
+    ['retry', 'Queue another attempt at the failed map task', 202],
+    ['discard', 'Free disk space used by an interrupted map task', 200],
+  ] as const
+  for (const [action, summary, code] of controls) {
+    documented(router.post('/' + action, [WorldOfflineController, action]), {
+      summary,
+      tags: ['maps'],
+      request: worldJobActionValidator,
+      responses: { [code]: worldOperationResponse, ...worldWriteErrors },
+    })
+  }
+}).prefix('/api/maps/world-offline')
 
 router
   .group(() => {

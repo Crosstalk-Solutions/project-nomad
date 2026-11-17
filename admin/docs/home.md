@@ -37,6 +37,8 @@ Navigate and explore maps without an internet connection. Download regions you n
 
 **[Open Maps →](/maps)**
 
+For worldwide imagery and shaded relief, see [World offline maps](/docs/world-offline).
+
 ### Benchmark Your Hardware
 Run a System Benchmark to see how your hardware performs and compare your NOMAD Score with the community leaderboard.
 

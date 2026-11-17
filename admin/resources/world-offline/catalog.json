@@ -1,0 +1,257 @@
+[
+  {
+    "id": "blue-marble-z4",
+    "downloadBytes": 21222591,
+    "files": [
+      "raster-lab-world-blue-marble-z4-12.pmtiles",
+      "raster-lab-world-blue-marble-z4-11.pmtiles",
+      "raster-lab-world-blue-marble-z4-10.pmtiles",
+      "raster-lab-world-blue-marble-z4-09.pmtiles",
+      "raster-lab-world-blue-marble-z4-08.pmtiles",
+      "raster-lab-world-blue-marble-z4-07.pmtiles",
+      "raster-lab-world-blue-marble-z4-06.pmtiles",
+      "raster-lab-world-blue-marble-z4-05.pmtiles",
+      "raster-lab-world-blue-marble-z4-04.pmtiles",
+      "raster-lab-world-blue-marble-z4-03.pmtiles",
+      "raster-lab-world-blue-marble-z4-02.pmtiles",
+      "raster-lab-world-blue-marble-z4-01.pmtiles"
+    ],
+    "role": "blue-marble",
+    "minZoom": 0,
+    "maxZoom": 4,
+    "metersPerPixel": 8000,
+    "estimatedInstalledBytes": 27000000,
+    "temporaryBytes": 268435456
+  },
+  {
+    "id": "blue-marble",
+    "downloadBytes": 271010937,
+    "files": [
+      "raster-lab-world-blue-marble-12.pmtiles",
+      "raster-lab-world-blue-marble-11.pmtiles",
+      "raster-lab-world-blue-marble-10.pmtiles",
+      "raster-lab-world-blue-marble-09.pmtiles",
+      "raster-lab-world-blue-marble-08.pmtiles",
+      "raster-lab-world-blue-marble-07.pmtiles",
+      "raster-lab-world-blue-marble-06.pmtiles",
+      "raster-lab-world-blue-marble-05.pmtiles",
+      "raster-lab-world-blue-marble-04.pmtiles",
+      "raster-lab-world-blue-marble-03.pmtiles",
+      "raster-lab-world-blue-marble-02.pmtiles",
+      "raster-lab-world-blue-marble-01.pmtiles"
+    ],
+    "role": "blue-marble",
+    "minZoom": 0,
+    "maxZoom": 6,
+    "metersPerPixel": 2000,
+    "estimatedInstalledBytes": 306381280,
+    "temporaryBytes": 1610612736
+  },
+  {
+    "id": "blue-marble-z8",
+    "downloadBytes": 4317226744,
+    "files": [
+      "raster-lab-world-blue-marble-z8-12.pmtiles",
+      "raster-lab-world-blue-marble-z8-11.pmtiles",
+      "raster-lab-world-blue-marble-z8-10.pmtiles",
+      "raster-lab-world-blue-marble-z8-09.pmtiles",
+      "raster-lab-world-blue-marble-z8-08.pmtiles",
+      "raster-lab-world-blue-marble-z8-07.pmtiles",
+      "raster-lab-world-blue-marble-z8-06.pmtiles",
+      "raster-lab-world-blue-marble-z8-05.pmtiles",
+      "raster-lab-world-blue-marble-z8-04.pmtiles",
+      "raster-lab-world-blue-marble-z8-03.pmtiles",
+      "raster-lab-world-blue-marble-z8-02.pmtiles",
+      "raster-lab-world-blue-marble-z8-01.pmtiles"
+    ],
+    "role": "blue-marble",
+    "minZoom": 0,
+    "maxZoom": 8,
+    "metersPerPixel": 500,
+    "estimatedInstalledBytes": 3520000000,
+    "temporaryBytes": 4294967296
+  },
+  {
+    "id": "satellite-z8",
+    "downloadBytes": 1023000000,
+    "files": [
+      "raster-lab-world-satellite-z8.pmtiles"
+    ],
+    "maxZoom": 8,
+    "metersPerPixel": 305.7,
+    "temporaryBytes": 1291435456,
+    "minZoom": 0,
+    "role": "satellite",
+    "estimatedInstalledBytes": 1023000000
+  },
+  {
+    "id": "satellite-z9",
+    "downloadBytes": 2850000000,
+    "files": [
+      "raster-lab-world-satellite-z9.pmtiles"
+    ],
+    "maxZoom": 9,
+    "metersPerPixel": 152.9,
+    "temporaryBytes": 3118435456,
+    "minZoom": 0,
+    "role": "satellite",
+    "estimatedInstalledBytes": 2850000000
+  },
+  {
+    "id": "satellite-z10",
+    "downloadBytes": 9120000000,
+    "files": [
+      "raster-lab-world-satellite-z10.pmtiles"
+    ],
+    "maxZoom": 10,
+    "metersPerPixel": 76.4,
+    "temporaryBytes": 9388435456,
+    "minZoom": 0,
+    "role": "satellite",
+    "estimatedInstalledBytes": 9120000000
+  },
+  {
+    "id": "satellite-z11",
+    "downloadBytes": 31318000000,
+    "files": [
+      "raster-lab-world-satellite-z11.pmtiles"
+    ],
+    "maxZoom": 11,
+    "metersPerPixel": 38.2,
+    "temporaryBytes": 31586435456,
+    "minZoom": 0,
+    "role": "satellite",
+    "estimatedInstalledBytes": 31318000000
+  },
+  {
+    "id": "satellite-z12",
+    "downloadBytes": 102828000000,
+    "files": [
+      "raster-lab-world-satellite-z12.pmtiles"
+    ],
+    "maxZoom": 12,
+    "metersPerPixel": 19.1,
+    "temporaryBytes": 103096435456,
+    "minZoom": 0,
+    "role": "satellite",
+    "estimatedInstalledBytes": 102828000000
+  },
+  {
+    "id": "topo-z9",
+    "downloadBytes": 2155245900,
+    "files": [
+      "raster-lab-world-topo-z9.pmtiles"
+    ],
+    "legacy": true,
+    "maxZoom": 9,
+    "metersPerPixel": 152.9,
+    "temporaryBytes": 2854730536,
+    "minZoom": 9
+  },
+  {
+    "id": "topo-z10",
+    "downloadBytes": 10716150700,
+    "files": [
+      "raster-lab-world-topo-z10.pmtiles"
+    ],
+    "legacy": true,
+    "maxZoom": 10,
+    "metersPerPixel": 76.4,
+    "temporaryBytes": 13127816296,
+    "minZoom": 9
+  },
+  {
+    "id": "topo-z11",
+    "downloadBytes": 33839754500,
+    "files": [
+      "raster-lab-world-topo-z11.pmtiles"
+    ],
+    "legacy": true,
+    "maxZoom": 11,
+    "metersPerPixel": 38.2,
+    "temporaryBytes": 40876140856,
+    "minZoom": 9
+  },
+  {
+    "id": "topo-z12",
+    "downloadBytes": 111916682000,
+    "files": [
+      "raster-lab-world-topo-z12.pmtiles"
+    ],
+    "legacy": true,
+    "maxZoom": 12,
+    "metersPerPixel": 19.1,
+    "temporaryBytes": 134568453856,
+    "minZoom": 9
+  },
+  {
+    "id": "earth-relief-z8",
+    "role": "topography",
+    "minZoom": 0,
+    "maxZoom": 8,
+    "metersPerPixel": 305.7,
+    "downloadBytes": 1297145576,
+    "temporaryBytes": 1825010148,
+    "files": [
+      "raster-lab-world-earth-relief-z8.pmtiles"
+    ]
+  },
+  {
+    "id": "earth-relief-z9",
+    "role": "topography",
+    "minZoom": 0,
+    "maxZoom": 9,
+    "metersPerPixel": 152.9,
+    "downloadBytes": 3452391476,
+    "temporaryBytes": 4411305228,
+    "files": [
+      "raster-lab-world-earth-relief-z8.pmtiles",
+      "raster-lab-world-earth-relief-z9.pmtiles"
+    ]
+  },
+  {
+    "id": "earth-relief-z10",
+    "role": "topography",
+    "minZoom": 0,
+    "maxZoom": 10,
+    "metersPerPixel": 76.4,
+    "downloadBytes": 12013296276,
+    "temporaryBytes": 14684390988,
+    "files": [
+      "raster-lab-world-earth-relief-z8.pmtiles",
+      "raster-lab-world-earth-relief-z9.pmtiles",
+      "raster-lab-world-earth-relief-z10.pmtiles"
+    ]
+  },
+  {
+    "id": "earth-relief-z11",
+    "role": "topography",
+    "minZoom": 0,
+    "maxZoom": 11,
+    "metersPerPixel": 38.2,
+    "downloadBytes": 35136900076,
+    "temporaryBytes": 42432715548,
+    "files": [
+      "raster-lab-world-earth-relief-z8.pmtiles",
+      "raster-lab-world-earth-relief-z9.pmtiles",
+      "raster-lab-world-earth-relief-z10.pmtiles",
+      "raster-lab-world-earth-relief-z11.pmtiles"
+    ]
+  },
+  {
+    "id": "earth-relief-z12",
+    "role": "topography",
+    "minZoom": 0,
+    "maxZoom": 12,
+    "metersPerPixel": 19.1,
+    "downloadBytes": 113213827576,
+    "temporaryBytes": 136125028548,
+    "files": [
+      "raster-lab-world-earth-relief-z8.pmtiles",
+      "raster-lab-world-earth-relief-z9.pmtiles",
+      "raster-lab-world-earth-relief-z10.pmtiles",
+      "raster-lab-world-earth-relief-z11.pmtiles",
+      "raster-lab-world-earth-relief-z12.pmtiles"
+    ]
+  }
+]

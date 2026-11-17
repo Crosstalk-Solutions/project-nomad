@@ -6,11 +6,11 @@ import Map, {
   ScaleControl,
 } from 'react-map-gl/maplibre'
 import type { MapLayerMouseEvent, MapRef } from 'react-map-gl/maplibre'
-import maplibregl from 'maplibre-gl'
+import maplibregl, { type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-import { Protocol } from 'pmtiles'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { PMTiles, Protocol } from 'pmtiles'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useMapMarkers } from '~/hooks/useMapMarkers'
 
@@ -20,6 +20,11 @@ import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitSelector'
+import LayerSelector, { NorthUpNavigation, type MapLayerMode } from './LayerSelector'
+import { coverageTarget, hasCoverage, inVisibleView, localArchiveUrl, readOfflineLayers, styleWithOfflineLayer,
+  styleWithStreets, withEarthRelief, withWorldRaster, type MapCamera } from './mapLayerStyles'
+import { archiveRequestUrl, useOfflineMapData } from './offlineMapData'
+import './layerSelector.css'
 
 type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
@@ -31,6 +36,8 @@ type MapCommand = {
 }
 
 type MapComponentProps = {
+  worldOfflineEnabled?: boolean
+  worldOfflineNorthLocked?: boolean
   mapCommand?: MapCommand | null
   isHoveringUI?: boolean
   showCoordinatesEnabled?: boolean
@@ -43,6 +50,36 @@ type MapLocationParams = {
 }
 
 const SAVED_MAP_VIEW_KEY = 'nomad:map-view'
+const SAVED_OFFLINE_LAYER_KEY = 'nomad:offline-map-layer'
+const SAVED_STREET_OVERLAY_KEY = 'nomad:offline-map-street-overlay'
+const SAVED_BLUE_MARBLE_MONTH_KEY = 'nomad:offline-map-blue-marble-month'
+const EMPTY_MAP_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#cccccc' } }],
+}
+
+type LayerView = { mode: MapLayerMode; streetOverlay: boolean; month: number }
+const DEFAULT_LAYER_VIEW: LayerView = { mode: 'street', streetOverlay: true, month: 12 }
+
+function getSavedOfflineLayer(): LayerView {
+  const params = new URLSearchParams(window.location.search)
+  let requested = params.get('layer')
+  let overlay = params.get('street')
+  let month = params.get('month')
+  try {
+    requested ??= localStorage.getItem(SAVED_OFFLINE_LAYER_KEY) ?? localStorage.getItem('nomad:raster-lab-layer')
+    overlay ??= localStorage.getItem(SAVED_STREET_OVERLAY_KEY) ?? localStorage.getItem('nomad:raster-lab-street-overlay')
+    month ??= localStorage.getItem(SAVED_BLUE_MARBLE_MONTH_KEY) ?? localStorage.getItem('nomad:raster-lab-blue-marble-month')
+  } catch {
+    // A shared map link still applies when storage is unavailable.
+  }
+  const mode = requested === 'aerial' || requested === 'topographic' || requested === 'blue-marble'
+    ? requested : 'street'
+  const ordinal = Number(month)
+  return { mode, streetOverlay: overlay !== '0',
+    month: Number.isInteger(ordinal) && ordinal >= 1 && ordinal <= 12 ? ordinal : 12 }
+}
 const DEFAULT_MAP_VIEW = { longitude: -101, latitude: 40, zoom: 3.5 }
 
 type SavedMapView = { longitude: number; latitude: number; zoom: number }
@@ -132,10 +169,22 @@ const isValidMarkerCoordinate = (marker: { longitude: number; latitude: number }
   marker.latitude <= 90
 export default function MapComponent({
                                        mapCommand,
+                                       worldOfflineEnabled = false,
+                                       worldOfflineNorthLocked = false,
                                        isHoveringUI = false,
                                        showCoordinatesEnabled = true,
                                      }: MapComponentProps) {
-  const mapRef = useRef<MapRef>(null)
+  const offlineEnabled = worldOfflineEnabled
+  const northLocked = worldOfflineEnabled && worldOfflineNorthLocked
+  const mapRef = useRef<MapRef | null>(null)
+  const setMapRef = useCallback((ref: MapRef | null) => {
+    mapRef.current = ref
+    if (northLocked) {
+      const map = ref?.getMap()
+      map?.keyboard.disableRotation()
+      map?.touchZoomRotate.disableRotation()
+    }
+  }, [northLocked])
   const animationFrameRef = useRef<number | null>(null)
   const handledMapCommandIdRef = useRef<number | null>(null)
 
@@ -161,7 +210,124 @@ export default function MapComponent({
 
   // Resolve the initial view once at mount: saved view → default. Lazy so it isn't recomputed
   // on every render.
-  const [initialViewState] = useState(() => getSavedMapView() ?? DEFAULT_MAP_VIEW)
+  const [initialViewState] = useState(() => {
+    const location = offlineEnabled ? getMapLocationParams() : null
+    return location
+      ? { longitude: location.lng, latitude: location.lat, zoom: location.zoom }
+      : getSavedMapView() ?? DEFAULT_MAP_VIEW
+  })
+  const [camera, setCamera] = useState<MapCamera>(initialViewState)
+  const [layerView, setLayerView] = useState(() => offlineEnabled ? getSavedOfflineLayer() : DEFAULT_LAYER_VIEW)
+  const { mode: requestedMode, streetOverlay, month } = layerView
+  const { style, world } = useOfflineMapData(offlineEnabled)
+  const protocolRef = useRef<Protocol | null>(null)
+  const registeredArchives = useRef(new Set<string>())
+  const failedArchiveRef = useRef(new Set<string>())
+  const [failedArchives, setFailedArchives] = useState(() => new Set<string>())
+
+  useEffect(() => {
+    const known = new Set(world.value?.flatMap(({ archives }) => archives?.map(localArchiveUrl) ?? []))
+    registeredArchives.current = known
+    const remaining = new Set<string>()
+    for (const archive of failedArchiveRef.current) {
+      if (known.has(archive)) remaining.add(archive)
+      else protocolRef.current?.add(new PMTiles(archive.slice('pmtiles://'.length)))
+    }
+    if (remaining.size !== failedArchiveRef.current.size) {
+      failedArchiveRef.current = remaining
+      setFailedArchives(remaining)
+    }
+  }, [world.value])
+
+  const refreshWorld = world.refresh
+  const handleArchiveFailure = useCallback((url: string) => {
+    const archive = archiveRequestUrl(url)
+    if (!registeredArchives.current.has(archive) || failedArchiveRef.current.has(archive)) return
+    const failures = new Set(failedArchiveRef.current).add(archive)
+    failedArchiveRef.current = failures
+    setFailedArchives(failures)
+    refreshWorld()
+  }, [refreshWorld])
+
+  const retryMapData = () => {
+    for (const archive of failedArchiveRef.current) {
+      protocolRef.current?.add(new PMTiles(archive.slice('pmtiles://'.length)))
+    }
+    failedArchiveRef.current = new Set()
+    setFailedArchives(failedArchiveRef.current)
+    style.refresh()
+    refreshWorld()
+  }
+
+  const earthRelief = world.value?.find((pack) => pack.id.startsWith('earth-relief-z'))?.archives
+  const satellite = world.value?.find((pack) => pack.id.startsWith('satellite-z'))?.archives?.[0]
+  const blueMarble = world.value?.find((pack) => pack.role === 'blue-marble' || pack.id === 'blue-marble')
+    ?.archives?.find((archive) => archive.month === month)
+  const failedEarth = !!earthRelief?.some((archive) => failedArchives.has(localArchiveUrl(archive)))
+  const failedSatellite = !!satellite && failedArchives.has(localArchiveUrl(satellite))
+  const failedMarble = !!blueMarble && failedArchives.has(localArchiveUrl(blueMarble))
+  const usableMarble = !!blueMarble && !failedMarble
+  const styleWithWorld = useMemo(() => {
+    if (!style.value) return null
+    let current = style.value
+    if (earthRelief?.length && !failedEarth) current = withEarthRelief(current, earthRelief)
+    if (satellite && !failedSatellite) current = withWorldRaster(current, 'aerial', satellite)
+    if (blueMarble && usableMarble) current = withWorldRaster(current, 'blue-marble', blueMarble)
+    return current
+  }, [style.value, earthRelief, satellite, blueMarble, failedEarth, failedSatellite, usableMarble])
+  const offlineLayers = useMemo(() => readOfflineLayers(styleWithWorld), [styleWithWorld])
+  const waitingForMaps = (!style.value && !style.failed) || (!world.value && !world.failed)
+  const renderedMode = requestedMode !== 'street' && offlineLayers[requestedMode].length ? requestedMode : 'street'
+  const missingMode = requestedMode !== 'street' && renderedMode === 'street' && !waitingForMaps ? requestedMode : undefined
+  const selectedLayers = renderedMode === 'street' ? [] : offlineLayers[renderedMode]
+  const visibleRaster = selectedLayers.filter((layer) => inVisibleView(layer, camera)).map(({ id }) => id).join('|')
+  const outsideCoverage = !!style.value && renderedMode !== 'street' && visibleRaster === ''
+  const worldOverview = selectedLayers.some((layer) => layer.overview && hasCoverage(layer, camera)) &&
+    !selectedLayers.some((layer) => !layer.overview && hasCoverage(layer, camera))
+  const requestedArchiveFailed = (requestedMode === 'aerial' && failedSatellite)
+    || (requestedMode === 'topographic' && failedEarth) || (requestedMode === 'blue-marble' && failedMarble)
+  const mapDataWarning = style.failed ? 'The map style is temporarily unavailable.'
+    : world.failed ? 'Offline map availability could not be checked.' : undefined
+  const displayedStyle = useMemo(() => {
+    if (!styleWithWorld) return EMPTY_MAP_STYLE
+    if (renderedMode === 'street' || (streetOverlay && !visibleRaster)) return styleWithStreets(styleWithWorld)
+    const active = new Set(visibleRaster.split('|'))
+    const rasters = offlineLayers[renderedMode].filter(({ id }) => active.has(id))
+    const keepStreetLabels = rasters.some((layer) => layer.worldCover) || rasters.every((layer) => layer.overview)
+    return styleWithOfflineLayer(styleWithWorld, renderedMode, rasters, keepStreetLabels, streetOverlay)
+  }, [styleWithWorld, renderedMode, offlineLayers, streetOverlay, visibleRaster])
+
+  const changeLayerView = (change: Partial<LayerView>) => {
+    const next = { ...layerView, ...change }
+    setLayerView(next)
+    try {
+      localStorage.setItem(SAVED_OFFLINE_LAYER_KEY, next.mode)
+      localStorage.setItem(SAVED_STREET_OVERLAY_KEY, next.streetOverlay ? '1' : '0')
+      localStorage.setItem(SAVED_BLUE_MARBLE_MONTH_KEY, String(next.month))
+    } catch {
+      // The current selection still applies for the life of the page.
+    }
+    const url = new URL(window.location.href)
+    if (['layer', 'street', 'month'].some((key) => url.searchParams.has(key))) {
+      url.searchParams.set('layer', next.mode)
+      url.searchParams.set('street', next.streetOverlay ? '1' : '0')
+      url.searchParams.set('month', String(next.month))
+      window.history.replaceState(window.history.state, '', url)
+    }
+  }
+
+  const syncMapBounds = useCallback(() => {
+    const bounds = mapRef.current?.getBounds()
+    if (bounds) setCamera((previous) => ({
+      ...previous,
+      view: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+    }))
+  }, [])
+
+  const goToCoverage = () => {
+    const target = coverageTarget(selectedLayers, camera)
+    if (target) mapRef.current?.flyTo({ center: [target.longitude, target.latitude], zoom: target.zoom, duration: 750 })
+  }
 
   const [cursorLngLat, setCursorLngLat] = useState<{
     lng: number
@@ -193,12 +359,21 @@ export default function MapComponent({
 
   useEffect(() => {
     const protocol = new Protocol()
-    maplibregl.addProtocol('pmtiles', protocol.tile)
+    protocolRef.current = protocol
+    maplibregl.addProtocol('pmtiles', offlineEnabled ? async (request, controller) => {
+      try {
+        return await protocol.tile(request, controller)
+      } catch (error) {
+        if (!controller.signal.aborted) handleArchiveFailure(request.url)
+        throw error
+      }
+    } : protocol.tile)
 
     return () => {
+      protocolRef.current = null
       maplibregl.removeProtocol('pmtiles')
     }
-  }, [])
+  }, [offlineEnabled, handleArchiveFailure])
 
   useEffect(() => {
     return () => {
@@ -274,8 +449,22 @@ export default function MapComponent({
   }, [])
 
   const handleMapLoad = useCallback(() => {
-    flyToLocationParams()
-  }, [flyToLocationParams])
+    if (!offlineEnabled) {
+      flyToLocationParams()
+      return
+    }
+    syncMapBounds()
+    const map = mapRef.current?.getMap()
+    if (!map) return
+    const center = map.getCenter()
+    try {
+      localStorage.setItem(SAVED_MAP_VIEW_KEY, JSON.stringify({
+        longitude: center.lng, latitude: center.lat, zoom: map.getZoom(),
+      }))
+    } catch {
+      // The camera still works when storage is unavailable.
+    }
+  }, [offlineEnabled, flyToLocationParams, syncMapBounds])
 
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
@@ -344,6 +533,7 @@ export default function MapComponent({
   return (
     <MapProvider>
       <div
+        className={offlineEnabled ? 'nomad-offline-map' : undefined}
         style={{ position: 'relative', width: '100%', height: '100vh' }}
         onMouseLeave={() => {
           setIsDraggingMap(false)
@@ -362,16 +552,22 @@ export default function MapComponent({
         }}
       >
         <Map
-          ref={mapRef}
-          reuseMaps
+          ref={setMapRef}
+          reuseMaps={!northLocked}
           style={{ width: '100%', height: '100vh' }}
           cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
-          mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
+          mapStyle={offlineEnabled ? displayedStyle : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
+          attributionControl={offlineEnabled ? { compact: true } : undefined}
           mapLib={maplibregl}
-          initialViewState={initialViewState}
+          initialViewState={northLocked ? { ...initialViewState, bearing: 0, pitch: 0 } : initialViewState}
+          {...(northLocked ? { dragRotate: false, pitchWithRotate: false, touchPitch: false, maxPitch: 0 } : {})}
           onMoveEnd={(e) => {
             // Persist the view so a refresh restores where the user was, not the default.
             const { longitude, latitude, zoom } = e.viewState
+            if (offlineEnabled) {
+              const bounds = e.target.getBounds()
+              setCamera({ longitude, latitude, zoom, view: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()] })
+            }
             try {
               localStorage.setItem(
                 SAVED_MAP_VIEW_KEY,
@@ -382,6 +578,7 @@ export default function MapComponent({
             }
           }}
           onLoad={handleMapLoad}
+          onResize={offlineEnabled ? syncMapBounds : undefined}
           onMouseDown={() => {
             setIsDraggingMap(true)
             hideCoordinates()
@@ -401,8 +598,35 @@ export default function MapComponent({
           onMouseMove={handleMouseMove}
           onMouseLeave={hideCoordinates}
         >
-          <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
-          <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
+          {northLocked ? <NorthUpNavigation />
+            : <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />}
+          {offlineEnabled ? <FullscreenControl /> : <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />}
+          {offlineEnabled && <LayerSelector
+            mode={renderedMode}
+            missingMode={missingMode}
+            checkingAvailability={waitingForMaps}
+            mapDataWarning={mapDataWarning}
+            archiveUnavailable={requestedArchiveFailed}
+            setupEnabled
+            onModeChange={(mode) => changeLayerView({ mode })}
+            onRetryData={retryMapData}
+            onKeepStreet={() => changeLayerView({ mode: 'street' })}
+            availability={{ aerial: offlineLayers.aerial.length > 0, topographic: offlineLayers.topographic.length > 0 }}
+            outsideCoverage={outsideCoverage}
+            streetOverlay={streetOverlay}
+            onStreetOverlayChange={(enabled) => changeLayerView({ streetOverlay: enabled })}
+            onGoToCoverage={goToCoverage}
+            blueMarbleAvailable={usableMarble}
+            blueMarbleMonth={month}
+            blueMarbleZoom={usableMarble ? blueMarble.maxzoom : undefined}
+            onBlueMarbleMonthChange={(selected) => changeLayerView({ month: selected })}
+            worldOverview={worldOverview}
+            worldTopographyZoom={renderedMode === 'topographic' && worldOverview
+              ? earthRelief?.[earthRelief.length - 1]?.maxzoom
+              : undefined}
+            worldSatelliteZoom={renderedMode === 'aerial' && worldOverview ? satellite?.maxzoom : undefined}
+            offerWorldSatellite={!waitingForMaps && !satellite}
+          />}
           <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
 
           {showCoordinates && cursorLngLat && (

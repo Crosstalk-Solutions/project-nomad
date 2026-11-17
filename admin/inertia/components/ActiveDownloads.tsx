@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import useDownloads, { useDownloadsProps } from '~/hooks/useDownloads'
 import { extractFileName, formatBytes } from '~/lib/util'
 import { formatSpeed } from '../../app/utils/misc'
@@ -9,6 +10,7 @@ import api from '~/lib/api'
 interface ActiveDownloadProps {
   filetype?: useDownloadsProps['filetype']
   withHeader?: boolean
+  additionalActivity?: ReactNode
 }
 
 type DownloadStatus = 'queued' | 'active' | 'stalled' | 'failed'
@@ -29,7 +31,7 @@ function getDownloadStatus(download: {
   return 'active'
 }
 
-const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) => {
+const ActiveDownloads = ({ filetype, withHeader = false, additionalActivity }: ActiveDownloadProps) => {
   const { data: downloads, invalidate } = useDownloads({ filetype })
   const [cancellingJobs, setCancellingJobs] = useState<Set<string>>(new Set())
   const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null)
@@ -296,8 +298,9 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
             )
           })
         ) : (
-          <p className="text-text-muted">No active downloads</p>
+          !additionalActivity && <p className="text-text-muted">No active downloads</p>
         )}
+        {additionalActivity}
       </div>
     </>
   )
