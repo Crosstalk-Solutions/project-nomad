@@ -26,6 +26,11 @@ test('isMapAssetPath rejects non-map paths and other /api/maps/ routes', () => {
     '/',
     '/pmtiles',
     '/basemaps-assets',
+    '/pmtiles/..%2Fstyles/app.css',
+    '/pmtiles/%2E%2E%2Ffavicon.ico',
+    '/basemaps-assets/..%2F..%2Fapi/maps/regions',
+    '/storage/maps/..%2F..%2Fstyles/app.css',
+    '/pmtiles/%E0%A4%A',
   ]) {
     assert.equal(isMapAssetPath(path), false, `${path} should not be a map asset path`)
   }

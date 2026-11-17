@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { NextFn } from '@adonisjs/core/types/http'
+import { posix } from 'node:path'
 
 // origin: ['*'] in config/cors.ts never matches a real Origin header
 // (@adonisjs/cors only wildcards on the bare string origin: '*'), and a
@@ -11,7 +12,14 @@ const MAP_ASSET_EXACT_PATHS = ['/api/maps/styles']
 const MAP_ASSET_PREFIXES = ['/pmtiles/', '/basemaps-assets/', '/storage/maps/']
 const READABLE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-export function isMapAssetPath(pathname: string): boolean {
+export function isMapAssetPath(rawPath: string): boolean {
+  // Match on the path serve-static will resolve, so ..%2F can't climb out of a prefix.
+  let pathname: string
+  try {
+    pathname = posix.normalize(decodeURIComponent(rawPath))
+  } catch {
+    return false
+  }
   return MAP_ASSET_EXACT_PATHS.includes(pathname) || MAP_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
@@ -36,6 +44,10 @@ export default class MapsCorsMiddleware {
       return response.status(204)
     }
 
-    return next()
+    await next()
+
+    // Error pages (404 etc.) leak the app version and assistant name, keep them same-origin.
+    // serve-static has already written successful files to the socket by now.
+    if (response.getStatus() >= 400) response.removeHeader('Access-Control-Allow-Origin')
   }
 }
