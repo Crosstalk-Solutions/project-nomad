@@ -298,7 +298,7 @@ export default function MapComponent({
     || (requestedMode === 'topographic' && failedEarth) || (requestedMode === 'blue-marble' && failedMarble)
   const mapDataWarning = style.failed ? 'The map style is temporarily unavailable.'
     : world.failed ? 'Offline map availability could not be checked.' : undefined
-  const displayedStyle = useMemo(() => {
+  const candidateStyle = useMemo(() => {
     if (!styleWithWorld) return EMPTY_MAP_STYLE
     if (renderedMode === 'street' || elevationOnStreet || (streetOverlay && !visibleRaster)) return styleWithStreets(styleWithWorld)
     const active = new Set(visibleRaster.split('|'))
@@ -308,6 +308,11 @@ export default function MapComponent({
     // Contour labels still need local glyphs when the Street overlay is off.
     return showingContours && styleWithWorld.glyphs ? { ...scene, glyphs: styleWithWorld.glyphs } : scene
   }, [styleWithWorld, renderedMode, offlineLayers, streetOverlay, visibleRaster, showingContours, elevationOnStreet])
+
+  // Preserve the style identity when another package changes but the visible
+  // style has the same contents. Resetting it would recreate contour sources.
+  const serializedStyle = useMemo(() => JSON.stringify(candidateStyle), [candidateStyle])
+  const displayedStyle = useMemo(() => JSON.parse(serializedStyle) as StyleSpecification, [serializedStyle])
 
   const changeLayerView = (change: Partial<LayerView>) => {
     const next = { ...layerView, ...change }

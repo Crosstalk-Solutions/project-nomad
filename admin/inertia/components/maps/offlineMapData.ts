@@ -24,7 +24,9 @@ function readInstalledPacks(value: unknown): InstalledPack[] {
   if (!Array.isArray(data?.packs)) throw new Error('Offline map inventory unavailable')
   return data.packs.filter((pack) => pack.installed && (pack.role === 'elevation' || Array.isArray(pack.archives)))
     .map(({ id, role, archives }) => role === 'elevation'
-      ? { id, role, generation: data.generation ?? archives?.map(({ sha256 }) => sha256).join(':') }
+      ? { id, role, generation: archives?.length
+        ? archives.map(({ filename, sha256 }) => filename + ':' + sha256).sort().join('|')
+        : data.generation }
       : { id, role, archives })
 }
 

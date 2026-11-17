@@ -24,7 +24,7 @@ The [World offline API notes](/docs/world-offline-api) explain package managemen
 **Base URL:** `http://<your-server>/api`
 
 **Responses:**
-- Success responses include `{ "success": true }` and an HTTP 2xx status
+- Successful responses use HTTP 2xx. The response body follows the operation's OpenAPI schema.
 - Error responses return the appropriate HTTP status (400, 404, 409, 500) with an error message
 - Long-running operations (downloads, benchmarks, embeddings) return 201 or 202 with a job/benchmark ID for polling
 

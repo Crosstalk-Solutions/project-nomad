@@ -98,7 +98,7 @@ const FAMILIES: Family[] = [
     key: 'elevation', prefix: 'elevation-z', anchor: 'world-offline-elevation',
     title: 'Elevation', name: 'Elevation', openMap: 'Open Topography with contour lines',
     mapHref: '/maps?layer=topographic&lat=-32.653&lng=-70.01&street=0',
-    openMapZoom: 8,
+    openMapZoom: 11,
     description: 'Worldwide elevation data for automatic 100 m contour lines in Topography.',
     recommendedZoom: 8,
   },
