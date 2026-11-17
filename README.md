@@ -10,6 +10,8 @@
 
 </div>
 
+**Languages:** [English](README.md) · [Português (Brasil)](README.pt-BR.md)
+
 ---
 
 Project NOMAD is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered — anytime, anywhere.
