@@ -93,7 +93,7 @@ jobs:
       # Only for runs against main itself (schedule / manual), never PRs or pushes:
       # a PR that breaks a URL already shows a red check on the PR.
       - name: Open or update the tracking issue
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TITLE: 'Catalog URLs failing on main'
@@ -118,7 +118,7 @@ jobs:
           fi
 
       - name: Close the tracking issue once URLs pass
-        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TITLE: 'Catalog URLs failing on main'
