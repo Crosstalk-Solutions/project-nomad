@@ -86,7 +86,7 @@
     "@headlessui/react": "2.2.9",
     "@inertiajs/react": "2.3.13",
     "@markdoc/markdoc": "0.5.4",
-    "@openzim/libzim": "4.0.0",
+    "@openzim/libzim": "4.7.0",
     "@protomaps/basemaps": "5.7.0",
     "@qdrant/js-client-rest": "1.16.2",
     "@scalar/api-reference": "1.62.4",
