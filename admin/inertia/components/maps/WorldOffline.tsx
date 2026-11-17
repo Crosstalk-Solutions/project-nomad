@@ -2,12 +2,12 @@ import axios from 'axios'
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { IconCheck, IconChevronDown } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Alert from '~/components/Alert'
 import StyledButton from '~/components/StyledButton'
 import StyledModal from '~/components/StyledModal'
 import ActiveDownloads from '~/components/ActiveDownloads'
-import { WORLD_OFFLINE_API } from '../../../types/world_offline.js'
+import { WORLD_OFFLINE_API, type WorldPackId } from '../../../types/world_offline.js'
 
 const API = WORLD_OFFLINE_API
 const QUERY_KEY = ['world-offline'] as const
@@ -16,10 +16,7 @@ const MONTH_COUNT = 12
 const MONTH_FORMAT = new Intl.DateTimeFormat('en', { month: 'long', timeZone: 'UTC' })
 
 type ZoomLevel = 8 | 9 | 10 | 11 | 12
-type FamilyKey = 'marble' | 'satellite' | 'earth'
-type WorldPackId =
-  | 'blue-marble-z4' | 'blue-marble' | 'blue-marble-z8'
-  | `satellite-z${ZoomLevel}` | `earth-relief-z${ZoomLevel}`
+type FamilyKey = 'marble' | 'satellite' | 'earth' | 'elevation'
 type PackId = WorldPackId | 'relief' | 'terrain' | `topo-z${Exclude<ZoomLevel, 8>}`
 type PackStatus = { downloadBytes: number; installedBytes?: number; installed: boolean }
 type WorldPack = PackStatus & {
@@ -68,7 +65,9 @@ type Family = {
   name: string
   openMap: string
   mapHref: string
+  openMapZoom?: number
   description?: string
+  recommendedZoom?: number
 }
 type FamilyPacks = {
   family: Family
@@ -94,6 +93,14 @@ const FAMILIES: Family[] = [
     title: 'Earth Relief', name: 'Earth Relief', openMap: 'Open map',
     mapHref: '/maps?layer=topographic&lat=-32.653&lng=-70.01&street=0',
     description: 'Worldwide shaded relief by VersaTiles',
+  },
+  {
+    key: 'elevation', prefix: 'elevation-z', anchor: 'world-offline-elevation',
+    title: 'Elevation', name: 'Elevation', openMap: 'Open Topography to inspect elevation',
+    mapHref: '/maps?layer=topographic&lat=-32.653&lng=-70.01&street=0',
+    openMapZoom: 8,
+    description: 'Worldwide elevation data for point lookup, A–B profiles, and 100 m contour lines in Topography.',
+    recommendedZoom: 8,
   },
 ]
 
@@ -192,7 +199,7 @@ function PackageTable({ group, job, disabled, onReview, legacyEarth, freeBytes }
           {family.description && <p className="text-sm text-text-muted">{family.description}</p>}
         </div>
         {installed && (
-          <a href={family.mapHref + '&zoom=' + (family.key === 'earth' ? installed.maxZoom : 2)}
+          <a href={family.mapHref + '&zoom=' + (family.openMapZoom ?? (family.key === 'earth' ? installed.maxZoom : 2))}
             aria-label={family.openMap}
             className="inline-flex min-h-9 items-center rounded px-1 text-sm font-medium text-text-primary underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">
             Open map
@@ -227,6 +234,9 @@ function PackageTable({ group, job, disabled, onReview, legacyEarth, freeBytes }
                 <th scope="row" role="rowheader" className="font-medium whitespace-nowrap sm:px-1 sm:py-2">
                   <span className="block text-xs font-normal text-text-muted sm:hidden" aria-hidden="true">Zoom</span>
                   0–{pack.maxZoom}
+                  {pack.maxZoom === family.recommendedZoom && (
+                    <span className="block break-words whitespace-normal text-xs font-normal text-text-muted">Recommended</span>
+                  )}
                 </th>
                 <td role="cell" className="min-w-0 tabular-nums sm:px-2 sm:py-2">
                   <span className="block text-xs text-text-muted sm:hidden">Resolution</span>
@@ -372,7 +382,7 @@ function PackageReview({ review, group, disabled, freeBytes, pending, error, onC
                 : 'Keep the lower zooms using map files already on this NOMAD.'}
                 {pack.reclaimBytes !== undefined && pack.reclaimBytes > 0 && ' About ' + formatSize(pack.reclaimBytes) + ' will be freed.'}</p>
             )}
-            {installed && <p>Your current map stays available until the new files are verified.</p>}
+            {installed && <p>Your current {family.key === 'elevation' ? 'elevation data' : 'map'} stays available until the new files are verified.</p>}
           </>
         )}
         {error && <p role="alert" className="text-desert-red">{error}</p>}
@@ -396,6 +406,14 @@ export default function WorldOffline() {
   const [announcement, announce] = useState('')
   const state = useWorldState()
   const inventory = state.data?.packs ?? []
+  const loaded = !!state.data
+  useEffect(() => {
+    if (!loaded) return
+    const family = FAMILIES.find(({ anchor }) => window.location.hash === '#' + anchor)
+    if (!family) return
+    document.getElementById(family.anchor + '-title')?.focus({ preventScroll: true })
+    document.getElementById(family.anchor)?.scrollIntoView()
+  }, [loaded])
   const groups = FAMILIES.map((family) => groupPacks(family, inventory))
   const reviewGroup = review && groups.find(({ family }) => family.key === review.family)
   const legacyEarth = inventory.some((pack) => pack.id.startsWith('topo-z') && pack.installed)

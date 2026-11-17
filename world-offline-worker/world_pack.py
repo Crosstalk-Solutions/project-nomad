@@ -1,7 +1,7 @@
 """Queue and publish the optional world map datasets in the raster laboratory."""
 
 from contextlib import ExitStack
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import errno
 from hashlib import sha256
@@ -17,7 +17,8 @@ import time
 
 from satellite_provider import (SATELLITE, TOPOGRAPHY, TOPO_MAP_ATTRIBUTION, ESTIMATED_BYTES as SATELLITE_SIZES,
                                 SOURCE_PAGE as SATELLITE_PAGE, TOPO_ESTIMATED_BYTES as TOPO_SIZES, TOPO_PAGE,
-                                checkpoint_lock, fetch_versatiles, prepare_versatiles, valid_source, verify_versatiles)
+                                ELEVATION, ELEVATION_MAP_ATTRIBUTION, ELEVATION_PAGE, VersaDataset, checkpoint_lock,
+                                fetch_versatiles, prepare_versatiles, valid_source, verify_versatiles)
 from world_provider import (ASSETS as ORIGINAL_ASSETS, DETAIL_VRT_LEVELS, Asset, InvalidPreparedArchive, InvalidSourceArchive,
                             WorldAssetError, _resume_metadata, _run_pmtiles, _verify_archive)
 
@@ -53,10 +54,49 @@ ASSETS = {
 # archives, and upgrading can keep the installed files and fetch only new levels.
 EARTH_BAND_BYTES = {8: 1_297_145_576, 9: 2_155_245_900, 10: 8_560_904_800,
                     11: 23_123_603_800, 12: 78_076_927_500}
-EARTH_TIERS = {f"earth-relief-z{zoom}": zoom for zoom in EARTH_BAND_BYTES}
+# Payload and block-directory bytes measured from the published Elevation archive.
+# The first band includes z0–6. All higher bands contain exactly one zoom.
+ELEVATION_BAND_BYTES = {6: 277_950_047, 7: 670_281_006, 8: 2_260_158_041, 9: 7_313_140_813,
+                        10: 21_824_917_493, 11: 59_967_777_380, 12: 263_305_475_144}
+
+
+@dataclass(frozen=True)
+class WorldBandFamily:
+    prefix: str
+    role: str
+    title: str
+    retirement_key: str
+    dataset: VersaDataset
+    page: str
+    attribution: str
+    sizes: dict[int, int]
+
+    @property
+    def base(self):
+        return min(self.sizes)
+
+    def pack(self, zoom):
+        return f"{self.prefix}-z{zoom}"
+
+    def filename(self, zoom):
+        return f"raster-lab-world-{self.pack(zoom)}.pmtiles"
+
+    def dataset_for(self, zoom):
+        return replace(self.dataset, min_zoom=0 if zoom == self.base else zoom)
+
+    def preparation_bytes(self, size):
+        return preparation_bytes(size, self.dataset)
+
+
+EARTH = WorldBandFamily("earth-relief", "topography", "Earth Relief", "retiredEarth",
+                        TOPOGRAPHY, TOPO_PAGE, TOPO_MAP_ATTRIBUTION, EARTH_BAND_BYTES)
+ELEVATION_FAMILY = WorldBandFamily("elevation", "elevation", "Elevation", "retiredElevation",
+                                   ELEVATION, ELEVATION_PAGE, ELEVATION_MAP_ATTRIBUTION, ELEVATION_BAND_BYTES)
+BAND_FAMILIES = (EARTH, ELEVATION_FAMILY)
+BANDED_PACKS = {family.pack(zoom): (family, zoom) for family in BAND_FAMILIES for zoom in family.sizes}
 SATELLITE_TIERS = {f"satellite-z{zoom}": zoom for zoom in SATELLITE_SIZES}
 LEGACY_TOPO = {f"topo-z{zoom}": zoom for zoom in TOPO_SIZES}
-AVAILABLE = (ASSETS.keys() - LEGACY_TOPO.keys()) | EARTH_TIERS.keys()
+AVAILABLE = (ASSETS.keys() - LEGACY_TOPO.keys()) | BANDED_PACKS.keys()
 WORK_RESERVE = 256 * 1024**2
 JOB_STATE_RESERVE = 64 * 1024
 DISK_FULL = {errno.ENOSPC, errno.EDQUOT}
@@ -95,15 +135,18 @@ def world_catalog():
             if pack in SATELLITE_TIERS:
                 item.update(role="satellite", estimatedInstalledBytes=size)
         catalog.append(item)
-    for pack, maximum in EARTH_TIERS.items():
-        levels = range(8, maximum + 1)
-        size = sum(EARTH_BAND_BYTES[level] for level in levels)
-        catalog.append({
-            "id": pack, "role": "topography", "minZoom": 0, "maxZoom": maximum,
+    for pack, (family, maximum) in BANDED_PACKS.items():
+        levels = range(family.base, maximum + 1)
+        size = sum(family.sizes[level] for level in levels)
+        item = {
+            "id": pack, "role": family.role, "minZoom": 0, "maxZoom": maximum,
             "metersPerPixel": round(40075016.68557849 / (512 * 2**maximum), 1),
-            "downloadBytes": size, "temporaryBytes": preparation_bytes(size) + WORK_RESERVE,
-            "files": [earth_filename(level) for level in levels],
-        })
+            "downloadBytes": size, "temporaryBytes": family.preparation_bytes(size) + WORK_RESERVE,
+            "files": [family.filename(level) for level in levels],
+        }
+        if family.dataset.encoding:
+            item["estimatedInstalledBytes"] = size
+        catalog.append(item)
     return catalog
 
 
@@ -115,22 +158,10 @@ def read_manifest(path):
         raise WorldPackError("The Blue Marble retirement inventory is invalid.")
     if not isinstance(data.get("retiredSatellite", {}), dict):
         raise WorldPackError("The satellite retirement inventory is invalid.")
-    if not isinstance(data.get("retiredEarth", {}), dict):
-        raise WorldPackError("The Earth Relief retirement inventory is invalid.")
+    for family in BAND_FAMILIES:
+        if not isinstance(data.get(family.retirement_key, {}), dict):
+            raise WorldPackError(f"The {family.title} retirement inventory is invalid.")
     return data
-
-
-def earth_filename(level):
-    return f"raster-lab-world-earth-relief-z{level}.pmtiles"
-
-
-def earth_dataset(level):
-    return replace(TOPOGRAPHY, min_zoom=0 if level == 8 else level)
-
-
-def preparation_bytes(download_bytes):
-    # Conversion recompresses Brotli vectors to gzip for rendering in the browser.
-    return (download_bytes * 12 + 9) // 10
 
 
 def physical_size(path):
@@ -139,6 +170,14 @@ def physical_size(path):
         return details.st_blocks * 512 if S_ISREG(details.st_mode) else 0
     except FileNotFoundError:
         return 0
+
+
+def preparation_bytes(size, dataset):
+    # Brotli vector tiles are converted to gzip. Elevation WebP is copied
+    # unchanged and needs modest headroom for the PMTiles directory.
+    if dataset.source_layer:
+        return (size * 12 + 9) // 10
+    return size + max(1024**2, size // 100) if dataset.encoding else size
 
 
 def versatiles_provenance(dataset, checkpoint, size):
@@ -195,10 +234,10 @@ def digest_file(path, check_active):
 
 
 def prepare_local_band(level, origin, origin_digest, checkpoint, pmtiles, active):
-    destination = checkpoint / earth_filename(level)
+    destination = checkpoint / EARTH.filename(level)
     marker = checkpoint / "legacy-reuse.json"
     reused_from = {"sha256": origin_digest, "filename": origin.name}
-    dataset = earth_dataset(level)
+    dataset = EARTH.dataset_for(level)
     with checkpoint_lock(checkpoint / "legacy-reuse.lock", active):
         if read_state(marker, None) == reused_from and destination.is_file() and not destination.is_symlink():
             try:
@@ -322,7 +361,8 @@ class WorldPacks:
         self.replenish_state_reserve()
         self.cleanup_retired_blue_marble()
         self.cleanup_retired_satellite()
-        self.cleanup_retired_earth()
+        for family in BAND_FAMILIES:
+            self.cleanup_retired_bands(family)
         if self.job and self.job["status"] not in TERMINAL:
             if self.job.get("cancelRequested"):
                 self.update(status="cancelled", stage="cancelled", message="Download cancelled.")
@@ -360,9 +400,9 @@ class WorldPacks:
         except FileNotFoundError:
             return False
 
-    def earth_bands(self, installed):
-        pack = next((name for name in reversed(EARTH_TIERS) if name in installed), None)
-        return dict(zip(range(8, EARTH_TIERS[pack] + 1), installed[pack])) if pack else {}
+    def installed_bands(self, family, installed):
+        current = next((zoom for zoom in reversed(family.sizes) if family.pack(zoom) in installed), None)
+        return dict(zip(range(family.base, current + 1), installed[family.pack(current)])) if current else {}
 
     def legacy_topography(self, installed):
         pack = next((name for name in reversed(LEGACY_TOPO) if name in installed), None)
@@ -374,23 +414,24 @@ class WorldPacks:
                 return record
         return None
 
-    def earth_plan(self, maximum, bands, legacy):
+    def band_plan(self, family, maximum, bands, legacy=None):
         current = max(bands, default=0)
-        missing = range(max(8, current + 1), maximum + 1)
+        missing = range(max(family.base, current + 1), maximum + 1)
         reused = [level for level in missing if legacy and 9 <= level <= legacy["maxzoom"]]
         downloads = [level for level in missing if level not in reused]
         required = additional = reclaim = 0
         resumable = False
         for level in missing:
-            size = EARTH_BAND_BYTES[level]
-            checkpoint = self.work / f"earth-relief-z{level}"
-            raw = physical_size(checkpoint / "topography.versatiles")
-            partial = physical_size(checkpoint / "topography.versatiles.part")
-            converted = physical_size(checkpoint / earth_filename(level))
+            size = family.sizes[level]
+            checkpoint = self.work / family.pack(level)
+            stem = family.dataset.stem
+            raw = physical_size(checkpoint / f"{stem}.versatiles")
+            partial = physical_size(checkpoint / f"{stem}.versatiles.part")
+            converted = physical_size(checkpoint / family.filename(level))
             resumable |= bool(raw or partial or converted)
             remaining = max(0, size - max(raw, partial)) if level in downloads else 0
             additional += remaining
-            required += remaining + max(0, preparation_bytes(size) - converted)
+            required += remaining + max(0, family.preparation_bytes(size) - converted)
         for level, record in bands.items():
             if level > maximum:
                 reclaim += record["installedBytes"]
@@ -456,9 +497,8 @@ class WorldPacks:
 
     def inventory(self):
         known = self.installed_records(self.manifest_packs())
-        bands = self.earth_bands(known)
+        bands_by_role = {family.role: self.installed_bands(family, known) for family in BAND_FAMILIES}
         legacy = self.legacy_topography(known)
-        current = max(bands, default=0)
         marble = self.active_blue_marble(known)
         satellite = self.active_satellite(known)
         result = []
@@ -469,10 +509,11 @@ class WorldPacks:
             item["installed"] = bool(archives)
             if archives:
                 item.update(installedBytes=sum(archive["installedBytes"] for archive in archives), archives=archives)
-            if pack in EARTH_TIERS:
-                maximum = EARTH_TIERS[pack]
-                plan = self.earth_plan(maximum, bands, legacy)
-                item.update(covered=maximum < current, **{key: plan[key] for key in (
+            if pack in BANDED_PACKS:
+                family, maximum = BANDED_PACKS[pack]
+                bands = bands_by_role[family.role]
+                plan = self.band_plan(family, maximum, bands, legacy if family is EARTH else None)
+                item.update(covered=maximum < max(bands, default=0), **{key: plan[key] for key in (
                     "additionalDownloadBytes", "requiredFreeBytes", "reclaimBytes", "resumable",
                 )})
             if pack in BLUE_MARBLE_TIERS:
@@ -539,9 +580,9 @@ class WorldPacks:
             if (not isinstance(pack_ids, list) or not pack_ids or len(pack_ids) > len(AVAILABLE)
                     or any(not isinstance(pack, str) or pack not in AVAILABLE for pack in pack_ids)):
                 raise WorldPackError("Choose at least one available world map pack.")
-            selected_earth = EARTH_TIERS.keys() & set(pack_ids)
-            if selected_earth and len(pack_ids) != 1:
-                raise WorldPackError("Choose one Earth Relief level at a time.")
+            selected_bands = BANDED_PACKS.keys() & set(pack_ids)
+            if selected_bands and len(pack_ids) != 1:
+                raise WorldPackError("Choose one world map zoom level at a time.")
             selected_blue_marble = BLUE_MARBLE_TIERS.keys() & set(pack_ids)
             if selected_blue_marble and len(pack_ids) != 1:
                 raise WorldPackError("Choose one Blue Marble resolution at a time.")
@@ -559,8 +600,8 @@ class WorldPacks:
                 if self.job and self.job["status"] not in TERMINAL:
                     raise WorldPackError("A different world map task is already active.")
             installed = self.installed_records(self.manifest_packs())
-            if selected_earth:
-                return self.submit_earth(pack_ids[0], installed, request_id)
+            if selected_bands:
+                return self.submit_bands(pack_ids[0], installed, request_id)
             if selected_blue_marble:
                 return self.submit_blue_marble(pack_ids[0], installed, request_id)
             return self.submit_satellite(pack_ids[0], installed, request_id)
@@ -593,17 +634,19 @@ class WorldPacks:
         total = 0 if plan["operation"] == "downgrade" else sum(asset.download_bytes for asset in ORIGINAL_ASSETS[pack])
         return self.enqueue([pack], total, request_id=request_id, operation=plan["operation"])
 
-    def submit_earth(self, pack, installed, request_id=None):
+    def submit_bands(self, pack, installed, request_id=None):
         if self.job and self.job["status"] not in TERMINAL:
             if self.job["packIds"] == [pack]:
                 return {"job": dict(self.job)}
             raise WorldPackError("A world map task is already active.")
         if pack in installed:
             return self.already_installed(pack, request_id)
-        plan = self.earth_plan(EARTH_TIERS[pack], self.earth_bands(installed), self.legacy_topography(installed))
+        family, maximum = BANDED_PACKS[pack]
+        legacy = self.legacy_topography(installed) if family is EARTH else None
+        plan = self.band_plan(family, maximum, self.installed_bands(family, installed), legacy)
         if self.free_bytes() < plan["requiredFreeBytes"]:
-            raise WorldPackError("Free disk space to prepare this Earth Relief level.")
-        return self.enqueue([pack], sum(EARTH_BAND_BYTES[level] for level in plan["downloads"]),
+            raise WorldPackError(f"Free disk space to prepare this {family.title} level.")
+        return self.enqueue([pack], sum(family.sizes[level] for level in plan["downloads"]),
                             request_id=request_id, operation=plan["operation"], reusedZooms=plan["reused"])
 
     def save_receipt(self, job):
@@ -646,7 +689,7 @@ class WorldPacks:
 
     def remove(self, pack):
         with self.lock:
-            if not isinstance(pack, str) or pack not in EARTH_TIERS.keys() | BLUE_MARBLE_TIERS.keys() | SATELLITE_TIERS.keys():
+            if not isinstance(pack, str) or pack not in BANDED_PACKS.keys() | BLUE_MARBLE_TIERS.keys() | SATELLITE_TIERS.keys():
                 raise WorldPackError("Select an installed world map tier.")
             if self.job and self.job["status"] not in TERMINAL:
                 raise WorldPackError("Finish or cancel the active world map task first.")
@@ -660,58 +703,58 @@ class WorldPacks:
                 if pack != self.active_blue_marble(installed):
                     raise WorldPackError("Blue Marble changed. Refresh the installed resolution and try again.")
                 return self.replace_blue_marble(saved, pack, preserve_legacy=False)
-            if pack not in installed:
-                raise WorldPackError("Earth Relief changed. Refresh the installed level and try again.")
-            bands = self.earth_bands(installed)
-            if max(bands, default=0) != EARTH_TIERS[pack]:
-                raise WorldPackError("Earth Relief changed. Refresh the installed level and try again.")
-            retired = self.replace_earth(saved, bands, {})
+            family, maximum = BANDED_PACKS[pack]
+            bands = self.installed_bands(family, installed)
+            if pack not in installed or max(bands, default=0) != maximum:
+                raise WorldPackError(f"{family.title} changed. Refresh the installed level and try again.")
+            retired = self.replace_bands(family, saved, bands, {})
             return {"removed": True, "removedBytes": sum(record["installedBytes"] for record in retired.values())}
 
-    def replace_earth(self, saved, previous, next_bands, *, retire_legacy=False):
-        retired = read_manifest(self.manifest).get("retiredEarth", {})
-        for pack in EARTH_TIERS.keys() & saved.keys():
-            saved.pop(pack)
+    def replace_bands(self, family, saved, previous, next_bands, *, retire_legacy=False):
+        retired = read_manifest(self.manifest).get(family.retirement_key, {})
+        for zoom in family.sizes:
+            saved.pop(family.pack(zoom), None)
         if next_bands:
             highest = max(next_bands)
-            saved[f"earth-relief-z{highest}"] = [next_bands[level] for level in range(8, highest + 1)]
+            saved[family.pack(highest)] = [next_bands[level] for level in range(family.base, highest + 1)]
         if retire_legacy:
             for pack in LEGACY_TOPO.keys() & saved.keys():
                 # Keep the source file until the new maps have been verified after a restart.
                 saved.pop(pack)
         for level, record in previous.items():
             if level not in next_bands:
-                retired[f"earth-relief-z{level}"] = record
+                retired[family.pack(level)] = record
         for level in next_bands:
-            retired.pop(f"earth-relief-z{level}", None)
-        self.publish_manifest(saved, retiredEarth=retired)
-        return self.cleanup_retired_earth()
+            retired.pop(family.pack(level), None)
+        self.publish_manifest(saved, **{family.retirement_key: retired})
+        return self.cleanup_retired_bands(family)
 
-    def cleanup_retired_earth(self):
+    def cleanup_retired_bands(self, family):
         state = read_manifest(self.manifest)
-        retired = state.get("retiredEarth", {})
+        retired = state.get(family.retirement_key, {})
+        releases = {family.pack(zoom): zoom for zoom in family.sizes}
         active_names = {
             record.get("filename") for pack, records in state["packs"].items()
-            if pack in EARTH_TIERS and isinstance(records, list)
+            if pack in releases and isinstance(records, list)
             for record in records if isinstance(record, dict)
         }
         cleared = {}
         for pack, record in retired.items():
-            level = EARTH_TIERS.get(pack)
+            level = releases.get(pack)
             if level is None or not isinstance(record, dict):
                 continue
-            filename = earth_filename(level)
+            filename = family.filename(level)
             if record.get("filename") != filename or filename in active_names:
                 continue
             path = self.output / filename
             try:
                 if (path.exists() or path.is_symlink()) and not self.archive_matches(filename, record):
-                    raise WorldPackError("The retired archive does not match the Earth Relief inventory.")
-                self.clear_earth_checkpoint(level)
+                    raise WorldPackError(f"The retired archive does not match the {family.title} inventory.")
+                self.clear_band_checkpoint(family, level)
                 path.unlink(missing_ok=True)
                 cleared[pack] = record
             except (OSError, WorldPackError) as error:
-                print(f"Earth Relief retirement {pack}: {error}", flush=True)
+                print(f"{family.title} retirement {pack}: {error}", flush=True)
         if cleared:
             for pack in cleared:
                 retired.pop(pack)
@@ -720,15 +763,16 @@ class WorldPacks:
             except OSError as error:
                 # The removal is already safe. Leave the durable ledger for
                 # the next start if this compaction cannot be saved.
-                print(f"Earth Relief retirement ledger: {error}", flush=True)
+                print(f"{family.title} retirement ledger: {error}", flush=True)
         return cleared
 
-    def clear_earth_checkpoint(self, level):
-        checkpoint = self.work / f"earth-relief-z{level}"
+    def clear_band_checkpoint(self, family, level):
+        checkpoint = self.work / family.pack(level)
         if checkpoint.is_symlink():
-            raise WorldPackError("The Earth Relief checkpoint is not a local directory.")
-        for name in (earth_filename(level), "topography.versatiles", "topography.versatiles.part",
-                     "topography.resume.json", "legacy-reuse.json"):
+            raise WorldPackError(f"The {family.title} checkpoint is not a local directory.")
+        stem = family.dataset.stem
+        for name in (family.filename(level), f"{stem}.versatiles", f"{stem}.versatiles.part",
+                     f"{stem}.resume.json", "legacy-reuse.json"):
             (checkpoint / name).unlink(missing_ok=True)
 
     def clear_satellite_checkpoint(self, pack, local):
@@ -948,22 +992,22 @@ class WorldPacks:
             self.update(status="completed", stage="ready", message="Ready offline.", currentMonth=None,
                         completedMonths=len(verified), bytesDownloaded=received, speedBytesPerSecond=0)
 
-    def run_earth(self, pack, active):
-        target = EARTH_TIERS[pack]
+    def run_bands(self, pack, active):
+        family, target = BANDED_PACKS[pack]
         with self.lock:
             saved = self.manifest_packs()
             installed = self.installed_records(saved)
-            bands = self.earth_bands(installed)
+            bands = self.installed_bands(family, installed)
             if pack in installed:
                 for level in bands:
-                    self.clear_earth_checkpoint(level)
+                    self.clear_band_checkpoint(family, level)
                 self.update(status="completed", stage="ready", message="Ready offline.", speedBytesPerSecond=0)
                 return
-            legacy = self.legacy_topography(installed)
-            plan = self.earth_plan(target, bands, legacy)
+            legacy = self.legacy_topography(installed) if family is EARTH else None
+            plan = self.band_plan(family, target, bands, legacy)
             if self.free_bytes() < plan["requiredFreeBytes"]:
-                raise WorldPackError("Free disk space to prepare this Earth Relief level.")
-            self.update(status="running", stage="preparing", message="Preparing Earth Relief.",
+                raise WorldPackError(f"Free disk space to prepare this {family.title} level.")
+            self.update(status="running", stage="preparing", message=f"Preparing {family.title}.",
                         operation=plan["operation"], reusedZooms=plan["reused"])
 
         next_bands = {level: record for level, record in bands.items() if level <= target}
@@ -971,25 +1015,28 @@ class WorldPacks:
             self.update(stage="verifying", message="Checking the existing VersaTiles archive.")
             if digest_file(self.output / legacy["filename"], active) != legacy["sha256"]:
                 raise WorldPackError("The existing VersaTiles archive could not be verified for reuse.")
-        expected_total = sum(EARTH_BAND_BYTES[level] for level in plan["downloads"])
+        expected_total = sum(family.sizes[level] for level in plan["downloads"])
         received = 0
         prepared = {}
         for level in sorted(plan["downloads"] + plan["reused"]):
             active()
-            checkpoint = self.work / f"earth-relief-z{level}"
+            checkpoint = self.work / family.pack(level)
+            if checkpoint.is_symlink():
+                raise WorldPackError(f"The {family.title} checkpoint is not a local directory.")
             checkpoint.mkdir(exist_ok=True)
-            dataset = earth_dataset(level)
-            span = "0–8" if level == 8 else str(level)
+            dataset = family.dataset_for(level)
+            filename = family.filename(level)
+            span = f"0–{family.base}" if level == family.base else str(level)
             if level in plan["reused"]:
-                self.update(stage="preparing", message=f"Reusing installed Earth Relief zoom {span}.")
+                self.update(stage="preparing", message=f"Reusing installed {family.title} zoom {span}.")
                 origin = self.output / legacy["filename"]
                 ready = prepare_local_band(level, origin, legacy["sha256"], checkpoint, self.pmtiles, active)
                 provenance = {"source": "legacy-local", "reusedFrom": origin.name, "sourceSha256": legacy["sha256"]}
             else:
-                self.update(stage="downloading", message=f"Downloading Earth Relief zoom {span}.")
+                self.update(stage="downloading", message=f"Downloading {family.title} zoom {span}.")
                 previous = None
                 position = time.monotonic()
-                band_total = EARTH_BAND_BYTES[level]
+                band_total = family.sizes[level]
 
                 def progress(value):
                     nonlocal previous, position
@@ -1008,30 +1055,34 @@ class WorldPacks:
                     self.update(totalBytes=expected_total)
 
                 def preparing(size):
-                    self.update(stage="preparing", message=f"Preparing Earth Relief zoom {span}.",
+                    self.update(stage="preparing", message=f"Preparing {family.title} zoom {span}.",
                                 bytesDownloaded=received + size, speedBytesPerSecond=0)
 
                 ready, source_size = self.download_versatiles(
-                    dataset, level, checkpoint, earth_filename(level), active, progress, exact_total, preparing,
+                    dataset, level, checkpoint, filename, active, progress, exact_total, preparing,
                 )
                 received += source_size
                 provenance = versatiles_provenance(dataset, checkpoint, source_size)
 
-            if ready.is_symlink() or not ready.is_file() or ready != checkpoint / earth_filename(level):
-                raise WorldPackError("Earth Relief preparation did not return a safe local file.")
+            if ready.is_symlink() or not ready.is_file() or ready != checkpoint / filename:
+                raise WorldPackError(f"{family.title} preparation did not return a safe local file.")
             with ready.open("rb") as archive:
                 os.fsync(archive.fileno())
             next_bands[level] = {
                 "filename": ready.name, "installedBytes": ready.stat().st_size, "sha256": digest_file(ready, active),
                 "bounds": MERCATOR_BOUNDS, "minzoom": dataset.min_zoom, "maxzoom": level, "tileSize": 512,
-                "format": "mvt", "sourceLayer": dataset.source_layer, "attribution": TOPO_MAP_ATTRIBUTION,
-                "sourceUrl": TOPO_PAGE, **provenance,
+                "format": "mvt" if dataset.source_layer else "webp",
+                "attribution": family.attribution, "sourceUrl": family.page, **provenance,
             }
+            if dataset.source_layer:
+                next_bands[level]["sourceLayer"] = dataset.source_layer
+            if dataset.encoding:
+                next_bands[level]["encoding"] = dataset.encoding
             prepared[level] = ready
 
         with self.lock:
             active()
-            self.update(stage="verifying", message="Publishing verified Earth Relief.")
+            self.update(stage="verifying", message=f"Publishing verified {family.title}.")
             for level, source in prepared.items():
                 record = next_bands[level]
                 destination = self.output / record["filename"]
@@ -1039,10 +1090,10 @@ class WorldPacks:
                     os.link(source, destination, follow_symlinks=False)
                 except FileExistsError:
                     if not self.archive_matches(record["filename"], record) or digest_file(destination, active) != record["sha256"]:
-                        raise WorldPackError("An existing Earth Relief file could not be verified.")
-            self.replace_earth(saved, bands, next_bands, retire_legacy=True)
+                        raise WorldPackError(f"An existing {family.title} file could not be verified.")
+            self.replace_bands(family, saved, bands, next_bands, retire_legacy=family is EARTH)
             for level in prepared:
-                self.clear_earth_checkpoint(level)
+                self.clear_band_checkpoint(family, level)
             self.update(status="completed", stage="ready", message="Ready offline.", bytesDownloaded=received,
                         totalBytes=expected_total, speedBytesPerSecond=0)
 
@@ -1117,17 +1168,19 @@ class WorldPacks:
             files = converted(folder, filename, "satellite")
             local = folder / "local-reduction" / filename
             return files | {local, local.with_suffix(".extracting.pmtiles"), local.with_suffix(".derived.json")}
-        if pack in EARTH_TIERS:
-            active_bands = self.earth_bands(self.installed_records(self.manifest_packs()))
+        if pack in BANDED_PACKS:
+            family, maximum = BANDED_PACKS[pack]
+            active_bands = self.installed_bands(family, self.installed_records(self.manifest_packs()))
             files = set()
-            for level in range(8, EARTH_TIERS[pack] + 1):
+            for level in range(family.base, maximum + 1):
                 if level in active_bands:
                     continue
-                folder = self.work / f"earth-relief-z{level}"
-                files.update(converted(folder, earth_filename(level), "topography"))
-                files.update(folder / name for name in (
-                    "legacy-reuse.lock", "legacy-reuse.json", f".reusing-z{level}.pmtiles",
-                ))
+                folder = self.work / family.pack(level)
+                files.update(converted(folder, family.filename(level), family.dataset.stem))
+                if family is EARTH:
+                    files.update(folder / name for name in (
+                        "legacy-reuse.lock", "legacy-reuse.json", f".reusing-z{level}.pmtiles",
+                    ))
             return files
         if pack in BLUE_MARBLE_TIERS:
             files = set()
@@ -1218,8 +1271,8 @@ class WorldPacks:
         active()
         with self.lock:
             selected = tuple(self.job["packIds"])
-        if any(pack in EARTH_TIERS for pack in selected):
-            self.run_earth(selected[0], active)
+        if any(pack in BANDED_PACKS for pack in selected):
+            self.run_bands(selected[0], active)
             return
         if any(pack in BLUE_MARBLE_TIERS for pack in selected):
             if len(selected) != 1:
@@ -1328,7 +1381,7 @@ class WorldPacks:
 
         def check_exact_size(size):
             cached = max(physical_size(raw), physical_size(partial))
-            converted = preparation_bytes(size) if dataset.source_layer else size
+            converted = preparation_bytes(size, dataset)
             remaining = max(0, size - cached) + max(0, converted - physical_size(destination))
             if self.free_bytes() < remaining + WORK_RESERVE:
                 raise WorldPackError(f"Free disk space is insufficient for the measured {dataset.title} download and preparation.")

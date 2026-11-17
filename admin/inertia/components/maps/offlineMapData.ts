@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { WORLD_OFFLINE_API, type WorldInventory, type WorldPack } from '../../../types/world_offline'
 
-type InstalledPack = Pick<WorldPack, 'id' | 'role' | 'archives'>
+type InstalledPack = Pick<WorldPack, 'id' | 'role' | 'archives'> & { generation?: string }
 type Resource<T> = { value: T | null; failed: boolean }
 
 const INVENTORY_POLL_MS = 8_000
@@ -22,8 +22,10 @@ function readStyle(value: unknown): StyleSpecification {
 function readInstalledPacks(value: unknown): InstalledPack[] {
   const data = value as WorldInventory
   if (!Array.isArray(data?.packs)) throw new Error('Offline map inventory unavailable')
-  return data.packs.filter((pack) => pack.installed && Array.isArray(pack.archives))
-    .map(({ id, role, archives }) => ({ id, role, archives }))
+  return data.packs.filter((pack) => pack.installed && (pack.role === 'elevation' || Array.isArray(pack.archives)))
+    .map(({ id, role, archives }) => role === 'elevation'
+      ? { id, role, generation: data.generation ?? archives?.map(({ sha256 }) => sha256).join(':') }
+      : { id, role, archives })
 }
 
 function useLocalMapResource<T>(enabled: boolean, url: string, decode: (data: unknown) => T, pollMs = 0) {

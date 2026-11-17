@@ -138,6 +138,11 @@ def main():
     if not pmtiles.is_absolute() or not pmtiles.is_file() or not os.access(pmtiles, os.X_OK):
         raise ValueError("Set WORLD_PMTILES_BIN to an executable installed in the worker image.")
     maps, state = workspace()
+    host_disk = os.environ.get("WORLD_HOST_DISK")
+
+    def free_bytes():
+        free = shutil.disk_usage(state).free
+        return min(free, shutil.disk_usage(host_disk).free) if host_disk else free
 
     def stop(*_args):
         raise SystemExit(0)
@@ -150,7 +155,7 @@ def main():
             raise ValueError("This storage already has a world map worker.") from error
         with ThreadingHTTPServer((str(host), port), WorldHandler) as server:
             server.world_token = token
-            server.world = WorldPacks(maps, state, pmtiles, lambda: shutil.disk_usage(state).free)
+            server.world = WorldPacks(maps, state, pmtiles, free_bytes)
             print(f"World Offline worker listening on {host}:{port}", flush=True)
             server.serve_forever()
 

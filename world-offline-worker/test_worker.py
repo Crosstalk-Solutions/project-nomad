@@ -33,21 +33,23 @@ def varint(number):
     return encoded
 
 
-def make_satellite_fixture(path, maximum_zoom):
+def make_webp_fixture(path, maximum_zoom, *, minimum_zoom=0, tile_size=1):
     from io import BytesIO
 
     # A complete global tile address space with one tiny, distinct color
     # per zoom. This keeps a valid z10 archive small enough for CI.
     tiles = []
-    for zoom in range(maximum_zoom + 1):
+    zooms = range(minimum_zoom, maximum_zoom + 1)
+    for zoom in zooms:
         buffer = BytesIO()
-        Image.new("RGB", (1, 1), color=(zoom * 12, 100, 150)).save(buffer, "WEBP", lossless=True)
+        Image.new("RGB", (tile_size, tile_size), color=(128 + zoom, 100, 150)).save(buffer, "WEBP", lossless=True)
         tiles.append(buffer.getvalue())
 
-    runs = [4 ** zoom for zoom in range(maximum_zoom + 1)]
+    runs = [4 ** zoom for zoom in zooms]
     count = sum(runs)
     directory_values = [
-        len(tiles), 0, *runs[:-1], *runs, *(len(tile) for tile in tiles), 1, *([0] * maximum_zoom),
+        len(tiles), (4**minimum_zoom - 1) // 3, *runs[:-1], *runs, *(len(tile) for tile in tiles), 1,
+        *([0] * (len(tiles) - 1)),
     ]
     directory = gzip.compress(b"".join(varint(n) for n in directory_values))
     metadata = gzip.compress(b'{"format":"webp","name":"Synthetic test fixture"}')
@@ -58,10 +60,11 @@ def make_satellite_fixture(path, maximum_zoom):
         "<11Q", 127, len(directory), metadata_offset, len(metadata), tile_offset, 0,
         tile_offset, len(payload), count, len(tiles), len(tiles),
     )
-    header += bytes((1, 2, 1, 4, 0, maximum_zoom))
+    header += bytes((1, 2, 1, 4, minimum_zoom, maximum_zoom))
     header += struct.pack("<4iB2i", -1800000000, -850511288, 1800000000, 850511288, 0, 0, 0)
     assert len(header) == 127
     path.write_bytes(header + directory + metadata + payload)
+    return tiles
 
 
 class WorkerLifecycleTest(unittest.TestCase):
@@ -75,7 +78,7 @@ class WorkerLifecycleTest(unittest.TestCase):
         self.fixture = self.output / worker.ASSETS["satellite-z10"][0].filename
         self.unrelated = self.output / "user-owned.pmtiles"
         self.unrelated.write_bytes(b"user map is protected")
-        make_satellite_fixture(self.fixture, 10)
+        make_webp_fixture(self.fixture, 10)
         artifact = {
             "filename": self.fixture.name,
             "installedBytes": self.fixture.stat().st_size,
@@ -236,6 +239,74 @@ class WorkerLifecycleTest(unittest.TestCase):
         world.retry(job_id)
         self.assertEqual(self.wait_for_job(world.snapshot)["job"]["status"], "completed")
         self.assertFalse(self.fixture.exists())
+
+    def test_elevation_bands_reuse_installed_levels_and_allow_offline_reduction(self):
+        world = worker.WorldPacks(
+            self.output, self.work, Path(os.environ["WORLD_PMTILES_BIN"]), lambda: 1024**4,
+        )
+        calls = []
+
+        def fixture(dataset, zoom, checkpoint, filename, active, on_bytes, on_total, on_prepare):
+            self.assertEqual(dataset.encoding, "terrarium")
+            self.assertEqual(dataset.min_zoom, 0 if zoom == 6 else zoom)
+            active()
+            calls.append(zoom)
+            destination = checkpoint / filename
+            make_webp_fixture(destination, zoom, minimum_zoom=dataset.min_zoom)
+            on_total(1234)
+            on_bytes(1234)
+            on_prepare(1234)
+            return destination, 1234
+
+        def install(tier):
+            world.submit([f"elevation-z{tier}"])
+            result = self.wait_for_job(world.snapshot)
+            self.assertEqual(result["job"]["status"], "completed", result["job"])
+            return result
+
+        with patch.object(world, "download_versatiles", side_effect=fixture):
+            installed = install(6)
+            archive = self.output / "raster-lab-world-elevation-z6.pmtiles"
+            initial_inode = archive.stat().st_ino
+            z8 = next(item for item in installed["packs"] if item["id"] == "elevation-z8")
+            self.assertEqual(z8["additionalDownloadBytes"], 2_930_439_047)
+            upgraded = install(8)
+            self.assertEqual(calls, [6, 7, 8])
+            self.assertEqual(archive.stat().st_ino, initial_inode)
+            z8 = next(item for item in upgraded["packs"] if item["id"] == "elevation-z8")
+            self.assertTrue(z8["installed"])
+            self.assertEqual(
+                [(item["minzoom"], item["maxzoom"], item["tileSize"], item["format"], item["encoding"])
+                 for item in z8["archives"]],
+                [(0, 6, 512, "webp", "terrarium"), (7, 7, 512, "webp", "terrarium"), (8, 8, 512, "webp", "terrarium")],
+            )
+            z7 = next(item for item in upgraded["packs"] if item["id"] == "elevation-z7")
+            self.assertTrue(z7["covered"])
+            self.assertEqual(z7["additionalDownloadBytes"], 0)
+            reduced = install(7)
+            self.assertEqual(reduced["job"]["bytesDownloaded"], 0)
+            self.assertEqual(calls, [6, 7, 8])
+            self.assertFalse((self.output / "raster-lab-world-elevation-z8.pmtiles").exists())
+            self.assertTrue(archive.is_file())
+            world.remove("elevation-z7")
+            self.assertFalse(archive.exists())
+            self.assertTrue(self.fixture.is_file())
+            self.assertEqual(self.unrelated.read_bytes(), b"user map is protected")
+
+    def test_elevation_conversion_preserves_encoded_elevation_bytes(self):
+        from satellite_provider import ELEVATION, prepare_versatiles
+
+        origin = self.work / "terrain-original.pmtiles"
+        tiles = make_webp_fixture(origin, 1, tile_size=512)
+        source = self.work / "elevation.versatiles"
+        binary = Path(os.environ["WORLD_VERSATILES_BIN"])
+        pmtiles = Path(os.environ["WORLD_PMTILES_BIN"])
+        subprocess.run([binary, "convert", origin, source], check=True, capture_output=True)
+
+        converted = self.work / "terrain-converted.pmtiles"
+        prepare_versatiles(ELEVATION, source, converted, 1, pmtiles, lambda: None)
+        result = subprocess.run([pmtiles, "tile", converted, "1", "0", "0"], check=True, capture_output=True)
+        self.assertEqual(result.stdout, tiles[1], "Terrarium WebP payload must be copied byte for byte")
 
 
 if __name__ == "__main__":

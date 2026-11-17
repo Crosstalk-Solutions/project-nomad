@@ -15,6 +15,7 @@ Each installation downloads from the selected public provider and generates or p
 | **Blue Marble 2004** | NASA Earth Observatory / Reto Stöckli, Blue Marble Next Generation. Record the year, month, nominal resolution, source files, and any provider identifiers. Credit the source alongside published NASA media. [NASA source](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/) · [NASA media guidance](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
 | **Worldwide satellite** | VersaTiles satellite. Retain available archive version and per-source attributions. Global source credits include Copernicus Sentinel-2 Global Mosaic and NASA Blue Marble. The provider lists additional source terms by dataset and coverage. [Satellite tileset](https://docs.versatiles.org/basics/tilesets.html#satellite) · [Sources and licenses](https://versatiles.org/sources/) |
 | **Earth Relief** | VersaTiles Hillshade Vectors, CC BY 4.0. Carry forward the Mapzen Jörð terrain source attributions and the exact provider archive revision that supplied each band. [Hillshade tileset](https://docs.versatiles.org/basics/tilesets.html#hillshade) · [Terrain source attributions](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) |
+| **Elevation** | VersaTiles Elevation / Mapterhorn. Preserve the source revision, Terrarium encoding, tile size, native zoom bands, and per-archive output digest. Keep the Mapterhorn attribution visible for point inspection, profiles, and contours. [Elevation tileset](https://docs.versatiles.org/basics/tilesets.html#elevation) · [Mapterhorn attribution](https://mapterhorn.com/attribution) |
 
 Treat the application's code license and each provider's data terms independently. A source URL by itself identifies a location. Keep source identity, available source revision or ETag, and the expected length with the operation and the installed inventory where available. Mark a local reduction as derived from its parent package and preserve that parent provenance. Retain source credits in the inventory and show them in the map UI.
 
@@ -25,7 +26,7 @@ Use provider-published digests where available and verify them against the named
 The runtime separates map reading, downloading, and activation.
 
 - The maps UI lists packages and reads installed imagery or relief through local tile routes.
-- The download service handles source requests, resume checkpoints, preparation, and verification. Earth Relief can use separate zoom bands, and Blue Marble stages months separately.
+- The download service handles source requests, resume checkpoints, preparation, and verification. Earth Relief and Elevation can use separate zoom bands, and Blue Marble stages months separately.
 - The install operation verifies generated artifacts before committing the catalog of active archives. The previous installation remains active while a replacement is built. After the commit, reclaim only files owned by that managed package.
 
 Provision the runtime and external tools through the target environment's supported installation process. Use per-platform pinned versions or digests for tools that generate or verify archives. Verify an optional downloader can be stopped while the installed map still opens after reload.
@@ -44,6 +45,7 @@ Use a fresh checkout of the target base and small generated or reusable licensed
 | Worker and storage | Version-controlled tests with fixture HTTP sources and temporary volumes | Range and source identity checks, interrupted transfer and checkpoint restart, low disk, digest mismatch, no change to installed packages on failure, atomic commit, remove, discard, and local reduction. |
 | Browser flows | Small PMTiles fixture set and isolated application | Common table order and keyboard controls, install/upgrade feedback, only one active tier per family, Blue Marble month changes, attributions, viewport at 320 px, and preservation of the existing vector map. |
 | Offline runtime | Same fixture packs after queue stop and app restart | Local tiles load with provider traffic blocked. A failed or unavailable worker leaves the prior installation readable. |
+| Elevation analysis | Synthetic DEM fixtures and an installed local package | Point lookup, zero and negative elevations, missing samples, direct A–B profiles, contour tile seams, antimeridian handling, bounded dense views, request cancellation, and local labels after offline restart. |
 | Release runtime | Runtime image on each supported platform | Fresh storage, installation without a host-side development environment, correct native tool architecture, permissions and actual placement of persisted data. |
 | Real providers | Optional manual or scheduled run | Current source headers/versions, a small allowed sample and a real end-to-end upgrade. Record peak disk, working set, and optional full-world install on an isolated volume. |
 
@@ -79,6 +81,10 @@ assert.ok(spec.paths[endpoint]?.get, 'Inventory must be in OpenAPI')
 for (const action of ['download', 'remove', 'pause', 'resume', 'cancel', 'retry', 'discard']) {
   assert.ok(spec.paths[endpoint + '/' + action]?.post, action + ' must be in OpenAPI')
 }
+for (const suffix of ['', '/profile', '/contours']) {
+  const path = '/api/maps/elevation' + suffix
+  assert.ok(spec.paths[path]?.get, path + ' must be in OpenAPI')
+}
 const inventory = await get(endpoint)
 assert.ok(Array.isArray(inventory.packs), 'Expected an inventory with a packs array')
 JS
@@ -100,6 +106,8 @@ Review the candidate for application code, catalog metadata, source credits, doc
 
 ## What the laboratory validated
 
-The isolated NOMAD2 run verified native rendering of the three installed packages after restart with the download worker stopped and provider traffic blocked. It also exercised month changes, native map controls, drawer sizes, and mocked satellite management at desktop and narrow widths. These results describe that build and its installed data. Report production build, clean installation, restart/resume behavior, and every supported platform separately after the checks above.
+The isolated NOMAD2 run verified native rendering of the three installed visual packages after restart with the download worker stopped and provider traffic blocked. It also exercised month changes, native map controls, drawer sizes, and mocked satellite management at desktop and narrow widths.
+
+Elevation validation reused a local zoom 0–8 package of 3,208,254,075 bytes. After an offline restart, the direct São Paulo–Santos profile returned 196 samples over approximately 54.4 km. The Serra do Mar viewport rendered labeled 100 m contours in 2D. Synthetic tests covered flat ocean, absent data, dense tiles, seams, saddles, and the antimeridian. These results describe that build and its installed data. Report production build, clean installation, restart/resume behavior, and every supported platform separately after the checks above.
 
 See the [user manual](/docs/world-offline) and [API notes](/docs/world-offline-api).

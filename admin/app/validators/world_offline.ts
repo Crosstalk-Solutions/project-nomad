@@ -4,6 +4,8 @@ import { WORLD_PACK_IDS } from '../../types/world_offline.js'
 const id = () => vine.string().regex(/^[a-f0-9]{32}$/)
 const bytes = () => vine.number().min(0).withoutDecimals()
 const zoom = () => vine.number().min(0).max(24).withoutDecimals()
+const latitude = () => vine.number({ strict: true }).min(-90).max(90)
+const longitude = () => vine.number({ strict: true }).min(-180).max(180)
 
 export const worldDownloadValidator = vine.compile(vine.object({
   packIds: vine.array(vine.enum(WORLD_PACK_IDS)).minLength(1).maxLength(1),
@@ -12,6 +14,85 @@ export const worldDownloadValidator = vine.compile(vine.object({
 export const worldRemoveValidator = vine.compile(vine.object({ packId: vine.enum(WORLD_PACK_IDS) }))
 export const worldJobActionValidator = vine.compile(vine.object({ id: id() }))
 export const worldErrorResponse = vine.compile(vine.object({ message: vine.string() }))
+export const worldElevationQuery = vine.compile(vine.object({
+  lat: latitude(),
+  lng: longitude(),
+}))
+export const worldElevationProfileQuery = vine.compile(vine.object({
+  latA: latitude(),
+  lngA: longitude(),
+  latB: latitude(),
+  lngB: longitude(),
+}))
+const viewportLongitude = () => vine.number({ strict: true }).min(-1e6).max(1e6)
+export const worldElevationContoursQuery = vine.compile(vine.object({
+  west: viewportLongitude(),
+  south: latitude(),
+  east: viewportLongitude(),
+  north: latitude(),
+  zoom: vine.number({ strict: true }).min(0).max(24),
+}))
+
+function parseElevationCoordinate(value: unknown) {
+  // Vine's default numeric coercion would turn a blank query parameter into zero.
+  const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
+  return typeof value === 'string' && decimal.test(value.trim()) ? Number(value) : value
+}
+
+export function validateWorldElevationQuery(query: Record<string, unknown>) {
+  return worldElevationQuery.validate({ lat: parseElevationCoordinate(query.lat), lng: parseElevationCoordinate(query.lng) })
+}
+
+export function validateWorldElevationProfileQuery(query: Record<string, unknown>) {
+  return worldElevationProfileQuery.validate({
+    latA: parseElevationCoordinate(query.latA), lngA: parseElevationCoordinate(query.lngA),
+    latB: parseElevationCoordinate(query.latB), lngB: parseElevationCoordinate(query.lngB),
+  })
+}
+
+export function validateWorldElevationContoursQuery(query: Record<string, unknown>) {
+  return worldElevationContoursQuery.validate({
+    west: parseElevationCoordinate(query.west), south: parseElevationCoordinate(query.south),
+    east: parseElevationCoordinate(query.east), north: parseElevationCoordinate(query.north),
+    zoom: parseElevationCoordinate(query.zoom),
+  })
+}
+
+export const worldElevationResponse = vine.compile(vine.object({
+  status: vine.enum(['ok', 'not-installed', 'no-data']),
+  elevationMeters: vine.number().optional(),
+  zoom: zoom().optional(),
+}))
+
+export const worldElevationProfileResponse = vine.compile(vine.object({
+  status: vine.enum(['ok', 'not-installed', 'no-data']),
+  distanceMeters: vine.number().min(0).optional(),
+  stepMeters: vine.number().min(0).optional(),
+  samples: vine.array(vine.object({
+    lat: latitude(),
+    lng: longitude(),
+    distanceMeters: vine.number().min(0),
+    elevationMeters: vine.number().nullable(),
+    zoom: zoom().nullable(),
+  })).optional(),
+}))
+
+export const worldElevationContoursResponse = vine.compile(vine.object({
+  status: vine.enum(['ok', 'not-installed', 'no-data', 'zoom-in']),
+  dataZoom: zoom().optional(),
+  intervalMeters: vine.number().min(100).max(100).optional(),
+  geojson: vine.object({
+    type: vine.enum(['FeatureCollection']),
+    features: vine.array(vine.object({
+      type: vine.enum(['Feature']),
+      properties: vine.object({ elevationMeters: vine.number() }),
+      geometry: vine.object({
+        type: vine.enum(['LineString', 'MultiLineString']),
+        coordinates: vine.array(vine.any()),
+      }),
+    })),
+  }).optional(),
+}))
 
 const archive = () => vine.object({
   filename: vine.string(),
@@ -24,6 +105,7 @@ const archive = () => vine.object({
   attribution: vine.string(),
   month: vine.number().min(1).max(12).withoutDecimals().optional(),
   format: vine.string().optional(),
+  encoding: vine.enum(['terrarium']).optional(),
   sourceLayer: vine.string().optional(),
 })
 
@@ -47,7 +129,7 @@ const job = () => vine.object({
 export const worldInventoryResponse = vine.compile(vine.object({
   packs: vine.array(vine.object({
     id: vine.string(),
-    role: vine.enum(['blue-marble', 'satellite', 'topography']).optional(),
+    role: vine.enum(['blue-marble', 'satellite', 'topography', 'elevation']).optional(),
     minZoom: zoom().optional(),
     maxZoom: zoom().optional(),
     metersPerPixel: vine.number().min(0).optional(),

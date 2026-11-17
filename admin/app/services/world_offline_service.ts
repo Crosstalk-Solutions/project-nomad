@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import app from '@adonisjs/core/services/app'
 import env from '#start/env'
 import type { WorldArchive, WorldInventory, WorldJob, WorldPack } from '../../types/world_offline.js'
+import type { LocalElevationArchive } from './world_elevation_service.js'
 
 const filenamePattern = /^raster-lab-world-[a-z0-9-]+\.pmtiles$/
 const digestPattern = /^[a-f0-9]{64}$/
@@ -64,10 +65,11 @@ export class WorldOfflineService {
     return manifest?.schemaVersion === 1 ? manifest.packs : undefined
   }
 
-  private async localPacks(): Promise<WorldPack[]> {
+  private async localPacks(role?: WorldPack['role']): Promise<WorldPack[]> {
     const directory = packDirectory()
     const [catalog, owned] = await Promise.all([this.catalog(), this.manifest()])
-    const packs = await Promise.all(catalog.map(async ({ files, ...entry }): Promise<WorldPack> => {
+    const entries = role ? catalog.filter((entry) => entry.role === role) : catalog
+    const packs = await Promise.all(entries.map(async ({ files, ...entry }): Promise<WorldPack> => {
       const unavailable = { ...entry, installed: false }
       const records = owned?.[entry.id]
       if (!Array.isArray(records) || records.length !== files.length || !files.length) return unavailable
@@ -90,6 +92,17 @@ export class WorldOfflineService {
       const covered = !!pack.role && pack.maxZoom !== undefined && pack.maxZoom < (highest.get(pack.role) ?? -1)
       return { ...pack, covered, additionalDownloadBytes: pack.installed || covered ? 0 : pack.downloadBytes }
     })
+  }
+
+  async localElevationArchives(): Promise<LocalElevationArchive[]> {
+    if (!worldOfflineEnabled()) return []
+    const installed = (await this.localPacks('elevation')).filter((pack) => pack.installed)
+      .sort((a, b) => (b.maxZoom ?? -1) - (a.maxZoom ?? -1))[0]
+    return (installed?.archives ?? []).filter((archive) => archive.encoding === 'terrarium'
+      && archive.format === 'webp' && archive.tileSize === 512
+      && archive.maxzoom >= 6 && archive.maxzoom <= 12
+      && archive.minzoom === (archive.maxzoom === 6 ? 0 : archive.maxzoom))
+      .map((archive) => ({ path: join(packDirectory(), archive.filename), archive }))
   }
 
   async managedFiles(): Promise<Set<string>> {

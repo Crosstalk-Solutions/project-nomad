@@ -20,7 +20,10 @@ import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitSelector'
-import LayerSelector, { NorthUpNavigation, type MapLayerMode } from './LayerSelector'
+import LayerSelector, { NorthUpNavigation, type ElevationTool, type MapLayerMode } from './LayerSelector'
+import ElevationInspection, { useElevationInspection, type MapPoint } from './ElevationInspection'
+import { ElevationProfileMap, ElevationProfilePanel, useElevationProfile } from './ElevationProfile'
+import { ContourStatus, ElevationContourLayer, useElevationContours } from './ElevationContours'
 import { coverageTarget, hasCoverage, inVisibleView, localArchiveUrl, readOfflineLayers, styleWithOfflineLayer,
   styleWithStreets, withEarthRelief, withWorldRaster, type MapCamera } from './mapLayerStyles'
 import { archiveRequestUrl, useOfflineMapData } from './offlineMapData'
@@ -220,6 +223,11 @@ export default function MapComponent({
   const [layerView, setLayerView] = useState(() => offlineEnabled ? getSavedOfflineLayer() : DEFAULT_LAYER_VIEW)
   const { mode: requestedMode, streetOverlay, month } = layerView
   const { style, world } = useOfflineMapData(offlineEnabled)
+  const [elevationTool, setElevationTool] = useState<ElevationTool | null>(null)
+  const [contoursEnabled, setContoursEnabled] = useState(false)
+  const { inspection, lookup: lookUpElevation, dismiss: dismissElevation } = useElevationInspection()
+  const profile = useElevationProfile()
+  const { clear: clearProfile, select: selectProfilePoint } = profile
   const protocolRef = useRef<Protocol | null>(null)
   const registeredArchives = useRef(new Set<string>())
   const failedArchiveRef = useRef(new Set<string>())
@@ -277,11 +285,26 @@ export default function MapComponent({
   }, [style.value, earthRelief, satellite, blueMarble, failedEarth, failedSatellite, usableMarble])
   const offlineLayers = useMemo(() => readOfflineLayers(styleWithWorld), [styleWithWorld])
   const waitingForMaps = (!style.value && !style.failed) || (!world.value && !world.failed)
-  const renderedMode = requestedMode !== 'street' && offlineLayers[requestedMode].length ? requestedMode : 'street'
+  const elevationPack = world.value?.find((pack) => pack.role === 'elevation')
+  const elevationOnStreet = requestedMode === 'topographic' && !!elevationPack && !offlineLayers.topographic.length
+  const renderedMode = requestedMode !== 'street' && (offlineLayers[requestedMode].length || elevationOnStreet)
+    ? requestedMode : 'street'
+  const topographyActive = offlineEnabled && renderedMode === 'topographic'
+  const activeElevationTool = topographyActive ? elevationTool : null
+  const inspectingElevation = activeElevationTool === 'point'
+  const showingElevationProfile = activeElevationTool === 'profile'
+  const hideHoverBadge = showingElevationProfile || (inspectingElevation && inspection !== null)
+  const showingContours = topographyActive && contoursEnabled
+  const { result: contours, retry: retryContours } = useElevationContours(
+    showingContours, camera, elevationPack?.generation || elevationPack?.id
+  )
+  useEffect(() => {
+    if (contoursEnabled && !topographyActive) setContoursEnabled(false)
+  }, [contoursEnabled, topographyActive])
   const missingMode = requestedMode !== 'street' && renderedMode === 'street' && !waitingForMaps ? requestedMode : undefined
   const selectedLayers = renderedMode === 'street' ? [] : offlineLayers[renderedMode]
   const visibleRaster = selectedLayers.filter((layer) => inVisibleView(layer, camera)).map(({ id }) => id).join('|')
-  const outsideCoverage = !!style.value && renderedMode !== 'street' && visibleRaster === ''
+  const outsideCoverage = !!style.value && renderedMode !== 'street' && !elevationOnStreet && visibleRaster === ''
   const worldOverview = selectedLayers.some((layer) => layer.overview && hasCoverage(layer, camera)) &&
     !selectedLayers.some((layer) => !layer.overview && hasCoverage(layer, camera))
   const requestedArchiveFailed = (requestedMode === 'aerial' && failedSatellite)
@@ -290,12 +313,14 @@ export default function MapComponent({
     : world.failed ? 'Offline map availability could not be checked.' : undefined
   const displayedStyle = useMemo(() => {
     if (!styleWithWorld) return EMPTY_MAP_STYLE
-    if (renderedMode === 'street' || (streetOverlay && !visibleRaster)) return styleWithStreets(styleWithWorld)
+    if (renderedMode === 'street' || elevationOnStreet || (streetOverlay && !visibleRaster)) return styleWithStreets(styleWithWorld)
     const active = new Set(visibleRaster.split('|'))
     const rasters = offlineLayers[renderedMode].filter(({ id }) => active.has(id))
     const keepStreetLabels = rasters.some((layer) => layer.worldCover) || rasters.every((layer) => layer.overview)
-    return styleWithOfflineLayer(styleWithWorld, renderedMode, rasters, keepStreetLabels, streetOverlay)
-  }, [styleWithWorld, renderedMode, offlineLayers, streetOverlay, visibleRaster])
+    const scene = styleWithOfflineLayer(styleWithWorld, renderedMode, rasters, keepStreetLabels, streetOverlay)
+    // Contour labels still need local glyphs when the Street overlay is off.
+    return showingContours && styleWithWorld.glyphs ? { ...scene, glyphs: styleWithWorld.glyphs } : scene
+  }, [styleWithWorld, renderedMode, offlineLayers, streetOverlay, visibleRaster, showingContours, elevationOnStreet])
 
   const changeLayerView = (change: Partial<LayerView>) => {
     const next = { ...layerView, ...change }
@@ -357,6 +382,48 @@ export default function MapComponent({
     return window.confirm('Discard unsaved marker changes?')
   }, [hasUnsavedMarkerChanges])
 
+  const stopElevationTools = useCallback(() => {
+    setElevationTool(null)
+    dismissElevation()
+    clearProfile()
+  }, [clearProfile, dismissElevation])
+
+  const changeElevationTool = (tool: ElevationTool | null) => {
+    if (!tool) {
+      stopElevationTools()
+      return
+    }
+    if (!confirmDiscardMarkerChanges()) return
+    dismissElevation()
+    clearProfile()
+    setPlacingMarker(null)
+    setSelectedMarkerId(null)
+    setEditingMarkerId(null)
+    setHasUnsavedMarkerChanges(false)
+    setTargetIndicator(null)
+    setElevationTool(tool)
+  }
+
+  useEffect(() => {
+    if (elevationTool && !activeElevationTool) stopElevationTools()
+  }, [activeElevationTool, elevationTool, stopElevationTools])
+
+  useEffect(() => {
+    if (!activeElevationTool) return
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) stopElevationTools()
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [activeElevationTool, stopElevationTools])
+
+  const handleElevationPoint = useCallback((point: MapPoint) => {
+    if (!activeElevationTool) return false
+    if (activeElevationTool === 'point') void lookUpElevation(point)
+    else selectProfilePoint(point)
+    return true
+  }, [activeElevationTool, lookUpElevation, selectProfilePoint])
+
   useEffect(() => {
     const protocol = new Protocol()
     protocolRef.current = protocol
@@ -409,6 +476,7 @@ export default function MapComponent({
     if (mapCommand.action === 'marker') {
       if (!confirmDiscardMarkerChanges()) return
 
+      stopElevationTools()
       setTargetIndicator(null)
 
       const currentZoom = mapRef.current?.getZoom() ?? 12
@@ -430,7 +498,7 @@ export default function MapComponent({
         setHasUnsavedMarkerChanges(false)
       }, 750)
     }
-  }, [mapCommand, confirmDiscardMarkerChanges])
+  }, [mapCommand, confirmDiscardMarkerChanges, stopElevationTools])
 
   useEffect(() => {
     if (!selectedMarkerId) return
@@ -468,6 +536,10 @@ export default function MapComponent({
 
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
+      if (activeElevationTool) {
+        handleElevationPoint(e.lngLat.wrap())
+        return
+      }
       if (!confirmDiscardMarkerChanges()) return
 
       setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
@@ -476,7 +548,7 @@ export default function MapComponent({
       setHasUnsavedMarkerChanges(false)
       setTargetIndicator(null)
     },
-    [confirmDiscardMarkerChanges]
+    [activeElevationTool, confirmDiscardMarkerChanges, handleElevationPoint]
   )
 
   const handleMouseMove = useCallback(
@@ -485,6 +557,7 @@ export default function MapComponent({
 
       if (
         !showCoordinatesEnabled ||
+        hideHoverBadge ||
         isHoveringUI ||
         isDraggingMap ||
         target?.closest('.maplibregl-control-container, .maplibregl-ctrl')
@@ -507,7 +580,7 @@ export default function MapComponent({
         })
       })
     },
-    [hideCoordinates, isHoveringUI, isDraggingMap, showCoordinatesEnabled]
+    [hideCoordinates, hideHoverBadge, isHoveringUI, isDraggingMap, showCoordinatesEnabled]
   )
 
 
@@ -611,7 +684,8 @@ export default function MapComponent({
             onModeChange={(mode) => changeLayerView({ mode })}
             onRetryData={retryMapData}
             onKeepStreet={() => changeLayerView({ mode: 'street' })}
-            availability={{ aerial: offlineLayers.aerial.length > 0, topographic: offlineLayers.topographic.length > 0 }}
+            availability={{ aerial: offlineLayers.aerial.length > 0, topographic: offlineLayers.topographic.length > 0 || !!elevationPack }}
+            elevationOnStreet={elevationOnStreet}
             outsideCoverage={outsideCoverage}
             streetOverlay={streetOverlay}
             onStreetOverlayChange={(enabled) => changeLayerView({ streetOverlay: enabled })}
@@ -626,16 +700,28 @@ export default function MapComponent({
               : undefined}
             worldSatelliteZoom={renderedMode === 'aerial' && worldOverview ? satellite?.maxzoom : undefined}
             offerWorldSatellite={!waitingForMaps && !satellite}
+            elevation={{
+              availability: elevationPack ? 'installed' : world.value ? 'not-installed'
+                : world.failed ? 'unavailable' : 'checking',
+              tool: activeElevationTool,
+              onChange: changeElevationTool,
+              contours: showingContours,
+              onContoursChange: setContoursEnabled,
+            }}
           />}
           <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
 
-          {showCoordinates && cursorLngLat && (
+          {showCoordinates && cursorLngLat && !hideHoverBadge && (
             <CoordinateOverlay
               latitude={cursorLngLat.lat}
               longitude={cursorLngLat.lng}
               x={cursorLngLat.x}
               y={cursorLngLat.y}
             />
+          )}
+
+          {contours?.status === 'ok' && contours.geojson.features.length > 0 && (
+            <ElevationContourLayer data={contours} glyphsAvailable={!!displayedStyle.glyphs} />
           )}
 
           {targetIndicator && (
@@ -669,6 +755,7 @@ export default function MapComponent({
                 onClick={(e) => {
                   e.originalEvent.stopPropagation()
 
+                  if (handleElevationPoint({ lat: marker.latitude, lng: marker.longitude })) return
                   if (!confirmDiscardMarkerChanges()) return
 
                   setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
@@ -688,6 +775,14 @@ export default function MapComponent({
                 />
               </Marker>
             ))}
+
+          {inspectingElevation && inspection && (
+            <ElevationInspection inspection={inspection} onClose={dismissElevation}
+              onRetry={() => { void lookUpElevation(inspection.point) }} />
+          )}
+          {showingElevationProfile && (
+            <ElevationProfileMap state={profile.state} sampleIndex={profile.sampleIndex} />
+          )}
 
           {placingMarker && (
             <MapMarkerFormPopup
@@ -767,6 +862,25 @@ export default function MapComponent({
             />
           )}
         </Map>
+        <ContourStatus result={contours} onRetry={retryContours} />
+        {inspectingElevation && (
+          <div onMouseEnter={hideCoordinates}
+            className="absolute bottom-14 left-3 right-3 z-[3] flex w-fit items-center gap-2 rounded-md border border-border-subtle bg-surface-primary py-0.5 pl-2.5 pr-1 text-text-primary shadow-md">
+            <p role="status" className="text-xs">Click the map to inspect elevation</p>
+            <button type="button" aria-label="Stop inspecting elevation" onClick={stopElevationTools}
+              className="min-h-8 rounded px-2 text-xs font-semibold hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-primary">
+              Done
+            </button>
+          </div>
+        )}
+        {showingElevationProfile && (
+          <ElevationProfilePanel state={profile.state} samePoint={profile.samePoint} sampleIndex={profile.sampleIndex}
+            onSample={profile.setSampleIndex} onClear={clearProfile} onClose={stopElevationTools} onRetry={profile.retry}
+            onUseCenter={() => {
+              const center = mapRef.current?.getCenter().wrap()
+              if (center) selectProfilePoint(center)
+            }} />
+        )}
       </div>
 
       <div onMouseEnter={hideCoordinates}>
@@ -774,7 +888,10 @@ export default function MapComponent({
           markers={markers}
           onDelete={handleDeleteMarker}
           onFlyTo={handleFlyTo}
-          onSelect={setSelectedMarkerId}
+          onSelect={(id) => {
+            if (activeElevationTool) stopElevationTools()
+            setSelectedMarkerId(id)
+          }}
           selectedMarkerId={selectedMarkerId}
           onToggleVisibility={(id, visible) => updateMarker(id, { visible })}
         />

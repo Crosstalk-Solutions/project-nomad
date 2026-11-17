@@ -20,6 +20,7 @@ Attach the service to the private Docker network used by NOMAD and give it outgo
 | `WORLD_WORKER_PORT` | `8083` inside the container |
 | `WORLD_PMTILES_BIN` | `/usr/local/bin/pmtiles` |
 | `WORLD_VERSATILES_BIN` | `/usr/local/bin/versatiles` |
+| `WORLD_HOST_DISK` | Unset. Set to a mounted host filesystem, such as `/mnt/c` on WSL, to cap available workspace by its free space. |
 
 Configure a single shared random token of at least 32 bytes between the admin's `WORLD_OFFLINE_WORKER_TOKEN` and the worker's `WORLD_WORKER_TOKEN` or `WORLD_WORKER_TOKEN_FILE`. The container accepts `X-Nomad-World-Token` and the compatibility header `X-Nomad-Lab-Token` on its internal routes. The admin talks to the worker's private service URL through `WORLD_OFFLINE_WORKER_URL`. `GET /health` only reports that the internal endpoint is reachable.
 
@@ -37,9 +38,11 @@ Package IDs, the version 1 `lab-world-archive-manifest.json` layout, archive fil
 
 New records retain the output digest, source URLs and byte counts. VersaTiles records save the provider ETag when present and the SHA-256 of the repacked local range index. Blue Marble records list the NASA files by month and expected file sizes. These are distinct from provider-published checksums. The worker prepares only the requested zooms or resolution. [NASA Blue Marble](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/) · [VersaTiles datasets](https://docs.versatiles.org/basics/tilesets.html)
 
+Elevation stores the base levels z0–6 in one archive and subsequent levels z7–12 in individual archives. An upgrade retains the installed bands and transfers the added bands. The range plan validates the provider's Terrarium metadata before fetching the selected blocks. The PMTiles conversion preserves the encoded WebP tile bytes. Published Elevation archives declare 512-pixel tiles and the Terrarium encoding for local point queries. [VersaTiles Elevation](https://docs.versatiles.org/basics/tilesets.html#elevation) · [Mapterhorn attribution](https://mapterhorn.com/attribution/)
+
 ## Test locally
 
-Build the image once, then run the synthetic fixtures from the repository root with networking disabled. The tests cover authenticated local requests, archive reduction and retirement, checkpoint cleanup, inventory recovery after a restart, and retry after a simulated disk-full error. They use temporary data outside the real map directory.
+Build the image once, then run the synthetic fixtures from the repository root with networking disabled. The tests cover authenticated local requests, archive reduction and retirement, checkpoint cleanup, inventory recovery after a restart, and retry after a simulated disk-full error. Elevation fixtures verify byte-preserving conversion and incremental upgrade and downgrade. They use temporary data outside the real map directory.
 
 ```sh
 docker run --rm -i --network none --entrypoint python nomad-world-offline-worker:local - < world-offline-worker/test_worker.py

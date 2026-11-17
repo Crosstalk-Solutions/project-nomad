@@ -40,6 +40,13 @@ TOPO_MAP_ATTRIBUTION = (
 TOPO_SOURCE_LAYER = "hillshade-vectors"
 TOPO_MIN_ZOOM = 9
 TOPO_ESTIMATED_BYTES = {9: 2_155_245_900, 10: 10_716_150_700, 11: 33_839_754_500, 12: 111_916_682_000}
+ELEVATION_URL = "https://download.versatiles.org/elevation-raster/elevation-raster.versatiles"
+ELEVATION_PAGE = "https://docs.versatiles.org/basics/tilesets.html#elevation"
+ELEVATION_ATTRIBUTION = "VersaTiles Elevation · © Mapterhorn"
+ELEVATION_MAP_ATTRIBUTION = (
+    '<a href="https://docs.versatiles.org/basics/tilesets.html#elevation">VersaTiles Elevation</a> · '
+    '<a href="https://mapterhorn.com/attribution/">© Mapterhorn</a>'
+)
 HEADER = struct.Struct(">14sBBBB4i4Q")
 BLOCK = struct.Struct(">BIIBBBBQQI")
 RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+)\Z")
@@ -57,11 +64,14 @@ class VersaDataset:
     source_header: tuple[int, int]
     pmtiles_header: tuple[int, int]
     source_layer: str = ""
+    encoding: str = ""
 
 
 SATELLITE = VersaDataset("satellite", "satellite", SOURCE_URL, ATTRIBUTION, 0, (18, 0), (1, 4))
 TOPOGRAPHY = VersaDataset("topography", "topography", TOPO_URL, TOPO_ATTRIBUTION, TOPO_MIN_ZOOM,
                           (32, 2), (2, 1), TOPO_SOURCE_LAYER)
+ELEVATION = VersaDataset("elevation", "elevation", ELEVATION_URL, ELEVATION_ATTRIBUTION,
+                         0, (18, 0), (1, 4), encoding="terrarium")
 
 
 @dataclass(frozen=True)
@@ -153,9 +163,14 @@ def build_plan(max_zoom, dataset=SATELLITE):
     metadata = json.loads(brotli_index(raw_meta) if dataset.source_header[1] == 2 else raw_meta)
     if dataset.source_layer and dataset.source_layer not in {layer["id"] for layer in metadata.get("vector_layers", [])}:
         raise WorldAssetError(f"The {dataset.title} source did not contain the expected vector layer.")
+    if dataset.encoding and (metadata.get("tile_schema") != f"dem/{dataset.encoding}"
+                             or metadata.get("tile_size") != 512):
+        raise WorldAssetError(f"The {dataset.title} source did not contain the expected elevation encoding.")
     metadata.update(maxzoom=max_zoom, attribution=dataset.attribution)
     if dataset.min_zoom:
         metadata["minzoom"] = dataset.min_zoom
+    if dataset.encoding:
+        metadata["encoding"] = dataset.encoding
     raw_meta = json.dumps(metadata, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     if dataset.source_header[1] == 2:
         raw_meta = brotli_index(raw_meta, encode=True)

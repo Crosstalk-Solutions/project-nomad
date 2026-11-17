@@ -253,5 +253,117 @@
       "raster-lab-world-earth-relief-z11.pmtiles",
       "raster-lab-world-earth-relief-z12.pmtiles"
     ]
+  },
+  {
+    "id": "elevation-z6",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 6,
+    "metersPerPixel": 1223.0,
+    "downloadBytes": 277950047,
+    "temporaryBytes": 549165003,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles"
+    ],
+    "estimatedInstalledBytes": 277950047
+  },
+  {
+    "id": "elevation-z7",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 7,
+    "metersPerPixel": 611.5,
+    "downloadBytes": 948231053,
+    "temporaryBytes": 1226148819,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles",
+      "raster-lab-world-elevation-z7.pmtiles"
+    ],
+    "estimatedInstalledBytes": 948231053
+  },
+  {
+    "id": "elevation-z8",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 8,
+    "metersPerPixel": 305.7,
+    "downloadBytes": 3208389094,
+    "temporaryBytes": 3508908440,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles",
+      "raster-lab-world-elevation-z7.pmtiles",
+      "raster-lab-world-elevation-z8.pmtiles"
+    ],
+    "estimatedInstalledBytes": 3208389094
+  },
+  {
+    "id": "elevation-z9",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 9,
+    "metersPerPixel": 152.9,
+    "downloadBytes": 10521529907,
+    "temporaryBytes": 10895180662,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles",
+      "raster-lab-world-elevation-z7.pmtiles",
+      "raster-lab-world-elevation-z8.pmtiles",
+      "raster-lab-world-elevation-z9.pmtiles"
+    ],
+    "estimatedInstalledBytes": 10521529907
+  },
+  {
+    "id": "elevation-z10",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 10,
+    "metersPerPixel": 76.4,
+    "downloadBytes": 32346447400,
+    "temporaryBytes": 32938347330,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles",
+      "raster-lab-world-elevation-z7.pmtiles",
+      "raster-lab-world-elevation-z8.pmtiles",
+      "raster-lab-world-elevation-z9.pmtiles",
+      "raster-lab-world-elevation-z10.pmtiles"
+    ],
+    "estimatedInstalledBytes": 32346447400
+  },
+  {
+    "id": "elevation-z11",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 11,
+    "metersPerPixel": 38.2,
+    "downloadBytes": 92314224780,
+    "temporaryBytes": 93505802483,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles",
+      "raster-lab-world-elevation-z7.pmtiles",
+      "raster-lab-world-elevation-z8.pmtiles",
+      "raster-lab-world-elevation-z9.pmtiles",
+      "raster-lab-world-elevation-z10.pmtiles",
+      "raster-lab-world-elevation-z11.pmtiles"
+    ],
+    "estimatedInstalledBytes": 92314224780
+  },
+  {
+    "id": "elevation-z12",
+    "role": "elevation",
+    "minZoom": 0,
+    "maxZoom": 12,
+    "metersPerPixel": 19.1,
+    "downloadBytes": 355619699924,
+    "temporaryBytes": 359444332379,
+    "files": [
+      "raster-lab-world-elevation-z6.pmtiles",
+      "raster-lab-world-elevation-z7.pmtiles",
+      "raster-lab-world-elevation-z8.pmtiles",
+      "raster-lab-world-elevation-z9.pmtiles",
+      "raster-lab-world-elevation-z10.pmtiles",
+      "raster-lab-world-elevation-z11.pmtiles",
+      "raster-lab-world-elevation-z12.pmtiles"
+    ],
+    "estimatedInstalledBytes": 355619699924
   }
 ]

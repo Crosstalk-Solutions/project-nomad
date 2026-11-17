@@ -15,6 +15,7 @@ import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
+import WorldElevationController from '#controllers/world_elevation_controller'
 import WorldOfflineController from '#controllers/world_offline_controller'
 import NomadMdController from '#controllers/nomad_md_controller'
 import OllamaController from '#controllers/ollama_controller'
@@ -94,7 +95,9 @@ import { updateNomadMdSchema } from '#validators/nomad_md'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
 import { conditionDrugsValidator } from '#validators/conditions'
 import {
-  worldDownloadValidator, worldErrorResponse, worldInventoryResponse,
+  worldDownloadValidator, worldElevationContoursQuery, worldElevationContoursResponse,
+  worldElevationProfileQuery, worldElevationProfileResponse,
+  worldElevationQuery, worldElevationResponse, worldErrorResponse, worldInventoryResponse,
   worldJobActionValidator, worldOperationResponse, worldRemoveValidator,
 } from '#validators/world_offline'
 
@@ -176,6 +179,39 @@ router
     documented(router.get('/styles', [MapsController, 'styles']), {
       summary: 'List available map styles',
       tags: ['maps'],
+    })
+    documented(router.get('/elevation', [WorldElevationController, 'inspect']), {
+      summary: 'Look up elevation at a point from the installed offline map',
+      description: 'Reads the native sample from a local elevation package. A successful lookup reports the estimated elevation in meters and the native tile zoom used.',
+      tags: ['maps'],
+      query: worldElevationQuery,
+      responses: {
+        200: worldElevationResponse,
+        422: { description: 'Invalid latitude or longitude' },
+        503: worldErrorResponse,
+      },
+    })
+    documented(router.get('/elevation/profile', [WorldElevationController, 'profile']), {
+      summary: 'Sample an elevation profile between two points using the installed offline map',
+      description: 'Returns equally spaced samples along the shortest geodesic at one native DEM zoom. Missing samples have null elevation and zoom; the sample spacing may increase on long segments.',
+      tags: ['maps'],
+      query: worldElevationProfileQuery,
+      responses: {
+        200: worldElevationProfileResponse,
+        422: { description: 'Invalid latitude or longitude' },
+        503: worldErrorResponse,
+      },
+    })
+    documented(router.get('/elevation/contours', [WorldElevationController, 'contours']), {
+      summary: 'Generate elevation contours at 100 m intervals from the installed offline map',
+      description: 'Returns GeoJSON lines with an elevationMeters property for the visible viewport at one native DEM zoom. A flat view with data returns an empty FeatureCollection. Unwrapped longitudes and antimeridian-crossing bounds are supported; wide or dense views return zoom-in.',
+      tags: ['maps'],
+      query: worldElevationContoursQuery,
+      responses: {
+        200: worldElevationContoursResponse,
+        422: { description: 'Invalid or empty viewport' },
+        503: worldErrorResponse,
+      },
     })
     documented(router.get('/curated-collections', [MapsController, 'listCuratedCollections']), {
       summary: 'List curated map collections',
