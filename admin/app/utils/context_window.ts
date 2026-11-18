@@ -191,7 +191,34 @@ export function estimateKvBytesPerToken(paramBillions: number | undefined): numb
  * activations, the graph, and whatever else shares the device. Without this the
  * arithmetic says a window fits right up to the byte and the model fails to load.
  */
-const MEMORY_SAFETY_FRACTION = 0.8
+export const MEMORY_SAFETY_FRACTION = 0.8
+
+/**
+ * Share of system RAM assumed available for CPU inference. The rest of the NOMAD
+ * stack (MySQL, Redis, Qdrant, Kiwix, the admin app itself) lives in the same
+ * pool, and a machine that starts swapping is worse than one with a small window.
+ */
+export const CPU_RAM_SHARE = 0.5
+
+/**
+ * Memory available for inference, in bytes.
+ *
+ * Prefers the VRAM figure Ollama itself reports at startup — it is the number
+ * that actually governs whether a model fits, and it already accounts for
+ * whichever device Ollama chose. Falls back to a conservative share of system
+ * RAM for CPU-only hosts (or when the GPU probe found nothing).
+ *
+ * Pure so that both the context-window resolver and the model recommender
+ * (#1477) budget against the same number without one service depending on the
+ * other.
+ */
+export function inferenceMemoryBudget(
+  vramMiB: number | null | undefined,
+  totalRamBytes: number
+): number {
+  if (typeof vramMiB === 'number' && vramMiB > 0) return vramMiB * 1024 * 1024
+  return totalRamBytes * CPU_RAM_SHARE
+}
 
 export type ContextWindowInputs = {
   /** Trained context length from /api/show. The hard ceiling. */

@@ -5,6 +5,7 @@ import type { Stream } from 'openai/streaming.js'
 import { Ollama } from 'ollama'
 import { ThinkTagSplitter, normalizeNonStreamed } from '../utils/think_stream.js'
 import { readContextLength, readModelfileNumCtx } from '../utils/context_window.js'
+import { selectRecommendedModels } from '../utils/model_recommendation.js'
 import { compatSamplerParams, nativeSamplerOptions, readModelfileSamplers } from '../utils/sampler.js'
 import { NomadOllamaModel, SamplerProfile } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -1311,19 +1312,33 @@ export class OllamaService {
       query,
       limit,
       force,
+      memoryBudgetBytes,
     }: {
       sort?: 'pulls' | 'name'
       recommendedOnly?: boolean
       query: string | null
       limit?: number
       force?: boolean
+      /**
+       * Memory available for inference on the Ollama host, in bytes. When set,
+       * recommendations are limited to tags that fit it (#1477); when undefined
+       * (remote Ollama, unknown hardware) they are not filtered.
+       */
+      memoryBudgetBytes?: number
     } = {
       sort: 'pulls',
       recommendedOnly: false,
       query: null,
       limit: 15,
     }
-  ): Promise<{ models: NomadOllamaModel[]; hasMore: boolean } | null> {
+  ): Promise<{
+    models: NomadOllamaModel[]
+    hasMore: boolean
+    /** Set when recommendations were filtered by memory: the budget used. */
+    memoryBudgetBytes?: number
+    /** True when a budget was known and no recommended model fits it. */
+    noneFitMemory?: boolean
+  } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort, force)
       if (!models || models.length === 0) {
@@ -1345,26 +1360,28 @@ export class OllamaService {
       }
 
       const sortedByPulls = sort === 'pulls' ? models : this.sortModels(models, 'pulls')
-      const firstThree = sortedByPulls.slice(0, 3)
-
-      const recommendedModels = firstThree.map((model) => {
-        return {
-          ...model,
-          tags: model.tags && model.tags.length > 0 ? [model.tags[0]] : [],
-        }
-      })
+      // Pick the largest tag of each model that fits this machine's memory and
+      // skip models where nothing fits, rather than the top three by pulls at
+      // their first tag regardless of hardware (#1477).
+      const { models: recommendedModels, noneFit } = selectRecommendedModels(
+        sortedByPulls,
+        memoryBudgetBytes
+      )
+      const memoryInfo = memoryBudgetBytes ? { memoryBudgetBytes, noneFitMemory: noneFit } : {}
 
       if (query) {
         const filteredRecommendedModels = this.fuseSearchModels(recommendedModels, query)
         return {
           models: filteredRecommendedModels,
           hasMore: filteredRecommendedModels.length > (limit || 15),
+          ...memoryInfo,
         }
       }
 
       return {
         models: recommendedModels,
         hasMore: recommendedModels.length > (limit || 15),
+        ...memoryInfo,
       }
     } catch (error) {
       logger.error(
