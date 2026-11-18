@@ -212,6 +212,12 @@ export class BenchmarkService {
   private currentStatus: BenchmarkStatus = 'idle'
   private currentStages: BenchmarkStageDescriptor[] = []
   private telemetry: BenchmarkTelemetrySampler | null = null
+  /**
+   * Called on every stage change. RunBenchmarkJob uses it to publish the stage on the
+   * BullMQ job, where the web process can read it — this instance's own status is
+   * only visible inside the worker (#1326).
+   */
+  public onStatusChange?: (status: BenchmarkStatus) => void
 
   constructor(private dockerService: DockerService) {}
 
@@ -1733,6 +1739,7 @@ export class BenchmarkService {
   private _updateStatus(status: BenchmarkStatus, message: string) {
     this.currentStatus = status
     this.telemetry?.setStage(status)
+    this.onStatusChange?.(status)
 
     const progress: BenchmarkProgress = {
       status,
