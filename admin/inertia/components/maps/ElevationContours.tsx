@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Layer, Source } from 'react-map-gl/maplibre'
 import { ELEVATION_CONTOURS_API, type ElevationContoursLookup } from '../../../types/world_offline.js'
 import type { MapCamera } from './mapLayerStyles'
+import { TOPOGRAPHIC_PALETTE } from './topographicPalette.js'
 
 type ContourResult = ElevationContoursLookup | { status: 'loading' | 'error' }
 type ContourData = Extract<ElevationContoursLookup, { status: 'ok' }>
@@ -166,9 +167,9 @@ export function ElevationContourLayer({ data, glyphsAvailable }: {
       <Layer id="nomad-elevation-contour-lines" type="line"
         layout={{ 'line-cap': 'round', 'line-join': 'round' }}
         paint={{
-          'line-color': '#6c421f',
-          'line-opacity': 0.73,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.85, 14, 1.35],
+          'line-color': TOPOGRAPHIC_PALETTE.contour,
+          'line-opacity': TOPOGRAPHIC_PALETTE.contourOpacity,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.75, 14, 1.15],
         }} />
       {glyphsAvailable && (
         <Layer id="nomad-elevation-contour-labels" type="symbol"
@@ -183,7 +184,7 @@ export function ElevationContourLayer({ data, glyphsAvailable }: {
             'text-keep-upright': true,
             'text-allow-overlap': false,
           }}
-          paint={{ 'text-color': '#4b301a', 'text-halo-color': '#fffdf7', 'text-halo-width': 1.5 }} />
+          paint={{ 'text-color': TOPOGRAPHIC_PALETTE.contourText, 'text-halo-color': TOPOGRAPHIC_PALETTE.halo, 'text-halo-width': 1.5 }} />
       )}
     </Source>
   )

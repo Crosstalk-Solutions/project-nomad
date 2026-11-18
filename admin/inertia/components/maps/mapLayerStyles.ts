@@ -2,6 +2,7 @@ import type { LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
 import type { WorldArchive } from '../../../types/world_offline'
 import type { MapLayerMode } from './LayerSelector'
+import { TOPOGRAPHIC_PALETTE } from './topographicPalette.js'
 
 type RasterMode = Exclude<MapLayerMode, 'street'>
 type Bounds = [west: number, south: number, east: number, north: number]
@@ -63,8 +64,8 @@ function withHillshadeBand(
     filter: ['==', ['get', 'shade'], shade],
     metadata: { 'nomad:role': 'topographic', 'nomad:world-overview': true },
     paint: {
-      'fill-color': shade === 'light' ? '#ffffff' : '#171a1d',
-      'fill-opacity': shade === 'light' ? 0.16 : 0.20,
+      'fill-color': shade === 'light' ? TOPOGRAPHIC_PALETTE.highlight : TOPOGRAPHIC_PALETTE.shadow,
+      'fill-opacity': shade === 'light' ? TOPOGRAPHIC_PALETTE.highlightOpacity : TOPOGRAPHIC_PALETTE.shadowOpacity,
       'fill-antialias': false,
     },
   }))
@@ -152,6 +153,36 @@ export function coverageTarget(layers: OfflineLayer[], camera: MapCamera): MapCa
   return candidates.sort((a, b) => distance(a) - distance(b))[0]
 }
 
+function topographicRoad(layer: Extract<LayerSpecification, { type: 'line' }>): LayerSpecification {
+  // Reuse the basemap's casings, widths, filters, dash patterns and bridge/tunnel order.
+  // In particular, retaining its opacity expression preserves subdued rail/tunnel styling.
+  const casing = layer.paint?.['line-gap-width'] !== undefined || /(?:^|_)casing(?:_|-)/.test(layer.id)
+  return {
+    ...layer,
+    paint: {
+      ...layer.paint,
+      'line-color': casing ? TOPOGRAPHIC_PALETTE.halo : [
+        'case', ['==', ['get', 'kind'], 'highway'],
+        TOPOGRAPHIC_PALETTE.highway, TOPOGRAPHIC_PALETTE.road,
+      ],
+    },
+  }
+}
+
+function topographicLabel(layer: Extract<LayerSpecification, { type: 'symbol' }>): LayerSpecification {
+  // Sprite-backed route shields use their own background and text palette.
+  if (!layer.layout?.['text-field'] || (layer['source-layer'] === 'roads' && layer.layout['icon-image'])) return layer
+  return {
+    ...layer,
+    paint: {
+      ...layer.paint,
+      'text-color': TOPOGRAPHIC_PALETTE.text,
+      'text-halo-color': TOPOGRAPHIC_PALETTE.halo,
+      'text-halo-width': layer.paint?.['text-halo-width'] ?? 1.25,
+    },
+  }
+}
+
 export function styleWithOfflineLayer(
   style: StyleSpecification,
   mode: RasterMode,
@@ -166,10 +197,10 @@ export function styleWithOfflineLayer(
   const earthRelief = mode === 'topographic' && layerIds.some(({ id }) => id.startsWith('lab-earth-relief-z'))
   const showVectorLabels = mode !== 'topographic' || keepStreetLabels
   if (earthRelief) {
-    underlay.push({ id: 'lab-earth-relief-land', type: 'background', paint: { 'background-color': '#e2ddc8' } })
+    underlay.push({ id: 'lab-earth-relief-land', type: 'background', paint: { 'background-color': TOPOGRAPHIC_PALETTE.land } })
     const water = style.layers.find((layer) => layer.id === 'water-world')
     if (water?.type === 'fill') {
-      underlay.push({ ...water, id: 'lab-earth-relief-water', paint: { 'fill-color': '#9cbdce' } })
+      underlay.push({ ...water, id: 'lab-earth-relief-water', paint: { 'fill-color': TOPOGRAPHIC_PALETTE.water } })
     }
   }
   for (const layer of style.layers) {
@@ -180,12 +211,16 @@ export function styleWithOfflineLayer(
     if (!showStreetOverlay && layer.type !== 'background') continue
     const sourceLayer = 'source-layer' in layer ? layer['source-layer'] : undefined
     if (layer.type === 'line' && sourceLayer === 'roads') {
+      if (earthRelief) {
+        overlay.push(topographicRoad(layer))
+        continue
+      }
       const opacity = layer.paint?.['line-opacity'] ?? 1
       overlay.push(typeof opacity === 'number'
         ? { ...layer, paint: { ...layer.paint, 'line-opacity': opacity * 0.65 } }
         : layer)
     } else if (showVectorLabels && layer.type === 'symbol' && (sourceLayer === 'roads' || sourceLayer === 'places')) {
-      overlay.push(layer)
+      overlay.push(earthRelief ? topographicLabel(layer) : layer)
     } else if (!earthRelief) {
       // Base features remain visible through transparent areas. USGSTopo has its own labels.
       underlay.push(layer)

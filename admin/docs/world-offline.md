@@ -11,6 +11,8 @@ Open **Settings → Maps**, then find **World offline** under **Offline imagery 
 
 **Street** remains available for the vector basemap. **Street overlay** adds available roads and labels to your selected imagery or relief. Install the relevant street map data when you need detailed offline labels.
 
+When Earth Relief is selected in Topography, the neutral cartographic style uses a quiet terrain background, soft hillshade, slate roads with light casings, and dark place/street labels with light halos. Contour lines remain brown and their elevation labels use a darker brown. This presentation uses the installed vector and elevation archives; no additional map download is needed.
+
 ## Install and verify a map
 
 1. Select **Review download** for a level in **World offline**. Choose **Upgrade** if you already have a lower level installed.

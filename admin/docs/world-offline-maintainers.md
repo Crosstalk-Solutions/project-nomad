@@ -62,6 +62,8 @@ npm run build
 
 Use the Node version selected by the target branch's CI. The provider tests should have a pinned local test origin and synthetic range fixtures. Keep real NASA and VersaTiles downloads outside required PR CI so a change in an external file or its availability does not make fixture-based tests unreliable.
 
+The vector Earth Relief palette is centralized in `inertia/components/maps/topographicPalette.ts`. Scope its road and label styling to the Earth Relief composition and preserve source filters, bridge/tunnel ordering, zoom-dependent widths, gaps, dash patterns, opacity expressions, and sprite-backed route shields. Recheck Street, Satellite, and Blue Marble with and without Street overlay when changing this styling, alongside urban labels, hillside contours, and cached movement in an offline browser. The palette update does not change API contracts or package schemas.
+
 With the candidate app running, use the following read-only smoke check against its local origin. Set `NOMAD_WORLD_TEST_URL` to the origin of the app you want to test.
 
 ```sh
