@@ -33,6 +33,7 @@ import { decideWarnings } from '../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult, RetrievalFloorStats, RetrievalStages, StoredFileInfo } from '../../types/rag.js'
 import { applyRelevanceFloor } from '../utils/misc.js'
 import { KB_EVAL_COLLECTION } from '../../constants/kb_collections.js'
+import { UnrecoverableError } from 'bullmq'
 
 /**
  * Qdrant filter that hides the developer eval corpus from every read path that
@@ -608,7 +609,8 @@ export class RagService {
     deleteAfterEmbedding: boolean,
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>,
-    collection?: string
+    collection?: string,
+    resumeAtDirent?: number
   ): Promise<ProcessZIMFileResponse> {
     const zimExtractionService = new ZIMExtractionService()
 
@@ -616,16 +618,18 @@ export class RagService {
     const startOffset = batchOffset || 0
 
     logger.info(
-      `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
+      `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE}${resumeAtDirent !== undefined ? ', seek' : ''})`
     )
 
     const {
       chunks: zimChunks,
       totalArticles,
       articlesProcessed,
+      resumeAtDirent: nextResumeAtDirent,
     } = await zimExtractionService.extractZIMContent(filepath, {
       startOffset,
       batchSize: ZIM_BATCH_SIZE,
+      resumeAtDirent,
     })
 
     logger.info(
@@ -717,6 +721,7 @@ export class RagService {
       // zero and re-run the same window forever.
       articlesProcessed,
       totalArticles,
+      resumeAtDirent: nextResumeAtDirent,
     }
   }
 
@@ -865,7 +870,8 @@ export class RagService {
     deleteAfterEmbedding: boolean = false,
     batchOffset?: number,
     onProgress?: (percent: number) => Promise<void>,
-    collection?: string
+    collection?: string,
+    resumeAtDirent?: number
   ): Promise<ProcessAndEmbedFileResponse> {
     try {
       const fileType = determineFileType(filepath)
@@ -884,7 +890,14 @@ export class RagService {
       // Process based on file type
       // ZIM files are handled specially since they have their own embedding workflow
       if (fileType === 'zim') {
-        return await this.processZIMFile(filepath, deleteAfterEmbedding, batchOffset, onProgress, collection)
+        return await this.processZIMFile(
+          filepath,
+          deleteAfterEmbedding,
+          batchOffset,
+          onProgress,
+          collection,
+          resumeAtDirent
+        )
       }
 
       // Extract text based on file type
@@ -924,6 +937,8 @@ export class RagService {
       )
     } catch (error) {
       logger.error('[RAG] Error processing and embedding file:', error)
+      // Let the job see it so BullMQ skips the 30 retries that cannot succeed.
+      if (error instanceof UnrecoverableError) throw error
       return { success: false, message: 'Error processing and embedding file.' }
     }
   }

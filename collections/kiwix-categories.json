@@ -32,6 +32,7 @@
             },
             {
               "id": "irp.fas.org_en_military-medicine",
+              "previous_ids": ["fas-military-medicine_en"],
               "version": "2026-10",
               "title": "Military Medicine",
               "description": "Tactical and field medicine manuals",
@@ -81,11 +82,11 @@
           "resources": [
             {
               "id": "wikipedia_en_medicine_maxi",
-              "version": "2026-01",
+              "version": "2026-10",
               "title": "Wikipedia Medicine",
               "description": "Curated medical articles from Wikipedia with images",
-              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-01.zim",
-              "size_mb": 2000
+              "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-10.zim",
+              "size_mb": 1778
             },
             {
               "id": "libretexts.org_en_med",
@@ -146,6 +147,7 @@
             },
             {
               "id": "canadian-prepper_en_winterprepping",
+              "previous_ids": ["canadian_prepper_winterprepping_en"],
               "version": "2026-08",
               "title": "Canadian Prepper: Winter Prepping",
               "description": "Video guides for winter survival and cold weather emergencies",
@@ -154,6 +156,7 @@
             },
             {
               "id": "canadian-prepper_en_bugoutroll",
+              "previous_ids": ["canadian_prepper_bugoutroll_en"],
               "version": "2026-07",
               "title": "Canadian Prepper: Bug Out Roll",
               "description": "Essential gear selection for your bug-out bag",
@@ -178,22 +181,23 @@
             },
             {
               "id": "outdoors.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "The Great Outdoors Q&A",
               "description": "Answered questions on hiking, camping, navigation, and wilderness skills",
-              "url": "https://download.kiwix.org/zim/stack_exchange/outdoors.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 142
+              "url": "https://download.kiwix.org/zim/stack_exchange/outdoors.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 135
             },
             {
               "id": "ham.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Amateur Radio Q&A",
               "description": "Answered questions on radio equipment, antennas, licensing, and emergency communications",
-              "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 75
+              "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 74
             },
             {
               "id": "canadian-prepper_en_bugoutconcepts",
+              "previous_ids": ["canadian_prepper_bugoutconcepts_en"],
               "version": "2026-08",
               "title": "Canadian Prepper: Bug Out Concepts",
               "description": "Strategies and planning for emergency evacuation",
@@ -218,6 +222,7 @@
           "resources": [
             {
               "id": "canadian-prepper_en_preppingfood",
+              "previous_ids": ["canadian_prepper_preppingfood_en"],
               "version": "2026-07",
               "title": "Canadian Prepper: Prepping Food",
               "description": "Long-term food storage and survival meal preparation",
@@ -275,11 +280,11 @@
           "resources": [
             {
               "id": "wikibooks_en_all_nopic",
-              "version": "2026-01",
+              "version": "2026-10",
               "title": "Wikibooks",
               "description": "Open-content textbooks covering math, science, computing, and more",
-              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_nopic_2026-01.zim",
-              "size_mb": 3100
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_nopic_2026-10.zim",
+              "size_mb": 3380
             }
           ]
         },
@@ -299,11 +304,11 @@
             },
             {
               "id": "wikiversity_en_all_maxi",
-              "version": "2026-02",
+              "version": "2026-11",
               "title": "Wikiversity",
               "description": "Tutorials, courses, and learning materials for all levels",
-              "url": "https://download.kiwix.org/zim/wikiversity/wikiversity_en_all_maxi_2026-02.zim",
-              "size_mb": 2370
+              "url": "https://download.kiwix.org/zim/wikiversity/wikiversity_en_all_maxi_2026-11.zim",
+              "size_mb": 2012
             },
             {
               "id": "libretexts.org_en_math",
@@ -347,11 +352,11 @@
           "resources": [
             {
               "id": "wikibooks_en_all_maxi",
-              "version": "2026-01",
+              "version": "2026-10",
               "title": "Wikibooks (With Images)",
               "description": "Open textbooks with full illustrations and diagrams",
-              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_maxi_2026-01.zim",
-              "size_mb": 5400
+              "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_en_all_maxi_2026-10.zim",
+              "size_mb": 4520
             },
             {
               "id": "ted_mul_ted-conference",
@@ -412,19 +417,19 @@
           "resources": [
             {
               "id": "woodworking.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Woodworking Q&A",
               "description": "Stack Exchange Q&A for carpentry, joinery, and woodcraft",
-              "url": "https://download.kiwix.org/zim/stack_exchange/woodworking.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 99
+              "url": "https://download.kiwix.org/zim/stack_exchange/woodworking.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 102
             },
             {
               "id": "mechanics.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Motor Vehicle Maintenance Q&A",
               "description": "Stack Exchange Q&A for car and motorcycle repair",
-              "url": "https://download.kiwix.org/zim/stack_exchange/mechanics.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 321
+              "url": "https://download.kiwix.org/zim/stack_exchange/mechanics.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 326
             }
           ]
         },
@@ -436,11 +441,11 @@
           "resources": [
             {
               "id": "diy.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "DIY & Home Improvement Q&A",
               "description": "Stack Exchange Q&A for home repairs, electrical, plumbing, and construction",
-              "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 1900
+              "url": "https://download.kiwix.org/zim/stack_exchange/diy.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 1989
             }
           ]
         },
@@ -477,11 +482,11 @@
           "resources": [
             {
               "id": "foss.cooking_en_all",
-              "version": "2026-02",
+              "version": "2026-11",
               "title": "FOSS Cooking",
               "description": "Quick and easy cooking guides and recipes",
-              "url": "https://download.kiwix.org/zim/zimit/foss.cooking_en_all_2026-02.zim",
-              "size_mb": 24
+              "url": "https://download.kiwix.org/zim/zimit/foss.cooking_en_all_2026-11.zim",
+              "size_mb": 29
             },
             {
               "id": "based.cooking_en_all",
@@ -501,19 +506,19 @@
           "resources": [
             {
               "id": "gardening.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Gardening Q&A",
               "description": "Stack Exchange Q&A for growing your own food, plant care, and landscaping",
-              "url": "https://download.kiwix.org/zim/stack_exchange/gardening.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 923
+              "url": "https://download.kiwix.org/zim/stack_exchange/gardening.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 890
             },
             {
               "id": "cooking.stackexchange.com_en_all",
-              "version": "2026-02",
+              "version": "2026-10",
               "title": "Cooking Q&A",
               "description": "Stack Exchange Q&A for cooking techniques, food safety, and recipes",
-              "url": "https://download.kiwix.org/zim/stack_exchange/cooking.stackexchange.com_en_all_2026-02.zim",
-              "size_mb": 236
+              "url": "https://download.kiwix.org/zim/stack_exchange/cooking.stackexchange.com_en_all_2026-10.zim",
+              "size_mb": 227
             },
             {
               "id": "zimgit-food-preparation_en",

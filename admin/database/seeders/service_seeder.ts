@@ -550,7 +550,7 @@ export default class ServiceSeeder extends BaseSeeder {
       description:
         'Read the Information Library in another language. Machine translation that works offline, on CPU',
       icon: 'IconWorld',
-      container_image: 'ghcr.io/crosstalk-solutions/project-nomad-translate:0.1.1',
+      container_image: 'ghcr.io/crosstalk-solutions/project-nomad-translate:0.1.2',
       source_repo: 'https://github.com/browsermt/bergamot-translator',
       container_command: null,
       container_config: JSON.stringify({

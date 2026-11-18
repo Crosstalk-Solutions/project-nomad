@@ -22,6 +22,7 @@ import { assertNotPrivateUrl } from '#validators/common'
 import InstalledResource from '#models/installed_resource'
 import { CollectionManifestService } from './collection_manifest_service.js'
 import { decideSupersededDeletion } from '../utils/superseded_resource.js'
+import { isExecTimeout } from '../utils/exec_timeout.js'
 import type { CollectionWithStatus, MapsSpec } from '../../types/collections.js'
 import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '../../types/maps.js'
 import {
@@ -41,7 +42,15 @@ import { tmpdir } from 'os'
 import { promisify } from 'util'
 
 const execFileAsync = promisify(execFile)
-const DRY_RUN_TIMEOUT_MS = 60_000
+
+/** The size estimate ran past its time limit, as opposed to failing outright. */
+export class MapPreflightTimeoutError extends Error {}
+/** The caller abandoned the size estimate (e.g. the browser moved on), so the child was killed. */
+export class MapPreflightAbortedError extends Error {}
+// Estimating a selection reads the planet archive's directory for every tile in
+// it, so the time scales with land area: Canada alone took 41 s and US+CA+MX 61 s
+// on a fast box (#1258). Sized far above that so a slower box still finishes.
+const DRY_RUN_TIMEOUT_MS = 10 * 60_000
 const DRY_RUN_MAX_BUFFER = 256 * 1024
 // Real extract of z0-5 world tiles; generous to tolerate slow/metered links
 // since a failure leaves the map grey for uncovered regions.
@@ -706,22 +715,34 @@ export class MapService implements IMapService {
     return CountriesService.getInstance().listGroups()
   }
 
-  async extractPreflight(params: {
-    countries: CountryCode[]
-    maxzoom?: number
-  }): Promise<MapExtractPreflight> {
+  /**
+   * @param signal Aborting it kills the pmtiles child. Pass one tied to the HTTP
+   *   request so an estimate the browser abandoned stops reading the remote archive
+   *   instead of running out the full timeout.
+   */
+  async extractPreflight(
+    params: {
+      countries: CountryCode[]
+      maxzoom?: number
+    },
+    signal?: AbortSignal
+  ): Promise<MapExtractPreflight> {
     this.validateMaxzoom(params.maxzoom)
     const countries = await CountriesService.getInstance().resolveCodes(params.countries)
     const regionFilepath = await CountriesService.getInstance().writeRegionFile(countries)
     const info = await this.getGlobalMapInfo()
-    return this.runDryRun(info, regionFilepath, params.maxzoom)
+    return this.runDryRun(info, regionFilepath, params.maxzoom, signal)
   }
 
   private async runDryRun(
     info: { url: string; date: string; key: string },
     regionFilepath: string,
-    maxzoom?: number
+    maxzoom?: number,
+    signal?: AbortSignal
   ): Promise<MapExtractPreflight> {
+    if (signal?.aborted) {
+      throw new MapPreflightAbortedError('Size estimate cancelled before it started')
+    }
     const dryRunOutput = join(tmpdir(), `pmtiles-dry-run-${randomBytes(6).toString('hex')}.pmtiles`)
     const args = buildPmtilesExtractArgs({
       sourceUrl: info.url,
@@ -737,10 +758,22 @@ export class MapService implements IMapService {
       const result = await execFileAsync(PMTILES_BINARY_PATH, args, {
         timeout: DRY_RUN_TIMEOUT_MS,
         maxBuffer: DRY_RUN_MAX_BUFFER,
+        signal,
       })
       stdout = result.stdout
       stderr = result.stderr
     } catch (err: any) {
+      // An abort rejects with an AbortError (code ABORT_ERR), which isExecTimeout
+      // already rejects. Catch it here so it doesn't fall through to the generic 500.
+      if (signal?.aborted || err?.code === 'ABORT_ERR') {
+        throw new MapPreflightAbortedError('Size estimate cancelled by the caller')
+      }
+      if (isExecTimeout(err)) {
+        throw new MapPreflightTimeoutError(
+          `Estimating the size of this selection took longer than ${DRY_RUN_TIMEOUT_MS / 60_000} minutes ` +
+            'and was stopped. Try fewer countries or a lower max zoom.'
+        )
+      }
       throw new Error(
         `pmtiles extract --dry-run failed: ${err.message}. stderr: ${err.stderr ?? ''}`
       )

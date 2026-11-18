@@ -1,7 +1,11 @@
 import { Job, UnrecoverableError } from 'bullmq'
 import { RunDownloadJobParams, DownloadProgressData } from '../../types/downloads.js'
 import { QueueService } from '#services/queue_service'
-import { doResumableDownload, GatedContentAuthError } from '../utils/downloads.js'
+import {
+  doResumableDownload,
+  GatedContentAuthError,
+  InsufficientDiskSpaceError,
+} from '../utils/downloads.js'
 import { createHash } from 'crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
@@ -38,6 +42,9 @@ function isSafeOldContentPath(
 }
 
 export class RunDownloadJob {
+  /** Prefix of the failure reason for a user cancel; the worker uses it to tell cancels apart */
+  static readonly CANCELLED_PREFIX = 'Download cancelled: '
+
   static get queue() {
     return 'downloads'
   }
@@ -314,13 +321,17 @@ export class RunDownloadJob {
       // can also abort the stream, and those should be retried with backoff.
       // Check both the flag (Redis poll) and abort reason (in-process cancel).
       if (userCancelled || abortController.signal.reason === 'user-cancel') {
-        throw new UnrecoverableError(`Download cancelled: ${error.message}`)
+        throw new UnrecoverableError(`${RunDownloadJob.CANCELLED_PREFIX}${error.message}`)
       }
       // A rejected entitlement is permanent - this build either has the key or it
       // doesn't. Left as a plain Error it consumes all 10 attempts with exponential
       // backoff from 30s, so the job reads `delayed` for ~4h15m and the user sees a
       // stuck download instead of the message above.
       if (error instanceof GatedContentAuthError) {
+        throw new UnrecoverableError(error.message)
+      }
+      // Retrying won't free space; fail now with the reason shown on the downloads page
+      if (error instanceof InsufficientDiskSpaceError || error?.code === 'ENOSPC') {
         throw new UnrecoverableError(error.message)
       }
       throw error

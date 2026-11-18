@@ -1,7 +1,11 @@
+// The unit is chosen after rounding, so a speed that rounds up to the next
+// unit's floor is shown in that unit (1023.6 B/s -> "1.0 KB/s", not "1024 B/s").
 export function formatSpeed(bytesPerSecond: number): string {
-  if (bytesPerSecond < 1024) return `${bytesPerSecond.toFixed(0)} B/s`
-  if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(1)} KB/s`
-  return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`
+  if (bytesPerSecond <= 0) return '0 B/s'
+  if (Math.round(bytesPerSecond) < 1024) return `${Math.round(bytesPerSecond)} B/s`
+  const kb = bytesPerSecond / 1024
+  if (Math.round(kb * 10) / 10 < 1024) return `${kb.toFixed(1)} KB/s`
+  return `${(kb / 1024).toFixed(1)} MB/s`
 }
 
 export function toTitleCase(str: string): string {

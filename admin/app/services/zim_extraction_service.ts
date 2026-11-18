@@ -7,6 +7,12 @@ import { ExtractZIMChunkingStrategy, ExtractZIMContentOptions, ZIMContentChunk, 
 import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
 import { isValidZimFile } from '../utils/fs.js'
+import { hasResumeCursor, openZimBatchRange } from '../utils/zim_batch_resume.js'
+
+// How often a legacy from-the-start scan yields so BullMQ can renew its lock.
+// The seek path does not need this; the scan is only for jobs queued before a
+// dirent cursor existed.
+const LEGACY_SCAN_YIELD_EVERY = 2000
 
 export class ZIMExtractionService {
 
@@ -44,7 +50,7 @@ export class ZIMExtractionService {
     async extractZIMContent(
         filePath: string,
         opts: ExtractZIMContentOptions = {}
-    ): Promise<{ chunks: ZIMContentChunk[]; totalArticles: number; articlesProcessed: number }> {
+    ): Promise<{ chunks: ZIMContentChunk[]; totalArticles: number; articlesProcessed: number; resumeAtDirent?: number }> {
         try {
             logger.info(`[ZIMExtractionService]: Processing ZIM file at path: ${filePath}`)
             
@@ -71,16 +77,35 @@ export class ZIMExtractionService {
 
             let articlesProcessed = 0
             let articlesSkipped = 0
+            let legacyEntriesVisited = 0
+            let direntsConsumed = 0
             const processedPaths = new Set<string>()
             const toReturn: ZIMContentChunk[] = []
 
-            // Support batch processing to avoid lock timeouts on large ZIM files
+            // resumeAtDirent seeks with iterByPath().offset(). startOffset recounts
+            // from the first dirent and is only the fallback when no cursor was stored.
             const startOffset = opts.startOffset || 0
             const batchSize = opts.batchSize || (opts.maxArticles || Infinity)
+            const resumeAtDirent = hasResumeCursor(opts.resumeAtDirent) ? opts.resumeAtDirent : undefined
 
-            for (const entry of archive.iterByPath()) {
-                // Skip articles until we reach the start offset
-                if (articlesSkipped < startOffset) {
+            if (resumeAtDirent !== undefined) {
+                logger.info(`[ZIMExtractionService]: Seeking to dirent offset ${resumeAtDirent}`)
+            } else if (startOffset > 0) {
+                logger.warn(
+                    `[ZIMExtractionService]: Batch offset ${startOffset} has no dirent cursor; scanning from the start of the archive`
+                )
+            }
+
+            const entries = openZimBatchRange(archive, resumeAtDirent)
+            for (const entry of entries) {
+                // Legacy recount. Yield periodically: this loop is synchronous
+                // native calls, and a blocked event loop cannot renew the BullMQ lock.
+                if (resumeAtDirent === undefined && articlesSkipped < startOffset) {
+                    direntsConsumed++
+                    legacyEntriesVisited++
+                    if (legacyEntriesVisited % LEGACY_SCAN_YIELD_EVERY === 0) {
+                        await new Promise((resolve) => setImmediate(resolve))
+                    }
                     if (this.isArticleEntry(entry) && !processedPaths.has(entry.path)) {
                         articlesSkipped++
                     }
@@ -90,6 +115,8 @@ export class ZIMExtractionService {
                 if (articlesProcessed >= batchSize) {
                     break
                 }
+
+                direntsConsumed++
 
                 if (!this.isArticleEntry(entry)) {
                     logger.debug(`[ZIMExtractionService]: Skipping non-article entry at path: ${entry.path}`)
@@ -165,7 +192,13 @@ export class ZIMExtractionService {
                 textPreview: c.text.substring(0, 100)
             })))
             logger.debug("Total structured sections extracted:", toReturn.length)
-            return { chunks: toReturn, totalArticles: archive.articleCount, articlesProcessed }
+            const nextDirent = (resumeAtDirent ?? 0) + direntsConsumed
+            return {
+                chunks: toReturn,
+                totalArticles: archive.articleCount,
+                articlesProcessed,
+                resumeAtDirent: nextDirent > 0 ? nextDirent : undefined,
+            }
         } catch (error) {
             logger.error('Error processing ZIM file:', error)
             throw error
