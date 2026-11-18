@@ -81,4 +81,10 @@ test('filenameBelongsToResource matches dated builds of the given ids only', () 
   assert.ok(!filenameBelongsToResource('fas_all_2026-01.zim', ids))
   assert.ok(!filenameBelongsToResource('anything_2026-01.zim', []))
   assert.ok(!filenameBelongsToResource('_2026-01.zim', ['']))
+  // A longer id that starts with one of ours is a different resource.
+  assert.ok(!filenameBelongsToResource('fas-military-medicine_en_maxi_2026-01.zim', ids))
+  assert.ok(!filenameBelongsToResource('wikipedia_en_medicine_maxi_2026-01.zim', ['wikipedia_en_medicine']))
+  // Curated maps use the same dated naming.
+  assert.ok(filenameBelongsToResource('alaska_2025-12.pmtiles', ['alaska']))
+  assert.ok(!filenameBelongsToResource('alaska_north_2025-12.pmtiles', ['alaska']))
 })

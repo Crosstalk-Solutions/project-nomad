@@ -41,12 +41,14 @@ export function currentResourceId(resourceId: string, previousIdMap: Map<string,
 }
 
 /**
- * True when `filename` is a dated build (`<id>_YYYY-MM...`) of one of `ids`. Used
- * to bound old-file deletion to the resource's own files, including files named
- * under a former id.
+ * True when `filename` is a dated build (`<id>_YYYY-MM.zim|.pmtiles`) of exactly
+ * one of `ids`. Used to bound old-file deletion to the resource's own files,
+ * including files named under a former id. Exact id match, not a prefix: `foo_en`
+ * must not claim `foo_en_maxi_2026-01.zim` (same trap as #884 / df471398).
  */
 export function filenameBelongsToResource(filename: string, ids: string[]): boolean {
-  return ids.some((id) => !!id && filename.startsWith(`${id}_`))
+  const match = filename.replace(/\.(zim|pmtiles)$/, '').match(/^(.+)_\d{4}-\d{2}$/)
+  return !!match && ids.includes(match[1])
 }
 
 /** Former ids that map to `resourceId` (empty when it was never renamed). */
