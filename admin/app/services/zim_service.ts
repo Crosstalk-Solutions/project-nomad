@@ -809,14 +809,16 @@ export class ZimService {
       logger.error(`[ZimService] Failed to remove ${fileName} from kiwix library:`, err)
     })
 
-    // Clean up InstalledResource entry
-    const parsed = CollectionManifestService.parseZimFilename(fileName)
-    if (parsed) {
-      await InstalledResource.query()
-        .where('resource_id', parsed.resource_id)
-        .where('resource_type', 'zim')
-        .delete()
-      logger.info(`[ZimService] Deleted InstalledResource entry for: ${parsed.resource_id}`)
+    // Clean up the InstalledResource row that points at THIS file. Match by path,
+    // not by the id parsed from the filename: a renamed resource's row (#1171) sits
+    // under its current id, and deleting an orphaned older build must not drop the
+    // row of the version still installed (same trap as bbd62d8e).
+    const removed = await InstalledResource.query()
+      .where('file_path', fullPath)
+      .where('resource_type', 'zim')
+      .delete()
+    if (Number(removed) > 0) {
+      logger.info(`[ZimService] Deleted InstalledResource entry for: ${fileName}`)
     }
 
     // If this file was the active Wikipedia selection, clear the selection
