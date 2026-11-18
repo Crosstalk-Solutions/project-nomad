@@ -1156,10 +1156,23 @@ export class OllamaService {
    *
    * Only the Ollama-native endpoint is supported — backends that expose
    * `/v1/embeddings` (LM Studio, llama.cpp) don't surface placement info.
+   * Set `RAG_EMBED_GPU_ACCELERATED` (true/false) to force an answer and skip
+   * the probe entirely.
    */
   public async isEmbeddingGpuAccelerated(): Promise<boolean> {
     await this._ensureDependencies()
     if (!this.baseUrl) return false
+
+    // Explicit override for backends that don't speak Ollama's /api/ps (LM
+    // Studio, llama.cpp server, OpenAI-compatible gateways, ...). Without it,
+    // those backends fail the probe below and every embed batch gets paced at
+    // the CPU rate even when the embed model is GPU-resident. Set
+    // RAG_EMBED_GPU_ACCELERATED=true to skip the probe and embed un-paced, or
+    // false to always pace. Unset keeps the Ollama-native probe.
+    const override = env.get('RAG_EMBED_GPU_ACCELERATED', '').trim().toLowerCase()
+    if (['true', '1', 'false', '0'].includes(override)) {
+      return override === 'true' || override === '1'
+    }
 
     try {
       const response = await axios.get(`${this.baseUrl}/api/ps`, { timeout: 5000 })
