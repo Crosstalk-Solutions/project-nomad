@@ -49,7 +49,7 @@
     "@japa/plugin-adonisjs": "4.0.0",
     "@japa/runner": "4.5.0",
     "@swc/core": "1.11.24",
-    "@tanstack/eslint-plugin-query": "5.91.4",
+    "@tanstack/eslint-plugin-query": "5.105.1",
     "@types/compression": "1.8.1",
     "@types/dockerode": "4.0.1",
     "@types/luxon": "3.7.1",
