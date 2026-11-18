@@ -126,6 +126,8 @@ const KV_BYTES_PER_ELEMENT = 2
  *
  *     2 (K and V) x layers x kv_heads x head_dim x bytes_per_element
  *
+ * where layers counts only the layers that keep a KV cache.
+ *
  * For llama3:8b that is 2 x 32 x 8 x 128 x 2 = 128 KiB per token, so an 8k
  * window costs 1 GiB — which is why "just set num_ctx high" is not free advice
  * on the hardware NOMAD targets.
@@ -153,10 +155,26 @@ export function computeKvBytesPerToken(modelInfo: unknown): number | undefined {
   }
 
   const layers = num('block_count')
-  // Grouped-query attention means KV heads are usually far fewer than attention
-  // heads; using head_count here would overestimate cost several-fold.
-  const kvHeads = num('attention.head_count_kv') ?? num('attention.head_count')
-  if (!layers || !kvHeads) return undefined
+  if (!layers) return undefined
+
+  // KV heads summed over the layers that keep a KV cache. Hybrid models such as
+  // qwen3.5 interleave linear-attention layers that keep none (#1406): their GGUF
+  // either lists head_count_kv per layer, with 0 for those layers, or gives a
+  // scalar plus full_attention_interval, where only every Nth layer is full
+  // attention. Charging every layer overstated qwen3.5:122b's cost 64x.
+  let kvHeadsTotal: number | undefined
+  const perLayer = info.get(`${arch}.attention.head_count_kv`)
+  if (Array.isArray(perLayer) && perLayer.length > 0 && perLayer.every(isNonNegative)) {
+    kvHeadsTotal = perLayer.reduce((sum: number, heads: number) => sum + heads, 0)
+  } else {
+    // Grouped-query attention means KV heads are usually far fewer than attention
+    // heads; using head_count here would overestimate cost several-fold.
+    const kvHeads = num('attention.head_count_kv') ?? num('attention.head_count')
+    const interval = num('full_attention_interval')
+    const kvLayers = interval ? Math.floor(layers / interval) : layers
+    if (kvHeads) kvHeadsTotal = kvLayers * kvHeads
+  }
+  if (!kvHeadsTotal) return undefined
 
   // Prefer explicit key/value lengths; otherwise derive head_dim from the
   // embedding width and the attention head count.
@@ -168,7 +186,30 @@ export function computeKvBytesPerToken(modelInfo: unknown): number | undefined {
   }
   if (!headDim) return undefined
 
-  return 2 * layers * kvHeads * headDim * KV_BYTES_PER_ELEMENT
+  return 2 * kvHeadsTotal * headDim * KV_BYTES_PER_ELEMENT
+}
+
+function isNonNegative(value: unknown): value is number {
+  return typeof value === 'number' && value >= 0
+}
+
+/**
+ * The model_info key whose per-layer KV head counts /api/show left out, if any.
+ *
+ * Without `verbose`, Ollama before 0.34.1 (including the 0.33.3 NOMAD installs)
+ * returns every metadata array as null, and later versions return arrays past
+ * 1024 entries as []. A hybrid model's
+ * head_count_kv is such an array, so the caller has to ask again with `verbose`
+ * to cost its KV cache correctly.
+ */
+export function withheldKvHeadsKey(modelInfo: unknown): string | undefined {
+  if (!modelInfo || typeof modelInfo !== 'object') return undefined
+  const info = modelInfo as Record<string, unknown>
+  const arch = info['general.architecture']
+  if (typeof arch !== 'string') return undefined
+  const key = `${arch}.attention.head_count_kv`
+  const value = info[key]
+  return value === null || (Array.isArray(value) && value.length === 0) ? key : undefined
 }
 
 /**
