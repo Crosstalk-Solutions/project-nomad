@@ -7,6 +7,7 @@ import { TokenCalibrationService } from '#services/token_calibration_service'
 import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import {
+  DEFAULT_KEEP_ALIVE,
   RAG_CONTEXT_LIMITS,
   RAG_DEFAULT_SCORE_THRESHOLD,
   RAG_DEFAULT_TOP_K,
@@ -20,6 +21,8 @@ import { planPrompt } from '../utils/context_budget.js'
 import { estimateMessagesTokens } from '../utils/token_estimate.js'
 import { resolveMinFinalScore } from '../utils/rag_relevance.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
+import { resolveKeepAlive } from '../utils/keep_alive.js'
+import { sideCallResidency, type SideCallResidency } from '../utils/side_call.js'
 import { buildContextBlock, getContextLimitsForModel } from '../utils/rag_prompt.js'
 import { QUERIES_SCHEMA, pickQueries, resolveStructured } from '../utils/structured_output.js'
 
@@ -53,11 +56,15 @@ export class RagPipelineService {
    * decision made along the way.
    *
    * The caller passes the conversation as received; this never mutates it.
+   * `request` carries per-request facts the eval harness never sets: the
+   * client's abort signal (forwarded to the rewrite and relevance calls) and
+   * how many images ride on the question (reserved in the token budget).
    */
   async buildPrompt(
     messages: OllamaChatMessage[],
     model: string,
-    opts: PipelineOptions = {}
+    opts: PipelineOptions = {},
+    request: { signal?: AbortSignal; imageCount?: number } = {}
   ): Promise<PipelineTrace> {
     // Split the caller's conversation into the pieces the budget planner needs.
     // Caller-supplied system messages are treated as stable prefix material and
@@ -130,7 +137,8 @@ export class RagPipelineService {
       const { query: retrievalQuery, didRewrite } = await this.resolveRetrievalQuery(
         conversation,
         model,
-        opts
+        opts,
+        request.signal
       )
       trace.timings.rewriteMs = Date.now() - rewriteStart
       trace.rewrittenQuery = retrievalQuery
@@ -172,7 +180,10 @@ export class RagPipelineService {
               ? opts.relevanceCheckModel
               : await this.relevanceJudge.resolveModel(model)
           if (checkModel) {
-            const verdict = await this.relevanceJudge.judge(retrievalQuery, relevantDocs, checkModel)
+            const verdict = await this.relevanceJudge.judge(retrievalQuery, relevantDocs, checkModel, {
+              ...(await this.residencyFor(checkModel, model)),
+              signal: request.signal,
+            })
             relevantDocs = verdict.kept
             trace.retrieved = relevantDocs
             trace.relevanceCheckModel = checkModel
@@ -207,6 +218,7 @@ export class RagPipelineService {
       contextWindow,
       ratio,
       ragPlacement: opts.ragPlacement ?? RAG_PLACEMENT,
+      imageCount: request.imageCount,
     })
 
     trace.messages = plan.messages as OllamaChatMessage[]
@@ -216,6 +228,7 @@ export class RagPipelineService {
     trace.numPredict = plan.numPredict
     // Recorded uncalibrated so TokenCalibrationService can compare like with like;
     // applying the ratio here and again there would make the EWMA chase itself.
+    // Text only: the caller must not calibrate on a turn that carried images.
     trace.uncalibratedPromptTokens = estimateMessagesTokens(plan.messages, 1)
 
     if (plan.trace.turnsDropped > 0 || plan.trace.chunksDropped > 0 || plan.trace.queryTruncated) {
@@ -238,7 +251,8 @@ export class RagPipelineService {
   private async resolveRetrievalQuery(
     messages: OllamaChatMessage[],
     model: string,
-    opts: PipelineOptions
+    opts: PipelineOptions,
+    signal?: AbortSignal
   ): Promise<{ query: string | null; didRewrite: boolean }> {
     const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user')
 
@@ -321,6 +335,8 @@ export class RagPipelineService {
         // string because multi-query fusion then costs a prompt change and nothing
         // else; only the first entry is used today.
         format: QUERIES_SCHEMA,
+        ...(await this.residencyFor(rewriteModel, model)),
+        signal,
       })
 
       const raw = response.message.content.trim()
@@ -360,4 +376,18 @@ export class RagPipelineService {
     }
   }
 
+  /**
+   * num_ctx/keep_alive for an ancillary call: the chat's own values when it
+   * runs on the chat model, so Ollama does not reload it (see side_call.ts).
+   */
+  private async residencyFor(sideModel: string, chatModel: string): Promise<SideCallResidency> {
+    if (sideModel !== chatModel) return {}
+    // A failed settings read must not cost the turn its rewrite or relevance
+    // check; the default is what the chat itself falls back to for an unset value.
+    const keepAlive = await resolveKeepAlive().catch(() => DEFAULT_KEEP_ALIVE)
+    return sideCallResidency(sideModel, chatModel, {
+      numCtx: await this.contextWindowService.windowFor(chatModel),
+      keepAlive,
+    })
+  }
 }

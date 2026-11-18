@@ -12,7 +12,7 @@ import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
-import { DEFAULT_KEEP_ALIVE } from '../../constants/ollama.js'
+import { resolveKeepAlive } from '../utils/keep_alive.js'
 import { resolveResponseStyle } from '../utils/response_style.js'
 import { resolveSamplerProfile } from '../utils/sampler.js'
 import type { PipelineTrace } from '../../types/rag.js'
@@ -146,6 +146,15 @@ export default class OllamaController {
       response.response.setHeader('Connection', 'keep-alive')
       response.response.flushHeaders()
     }
+    // Abort upstream work if the client disconnects — otherwise an abandoned
+    // request keeps decoding server-side and, with Ollama's default
+    // OLLAMA_NUM_PARALLEL=1, blocks every later chat/RAG request until the model
+    // is manually stopped (#1065). Attached before prompt building so a
+    // disconnect during the rewrite/retrieval is noticed too.
+    const abortController = new AbortController()
+    if (reqData.stream) {
+      response.response.on('close', () => abortController.abort())
+    }
 
     let unknownVisionUpstreamRejected = false
     try {
@@ -156,10 +165,19 @@ export default class OllamaController {
       // settings, both writing rag.enabled). Unset means on, preserving the
       // behaviour from before the toggle existed.
       const ragEnabled = (await KVStore.getValue('rag.enabled')) ?? true
-      const trace = await this.ragPipelineService.buildPrompt(reqData.messages, reqData.model, {
-        collection: collectionFilter ?? undefined,
-        skipRetrieval: !ragEnabled,
-      })
+      const trace = await this.ragPipelineService.buildPrompt(
+        reqData.messages,
+        reqData.model,
+        {
+          collection: collectionFilter ?? undefined,
+          skipRetrieval: !ragEnabled,
+        },
+        { signal: abortController.signal, imageCount: normalizedImages.length }
+      )
+      if (response.response.destroyed) {
+        logger.debug('[OllamaController] Client disconnected while the prompt was being built')
+        return
+      }
       reqData.messages = trace.messages
       const numCtx = trace.numCtx
       const numPredict = trace.numPredict
@@ -171,7 +189,7 @@ export default class OllamaController {
       // Keeping the model resident is what makes the KV cache worth building:
       // Ollama's default evicts after 5 minutes, which is well inside the time a
       // user spends reading an answer and typing the next question.
-      const keepAlive = (await KVStore.getValue('ai.keepAlive')) || DEFAULT_KEEP_ALIVE
+      const keepAlive = await resolveKeepAlive()
 
       // Check if the model supports "thinking" capability for enhanced response generation.
       // Thinking is only enabled when the model supports it AND the user wants it: the explicit
@@ -218,12 +236,11 @@ export default class OllamaController {
 
       if (reqData.stream) {
         logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
-        // Headers already flushed above.
-        // Abort the upstream generation if the client disconnects — otherwise an abandoned
-        // request keeps decoding server-side and, with Ollama's default OLLAMA_NUM_PARALLEL=1,
-        // blocks every later chat/RAG request until the model is manually stopped (#1065).
-        const abortController = new AbortController()
-        response.response.on('close', () => abortController.abort())
+        // Headers already flushed and the disconnect listener attached above.
+        if (response.response.destroyed) {
+          logger.debug('[OllamaController] Client disconnected before generation started')
+          return
+        }
         let fullContent = ''
         let doneReason: string | undefined
         let completionTokens: number | undefined
@@ -245,7 +262,7 @@ export default class OllamaController {
             }
             if (chunk.usage) {
               completionTokens = chunk.usage.completionTokens
-              this._recordUsage(reqData.model, trace, chunk.usage)
+              this._recordUsage(reqData.model, trace, chunk.usage, normalizedImages.length > 0)
             }
             if (chunk.done_reason) doneReason = chunk.done_reason
             response.response.write(`data: ${JSON.stringify(chunk)}\n\n`)
@@ -276,7 +293,7 @@ export default class OllamaController {
           await this.chatService.addMessage(sessionId, 'assistant', fullContent, sources)
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
-            this.chatService.generateTitle(sessionId, userContent, fullContent, reqData.model).catch((err) => {
+            this.chatService.generateTitle(sessionId, userContent, fullContent, reqData.model, { numCtx, keepAlive }).catch((err) => {
               logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
             })
           }
@@ -306,7 +323,7 @@ export default class OllamaController {
         throw err
       }
       if (result?.usage) {
-        this._recordUsage(reqData.model, trace, result.usage)
+        this._recordUsage(reqData.model, trace, result.usage, normalizedImages.length > 0)
       }
       if (result?.done_reason === 'length') {
         this._logLengthStop(reqData.model, numCtx, numPredict, result.usage?.completionTokens)
@@ -316,7 +333,7 @@ export default class OllamaController {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content, sources)
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
-          this.chatService.generateTitle(sessionId, userContent, result.message.content, reqData.model).catch((err) => {
+          this.chatService.generateTitle(sessionId, userContent, result.message.content, reqData.model, { numCtx, keepAlive }).catch((err) => {
             logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
           })
         }
@@ -372,14 +389,25 @@ export default class OllamaController {
    * KV prefix means many prompt tokens for very little prefill time.
    *
    * Best-effort throughout; a calibration failure must never affect the reply.
+   *
+   * Turns with images are not calibrated: prompt_eval_count includes the image
+   * tokens, which the text-only estimate cannot see, so recording them would
+   * push the per-model ratio up for every later text-only turn.
    */
-  private _recordUsage(model: string, trace: PipelineTrace, usage: NomadChatUsage): void {
+  private _recordUsage(
+    model: string,
+    trace: PipelineTrace,
+    usage: NomadChatUsage,
+    hasImages: boolean
+  ): void {
     if (trace.uncalibratedPromptTokens && usage.promptTokens) {
-      this.tokenCalibration
-        .record(model, trace.uncalibratedPromptTokens, usage.promptTokens)
-        .catch((err) => {
-          logger.debug(`[OllamaController] Token calibration failed: ${err?.message ?? err}`)
-        })
+      if (!hasImages) {
+        this.tokenCalibration
+          .record(model, trace.uncalibratedPromptTokens, usage.promptTokens)
+          .catch((err) => {
+            logger.debug(`[OllamaController] Token calibration failed: ${err?.message ?? err}`)
+          })
+      }
 
       if (usage.promptEvalMs !== undefined && usage.promptEvalMs > 0) {
         const tokensPerMs = usage.promptTokens / usage.promptEvalMs

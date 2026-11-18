@@ -41,8 +41,9 @@ export default class ChatsController {
   }
 
   async store({ request, response }: HttpContext) {
+    // Outside the try: a validation error must reach the client as 422, not 500.
+    const data = await request.validateUsing(createSessionSchema)
     try {
-      const data = await request.validateUsing(createSessionSchema)
       const session = await this.chatService.createSession(data.title, data.model)
       return response.status(201).json(session)
     } catch (error) {
@@ -66,10 +67,13 @@ export default class ChatsController {
   }
 
   async update({ params, request, response }: HttpContext) {
+    const sessionId = parseInt(params.id)
+    const data = await request.validateUsing(updateSessionSchema)
     try {
-      const sessionId = parseInt(params.id)
-      const data = await request.validateUsing(updateSessionSchema)
       const session = await this.chatService.updateSession(sessionId, data)
+      if (!session) {
+        return response.status(404).json({ error: 'Session not found' })
+      }
       return session
     } catch (error) {
       logger.error({ err: error }, '[ChatsController] Failed to update session')
@@ -93,9 +97,9 @@ export default class ChatsController {
   }
 
   async addMessage({ params, request, response }: HttpContext) {
+    const sessionId = parseInt(params.id)
+    const data = await request.validateUsing(addMessageSchema)
     try {
-      const sessionId = parseInt(params.id)
-      const data = await request.validateUsing(addMessageSchema)
       const message = await this.chatService.addMessage(sessionId, data.role, data.content)
       return response.status(201).json(message)
     } catch (error) {
