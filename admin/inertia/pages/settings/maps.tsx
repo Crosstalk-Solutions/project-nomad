@@ -156,12 +156,16 @@ export default function MapsManager(props: {
 
     try {
       setDeletingFileKey(file.key)
-      await api.deleteMapRegionFile(file.name)
+      // Close first: the modal element is stored once, so its confirm button can't show loading
+      // and would stay clickable during the request.
+      closeAllModals()
+      const res = await api.deleteMapRegionFile(file.name)
+      // catchInternal returns undefined on failure instead of throwing
+      if (!res) throw new Error('Delete failed')
       addNotification({
         type: 'success',
         message: `${file.name} has been deleted.`,
       })
-      closeAllModals()
       router.reload({ only: ['maps'] })
     } catch (error) {
       console.error('Error deleting map file:', error)

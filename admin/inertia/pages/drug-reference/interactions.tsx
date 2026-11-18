@@ -61,19 +61,26 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
   useEffect(() => {
     if (selectedIds.length === 0) {
       setEntries([])
+      setLoadingEntries(false)
       return
     }
+    let cancelled = false
     setLoadingEntries(true)
     const params = new URLSearchParams({ ids: selectedIds.join(',') })
     fetch(`/api/drug-reference/interactions?${params}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((json: { entries: DrugInteractionEntry[] }) => {
-        setEntries(json.entries ?? [])
+        if (!cancelled) setEntries(json.entries ?? [])
       })
       .catch(() => {
-        setEntries([])
+        if (!cancelled) setEntries([])
       })
-      .finally(() => setLoadingEntries(false))
+      .finally(() => {
+        if (!cancelled) setLoadingEntries(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [selectedIds])
 
   // ── Picker search ──────────────────────────────────────────────────────────

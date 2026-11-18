@@ -16,7 +16,7 @@ import { RAG_MIN_RELEVANCE_PRESETS, RESPONSE_STYLE_PRESETS } from '../../../cons
 import Switch from '~/components/inputs/Switch'
 import Select from '~/components/inputs/Select'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
 import { formatBytes } from '~/lib/util'
@@ -126,7 +126,11 @@ export default function ModelsPage(props: {
       }
       return res
     },
-    initialData: { models: props.models.availableModels, hasMore: false },
+    // The server-rendered list is only the answer for the initial query; searches keep
+    // showing the previous results until theirs arrive instead of the unfiltered list.
+    initialData:
+      query === '' && limit === 15 ? { models: props.models.availableModels, hasMore: false } : undefined,
+    placeholderData: keepPreviousData,
   })
 
   async function handleForceRefresh() {
@@ -157,14 +161,15 @@ export default function ModelsPage(props: {
 
   async function handleDeleteModel(modelName: string) {
     try {
-      const res = await api.deleteModel(modelName)
-      if (res.success) {
-        addNotification({
-          message: `Model deleted: ${modelName}.`,
-          type: 'success',
-        })
-      }
+      // Close first: the modal element is stored once, so its confirm button stays clickable.
       closeAllModals()
+      const res = await api.deleteModel(modelName)
+      // catchInternal returns undefined on failure instead of throwing
+      if (!res?.success) throw new Error(res?.message ?? 'Delete failed')
+      addNotification({
+        message: `Model deleted: ${modelName}.`,
+        type: 'success',
+      })
       router.reload()
     } catch (error) {
       console.error('Error deleting model:', error)

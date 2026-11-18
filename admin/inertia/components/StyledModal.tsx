@@ -44,7 +44,9 @@ const StyledModal: React.FC<StyledModalProps> = ({
     <Dialog
       open={open}
       onClose={() => {
+        // Escape/backdrop: fall back to onCancel so modals without onClose can still be dismissed
         if (onClose) onClose()
+        else if (onCancel) onCancel()
       }}
       className="relative z-50"
     >

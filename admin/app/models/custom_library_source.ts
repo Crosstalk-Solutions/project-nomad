@@ -13,7 +13,8 @@ export default class CustomLibrarySource extends BaseModel {
   @column()
   declare base_url: string
 
-  @column()
+  // MySQL returns tinyint 0/1; without this the client receives a number.
+  @column({ consume: (value: number | boolean) => Boolean(value) })
   declare is_default: boolean
 
   @column.dateTime({ autoCreate: true })

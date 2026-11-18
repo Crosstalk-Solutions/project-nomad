@@ -848,6 +848,7 @@ class API {
   async deleteMapMarker(id: number) {
     return catchInternal(async () => {
       await this.client.delete(`/maps/markers/${id}`)
+      return true
     })()
   }
 

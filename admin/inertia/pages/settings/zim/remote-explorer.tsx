@@ -948,7 +948,7 @@ export default function ZimRemoteExplorer() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-text-primary truncate">
                             {lib.name}
-                            {lib.is_default && (
+                            {!!lib.is_default && (
                               <span className="ml-2 text-xs text-text-muted font-normal">(built-in)</span>
                             )}
                           </p>

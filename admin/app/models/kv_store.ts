@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
 import { KV_STORE_SCHEMA, type KVStoreKey, type KVStoreValue } from '../../types/kv_store.js'
 import { parseBoolean } from '../utils/misc.js'
+import { isDuplicateKeyError } from '../utils/sql.js'
 
 /**
  * Generic key-value store model for storing various settings
@@ -43,12 +44,14 @@ export default class KVStore extends BaseModel {
    */
   static async setValue<K extends KVStoreKey>(key: K, value: KVStoreValue<K>): Promise<KVStore> {
     const serialized = String(value)
-    const setting = await this.firstOrCreate({ key }, { key, value: serialized })
-    if (setting.value !== serialized) {
-      setting.value = serialized
-      await setting.save()
+    try {
+      return await this.updateOrCreate({ key }, { value: serialized })
+    } catch (err) {
+      // A concurrent first write inserted the row between our SELECT and INSERT;
+      // the row exists now, so the retry takes the update path.
+      if (!isDuplicateKeyError(err)) throw err
+      return await this.updateOrCreate({ key }, { value: serialized })
     }
-    return setting
   }
 
   /**
