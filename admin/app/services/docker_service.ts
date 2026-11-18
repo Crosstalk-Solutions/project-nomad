@@ -5,6 +5,7 @@ import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { pickAmdHsaOverride } from '../utils/amd_hsa_override.js'
+import { nvidiaDeviceRequest, nvidiaDriverUsesCdi } from './ollama_compute.js'
 import { join } from 'path'
 import os from 'node:os'
 import env from '#start/env'
@@ -756,13 +757,7 @@ export class DockerService {
           // Add GPU support for NVIDIA
           gpuHostConfig = {
             ...gpuHostConfig,
-            DeviceRequests: [
-              {
-                Driver: 'nvidia',
-                Count: -1, // -1 means all GPUs
-                Capabilities: [['gpu']],
-              },
-            ],
+            DeviceRequests: [nvidiaDeviceRequest(gpuResult.cdi)],
           }
         } else if (gpuResult.type === 'amd') {
           // AMD acceleration is opt-out via the 'ai.amdGpuAcceleration' KV key (default-on).
@@ -1476,16 +1471,28 @@ export class DockerService {
    *   AMD has no Docker runtime registration to query.
    * Fallback: lspci for host-based installs.
    */
-  private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'none'; toolkitMissing?: boolean }> {
+  private async _detectGPUType(): Promise<{
+    type: 'nvidia' | 'amd' | 'none'
+    toolkitMissing?: boolean
+    /** Request the NVIDIA GPU by its CDI name, as Docker's nvidia driver can't reach it */
+    cdi?: boolean
+  }> {
     try {
       // Primary: Check Docker daemon for nvidia runtime (works from inside containers)
       try {
         const dockerInfo = await this.docker.info()
         const runtimes = dockerInfo.Runtimes || {}
-        if ('nvidia' in runtimes) {
+        // Hosts that hand the GPU to containers through CDI (DGX OS, for one) may not register an nvidia runtime
+        const cdiNvidia = ((dockerInfo as any).DiscoveredDevices || []).some((d: any) =>
+          String(d?.ID).startsWith('nvidia.com/gpu')
+        )
+        if ('nvidia' in runtimes || cdiNvidia) {
           logger.info('[DockerService] NVIDIA container runtime detected via Docker API')
           await this._persistGPUType('nvidia')
-          return { type: 'nvidia' }
+          return {
+            type: 'nvidia',
+            cdi: !('nvidia' in runtimes) && !nvidiaDriverUsesCdi(dockerInfo.ServerVersion),
+          }
         }
       } catch (error: any) {
         logger.warn(`[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`)
@@ -1795,9 +1802,7 @@ export class DockerService {
             'update-gpu-config',
             `NVIDIA container runtime detected. Configuring updated container with GPU support...`
           )
-          updatedDeviceRequests = [
-            { Driver: 'nvidia', Count: -1, Capabilities: [['gpu']] },
-          ]
+          updatedDeviceRequests = [nvidiaDeviceRequest(gpuResult.cdi)]
         } else if (gpuResult.type === 'amd') {
           const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')
           const amdAccelerationEnabled = String(amdEnabledRaw) !== 'false'
