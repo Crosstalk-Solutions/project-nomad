@@ -6,31 +6,21 @@ Potential categories to add to the tiered collections system in `kiwix-categorie
 - [x] Medicine - Medical references, first aid, emergency care
 - [x] Survival & Preparedness - Food prep, prepper videos, repair guides
 - [x] Education & Reference - Wikipedia, textbooks, TED talks
+- [x] DIY & Repair - Practical skills, mechanics, woodworking, home repair
+- [x] Agriculture & Food - Food production, cooking, gardening, homesteading
+- [x] Computing & Technology (Technology & Programming) - 3 tiers (Essential ~27 MB, Standard ~2.5 GB, Comprehensive ~9.1 GB): FreeCodeCamp, DevDocs (15 languages/frameworks, SQLite, Docker, Postgres), and 9 Stack Exchange archives
+- [x] Children & Family - Wikipedia for Schools, Wikibooks Children's Bookshelf, storybooks, fairy tales, TED-Ed (Khan Academy Kids via Kolibri)
 
 ---
 
 ## High Priority
-
-### Technology & Programming
-Stack Overflow, developer documentation, coding tutorials
-- Stack Overflow (multiple tags available)
-- DevDocs documentation
-- freeCodeCamp
-- Programming language references
-
-### Children & Family
-Age-appropriate educational content for kids
-- Wikipedia for Schools
-- Wikibooks Children's Bookshelf
-- Khan Academy Kids (via Kolibri - separate system)
-- Storybooks, fairy tales
 
 ### Trades & Vocational
 Practical skills for building, fixing, and maintaining
 - Electrical wiring guides
 - Plumbing basics
 - Automotive repair
-- Woodworking
+- Woodworking (partially covered in DIY & Repair)
 - Welding fundamentals
 
 ### Agriculture & Gardening
