@@ -1156,7 +1156,7 @@ export class OllamaService {
    *
    * Only the Ollama-native endpoint is supported — backends that expose
    * `/v1/embeddings` (LM Studio, llama.cpp) don't surface placement info.
-   * Set `RAG_EMBED_GPU_ACCELERATED` (true/false) to force an answer and skip
+   * Set `RAG_EMBED_GPU_ACCELERATED` (true/1/false/0) to force an answer and skip
    * the probe entirely.
    */
   public async isEmbeddingGpuAccelerated(): Promise<boolean> {
