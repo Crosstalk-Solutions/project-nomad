@@ -17,6 +17,7 @@ export type BenchmarkStatus =
   | 'calculating_score'
   | 'completed'
   | 'error'
+  | 'cancelled'
 
 // Hardware detection types
 export type DiskType = 'ssd' | 'hdd' | 'nvme' | 'unknown'
@@ -133,6 +134,8 @@ export type SubmitBenchmarkParams = {
 // API response types
 export type RunBenchmarkResponse = {
   success: boolean
+  /** Set when an inline (sync) run was cancelled before it finished. */
+  cancelled?: boolean
   job_id: string
   benchmark_id: string
   message: string

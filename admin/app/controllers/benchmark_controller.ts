@@ -1,11 +1,17 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { BenchmarkService } from '#services/benchmark_service'
-import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
+import {
+  cancelBenchmarkValidator,
+  runBenchmarkValidator,
+  submitBenchmarkValidator,
+} from '#validators/benchmark'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
 import type { BenchmarkType } from '../../types/benchmark.js'
 import { randomUUID } from 'node:crypto'
 import logger from '@adonisjs/core/services/logger'
+import { BenchmarkCancelledError } from '../utils/benchmark_cancel.js'
+import { removeQueuedBenchmarks, signalBenchmarkCancel } from '../utils/benchmark_cancel_signal.js'
 
 @inject()
 export default class BenchmarkController {
@@ -53,6 +59,9 @@ export default class BenchmarkController {
           result,
         })
       } catch (error) {
+        if (error instanceof BenchmarkCancelledError) {
+          return response.send({ success: false, cancelled: true })
+        }
         logger.error({ err: error }, '[BenchmarkController] Benchmark run failed')
         return response.status(500).send({
           success: false,
@@ -76,6 +85,23 @@ export default class BenchmarkController {
       message: created
         ? `${benchmarkType} benchmark started`
         : 'Benchmark job already exists',
+    })
+  }
+
+  /**
+   * Cancel the running benchmark, wherever it runs (inline web request or queue
+   * worker), and drop any benchmark job that is queued but hasn't started. The
+   * running benchmark picks the signal up within about a second and reports
+   * 'cancelled' on the progress channel. Nothing is saved for a cancelled run.
+   */
+  async cancel({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(cancelBenchmarkValidator)
+    await signalBenchmarkCancel(payload.delete_model ? 'delete' : 'keep')
+    const removedQueued = await removeQueuedBenchmarks()
+    return response.status(202).send({
+      success: true,
+      message: 'Cancel requested',
+      removed_queued: removedQueued,
     })
   }
 

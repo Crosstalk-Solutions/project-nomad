@@ -4,6 +4,7 @@ import { BenchmarkService } from '#services/benchmark_service'
 import type { RunBenchmarkJobParams } from '../../types/benchmark.js'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from '#services/docker_service'
+import { BenchmarkCancelledError } from '../utils/benchmark_cancel.js'
 
 export class RunBenchmarkJob {
   static get queue() {
@@ -47,6 +48,10 @@ export class RunBenchmarkJob {
         nomad_score: result.nomad_score,
       }
     } catch (error) {
+      if (error instanceof BenchmarkCancelledError) {
+        logger.info(`[RunBenchmarkJob] Benchmark ${benchmark_id} cancelled`)
+        return { success: false, cancelled: true, benchmark_id }
+      }
       logger.error(`[RunBenchmarkJob] Benchmark ${benchmark_id} failed: ${error.message}`)
       throw error
     }

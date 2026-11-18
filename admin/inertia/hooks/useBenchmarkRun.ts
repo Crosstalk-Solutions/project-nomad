@@ -69,7 +69,9 @@ const pushRing = (arr: number[], v: number) => {
  * telemetry) and exposes a flat, render-ready view of a live run. All history
  * buffers are kept as fresh arrays so memoized children re-render on change.
  */
-export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'error', message: string) => void }) {
+export function useBenchmarkRun(opts?: {
+  onFinished?: (status: 'completed' | 'error' | 'cancelled', message: string) => void
+}) {
   const { subscribe } = useTransmit()
   const onFinishedRef = useRef(opts?.onFinished)
   onFinishedRef.current = opts?.onFinished
@@ -118,7 +120,7 @@ export function useBenchmarkRun(opts?: { onFinished?: (status: 'completed' | 'er
             return [...prev, incoming]
           })
         }
-        if (data.status === 'completed' || data.status === 'error') {
+        if (data.status === 'completed' || data.status === 'error' || data.status === 'cancelled') {
           onFinishedRef.current?.(data.status, data.message)
         }
       }

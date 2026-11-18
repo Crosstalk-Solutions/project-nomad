@@ -985,6 +985,16 @@ class API {
     })()
   }
 
+  async cancelBenchmark(deleteModel: boolean = false) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/benchmark/cancel',
+        { delete_model: deleteModel }
+      )
+      return response.data
+    })()
+  }
+
   async startSystemUpdate() {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(

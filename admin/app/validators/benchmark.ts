@@ -6,6 +6,13 @@ export const runBenchmarkValidator = vine.compile(
   })
 )
 
+export const cancelBenchmarkValidator = vine.compile(
+  vine.object({
+    // Also delete the AI benchmark model if this run downloaded it.
+    delete_model: vine.boolean().optional(),
+  })
+)
+
 export const submitBenchmarkValidator = vine.compile(
   vine.object({
     benchmark_id: vine.string().optional(),
