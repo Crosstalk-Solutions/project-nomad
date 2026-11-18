@@ -129,7 +129,7 @@
     "react": "19.2.7",
     "react-adonis-transmit": "1.0.1",
     "react-dom": "19.2.7",
-    "react-map-gl": "8.1.0",
+    "react-map-gl": "8.1.3",
     "react-markdown": "10.1.0",
     "reflect-metadata": "0.2.2",
     "remark-gfm": "4.0.1",
