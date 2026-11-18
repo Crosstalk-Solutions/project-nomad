@@ -10,8 +10,8 @@ import { parseMinRelevance } from './misc.js'
  * would be pure overhead on the critical path. Cached at module scope rather
  * than on a service instance: NOMAD's services are `@inject()` but are not
  * registered as singletons, so instance state lives and dies with a single
- * request — which is why ContextWindowService's "memoized for the process
- * lifetime" memo isn't, and why its invalidate() never had a caller to matter to.
+ * request. ContextWindowService keeps its decision memo at module scope for
+ * the same reason, and invalidate() clears it when an input setting changes.
  *
  * Belt and braces, mirroring the assistant-name cache in config/inertia.ts: the
  * TTL bounds how stale this can get if an invalidation is ever missed, and

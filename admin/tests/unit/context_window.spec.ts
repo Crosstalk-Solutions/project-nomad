@@ -10,8 +10,10 @@ import {
   readContextLength,
   readModelfileNumCtx,
   resolveContextWindow,
+  selectAvailableBytes,
   snapToLadder,
 } from '../../app/utils/context_window.js'
+import { validateSettingValue } from '../../app/validators/settings.js'
 
 const GB = 2 ** 30
 const KIB = 1024
@@ -169,6 +171,118 @@ test('the resolver is deterministic — the same inputs give the same window', (
   const first = resolveContextWindow(inputs)
   for (let i = 0; i < 5; i++) {
     assert.deepEqual(resolveContextWindow(inputs), first)
+  }
+})
+
+test('remote Ollama memory sizes the window above the floor', () => {
+  // 24 GB on the inference host, not the 2 GB this NOMAD box would have
+  // reported. Weights leave enough for a 64K window; the model max would
+  // have allowed 128K, so memory is what binds. A small trained context
+  // still wins when the remote machine has room.
+  const availableBytes = selectAvailableBytes({
+    remoteOllamaUrl: 'http://192.168.1.20:11434',
+    remoteOllamaMemoryGB: '24',
+    probedBytes: 2 * GB,
+    hostShareBytes: 2 * GB,
+  })
+  assert.equal(availableBytes, 24 * GB)
+
+  const byMemory = resolveContextWindow({
+    modelMaxCtx: 131072,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes,
+    modelBytes: 5 * GB,
+  })
+  assert.equal(byMemory.contextWindow, 65536)
+  assert.ok(byMemory.contextWindow > MIN_CONTEXT)
+  assert.equal(byMemory.limitedBy, 'memory')
+
+  const byModel = resolveContextWindow({
+    modelMaxCtx: 8192,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes,
+  })
+  assert.equal(byModel.contextWindow, 8192)
+  assert.ok(byModel.contextWindow > MIN_CONTEXT)
+  assert.equal(byModel.limitedBy, 'model')
+})
+
+test('remote Ollama with no memory setting applies no memory ceiling', () => {
+  const availableBytes = selectAvailableBytes({
+    remoteOllamaUrl: 'http://gpu-box:11434',
+    remoteOllamaMemoryGB: '',
+    probedBytes: 2 * GB,
+    hostShareBytes: 1 * GB,
+  })
+  assert.equal(availableBytes, undefined)
+  // Garbage and a blank string are the same as unset: do not guess.
+  assert.equal(
+    selectAvailableBytes({
+      remoteOllamaUrl: 'http://gpu-box:11434',
+      remoteOllamaMemoryGB: 'nope',
+      hostShareBytes: 1 * GB,
+    }),
+    undefined
+  )
+
+  const d = resolveContextWindow({
+    modelMaxCtx: 32768,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes,
+    modelBytes: 5 * GB,
+  })
+  assert.equal(d.contextWindow, 32768)
+  assert.equal(d.limitedBy, 'model')
+  assert.equal(d.affordableTokens, undefined)
+})
+
+test('no remote URL keeps probed VRAM, then the host RAM share', () => {
+  // A leftover memory figure must not apply while Ollama is local, and a
+  // whitespace URL is not a remote host.
+  assert.equal(
+    selectAvailableBytes({
+      remoteOllamaUrl: '',
+      remoteOllamaMemoryGB: '64',
+      probedBytes: 8 * GB,
+      hostShareBytes: 2 * GB,
+    }),
+    8 * GB
+  )
+  assert.equal(
+    selectAvailableBytes({
+      remoteOllamaUrl: '   ',
+      remoteOllamaMemoryGB: '64',
+      probedBytes: 8 * GB,
+      hostShareBytes: 2 * GB,
+    }),
+    8 * GB
+  )
+  assert.equal(
+    selectAvailableBytes({
+      remoteOllamaUrl: null,
+      probedBytes: undefined,
+      hostShareBytes: 2 * GB,
+    }),
+    2 * GB
+  )
+
+  // The host share is still a ceiling. 2 GB against this KV cost snaps to 8K,
+  // which is the pre-existing local fallback, not "no ceiling".
+  const d = resolveContextWindow({
+    modelMaxCtx: 131072,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes: selectAvailableBytes({ hostShareBytes: 2 * GB }),
+  })
+  assert.equal(d.contextWindow, 8192)
+  assert.equal(d.limitedBy, 'memory')
+})
+
+test('remote Ollama memory setting accepts a positive number or empty', () => {
+  for (const value of ['', null, undefined, '24', '0.5', 16]) {
+    assert.equal(validateSettingValue('ai.remoteOllamaMemoryGB', value), null, String(value))
+  }
+  for (const value of ['0', '-4', 'lots', Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.notEqual(validateSettingValue('ai.remoteOllamaMemoryGB', value), null, String(value))
   }
 })
 
