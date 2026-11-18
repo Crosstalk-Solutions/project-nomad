@@ -35,7 +35,7 @@ export default function InteractionColumn({ entry, onRemove }: Props) {
                 </span>
               )}
               {isOtc && (
-                <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-desert-tan text-desert-white flex-shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-desert-tan text-white flex-shrink-0">
                   OTC
                 </span>
               )}

@@ -68,12 +68,12 @@ const CATEGORIES = [
 
 const CATEGORY_COLORS: Record<string, string> = {
   productivity: 'border border-desert-green-light bg-desert-green-lighter text-desert-green-dark',
-  media: 'border border-desert-tan-light bg-desert-tan-lighter text-desert-tan-dark',
-  security: 'border border-desert-red-light bg-desert-red-lighter text-desert-red-dark',
-  networking: 'border border-desert-stone-light bg-desert-stone-lighter text-desert-stone-dark',
-  utility: 'border border-desert-olive-light bg-desert-olive-lighter text-desert-olive-dark',
+  media: 'border border-desert-tan-light bg-desert-tan-lighter text-text-primary',
+  security: 'border border-desert-red-light bg-desert-red-lighter text-text-primary',
+  networking: 'border border-desert-stone-light bg-desert-stone-lighter text-text-primary',
+  utility: 'border border-desert-olive-light bg-desert-olive-lighter text-text-primary',
   ai: 'border border-desert-green bg-desert-green-light text-desert-green-darker',
-  education: 'border border-desert-orange-light bg-desert-orange-lighter text-desert-orange-dark',
+  education: 'border border-desert-orange-light bg-desert-orange-lighter text-text-primary',
   custom: 'border border-border-subtle bg-surface-secondary text-text-secondary',
 }
 
@@ -978,7 +978,7 @@ function AppCard({
         ) : null}
         {service.is_user_modified && !service.is_custom ? (
           <span
-            className="text-xs px-2 py-0.5 rounded-full font-medium bg-desert-tan-lighter text-desert-tan-dark border border-desert-tan-light"
+            className="text-xs px-2 py-0.5 rounded-full font-medium bg-desert-tan-lighter text-text-primary border border-desert-tan-light"
             title="You've customized this app, so it won't be overwritten by catalog updates."
           >
             modified
@@ -986,7 +986,7 @@ function AppCard({
         ) : null}
         {service.is_deprecated ? (
           <span
-            className="text-xs px-2 py-0.5 rounded-full font-medium bg-desert-orange-lighter text-desert-orange-dark border border-desert-orange-light"
+            className="text-xs px-2 py-0.5 rounded-full font-medium bg-desert-orange-lighter text-text-primary border border-desert-orange-light"
             title="This is a legacy version that's no longer maintained. Install the current Education Platform from the catalog, then uninstall this one."
           >
             legacy
