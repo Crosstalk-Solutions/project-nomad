@@ -5,6 +5,7 @@ import type { Stream } from 'openai/streaming.js'
 import { Ollama } from 'ollama'
 import { ThinkTagSplitter, normalizeNonStreamed } from '../utils/think_stream.js'
 import { readContextLength, readModelfileNumCtx } from '../utils/context_window.js'
+import { stripLoneSurrogates } from '../utils/surrogates.js'
 import { compatSamplerParams, nativeSamplerOptions, readModelfileSamplers } from '../utils/sampler.js'
 import { NomadOllamaModel, SamplerProfile } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -1049,7 +1050,7 @@ export class OllamaService {
 
     // Generous pre-cap (#881): fine for the native path (num_ctx=8192) but can still exceed a
     // 2048-context fallback on dense content. The context-length retry below is the hard backstop.
-    const safeInput = cap(input, OllamaService.EMBED_MAX_INPUT_CHARS)
+    const safeInput = cap(input, OllamaService.EMBED_MAX_INPUT_CHARS).map(stripLoneSurrogates)
 
     try {
       return await this._embedWithFallback(model, safeInput)
@@ -1059,7 +1060,7 @@ export class OllamaService {
       // older Ollama that ignores num_ctx for embeddings, or the OpenAI-compat fallback path.
       // Retry once, truncated hard enough to fit a 2048-token context at any density, so the
       // chunk is embedded (truncated) instead of dropped and the job doesn't storm.
-      const hardCapped = cap(input, OllamaService.EMBED_CONTEXT_SAFE_CHARS)
+      const hardCapped = cap(input, OllamaService.EMBED_CONTEXT_SAFE_CHARS).map(stripLoneSurrogates)
       const reduced = hardCapped.reduce((n, s, i) => (s.length < safeInput[i].length ? n + 1 : n), 0)
       logger.warn(
         '[OllamaService] embed: context-length overflow; retrying %d/%d inputs hard-capped at %d chars',
