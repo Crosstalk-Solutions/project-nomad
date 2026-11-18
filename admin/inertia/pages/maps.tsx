@@ -16,6 +16,8 @@ type MapCommand = {
 }
 
 export default function Maps(props: {
+  worldOfflineEnabled?: boolean
+  worldOfflineNorthLocked?: boolean
   maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
 }) {
   const [isHoveringUI, setIsHoveringUI] = useState(false)
@@ -69,6 +71,7 @@ export default function Maps(props: {
       <div className="relative w-full h-screen overflow-hidden">
         {/* Navbar */}
         <div
+          data-nomad-map-navbar={props.worldOfflineEnabled ? '' : undefined}
           className="absolute top-0 left-0 right-0 z-50 flex justify-between p-4 bg-surface-secondary backdrop-blur-sm shadow-sm"
           onMouseEnter={() => setIsHoveringUI(true)}
           onMouseLeave={() => setIsHoveringUI(false)}
@@ -155,6 +158,8 @@ export default function Maps(props: {
 
         <div className="absolute inset-0">
           <MapComponent
+            worldOfflineEnabled={props.worldOfflineEnabled}
+            worldOfflineNorthLocked={props.worldOfflineNorthLocked}
             mapCommand={mapCommand}
             isHoveringUI={isHoveringUI}
             showCoordinatesEnabled={showCoordinatesEnabled}

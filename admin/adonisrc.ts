@@ -115,6 +115,10 @@ export default defineConfig({
       reloadServer: false,
     },
     {
+      pattern: 'resources/world-offline/catalog.json',
+      reloadServer: false,
+    },
+    {
       pattern: 'public/**',
       reloadServer: false,
     },

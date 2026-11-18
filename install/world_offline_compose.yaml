@@ -1,0 +1,34 @@
+# Optional overlay for a source build of NOMAD with World offline support.
+# Load it after management_compose.yaml. Use the same NOMAD_STORAGE_PATH as the admin.
+services:
+  admin:
+    image: ${NOMAD_WORLD_ADMIN_IMAGE:?Set the tag of the World offline admin image}
+    pull_policy: never
+    environment:
+      WORLD_OFFLINE_ENABLED: 'true'
+      WORLD_OFFLINE_WORKER_URL: http://world-offline-worker:8083
+      WORLD_OFFLINE_WORKER_TOKEN: ${WORLD_OFFLINE_TOKEN:?Set a private worker token}
+  world-offline-worker:
+    build:
+      context: ../world-offline-worker
+    restart: unless-stopped
+    environment:
+      WORLD_WORKER_TOKEN: ${WORLD_OFFLINE_TOKEN:?Set a private worker token}
+    volumes:
+      - type: bind
+        source: ${NOMAD_STORAGE_PATH:?Use the existing NOMAD storage path}/maps
+        target: /data/maps
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

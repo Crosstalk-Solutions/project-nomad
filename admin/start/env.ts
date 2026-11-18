@@ -27,6 +27,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   NOMAD_STORAGE_PATH: Env.schema.string.optional(),
+  WORLD_OFFLINE_ENABLED: Env.schema.boolean.optional(),
+  WORLD_OFFLINE_NORTH_LOCKED: Env.schema.boolean.optional(),
+  WORLD_OFFLINE_WORKER_URL: Env.schema.string.optional(),
+  WORLD_OFFLINE_WORKER_TOKEN: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------

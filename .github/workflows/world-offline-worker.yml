@@ -1,0 +1,57 @@
+name: Test World Offline Worker
+
+on:
+  pull_request:
+    paths:
+      - 'world-offline-worker/**'
+      - 'admin/resources/world-offline/catalog.json'
+      - 'admin/app/services/world_elevation*.ts'
+      - 'admin/app/controllers/world_elevation_controller.ts'
+      - 'admin/app/validators/world_offline.ts'
+      - 'admin/types/world_offline.ts'
+      - 'admin/tests/unit/world_elevation.spec.ts'
+      - '.github/workflows/world-offline-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  elevation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.23.5'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Install application dependencies
+        run: npm ci
+        working-directory: admin
+      - name: Verify elevation with synthetic local archives
+        run: node --import ts-node-maintained/register/esm --test tests/unit/world_elevation.spec.ts
+        working-directory: admin
+
+  isolated-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build the Linux AMD64 worker
+        run: docker build --platform linux/amd64 -t nomad-world-offline-worker:test ./world-offline-worker
+      - name: Validate generated fallback catalog
+        run: |
+          docker run --rm --network none --entrypoint python nomad-world-offline-worker:test /app/export_catalog.py > /tmp/world-offline-catalog.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          repository = Path("admin/resources/world-offline/catalog.json")
+          generated = Path("/tmp/world-offline-catalog.json")
+          if json.loads(repository.read_text()) != json.loads(generated.read_text()):
+              raise SystemExit("Regenerate the fallback catalog using world-offline-worker/export_catalog.py.")
+          PY
+      - name: Verify world archives and state with networking disabled
+        run: |
+          docker run --rm -i --network none --entrypoint python nomad-world-offline-worker:test - < world-offline-worker/test_worker.py
