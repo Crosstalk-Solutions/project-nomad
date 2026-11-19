@@ -20,6 +20,8 @@ import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitSelector'
+import PlaceInfoPopup from './PlaceInfoPopup'
+import { PLACE_SOURCE_LAYERS, pickPlace, type PlaceInfo } from '~/lib/map_place_info'
 
 type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
@@ -43,6 +45,10 @@ type MapLocationParams = {
 }
 
 const SAVED_MAP_VIEW_KEY = 'nomad:map-view'
+/** Lowest screen y a clicked place may sit at so its popup clears the title bar. */
+const PLACE_POPUP_MIN_Y = 260
+/** Same for the (taller) new-pin form opened by "Save as pin". */
+const MARKER_FORM_MIN_Y = 440
 const DEFAULT_MAP_VIEW = { longitude: -101, latitude: 40, zoom: 3.5 }
 
 type SavedMapView = { longitude: number; latitude: number; zoom: number }
@@ -143,11 +149,24 @@ export default function MapComponent({
 
   const [targetIndicator, setTargetIndicator] = useState<{ lng: number; lat: number } | null>(null)
   const [isDraggingMap, setIsDraggingMap] = useState(false)
-  const [placingMarker, setPlacingMarker] = useState<{ lng: number; lat: number } | null>(null)
+  const [placingMarker, setPlacingMarker] = useState<{
+    lng: number
+    lat: number
+    /** Prefilled name when the pin comes from "Save as pin" on a place */
+    name?: string
+  } | null>(null)
   const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null)
   const [editingMarkerId, setEditingMarkerId] = useState<number | null>(null)
   const [hasUnsavedMarkerChanges, setHasUnsavedMarkerChanges] = useState(false)
   const [showCoordinates, setShowCoordinates] = useState(false)
+  // Label/icon layers whose features can be clicked for details (see map_place_info).
+  const [placeLayerIds, setPlaceLayerIds] = useState<string[]>([])
+  const [isHoveringPlace, setIsHoveringPlace] = useState(false)
+  const [selectedPlace, setSelectedPlace] = useState<{
+    lng: number
+    lat: number
+    place: PlaceInfo
+  } | null>(null)
 
   const getInitialScaleUnit = (): ScaleUnit => {
     const stored = localStorage.getItem('nomad:map-scale-unit')
@@ -274,12 +293,54 @@ export default function MapComponent({
   }, [])
 
   const handleMapLoad = useCallback(() => {
+    // Every downloaded region adds its own copy of each layer, so collect the label/icon
+    // layers by their tile layer rather than by id.
+    const layers = mapRef.current?.getMap().getStyle()?.layers ?? []
+    setPlaceLayerIds(
+      layers
+        .filter(
+          (layer) =>
+            layer.type === 'symbol' &&
+            'source-layer' in layer &&
+            (PLACE_SOURCE_LAYERS as readonly string[]).includes(layer['source-layer'] ?? '')
+        )
+        .map((layer) => layer.id)
+    )
     flyToLocationParams()
   }, [flyToLocationParams])
 
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
       if (!confirmDiscardMarkerChanges()) return
+
+      // A click on a labelled place or point of interest shows its details; anywhere else
+      // keeps opening the new-pin form.
+      const place = pickPlace(
+        (e.features ?? []).map((feature) => ({
+          sourceLayer: feature.sourceLayer,
+          properties: feature.properties,
+          point:
+            feature.geometry.type === 'Point'
+              ? (feature.geometry.coordinates as [number, number])
+              : null,
+        }))
+      )
+      if (place) {
+        const [lng, lat] = place.point ?? [e.lngLat.lng, e.lngLat.lat]
+        setSelectedPlace({ lng, lat, place })
+        // The popup opens above the place; near the top it would sit under the title bar.
+        const y = mapRef.current?.project([lng, lat]).y ?? e.point.y
+        if (y < PLACE_POPUP_MIN_Y) {
+          mapRef.current?.panBy([0, y - PLACE_POPUP_MIN_Y], { duration: 300 })
+        }
+        setPlacingMarker(null)
+        setSelectedMarkerId(null)
+        setEditingMarkerId(null)
+        setHasUnsavedMarkerChanges(false)
+        setTargetIndicator(null)
+        return
+      }
+      setSelectedPlace(null)
 
       setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
       setSelectedMarkerId(null)
@@ -365,7 +426,10 @@ export default function MapComponent({
           ref={mapRef}
           reuseMaps
           style={{ width: '100%', height: '100vh' }}
-          cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
+          cursor={isDraggingMap ? 'grabbing' : isHoveringPlace ? 'pointer' : 'crosshair'}
+          // undefined (not []) until the style loads: an empty layer filter can match everything.
+          interactiveLayerIds={placeLayerIds.length > 0 ? placeLayerIds : undefined}
+          onMouseEnter={() => setIsHoveringPlace(true)}
           mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
           mapLib={maplibregl}
           initialViewState={initialViewState}
@@ -399,7 +463,9 @@ export default function MapComponent({
           }}
           onClick={handleMapClick}
           onMouseMove={handleMouseMove}
-          onMouseLeave={hideCoordinates}
+          // With interactiveLayerIds set this fires when the pointer leaves a clickable label;
+          // leaving the map itself is handled by the wrapper's onMouseLeave.
+          onMouseLeave={() => setIsHoveringPlace(false)}
         >
           <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
           <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
@@ -448,6 +514,7 @@ export default function MapComponent({
                   if (!confirmDiscardMarkerChanges()) return
 
                   setSelectedMarkerId(marker.id === selectedMarkerId ? null : marker.id)
+                  setSelectedPlace(null)
                   setPlacingMarker(null)
                   setEditingMarkerId(null)
                   setHasUnsavedMarkerChanges(false)
@@ -465,10 +532,35 @@ export default function MapComponent({
               </Marker>
             ))}
 
+          {selectedPlace && (
+            <PlaceInfoPopup
+              place={selectedPlace.place}
+              longitude={selectedPlace.lng}
+              latitude={selectedPlace.lat}
+              onMouseEnter={hideCoordinates}
+              onClose={() => setSelectedPlace(null)}
+              onSaveAsPin={() => {
+                const y = mapRef.current?.project([selectedPlace.lng, selectedPlace.lat]).y
+                if (y !== undefined && y < MARKER_FORM_MIN_Y) {
+                  mapRef.current?.panBy([0, y - MARKER_FORM_MIN_Y], { duration: 300 })
+                }
+                setPlacingMarker({
+                  lng: selectedPlace.lng,
+                  lat: selectedPlace.lat,
+                  name: selectedPlace.place.name,
+                })
+                setSelectedPlace(null)
+              }}
+            />
+          )}
+
           {placingMarker && (
             <MapMarkerFormPopup
+              // Remount per location so a prefilled name never carries over to the next pin.
+              key={`${placingMarker.lng},${placingMarker.lat}`}
               longitude={placingMarker.lng}
               latitude={placingMarker.lat}
+              initialName={placingMarker.name}
               onDirtyChange={setHasUnsavedMarkerChanges}
               onMouseEnter={hideCoordinates}
               onSave={async ({ name, notes, color, customColor, icon }) => {
