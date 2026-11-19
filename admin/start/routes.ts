@@ -46,6 +46,7 @@ import {
   addCustomLibraryValidator,
   browseLibraryValidator,
   idParamValidator,
+  setZimDownloadMirrorValidator,
 } from '#validators/zim'
 import {
   getJobStatusSchema,
@@ -748,6 +749,22 @@ router
       tags: ['zim'],
       params: idParamValidator,
     })
+    documented(router.get('/download-mirror', [ZimController, 'getDownloadMirror']), {
+      summary: 'Get the ZIM download source (override, measured mirror, effective)',
+      tags: ['zim'],
+    })
+    documented(router.put('/download-mirror', [ZimController, 'setDownloadMirror']), {
+      summary: 'Set the ZIM download source override',
+      tags: ['zim'],
+      request: setZimDownloadMirrorValidator,
+    })
+    documented(
+      router.post('/download-mirror/remeasure', [ZimController, 'remeasureDownloadMirror']),
+      {
+        summary: 'Discard the measured fastest mirror so the next ZIM download re-measures',
+        tags: ['zim'],
+      }
+    )
     documented(router.get('/browse-library', [ZimController, 'browseLibrary']), {
       summary: 'Browse a ZIM library',
       tags: ['zim'],

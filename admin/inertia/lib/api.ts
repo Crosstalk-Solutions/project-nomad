@@ -908,6 +908,38 @@ class API {
     })()
   }
 
+  async getZimDownloadMirror() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        override: string
+        measurement: {
+          baseUrl: string | null
+          measuredAt: string
+          results: { baseUrl: string; bytesPerSecond: number | null }[]
+        } | null
+        effective: { baseUrl: string | null; reason: 'override' | 'measured' | 'default' }
+        canonicalBaseUrl: string
+      }>('/zim/download-mirror')
+      return response.data
+    })()
+  }
+
+  async setZimDownloadMirror(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.put<{ message: string }>('/zim/download-mirror', {
+        source,
+      })
+      return response.data
+    })()
+  }
+
+  async remeasureZimDownloadMirror() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/zim/download-mirror/remeasure')
+      return response.data
+    })()
+  }
+
   async browseLibrary(url: string) {
     return catchInternal(async () => {
       const response = await this.client.get<{
