@@ -1312,13 +1312,34 @@ verify_gpu_setup() {
     ${SUDO} rm -f "${amd_gfx_marker_path}" 2>/dev/null || true
   fi
 
+  # Check for Vulkan-compatible GPUs (e.g., Intel Arc) that need the standard ollama/ollama
+  # image with OLLAMA_VULKAN=1 instead of ROCm. These show as "Radeon" via lspci because
+  # they use the amdgpu driver, but lack a valid gfx version in our AMD map.
+  local has_vulkan_gpu='false'
+  if [[ "${has_amd_gpu}" == 'true' ]] && [[ -z "${amd_gfx_version}" ]]; then
+    # Unknown/unsupported AMD or Intel Arc — check for Vulkan device nodes
+    if [[ -d '/dev/dri' ]]; then
+      has_vulkan_gpu='true'
+      echo -e "${GREEN}✓${RESET} Vulkan-compatible GPU detected (Intel Arc / unsupported AMD). Use ai.gpuBackend=vulkan in the dashboard to enable GPU acceleration.\\n"
+    fi
+  fi
+
   echo -e "${YELLOW}===========================================${RESET}\\n"
 
   # Summary
   if command -v nvidia-smi &> /dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
     echo -e "${GREEN}#${RESET} GPU acceleration is properly configured! The AI Assistant will use your GPU.\\n"
   elif [[ "${has_amd_gpu}" == 'true' ]]; then
-    echo -e "${GREEN}#${RESET} GPU acceleration will be enabled (AMD/ROCm) when AI Assistant is installed from the dashboard.\\n"
+    if [[ -n "${amd_gfx_version}" ]]; then
+      echo -e "${GREEN}#${RESET} GPU acceleration will be enabled (AMD/ROCm) when AI Assistant is installed from the dashboard.\\n"
+    else
+      # Unsupported AMD card or Intel Arc — Vulkan is an option
+      if [[ "${has_vulkan_gpu}" == 'true' ]]; then
+        echo -e "${GREEN}#${RESET} GPU detected but ROCm version unsupported. Set ${WHITE_R}ai.gpuBackend=vulkan${RESET} in the dashboard to enable Vulkan acceleration on this or Intel Arc hardware.\\n"
+      else
+        echo -e "${GREEN}#${RESET} GPU acceleration will be enabled (AMD/ROCm) when AI Assistant is installed from the dashboard.\\n"
+      fi
+    fi
   else
     echo -e "${YELLOW}#${RESET} GPU acceleration not detected. The AI Assistant will run in CPU-only mode.\\n"
     if command -v nvidia-smi &> /dev/null && ! docker info 2>/dev/null | grep -q "nvidia"; then

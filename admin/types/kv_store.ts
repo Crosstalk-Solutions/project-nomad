@@ -78,6 +78,10 @@ export const KV_STORE_SCHEMA = {
   'ai.amdGpuAcceleration':      'boolean',
   'ai.amdHsaOverride':          'string',
   'ai.autoFixGpuPassthrough':   'boolean',
+  // User override for Ollama's compute backend — 'auto' (default), 'roc' (ROCm),
+  // 'cuda' (CUDA), or 'vulkan' (Vulkan for Intel Arc, BC-250, and other non-ROCm GPUs).
+  // When 'vulkan', uses standard ollama/ollama image with /dev/dri passthrough + OLLAMA_VULKAN=1.
+  'ai.gpuBackend':              'string',
   'gpu.autoRemediatedAt':       'string',
   'apps.homebox.apiKeyPepper':  'string',
   'benchmark.rerunBannerDismissed': 'boolean',

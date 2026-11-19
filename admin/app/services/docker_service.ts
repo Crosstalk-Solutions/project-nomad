@@ -741,6 +741,12 @@ export class DockerService {
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
         const gpuResult = await this._detectGPUType()
 
+        // Manual GPU backend override from ai.gpuBackend KV config.
+        // Per memory: KV values can be string or boolean — coerce explicitly.
+        // Only 'vulkan' is a meaningful override here; all others fall through to auto-detect.
+        const gpuBackendRaw = await KVStore.getValue('ai.gpuBackend')
+        const gpuBackendOverride = String(gpuBackendRaw)
+
         if (gpuResult.type === 'nvidia') {
           this._broadcast(
             service.service_name,
@@ -804,6 +810,39 @@ export class DockerService {
             )
             logger.info('[DockerService] AMD GPU acceleration disabled by KV opt-out; using CPU-only configuration.')
           }
+        } else if (gpuBackendOverride === 'vulkan') {
+          // Vulkan: standard image with /dev/dri passthrough for Intel Arc, BC-250, and other non-ROCm GPUs.
+          // User explicitly opted in via ai.gpuBackend = 'vulkan' — we trust they have /dev/dri.
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `Vulkan GPU acceleration enabled via ai.gpuBackend config. Using standard image with /dev/dri passthrough...`
+          )
+
+          finalImage = 'ollama/ollama'
+
+          // Pull if missing (same pattern as ROCm branch above)
+          const vulkanImageExists = await this._checkImageExists(finalImage)
+          if (!vulkanImageExists) {
+            this._broadcast(
+              service.service_name,
+              'pulling',
+              `Pulling Docker image ${finalImage}...`
+            )
+            await this.pullImage(finalImage)
+          }
+
+          // Pass /dev/dri devices for Vulkan (same as AMD but without /dev/kfd)
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            Devices: [
+              { PathOnHost: '/dev/dri', PathInContainer: '/dev/dri', CgroupPermissions: 'rwm' },
+            ],
+          }
+          amdGpuConfigured = true  // reuses existing path below; harmless for Vulkan
+          logger.info(
+            `[DockerService] Configured standard image with /dev/dri passthrough for Vulkan on Ollama`
+          )
         } else if (gpuResult.toolkitMissing) {
           this._broadcast(
             service.service_name,
@@ -849,6 +888,12 @@ export class DockerService {
           // passthrough. It's a no-op on discrete AMD cards, so it's safe to set whenever
           // AMD acceleration is configured.
           ollamaEnv.push('OLLAMA_IGPU_ENABLE=1')
+        }
+        // Vulkan backend — user explicitly set ai.gpuBackend = 'vulkan' for non-ROCm GPUs.
+        // OLLAMA_VULKAN=1 is the standard signal that tells Ollama to enable Vulkan GPU compute.
+        if (gpuBackendOverride === 'vulkan') {
+          ollamaEnv.push('OLLAMA_VULKAN=1')
+          logger.info('[DockerService] Added OLLAMA_VULKAN=1 for explicit Vulkan backend.')
         }
       }
 
@@ -1780,8 +1825,15 @@ export class DockerService {
       let updatedDeviceRequests: any[] | undefined = undefined
       let updatedAmdDevices: any[] | undefined = undefined
       let updatedAmdGpuConfigured = false
+      let vulkanBackendSet = false
       if (serviceName === SERVICE_NAMES.OLLAMA) {
         const gpuResult = await this._detectGPUType()
+
+        // Manual GPU backend override from ai.gpuBackend KV config.
+        // Per memory: KV values can be string or boolean — coerce explicitly.
+        const gpuBackendRaw = await KVStore.getValue('ai.gpuBackend')
+        const gpuBackendOverride = String(gpuBackendRaw)
+
         if (gpuResult.type === 'nvidia') {
           this._broadcast(
             serviceName,
@@ -1810,6 +1862,16 @@ export class DockerService {
               `AMD GPU detected but acceleration is disabled via ai.amdGpuAcceleration. Using CPU-only configuration.`
             )
           }
+        } else if (gpuBackendOverride === 'vulkan') {
+          // Vulkan: standard image with /dev/dri passthrough for Intel Arc, BC-250, and other non-ROCm GPUs.
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `Vulkan GPU acceleration enabled via ai.gpuBackend config. Using standard image with /dev/dri passthrough...`
+          )
+          runtimeImage = 'ollama/ollama'
+          vulkanBackendSet = true
+          // Devices will be added below when reconstructing the container
         } else if (gpuResult.toolkitMissing) {
           this._broadcast(
             serviceName,
@@ -1899,6 +1961,11 @@ export class DockerService {
         // issue #1056 fix (which wouldn't have it in the captured env) pick it up.
         finalEnv.push('OLLAMA_IGPU_ENABLE=1')
       }
+      // Vulkan backend — user explicitly set ai.gpuBackend = 'vulkan' for non-ROCm GPUs.
+      if (vulkanBackendSet) {
+        finalEnv = baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
+        finalEnv.push('OLLAMA_VULKAN=1')
+      }
 
       // Heal a Homebox container that predates the #1043 fix: inject the persisted pepper on
       // update if it's missing, so an update (not just a force-reinstall) fixes the crash loop.
@@ -1922,7 +1989,14 @@ export class DockerService {
           PortBindings: hostConfig.PortBindings || undefined,
           RestartPolicy: hostConfig.RestartPolicy || undefined,
           DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
-          Devices: serviceName === SERVICE_NAMES.OLLAMA && updatedAmdDevices ? updatedAmdDevices : (hostConfig.Devices || undefined),
+          Devices:
+            serviceName === SERVICE_NAMES.OLLAMA && vulkanBackendSet
+              ? [
+                  { PathOnHost: '/dev/dri', PathInContainer: '/dev/dri', CgroupPermissions: 'rwm' },
+                ]
+              : serviceName === SERVICE_NAMES.OLLAMA && updatedAmdDevices
+                ? updatedAmdDevices
+                : hostConfig.Devices || undefined,
         },
         NetworkingConfig: inspectData.NetworkSettings?.Networks
           ? {
