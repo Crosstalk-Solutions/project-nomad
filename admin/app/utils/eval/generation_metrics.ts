@@ -47,10 +47,11 @@ export type GenerationScores = {
 /**
  * Phrases that mean "I am not answering this".
  *
- * Tuned against NOMAD's actual rag_context prompt, which instructs the model to
- * answer from general knowledge rather than hedge — so a hedge here is either a
- * correct refusal on an out-of-corpus question or a prompt regression on an
- * answerable one. Which of those it is, is exactly what `refusalCorrect` says.
+ * Tuned against NOMAD's actual rag_context prompt, which forbids a disclaimer
+ * when the context answers and asks for one plain sentence only when it does not
+ * (#1437) — so a hedge here is either a correct refusal on an out-of-corpus
+ * question or a prompt regression on an answerable one. Which of those it is, is
+ * exactly what `refusalCorrect` says.
  */
 const REFUSAL_PATTERNS: RegExp[] = [
   /\bi (?:don'?t|do not) (?:know|have)\b/i,

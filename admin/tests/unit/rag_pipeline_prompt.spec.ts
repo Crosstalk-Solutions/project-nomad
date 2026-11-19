@@ -20,6 +20,7 @@ import {
   getContextLimitsForModel,
   type ContextLimitTier,
 } from '../../app/utils/rag_prompt.js'
+import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 
 /** Mirrors RAG_CONTEXT_LIMITS in constants/ollama.ts. Passed in explicitly so
  *  these tests need no AdonisJS-flavoured imports, per the kb_ratio_lookup
@@ -100,4 +101,45 @@ test('context block: never leaks the relevance score to the model', () => {
   const out = buildContextBlock([chunk('body', { source: 'f.md', semantic_score: 0.42 })])
   assert.ok(!out.includes('0.42'))
   assert.ok(!out.includes('42'))
+})
+
+// --- SYSTEM_PROMPTS.rag_context (#1437) --------------------------------------
+//
+// Not a snapshot: the wording is expected to be tuned against eval:generation.
+// These pin only the contract, so a later edit cannot quietly bring back the
+// instruction that made the model ignore a "use ONLY the knowledge base" request
+// and answer from memory without saying so.
+
+const ragPrompt = SYSTEM_PROMPTS.rag_context('[Context 1 — Water]\nboil for 3 minutes')
+
+test('rag_context: wraps the rendered context block', () => {
+  assert.ok(ragPrompt.includes('[Knowledge Base Context]\n[Context 1 — Water]\nboil for 3 minutes'))
+})
+
+test('rag_context: no longer tells the model to fall back silently', () => {
+  assert.doesNotMatch(ragPrompt, /silently/i)
+  assert.doesNotMatch(ragPrompt, /do not mention the knowledge base, the context/i)
+})
+
+test('rag_context: a gap in the context is named, not papered over', () => {
+  assert.match(ragPrompt, /covers only part of the question, say so plainly/)
+})
+
+test('rag_context: honours a request to use only the knowledge base', () => {
+  assert.match(ragPrompt, /asked you to use only the knowledge base, do not use general knowledge/)
+})
+
+test('rag_context: keeps grounded answers and chit-chat free of disclaimers', () => {
+  // The reason "silently" was added in the first place: small models hedged on
+  // answers the context did support, and remarked on the library in reply to a
+  // greeting that leaked past the relevance floor.
+  assert.match(ragPrompt, /answer\s+directly and specifically, with no disclaimer/)
+  assert.match(ragPrompt, /not asking for information[\s\S]*?do not mention the knowledge base/)
+})
+
+test('rag_context: forbids citing a source for what it does not say', () => {
+  assert.match(
+    ragPrompt,
+    /Never cite or name a knowledge base source for something it does not say/
+  )
 })
