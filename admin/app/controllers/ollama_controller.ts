@@ -146,6 +146,10 @@ export default class OllamaController {
       response.response.setHeader('Connection', 'keep-alive')
       response.response.flushHeaders()
     }
+    // Listen for a disconnect from the start: a Stop during query rewriting or
+    // retrieval must also keep the generation below from starting at all.
+    const abortController = new AbortController()
+    response.response.on('close', () => abortController.abort())
 
     let unknownVisionUpstreamRejected = false
     try {
@@ -222,8 +226,12 @@ export default class OllamaController {
         // Abort the upstream generation if the client disconnects — otherwise an abandoned
         // request keeps decoding server-side and, with Ollama's default OLLAMA_NUM_PARALLEL=1,
         // blocks every later chat/RAG request until the model is manually stopped (#1065).
-        const abortController = new AbortController()
-        response.response.on('close', () => abortController.abort())
+        if (abortController.signal.aborted) {
+          logger.debug(
+            '[OllamaController] Client left during pre-processing; not starting generation'
+          )
+          return
+        }
         let fullContent = ''
         let doneReason: string | undefined
         let completionTokens: number | undefined

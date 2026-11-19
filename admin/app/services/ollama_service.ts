@@ -816,6 +816,42 @@ export class OllamaService {
     return normalize()
   }
 
+  /**
+   * Raw native `/api/chat` stream with tool definitions, for the chat agent.
+   * Native-only on purpose: tool calls stream as structured `tool_calls` on
+   * Ollama's own endpoint, and the agent also needs `num_ctx`, which the
+   * OpenAI-compatible layer drops (see _compatParams). The caller's signal is
+   * bridged onto the iterator exactly like _chatStreamNative does (#1065).
+   */
+  public async chatStreamWithTools(req: {
+    model: string
+    messages: Array<Record<string, unknown>>
+    tools: Array<Record<string, unknown>>
+    think?: boolean
+    keepAlive?: string | number
+    numCtx?: number
+    signal?: AbortSignal
+  }): Promise<AsyncIterable<any>> {
+    await this._ensureDependencies()
+    if (!(await this._isNativeBackend()) || !this.ollama) {
+      throw new Error('The chat agent needs the local Ollama backend (tool calling).')
+    }
+    const iterator = await this.ollama.chat({
+      model: req.model,
+      messages: req.messages as any,
+      tools: req.tools as any,
+      stream: true,
+      think: req.think ?? false,
+      ...(req.keepAlive !== undefined ? { keep_alive: req.keepAlive } : {}),
+      ...(req.numCtx ? { options: { num_ctx: req.numCtx } } : {}),
+    })
+    if (req.signal) {
+      if (req.signal.aborted) iterator.abort()
+      else req.signal.addEventListener('abort', () => iterator.abort(), { once: true })
+    }
+    return iterator
+  }
+
   private async _chatStreamCompat(
     chatRequest: ChatInput
   ): Promise<AsyncIterable<NomadChatStreamChunk>> {
