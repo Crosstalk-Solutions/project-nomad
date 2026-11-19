@@ -7,6 +7,7 @@ import IconSelectorPopover from './IconSelectorPopover'
 
 import {PIN_COLORS} from '~/hooks/useMapMarkers'
 import type {MapMarker, PinColorId} from '~/hooks/useMapMarkers'
+import type {MarkerLayer} from '~/hooks/useMarkerLayers'
 
 const MAX_MARKER_NOTES_LENGTH = 500
 
@@ -17,6 +18,9 @@ type MapMarkerFormPopupProps = {
     longitude: number
     latitude: number
     initialMarker?: MapMarker
+    // Pin layers (#1387): the layer picker shows once there is more than one.
+    layers?: MarkerLayer[]
+    defaultLayerId?: number | null
     onSave: (values: {
         id?: number
         name: string
@@ -24,6 +28,7 @@ type MapMarkerFormPopupProps = {
         color: PinColorId
         customColor: string | null
         icon: string | null
+        layerId: number | null
     }) => Promise<void> | void
     onCancel: () => void
     onDirtyChange?: (dirty: boolean) => void
@@ -34,6 +39,8 @@ export default function MapMarkerFormPopup({
                                                longitude,
                                                latitude,
                                                initialMarker,
+                                               layers = [],
+                                               defaultLayerId = null,
                                                onSave,
                                                onCancel,
                                                onDirtyChange,
@@ -44,6 +51,8 @@ export default function MapMarkerFormPopup({
     const [color, setColor] = useState<PinColorId>(initialMarker?.color ?? 'orange')
     const [customColor, setCustomColor] = useState<string | null>(initialMarker?.customColor ?? null)
     const [isSaving, setIsSaving] = useState(false)
+    const initialLayerId = initialMarker?.layerId ?? defaultLayerId
+    const [layerId, setLayerId] = useState<number | null>(initialLayerId)
 
     const textareaRef = useRef<HTMLTextAreaElement | null>(null)
     const nameInputRef = useRef<HTMLInputElement | null>(null)
@@ -74,7 +83,8 @@ export default function MapMarkerFormPopup({
         notes !== (initialMarker?.notes ?? '') ||
         color !== (initialMarker?.color ?? 'orange') ||
         customColor !== (initialMarker?.customColor ?? null) ||
-        icon !== (initialMarker?.icon ?? null)
+        icon !== (initialMarker?.icon ?? null) ||
+        layerId !== initialLayerId
 
     useEffect(() => {
         onDirtyChange?.(isDirty)
@@ -93,6 +103,7 @@ export default function MapMarkerFormPopup({
                 color,
                 customColor,
                 icon,
+                layerId,
             })
         } finally {
             setIsSaving(false)
@@ -225,6 +236,24 @@ export default function MapMarkerFormPopup({
                         aria-label="Choose custom marker color"
                     />
                 </div>
+
+                {layers.length > 1 && (
+                    <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-500">
+                        Layer
+                        <select
+                            value={layerId ?? ''}
+                            onChange={(e) => setLayerId(Number(e.target.value))}
+                            className="min-w-0 flex-1 rounded border border-gray-300 bg-transparent px-1 py-0.5 text-xs text-gray-900 focus:outline-none focus:border-gray-500"
+                            aria-label="Layer"
+                        >
+                            {layers.map((layer) => (
+                                <option key={layer.id} value={layer.id}>
+                                    {layer.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
 
                 <div className="mt-1.5 flex gap-1.5 justify-end">
                     <button

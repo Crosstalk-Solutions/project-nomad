@@ -4,6 +4,10 @@ import {
   MapPreflightTimeoutError,
 } from '#services/map_service'
 import MapMarker from '#models/map_marker'
+import MarkerLayer from '#models/marker_layer'
+import { MarkerLayerError, MarkerLayerService } from '#services/marker_layer_service'
+import { exportFilename, MAX_IMPORT_BYTES, parsePinFile } from '../utils/marker_layer_io.js'
+import { readFile, rm } from 'node:fs/promises'
 import {
   assertNotPrivateUrl,
   downloadCollectionValidator,
@@ -19,7 +23,10 @@ import vine from '@vinejs/vine'
 
 @inject()
 export default class MapsController {
-  constructor(private mapService: MapService) {}
+  constructor(
+    private mapService: MapService,
+    private markerLayerService: MarkerLayerService
+  ) {}
 
   async index({ inertia }: HttpContext) {
     const baseAssetsCheck = await this.mapService.ensureBaseAssets()
@@ -222,11 +229,18 @@ export default class MapsController {
           visible: vine.boolean().optional(),
           notes: vine.string().trim().maxLength(500).nullable().optional(),
           marker_type: vine.string().trim().maxLength(20).optional(),
+          layer_id: vine.number().withoutDecimals().positive().optional(),
         })
       )
     )
 
+    // Older clients don't send a layer; an unknown one falls back too.
+    const layer =
+      (payload.layer_id !== undefined ? await MarkerLayer.find(payload.layer_id) : null) ??
+      (await this.markerLayerService.defaultLayer())
+
     const marker = await MapMarker.create({
+      layer_id: layer.id,
       name: payload.name,
       longitude: payload.longitude,
       latitude: payload.latitude,
@@ -263,6 +277,7 @@ export default class MapsController {
           latitude: vine.number().min(-90).max(90).optional(),
           notes: vine.string().trim().maxLength(500).nullable().optional(),
           marker_type: vine.string().trim().maxLength(20).optional(),
+          layer_id: vine.number().withoutDecimals().positive().optional(),
         })
       )
     )
@@ -279,7 +294,33 @@ export default class MapsController {
     if (payload.marker_type !== undefined) marker.marker_type = payload.marker_type
 
     await marker.save()
+
+    // Moving layers goes through movePins so a route point brings its route along.
+    if (payload.layer_id !== undefined && payload.layer_id !== marker.layer_id) {
+      try {
+        await this.markerLayerService.movePins([marker.id], payload.layer_id)
+      } catch (error) {
+        return this.sendLayerError(error, response)
+      }
+      await marker.refresh()
+    }
     return marker
+  }
+
+  async moveMarkers({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(
+      vine.compile(
+        vine.object({
+          marker_ids: vine.array(vine.number().withoutDecimals().positive()).minLength(1).maxLength(5000),
+          layer_id: vine.number().withoutDecimals().positive(),
+        })
+      )
+    )
+    try {
+      return await this.markerLayerService.movePins(payload.marker_ids, payload.layer_id)
+    } catch (error) {
+      return this.sendLayerError(error, response)
+    }
   }
 
   async deleteMarker({ request, response }: HttpContext) {
@@ -290,5 +331,113 @@ export default class MapsController {
     }
     await marker.delete()
     return { message: 'Marker deleted' }
+  }
+
+  // --- Marker layers (#1387) ---
+
+  private sendLayerError(error: unknown, response: HttpContext['response']) {
+    if (error instanceof MarkerLayerError) {
+      return response.status(error.status).send({ message: error.message })
+    }
+    throw error
+  }
+
+  async listMarkerLayers({}: HttpContext) {
+    return await this.markerLayerService.list()
+  }
+
+  async createMarkerLayer({ request }: HttpContext) {
+    const { name } = await request.validateUsing(
+      vine.compile(vine.object({ name: vine.string().trim().minLength(1).maxLength(100) }))
+    )
+    return await this.markerLayerService.create(name)
+  }
+
+  async updateMarkerLayer({ request, response }: HttpContext) {
+    const { id } = request.params()
+    const payload = await request.validateUsing(
+      vine.compile(
+        vine.object({
+          name: vine.string().trim().minLength(1).maxLength(100).optional(),
+          visible: vine.boolean().optional(),
+        })
+      )
+    )
+    try {
+      return await this.markerLayerService.update(Number(id), payload)
+    } catch (error) {
+      return this.sendLayerError(error, response)
+    }
+  }
+
+  async deleteMarkerLayer({ request, response }: HttpContext) {
+    const { id } = request.params()
+    try {
+      const result = await this.markerLayerService.delete(Number(id))
+      return { message: 'Layer deleted', ...result }
+    } catch (error) {
+      return this.sendLayerError(error, response)
+    }
+  }
+
+  async exportMarkerLayers({ request, response }: HttpContext) {
+    const raw = request.input('layer_id')
+    const layerId = raw === undefined || raw === null || raw === '' ? undefined : Number(raw)
+    if (layerId !== undefined && (!Number.isInteger(layerId) || layerId < 1)) {
+      return response.status(422).send({ message: 'Invalid layer_id' })
+    }
+    try {
+      const { file, label } = await this.markerLayerService.export(layerId)
+      response.header('Content-Type', 'application/json; charset=utf-8')
+      response.header('Content-Disposition', `attachment; filename="${exportFilename(label)}"`)
+      return response.send(JSON.stringify(file, null, 2))
+    } catch (error) {
+      return this.sendLayerError(error, response)
+    }
+  }
+
+  async importMarkerLayers({ request, response }: HttpContext) {
+    const upload = request.file('file', { size: MAX_IMPORT_BYTES, extnames: ['json'] })
+    try {
+      if (!upload) {
+        return response.status(422).send({ message: 'Choose a pin file to import.' })
+      }
+      if (!upload.isValid || !upload.tmpPath) {
+        const reason = upload.errors[0]?.message ?? 'The file could not be read.'
+        return response.status(422).send({ message: reason })
+      }
+
+      const payload = await request.validateUsing(
+        vine.compile(
+          vine.object({
+            mode: vine.enum(['new', 'merge', 'replace'] as const),
+            target_layer_id: vine.number().withoutDecimals().positive().optional(),
+            name: vine.string().trim().minLength(1).maxLength(100).optional(),
+          })
+        )
+      )
+
+      let raw: unknown
+      try {
+        raw = JSON.parse(await readFile(upload.tmpPath, 'utf-8'))
+      } catch {
+        return response.status(422).send({ message: 'The file is not valid JSON.' })
+      }
+      const parsed = parsePinFile(raw)
+      if (!parsed.ok) {
+        return response.status(422).send({ message: parsed.errors[0], errors: parsed.errors })
+      }
+
+      return await this.markerLayerService.import(
+        parsed.layers,
+        payload.mode,
+        payload.target_layer_id,
+        payload.name
+      )
+    } catch (error) {
+      return this.sendLayerError(error, response)
+    } finally {
+      if (upload?.tmpPath) await rm(upload.tmpPath, { force: true }).catch(() => {})
+    }
   }
 }

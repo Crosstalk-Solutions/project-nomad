@@ -28,6 +28,7 @@ export interface MapMarker {
   iconColor?: string | null
   visible: boolean
   notes?: string | null
+  layerId: number
   createdAt: string
   updatedAt?: string
 }
@@ -42,10 +43,12 @@ type CreateMapMarkerValues = {
   iconColor?: string | null
   visible?: boolean
   notes?: string | null
+  layerId?: number | null
 }
 
 type UpdateMapMarkerValues = {
   name?: string
+  layerId?: number
   color?: PinColorId
   customColor?: string | null
   icon?: MarkerIcon | string | null
@@ -65,6 +68,7 @@ const mapMarkerResponse = (marker: MapMarkerResponse): MapMarker => ({
   iconColor: marker.icon_color ?? null,
   visible: marker.visible ?? true,
   notes: marker.notes ?? null,
+  layerId: marker.layer_id,
   createdAt: marker.created_at,
   updatedAt: marker.updated_at,
 })
@@ -73,16 +77,19 @@ export function useMapMarkers() {
   const [markers, setMarkers] = useState<MapMarker[]>([])
   const [loaded, setLoaded] = useState(false)
 
+  const reload = useCallback(async () => {
+    const data = await api.listMapMarkers()
+    if (data) {
+      setMarkers(data.map(mapMarkerResponse))
+    }
+
+    setLoaded(true)
+  }, [])
+
   // Load markers from API on mount
   useEffect(() => {
-    api.listMapMarkers().then((data) => {
-      if (data) {
-        setMarkers(data.map(mapMarkerResponse))
-      }
-
-      setLoaded(true)
-    })
-  }, [])
+    reload()
+  }, [reload])
 
   const addMarker = useCallback(async (values: CreateMapMarkerValues) => {
     const result = await api.createMapMarker({
@@ -95,6 +102,7 @@ export function useMapMarkers() {
       icon_color: values.iconColor ?? null,
       visible: values.visible ?? true,
       notes: values.notes ?? null,
+      ...(values.layerId ? { layer_id: values.layerId } : {}),
     })
 
     if (result) {
@@ -115,6 +123,7 @@ export function useMapMarkers() {
       icon_color: updates.iconColor,
       visible: updates.visible,
       notes: updates.notes,
+      layer_id: updates.layerId,
     })
 
     if (result) {
@@ -135,5 +144,10 @@ export function useMapMarkers() {
     setMarkers((prev) => prev.filter((marker) => marker.id !== id))
   }, [])
 
-  return { markers, loaded, addMarker, updateMarker, deleteMarker }
+  // Drop a deleted layer's pins locally; the server already removed them.
+  const removeByLayer = useCallback((layerId: number) => {
+    setMarkers((prev) => prev.filter((marker) => marker.layerId !== layerId))
+  }, [])
+
+  return { markers, loaded, reload, addMarker, updateMarker, deleteMarker, removeByLayer }
 }
