@@ -32,6 +32,36 @@ export default function SupportPage() {
             </a>
           </section>
 
+          {/* Merch store */}
+          <section className="mb-12">
+            <h2 className="text-2xl font-semibold mb-3">Get Some NOMAD Gear</h2>
+            <a
+              href="https://shop.projectnomad.us"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block mb-4 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+            >
+              <img
+                src="/nomad-shop-banner.webp"
+                alt="Two Project NOMAD morale patches on a stone ledge"
+                className="w-full"
+              />
+            </a>
+            <p className="text-text-muted mb-4">
+              Pick up official Project NOMAD merch and gear from our shop.
+              Every order helps fund NOMAD development.
+            </p>
+            <a
+              href="https://shop.projectnomad.us"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#a84a12] hover:bg-[#8a3d0f] text-white font-semibold rounded-lg transition-colors"
+            >
+              Visit the NOMAD Shop
+              <IconExternalLink size={18} />
+            </a>
+          </section>
+
           {/* Rogue Support */}
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-3">Need Help With Your Home Network?</h2>
