@@ -20,6 +20,7 @@ import CoordinateOverlay from './CoordinateOverlay'
 import ViewMapMarkerPopup from './ViewMapMarkerPopup'
 import MapMarkerFormPopup from './MapMarkerFormPopup'
 import ScaleUnitToggle from './ScaleUnitSelector'
+import { EMPTY_MEASUREMENT, MeasureLayers, MeasurePanel, type Measurement } from './MeasureTool'
 
 type ScaleUnit = 'imperial' | 'metric' | 'nautical'
 
@@ -34,6 +35,9 @@ type MapComponentProps = {
   mapCommand?: MapCommand | null
   isHoveringUI?: boolean
   showCoordinatesEnabled?: boolean
+  /** Measure mode: map clicks add measurement points instead of opening the new-pin form. */
+  measureEnabled?: boolean
+  onMeasureDone?: () => void
 }
 
 type MapLocationParams = {
@@ -134,6 +138,8 @@ export default function MapComponent({
                                        mapCommand,
                                        isHoveringUI = false,
                                        showCoordinatesEnabled = true,
+                                       measureEnabled = false,
+                                       onMeasureDone,
                                      }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
@@ -148,6 +154,9 @@ export default function MapComponent({
   const [editingMarkerId, setEditingMarkerId] = useState<number | null>(null)
   const [hasUnsavedMarkerChanges, setHasUnsavedMarkerChanges] = useState(false)
   const [showCoordinates, setShowCoordinates] = useState(false)
+  const [measurement, setMeasurement] = useState<Measurement>(EMPTY_MEASUREMENT)
+  const measurementRef = useRef(measurement)
+  measurementRef.current = measurement
 
   const getInitialScaleUnit = (): ScaleUnit => {
     const stored = localStorage.getItem('nomad:map-scale-unit')
@@ -277,8 +286,50 @@ export default function MapComponent({
     flyToLocationParams()
   }, [flyToLocationParams])
 
+  // Measure mode starts empty every time it is turned on, and leaves nothing behind when off.
+  useEffect(() => {
+    setMeasurement(EMPTY_MEASUREMENT)
+  }, [measureEnabled])
+
+  const undoMeasurePoint = useCallback(() => {
+    setMeasurement((m) =>
+      // Undo on a closed shape reopens it first, so the last point isn't lost unexpectedly.
+      m.closed ? { ...m, closed: false } : { points: m.points.slice(0, -1), closed: false }
+    )
+  }, [])
+
+  useEffect(() => {
+    if (!measureEnabled) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+
+      if (event.key === 'Escape') {
+        // Esc clears the measurement; on an empty one it leaves measure mode.
+        if (measurementRef.current.points.length === 0) onMeasureDone?.()
+        else setMeasurement(EMPTY_MEASUREMENT)
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault()
+        undoMeasurePoint()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [measureEnabled, undoMeasurePoint, onMeasureDone])
+
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
+      if (measureEnabled) {
+        const point: [number, number] = [e.lngLat.lng, e.lngLat.lat]
+        // A click after closing a shape starts a new measurement.
+        setMeasurement((m) =>
+          m.closed ? { points: [point], closed: false } : { points: [...m.points, point], closed: false }
+        )
+        return
+      }
+
       if (!confirmDiscardMarkerChanges()) return
 
       setPlacingMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat })
@@ -287,7 +338,7 @@ export default function MapComponent({
       setHasUnsavedMarkerChanges(false)
       setTargetIndicator(null)
     },
-    [confirmDiscardMarkerChanges]
+    [confirmDiscardMarkerChanges, measureEnabled]
   )
 
   const handleMouseMove = useCallback(
@@ -398,6 +449,8 @@ export default function MapComponent({
             hideCoordinates()
           }}
           onClick={handleMapClick}
+          // Double-clicking while measuring would add two points and zoom at the same time.
+          doubleClickZoom={!measureEnabled}
           onMouseMove={handleMouseMove}
           onMouseLeave={hideCoordinates}
         >
@@ -433,6 +486,20 @@ export default function MapComponent({
             onChange={handleScaleUnitChange}
             onMouseEnter={hideCoordinates}
           />
+
+          {measureEnabled && (
+            <MeasureLayers
+              measurement={measurement}
+              unit={scaleUnit}
+              onMovePoint={(index, point) =>
+                setMeasurement((m) => ({
+                  ...m,
+                  points: m.points.map((p, i) => (i === index ? point : p)),
+                }))
+              }
+              onClose={() => setMeasurement((m) => ({ ...m, closed: true }))}
+            />
+          )}
 
           {markers
             .filter((marker) => marker.visible)
@@ -544,6 +611,17 @@ export default function MapComponent({
           )}
         </Map>
       </div>
+
+      {measureEnabled && (
+        <MeasurePanel
+          measurement={measurement}
+          unit={scaleUnit}
+          onUndo={undoMeasurePoint}
+          onClear={() => setMeasurement(EMPTY_MEASUREMENT)}
+          onDone={() => onMeasureDone?.()}
+          onMouseEnter={hideCoordinates}
+        />
+      )}
 
       <div onMouseEnter={hideCoordinates}>
         <MarkerPanel
