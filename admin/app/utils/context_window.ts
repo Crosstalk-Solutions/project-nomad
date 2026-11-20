@@ -29,6 +29,38 @@ export const MIN_CONTEXT = 4096
 export const UNKNOWN_BACKEND_CONTEXT = 8192
 
 /**
+ * Share of system RAM assumed available for CPU inference. The rest of the NOMAD
+ * stack (MySQL, Redis, Qdrant, Kiwix, the admin app itself) lives in the same
+ * pool, and a machine that starts swapping is worse than one with a small window.
+ */
+export const CPU_RAM_SHARE = 0.5
+
+/**
+ * How much memory the inference backend has for a model, in bytes — or
+ * `undefined` when we have no way of knowing.
+ *
+ * "No way of knowing" is the remote case (#1547). When `ai.remoteOllamaUrl`
+ * points at another machine, nothing measured on *this* host describes it: not
+ * the local Ollama container's VRAM line (that container isn't doing the
+ * inference, even if it happens to still be running) and not this host's RAM. A
+ * 4 GB NOMAD VM in front of a 24 GB GPU box used to be budgeted as a 2 GB
+ * CPU-only machine and pinned to the 4k floor. Returning `undefined` makes the
+ * resolver drop the memory ceiling instead of inventing one.
+ */
+export function inferenceMemoryBudget(inputs: {
+  /** True when chat inference runs on a backend configured via `ai.remoteOllamaUrl`. */
+  remoteBackend: boolean
+  /** VRAM the local Ollama container reported at startup, in bytes. */
+  localVramBytes?: number
+  /** Total RAM of the host NOMAD runs on, in bytes. */
+  hostTotalBytes: number
+}): number | undefined {
+  if (inputs.remoteBackend) return undefined
+  if (inputs.localVramBytes && inputs.localVramBytes > 0) return inputs.localVramBytes
+  return inputs.hostTotalBytes * CPU_RAM_SHARE
+}
+
+/**
  * Read the trained context length out of an /api/show `model_info` blob.
  *
  * Keys are architecture-prefixed (`llama.context_length`, `qwen3.context_length`,
@@ -204,8 +236,20 @@ export type ContextWindowInputs = {
   availableBytes?: number
   /** On-disk size of the weights, in bytes — they occupy the same pool. */
   modelBytes?: number
-  /** User cap from `ai.contextWindow`. Only ever lowers the result. */
+  /**
+   * User choice from `ai.contextWindow`. Against a known memory budget it only
+   * ever lowers the result. When the budget is unknown (`availableBytes`
+   * undefined — a remote backend) it is the only statement anyone has made about
+   * what that machine can hold, so it is honoured up to the model's own limits.
+   */
   userCap?: number
+  /**
+   * Window to settle on when the memory budget is unknown *and* the user has not
+   * chosen one. Without it an unknown budget would resolve to the model's full
+   * trained context (often 128k+), which is a multi-gigabyte KV cache on a
+   * machine we cannot see.
+   */
+  unknownMemoryDefault?: number
 }
 
 export type ContextWindowDecision = {
@@ -241,6 +285,14 @@ export function resolveContextWindow(inputs: ContextWindowInputs): ContextWindow
     const forKv = inputs.availableBytes * MEMORY_SAFETY_FRACTION - (inputs.modelBytes ?? 0)
     affordableTokens = Math.max(0, Math.floor(forKv / inputs.kvBytesPerToken))
     ceilings.push({ value: affordableTokens, source: 'memory' })
+  } else if (
+    inputs.unknownMemoryDefault &&
+    inputs.unknownMemoryDefault > 0 &&
+    !(inputs.userCap && inputs.userCap > 0)
+  ) {
+    // Nothing known about the backend's memory and no instruction from the user:
+    // stay modest rather than hand out the model's whole trained context.
+    ceilings.push({ value: inputs.unknownMemoryDefault, source: 'default' })
   }
 
   if (ceilings.length === 0) {

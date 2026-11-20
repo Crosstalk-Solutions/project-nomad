@@ -3,8 +3,10 @@ import assert from 'node:assert/strict'
 import {
   MIN_CONTEXT,
   UNKNOWN_BACKEND_CONTEXT,
+  CPU_RAM_SHARE,
   computeKvBytesPerToken,
   estimateKvBytesPerToken,
+  inferenceMemoryBudget,
   parseParameterBillions,
   parseUserContextCap,
   readContextLength,
@@ -180,4 +182,126 @@ test('parses the user context cap setting', () => {
   assert.equal(parseUserContextCap('nonsense'), undefined)
   // Below the floor is meaningless; treat it as unset rather than crippling chat.
   assert.equal(parseUserContextCap('512'), undefined)
+})
+
+// ---------------------------------------------------------------------------
+// Remote backends (#1547): this host's memory says nothing about the machine
+// that is actually running the model.
+// ---------------------------------------------------------------------------
+
+test('a local backend budgets against VRAM, else a share of host RAM', () => {
+  assert.equal(
+    inferenceMemoryBudget({
+      remoteBackend: false,
+      localVramBytes: 12 * GB,
+      hostTotalBytes: 64 * GB,
+    }),
+    12 * GB
+  )
+  assert.equal(
+    inferenceMemoryBudget({ remoteBackend: false, hostTotalBytes: 16 * GB }),
+    16 * GB * CPU_RAM_SHARE
+  )
+  assert.equal(
+    inferenceMemoryBudget({ remoteBackend: false, localVramBytes: 0, hostTotalBytes: 16 * GB }),
+    16 * GB * CPU_RAM_SHARE
+  )
+})
+
+test('a remote backend has no memory budget this host can measure', () => {
+  assert.equal(inferenceMemoryBudget({ remoteBackend: true, hostTotalBytes: 4 * GB }), undefined)
+  // A local Ollama container left running beside a remote URL is not the one
+  // doing inference, so its VRAM must not leak into the budget either.
+  assert.equal(
+    inferenceMemoryBudget({
+      remoteBackend: true,
+      localVramBytes: 16 * GB,
+      hostTotalBytes: 32 * GB,
+    }),
+    undefined
+  )
+})
+
+/** qwen-class 9B at Q4: ~6 GiB of weights, 128k trained context. */
+const REMOTE_9B = { modelMaxCtx: 131072, kvBytesPerToken: 144 * KIB, modelBytes: 6 * GB }
+
+test('regression #1547: a small NOMAD host used to pin a remote model to the floor', () => {
+  // What the old code computed for a 4 GB NOMAD VM in front of a remote GPU box:
+  // half of host RAM as the budget, minus 6 GiB of weights, leaves nothing.
+  const before = resolveContextWindow({
+    ...REMOTE_9B,
+    availableBytes: 4 * GB * CPU_RAM_SHARE,
+    userCap: 32768,
+  })
+  assert.equal(before.contextWindow, MIN_CONTEXT)
+  assert.equal(before.limitedBy, 'floor')
+
+  // With the budget correctly reported as unknown, the user's choice stands.
+  const after = resolveContextWindow({
+    ...REMOTE_9B,
+    availableBytes: inferenceMemoryBudget({ remoteBackend: true, hostTotalBytes: 4 * GB }),
+    userCap: 32768,
+    unknownMemoryDefault: UNKNOWN_BACKEND_CONTEXT,
+  })
+  assert.equal(after.contextWindow, 32768)
+  assert.equal(after.limitedBy, 'user')
+  assert.equal(after.affordableTokens, undefined)
+})
+
+test('a remote backend on "auto" settles on the modest default, not the trained maximum', () => {
+  const d = resolveContextWindow({
+    ...REMOTE_9B,
+    availableBytes: undefined,
+    unknownMemoryDefault: UNKNOWN_BACKEND_CONTEXT,
+  })
+  assert.equal(d.contextWindow, UNKNOWN_BACKEND_CONTEXT)
+  assert.equal(d.limitedBy, 'default')
+})
+
+test('a remote backend still never exceeds what the model was trained for', () => {
+  // The user's choice is honoured only up to the trained context...
+  const capped = resolveContextWindow({
+    modelMaxCtx: 8192,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes: undefined,
+    userCap: 131072,
+    unknownMemoryDefault: UNKNOWN_BACKEND_CONTEXT,
+  })
+  assert.equal(capped.contextWindow, 8192)
+  assert.equal(capped.limitedBy, 'model')
+
+  // ...a modelfile num_ctx is still respected as the author's ceiling...
+  const modelfile = resolveContextWindow({
+    modelMaxCtx: 131072,
+    modelfileNumCtx: 16384,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes: undefined,
+    userCap: 65536,
+    unknownMemoryDefault: UNKNOWN_BACKEND_CONTEXT,
+  })
+  assert.equal(modelfile.contextWindow, 16384)
+  assert.equal(modelfile.limitedBy, 'model')
+
+  // ...and the tinyllama case holds on "auto" too: below the default and the floor.
+  const tiny = resolveContextWindow({
+    modelMaxCtx: 2048,
+    kvBytesPerToken: 22 * KIB,
+    availableBytes: undefined,
+    unknownMemoryDefault: UNKNOWN_BACKEND_CONTEXT,
+  })
+  assert.equal(tiny.contextWindow, 2048)
+  assert.equal(tiny.limitedBy, 'model')
+})
+
+test('the unknown-memory default never applies when the budget is known', () => {
+  // Local backend with plenty of VRAM: the default must not drag the window down.
+  const d = resolveContextWindow({
+    modelMaxCtx: 131072,
+    kvBytesPerToken: 128 * KIB,
+    availableBytes: 24 * GB,
+    modelBytes: 5 * GB,
+    unknownMemoryDefault: UNKNOWN_BACKEND_CONTEXT,
+  })
+  assert.ok(d.contextWindow > UNKNOWN_BACKEND_CONTEXT)
+  assert.equal(d.limitedBy, 'memory')
 })
