@@ -24,6 +24,7 @@ import Alert from '~/components/Alert'
 import WhatsNewBanner from '~/components/WhatsNewBanner'
 import { SERVICE_NAMES } from '../../constants/service_names'
 import LinkTileModal from '~/components/LinkTileModal'
+import LibrarySearch from '~/components/LibrarySearch'
 import { IconPlus, IconPencil, IconTrash, IconExternalLink } from '@tabler/icons-react'
 import { useState } from 'react'
 import { linkTileColor } from '../../constants/link_tile_colors'
@@ -207,6 +208,19 @@ export default function Home(props: {
       })
     })
 
+  // "Search all books" (#1519) searches through kiwix-serve, so it is offered only once the
+  // Information Library is installed, and targets the same link as its tile (custom URL
+  // included).
+  const kiwixService = props.system.services.find(
+    (service) =>
+      service.service_name === SERVICE_NAMES.KIWIX &&
+      service.installed &&
+      (service.ui_location || service.custom_url)
+  )
+  const kiwixBaseUrl = kiwixService
+    ? getServiceLink(kiwixService.ui_location || '', kiwixService.custom_url)
+    : null
+
   // Add Maps as a Core Capability
   items.push(MAPS_ITEM)
 
@@ -266,6 +280,7 @@ export default function Home(props: {
           </div>
         )
       }
+      {kiwixBaseUrl && <LibrarySearch kiwixBaseUrl={kiwixBaseUrl} />}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {items.map((item) => {
           const isEasySetup = item.label === 'Easy Setup'

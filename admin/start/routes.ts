@@ -754,6 +754,11 @@ router
       query: browseLibraryValidator,
     })
 
+    documented(router.get('/searchable-books', [ZimController, 'listSearchableBooks']), {
+      summary: 'List the books in the Kiwix library with their search names and languages',
+      tags: ['zim'],
+    })
+
     documented(router.post('/rescan-library', [ZimController, 'rescanLibrary']), {
       summary: 'Rescan the ZIM library',
       tags: ['zim'],

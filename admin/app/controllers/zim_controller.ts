@@ -1,4 +1,5 @@
 import { ZimService } from '#services/zim_service'
+import { KiwixLibraryService } from '#services/kiwix_library_service'
 import {
   assertNotPrivateUrl,
   downloadCategoryTierValidator,
@@ -63,6 +64,10 @@ export default class ZimController {
       tierSlug: payload.tierSlug,
       resources,
     }
+  }
+
+  async listSearchableBooks({}: HttpContext) {
+    return { books: await new KiwixLibraryService().listSearchableBooks() }
   }
 
   async rescanLibrary({}: HttpContext) {

@@ -5,6 +5,7 @@ import { Archive } from '@openzim/libzim'
 import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists, isValidZimFile } from '../utils/fs.js'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
+import { kiwixBookNameFromPath, type SearchableBook } from '../utils/kiwix_search.js'
 
 const CONTAINER_DATA_PATH = '/data'
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -199,6 +200,28 @@ export class KiwixLibraryService {
       if (err.code === 'ENOENT') return 0
       throw err
     }
+  }
+
+  /**
+   * The books kiwix-serve is serving, as "Search all books" needs them (#1519). Read from
+   * the library XML rather than the ZIM directory because kiwix-serve only searches books
+   * in its library, and named from the path because that is how kiwix-serve names them.
+   * Returns [] when the library file does not exist yet.
+   */
+  async listSearchableBooks(): Promise<SearchableBook[]> {
+    let content: string
+    try {
+      content = await readFile(this.getLibraryFilePath(), 'utf-8')
+    } catch (err: any) {
+      if (err.code === 'ENOENT') return []
+      throw err
+    }
+    return this._parseExistingBooks(content).map((b) => ({
+      name: kiwixBookNameFromPath(b.path),
+      title: b.title,
+      language: b.language ?? null,
+      articleCount: b.articleCount ?? null,
+    }))
   }
 
   /**
