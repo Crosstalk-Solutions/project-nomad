@@ -65,6 +65,9 @@ export interface KbFileGroup {
   /** Whether this file's chunks are included in RAG search results. Always
    * true (non-toggleable) for the collapsed admin_docs group. */
   active: boolean
+  /** Whether this file is kept away from a remote AI server. Only set on
+   * ordinary file rows; group and header rows are never private themselves. */
+  private?: boolean
   /** True for a collapsible per-KB-collection header row that clusters
    * upload-bucket files sharing a `collection` tag (or the "Uncategorized"
    * bucket for `collection: null` files). Undefined for ordinary file rows
@@ -239,6 +242,7 @@ export function groupAndSortKbFiles(
             isUserUpload: file.isUserUpload,
             collection: file.collection,
             active: file.active,
+            private: file.private === true,
           })
         }
       }
@@ -259,6 +263,7 @@ export function groupAndSortKbFiles(
         isUserUpload: file.isUserUpload,
         collection: file.collection,
         active: file.active,
+        private: file.private === true,
       })
     }
   }

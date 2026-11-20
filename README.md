@@ -106,6 +106,15 @@ You are responsible for the setup of Ollama/OpenAI server on the other host.
 
 If that other host is not always on or always reachable, turn on **Use This Machine When the Remote Server Is Unreachable** under the remote connection settings. NOMAD then keeps its own Ollama running alongside the remote server and answers from it whenever the remote server cannot be reached, switching back by itself once the remote server responds again. Choose a **Stand-in Model** for the case where the model you normally use only exists on the remote server; replies written by the stand-in say so. This needs the AI Assistant installed on the NOMAD host with at least one model, and should be left off when the "remote" server runs on the same machine as NOMAD.
 
+##### Keeping documents and chats off the remote server
+By default, everything the AI Assistant does goes to the remote server once one is configured, including the full text of every Knowledge Base file while it is being indexed. Three controls let you use a remote server for some work while keeping other material on the NOMAD host:
+
+- **Index the Knowledge Base on This Machine** (remote connection settings): files are read and indexed, and your questions looked up in them, by the AI Assistant on the NOMAD host. If it is not running, indexing waits; it never falls through to the remote server.
+- **Private** (a switch per file in the Knowledge Base): passages from a private file are only ever used in Local Only chats, or when no remote server is configured. They are not included in replies written by the remote server, nor in replies written by the NOMAD host while it is standing in for an unreachable remote server, because that chat's history is sent to the remote server once it returns.
+- **Local Only** (a switch in the chat header): the chat is answered by the AI Assistant on the NOMAD host and nothing in it is sent to the remote server. Once a Local Only chat has messages it stays Local Only, and a chat becomes Local Only by itself the first time a reply reads a private file.
+
+These controls cover what NOMAD sends. Text you type or paste into a chat that is not Local Only goes to the remote server like any other message.
+
 ## Frequently Asked Questions (FAQ)
 For answers to common questions about Project NOMAD, please see our [FAQ](FAQ.md) page.
 

@@ -109,6 +109,22 @@ export default class RagController {
     return response.status(200).json({ message: result.message })
   }
 
+  /** Mark a file private (never sent to a remote AI server) or not. */
+  public async setFilePrivate({ request, response }: HttpContext) {
+    const source: string | null = request.input('source', null)
+    const isPrivate: boolean | null = request.input('private', null)
+
+    if (!source || typeof isPrivate !== 'boolean') {
+      return response.status(400).json({ error: 'source and private are required.' })
+    }
+
+    const result = await this.ragService.setFilePrivate(source, isPrivate)
+    if (!result.success) {
+      return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
   /** Bulk active/inactive toggle for every file tagged with a KB collection
    * (the personal-upload `collection` field) -- distinct from the unrelated
    * curated ZIM-pack "collections" feature. `collection: null` targets the

@@ -3,8 +3,11 @@ import assert from 'node:assert/strict'
 import {
   ReachabilityCache,
   chooseChatBackend,
+  chooseEmbeddingBackend,
   fallbackNoticeMessage,
   isConnectionError,
+  localOnlyNoticeMessage,
+  mayUsePrivateDocuments,
   normalizeBaseUrl,
   pickFallbackModel,
 } from '../../app/utils/ai_backend.js'
@@ -251,4 +254,115 @@ test('the fallback notice names both models only when a swap happened', () => {
   })
   assert.match(same, /phi4:14b/)
   assert.doesNotMatch(same, /instead of/)
+})
+
+// ---------------------------------------------------------------------------
+// Privacy: local-only chats, local embedding, private documents.
+// ---------------------------------------------------------------------------
+
+test('a local-only request is pinned to the local container even with the remote up', () => {
+  for (const remoteReachable of [true, false, undefined]) {
+    for (const fallbackEnabled of [true, false]) {
+      assert.deepEqual(
+        chooseChatBackend({
+          remoteUrl: REMOTE,
+          localUrl: LOCAL,
+          fallbackEnabled,
+          remoteReachable,
+          localOnly: true,
+        }),
+        { kind: 'local', baseUrl: LOCAL, forcedLocal: true }
+      )
+    }
+  }
+})
+
+test('a local-only request with no local container gets no backend, never the remote', () => {
+  // Fail closed. The one outcome that must be impossible is `kind: 'remote'`.
+  for (const remoteReachable of [true, false, undefined]) {
+    assert.equal(
+      chooseChatBackend({
+        remoteUrl: REMOTE,
+        localUrl: null,
+        fallbackEnabled: true,
+        remoteReachable,
+        localOnly: true,
+      }),
+      null
+    )
+  }
+})
+
+test('local-only changes nothing when no remote is configured', () => {
+  assert.deepEqual(
+    chooseChatBackend({
+      remoteUrl: null,
+      localUrl: LOCAL,
+      fallbackEnabled: false,
+      localOnly: true,
+    }),
+    { kind: 'local', baseUrl: LOCAL }
+  )
+})
+
+test('embedding follows chat unless local embedding is on with a remote configured', () => {
+  assert.deepEqual(
+    chooseEmbeddingBackend({ remoteUrl: REMOTE, localUrl: LOCAL, localEmbeddings: false }),
+    { source: 'chat' }
+  )
+  // No remote: there is only one backend, so the switch has nothing to separate.
+  assert.deepEqual(
+    chooseEmbeddingBackend({ remoteUrl: null, localUrl: LOCAL, localEmbeddings: true }),
+    { source: 'chat' }
+  )
+  assert.deepEqual(
+    chooseEmbeddingBackend({ remoteUrl: REMOTE, localUrl: `${LOCAL}/`, localEmbeddings: true }),
+    { source: 'local', baseUrl: LOCAL }
+  )
+})
+
+test('local embedding with no local container is unavailable, never the remote', () => {
+  // The regression this guards: an indexing job quietly shipping a document to
+  // the remote server because the local container was not installed.
+  for (const localUrl of [null, undefined, '', '   ']) {
+    assert.deepEqual(
+      chooseEmbeddingBackend({ remoteUrl: REMOTE, localUrl, localEmbeddings: true }),
+      { source: 'unavailable' }
+    )
+  }
+})
+
+test('private documents are only used by a backend that is local and stays local', () => {
+  assert.equal(mayUsePrivateDocuments({ kind: 'local' }), true)
+  assert.equal(mayUsePrivateDocuments({ kind: 'remote' }), false)
+  // A fallback reply is written on this machine, but its text rides along in
+  // the chat history to the remote server as soon as that server returns.
+  assert.equal(mayUsePrivateDocuments({ kind: 'fallback' }), false)
+  // No backend at all: nothing will be sent anywhere, so nothing is withheld.
+  assert.equal(mayUsePrivateDocuments(null), true)
+})
+
+test('private documents follow the backend a local-only request resolves to', () => {
+  const remoteTurn = chooseChatBackend({
+    remoteUrl: REMOTE,
+    localUrl: LOCAL,
+    fallbackEnabled: false,
+    remoteReachable: true,
+  })
+  const localOnlyTurn = chooseChatBackend({
+    remoteUrl: REMOTE,
+    localUrl: LOCAL,
+    fallbackEnabled: false,
+    remoteReachable: true,
+    localOnly: true,
+  })
+  assert.equal(mayUsePrivateDocuments(remoteTurn), false)
+  assert.equal(mayUsePrivateDocuments(localOnlyTurn), true)
+})
+
+test('the local-only notice names the stand-in and the model it replaced', () => {
+  const message = localOnlyNoticeMessage({ requestedModel: 'qwen3.8:27b', answeredBy: 'phi4:14b' })
+  assert.match(message, /local-only/)
+  assert.match(message, /phi4:14b/)
+  assert.match(message, /qwen3\.8:27b/)
 })

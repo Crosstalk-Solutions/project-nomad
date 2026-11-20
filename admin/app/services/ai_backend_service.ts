@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
@@ -5,6 +6,7 @@ import {
   REMOTE_PROBE_TIMEOUT_MS,
   ReachabilityCache,
   chooseChatBackend,
+  chooseEmbeddingBackend,
   normalizeBaseUrl,
   type AiBackend,
 } from '../utils/ai_backend.js'
@@ -25,6 +27,29 @@ import {
  */
 const remoteReachability = new ReachabilityCache()
 const localReachability = new ReachabilityCache()
+
+/**
+ * Marks the current request as one that must not leave this machine (a
+ * local-only chat). Async-local rather than a parameter because the backend is
+ * chosen deep inside OllamaService, by several independently constructed
+ * instances, none of which the controller can hand an argument to. Everything
+ * awaited after enterLocalOnlyScope() — retrieval, the context-window resolver,
+ * the chat call, the fire-and-forget title generation — inherits the mark.
+ */
+const localOnlyScope = new AsyncLocalStorage<{ localOnly: true }>()
+
+export function enterLocalOnlyScope(): void {
+  localOnlyScope.enterWith({ localOnly: true })
+}
+
+/** Run `fn` as a local-only request. For callers that have a closure to wrap. */
+export function runLocalOnly<T>(fn: () => Promise<T>): Promise<T> {
+  return localOnlyScope.run({ localOnly: true }, fn)
+}
+
+export function isLocalOnlyScope(): boolean {
+  return localOnlyScope.getStore()?.localOnly === true
+}
 
 /** Whether `baseUrl` answers at all. /v1/models is served by Ollama, LM Studio, llama.cpp and vLLM alike. */
 async function probeBackend(baseUrl: string): Promise<boolean> {
@@ -51,6 +76,19 @@ export async function isRemoteFallbackEnabled(): Promise<boolean> {
   return (await KVStore.getValue('ai.remoteFallbackEnabled')) === true
 }
 
+export async function isLocalEmbeddingsEnabled(): Promise<boolean> {
+  return (await KVStore.getValue('rag.localEmbeddings')) === true
+}
+
+/**
+ * Whether the local Ollama container has a job to do while a remote server is
+ * configured: standing in when the remote is unreachable, or doing the
+ * knowledge base's embedding. Either one means it must not be stopped.
+ */
+export async function shouldKeepLocalOllamaRunning(): Promise<boolean> {
+  return (await isRemoteFallbackEnabled()) || (await isLocalEmbeddingsEnabled())
+}
+
 /**
  * The backend to use right now, or null when there is nothing to talk to.
  *
@@ -63,6 +101,24 @@ export async function resolveChatBackend(): Promise<AiBackend | null> {
   if (!remoteUrl) {
     const localUrl = await getLocalOllamaUrl()
     return chooseChatBackend({ remoteUrl: null, localUrl, fallbackEnabled: false })
+  }
+
+  // A local-only request never reaches the remote, and nothing below may
+  // override that — not reachability, not the fallback switch.
+  if (isLocalOnlyScope()) {
+    const localUrl = await getLocalOllamaUrl()
+    const backend = chooseChatBackend({
+      remoteUrl,
+      localUrl,
+      fallbackEnabled: false,
+      localOnly: true,
+    })
+    if (!backend) {
+      logger.warn(
+        '[AiBackend] Local-only request, but no local Ollama container is installed; refusing to use the remote AI server.'
+      )
+    }
+    return backend
   }
 
   // Fallback off: the remote is the backend, full stop. The local container is
@@ -102,6 +158,32 @@ export async function resolveChatBackend(): Promise<AiBackend | null> {
     )
   }
   return backend
+}
+
+/**
+ * The backend that embeds knowledge-base text: the local container when
+ * `rag.localEmbeddings` is on and a remote server is configured, otherwise
+ * whatever chat uses. Null when local embedding is required but there is no
+ * local container — see chooseEmbeddingBackend for why that is not a fallthrough.
+ */
+export async function resolveEmbeddingBackend(): Promise<AiBackend | null> {
+  const remoteUrl = normalizeBaseUrl(await KVStore.getValue('ai.remoteOllamaUrl'))
+  const localEmbeddings = remoteUrl ? await isLocalEmbeddingsEnabled() : false
+  if (!remoteUrl || !localEmbeddings) {
+    return resolveChatBackend()
+  }
+  const choice = chooseEmbeddingBackend({
+    remoteUrl,
+    localUrl: await getLocalOllamaUrl(),
+    localEmbeddings,
+  })
+  if (choice.source === 'local') {
+    return { kind: 'local', baseUrl: choice.baseUrl, forcedLocal: true }
+  }
+  logger.warn(
+    '[AiBackend] rag.localEmbeddings is on, but no local Ollama container is installed; knowledge-base text will not be sent to the remote AI server instead.'
+  )
+  return null
 }
 
 /**

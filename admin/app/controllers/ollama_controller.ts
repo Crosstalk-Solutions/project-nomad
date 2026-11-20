@@ -14,14 +14,20 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { DEFAULT_KEEP_ALIVE, EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
 import {
+  enterLocalOnlyScope,
   getLocalOllamaUrl,
   invalidateAiBackendCache,
   isRemoteFallbackEnabled,
+  shouldKeepLocalOllamaRunning,
   markRemoteReachable,
   markRemoteUnreachable,
   resolveChatBackend,
 } from '#services/ai_backend_service'
-import { fallbackNoticeMessage, isConnectionError } from '../utils/ai_backend.js'
+import {
+  fallbackNoticeMessage,
+  isConnectionError,
+  localOnlyNoticeMessage,
+} from '../utils/ai_backend.js'
 import { resolveResponseStyle } from '../utils/response_style.js'
 import { resolveSamplerProfile } from '../utils/sampler.js'
 import type { PipelineTrace } from '../../types/rag.js'
@@ -35,6 +41,12 @@ import {
   normalizeChatImages,
   type NormalizedChatImage,
 } from '../utils/chat_images.js'
+
+const PRIVATE_FILE_USED_MESSAGE =
+  'This reply used a file you marked private, so this chat is now Local Only and stays on this machine.'
+
+const LOCAL_ONLY_UNAVAILABLE_MESSAGE =
+  'This is a local-only chat, but the AI Assistant on this machine is not responding. Start it from the Apps page, or turn off Local Only for this chat. Nothing was sent to the remote AI server.'
 
 const unknownVisionCompatibilityMessage = (model: string) =>
   `NOMAD cannot confirm that "${model}" accepts images, and this image request failed. Choose a model marked "Supports images", or remove the image and try again.`
@@ -135,6 +147,18 @@ export default class OllamaController {
       await cleanupUploadedImages()
     }
 
+    // A local-only chat never leaves this machine. Decided from the saved session
+    // as well as the request, so the restriction cannot be dropped by a client
+    // that omits the flag, and marked before the first Ollama call so every
+    // service this turn touches resolves the local container.
+    let sessionLocalOnly = reqData.sessionId
+      ? await this.chatService.isSessionLocalOnly(reqData.sessionId)
+      : false
+    const localOnly = reqData.localOnly === true || sessionLocalOnly
+    if (localOnly) {
+      enterLocalOnlyScope()
+    }
+
     // While the local container stands in for an unreachable remote server, the
     // model the user picked may only exist on that server. Resolve the stand-in
     // here, before anything below reads reqData.model, so capabilities, context
@@ -159,6 +183,29 @@ export default class OllamaController {
         )
       }
       reqData.model = picked.model
+    } else if (activeBackend?.forcedLocal) {
+      // Local-only chat with a remote configured: same stand-in rule, but only
+      // worth a notice when the model actually changed — the user asked for this
+      // machine, so "answered on this machine" is not news.
+      const picked = await this.ollamaService.resolveModelForBackend(reqData.model)
+      if (picked.substituted) {
+        fallbackNotice = {
+          type: 'local_only',
+          requestedModel: reqData.model,
+          model: picked.model,
+          message: localOnlyNoticeMessage({
+            requestedModel: reqData.model,
+            answeredBy: picked.model,
+          }),
+        }
+      }
+      reqData.model = picked.model
+    } else if (localOnly && !activeBackend) {
+      // Refuse rather than fall through to the remote: see chooseChatBackend.
+      return response.status(422).send({
+        message:
+          'This is a local-only chat, but the AI Assistant is not installed on this machine. Install it, or turn off Local Only for this chat.',
+      })
     }
 
     const modelCapabilities = await this.ollamaService.getModelCapabilities(reqData.model)
@@ -202,6 +249,35 @@ export default class OllamaController {
         skipRetrieval: !ragEnabled,
       })
       reqData.messages = trace.messages
+      // This turn read a private file. From here on the chat's history holds
+      // text that must never be sent to a remote AI server, so the chat is marked
+      // local-only for good — also when no remote is configured yet, so that
+      // configuring one later cannot expose an old chat. Done before the reply is
+      // generated: if the mark cannot be saved, the turn fails rather than
+      // produce an answer the chat is not allowed to keep.
+      if (reqData.sessionId && !sessionLocalOnly) {
+        const injectedSources = trace.injected
+          .map((chunk) => chunk.metadata?.source)
+          .filter((source): source is string => typeof source === 'string')
+        if (
+          injectedSources.length > 0 &&
+          (await this.ragService.hasPrivateSource(injectedSources))
+        ) {
+          await this.chatService.markSessionLocalOnly(reqData.sessionId)
+          sessionLocalOnly = true
+          // Tell the user why the Local Only switch just turned itself on and
+          // locked. Appended to any stand-in notice rather than replacing it.
+          fallbackNotice = {
+            type: 'local_only',
+            requestedModel: fallbackNotice?.requestedModel ?? reqData.model,
+            model: reqData.model,
+            message: [fallbackNotice?.message, PRIVATE_FILE_USED_MESSAGE].filter(Boolean).join(' '),
+          }
+          if (reqData.stream) {
+            response.response.write(`data: ${JSON.stringify({ notice: fallbackNotice })}\n\n`)
+          }
+        }
+      }
       const numCtx = trace.numCtx
       const numPredict = trace.numPredict
       // Provenance for the answer about to be generated (#1179). Built from
@@ -241,7 +317,7 @@ export default class OllamaController {
 
       // Separate sessionId and the resolved thinking preference from the Ollama request payload —
       // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
-      const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
+      const { sessionId, think: _thinkPref, localOnly: _localOnly, ...ollamaRequest } = reqData
       const upstreamMessages = attachImagesToLatestUserMessage(
         ollamaRequest.messages,
         normalizedImages
@@ -371,6 +447,10 @@ export default class OllamaController {
       if (activeBackend?.kind === 'remote' && isConnectionError(error)) {
         markRemoteUnreachable(activeBackend.baseUrl)
       }
+      // A local-only chat whose local container did not answer. It was not, and
+      // must not be, retried against the remote — so say why it failed instead
+      // of leaving a bare error next to a "Remote Connected" badge.
+      const localOnlyUnavailable = localOnly && isConnectionError(error)
       if (reqData.stream) {
         const streamError =
           unknownVisionUpstreamRejected
@@ -378,10 +458,15 @@ export default class OllamaController {
                 error: true,
                 message: unknownVisionCompatibilityMessage(reqData.model),
               }
-            : { error: true }
+            : localOnlyUnavailable
+              ? { error: true, message: LOCAL_ONLY_UNAVAILABLE_MESSAGE }
+              : { error: true }
         response.response.write(`data: ${JSON.stringify(streamError)}\n\n`)
         response.response.end()
         return
+      }
+      if (localOnlyUnavailable) {
+        return response.status(503).send({ message: LOCAL_ONLY_UNAVAILABLE_MESSAGE })
       }
       if (unknownVisionUpstreamRejected) {
         return response.status(422).send({
@@ -558,11 +643,12 @@ export default class OllamaController {
 
     // Stop the local nomad_ollama container (if running) so it doesn't compete with the
     // remote host for GPU / port 11434. Preserves the container and its models volume.
-    // With ai.remoteFallbackEnabled the user has asked for the opposite: the local
-    // container stays up (and is started if it was stopped) so it can stand in
-    // whenever the remote is unreachable.
-    if (await isRemoteFallbackEnabled()) {
-      await this.dockerService.startLocalOllamaContainerIfExists('remote fallback enabled')
+    // With ai.remoteFallbackEnabled or rag.localEmbeddings the user has asked for
+    // the opposite: the local container stays up (and is started if it was
+    // stopped) so it can stand in whenever the remote is unreachable, or keep
+    // doing the knowledge base's embedding.
+    if (await shouldKeepLocalOllamaRunning()) {
+      await this.dockerService.startLocalOllamaContainerIfExists('needed alongside remote Ollama')
     } else {
       await this._stopLocalOllamaContainer()
     }

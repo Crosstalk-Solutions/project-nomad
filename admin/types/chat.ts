@@ -37,6 +37,8 @@ export interface ChatImageAttachment {
 export interface ChatSession {
   id: string
   title: string
+  // Answered on this machine only, never by a remote AI server.
+  localOnly?: boolean
   lastMessage?: string
   timestamp: Date
 }

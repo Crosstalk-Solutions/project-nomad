@@ -25,6 +25,11 @@ export type AiBackend = {
   kind: AiBackendKind
   /** Base URL with no trailing slash. */
   baseUrl: string
+  /**
+   * True when a remote server is configured and reachable but this request was
+   * pinned to the local container anyway (a local-only chat). `kind` is 'local'.
+   */
+  forcedLocal?: boolean
 }
 
 /** How long a reachability answer is trusted before the remote is probed again. */
@@ -52,6 +57,11 @@ export type ChooseBackendInputs = {
    * the remote is simply used as it always was.
    */
   remoteReachable?: boolean
+  /**
+   * The request must not leave this machine (a local-only chat). The remote is
+   * never chosen, reachable or not, and there is no falling through to it.
+   */
+  localOnly?: boolean
 }
 
 /**
@@ -68,6 +78,13 @@ export function chooseChatBackend(inputs: ChooseBackendInputs): AiBackend | null
 
   if (!remoteUrl) {
     return localUrl ? { kind: 'local', baseUrl: localUrl } : null
+  }
+
+  if (inputs.localOnly) {
+    // Fail closed: with no local container there is no backend at all. Handing
+    // a request marked "must stay on this machine" to the remote because the
+    // local container happens to be missing would defeat the point of the mark.
+    return localUrl ? { kind: 'local', baseUrl: localUrl, forcedLocal: true } : null
   }
 
   const remoteDown = inputs.remoteReachable === false
@@ -207,6 +224,45 @@ export function isConnectionError(error: unknown): boolean {
   return false
 }
 
+/**
+ * Where knowledge-base text is embedded: the local container, or whichever
+ * backend chat uses.
+ *
+ * Indexing a document sends its full text to the embedding backend, and every
+ * search sends the question. With `rag.localEmbeddings` on and a remote server
+ * configured, both stay on this machine — and stay there even when the local
+ * container is down. 'unavailable' is deliberate: an indexing job that cannot
+ * reach the local container must fail and be retried, not quietly ship the
+ * document to the remote server it was meant to be kept from.
+ */
+export function chooseEmbeddingBackend(inputs: {
+  remoteUrl: string | null | undefined
+  localUrl: string | null | undefined
+  localEmbeddings: boolean
+}): { source: 'chat' } | { source: 'local'; baseUrl: string } | { source: 'unavailable' } {
+  const remoteUrl = normalizeBaseUrl(inputs.remoteUrl)
+  if (!remoteUrl || !inputs.localEmbeddings) return { source: 'chat' }
+  const localUrl = normalizeBaseUrl(inputs.localUrl)
+  return localUrl ? { source: 'local', baseUrl: localUrl } : { source: 'unavailable' }
+}
+
+/**
+ * Whether passages from documents marked private may be put into a prompt
+ * bound for `backend`.
+ *
+ * Only when the backend is local *and will stay local for the rest of the
+ * chat*: no remote server configured at all, or a local-only chat. A fallback
+ * does not qualify even though this machine writes that reply. The chat's
+ * history is sent along with every later turn, and once the remote server
+ * returns, the next turn would hand it an answer quoting the private file. A
+ * passage is only as private as every prompt it can end up in.
+ *
+ * No backend (null) means nothing will be sent anywhere, so nothing is withheld.
+ */
+export function mayUsePrivateDocuments(backend: Pick<AiBackend, 'kind'> | null): boolean {
+  return backend === null || backend.kind === 'local'
+}
+
 /** One-line explanation shown under an answer the stand-in produced. */
 export function fallbackNoticeMessage(inputs: {
   requestedModel: string
@@ -216,4 +272,12 @@ export function fallbackNoticeMessage(inputs: {
   return inputs.substituted
     ? `The remote AI server could not be reached, so this reply came from "${inputs.answeredBy}" on this machine instead of "${inputs.requestedModel}".`
     : `The remote AI server could not be reached, so this reply came from "${inputs.answeredBy}" on this machine.`
+}
+
+/** One-line explanation shown under a local-only answer written by the stand-in. */
+export function localOnlyNoticeMessage(inputs: {
+  requestedModel: string
+  answeredBy: string
+}): string {
+  return `This is a local-only chat, so this reply came from "${inputs.answeredBy}" on this machine instead of "${inputs.requestedModel}".`
 }

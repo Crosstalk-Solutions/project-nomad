@@ -29,7 +29,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; remoteFallbackEnabled: boolean; remoteFallbackModel: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; remoteFallbackEnabled: boolean; remoteFallbackModel: string; localEmbeddings: boolean; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -67,6 +67,7 @@ export default function ModelsPage(props: {
   const [remoteFallbackModel, setRemoteFallbackModel] = useState(
     props.models.settings.remoteFallbackModel
   )
+  const [localEmbeddings, setLocalEmbeddings] = useState(props.models.settings.localEmbeddings)
   // The page's own model list describes the remote server while one is
   // configured, so the stand-in picker asks for this machine's models separately.
   const { data: localModelData } = useQuery({
@@ -578,6 +579,15 @@ export default function ModelsPage(props: {
                     )}
                   </>
                 )}
+                <Switch
+                  checked={localEmbeddings}
+                  onChange={(newVal) => {
+                    setLocalEmbeddings(newVal)
+                    updateSettingMutation.mutate({ key: 'rag.localEmbeddings', value: newVal })
+                  }}
+                  label="Index the Knowledge Base on This Machine"
+                  description="Reads and indexes your knowledge base files, and looks up your questions in them, using the AI Assistant on this machine instead of the remote server, so the text of a file is never sent away to be indexed. Passages are still sent with a question when the remote server writes the reply, unless the file is marked private in the Knowledge Base or the chat is set to Local Only. Needs the AI Assistant installed here. If it is not running, indexing waits rather than using the remote server."
+                />
               </div>
             )}
           </div>

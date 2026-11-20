@@ -21,6 +21,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
     'ai.amdHsaOverride',
     'rag.defaultIngestPolicy',
     'rag.enabled',
+    'rag.localEmbeddings',
     'rag.minRelevance',
     'rag.relevanceCheck',
     'autoUpdate.enabled',

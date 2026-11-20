@@ -36,6 +36,8 @@ export type OllamaChatRequest = {
   // Effective thinking preference for this request (per-model override or global default).
   think?: boolean
   collection?: string
+  // Answer on this machine even if a remote AI server is configured.
+  localOnly?: boolean
 }
 
 export type ModelVisionCapability = 'supported' | 'unsupported' | 'unknown'
@@ -79,7 +81,9 @@ export type NomadChatResponse = {
  * in its place, possibly with a stand-in model.
  */
 export type ChatNotice = {
-  type: 'remote_fallback'
+  // `local_only`: a local-only chat was answered by the stand-in model because
+  // the model picked for it only exists on the remote server.
+  type: 'remote_fallback' | 'local_only'
   requestedModel: string
   model: string
   message: string

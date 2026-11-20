@@ -34,6 +34,10 @@ export default class KbIngestState extends BaseModel {
   @column()
   declare active: boolean
 
+  // Passages from a private file are never sent to a remote AI server.
+  @column()
+  declare is_private: boolean
+
   @column()
   declare last_error: string | null
 

@@ -512,6 +512,10 @@ router
       summary: "Toggle a file's active (searchable) state",
       tags: ['rag'],
     })
+    documented(router.post('/files/private', [RagController, 'setFilePrivate']), {
+      summary: "Toggle a file's private state (never sent to a remote AI server)",
+      tags: ['rag'],
+    })
     documented(router.post('/rename-collection', [RagController, 'renameKnowledgeCollection']), {
       summary: 'Rename a knowledge collection',
       tags: ['rag'],

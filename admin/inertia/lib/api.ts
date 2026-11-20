@@ -481,6 +481,7 @@ class API {
         id: string
         title: string
         model: string | null
+        localOnly?: boolean
         timestamp: string
         lastMessage: string | null
       }>>('/chat/sessions')
@@ -506,24 +507,29 @@ class API {
     })()
   }
 
-  async createChatSession(title: string, model?: string) {
+  async createChatSession(title: string, model?: string, localOnly?: boolean) {
     return catchInternal(async () => {
       const response = await this.client.post<{
         id: string
         title: string
         model: string | null
+        localOnly?: boolean
         timestamp: string
-      }>('/chat/sessions', { title, model })
+      }>('/chat/sessions', { title, model, ...(localOnly ? { localOnly: true } : {}) })
       return response.data
     })()
   }
 
-  async updateChatSession(sessionId: string, data: { title?: string; model?: string }) {
+  async updateChatSession(
+    sessionId: string,
+    data: { title?: string; model?: string; localOnly?: boolean }
+  ) {
     return catchInternal(async () => {
       const response = await this.client.put<{
         id: string
         title: string
         model: string | null
+        localOnly?: boolean
         timestamp: string
       }>(`/chat/sessions/${sessionId}`, data)
       return response.data
@@ -1178,6 +1184,16 @@ class API {
       const response = await this.client.post<{ message: string }>('/rag/files/active', {
         source,
         active,
+      })
+      return response.data
+    })()
+  }
+
+  async setFilePrivate(source: string, isPrivate: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/private', {
+        source,
+        private: isPrivate,
       })
       return response.data
     })()

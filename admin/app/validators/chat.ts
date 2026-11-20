@@ -4,6 +4,7 @@ export const createSessionSchema = vine.compile(
   vine.object({
     title: vine.string().trim().minLength(1).maxLength(200),
     model: vine.string().trim().optional(),
+    localOnly: vine.boolean().optional(),
   })
 )
 
@@ -11,6 +12,7 @@ export const updateSessionSchema = vine.compile(
   vine.object({
     title: vine.string().trim().minLength(1).maxLength(200).optional(),
     model: vine.string().trim().optional(),
+    localOnly: vine.boolean().optional(),
   })
 )
 

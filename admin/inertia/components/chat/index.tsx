@@ -74,12 +74,51 @@ export default function Chat({
         id: s.id,
         title: s.title,
         model: s.model || undefined,
+        localOnly: s.localOnly === true,
         timestamp: new Date(s.timestamp),
         lastMessage: s.lastMessage || undefined,
       })) || [],
   })
 
   const activeSession = sessions.find((s) => s.id === activeSessionId)
+
+  // Local Only: this chat is answered on this machine even while a remote AI
+  // server is configured. Saved on the session; `pendingLocalOnly` holds the
+  // choice for a new chat that has no session yet. `localOnlyTurnedOn` shows a
+  // switch-on at once instead of after the session list refetches; it only ever
+  // adds the restriction, so the switch can never show "off" for a chat the
+  // server holds as local-only (the server also turns it on by itself when a
+  // reply reads a private file).
+  const [pendingLocalOnly, setPendingLocalOnly] = useState(false)
+  const [localOnlyTurnedOn, setLocalOnlyTurnedOn] = useState<Record<string, boolean>>({})
+  const localOnly = activeSessionId
+    ? activeSession?.localOnly === true || localOnlyTurnedOn[activeSessionId] === true
+    : pendingLocalOnly
+  // Once a local-only chat has messages it stays local: a later turn would send
+  // that history to the remote server. The server enforces this too.
+  const localOnlyLocked = localOnly && messages.length > 0
+  const handleLocalOnlyChange = useCallback(
+    async (next: boolean) => {
+      if (!activeSessionId) {
+        setPendingLocalOnly(next)
+        return
+      }
+      const sessionId = activeSessionId
+      if (next) {
+        setLocalOnlyTurnedOn((prev) => ({ ...prev, [sessionId]: true }))
+      }
+      const saved = await api.updateChatSession(sessionId, { localOnly: next })
+      if (!next || !saved) {
+        // Turned off, or not saved: fall back to what the server holds.
+        setLocalOnlyTurnedOn((prev) => {
+          const { [sessionId]: _dropped, ...rest } = prev
+          return rest
+        })
+      }
+      await queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+    },
+    [activeSessionId, queryClient]
+  )
 
   const { data: lastModelSetting } = useSystemSetting({ key: 'chat.lastModel', enabled })
   const { data: remoteOllamaUrlSetting } = useSystemSetting({ key: 'ai.remoteOllamaUrl', enabled })
@@ -201,6 +240,7 @@ export default function Chat({
       sessionId?: number
       think?: boolean
       collection?: string
+      localOnly?: boolean
     }) => api.sendChatMessage({ ...request, stream: false }),
     onSuccess: async (data) => {
       if (!data || !activeSessionId) {
@@ -318,6 +358,7 @@ export default function Chat({
     setIsStreamingResponse(false)
     setActiveSessionId(null)
     setMessages([])
+    setPendingLocalOnly(false)
   }, [abortCurrentStream])
 
   const handleClearHistory = useCallback(() => {
@@ -404,7 +445,7 @@ export default function Chat({
       if (!sessionId) {
         let newSession: Awaited<ReturnType<typeof api.createChatSession>> | undefined
         try {
-          newSession = await api.createChatSession('New Chat', selectedModel)
+          newSession = await api.createChatSession('New Chat', selectedModel, localOnly)
         } catch {
           newSession = undefined
         }
@@ -426,6 +467,11 @@ export default function Chat({
         }
 
         sessionId = newSession.id
+        if (localOnly) {
+          // Carry the new chat's choice over to its session until the list refetches.
+          const createdId = newSession.id
+          setLocalOnlyTurnedOn((prev) => ({ ...prev, [createdId]: true }))
+        }
         setActiveSessionId(sessionId)
         queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
       }
@@ -463,6 +509,7 @@ export default function Chat({
               stream: true,
               sessionId: sessionId ? Number(sessionId) : undefined, think: effectiveThinking(selectedModel),
               collection: collectionFilter || undefined,
+              localOnly: localOnly || undefined,
               images: images.map((image) => image.file),
             },
             (chunkContent, chunkThinking, done) => {
@@ -578,11 +625,12 @@ export default function Chat({
           sessionId: sessionId ? Number(sessionId) : undefined,
           think: effectiveThinking(selectedModel),
           collection: collectionFilter || undefined,
+          localOnly: localOnly || undefined,
           images: images.map((image) => image.file),
         })
       }
     },
-    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking, abortCurrentStream]
+    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking, abortCurrentStream, localOnly]
   )
 
   return (
@@ -706,6 +754,26 @@ export default function Chat({
                   </select>
                 )}
               </div>
+              {remoteOllamaUrlSetting?.value && (
+                <div className="flex items-center">
+                  <span className="text-sm text-text-secondary select-none">Local Only:</span>
+                  <InfoTooltip
+                    position="bottom"
+                    align="right"
+                    text={
+                      localOnlyLocked
+                        ? 'This chat is local-only and stays that way, because its history may contain text from your private files. Start a new chat to use the remote AI server.'
+                        : 'When on, this chat is answered by the AI Assistant on this machine and nothing in it is sent to the remote AI server. Files you have marked private are only used in Local Only chats. Once a Local Only chat has messages it stays local.'
+                    }
+                  />
+                  <Switch
+                    id="chat-local-only-toggle"
+                    checked={localOnly}
+                    onChange={(v) => void handleLocalOnlyChange(v)}
+                    disabled={localOnlyLocked}
+                  />
+                </div>
+              )}
               <div className="flex items-center">
                 <span className="text-sm text-text-secondary select-none">Knowledge Base:</span>
                 <InfoTooltip

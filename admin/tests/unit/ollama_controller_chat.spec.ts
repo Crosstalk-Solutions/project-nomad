@@ -382,7 +382,10 @@ async function runPlainChat(backend: { kind: string; baseUrl: string }, standIn:
     validateUsing: async () => ({ ...payload, messages: [...payload.messages] }),
   }
   const response = { response: rawResponse, status: () => response, send: () => undefined }
-  const seen: { resolved: string[]; capabilitiesFor: string[] } = { resolved: [], capabilitiesFor: [] }
+  const seen: { resolved: string[]; capabilitiesFor: string[] } = {
+    resolved: [],
+    capabilitiesFor: [],
+  }
   const ollamaService = {
     getActiveBackend: async () => backend,
     resolveModelForBackend: async (requested: string) => {

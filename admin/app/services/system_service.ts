@@ -37,7 +37,10 @@ import {
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
 import { invalidateMinRelevanceCache } from '../utils/rag_relevance.js'
 import { invalidateResponseStyleCache } from '../utils/response_style.js'
-import { invalidateAiBackendCache } from '#services/ai_backend_service'
+import {
+  invalidateAiBackendCache,
+  shouldKeepLocalOllamaRunning,
+} from '#services/ai_backend_service'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
 
 @inject()
@@ -964,18 +967,19 @@ export class SystemService {
     if (key === 'ai.responseStyle') {
       invalidateResponseStyleCache()
     }
-    if (key === 'ai.remoteFallbackEnabled') {
+    if (key === 'ai.remoteFallbackEnabled' || key === 'rag.localEmbeddings') {
       invalidateAiBackendCache()
-      // The switch decides whether the local container runs alongside a remote
-      // server. Apply that now rather than at the next remote (re)configuration.
-      // Without a remote configured the local container is the only backend and
-      // is left exactly as it is.
+      // Either switch gives the local container a job alongside a remote server
+      // (standing in for it, or embedding the knowledge base). Apply that now
+      // rather than at the next remote (re)configuration: start the container
+      // when either is on, stop it only when both are off. Without a remote
+      // configured the local container is the only backend and is left as it is.
       const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
       if (remoteUrl) {
-        if (value === true || value === 'true') {
-          await this.dockerService.startLocalOllamaContainerIfExists('remote fallback enabled')
+        if (await shouldKeepLocalOllamaRunning()) {
+          await this.dockerService.startLocalOllamaContainerIfExists(`${key} enabled`)
         } else {
-          await this.dockerService.stopLocalOllamaContainer('remote fallback disabled')
+          await this.dockerService.stopLocalOllamaContainer(`${key} disabled`)
         }
       }
     }
