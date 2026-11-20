@@ -342,6 +342,10 @@ router
       summary: 'Get remote Ollama status',
       tags: ['ollama'],
     })
+    documented(router.get('/local-models', [OllamaController, 'localModels']), {
+      summary: 'List models installed in the local Ollama container, ignoring any remote endpoint',
+      tags: ['ollama'],
+    })
   })
   .prefix('/api/ollama')
 

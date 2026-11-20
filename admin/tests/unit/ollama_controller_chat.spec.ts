@@ -15,6 +15,9 @@ import { test } from '@japa/runner'
 import sharp from 'sharp'
 import OllamaController from '../../app/controllers/ollama_controller.js'
 
+/** The backend every pre-fallback case runs against: the local container. */
+const LOCAL_BACKEND = { kind: 'local' as const, baseUrl: 'http://nomad_ollama:11434' }
+
 class FakeSseResponse extends EventEmitter {
   chunks: string[] = []
   ended = false
@@ -68,6 +71,7 @@ test('unknown backend image rejection returns actionable compatibility details o
     send: () => undefined,
   }
   const ollamaService = {
+    getActiveBackend: async () => LOCAL_BACKEND,
     getModelCapabilities: async () => ({ thinking: false, vision: 'unknown' as const }),
     chatStream: async () => {
       throw new Error('The upstream backend rejected image_url content.')
@@ -157,6 +161,7 @@ test('unknown backend image rejection returns actionable compatibility details w
     },
   }
   const ollamaService = {
+    getActiveBackend: async () => LOCAL_BACKEND,
     getModelCapabilities: async () => ({ thinking: false, vision: 'unknown' as const }),
     chat: async () => {
       throw new Error('The upstream backend rejected image_url content.')
@@ -240,6 +245,7 @@ test('unknown backend image requests do not mislabel preprocessing failures as i
   }
   let inferenceCalled = false
   const ollamaService = {
+    getActiveBackend: async () => LOCAL_BACKEND,
     getModelCapabilities: async () => ({ thinking: false, vision: 'unknown' as const }),
     chatStream: async () => {
       inferenceCalled = true
@@ -303,6 +309,7 @@ test('text-only JSON chat preserves long histories through the controller bounda
   }
   let upstreamMessages: unknown[] = []
   const ollamaService = {
+    getActiveBackend: async () => LOCAL_BACKEND,
     getModelCapabilities: async () => ({ thinking: false, vision: 'unsupported' as const }),
     chat: async (chatRequest: { messages: unknown[] }) => {
       upstreamMessages = chatRequest.messages
@@ -347,4 +354,112 @@ test('text-only JSON chat preserves long histories through the controller bounda
       (message) => typeof (message as { content?: unknown }).content === 'string'
     )
   )
+})
+
+// ---------------------------------------------------------------------------
+// Remote fallback: the local container answering for an unreachable remote.
+// ---------------------------------------------------------------------------
+
+/**
+ * Runs a plain (no image) streaming chat against a controller whose
+ * OllamaService reports `backend`, and returns what the client would receive
+ * plus the model name the rest of the turn was run with.
+ *
+ * Only the events written before the pipeline starts are asserted on by the
+ * callers: past that point the controller reads settings from the database,
+ * which a unit run may not have, and the stream then ends with an error event.
+ */
+async function runPlainChat(backend: { kind: string; baseUrl: string }, standIn: string | null) {
+  const rawResponse = new FakeSseResponse()
+  const payload = {
+    model: 'remote-only:27b',
+    messages: [{ role: 'user', content: 'Hello?' }],
+    stream: true,
+  }
+  const request = {
+    files: () => [],
+    input: (_name: string, fallback?: unknown) => fallback,
+    validateUsing: async () => ({ ...payload, messages: [...payload.messages] }),
+  }
+  const response = { response: rawResponse, status: () => response, send: () => undefined }
+  const seen: { resolved: string[]; capabilitiesFor: string[] } = { resolved: [], capabilitiesFor: [] }
+  const ollamaService = {
+    getActiveBackend: async () => backend,
+    resolveModelForBackend: async (requested: string) => {
+      seen.resolved.push(requested)
+      return standIn
+        ? { model: standIn, substituted: standIn !== requested, fallback: true }
+        : { model: requested, substituted: false, fallback: true }
+    },
+    getModelCapabilities: async (model: string) => {
+      seen.capabilitiesFor.push(model)
+      return { thinking: false, vision: 'unsupported' as const }
+    },
+    getModelInfo: async () => ({ hasThinking: false }),
+    chatStream: async () =>
+      (async function* () {
+        yield { message: { content: 'hi', thinking: '' }, done: true, done_reason: 'stop' }
+      })(),
+  }
+  const controller = new OllamaController(
+    { addMessage: async () => undefined, getMessageCount: async () => 0 } as any,
+    {} as any,
+    ollamaService as any,
+    {
+      buildPrompt: async (messages: unknown) => ({
+        messages,
+        numCtx: undefined,
+        numPredict: undefined,
+        retrieved: [],
+        injected: [],
+      }),
+    } as any,
+    {} as any,
+    { record: async () => undefined } as any
+  )
+  await controller.chat({ request, response } as any)
+  const events = rawResponse.chunks.map((chunk) => JSON.parse(chunk.replace(/^data: /, '').trim()))
+  return { events, seen }
+}
+
+test('a fallback reply opens with a notice naming the stand-in model', async () => {
+  const { events, seen } = await runPlainChat(
+    { kind: 'fallback', baseUrl: 'http://nomad_ollama:11434' },
+    'local-standin:8b'
+  )
+
+  // First event on the wire, before any content.
+  assert.deepEqual(Object.keys(events[0]), ['notice'])
+  assert.equal(events[0].notice.type, 'remote_fallback')
+  assert.equal(events[0].notice.requestedModel, 'remote-only:27b')
+  assert.equal(events[0].notice.model, 'local-standin:8b')
+  assert.match(events[0].notice.message, /local-standin:8b/)
+  assert.match(events[0].notice.message, /instead of "remote-only:27b"/)
+
+  // The swap happens before anything else reads the model name, so the rest of
+  // the turn (capabilities, context sizing, sampling) describes the stand-in.
+  assert.deepEqual(seen.resolved, ['remote-only:27b'])
+  assert.deepEqual(seen.capabilitiesFor, ['local-standin:8b'])
+})
+
+test('a fallback with no stand-in still says who answered, without claiming a swap', async () => {
+  const { events, seen } = await runPlainChat(
+    { kind: 'fallback', baseUrl: 'http://nomad_ollama:11434' },
+    null
+  )
+  assert.equal(events[0].notice.model, 'remote-only:27b')
+  assert.doesNotMatch(events[0].notice.message, /instead of/)
+  assert.deepEqual(seen.capabilitiesFor, ['remote-only:27b'])
+})
+
+test('no notice is sent when the configured backend answers', async () => {
+  for (const kind of ['local', 'remote']) {
+    const { events, seen } = await runPlainChat({ kind, baseUrl: 'http://backend:11434' }, null)
+    assert.equal(
+      events.some((event) => 'notice' in event),
+      false
+    )
+    assert.deepEqual(seen.resolved, [])
+    assert.deepEqual(seen.capabilitiesFor, ['remote-only:27b'])
+  }
 })

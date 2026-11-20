@@ -68,6 +68,21 @@ export type NomadChatResponse = {
   model: string
   // 'length' means the answer hit the generation cap and was cut off (#1342).
   done_reason?: string
+  // Present when something other than the requested model on the configured
+  // backend produced the reply.
+  notice?: ChatNotice
+}
+
+/**
+ * Out-of-band information about how a reply was produced. `remote_fallback`:
+ * the remote AI server was unreachable and the local Ollama container answered
+ * in its place, possibly with a stand-in model.
+ */
+export type ChatNotice = {
+  type: 'remote_fallback'
+  requestedModel: string
+  model: string
+  message: string
 }
 
 /**

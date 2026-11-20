@@ -116,6 +116,11 @@ export default function ChatMessageBubble({ message, onContinue }: ChatMessageBu
           <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
         )}
       </div>
+      {message.role === 'assistant' && message.notice && (
+        <div className="mt-3 border-t border-border-subtle pt-2 text-xs text-text-secondary">
+          {message.notice}
+        </div>
+      )}
       {message.role === 'assistant' && message.truncated && !message.isStreaming && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-2 text-xs text-text-secondary">
           <span>This answer hit the length limit and was cut off.</span>

@@ -118,15 +118,17 @@ export class ContextWindowService {
   }
 
   /**
-   * Whether chat inference is delegated to a backend configured via
-   * `ai.remoteOllamaUrl`. Mirrors OllamaService._initialize, which prefers that
-   * URL over the local container whenever it is set.
+   * Whether chat inference is running on the server configured via
+   * `ai.remoteOllamaUrl`. Asked of OllamaService rather than read from the
+   * setting, because a configured remote is not always the one answering: while
+   * the local container stands in for an unreachable remote
+   * (`ai.remoteFallbackEnabled`), the window has to be sized for this host again.
    */
   private async _isRemoteBackend(): Promise<boolean> {
     if (!this.remoteBackend) {
       this.remoteBackend = (async () => {
-        const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
-        return typeof remoteUrl === 'string' && remoteUrl.trim() !== ''
+        const backend = await this.ollamaService.getActiveBackend()
+        return backend?.kind === 'remote'
       })()
     }
     return this.remoteBackend

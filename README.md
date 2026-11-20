@@ -104,6 +104,8 @@ Note that if you use Ollama on a different host, you must start the server with 
 Ollama is the preferred way to use the AI assistant, as it has features such as model download that OpenAI API does not support. So when using LM Studio, for example, you will have to use LM Studio to download models.
 You are responsible for the setup of Ollama/OpenAI server on the other host.
 
+If that other host is not always on or always reachable, turn on **Use This Machine When the Remote Server Is Unreachable** under the remote connection settings. NOMAD then keeps its own Ollama running alongside the remote server and answers from it whenever the remote server cannot be reached, switching back by itself once the remote server responds again. Choose a **Stand-in Model** for the case where the model you normally use only exists on the remote server; replies written by the stand-in say so. This needs the AI Assistant installed on the NOMAD host with at least one model, and should be left off when the "remote" server runs on the same machine as NOMAD.
+
 ## Frequently Asked Questions (FAQ)
 For answers to common questions about Project NOMAD, please see our [FAQ](FAQ.md) page.
 
