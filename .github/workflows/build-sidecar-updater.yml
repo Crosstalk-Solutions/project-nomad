@@ -1,6 +1,16 @@
 name: Build Sidecar Updater Image
 
+# Installs run the sidecar from :latest (pull_policy: always), so an image that is
+# only built by hand falls behind the script in the repo: the image cleanup from
+# #1101 sat unpublished for months (#1468). A push to main that touches the
+# sidecar now rebuilds and republishes :latest on its own.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'install/sidecar-updater/**'
+      - '.github/workflows/build-sidecar-updater.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -22,7 +32,8 @@ jobs:
     steps:
       - name: check-auth
         id: check-auth
-        run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
+        # A push to main already required write access to the repository.
+        run: echo "is_authorized=${{ github.event_name == 'push' || contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
   build:
     name: Build sidecar-updater image
     needs: check_authorization
@@ -40,12 +51,29 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute tags
+        id: tags
+        env:
+          IMAGE: ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater
+          VERSION: ${{ inputs.version }}
+          TAG_LATEST: ${{ inputs.tag_latest }}
+        run: |
+          {
+            echo 'list<<EOF'
+            if [[ "${{ github.event_name }}" == "push" ]]; then
+              # No version input on a push: tag the commit and move :latest.
+              echo "${IMAGE}:sha-${GITHUB_SHA::7}"
+              echo "${IMAGE}:latest"
+            else
+              echo "${IMAGE}:${VERSION}"
+              echo "${IMAGE}:v${VERSION}"
+              if [[ "${TAG_LATEST}" == "true" ]]; then echo "${IMAGE}:latest"; fi
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: install/sidecar-updater
           push: true
-          tags: |
-            ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:${{ inputs.version }}
-            ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:v${{ inputs.version }}
-            ${{ inputs.tag_latest && 'ghcr.io/crosstalk-solutions/project-nomad-sidecar-updater:latest' || '' }}
+          tags: ${{ steps.tags.outputs.list }}
