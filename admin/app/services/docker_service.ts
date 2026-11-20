@@ -28,6 +28,7 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
 import { withLogRotation } from '../utils/log_rotation.js'
+import { resolveCalibreWebUidGid } from '../utils/calibre_web_user.js'
 
 // Written by install_nomad.sh with the host AMD GPU's gfx target.
 const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
@@ -1111,9 +1112,21 @@ export class DockerService {
    * write to the library and create book folders on upload.
    */
   private async _runPreinstallActions__CalibreWeb(): Promise<void> {
-    // Keep in sync with the PUID/PGID set on the Calibre-Web service in the seeder.
-    const CALIBRE_WEB_UID = 1000
-    const CALIBRE_WEB_GID = 1000
+    const calibreService = await Service.query()
+      .where('service_name', SERVICE_NAMES.CALIBREWEB)
+      .first()
+    let serviceEnv: string[] | undefined
+    if (calibreService?.container_config) {
+      try {
+        const parsed = JSON.parse(calibreService.container_config)
+        if (Array.isArray(parsed?.Env)) {
+          serviceEnv = parsed.Env
+        }
+      } catch {
+        // Fall back to process.env / default 1000:1000 if config isn't valid JSON
+      }
+    }
+    const { uid: targetUid, gid: targetGid } = resolveCalibreWebUidGid(serviceEnv)
 
     const booksDir = join(process.cwd(), BOOKS_STORAGE_PATH)
     const metadataPath = join(booksDir, 'metadata.db')
@@ -1150,8 +1163,22 @@ export class DockerService {
 
       // Hand the books folder + library to the Calibre-Web container user so it can read/write
       // the library and create book folders on upload (Docker creates bind dirs as root otherwise).
-      await chown(booksDir, CALIBRE_WEB_UID, CALIBRE_WEB_GID)
-      await chown(metadataPath, CALIBRE_WEB_UID, CALIBRE_WEB_GID)
+      const currentUid = process.getuid?.()
+      const currentGid = process.getgid?.()
+      if (currentUid !== targetUid || currentGid !== targetGid) {
+        try {
+          await chown(booksDir, targetUid, targetGid)
+          await chown(metadataPath, targetUid, targetGid)
+        } catch (chownError: any) {
+          if (currentUid !== 0 && chownError?.code === 'EPERM') {
+            logger.warn(
+              `[DockerService] Skipping chown of ${booksDir} to ${targetUid}:${targetGid} while running as non-root UID ${currentUid}:${currentGid}: ${chownError.message}`
+            )
+          } else {
+            throw chownError
+          }
+        }
+      }
     } catch (error: any) {
       this._broadcast(
         SERVICE_NAMES.CALIBREWEB,
