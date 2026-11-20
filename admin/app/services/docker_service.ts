@@ -28,6 +28,7 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
 import { withLogRotation } from '../utils/log_rotation.js'
+import { createDockerClient } from '../utils/docker_client.js'
 
 // Written by install_nomad.sh with the host AMD GPU's gfx target.
 const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
@@ -59,15 +60,7 @@ export class DockerService {
   private _daemonLogDriver: Promise<string | undefined> | null = null
 
   constructor() {
-    // Support both Linux (production) and Windows (development with Docker Desktop)
-    const isWindows = process.platform === 'win32'
-    if (isWindows) {
-      // Windows Docker Desktop uses named pipe
-      this.docker = new Docker({ socketPath: '//./pipe/docker_engine' })
-    } else {
-      // Linux uses Unix socket
-      this.docker = new Docker({ socketPath: '/var/run/docker.sock' })
-    }
+    this.docker = createDockerClient()
   }
 
   /**

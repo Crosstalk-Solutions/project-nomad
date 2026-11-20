@@ -45,7 +45,7 @@ export default class GpuPassthroughRemediationProvider {
         const KVStore = (await import('#models/kv_store')).default
         const { DockerService } = await import('#services/docker_service')
         const { SERVICE_NAMES } = await import('../constants/service_names.js')
-        const Docker = (await import('dockerode')).default
+        const { createDockerClient } = await import('../app/utils/docker_client.js')
 
         const enabledRaw = await KVStore.getValue('ai.autoFixGpuPassthrough')
         if (String(enabledRaw) === 'false') {
@@ -55,7 +55,7 @@ export default class GpuPassthroughRemediationProvider {
           return
         }
 
-        const docker = new Docker({ socketPath: '/var/run/docker.sock' })
+        const docker = createDockerClient()
         const dockerInfo = await docker.info()
         const runtimes = dockerInfo.Runtimes || {}
 
