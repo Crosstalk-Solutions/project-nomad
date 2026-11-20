@@ -17,6 +17,35 @@ import { mapGfxToHsaOverride, readHsaOverrideFromEnv } from '../utils/amd_hsa_ov
 
 export type OllamaComputeBackend = 'gpu' | 'cpu' | 'unknown'
 
+/**
+ * GpuBackend — the canonical `ai.gpuBackend` override value set (spec §1).
+ *  - 'auto'   (default): auto-detect (nvidia → nvidia branch, amd → ROCm branch, else CPU)
+ *  - 'rocm'   : explicit ROCm pin (accepted/validated; currently behaves like `auto`)
+ *  - 'vulkan' : standard `ollama/ollama` + `/dev/dri` + `OLLAMA_VULKAN=1`
+ *               — takes precedence over auto-detect (BC-250 / Intel Arc case)
+ *  - 'cuda'   : explicit CUDA pin (accepted/validated; currently behaves like `auto`)
+ */
+export type GpuBackend = 'auto' | 'rocm' | 'vulkan' | 'cuda'
+
+const KNOWN_GPU_BACKENDS: readonly GpuBackend[] = ['auto', 'rocm', 'vulkan', 'cuda']
+
+/**
+ * Coerce a raw `ai.gpuBackend` KV value to a canonical GpuBackend.
+ *
+ * Spec §1: allowed values are lowercase + trimmed; unknown values are treated as
+ * `auto` (forward-compatible, no hard error). KV values can be a string or a
+ * boolean — coerce explicitly. null/undefined/'' → 'auto'.
+ */
+export function normalizeGpuBackend(raw: unknown): GpuBackend {
+  if (raw === null || raw === undefined) return 'auto'
+  const normalized = String(raw).trim().toLowerCase()
+  if (normalized === '') return 'auto'
+  if ((KNOWN_GPU_BACKENDS as readonly string[]).includes(normalized)) {
+    return normalized as GpuBackend
+  }
+  return 'auto'
+}
+
 const INFERENCE_LINE_MARKER = 'msg="inference compute"'
 const GPU_LIBRARY_RE = /library=(CUDA|ROCm|Vulkan)\b/
 
@@ -77,7 +106,7 @@ export function parseOllamaGpuFromLogs(logText: string): OllamaGpuInfo | null {
   }
 }
 
-export type GpuVendor = 'nvidia' | 'amd'
+export type GpuVendor = 'nvidia' | 'amd' | 'vulkan'
 
 /**
  * The subset of `docker inspect nomad_ollama` the GPU checks read. Structural so
@@ -100,6 +129,14 @@ function isRocmImage(image: string | undefined): boolean {
   return /:[^/:]*rocm[^/:]*$/i.test(image ?? '')
 }
 
+// The Vulkan backend sets OLLAMA_VULKAN=1 in the container env. That env flag — not the
+// image tag or a device path — is the authoritative marker, because Vulkan uses the
+// standard ollama/ollama image (no :rocm tag) and passes /dev/dri, which Intel and AMD
+// both use.
+function hasVulkanEnv(container: OllamaContainerSnapshot): boolean {
+  return (container.Config?.Env ?? []).some((e) => e.startsWith('OLLAMA_VULKAN='))
+}
+
 /**
  * Which GPU vendor, if any, Ollama is expected to run on.
  *
@@ -108,6 +145,9 @@ function isRocmImage(image: string | undefined): boolean {
  *   - an nvidia DeviceRequest means NVIDIA
  *   - a ROCm image tag or a /dev/kfd device means AMD (/dev/dri alone is not
  *     AMD-specific, Intel and Vulkan setups pass it too)
+ *   - an OLLAMA_VULKAN env flag means Vulkan (Intel Arc, BC-250 gfx1013, other
+ *     non-ROCm GPUs) — checked before the nvidia-runtime fallback so a registered
+ *     nvidia runtime never mislabels a Vulkan container
  * A registered nvidia runtime comes next, which covers a container created
  * CPU-only before the runtime was added.
  *
@@ -116,11 +156,13 @@ function isRocmImage(image: string | undefined): boolean {
  * off, or the daemon rejected /dev/kfd and the install fell back to CPU (#1232).
  * Flagging it would offer a reinstall that rebuilds the same CPU container. AMD
  * never registers a Docker runtime, so gating on the runtime alone skips every
- * AMD box (#1344).
+ * AMD box (#1344). The persisted Vulkan config (ai.gpuBackend = 'vulkan') is the
+ * same secondary signal, used only when no container exists.
  */
 export function resolveExpectedGpuVendor(input: {
   hasNvidiaRuntime: boolean
   amdConfigured: boolean
+  vulkanConfigured?: boolean
   container: OllamaContainerSnapshot | null
 }): GpuVendor | null {
   const { container } = input
@@ -131,9 +173,13 @@ export function resolveExpectedGpuVendor(input: {
     if (isRocmImage(container.Config?.Image) || hasDevice(container, '/dev/kfd')) {
       return 'amd'
     }
+    if (hasVulkanEnv(container)) {
+      return 'vulkan'
+    }
   }
   if (input.hasNvidiaRuntime) return 'nvidia'
   if (!container && input.amdConfigured) return 'amd'
+  if (!container && input.vulkanConfigured) return 'vulkan'
   return null
 }
 

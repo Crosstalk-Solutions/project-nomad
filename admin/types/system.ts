@@ -4,8 +4,9 @@ export type GpuHealthStatus = {
   status: 'ok' | 'passthrough_failed' | 'no_gpu' | 'ollama_not_installed'
   hasNvidiaRuntime: boolean
   hasRocmRuntime: boolean
+  hasVulkanRuntime: boolean
   ollamaGpuAccessible: boolean
-  gpuVendor?: 'nvidia' | 'amd'
+  gpuVendor?: 'nvidia' | 'amd' | 'vulkan'
   /**
    * AMD passthrough_failed only. Whether a reinstall would change the running
    * container. When false, a reinstall rebuilds the same CPU-bound container and

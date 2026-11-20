@@ -162,6 +162,39 @@ test('the AMD GPU type counts when no container exists', () => {
   )
 })
 
+const VULKAN_CONTAINER = {
+  Config: { Image: 'ollama/ollama:0.18.2', Env: ['OLLAMA_NO_CLOUD=1', 'OLLAMA_VULKAN=1'] },
+  HostConfig: { Devices: [{ PathOnHost: '/dev/dri' }] },
+}
+
+test('a Vulkan container is expected as vulkan even with a registered nvidia runtime (#1283 precedence)', () => {
+  assert.equal(
+    resolveExpectedGpuVendor({ hasNvidiaRuntime: true, amdConfigured: false, vulkanConfigured: false, container: VULKAN_CONTAINER }),
+    'vulkan'
+  )
+})
+
+test('a Vulkan container is expected as vulkan with no nvidia runtime', () => {
+  assert.equal(
+    resolveExpectedGpuVendor({ hasNvidiaRuntime: false, amdConfigured: false, vulkanConfigured: false, container: VULKAN_CONTAINER }),
+    'vulkan'
+  )
+})
+
+test('a standard container with no Vulkan env is still expected on NVIDIA (regression)', () => {
+  assert.equal(
+    resolveExpectedGpuVendor({ hasNvidiaRuntime: true, amdConfigured: false, vulkanConfigured: false, container: CPU_CONTAINER }),
+    'nvidia'
+  )
+})
+
+test('the Vulkan GPU backend counts when no container exists', () => {
+  assert.equal(
+    resolveExpectedGpuVendor({ hasNvidiaRuntime: false, amdConfigured: false, vulkanConfigured: true, container: null }),
+    'vulkan'
+  )
+})
+
 test('diffAmdOllamaConfig is empty when a reinstall would rebuild the same container', () => {
   assert.deepEqual(diffAmdOllamaConfig(ROCM_CONTAINER, '11.0.0'), [])
 })

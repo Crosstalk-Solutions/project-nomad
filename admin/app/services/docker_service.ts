@@ -21,12 +21,17 @@ import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { readFile, mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
+import { readFile, mkdir, copyFile, chown, chmod, access, writeFile, readdir } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
+import { normalizeGpuBackend } from './ollama_compute.js'
+// Re-exported so existing importers (system_service, dashboard) keep working:
+// the canonical definition lives in ollama_compute (pure, unit-testable).
+export { normalizeGpuBackend }
+export type { GpuBackend } from './ollama_compute.js'
 
 // Written by install_nomad.sh with the host AMD GPU's gfx target.
 const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
@@ -737,6 +742,9 @@ export class DockerService {
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
       let amdGpuConfigured = false
+      // G3: tracks that the explicit Vulkan backend won the branch chain — used to suppress
+      // HSA/IGPU in the env block below (those are ROCm-only env on the standard image).
+      let vulkanBackendSet = false
 
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
         const gpuResult = await this._detectGPUType()
@@ -745,9 +753,51 @@ export class DockerService {
         // Per memory: KV values can be string or boolean — coerce explicitly.
         // Only 'vulkan' is a meaningful override here; all others fall through to auto-detect.
         const gpuBackendRaw = await KVStore.getValue('ai.gpuBackend')
-        const gpuBackendOverride = String(gpuBackendRaw)
+        const gpuBackendOverride = normalizeGpuBackend(gpuBackendRaw)
 
-        if (gpuResult.type === 'nvidia') {
+        if (gpuBackendOverride === 'vulkan') {
+          // G1: Vulkan wins the branch chain — it is an explicit user override and must
+          // take priority over auto-detected nvidia/amd. This is the BC-250 case:
+          // _detectGPUType() returns 'amd' there (ROCm gfx1013), which would otherwise
+          // grab it and pull the :rocm image. Moving this branch first is the fix.
+          // Standard image with /dev/dri passthrough for Intel Arc, BC-250, and other
+          // non-ROCm GPUs. User explicitly opted in via ai.gpuBackend = 'vulkan'.
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `Vulkan GPU acceleration enabled via ai.gpuBackend config. Using standard image with /dev/dri passthrough...`
+          )
+
+          finalImage = 'ollama/ollama'
+
+          // Pull if missing (same pattern as ROCm branch below)
+          const vulkanImageExists = await this._checkImageExists(finalImage)
+          if (!vulkanImageExists) {
+            this._broadcast(
+              service.service_name,
+              'pulling',
+              `Pulling Docker image ${finalImage}...`
+            )
+            await this.pullImage(finalImage)
+          }
+
+          // G4: pass the concrete /dev/dri nodes (cardN, renderD128N) when enumerable,
+          // else the whole directory — mirroring _discoverAMDDevices() for the Vulkan path.
+          const vulkanDevices = await this._discoverVKDevices()
+          if (vulkanDevices.length > 0) {
+            gpuHostConfig = {
+              ...gpuHostConfig,
+              Devices: vulkanDevices,
+            }
+          }
+          // G3: amdGpuConfigured keeps the CPU-fallback guard below; vulkanBackendSet
+          // suppresses HSA/IGPU in the env block (ROCm-only env on the standard image).
+          amdGpuConfigured = true
+          vulkanBackendSet = true
+          logger.info(
+            `[DockerService] Configured standard image with ${vulkanDevices.length} /dev/dri device entries for Vulkan on Ollama`
+          )
+        } else if (gpuResult.type === 'nvidia') {
           this._broadcast(
             service.service_name,
             'gpu-config',
@@ -810,39 +860,6 @@ export class DockerService {
             )
             logger.info('[DockerService] AMD GPU acceleration disabled by KV opt-out; using CPU-only configuration.')
           }
-        } else if (gpuBackendOverride === 'vulkan') {
-          // Vulkan: standard image with /dev/dri passthrough for Intel Arc, BC-250, and other non-ROCm GPUs.
-          // User explicitly opted in via ai.gpuBackend = 'vulkan' — we trust they have /dev/dri.
-          this._broadcast(
-            service.service_name,
-            'gpu-config',
-            `Vulkan GPU acceleration enabled via ai.gpuBackend config. Using standard image with /dev/dri passthrough...`
-          )
-
-          finalImage = 'ollama/ollama'
-
-          // Pull if missing (same pattern as ROCm branch above)
-          const vulkanImageExists = await this._checkImageExists(finalImage)
-          if (!vulkanImageExists) {
-            this._broadcast(
-              service.service_name,
-              'pulling',
-              `Pulling Docker image ${finalImage}...`
-            )
-            await this.pullImage(finalImage)
-          }
-
-          // Pass /dev/dri devices for Vulkan (same as AMD but without /dev/kfd)
-          gpuHostConfig = {
-            ...gpuHostConfig,
-            Devices: [
-              { PathOnHost: '/dev/dri', PathInContainer: '/dev/dri', CgroupPermissions: 'rwm' },
-            ],
-          }
-          amdGpuConfigured = true  // reuses existing path below; harmless for Vulkan
-          logger.info(
-            `[DockerService] Configured standard image with /dev/dri passthrough for Vulkan on Ollama`
-          )
         } else if (gpuResult.toolkitMissing) {
           this._broadcast(
             service.service_name,
@@ -876,9 +893,11 @@ export class DockerService {
         // VRAM, and anything past the window is silently truncated with no error — so a
         // conversation that outgrows it just quietly loses its early turns.
         ollamaEnv.push(`OLLAMA_CONTEXT_LENGTH=${DEFAULT_OLLAMA_CONTEXT_LENGTH}`)
-        if (amdGpuConfigured) {
+        if (amdGpuConfigured && !vulkanBackendSet) {
           // gfx-aware HSA override — only set for cards that actually need it. See
           // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.
+          // G3: suppressed on the Vulkan path — HSA/IGPU are ROCm-only env and dead weight
+          // on the standard ollama/ollama image.
           const hsaOverride = await this._resolveAmdHsaOverride()
           if (hsaOverride) {
             ollamaEnv.push(`HSA_OVERRIDE_GFX_VERSION=${hsaOverride}`)
@@ -891,7 +910,8 @@ export class DockerService {
         }
         // Vulkan backend — user explicitly set ai.gpuBackend = 'vulkan' for non-ROCm GPUs.
         // OLLAMA_VULKAN=1 is the standard signal that tells Ollama to enable Vulkan GPU compute.
-        if (gpuBackendOverride === 'vulkan') {
+        // G3: the Vulkan container env is the standard base env + OLLAMA_VULKAN=1 only.
+        if (vulkanBackendSet) {
           ollamaEnv.push('OLLAMA_VULKAN=1')
           logger.info('[DockerService] Added OLLAMA_VULKAN=1 for explicit Vulkan backend.')
         }
@@ -1753,6 +1773,47 @@ export class DockerService {
   }
 
   /**
+   * G4: device list for the Vulkan backend (Intel Arc, BC-250 gfx1013, other non-ROCm GPUs).
+   *
+   * Mirrors _discoverAMDDevices() but for /dev/dri — the DRM/prime interface Vulkan talks
+   * to. We prefer the concrete cardN / renderD128N nodes (cleaner --device entries than the
+   * whole directory the vulkan branch has been passing since 780f874); fall back to the
+   * directory itself if the nodes can't be enumerated, so the branch never silently drops
+   * GPU passthrough on an unusual host layout.
+   */
+  private async _discoverVKDevices(): Promise<
+    Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }>
+  > {
+    const deviceEntry = (path: string) => ({
+      PathOnHost: path,
+      PathInContainer: path,
+      CgroupPermissions: 'rwm',
+    })
+
+    // Prefer concrete DRM nodes (cardN, renderD128N) over the whole /dev/dri directory.
+    try {
+      const entries = await readdir('/dev/dri')
+      const nodes = entries
+        .filter((name) => /^card\d+$|^renderD128\d+$/.test(name))
+        .sort()
+        .map((name) => deviceEntry(`/dev/dri/${name}`))
+      if (nodes.length > 0) {
+        return nodes
+      }
+    } catch {
+      // fall through to the directory entry
+    }
+
+    // Fallback: pass the whole /dev/dri directory (what the branch has done since 780f874).
+    try {
+      await access('/dev/dri')
+      return [deviceEntry('/dev/dri')]
+    } catch {
+      return []
+    }
+  }
+
+  /**
    * Whether a container-create failure was the daemon refusing a `--device` path
    * that does not exist on the host, e.g.
    *
@@ -1826,15 +1887,30 @@ export class DockerService {
       let updatedAmdDevices: any[] | undefined = undefined
       let updatedAmdGpuConfigured = false
       let vulkanBackendSet = false
+      // G4: concrete /dev/dri node list for the Vulkan update branch (see _discoverVKDevices).
+      let updatedVulkanDevices: Array<{ PathOnHost: string; PathInContainer: string; CgroupPermissions: string }> | undefined
       if (serviceName === SERVICE_NAMES.OLLAMA) {
         const gpuResult = await this._detectGPUType()
 
         // Manual GPU backend override from ai.gpuBackend KV config.
         // Per memory: KV values can be string or boolean — coerce explicitly.
         const gpuBackendRaw = await KVStore.getValue('ai.gpuBackend')
-        const gpuBackendOverride = String(gpuBackendRaw)
+        const gpuBackendOverride = normalizeGpuBackend(gpuBackendRaw)
 
-        if (gpuResult.type === 'nvidia') {
+        if (gpuBackendOverride === 'vulkan') {
+          // G1: Vulkan wins the update chain too — explicit override must beat auto-detect,
+          // same BC-250 fix as the setup path above.
+          this._broadcast(
+            serviceName,
+            'update-gpu-config',
+            `Vulkan GPU acceleration enabled via ai.gpuBackend config. Using standard image with /dev/dri passthrough...`
+          )
+          runtimeImage = 'ollama/ollama'
+          vulkanBackendSet = true
+          // G4: concrete /dev/dri nodes when enumerable, else the whole directory.
+          updatedVulkanDevices = await this._discoverVKDevices()
+          // Devices are applied to HostConfig below (updatedVulkanDevices).
+        } else if (gpuResult.type === 'nvidia') {
           this._broadcast(
             serviceName,
             'update-gpu-config',
@@ -1862,16 +1938,6 @@ export class DockerService {
               `AMD GPU detected but acceleration is disabled via ai.amdGpuAcceleration. Using CPU-only configuration.`
             )
           }
-        } else if (gpuBackendOverride === 'vulkan') {
-          // Vulkan: standard image with /dev/dri passthrough for Intel Arc, BC-250, and other non-ROCm GPUs.
-          this._broadcast(
-            serviceName,
-            'update-gpu-config',
-            `Vulkan GPU acceleration enabled via ai.gpuBackend config. Using standard image with /dev/dri passthrough...`
-          )
-          runtimeImage = 'ollama/ollama'
-          vulkanBackendSet = true
-          // Devices will be added below when reconstructing the container
         } else if (gpuResult.toolkitMissing) {
           this._broadcast(
             serviceName,
@@ -1962,8 +2028,14 @@ export class DockerService {
         finalEnv.push('OLLAMA_IGPU_ENABLE=1')
       }
       // Vulkan backend — user explicitly set ai.gpuBackend = 'vulkan' for non-ROCm GPUs.
+      // G3: the Vulkan container env is the standard base env + OLLAMA_VULKAN=1 only. Strip
+      // both HSA_OVERRIDE_GFX_VERSION and OLLAMA_IGPU_ENABLE (ROCm-only env on the standard
+      // image) for parity with the setup path.
       if (vulkanBackendSet) {
-        finalEnv = baseEnv.filter((e: string) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION='))
+        finalEnv = baseEnv.filter(
+          (e: string) =>
+            !e.startsWith('HSA_OVERRIDE_GFX_VERSION=') && !e.startsWith('OLLAMA_IGPU_ENABLE=')
+        )
         finalEnv.push('OLLAMA_VULKAN=1')
       }
 
@@ -1991,9 +2063,7 @@ export class DockerService {
           DeviceRequests: serviceName === SERVICE_NAMES.OLLAMA ? updatedDeviceRequests : (hostConfig.DeviceRequests || undefined),
           Devices:
             serviceName === SERVICE_NAMES.OLLAMA && vulkanBackendSet
-              ? [
-                  { PathOnHost: '/dev/dri', PathInContainer: '/dev/dri', CgroupPermissions: 'rwm' },
-                ]
+              ? updatedVulkanDevices
               : serviceName === SERVICE_NAMES.OLLAMA && updatedAmdDevices
                 ? updatedAmdDevices
                 : hostConfig.Devices || undefined,

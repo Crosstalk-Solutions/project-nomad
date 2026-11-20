@@ -1,7 +1,7 @@
 import Service from '#models/service'
 import InstalledResource from '#models/installed_resource'
 import { inject } from '@adonisjs/core'
-import { DockerService } from '#services/docker_service'
+import { DockerService, normalizeGpuBackend } from '#services/docker_service'
 import { ServiceSlim } from '../../types/services.js'
 import logger from '@adonisjs/core/services/logger'
 import si from 'systeminformation'
@@ -423,6 +423,7 @@ export class SystemService {
         status: 'no_gpu',
         hasNvidiaRuntime: false,
         hasRocmRuntime: false,
+        hasVulkanRuntime: false,
         ollamaGpuAccessible: false,
       }
 
@@ -535,9 +536,24 @@ export class SystemService {
         // uses it: an AMD iGPU silently on CPU used to land in the else branch below
         // and report 'ok' (#1344).
         const ollama = await this._findRunningOllamaContainer().catch(() => null)
+
+        // Vulkan backend — user explicitly set ai.gpuBackend = 'vulkan' (Intel Arc, BC-250
+        // gfx1013, other non-ROCm GPUs). The running container's OLLAMA_VULKAN env is
+        // authoritative; the KV override plus a running standard-image container is the
+        // secondary signal (mirrors hasRocmRuntime above).
+        const gpuBackendRaw = await KVStore.getValue('ai.gpuBackend')
+        const gpuBackend = normalizeGpuBackend(gpuBackendRaw)
+        const ollamaEnv = (ollama?.inspect?.Config?.Env ?? []).map(String)
+        const isStandardImage =
+          !!ollama?.inspect?.Config?.Image && !/:[^/:]*rocm[^/:]*$/i.test(ollama.inspect.Config.Image)
+        gpuHealth.hasVulkanRuntime =
+          ollamaEnv.some((e) => e.startsWith('OLLAMA_VULKAN=')) ||
+          (gpuBackend === 'vulkan' && !!ollama && isStandardImage)
+
         const expectedVendor = resolveExpectedGpuVendor({
           hasNvidiaRuntime: gpuHealth.hasNvidiaRuntime,
           amdConfigured: gpuHealth.hasRocmRuntime,
+          vulkanConfigured: gpuHealth.hasVulkanRuntime,
           container: ollama?.inspect ?? null,
         })
 
