@@ -12,6 +12,12 @@ export type MapSource = {
   type: 'vector' | 'raster' | 'raster-dem' | 'geojson' | 'image' | 'video'
   attribution?: string
   url: string
+  /**
+   * Highest zoom level present in the source's tile data (read from the PMTiles
+   * archive header). Beyond it the client renders overzoomed tiles from deeper
+   * sources. Omitted when the archive header couldn't be read.
+   */
+  maxzoom?: number
 }
 
 export type MapLayer = {
