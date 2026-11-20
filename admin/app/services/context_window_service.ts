@@ -8,6 +8,7 @@ import {
   UNKNOWN_BACKEND_CONTEXT,
   computeKvBytesPerToken,
   estimateKvBytesPerToken,
+  inferenceMemoryBudget,
   parseParameterBillions,
   parseUserContextCap,
   resolveContextWindow,
@@ -30,11 +31,17 @@ import {
  *   - the model's trained context length, from /api/show `model_info`
  *   - what the hardware can actually afford, from the exact per-token KV cost in
  *     the GGUF metadata against detected VRAM (or a share of system RAM)
+ *
+ * The hardware term only exists for a local backend. With `ai.remoteOllamaUrl`
+ * set, inference happens on a machine this process cannot measure, so there is
+ * no memory ceiling: the user's `ai.contextWindow` choice is honoured up to the
+ * model's limits, and "auto" settles on UNKNOWN_BACKEND_CONTEXT (#1547).
  */
 @inject()
 export class ContextWindowService {
   private decisions: Map<string, Promise<ContextWindowDecision>> = new Map()
   private availableBytes: Promise<number | undefined> | null = null
+  private remoteBackend: Promise<boolean> | null = null
 
   constructor(
     private ollamaService: OllamaService,
@@ -89,6 +96,7 @@ export class ContextWindowService {
       computeKvBytesPerToken(info.rawModelInfo) ??
       estimateKvBytesPerToken(parseParameterBillions(info.parameterSize, model))
 
+    const remote = await this._isRemoteBackend()
     const decision = resolveContextWindow({
       modelMaxCtx: info.contextLength,
       modelfileNumCtx: info.modelfileNumCtx,
@@ -96,14 +104,32 @@ export class ContextWindowService {
       availableBytes: await this._availableBytes(),
       modelBytes: await this._modelBytes(model),
       userCap,
+      // Only reachable with an unknown budget, i.e. a remote backend on "auto".
+      unknownMemoryDefault: remote ? UNKNOWN_BACKEND_CONTEXT : undefined,
     })
 
     logger.info(
       `[ContextWindow] ${model}: ${decision.contextWindow} tokens (limited by ${decision.limitedBy}; ` +
         `${(kvBytesPerToken / 1024).toFixed(0)} KiB/token KV` +
-        `${decision.affordableTokens !== undefined ? `, ~${decision.affordableTokens} affordable` : ''})`
+        `${decision.affordableTokens !== undefined ? `, ~${decision.affordableTokens} affordable` : ''}` +
+        `${remote ? '; remote backend, memory not measurable from this host' : ''})`
     )
     return decision
+  }
+
+  /**
+   * Whether chat inference is delegated to a backend configured via
+   * `ai.remoteOllamaUrl`. Mirrors OllamaService._initialize, which prefers that
+   * URL over the local container whenever it is set.
+   */
+  private async _isRemoteBackend(): Promise<boolean> {
+    if (!this.remoteBackend) {
+      this.remoteBackend = (async () => {
+        const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+        return typeof remoteUrl === 'string' && remoteUrl.trim() !== ''
+      })()
+    }
+    return this.remoteBackend
   }
 
   /**
@@ -114,23 +140,35 @@ export class ContextWindowService {
    * whichever device Ollama chose. Falls back to a conservative share of system
    * RAM for CPU-only hosts, which is the low end of the hardware NOMAD targets
    * and precisely where getting this wrong hurts most.
+   *
+   * Undefined for a remote backend: neither figure describes the machine doing
+   * the work, and the local container's VRAM line is actively misleading if that
+   * container is still running alongside a remote URL.
    */
   private async _availableBytes(): Promise<number | undefined> {
     if (!this.availableBytes) {
       this.availableBytes = (async () => {
-        try {
-          const compute = await this.systemService.getOllamaInferenceComputeFromLogs()
-          if (compute && compute.vramMiB > 0) {
-            return compute.vramMiB * 1024 * 1024
+        const remoteBackend = await this._isRemoteBackend()
+        let localVramBytes: number | undefined
+        if (!remoteBackend) {
+          try {
+            const compute = await this.systemService.getOllamaInferenceComputeFromLogs()
+            if (compute && compute.vramMiB > 0) {
+              localVramBytes = compute.vramMiB * 1024 * 1024
+            }
+          } catch (error) {
+            logger.debug(
+              `[ContextWindow] GPU probe failed, assuming CPU inference: ${error instanceof Error ? error.message : error}`
+            )
           }
-        } catch (error) {
-          logger.debug(
-            `[ContextWindow] GPU probe failed, assuming CPU inference: ${error instanceof Error ? error.message : error}`
-          )
         }
         // CPU inference shares host RAM with MySQL, Redis, Qdrant and every other
-        // container on the box, so claim only a modest slice of it.
-        return os.totalmem() * CPU_RAM_SHARE
+        // container on the box, so inferenceMemoryBudget claims only a slice of it.
+        return inferenceMemoryBudget({
+          remoteBackend,
+          localVramBytes,
+          hostTotalBytes: os.totalmem(),
+        })
       })()
     }
     return this.availableBytes
@@ -149,12 +187,6 @@ export class ContextWindowService {
   invalidate(): void {
     this.decisions.clear()
     this.availableBytes = null
+    this.remoteBackend = null
   }
 }
-
-/**
- * Share of system RAM assumed available for CPU inference. The rest of the NOMAD
- * stack (MySQL, Redis, Qdrant, Kiwix, the admin app itself) lives in the same
- * pool, and a machine that starts swapping is worse than one with a small window.
- */
-const CPU_RAM_SHARE = 0.5

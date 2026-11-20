@@ -99,9 +99,11 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
         }
         case 'ai.contextWindow': {
             // "auto" (or empty) hands sizing to ContextWindowService. An explicit
-            // value is a *cap*, so it only ever lowers the resolved window — but it
-            // still has to be a real ladder rung, since a value the backend can't
-            // honour would silently fall back to the default and confuse the user.
+            // value is a *cap* against a local backend, so it only ever lowers the
+            // resolved window; against a remote backend, whose memory NOMAD cannot
+            // measure, it is used as chosen up to the model's limits (#1547). Either
+            // way it still has to be a real ladder rung, since a value the backend
+            // can't honour would silently fall back to the default and confuse the user.
             if (value === '' || value === 'auto' || value === undefined || value === null) {
                 return null
             }
