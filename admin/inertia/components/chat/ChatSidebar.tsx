@@ -6,12 +6,16 @@ import { IconMessage } from '@tabler/icons-react'
 import { useState } from 'react'
 import KnowledgeBaseModal from './KnowledgeBaseModal'
 import NomadMdModal from './NomadMdModal'
+import DeleteChatFlame from './DeleteChatFlame'
+import { CHAT_ROW_TRAILING_CONTROLS } from './delete_chat'
 
 interface ChatSidebarProps {
   sessions: ChatSession[]
   activeSessionId: string | null
   onSessionSelect: (id: string) => void
   onNewChat: () => void
+  onDeleteChat: (chat: { id: string; title: string }) => void
+  deleteBusy?: boolean
   onClearHistory: () => void
   isInModal?: boolean
   isMobileOpen?: boolean
@@ -23,6 +27,8 @@ export default function ChatSidebar({
   activeSessionId,
   onSessionSelect,
   onNewChat,
+  onDeleteChat,
+  deleteBusy = false,
   onClearHistory,
   isInModal = false,
   isMobileOpen = false,
@@ -73,43 +79,61 @@ export default function ChatSidebar({
           <div className="p-4 text-center text-text-muted text-sm">No previous chats</div>
         ) : (
           <div className="p-2 space-y-1">
-            {sessions.map((session) => (
-              <button
-                key={session.id}
-                onClick={() => {
-                  onSessionSelect(session.id)
-                  onMobileClose?.()
-                }}
-                className={classNames(
-                  'w-full text-left px-3 py-2 rounded-lg transition-colors group',
-                  activeSessionId === session.id
-                    ? 'bg-desert-green text-white'
-                    : 'hover:bg-surface-secondary text-text-primary'
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <IconMessage
-                    className={classNames(
-                      'h-5 w-5 mt-0.5 shrink-0',
-                      activeSessionId === session.id ? 'text-white' : 'text-text-muted'
-                    )}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{session.title}</div>
-                    {session.lastMessage && (
-                      <div
-                        className={classNames(
-                          'text-xs truncate mt-0.5',
-                          activeSessionId === session.id ? 'text-white/80' : 'text-text-muted'
-                        )}
-                      >
-                        {session.lastMessage}
-                      </div>
+            {sessions.map((session) => {
+              const isActive = activeSessionId === session.id
+              return (
+                <div
+                  key={session.id}
+                  className={classNames(
+                    'flex items-start rounded-lg transition-colors',
+                    isActive
+                      ? 'bg-desert-green text-white'
+                      : 'hover:bg-surface-secondary text-text-primary'
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSessionSelect(session.id)
+                      onMobileClose?.()
+                    }}
+                    className="flex min-w-0 flex-1 items-start gap-2 rounded-lg px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-desert-green"
+                  >
+                    <IconMessage
+                      className={classNames(
+                        'mt-0.5 h-5 w-5 shrink-0',
+                        isActive ? 'text-white' : 'text-text-muted'
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{session.title}</span>
+                      {session.lastMessage && (
+                        <span
+                          className={classNames(
+                            'mt-0.5 block truncate text-xs',
+                            isActive ? 'text-white/80' : 'text-text-muted'
+                          )}
+                        >
+                          {session.lastMessage}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <div className="flex shrink-0 items-start pr-1 pt-1">
+                    {CHAT_ROW_TRAILING_CONTROLS.map((control) =>
+                      control === 'delete-chat' ? (
+                        <DeleteChatFlame
+                          key={control}
+                          active={isActive}
+                          disabled={deleteBusy}
+                          onDelete={() => onDeleteChat({ id: session.id, title: session.title })}
+                        />
+                      ) : null
                     )}
                   </div>
                 </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
