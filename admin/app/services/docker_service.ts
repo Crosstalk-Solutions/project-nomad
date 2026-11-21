@@ -28,6 +28,7 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
 import { DEFAULT_OLLAMA_CONTEXT_LENGTH } from '../../constants/ollama.js'
 import { withLogRotation } from '../utils/log_rotation.js'
+import { describeNvidiaStartError, isNvidiaStartError } from '../utils/nvidia_start_error.js'
 
 // Written by install_nomad.sh with the host AMD GPU's gfx target.
 const AMD_GFX_MARKER_PATH = '/app/storage/.nomad-amd-gfx'
@@ -742,11 +743,13 @@ export class DockerService {
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
       let amdGpuConfigured = false
+      let nvidiaGpuConfigured = false
 
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
         const gpuResult = await this._detectGPUType()
 
         if (gpuResult.type === 'nvidia') {
+          nvidiaGpuConfigured = true
           this._broadcast(
             service.service_name,
             'gpu-config',
@@ -927,18 +930,27 @@ export class DockerService {
         // not the host's. Verified on NOMAD6, a working ROCm box: /dev/kfd is present
         // on the host and absent inside the admin container, so a pre-check would
         // strip GPU passthrough from a machine where it works.
-        if (!amdGpuConfigured || !this._isMissingDeviceError(error)) throw error
+        //
+        // NVIDIA gets the same treatment (#1641): a registered nvidia runtime says
+        // nothing about whether the driver underneath works. The classic case is a
+        // driver update without a reboot, where the toolkit's prestart hook dies with
+        // an NVML "driver/library version mismatch" and, again, only start() sees it.
+        const amdStartFailed = amdGpuConfigured && this._isMissingDeviceError(error)
+        const nvidiaStartFailed = nvidiaGpuConfigured && isNvidiaStartError(error)
+        if (!amdStartFailed && !nvidiaStartFailed) throw error
 
         logger.warn(
-          `[DockerService] AMD device passthrough rejected by the daemon (${error?.message}); ` +
-            `recreating ${service.service_name} CPU-only on ${service.container_image}`
+          `[DockerService] ${amdStartFailed ? 'AMD device' : 'NVIDIA GPU'} passthrough rejected by the daemon ` +
+            `(${error?.message}); recreating ${service.service_name} CPU-only on ${service.container_image}`
         )
         this._broadcast(
           service.service_name,
           'gpu-config',
-          `AMD GPU detected, but this system has no usable ROCm device (/dev/kfd is missing, ` +
-            `which means the amdgpu/ROCm kernel driver is not loaded or does not support this GPU). ` +
-            `Installing CPU-only instead so the AI Assistant still works.`
+          amdStartFailed
+            ? `AMD GPU detected, but this system has no usable ROCm device (/dev/kfd is missing, ` +
+                `which means the amdgpu/ROCm kernel driver is not loaded or does not support this GPU). ` +
+                `Installing CPU-only instead so the AI Assistant still works.`
+            : describeNvidiaStartError(error)
         )
 
         // The created container carries the rejected device config, so it cannot be
@@ -947,7 +959,7 @@ export class DockerService {
           logger.warn(`[DockerService] Could not remove the failed container: ${removeError?.message}`)
         })
 
-        const { Devices, ...cpuHostConfig } = gpuHostConfig as any
+        const { Devices, DeviceRequests, ...cpuHostConfig } = gpuHostConfig as any
         // Drop the ROCm-only env along with the devices. HSA_OVERRIDE_GFX_VERSION and
         // OLLAMA_IGPU_ENABLE mean nothing to the CPU build, and leaving them behind is
         // misleading to anyone who later reads `docker inspect`.
@@ -955,6 +967,7 @@ export class DockerService {
           (e) => !e.startsWith('HSA_OVERRIDE_GFX_VERSION=') && !e.startsWith('OLLAMA_IGPU_ENABLE=')
         )
         amdGpuConfigured = false
+        nvidiaGpuConfigured = false
         // service.container_image is the CPU tag, already pulled earlier in this
         // function before the AMD branch overrode finalImage to :rocm.
         finalImage = service.container_image
