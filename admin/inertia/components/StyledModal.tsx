@@ -14,6 +14,7 @@ export type StyledModalProps = {
   confirmVariant?: StyledButtonProps['variant']
   confirmLoading?: boolean
   confirmDisabled?: boolean
+  cancelDisabled?: boolean
   open: boolean
   onCancel?: () => void
   onConfirm?: () => void
@@ -35,6 +36,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
   confirmVariant = 'action',
   confirmLoading = false,
   confirmDisabled = false,
+  cancelDisabled = false,
   onCancel,
   onConfirm,
   icon,
@@ -84,6 +86,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
                   }}
                   icon={cancelIcon}
                   loading={cancelLoading}
+                  disabled={cancelDisabled}
                 >
                   {cancelText}
                 </StyledButton>

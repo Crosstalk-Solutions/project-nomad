@@ -14,6 +14,16 @@ import { useSystemSetting } from '~/hooks/useSystemSetting'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
 import { abortActiveStream, clearStreamIfCurrent } from './stream_abort'
+import {
+  DELETE_CHAT_CANCEL_TEXT,
+  DELETE_CHAT_CONFIRM_TEXT,
+  DELETE_CHAT_FAILURE_MESSAGE,
+  applyDeleteOutcome,
+  canSubmitDelete,
+  deleteRequestSucceeded,
+  openDeleteConfirmation,
+  type DeleteChatConfirmation,
+} from './delete_chat'
 
 interface ChatProps {
   enabled: boolean
@@ -40,7 +50,14 @@ export default function Chat({
   const pageLoadNormalizedRef = useRef(false)
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<DeleteChatConfirmation | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const streamAbortRef = useRef<AbortController | null>(null)
+  const deleteInFlight = useRef(false)
+  const activeSessionIdRef = useRef(activeSessionId)
+  const messagesRef = useRef(messages)
+  activeSessionIdRef.current = activeSessionId
+  messagesRef.current = messages
 
   const abortCurrentStream = useCallback(() => {
     abortActiveStream(streamAbortRef)
@@ -193,6 +210,50 @@ export default function Chat({
     },
   })
 
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const result = await api.deleteChatSession(sessionId)
+      if (!deleteRequestSucceeded(result)) {
+        throw new Error(DELETE_CHAT_FAILURE_MESSAGE)
+      }
+      return sessionId
+    },
+    onSuccess: (sessionId) => {
+      const currentView = {
+        activeSessionId: activeSessionIdRef.current,
+        messages: messagesRef.current,
+      }
+      const cached = queryClient.getQueryData<Array<{ id: string }>>(['chatSessions'])
+      const next = applyDeleteOutcome(
+        { sessions: cached ?? [], view: currentView },
+        sessionId,
+        'success'
+      )
+
+      if (cached) {
+        queryClient.setQueryData(['chatSessions'], next.sessions)
+      }
+      queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+
+      if (next.view !== currentView) {
+        abortCurrentStream()
+        setIsStreamingResponse(false)
+        setIsMobileSidebarOpen(false)
+        setActiveSessionId(next.view.activeSessionId)
+        setMessages(next.view.messages)
+      }
+
+      setPendingDelete(null)
+      setDeleteError(null)
+    },
+    onError: () => {
+      setDeleteError(DELETE_CHAT_FAILURE_MESSAGE)
+    },
+    onSettled: () => {
+      deleteInFlight.current = false
+    },
+  })
+
   const chatMutation = useMutation({
     mutationFn: (request: {
       model: string
@@ -338,6 +399,25 @@ export default function Chat({
       'confirm-clear-history-modal'
     )
   }, [openModal, closeAllModals, deleteAllSessionsMutation])
+
+  const handleRequestDeleteChat = useCallback((chat: { id: string; title: string }) => {
+    if (deleteInFlight.current) return
+    setDeleteError(null)
+    setPendingDelete(openDeleteConfirmation(chat))
+  }, [])
+
+  const handleCancelDeleteChat = useCallback(() => {
+    if (deleteInFlight.current) return
+    setPendingDelete(null)
+    setDeleteError(null)
+  }, [])
+
+  const handleConfirmDeleteChat = useCallback(() => {
+    if (!canSubmitDelete(pendingDelete, deleteInFlight.current)) return
+    deleteInFlight.current = true
+    setDeleteError(null)
+    deleteSessionMutation.mutate(pendingDelete.sessionId)
+  }, [pendingDelete, deleteSessionMutation])
 
   const handleSessionSelect = useCallback(
     async (sessionId: string) => {
@@ -576,6 +656,31 @@ export default function Chat({
 
   return (
     <>
+      {pendingDelete && (
+        <StyledModal
+          title="Delete chat?"
+          onConfirm={handleConfirmDeleteChat}
+          onCancel={handleCancelDeleteChat}
+          onClose={handleCancelDeleteChat}
+          open={true}
+          confirmText={DELETE_CHAT_CONFIRM_TEXT}
+          cancelText={DELETE_CHAT_CANCEL_TEXT}
+          confirmVariant="danger"
+          confirmLoading={deleteSessionMutation.isPending}
+          confirmDisabled={deleteSessionMutation.isPending}
+          cancelDisabled={deleteSessionMutation.isPending}
+        >
+          <p className="text-text-primary">
+            Delete <strong>{pendingDelete.title || 'this chat'}</strong>? This removes that
+            conversation and its messages. Your other chats and knowledge base stay in place.
+          </p>
+          {deleteError && (
+            <p className="mt-3 text-sm text-desert-red" role="alert">
+              {deleteError}
+            </p>
+          )}
+        </StyledModal>
+      )}
       {pendingModelSwitch && (
         <StyledModal
           title={`Switch to ${pendingModelSwitch}?`}
@@ -603,6 +708,8 @@ export default function Chat({
           activeSessionId={activeSessionId}
           onSessionSelect={handleSessionSelect}
           onNewChat={handleNewChat}
+          onDeleteChat={handleRequestDeleteChat}
+          deleteBusy={deleteSessionMutation.isPending}
           onClearHistory={handleClearHistory}
           isInModal={isInModal}
           isMobileOpen={isMobileSidebarOpen}
