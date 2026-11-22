@@ -508,6 +508,13 @@ export class OllamaService {
       }
 
       logger.info(`[OllamaService] Model "${model}" downloaded successfully.`)
+
+      // The in-stream progress broadcasts above are throttled, so the final 100% chunk can
+      // be silently dropped if the last progress event landed within the throttle window of
+      // the previous broadcast. Emit a terminal 100% event unconditionally so every client
+      // reliably observes completion and refreshes its installed-models list.
+      this.broadcastDownloadProgress(model, 100, jobId)
+
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
       // Detect axios cancel (signal-triggered abort). Don't broadcast an error event for

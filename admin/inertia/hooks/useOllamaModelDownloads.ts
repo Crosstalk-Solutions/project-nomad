@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTransmit } from 'react-adonis-transmit'
 
 export type OllamaModelDownload = {
@@ -22,10 +23,19 @@ export type OllamaModelDownload = {
     status?: 'cancelled'
 }
 
-export default function useOllamaModelDownloads() {
+export default function useOllamaModelDownloads(onComplete?: (model: string) => void) {
     const { subscribe } = useTransmit()
+    const queryClient = useQueryClient()
     const [downloads, setDownloads] = useState<Map<string, OllamaModelDownload>>(new Map())
     const timeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+
+    // Keep the latest onComplete in a ref so the transmit subscription (set up once)
+    // always calls the current handler without re-subscribing on every render.
+    const onCompleteRef = useRef(onComplete)
+    onCompleteRef.current = onComplete
+
+    // Guard so onComplete fires exactly once per model even if multiple 100% events arrive.
+    const completedRef = useRef<Set<string>>(new Set())
 
     /**
      * Optimistically remove a download from local state — used by the cancel UI to clear
@@ -42,6 +52,17 @@ export default function useOllamaModelDownloads() {
 
     useEffect(() => {
         const unsubscribe = subscribe('ollama-model-download', (data: OllamaModelDownload) => {
+            // Completion side-effects (kept out of the state updater below so they run
+            // exactly once). A finished install makes the installed-models list stale,
+            // so invalidate the shared query and notify the page (e.g. to router.reload()).
+            if (data.percent >= 100 && !completedRef.current.has(data.model)) {
+                completedRef.current.add(data.model)
+                onCompleteRef.current?.(data.model)
+                queryClient
+                    .invalidateQueries({ queryKey: ['installedModels'] })
+                    .catch(() => {})
+            }
+
             setDownloads((prev) => {
                 const updated = new Map(prev)
 
@@ -98,7 +119,7 @@ export default function useOllamaModelDownloads() {
             timeoutsRef.current.clear()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [subscribe])
+    }, [subscribe, queryClient])
 
     const downloadsArray = Array.from(downloads.values())
 

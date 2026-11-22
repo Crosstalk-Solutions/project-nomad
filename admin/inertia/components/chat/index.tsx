@@ -11,6 +11,7 @@ import { ChatImageAttachment, ChatMessage } from '../../../types/chat'
 import classNames from '~/lib/classNames'
 import { IconMenu2, IconX } from '@tabler/icons-react'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import useOllamaModelDownloads from '~/hooks/useOllamaModelDownloads'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
 import { abortActiveStream, clearStreamIfCurrent } from './stream_abort'
@@ -129,6 +130,11 @@ export default function Chat({
     enabled,
     select: (data) => data || [],
   })
+
+  // A finished model install makes the installed-models list stale; mounting this
+  // subscription ensures the shared query is invalidated on completion (hook no-op
+  // otherwise — it only subscribes to the download broadcast channel).
+  useOllamaModelDownloads()
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
