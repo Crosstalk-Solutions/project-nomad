@@ -1071,7 +1071,7 @@
 
 ## Support
 
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) — Get help, share your builds, and connect with other NOMAD users
+- **Discord:** [Join the Community](https://www.projectnomad.us/discord) — Get help, share your builds, and connect with other NOMAD users
 - **Bug Reports:** [GitHub Issues](https://github.com/Crosstalk-Solutions/project-nomad/issues)
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us)
 
