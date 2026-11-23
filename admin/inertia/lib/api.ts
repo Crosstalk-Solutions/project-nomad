@@ -506,6 +506,9 @@ class API {
   async deleteChatSession(sessionId: string) {
     return catchInternal(async () => {
       await this.client.delete(`/chat/sessions/${sessionId}`)
+      // catchInternal returns undefined on failure. A resolved delete must be
+      // distinguishable so the sidebar can keep the chat when the request fails.
+      return { success: true as const }
     })()
   }
 

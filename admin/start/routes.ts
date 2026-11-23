@@ -397,7 +397,11 @@ router
     documented(router.delete('/:id', [ChatsController, 'destroy']), {
       summary: 'Delete a chat session',
       tags: ['chat'],
-      responses: { 204: { description: 'Session deleted' } },
+      responses: {
+        204: { description: 'Session deleted' },
+        400: { description: 'Invalid chat session id', schema: errorResponse },
+        500: errorResponse,
+      },
     })
     documented(router.post('/:id/messages', [ChatsController, 'addMessage']), {
       summary: 'Add a message to a chat session',

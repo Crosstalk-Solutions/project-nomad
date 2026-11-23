@@ -1,6 +1,8 @@
 import ChatSession from '#models/chat_session'
 import ChatMessage from '#models/chat_message'
 import KVStore from '#models/kv_store'
+import db from '@adonisjs/lucid/services/db'
+import { chatDeletionScope } from '../utils/chat_session_delete.js'
 import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
@@ -79,8 +81,7 @@ export class ChatService {
       const lastModel = await KVStore.getValue('chat.lastModel')
       const preferred = lastModel ? models.find((m) => m.name === lastModel) : undefined
       const chosen =
-        preferred ??
-        models.reduce((prev, current) => (prev.size < current.size ? prev : current))
+        preferred ?? models.reduce((prev, current) => (prev.size < current.size ? prev : current))
 
       if (!chosen) {
         return []
@@ -100,7 +101,7 @@ export class ChatService {
           {
             role: 'user',
             content: SYSTEM_PROMPTS.chat_suggestions,
-          }
+          },
         ],
         stream: false,
         think: false,
@@ -136,11 +137,11 @@ export class ChatService {
 
         // Handle both comma-separated and newline-separated formats
         let suggestions: string[] = []
-        
+
         // Try splitting by commas first
         if (content.includes(',')) {
           suggestions = content.split(',').map((s) => s.trim())
-        } 
+        }
         // Fall back to newline separation
         else {
           suggestions = content
@@ -151,11 +152,9 @@ export class ChatService {
             // Remove surrounding quotes if present
             .map((s) => s.replace(/^["']|["']$/g, ''))
         }
-        
+
         // Filter out empty strings and limit to 3 suggestions
-        const filtered =  suggestions
-          .filter((s) => s.length > 0)
-          .slice(0, 3)
+        const filtered = suggestions.filter((s) => s.length > 0).slice(0, 3)
 
         return filtered.map((s) => toTitleCase(s))
       } else {
@@ -293,8 +292,21 @@ export class ChatService {
 
   async deleteSession(sessionId: number) {
     try {
-      const session = await ChatSession.findOrFail(sessionId)
-      await session.delete()
+      const scope = chatDeletionScope(sessionId)
+      // One conversation: its row, then the messages stored for that session id.
+      // Knowledge-base records are not queried here.
+      await db.transaction(async (trx) => {
+        const session = await ChatSession.query({ client: trx })
+          .where('id', scope.sessionId)
+          .first()
+        if (!session) {
+          throw new Error('Failed to delete chat session')
+        }
+        await ChatMessage.query({ client: trx })
+          .where('session_id', scope.messageSessionId)
+          .delete()
+        await session.useTransaction(trx).delete()
+      })
       return { success: true }
     } catch (error) {
       logger.error(
@@ -318,7 +330,12 @@ export class ChatService {
     }
   }
 
-  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string, model: string) {
+  async generateTitle(
+    sessionId: number,
+    userMessage: string,
+    assistantMessage: string,
+    model: string
+  ) {
     try {
       // Titles are aesthetic work; route them to the tasks model when one is
       // configured rather than the chat model that just answered.
