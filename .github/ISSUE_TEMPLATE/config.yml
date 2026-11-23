@@ -4,7 +4,7 @@ contact_links:
     url: https://github.com/Crosstalk-Solutions/project-nomad/security/advisories/new
     about: Report a security issue privately. Please do not open a public issue for a vulnerability.
   - name: 💬 Discord Community
-    url: https://discord.com/invite/crosstalksolutions
+    url: https://www.projectnomad.us/discord
     about: Join our Discord community for general questions, support, and discussions
   - name: 📖 Documentation
     url: https://projectnomad.us

@@ -12,6 +12,6 @@ Project NOMAD is open source, released under the [Apache License 2.0](https://gi
 
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us)
 - **Hardware Guide:** [www.projectnomad.us/hardware](https://www.projectnomad.us/hardware)
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions)
+- **Discord:** [Join the Community](https://www.projectnomad.us/discord)
 - **GitHub:** [Crosstalk-Solutions/project-nomad](https://github.com/Crosstalk-Solutions/project-nomad)
 - **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us)

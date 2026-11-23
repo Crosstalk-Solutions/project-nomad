@@ -91,7 +91,7 @@ export default function SupportPage() {
               <li>Share NOMAD with someone who'd use it — word of mouth is the best marketing</li>
               <li>
                 <a
-                  href="https://discord.com/invite/crosstalksolutions"
+                  href="https://www.projectnomad.us/discord"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:underline"

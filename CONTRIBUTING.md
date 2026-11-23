@@ -209,7 +209,7 @@ This project uses [Semantic Versioning](https://semver.org/). Versions are manag
 
 Have questions or want to discuss ideas before opening an issue? Join the community:
 
-- **Discord:** [Join the Crosstalk Solutions server](https://discord.com/invite/crosstalksolutions) — the best place to get help, share your builds, and talk with other NOMAD users
+- **Discord:** [Join the Crosstalk Solutions server](https://www.projectnomad.us/discord) — the best place to get help, share your builds, and talk with other NOMAD users
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us)
 - **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us)
 
