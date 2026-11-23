@@ -196,6 +196,6 @@ NOMAD content is customizable. If you don't see what you need:
 2. **Check [Content Manager](/settings/zim)** — Manage your installed content
 3. **Browse Kolibri channels** — Educational content for many subjects
 4. **Upload your own documents** — Add files to the [Knowledge Base](/knowledge-base) for AI-aware reference
-5. **Request features** — Let us know what content would help you on [Discord](https://discord.com/invite/crosstalksolutions)
+5. **Request features** — Let us know what content would help you on [Discord](https://www.projectnomad.us/discord)
 
 Your offline server, your content choices.

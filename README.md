@@ -5,7 +5,7 @@
 ### Knowledge That Never Goes Offline
 
 [![Website](https://img.shields.io/badge/Website-projectnomad.us-blue)](https://www.projectnomad.us)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2)](https://discord.com/invite/crosstalksolutions)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2)](https://www.projectnomad.us/discord)
 [![Benchmark](https://img.shields.io/badge/Benchmark-Leaderboard-green)](https://benchmark.projectnomad.us)
 
 </div>
@@ -162,7 +162,7 @@ It prints the resolved decision — current version, whether the clock is inside
 ## Community & Resources
 
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
+- **Discord:** [Join the Community](https://www.projectnomad.us/discord) - Get help, share your builds, and connect with other NOMAD users
 - **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
 - **FAQ:** [FAQ.md](FAQ.md) - Find answers to frequently asked questions
 - **Community Add-Ons:** [admin/docs/community-add-ons.md](admin/docs/community-add-ons.md) - Third-party content packs built by the community

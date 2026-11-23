@@ -101,7 +101,7 @@ Because NOMAD is still a young project, some PRs (particularly those for new fea
 
 ## I have a question that isn't answered here. Where can I ask for help?
 
-If you have a question that isn't answered in this FAQ, please feel free to ask for help in our Discord community (https://discord.com/invite/crosstalksolutions) or on our Github Discussions page (https://github.com/Crosstalk-Solutions/project-nomad/discussions).
+If you have a question that isn't answered in this FAQ, please feel free to ask for help in our Discord community (https://www.projectnomad.us/discord) or on our Github Discussions page (https://github.com/Crosstalk-Solutions/project-nomad/discussions).
 
 ## I have a suggestion for a new feature or improvement. How can I share it?
 

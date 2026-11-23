@@ -334,7 +334,7 @@ Try asking a question in [AI Chat](/chat). The local AI can answer questions abo
 You're in the docs now. Use the menu to find specific topics.
 
 ### Join the community
-Get help from other NOMAD users on **[Discord](https://discord.com/invite/crosstalksolutions)**.
+Get help from other NOMAD users on **[Discord](https://www.projectnomad.us/discord)**.
 
 ### Release Notes
 See what's changed in each version: **[Release Notes](/docs/release-notes)**
