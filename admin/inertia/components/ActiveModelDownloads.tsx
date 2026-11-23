@@ -10,10 +10,12 @@ import { formatSpeed } from '../../app/utils/misc'
 
 interface ActiveModelDownloadsProps {
     withHeader?: boolean
+    /** Called once per model when a download reaches 100% (success). */
+    onComplete?: (model: string) => void
 }
 
-const ActiveModelDownloads = ({ withHeader = false }: ActiveModelDownloadsProps) => {
-    const { downloads, removeDownload } = useOllamaModelDownloads()
+const ActiveModelDownloads = ({ withHeader = false, onComplete }: ActiveModelDownloadsProps) => {
+    const { downloads, removeDownload } = useOllamaModelDownloads(onComplete)
     const { openModal, closeAllModals } = useModals()
     const [cancellingModels, setCancellingModels] = useState<Set<string>>(new Set())
 

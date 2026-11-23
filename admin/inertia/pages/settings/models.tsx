@@ -520,7 +520,7 @@ export default function ModelsPage(props: {
             </div>
           </div>
 
-          <ActiveModelDownloads withHeader />
+          <ActiveModelDownloads withHeader onComplete={() => router.reload()} />
 
           <StyledSectionHeader title="Models" className="mt-12 mb-4" />
           <Alert
