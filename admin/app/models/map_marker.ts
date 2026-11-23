@@ -19,6 +19,10 @@ export default class MapMarker extends BaseModel {
   @column()
   declare color: string
 
+  // The pin's layer (#1387). Every pin belongs to exactly one.
+  @column()
+  declare layer_id: number
+
   // 'pin' for user-placed markers, 'waypoint' for route points (future)
   @column()
   declare marker_type: string
