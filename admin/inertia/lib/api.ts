@@ -12,7 +12,7 @@ import type { Country, CountryCode, CountryGroup, MapExtractPreflight } from '..
 import { EmbedJobWithProgress, FileWarningsResult, StoredFileInfo } from '../../types/rag'
 import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, CreatorPackWithStatus, ResourceUpdateInfo } from '../../types/collections'
 import { catchInternal } from './util'
-import { NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
+import { ChatNotice, NomadChatResponse, NomadInstalledModel, NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
 import BenchmarkResult from '#models/benchmark_result'
 import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
 import type { CreateMapMarkerPayload, MapMarkerResponse, UpdateMapMarkerPayload } from '../../types/maps'
@@ -76,10 +76,28 @@ class API {
     })()
   }
 
-  async getRemoteOllamaStatus(): Promise<{ configured: boolean; connected: boolean }> {
+  async getRemoteOllamaStatus(): Promise<{
+    configured: boolean
+    connected: boolean
+    fallbackEnabled?: boolean
+    usingFallback?: boolean
+  }> {
     return catchInternal(async () => {
-      const response = await this.client.get<{ configured: boolean; connected: boolean }>(
-        '/ollama/remote-status'
+      const response = await this.client.get<{
+        configured: boolean
+        connected: boolean
+        fallbackEnabled?: boolean
+        usingFallback?: boolean
+      }>('/ollama/remote-status')
+      return response.data
+    })()
+  }
+
+  /** Models in the local Ollama container, regardless of any remote server. */
+  async getLocalOllamaModels(): Promise<{ available: boolean; models: string[] } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ available: boolean; models: string[] }>(
+        '/ollama/local-models'
       )
       return response.data
     })()
@@ -363,7 +381,8 @@ class API {
     onChunk: (content: string, thinking: string, done: boolean) => void,
     signal?: AbortSignal,
     onSources?: (sources: ChatSource[]) => void,
-    onDoneReason?: (reason: string) => void
+    onDoneReason?: (reason: string) => void,
+    onNotice?: (notice: ChatNotice) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
     const serialized = serializeChatRequest({ ...chatRequest, stream: true })
@@ -401,6 +420,14 @@ class API {
 
           const streamError = chatStreamErrorMessage(data)
           if (streamError) throw new Error(streamError)
+
+          // A notice about how this reply is being produced (e.g. the local stand-in
+          // answering for an unreachable remote server). Sent before any content and,
+          // like the citation event below, carries no `message` key.
+          if (data.notice) {
+            onNotice?.(data.notice)
+            continue
+          }
 
           // Citation metadata (#1179) arrives as a distinct trailing event with no
           // `message` key -- route it separately rather than through onChunk.
@@ -454,6 +481,7 @@ class API {
         id: string
         title: string
         model: string | null
+        localOnly?: boolean
         timestamp: string
         lastMessage: string | null
       }>>('/chat/sessions')
@@ -479,24 +507,29 @@ class API {
     })()
   }
 
-  async createChatSession(title: string, model?: string) {
+  async createChatSession(title: string, model?: string, localOnly?: boolean) {
     return catchInternal(async () => {
       const response = await this.client.post<{
         id: string
         title: string
         model: string | null
+        localOnly?: boolean
         timestamp: string
-      }>('/chat/sessions', { title, model })
+      }>('/chat/sessions', { title, model, ...(localOnly ? { localOnly: true } : {}) })
       return response.data
     })()
   }
 
-  async updateChatSession(sessionId: string, data: { title?: string; model?: string }) {
+  async updateChatSession(
+    sessionId: string,
+    data: { title?: string; model?: string; localOnly?: boolean }
+  ) {
     return catchInternal(async () => {
       const response = await this.client.put<{
         id: string
         title: string
         model: string | null
+        localOnly?: boolean
         timestamp: string
       }>(`/chat/sessions/${sessionId}`, data)
       return response.data
@@ -1151,6 +1184,16 @@ class API {
       const response = await this.client.post<{ message: string }>('/rag/files/active', {
         source,
         active,
+      })
+      return response.data
+    })()
+  }
+
+  async setFilePrivate(source: string, isPrivate: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/private', {
+        source,
+        private: isPrivate,
       })
       return response.data
     })()

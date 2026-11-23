@@ -29,7 +29,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; remoteFallbackEnabled: boolean; remoteFallbackModel: string; localEmbeddings: boolean; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -61,6 +61,31 @@ export default function ModelsPage(props: {
   const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
   const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
+  const [remoteFallbackEnabled, setRemoteFallbackEnabled] = useState(
+    props.models.settings.remoteFallbackEnabled
+  )
+  const [remoteFallbackModel, setRemoteFallbackModel] = useState(
+    props.models.settings.remoteFallbackModel
+  )
+  const [localEmbeddings, setLocalEmbeddings] = useState(props.models.settings.localEmbeddings)
+  // The page's own model list describes the remote server while one is
+  // configured, so the stand-in picker asks for this machine's models separately.
+  const { data: localModelData } = useQuery({
+    queryKey: ['ollama', 'localModels'],
+    queryFn: () => api.getLocalOllamaModels(),
+    enabled: !!props.models.settings.remoteOllamaUrl && remoteFallbackEnabled,
+    refetchOnWindowFocus: false,
+  })
+  const localModelNames = localModelData?.models ?? []
+  const remoteFallbackModelOptions = [
+    { value: '', label: 'None (only use a model if this machine has the same one)' },
+    ...localModelNames.map((name) => ({ value: name, label: name })),
+    // Keep a saved choice visible even if the local container is down or the
+    // model was since removed, rather than silently showing "None".
+    ...(remoteFallbackModel && !localModelNames.includes(remoteFallbackModel)
+      ? [{ value: remoteFallbackModel, label: `${remoteFallbackModel} (not found on this machine)` }]
+      : []),
+  ]
 
   async function handleSaveRemoteOllama() {
     setRemoteOllamaError(null)
@@ -398,7 +423,11 @@ export default function ModelsPage(props: {
               <Select
                 name="contextWindow"
                 label="Context Window"
-                helpText="How much conversation and knowledge-base context each reply can consider. Auto sizes this per model from its trained limit and your available memory. Choosing a value sets an upper limit — it can lower the window to save memory, but never raises it beyond what a model supports."
+                helpText={
+                  props.models.settings.remoteOllamaUrl
+                    ? "How much conversation and knowledge-base context each reply can consider. You are using a remote AI server, and NOMAD cannot see how much memory that machine has. Auto uses a modest 8K window. Choosing a value uses that window as chosen, up to what each model supports — pick one the remote machine has memory for."
+                    : 'How much conversation and knowledge-base context each reply can consider. Auto sizes this per model from its trained limit and your available memory. Choosing a value sets an upper limit — it can lower the window to save memory, but never raises it beyond what a model supports.'
+                }
                 value={contextWindow}
                 options={contextWindowOptions}
                 onChange={(newVal) => {
@@ -518,6 +547,49 @@ export default function ModelsPage(props: {
                 </StyledButton>
               )}
             </div>
+            {props.models.settings.remoteOllamaUrl && (
+              <div className="mt-6 space-y-4 border-t border-border-subtle pt-4">
+                <Switch
+                  checked={remoteFallbackEnabled}
+                  onChange={(newVal) => {
+                    setRemoteFallbackEnabled(newVal)
+                    updateSettingMutation.mutate({ key: 'ai.remoteFallbackEnabled', value: newVal })
+                  }}
+                  label="Use This Machine When the Remote Server Is Unreachable"
+                  description="Keeps the AI Assistant installed on this machine running alongside the remote server. If the remote server cannot be reached, replies come from this machine instead, and switch back by themselves once the remote server answers again. Needs the AI Assistant installed here with at least one model. Leave off if the remote server runs on this same machine."
+                />
+                {remoteFallbackEnabled && (
+                  <>
+                    <Select
+                      name="remoteFallbackModel"
+                      label="Stand-in Model"
+                      helpText="The model on this machine that answers when the remote server is unreachable and the model you picked only exists there. Replies written by the stand-in say so."
+                      value={remoteFallbackModel}
+                      options={remoteFallbackModelOptions}
+                      onChange={(newVal) => {
+                        setRemoteFallbackModel(newVal)
+                        updateSettingMutation.mutate({ key: 'ai.remoteFallbackModel', value: newVal })
+                      }}
+                    />
+                    {localModelData && !localModelData.available && (
+                      <p className="text-sm text-text-muted">
+                        The AI Assistant on this machine is not responding, so its models cannot be listed. Install it, or
+                        start it, from the Apps page.
+                      </p>
+                    )}
+                  </>
+                )}
+                <Switch
+                  checked={localEmbeddings}
+                  onChange={(newVal) => {
+                    setLocalEmbeddings(newVal)
+                    updateSettingMutation.mutate({ key: 'rag.localEmbeddings', value: newVal })
+                  }}
+                  label="Index the Knowledge Base on This Machine"
+                  description="Reads and indexes your knowledge base files, and looks up your questions in them, using the AI Assistant on this machine instead of the remote server, so the text of a file is never sent away to be indexed. Passages are still sent with a question when the remote server writes the reply, unless the file is marked private in the Knowledge Base or the chat is set to Local Only. Needs the AI Assistant installed here. If it is not running, indexing waits rather than using the remote server."
+                />
+              </div>
+            )}
           </div>
 
           <ActiveModelDownloads withHeader />

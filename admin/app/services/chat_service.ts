@@ -52,6 +52,7 @@ export class ChatService {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        localOnly: Boolean(session.local_only),
         timestamp: session.updated_at.toJSDate(),
         lastMessage: null, // Will be populated from messages if needed
       }))
@@ -186,6 +187,7 @@ export class ChatService {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        localOnly: Boolean(session.local_only),
         timestamp: session.updated_at.toJSDate(),
         messages: session.messages.map((msg) => ({
           id: msg.id.toString(),
@@ -205,17 +207,50 @@ export class ChatService {
     }
   }
 
-  async createSession(title: string, model?: string) {
+  /**
+   * Whether a chat is marked local-only. False for an unknown session: the
+   * caller is deciding whether to *restrict* a request, and a session that does
+   * not exist has no restriction to apply.
+   */
+  async isSessionLocalOnly(sessionId: number): Promise<boolean> {
+    const session = await ChatSession.query().where('id', sessionId).select('local_only').first()
+    return session ? Boolean(session.local_only) : false
+  }
+
+  /**
+   * Mark a chat local-only from now on. Called when a turn reads a private
+   * file: from that point the chat's history contains text that must never be
+   * sent to a remote AI server, so the chat itself has to stay local.
+   */
+  async markSessionLocalOnly(sessionId: number): Promise<void> {
+    await ChatSession.query().where('id', sessionId).update({ local_only: true })
+  }
+
+  /**
+   * Whether a local-only chat can no longer be opened up to a remote AI
+   * server. True once it has any messages: every later turn would send that
+   * history, including whatever was said (or quoted from private files) while
+   * the chat was local-only, to the remote server. An empty local-only chat has
+   * nothing to leak and can still be switched back.
+   */
+  async isLocalOnlyLocked(sessionId: number): Promise<boolean> {
+    if (!(await this.isSessionLocalOnly(sessionId))) return false
+    return (await this.getMessageCount(sessionId)) > 0
+  }
+
+  async createSession(title: string, model?: string, localOnly?: boolean) {
     try {
       const session = await ChatSession.create({
         title,
         model: model || null,
+        local_only: localOnly === true,
       })
 
       return {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        localOnly: Boolean(session.local_only),
         timestamp: session.created_at.toJSDate(),
       }
     } catch (error) {
@@ -226,7 +261,10 @@ export class ChatService {
     }
   }
 
-  async updateSession(sessionId: number, data: { title?: string; model?: string }) {
+  async updateSession(
+    sessionId: number,
+    data: { title?: string; model?: string; localOnly?: boolean }
+  ) {
     try {
       const session = await ChatSession.findOrFail(sessionId)
 
@@ -236,6 +274,9 @@ export class ChatService {
       if (data.model !== undefined) {
         session.model = data.model
       }
+      if (data.localOnly !== undefined) {
+        session.local_only = data.localOnly
+      }
 
       await session.save()
 
@@ -243,6 +284,7 @@ export class ChatService {
         id: session.id.toString(),
         title: session.title,
         model: session.model,
+        localOnly: Boolean(session.local_only),
         timestamp: session.updated_at.toJSDate(),
       }
     } catch (error) {

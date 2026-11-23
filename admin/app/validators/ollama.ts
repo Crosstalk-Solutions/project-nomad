@@ -14,6 +14,10 @@ export const chatSchema = vine.compile(
     // Effective per-request thinking preference (per-model override or global default),
     // resolved client-side. Omitted -> server falls back to the ai.autoThinking KV default.
     think: vine.boolean().optional(),
+    // Answer this turn on this machine even if a remote AI server is configured.
+    // A request can only add the restriction: a session saved as local-only is
+    // local-only whatever this says.
+    localOnly: vine.boolean().optional(),
   })
 )
 

@@ -13,13 +13,19 @@ import path from 'node:path'
 import logger from '@adonisjs/core/services/logger'
 import axios from 'axios'
 import { DownloadModelJob } from '#jobs/download_model_job'
-import { SERVICE_NAMES } from '../../constants/service_names.js'
 import transmit from '@adonisjs/transmit/services/main'
 import Fuse, { IFuseOptions } from 'fuse.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
 import KVStore from '#models/kv_store'
+import {
+  isLocalEmbeddingsEnabled,
+  isLocalOnlyScope,
+  resolveChatBackend,
+  resolveEmbeddingBackend,
+} from '#services/ai_backend_service'
+import { pickFallbackModel, type AiBackend } from '../utils/ai_backend.js'
 import type { ModelCapabilities } from '../utils/model_capabilities.js'
 import {
   installedModelsFromOpenAIResponse,
@@ -205,6 +211,14 @@ export class OllamaService {
   private openai: OpenAI | null = null
   private ollama: Ollama | null = null
   private baseUrl: string | null = null
+  private backend: AiBackend | null = null
+  // 'embedding' instances talk to the backend that embeds knowledge-base text,
+  // which rag.localEmbeddings can pin to the local container while chat goes to
+  // a remote server. See useEmbeddingBackend().
+  private role: 'chat' | 'embedding' = 'chat'
+  // Names of the models in the local container, fetched once per instance while
+  // it stands in for an unreachable remote (see resolveModelForBackend).
+  private fallbackLocalModels: Promise<string[]> | null = null
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
   private nativeProbe: Promise<boolean> | null = null
@@ -225,19 +239,29 @@ export class OllamaService {
   private async _initialize() {
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        // Check KVStore for a custom base URL (remote Ollama, LM Studio, llama.cpp, etc.)
-        const customUrl = (await KVStore.getValue('ai.remoteOllamaUrl')) as string | null
-        if (customUrl && customUrl.trim()) {
-          this.baseUrl = customUrl.trim().replace(/\/$/, '')
-        } else {
-          // Fall back to the local Ollama container managed by Docker
-          const dockerService = new (await import('./docker_service.js')).DockerService()
-          const ollamaUrl = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
-          if (!ollamaUrl) {
-            throw new Error('Ollama service is not installed or running.')
+        // A custom base URL in KVStore (remote Ollama, LM Studio, llama.cpp, etc.) wins
+        // over the local Ollama container managed by Docker — unless that remote is
+        // unreachable and ai.remoteFallbackEnabled lets the local container stand in.
+        const backend =
+          this.role === 'embedding' ? await resolveEmbeddingBackend() : await resolveChatBackend()
+        if (!backend) {
+          // Two of the ways to get here are refusals, not outages: the request
+          // was required to stay on this machine and there is no local Ollama to
+          // serve it. Say so, rather than implying nothing is configured at all.
+          if (this.role === 'embedding' && (await isLocalEmbeddingsEnabled())) {
+            throw new Error(
+              'Knowledge base indexing is set to stay on this machine, but the AI Assistant is not installed here.'
+            )
           }
-          this.baseUrl = ollamaUrl.trim().replace(/\/$/, '')
+          if (isLocalOnlyScope()) {
+            throw new Error(
+              'This is a local-only chat, but the AI Assistant is not installed on this machine.'
+            )
+          }
+          throw new Error('Ollama service is not installed or running.')
         }
+        this.backend = backend
+        this.baseUrl = backend.baseUrl
 
         this.openai = new OpenAI({
           apiKey: 'nomad', // Required by SDK; not validated by Ollama/LM Studio/llama.cpp
@@ -306,6 +330,35 @@ export class OllamaService {
     if (!this.openai) {
       await this._initialize()
     }
+  }
+
+  /**
+   * Point this instance at the backend that embeds knowledge-base text rather
+   * than the one that chats. They are the same backend unless
+   * `rag.localEmbeddings` is on with a remote server configured, in which case
+   * this instance only ever talks to the local container. Must be called before
+   * first use; RagService does so for its own instance.
+   */
+  public useEmbeddingBackend(): this {
+    if (this.initPromise) {
+      throw new Error('useEmbeddingBackend() must be called before the service is first used.')
+    }
+    this.role = 'embedding'
+    return this
+  }
+
+  /**
+   * Which backend this instance is talking to: the local container, the remote
+   * server, or the local container standing in for an unreachable remote. Null
+   * when no backend is available at all.
+   */
+  public async getActiveBackend(): Promise<AiBackend | null> {
+    try {
+      await this._ensureDependencies()
+    } catch {
+      return null
+    }
+    return this.backend
   }
 
   /**
@@ -652,8 +705,50 @@ export class OllamaService {
     return params
   }
 
+  /**
+   * The model that will actually answer a request for `requested` on this
+   * instance's backend.
+   *
+   * Identity everywhere except during a fallback, where the local container is
+   * standing in for an unreachable remote server and the requested model may
+   * only exist on that server; see pickFallbackModel for the rule. Applied inside
+   * chat()/chatStream() so every caller is covered — not only the chat turn but
+   * the ancillary calls (titles, suggestions, query rewriting, the relevance
+   * check), which name the Tasks Model or the last-used chat model and would
+   * otherwise fail for the whole outage. Public so the chat controller can ask
+   * up front and tell the user which model replied.
+   */
+  public async resolveModelForBackend(
+    requested: string
+  ): Promise<{ model: string; substituted: boolean; fallback: boolean }> {
+    await this._ensureDependencies()
+    // A local-only chat is in the same position as a fallback: the local
+    // container answering a request whose model may only exist on the remote.
+    const standingIn =
+      this.role === 'chat' &&
+      (this.backend?.kind === 'fallback' || this.backend?.forcedLocal === true)
+    if (!standingIn) {
+      return { model: requested, substituted: false, fallback: false }
+    }
+    if (!this.fallbackLocalModels) {
+      // Embedding models included: they are not chat models, but excluding them
+      // here would only turn "requested the embedding model" into a swap.
+      this.fallbackLocalModels = this.getModels(true)
+        .then((models) => (models || []).map((model) => model.name))
+        .catch(() => [] as string[])
+    }
+    const picked = pickFallbackModel({
+      requested,
+      localModels: await this.fallbackLocalModels,
+      standIn: await KVStore.getValue('ai.remoteFallbackModel'),
+    })
+    return { ...picked, fallback: this.backend?.kind === 'fallback' }
+  }
+
   public async chat(chatRequest: ChatInput): Promise<NomadChatResponse> {
     await this._ensureDependencies()
+    const answeringModel = await this.resolveModelForBackend(chatRequest.model)
+    chatRequest = { ...chatRequest, model: answeringModel.model }
     if (await this._isNativeBackend()) {
       return this._chatNative(chatRequest)
     }
@@ -744,6 +839,8 @@ export class OllamaService {
 
   public async chatStream(chatRequest: ChatInput): Promise<AsyncIterable<NomadChatStreamChunk>> {
     await this._ensureDependencies()
+    const answeringModel = await this.resolveModelForBackend(chatRequest.model)
+    chatRequest = { ...chatRequest, model: answeringModel.model }
     if (await this._isNativeBackend()) {
       return this._chatStreamNative(chatRequest)
     }

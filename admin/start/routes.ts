@@ -342,6 +342,10 @@ router
       summary: 'Get remote Ollama status',
       tags: ['ollama'],
     })
+    documented(router.get('/local-models', [OllamaController, 'localModels']), {
+      summary: 'List models installed in the local Ollama container, ignoring any remote endpoint',
+      tags: ['ollama'],
+    })
   })
   .prefix('/api/ollama')
 
@@ -506,6 +510,10 @@ router
     })
     documented(router.post('/files/active', [RagController, 'setFileActive']), {
       summary: "Toggle a file's active (searchable) state",
+      tags: ['rag'],
+    })
+    documented(router.post('/files/private', [RagController, 'setFilePrivate']), {
+      summary: "Toggle a file's private state (never sent to a remote AI server)",
       tags: ['rag'],
     })
     documented(router.post('/rename-collection', [RagController, 'renameKnowledgeCollection']), {

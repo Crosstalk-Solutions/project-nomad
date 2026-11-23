@@ -57,6 +57,22 @@ export const KV_STORE_SCHEMA = {
   'ai.assistantCustomName':     'string',
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',
+  // When a remote AI server is configured but cannot be reached, answer from the
+  // local Ollama container instead of failing, and go back to the remote by
+  // itself once it responds again. Off/unset keeps the original behaviour: a
+  // remote server replaces the local container outright, and NOMAD stops that
+  // container so the two do not compete. On keeps the local container running.
+  'ai.remoteFallbackEnabled':   'boolean',
+  // With a remote AI server configured, embed knowledge-base documents and
+  // search queries with the local Ollama container instead of the remote one,
+  // so document text never leaves this machine to be indexed. Off/unset keeps
+  // the original behaviour: embedding goes wherever chat goes. Like
+  // ai.remoteFallbackEnabled, on keeps the local container running.
+  'rag.localEmbeddings':        'boolean',
+  // Model the local container answers with during a fallback when the model
+  // the user picked only exists on the remote server. Unset means no stand-in:
+  // the request goes through unchanged and the missing-model error surfaces.
+  'ai.remoteFallbackModel':     'string',
   'ai.ollamaFlashAttention':    'boolean',
   'ai.autoThinking':            'boolean',
   // Model used for ancillary AI work (chat titles, chat suggestions) instead of

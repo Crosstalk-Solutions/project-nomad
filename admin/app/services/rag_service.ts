@@ -49,6 +49,8 @@ import { ZIMExtractionService } from './zim_extraction_service.js'
 import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
 import { hasMoreArticleBatches } from '../utils/zim_batch_decision.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
+import { resolveChatBackend } from '#services/ai_backend_service'
+import { mayUsePrivateDocuments } from '../utils/ai_backend.js'
 import {
   ProcessAndEmbedFileResponse,
   ProcessZIMFileResponse,
@@ -102,7 +104,14 @@ export class RagService {
   constructor(
     private dockerService: DockerService,
     private ollamaService: OllamaService
-  ) {}
+  ) {
+    // Everything this service asks of Ollama is embedding work: listing models to
+    // find the embedding model, pulling it, and embedding chunks and queries. So
+    // its instance follows the embedding backend, which rag.localEmbeddings can
+    // keep on this machine while chat goes to a remote server. Optional call:
+    // unit tests construct RagService with a partial stand-in.
+    this.ollamaService.useEmbeddingBackend?.()
+  }
 
   private async _initializeQdrantClient() {
     if (!this.qdrantInitPromise) {
@@ -185,6 +194,12 @@ export class RagService {
       })
       await this.qdrant!.createPayloadIndex(collectionName, {
         field_name: 'active',
+        field_schema: 'bool',
+      })
+      // No backfill for `private`: a point without the field is not private, and
+      // the search filter is a denylist (`must_not private == true`) for that reason.
+      await this.qdrant!.createPayloadIndex(collectionName, {
+        field_name: 'private',
         field_schema: 'bool',
       })
 
@@ -463,6 +478,9 @@ export class RagService {
       // resetting it to active on every write. A genuinely new file (no row yet)
       // still defaults to active.
       const active = await this._readActiveFlag(sanitizedSource)
+      // Same for the private mark (#private-documents): re-indexing a private
+      // file must not quietly make it visible to a remote AI server again.
+      const isPrivate = await this._readPrivateFlag(sanitizedSource)
 
       const points = chunks.map((chunkText, index) => {
         // Sanitize text to prevent JSON encoding errors
@@ -502,6 +520,7 @@ export class RagService {
             created_at: timestamp,
             source: sanitizedSource,
             active,
+            private: isPrivate,
           },
         }
       })
@@ -517,6 +536,14 @@ export class RagService {
       if (currentActive !== active) {
         await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
           payload: { active: currentActive },
+          points: points.map((p) => p.id),
+        })
+      }
+      // The same race, and the same fix, for the private mark.
+      const currentPrivate = await this._readPrivateFlag(sanitizedSource)
+      if (currentPrivate !== isPrivate) {
+        await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+          payload: { private: currentPrivate },
           points: points.map((p) => p.id),
         })
       }
@@ -1038,6 +1065,16 @@ export class RagService {
 
       // Perform semantic search with a higher limit to enable reranking
       const searchLimit = limit * 3 // Get more results for reranking
+
+      // Private files only reach a prompt that this machine will answer. Asked of
+      // the chat backend, not of this service's own (embedding) instance: with
+      // rag.localEmbeddings on, the search runs locally even while the reply is
+      // about to be written by the remote server. If the backend cannot be
+      // determined, leave private files out — a missed citation is recoverable,
+      // a leaked passage is not.
+      const includePrivate = await resolveChatBackend()
+        .then((backend) => mayUsePrivateDocuments(backend))
+        .catch(() => false)
       logger.debug(
         `[RAG] Searching for top ${searchLimit} semantic matches (threshold: ${scoreThreshold})`
       )
@@ -1051,7 +1088,14 @@ export class RagService {
           // Denylist, not allowlist: a point with no `active` field at all
           // (not yet backfilled) must still be found by default. Search
           // correctness must never depend on the backfill's timing.
-          must_not: [{ key: 'active', match: { value: false } }],
+          must_not: [
+            { key: 'active', match: { value: false } },
+            // Private files are left out whenever the reply will be written by a
+            // remote AI server. Filtering here, at the query, means their text
+            // is never loaded into this process for a remote-bound turn at all —
+            // not reranked, not trimmed, not logged, and so not leakable later.
+            ...(includePrivate ? [] : [{ key: 'private', match: { value: true } }]),
+          ],
           ...(collection ? { must: [{ key: 'collection', match: { value: collection } }] } : {}),
         },
       })
@@ -1378,6 +1422,7 @@ export class RagService {
           chunks_embedded: number
           collection: string | null
           active: boolean
+          isPrivate: boolean
         }
       >()
       try {
@@ -1386,7 +1431,8 @@ export class RagService {
           'state',
           'chunks_embedded',
           'collection',
-          'active'
+          'active',
+          'is_private'
         )
         for (const row of stateRows) {
           sources.add(row.file_path)
@@ -1399,6 +1445,7 @@ export class RagService {
             // aria-checked="1", which is not a valid ARIA value and leaves screen
             // readers with no idea whether the toggle is on.
             active: Boolean(row.active),
+            isPrivate: Boolean(row.is_private),
           })
         }
       } catch (error) {
@@ -1427,6 +1474,7 @@ export class RagService {
             isUserUpload,
             collection: row?.collection ?? null,
             active: row ? Boolean(row.active) : true,
+            private: row ? row.isPrivate : false,
           }
         })
       )
@@ -1573,6 +1621,97 @@ export class RagService {
   private async _readActiveFlag(source: string): Promise<boolean> {
     const row = await KbIngestState.query().where('file_path', source).first()
     return row ? Boolean(row.active) : true
+  }
+
+  /** Whether any of `sources` is marked private. */
+  public async hasPrivateSource(sources: string[]): Promise<boolean> {
+    const unique = [...new Set(sources.filter((source) => typeof source === 'string' && source))]
+    if (unique.length === 0) return false
+    const row = await KbIngestState.query()
+      .whereIn('file_path', unique)
+      .where('is_private', true)
+      .select('id')
+      .first()
+    return row !== null
+  }
+
+  /** A source's private mark as a real boolean. A source with no row is not private. */
+  private async _readPrivateFlag(source: string): Promise<boolean> {
+    const row = await KbIngestState.query().where('file_path', source).first()
+    return row ? Boolean(row.is_private) : false
+  }
+
+  /**
+   * Mark a file private or not. Passages from a private file are never included
+   * in a prompt bound for a remote AI server; locally answered chats (no remote
+   * configured, a fallback, or a local-only chat) use them as normal.
+   *
+   * Mirrors setFileActive: the row first, then the payload on every existing
+   * point, with the row put back if Qdrant refuses — so what the panel shows is
+   * always what retrieval does, and an in-flight embedAndStoreText() picks the
+   * new value up from its post-upsert re-read.
+   *
+   * Making a file private is the direction that must not half-succeed. If the
+   * payload write fails the row is restored and the caller is told, rather than
+   * left believing a file is protected whose points still say otherwise.
+   */
+  public async setFilePrivate(
+    source: string,
+    isPrivate: boolean
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      let row = await KbIngestState.query().where('file_path', source).first()
+      const previousPrivate = row ? Boolean(row.is_private) : false
+      if (!row) {
+        // Same reasoning as setFileActive: chunks can exist with no state row.
+        const { count } = await this.qdrant!.count(RagService.CONTENT_COLLECTION_NAME, {
+          filter: { must: [{ key: 'source', match: { value: source } }] },
+          exact: false,
+        })
+        row = await KbIngestState.firstOrCreate(
+          { file_path: source },
+          {
+            file_path: source,
+            state: count > 0 ? 'indexed' : 'pending_decision',
+            chunks_embedded: 0,
+            collection: null,
+            active: true,
+            is_private: isPrivate,
+          }
+        )
+      }
+      row.is_private = isPrivate
+      await row.save()
+
+      try {
+        await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
+          payload: { private: isPrivate },
+          filter: { must: [{ key: 'source', match: { value: source } }] },
+          // Wait for the write to be applied: the very next search must already
+          // honour a file that was just made private.
+          wait: true,
+        })
+      } catch (error) {
+        row.is_private = previousPrivate
+        await row.save()
+        throw error
+      }
+
+      return {
+        success: true,
+        message: isPrivate
+          ? 'File is now private. It will not be used in replies written by a remote AI server.'
+          : 'File is no longer private.',
+      }
+    } catch (error) {
+      logger.error('[RAG] Error updating file private state:', error)
+      return { success: false, message: 'Error updating file private state.' }
+    }
   }
 
   /**

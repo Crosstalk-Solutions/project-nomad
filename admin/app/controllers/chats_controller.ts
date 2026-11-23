@@ -43,7 +43,7 @@ export default class ChatsController {
   async store({ request, response }: HttpContext) {
     try {
       const data = await request.validateUsing(createSessionSchema)
-      const session = await this.chatService.createSession(data.title, data.model)
+      const session = await this.chatService.createSession(data.title, data.model, data.localOnly)
       return response.status(201).json(session)
     } catch (error) {
       logger.error({ err: error }, '[ChatsController] Failed to create session')
@@ -69,6 +69,14 @@ export default class ChatsController {
     try {
       const sessionId = parseInt(params.id)
       const data = await request.validateUsing(updateSessionSchema)
+      // Turning Local Only off is refused once the chat has messages: the next
+      // turn would send that history to the remote AI server. See isLocalOnlyLocked.
+      if (data.localOnly === false && (await this.chatService.isLocalOnlyLocked(sessionId))) {
+        return response.status(409).json({
+          error:
+            'A local-only chat stays local once it has messages. Start a new chat to use the remote AI server.',
+        })
+      }
       const session = await this.chatService.updateSession(sessionId, data)
       return session
     } catch (error) {

@@ -242,6 +242,64 @@ export class DockerService {
       if (remoteUrl) return remoteUrl
     }
 
+    return this.getLocalServiceURL(serviceName)
+  }
+
+  /**
+   * Stop the local `nomad_ollama` container if it is running. Preserves the
+   * container and its models volume. Never throws: callers treat this as a
+   * best-effort tidy-up after the setting that matters has already been saved.
+   */
+  async stopLocalOllamaContainer(reason: string): Promise<void> {
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
+      if (!ollamaContainer || ollamaContainer.State !== 'running') {
+        return
+      }
+      await this.docker.getContainer(ollamaContainer.Id).stop()
+      this.invalidateServicesStatusCache()
+      logger.info(`[DockerService] Stopped local nomad_ollama (${reason})`)
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] Failed to stop local nomad_ollama (${reason})`)
+    }
+  }
+
+  /**
+   * Start the local `nomad_ollama` container if one exists. Returns whether a
+   * container exists at all (running or now started). Never throws.
+   */
+  async startLocalOllamaContainerIfExists(reason: string): Promise<boolean> {
+    try {
+      const containers = await this.docker.listContainers({ all: true })
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
+      if (!ollamaContainer) {
+        return false
+      }
+      if (ollamaContainer.State !== 'running') {
+        await this.docker.getContainer(ollamaContainer.Id).start()
+        this.invalidateServicesStatusCache()
+        logger.info(`[DockerService] Started local nomad_ollama (${reason})`)
+      }
+      return true
+    } catch (error: any) {
+      logger.error({ err: error }, `[DockerService] Failed to start local nomad_ollama (${reason})`)
+      return false
+    }
+  }
+
+  /**
+   * URL of the locally managed container for a service, regardless of any
+   * remote override. For every service but Ollama this is what getServiceURL
+   * returns; for Ollama it is the `nomad_ollama` container even while
+   * `ai.remoteOllamaUrl` points elsewhere, which is what lets that container
+   * stand in when the remote is unreachable.
+   */
+  async getLocalServiceURL(serviceName: string): Promise<string | null> {
+    if (!serviceName || serviceName.trim() === '') {
+      return null
+    }
+
     const service = await Service.query()
       .where('service_name', serviceName)
       .andWhere('installed', true)

@@ -15,6 +15,11 @@ export default class ChatSession extends BaseModel {
   @column()
   declare model: string | null
 
+  // Every turn of a local-only chat is answered on this machine, never by a
+  // remote AI server.
+  @column()
+  declare local_only: boolean
+
   @hasMany(() => ChatMessage, {
     foreignKey: 'session_id',
     localKey: 'id',

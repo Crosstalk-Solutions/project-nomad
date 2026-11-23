@@ -75,6 +75,9 @@ export default class SettingsController {
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+    const remoteFallbackEnabled = await KVStore.getValue('ai.remoteFallbackEnabled')
+    const remoteFallbackModel = await KVStore.getValue('ai.remoteFallbackModel')
+    const localEmbeddings = await KVStore.getValue('rag.localEmbeddings')
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const tasksModel = await KVStore.getValue('ai.tasksModel')
@@ -104,6 +107,9 @@ export default class SettingsController {
           chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
           aiAssistantCustomName: aiAssistantCustomName ?? '',
           remoteOllamaUrl: remoteOllamaUrl ?? '',
+          remoteFallbackEnabled: remoteFallbackEnabled ?? false,
+          remoteFallbackModel: remoteFallbackModel ?? '',
+          localEmbeddings: localEmbeddings ?? false,
           ollamaFlashAttention: ollamaFlashAttention ?? true,
           autoThinking: autoThinking ?? false,
           tasksModel: tasksModel ?? '',

@@ -22,6 +22,9 @@ export interface ChatMessage {
   sources?: ChatSource[]
   // Generation stopped at the length limit, so the answer ends mid-thought.
   truncated?: boolean
+  // Shown under the answer when it was not produced the way the user set things
+  // up, e.g. by the local stand-in while the remote AI server was unreachable.
+  notice?: string
 }
 
 export interface ChatImageAttachment {
@@ -34,6 +37,8 @@ export interface ChatImageAttachment {
 export interface ChatSession {
   id: string
   title: string
+  // Answered on this machine only, never by a remote AI server.
+  localOnly?: boolean
   lastMessage?: string
   timestamp: Date
 }

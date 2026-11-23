@@ -203,6 +203,9 @@ export type StoredFileInfo = {
   /** Whether this file's chunks are included in RAG search results. Toggling
    * this never deletes or re-embeds vectors — see #1119. */
   active: boolean
+  /** Whether this file is kept away from a remote AI server: its passages are
+   * only ever used in replies written on this machine. Absent means not private. */
+  private?: boolean
 }
 
 /**

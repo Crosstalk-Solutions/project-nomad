@@ -36,6 +36,8 @@ export type OllamaChatRequest = {
   // Effective thinking preference for this request (per-model override or global default).
   think?: boolean
   collection?: string
+  // Answer on this machine even if a remote AI server is configured.
+  localOnly?: boolean
 }
 
 export type ModelVisionCapability = 'supported' | 'unsupported' | 'unknown'
@@ -68,6 +70,23 @@ export type NomadChatResponse = {
   model: string
   // 'length' means the answer hit the generation cap and was cut off (#1342).
   done_reason?: string
+  // Present when something other than the requested model on the configured
+  // backend produced the reply.
+  notice?: ChatNotice
+}
+
+/**
+ * Out-of-band information about how a reply was produced. `remote_fallback`:
+ * the remote AI server was unreachable and the local Ollama container answered
+ * in its place, possibly with a stand-in model.
+ */
+export type ChatNotice = {
+  // `local_only`: a local-only chat was answered by the stand-in model because
+  // the model picked for it only exists on the remote server.
+  type: 'remote_fallback' | 'local_only'
+  requestedModel: string
+  model: string
+  message: string
 }
 
 /**

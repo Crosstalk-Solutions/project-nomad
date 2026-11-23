@@ -34,6 +34,7 @@ import CollectionsManager from './CollectionsManager'
 import { KB_COLLECTIONS } from '../../../constants/kb_collections'
 import CollectionCombobox from './CollectionCombobox'
 import Switch from '~/components/inputs/Switch'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
 
 interface KnowledgeBaseModalProps {
   aiAssistantName?: string
@@ -315,6 +316,26 @@ export default function KnowledgeBaseModal({
       addNotification({
         type: 'error',
         message: error?.message || 'Failed to update active state.',
+      })
+    },
+  })
+
+  // The Private column only means something while replies can be written by a
+  // remote AI server, so it is only shown then.
+  const { data: remoteOllamaUrlSetting } = useSystemSetting({ key: 'ai.remoteOllamaUrl' })
+  const remoteAiConfigured = !!remoteOllamaUrlSetting?.value
+
+  const togglePrivateMutation = useMutation({
+    mutationFn: ({ source, isPrivate }: { source: string; isPrivate: boolean }) =>
+      api.setFilePrivate(source, isPrivate),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Private state updated.' })
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to update private state.',
       })
     },
   })
@@ -984,6 +1005,36 @@ export default function KnowledgeBaseModal({
                     )
                   },
                 },
+                ...(remoteAiConfigured
+                  ? [
+                      {
+                        accessor: 'private' as const,
+                        title: 'Private',
+                        render(record: KbFileGroup) {
+                          // Per file only: NOMAD's own docs are not secret, and a
+                          // collection header has no private state of its own.
+                          if (record.bucket === 'admin_docs' || record.isCollectionHeader) {
+                            return <span className="text-text-muted">—</span>
+                          }
+                          const isSaving =
+                            togglePrivateMutation.isPending &&
+                            togglePrivateMutation.variables?.source === record.source
+                          return (
+                            <Switch
+                              checked={record.private === true}
+                              onChange={(val) =>
+                                togglePrivateMutation.mutate({
+                                  source: record.source,
+                                  isPrivate: val,
+                                })
+                              }
+                              disabled={isSaving}
+                            />
+                          )
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   accessor: 'source',
                   title: '',
