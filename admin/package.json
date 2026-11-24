@@ -89,7 +89,7 @@
     "@openzim/libzim": "4.0.0",
     "@protomaps/basemaps": "5.7.0",
     "@qdrant/js-client-rest": "1.16.2",
-    "@scalar/api-reference": "1.62.4",
+    "@scalar/api-reference": "1.83.0",
     "@tabler/icons-react": "3.36.1",
     "@tailwindcss/vite": "4.3.0",
     "@tanstack/react-query": "5.90.20",
