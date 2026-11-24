@@ -7,6 +7,7 @@
 ### Bug Fixes
 - **Apps**: keep a path UI location when editing an app, so the AI Assistant tile opens chat instead of the Ollama API, and repair rows already saved with the broken location (#1584, #1604). Thanks @FuryNocturn and @jakeaturner for the contribution!
 - **Collections**: repoint Military Medicine to its renamed ZIM (#1556). Thanks @suvenaga for the contribution!
+- **Collections**: keep installs, updates and cleanup working when openZIM renames a curated ZIM (#1561, #1588). Thanks @chriscrosstalk for the contribution!
 - **Docker**: cap container logs at 3 x 10 MB so they can't fill the root disk (#1419). Thanks @chriscrosstalk for the contribution!
 - **Docs**: stop a Markdoc warning from taking a docs page down, which returned a 500 on the FAQ (#1431). Thanks @mmoyles87 for the contribution!
 - **Downloads**: prevent content loss from Wikipedia detection, partial files, cancels, and full disks, and mark failures that skip retries as terminal (#1488). Thanks @FuryNocturn and @jakeaturner for the contribution!
