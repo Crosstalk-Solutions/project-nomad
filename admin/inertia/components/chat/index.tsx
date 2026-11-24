@@ -193,6 +193,21 @@ export default function Chat({
     },
   })
 
+  const deleteSessionMutation = useMutation({
+    mutationFn: (sessionId: string) => api.deleteChatSession(sessionId),
+    onSuccess: (_data, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      // Deleting the open chat leaves an empty new one, as "New Chat" does.
+      if (sessionId === activeSessionId) {
+        abortCurrentStream()
+        setIsStreamingResponse(false)
+        setActiveSessionId(null)
+        setMessages([])
+      }
+      closeAllModals()
+    },
+  })
+
   const chatMutation = useMutation({
     mutationFn: (request: {
       model: string
@@ -338,6 +353,28 @@ export default function Chat({
       'confirm-clear-history-modal'
     )
   }, [openModal, closeAllModals, deleteAllSessionsMutation])
+
+  const handleDeleteSession = useCallback(
+    (sessionId: string, title: string) => {
+      openModal(
+        <StyledModal
+          title="Delete this chat?"
+          onConfirm={() => deleteSessionMutation.mutate(sessionId)}
+          onCancel={closeAllModals}
+          open={true}
+          confirmText="Delete"
+          cancelText="Cancel"
+          confirmVariant="danger"
+        >
+          <p className="text-text-primary">
+            "{title}" and all its messages will be deleted. This cannot be undone.
+          </p>
+        </StyledModal>,
+        'confirm-delete-chat-modal'
+      )
+    },
+    [openModal, closeAllModals, deleteSessionMutation]
+  )
 
   const handleSessionSelect = useCallback(
     async (sessionId: string) => {
@@ -604,6 +641,7 @@ export default function Chat({
           onSessionSelect={handleSessionSelect}
           onNewChat={handleNewChat}
           onClearHistory={handleClearHistory}
+          onDeleteSession={handleDeleteSession}
           isInModal={isInModal}
           isMobileOpen={isMobileSidebarOpen}
           onMobileClose={() => setIsMobileSidebarOpen(false)}
