@@ -214,6 +214,7 @@ export default function Chat({
         content: data.message?.content || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
         truncated: data.done_reason === 'length',
+        notice: data.notice?.message,
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -450,6 +451,9 @@ export default function Chat({
         let isThinkingPhase = true
         let thinkingStartTime: number | null = null
         let thinkingDuration: number | null = null
+        // Arrives before the first content chunk, i.e. before the assistant
+        // message exists, so it is held here and applied when the message is created.
+        let pendingNotice: string | undefined
 
         try {
           await api.streamChatMessage(
@@ -479,6 +483,7 @@ export default function Chat({
                     isStreaming: true,
                     isThinking: chunkThinking.length > 0 && chunkContent.length === 0,
                     thinkingDuration: undefined,
+                    notice: pendingNotice,
                   },
                 ])
               } else {
@@ -519,6 +524,12 @@ export default function Chat({
               if (reason !== 'length') return
               setMessages((prev) =>
                 prev.map((m) => (m.id === assistantMsgId ? { ...m, truncated: true } : m))
+              )
+            },
+            (notice) => {
+              pendingNotice = notice.message
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantMsgId ? { ...m, notice: notice.message } : m))
               )
             }
           )
@@ -639,12 +650,18 @@ export default function Chat({
                 <span
                   className={classNames(
                     'text-xs rounded px-2 py-1 font-medium',
-                    remoteStatus?.connected === false
-                      ? 'text-red-700 bg-red-50 border border-red-200'
-                      : 'text-green-700 bg-green-50 border border-green-200'
+                    remoteStatus?.usingFallback
+                      ? 'text-amber-700 bg-amber-50 border border-amber-200'
+                      : remoteStatus?.connected === false
+                        ? 'text-red-700 bg-red-50 border border-red-200'
+                        : 'text-green-700 bg-green-50 border border-green-200'
                   )}
                 >
-                  {remoteStatus?.connected === false ? 'Remote Disconnected' : 'Remote Connected'}
+                  {remoteStatus?.usingFallback
+                    ? 'Remote Unreachable: Using This Machine'
+                    : remoteStatus?.connected === false
+                      ? 'Remote Disconnected'
+                      : 'Remote Connected'}
                 </span>
               )}
               {ragEnabled && (

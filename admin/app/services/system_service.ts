@@ -37,6 +37,7 @@ import {
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
 import { invalidateMinRelevanceCache } from '../utils/rag_relevance.js'
 import { invalidateResponseStyleCache } from '../utils/response_style.js'
+import { invalidateAiBackendCache } from '#services/ai_backend_service'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
 
 @inject()
@@ -962,6 +963,21 @@ export class SystemService {
     }
     if (key === 'ai.responseStyle') {
       invalidateResponseStyleCache()
+    }
+    if (key === 'ai.remoteFallbackEnabled') {
+      invalidateAiBackendCache()
+      // The switch decides whether the local container runs alongside a remote
+      // server. Apply that now rather than at the next remote (re)configuration.
+      // Without a remote configured the local container is the only backend and
+      // is left exactly as it is.
+      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      if (remoteUrl) {
+        if (value === true || value === 'true') {
+          await this.dockerService.startLocalOllamaContainerIfExists('remote fallback enabled')
+        } else {
+          await this.dockerService.stopLocalOllamaContainer('remote fallback disabled')
+        }
+      }
     }
     // Re-enabling auto-update after a backoff-driven auto-disable clears the
     // failure state so it gets a fresh start instead of immediately re-tripping.
