@@ -353,7 +353,7 @@ implementation) — see `tests/unit/eval_retrieval_metrics.spec.ts`.
 |---|---|
 | `correctness` | The `mustInclude` / `mustNotInclude` assertions. |
 | `refusalCorrectness` | Declining out-of-corpus questions *and* not hedging on answerable ones. This is the "Sorry, I wasn't able to find specific context" symptom, measured. |
-| `leakageRate` | Narrating retrieval ("according to Context 1", "the knowledge base"), which `rag_context` rule 4 forbids. Pure regex, zero ambiguity, catches a bad prompt edit on the first run. |
+| `leakageRate` | Narrating retrieval ("according to Context 1", "the knowledge base"), which `rag_context` rule 5 forbids. Pure regex, zero ambiguity, catches a bad prompt edit on the first run. Since #1437 the prompt asks for one plain "the knowledge base does not cover X" sentence when the context really lacks the answer, so on near-corpus refusal cases a hit here can be the requested acknowledgement rather than a regression — read it alongside `refusalCorrectness`. |
 | `groundedness` | Fraction of the answer's numeric claims that appear in the injected context. |
 | `thinkTagLeakRate` | Reasoning tags reaching the user. Should always be 0. |
 | `historyElidedRate` | Share of cases where history had to be trimmed to fit the window. |

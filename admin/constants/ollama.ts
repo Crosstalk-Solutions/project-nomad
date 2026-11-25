@@ -322,6 +322,25 @@ export const SYSTEM_PROMPTS = {
  - Use bullet points or numbered lists for clarity.
  - Use tables when presenting structured data.
 `,
+  /**
+   * Rule 2 used to say "answer from your own general knowledge. Do this silently
+   * — do not mention the knowledge base". That was added for a real failure:
+   * small models opened answers they *could* give from the context with "Sorry, I
+   * couldn't find specific context regarding X, but...", and an off-topic turn
+   * that leaked past the relevance floor (a greeting, "write me a haiku") got a
+   * remark about what the library lacked.
+   *
+   * But "silently" also overrode a user who explicitly asked for knowledge-base-
+   * only answers, and left general-knowledge claims sitting under the answer's
+   * knowledge-base citations with nothing to tell the two apart (#1437). So the
+   * no-disclaimer rule now covers only what it was meant for — the context
+   * answers, or the user is not asking for information — and a real gap is named
+   * in one sentence instead of papered over.
+   *
+   * Kept short and flat on purpose: 3-4B models follow a handful of numbered
+   * rules far better than conditional prose. Any edit here moves
+   * refusalCorrectness and leakageRate, so run `eval:generation` before and after.
+   */
   rag_context: (context: string) => `
 Information has been retrieved from the NOMAD knowledge base for the user's question. It
 cleared a relevance filter before reaching you, so it is likely on topic — but it was
@@ -332,14 +351,19 @@ ${context}
 
 HOW TO ANSWER:
 1. When the context contains what was asked for, base your answer on it and answer
-   directly and specifically.
-2. When it does not, ignore it and answer from your own general knowledge. Do this
-   silently — do not mention the knowledge base, the context, or the fact that it lacked
-   an answer, and do not apologize.
-3. Never narrate your retrieval or reasoning process. Do not write "according to Context 1",
-   "the context is unrelated, but", "I couldn't find specific context", or similar. Just
-   give the answer as if you simply knew it.
-4. Do not fabricate specifics (numbers, names, procedures) that are neither supported by
+   directly and specifically, with no disclaimer.
+2. When it does not, or covers only part of the question, say so plainly in one short
+   sentence (for example: "The knowledge base does not cover X."), then answer the rest
+   from your own general knowledge. Do not apologize.
+3. If the user asked you to use only the knowledge base, do not use general knowledge at
+   all: answer only what the context supports and say the knowledge base does not
+   contain the rest.
+4. If the user is not asking for information (a greeting, small talk, or a request to
+   write something), just respond and do not mention the knowledge base.
+5. Never cite or name a knowledge base source for something it does not say. Do not
+   narrate your search or write "according to Context 1" or "I couldn't find specific
+   context". If asked which source you used, name it by its title.
+6. Do not fabricate specifics (numbers, names, procedures) that are neither supported by
    the context nor part of your reliable knowledge.
 
 Format your response using markdown for readability.
