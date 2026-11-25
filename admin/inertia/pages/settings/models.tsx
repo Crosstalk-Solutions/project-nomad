@@ -29,7 +29,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; remoteOllamaMemoryGB: string; ollamaFlashAttention: boolean; autoThinking: boolean; tasksModel: string; ragEnabled: boolean; contextWindow: string; minRelevance: number; relevanceCheck: boolean; responseStyle: string }
     /** Effective window per installed model, as resolved by ContextWindowService. */
     resolvedContextWindows?: Record<string, number>
   }
@@ -59,6 +59,9 @@ export default function ModelsPage(props: {
     props.models.settings.aiAssistantCustomName
   )
   const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
+  const [remoteOllamaMemoryGB, setRemoteOllamaMemoryGB] = useState(
+    props.models.settings.remoteOllamaMemoryGB
+  )
   const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
 
@@ -518,6 +521,25 @@ export default function ModelsPage(props: {
                 </StyledButton>
               )}
             </div>
+            {props.models.settings.remoteOllamaUrl && (
+              <Input
+                name="remoteOllamaMemoryGB"
+                label="Remote Ollama memory (GB)"
+                type="number"
+                min={0}
+                step="any"
+                value={remoteOllamaMemoryGB}
+                onChange={(e) => setRemoteOllamaMemoryGB(e.target.value)}
+                onBlur={() => {
+                  const value = remoteOllamaMemoryGB.trim()
+                  if (value === props.models.settings.remoteOllamaMemoryGB) return
+                  setRemoteOllamaMemoryGB(value)
+                  updateSettingMutation.mutate({ key: 'ai.remoteOllamaMemoryGB', value })
+                }}
+                helpText="NOMAD can't detect a remote machine's memory. Enter how many gigabytes that computer has so each model's context window can be sized to fit. Leave this empty to apply no memory limit; the model's own context size and the Context Window setting still apply."
+                className="mt-4"
+              />
+            )}
           </div>
 
           <ActiveModelDownloads withHeader />

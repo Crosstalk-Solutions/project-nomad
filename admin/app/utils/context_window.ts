@@ -280,3 +280,45 @@ export function parseUserContextCap(raw: string | null | undefined): number | un
   const value = Number.parseInt(raw, 10)
   return Number.isFinite(value) && value >= MIN_CONTEXT ? value : undefined
 }
+
+export type AvailableBytesInput = {
+  /** `ai.remoteOllamaUrl`. Non-empty means inference is not on this machine. */
+  remoteOllamaUrl?: string | null
+  /** `ai.remoteOllamaMemoryGB`, gigabytes as stored. Ignored when Ollama is local. */
+  remoteOllamaMemoryGB?: string | null
+  /** VRAM reported by a local Ollama container, in bytes. Ignored when remote. */
+  probedBytes?: number
+  /**
+   * Share of this host's RAM, in bytes. The local fallback when the probe
+   * finds nothing. Never used for a remote host.
+   */
+  hostShareBytes?: number
+}
+
+/**
+ * Bytes of inference memory the context-window math may spend.
+ *
+ * A remote URL means the model is not running here, so neither a local
+ * container probe nor this host's RAM describes the machine that will OOM.
+ * Using them pins every window to the 4096 floor. The operator's gigabytes
+ * are the ceiling instead, and an empty value means no memory ceiling at all
+ * — model max, modelfile num_ctx, and the user cap still apply. Local
+ * installs are unchanged: probed VRAM, then the host share.
+ */
+export function selectAvailableBytes(input: AvailableBytesInput): number | undefined {
+  if (input.remoteOllamaUrl?.trim()) {
+    const gb = parseRemoteOllamaMemoryGb(input.remoteOllamaMemoryGB)
+    return gb === undefined ? undefined : gb * 1024 ** 3
+  }
+  if (input.probedBytes && input.probedBytes > 0) return input.probedBytes
+  return input.hostShareBytes
+}
+
+/** Parse `ai.remoteOllamaMemoryGB`. Empty or garbage means the operator did not say. */
+export function parseRemoteOllamaMemoryGb(raw: string | null | undefined): number | undefined {
+  if (raw === null || raw === undefined) return undefined
+  const trimmed = raw.trim()
+  if (!trimmed) return undefined
+  const value = Number(trimmed)
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
