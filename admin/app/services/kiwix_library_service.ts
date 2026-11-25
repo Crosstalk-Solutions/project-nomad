@@ -1,5 +1,5 @@
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
-import { readFile, writeFile, rename, readdir } from 'fs/promises'
+import { readFile, writeFile, rename, readdir, stat } from 'fs/promises'
 import { join } from 'path'
 import { Archive } from '@openzim/libzim'
 import { KIWIX_LIBRARY_XML_PATH, ZIM_STORAGE_PATH, ensureDirectoryExists, isValidZimFile } from '../utils/fs.js'
@@ -251,7 +251,30 @@ export class KiwixLibraryService {
     return true
   }
 
-  async rebuildFromDisk(opts?: { excludeFilenames?: string[] }): Promise<number> {
+  /**
+   * The books in the current library XML, keyed by container path. Empty if the
+   * XML is missing or can't be parsed, so a rebuild then reads every file.
+   */
+  private async _readKnownBooks(): Promise<Map<string, KiwixBook>> {
+    try {
+      const content = await readFile(this.getLibraryFilePath(), 'utf-8')
+      return new Map(this._parseExistingBooks(content).map((b) => [b.path, b]))
+    } catch {
+      return new Map()
+    }
+  }
+
+  /**
+   * With `reuseUnchanged`, a ZIM whose entry in the current XML has the same size
+   * (in KiB, as _readZimMetadata stores it) keeps that entry instead of being
+   * reopened. libzim's Archive has no close(), so each open holds native memory
+   * until the wrapper is garbage collected; without this, the rebuild after every
+   * finished download reopens every ZIM on disk.
+   */
+  async rebuildFromDisk(opts?: {
+    excludeFilenames?: string[]
+    reuseUnchanged?: boolean
+  }): Promise<number> {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
     await ensureDirectoryExists(dirPath)
 
@@ -264,15 +287,31 @@ export class KiwixLibraryService {
 
     const excludeSet = new Set(opts?.excludeFilenames ?? [])
     const zimFiles = entries.filter((name) => name.endsWith('.zim') && !excludeSet.has(name))
+    const knownBooks = opts?.reuseUnchanged
+      ? await this._readKnownBooks()
+      : new Map<string, KiwixBook>()
 
     const books: KiwixBook[] = []
+    let reused = 0
     for (const filename of zimFiles) {
+      const containerPath = `${CONTAINER_DATA_PATH}/${filename}`
+      const known = knownBooks.get(containerPath)
+      if (known?.size !== undefined) {
+        const sizeKiB = await stat(join(dirPath, filename))
+          .then((s) => Math.floor(s.size / 1024))
+          .catch(() => undefined)
+        if (sizeKiB === known.size) {
+          books.push(known)
+          reused++
+          continue
+        }
+      }
+
       const meta = await this._readZimMetadata(join(dirPath, filename))
       if (meta === null) {
         logger.warn(`[KiwixLibraryService] Skipping unreadable ZIM file: ${filename}`)
         continue
       }
-      const containerPath = `${CONTAINER_DATA_PATH}/${filename}`
       books.push({
         ...meta,
         // Override fields that must be derived locally, not from ZIM metadata
@@ -284,7 +323,10 @@ export class KiwixLibraryService {
 
     const xml = this._buildXml(books)
     await this._atomicWrite(xml)
-    logger.info(`[KiwixLibraryService] Rebuilt library XML with ${books.length} book(s).`)
+    logger.info(
+      `[KiwixLibraryService] Rebuilt library XML with ${books.length} book(s)` +
+        (reused > 0 ? ` (${reused} unchanged, not reopened).` : '.')
+    )
     return books.length
   }
 
