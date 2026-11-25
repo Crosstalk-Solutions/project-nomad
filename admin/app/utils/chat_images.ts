@@ -1,4 +1,4 @@
-import type { MultipartFile } from '@adonisjs/bodyparser/types'
+import type { FileValidationOptions, MultipartFile } from '@adonisjs/bodyparser/types'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
 import sharp from 'sharp'
 
@@ -8,7 +8,29 @@ export const MAX_CHAT_IMAGE_PIXELS = 40_000_000
 export const MAX_NORMALIZED_IMAGE_BYTES = 4 * 1024 * 1024
 export const MAX_NORMALIZED_IMAGE_DIMENSION = 2048
 
+/**
+ * How the upload parser reads the `images` field: by size only. Its own
+ * extension check compares case-sensitively and refuses names like
+ * IMG_0001.JPG, so the extension is checked in normalizeChatImage instead.
+ */
+export const CHAT_IMAGE_UPLOAD_OPTIONS: Partial<FileValidationOptions> = {
+  size: MAX_CHAT_IMAGE_BYTES,
+}
+
 const SUPPORTED_IMAGE_FORMATS = new Set(['jpeg', 'png', 'webp'])
+const SUPPORTED_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp'])
+
+/**
+ * The extension list the parser used to check, now compared without regard to
+ * case. The parser's extname is the type it read from the file's bytes when the
+ * name has no extension or a lower-case one it recognizes, and the extension as
+ * written otherwise, so IMG_0001.JPG arrives as "JPG". A file with no extname is
+ * refused.
+ */
+function hasSupportedExtension(file: MultipartFile) {
+  const extension = file.extname?.toLowerCase()
+  return extension !== undefined && SUPPORTED_IMAGE_EXTENSIONS.has(extension)
+}
 
 export class ChatImageError extends Error {
   constructor(
@@ -44,7 +66,7 @@ async function normalizeChatImage(file: MultipartFile): Promise<NormalizedChatIm
   if (file.size > MAX_CHAT_IMAGE_BYTES) {
     throw new ChatImageError(`"${file.clientName}" exceeds the 8 MB per-image limit.`, 413)
   }
-  if (!file.isValid) {
+  if (!file.isValid || !hasSupportedExtension(file)) {
     throw new ChatImageError(`"${file.clientName}" is not a valid image upload.`, 422)
   }
 
