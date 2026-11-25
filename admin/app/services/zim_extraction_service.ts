@@ -27,7 +27,7 @@ export class ZIMExtractionService {
                 description: archive.getMetadata('Description') || '',
             }
         } catch (error) {
-            logger.warn('[ZIMExtractionService]: Could not extract all metadata, using defaults', error)
+            logger.warn({ err: error }, '[ZIMExtractionService]: Could not extract all metadata, using defaults')
             return {
                 title: 'Unknown',
                 creator: 'Unknown',
@@ -200,7 +200,7 @@ export class ZIMExtractionService {
                 resumeAtDirent: nextDirent > 0 ? nextDirent : undefined,
             }
         } catch (error) {
-            logger.error('Error processing ZIM file:', error)
+            logger.error({ err: error }, 'Error processing ZIM file')
             throw error
         }
     }
@@ -239,7 +239,7 @@ export class ZIMExtractionService {
 
             return text.replace(/\s+/g, ' ').replace(/\n\s*\n/g, '\n').trim()
         } catch (error) {
-            logger.error('Error extracting text from HTML:', error)
+            logger.error({ err: error }, 'Error extracting text from HTML')
             return null
         }
     }
