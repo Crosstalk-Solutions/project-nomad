@@ -13,6 +13,7 @@ import * as assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { buildCitations } from '../../app/utils/rag_prompt.js'
+import { kiwixArticleUrl } from '../../inertia/lib/kiwix_links.js'
 
 const chunk = (metadata: Record<string, any>) => ({ text: 'body', score: 0.5, metadata })
 
@@ -106,4 +107,36 @@ test('buildCitations preserves injection order', () => {
     sources.map((s) => s.title),
     ['Second', 'First']
   )
+})
+
+test('buildCitations lists each injected article once under its archive', () => {
+  const [source, ...rest] = buildCitations([
+    chunk({ source: '/zim/ifixit.zim', archive_title: 'iFixit', article_title: 'Battery', article_path: 'guide/1' }),
+    chunk({ source: '/zim/ifixit.zim', archive_title: 'iFixit', article_title: 'Battery', article_path: 'guide/1' }),
+    chunk({ source: '/zim/ifixit.zim', archive_title: 'iFixit', article_title: 'Screen', article_path: 'guide/2' }),
+  ])
+
+  assert.equal(rest.length, 0)
+  assert.deepEqual(source.articles, [
+    { title: 'Battery', path: 'guide/1' },
+    { title: 'Screen', path: 'guide/2' },
+  ])
+})
+
+test('buildCitations leaves uploads without an article path article-free', () => {
+  const [source] = buildCitations([chunk({ source: '/uploads/notes.pdf' })])
+  assert.equal(source.articles, undefined)
+})
+
+test('kiwixArticleUrl opens the article under the ZIM book name', () => {
+  assert.equal(
+    kiwixArticleUrl('http://nomad.local:8090/', '/app/storage/zim/ifixit_en_all_2025-12.zim', 'Guide/Battery Replacement'),
+    'http://nomad.local:8090/content/ifixit_en_all_2025-12/Guide/Battery%20Replacement'
+  )
+})
+
+test('kiwixArticleUrl refuses to link without Kiwix or for non-ZIM sources', () => {
+  assert.equal(kiwixArticleUrl(null, '/zim/a.zim', 'x'), null)
+  assert.equal(kiwixArticleUrl('http://h:8090', '/uploads/notes.pdf', 'x'), null)
+  assert.equal(kiwixArticleUrl('http://h:8090', '/zim/a.zim', ''), null)
 })

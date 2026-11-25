@@ -7,6 +7,18 @@ export interface ChatSource {
   title: string
   date?: string
   source?: string
+  /**
+   * The individual articles the model was given from this source, in the order
+   * they were injected. Only ZIM chunks carry an `article_path`, so uploads have
+   * none. The UI turns each into a link that opens the article in Kiwix.
+   */
+  articles?: ChatSourceArticle[]
+}
+
+export interface ChatSourceArticle {
+  title: string
+  /** Path of the article inside its ZIM archive (Kiwix `/content/<book>/<path>`). */
+  path: string
 }
 
 export interface ChatMessage {
