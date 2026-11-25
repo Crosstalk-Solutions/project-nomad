@@ -398,7 +398,11 @@ export default function ModelsPage(props: {
               <Select
                 name="contextWindow"
                 label="Context Window"
-                helpText="How much conversation and knowledge-base context each reply can consider. Auto sizes this per model from its trained limit and your available memory. Choosing a value sets an upper limit — it can lower the window to save memory, but never raises it beyond what a model supports."
+                helpText={
+                  props.models.settings.remoteOllamaUrl
+                    ? "How much conversation and knowledge-base context each reply can consider. You are using a remote AI server, and NOMAD cannot see how much memory that machine has. Auto uses a modest 8K window. Choosing a value uses that window as chosen, up to what each model supports — pick one the remote machine has memory for."
+                    : 'How much conversation and knowledge-base context each reply can consider. Auto sizes this per model from its trained limit and your available memory. Choosing a value sets an upper limit — it can lower the window to save memory, but never raises it beyond what a model supports.'
+                }
                 value={contextWindow}
                 options={contextWindowOptions}
                 onChange={(newVal) => {
