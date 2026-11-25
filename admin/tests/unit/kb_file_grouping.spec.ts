@@ -36,6 +36,31 @@ test('classifyKbFile distinguishes ZIM, upload, admin_docs, and other', () => {
   assert.equal(classifyKbFile('/unexpected/path/file.txt'), 'other')
 })
 
+test('classifyKbFile puts the read-only external folder in its own bucket (#1422)', () => {
+  assert.equal(classifyKbFile('/app/kb_external/manuals/pump.pdf'), 'external')
+  assert.equal(classifyKbFile('/app/kb_external-old/pump.pdf'), 'other')
+})
+
+test('groupAndSortKbFiles places external files after uploads, as individual rows', () => {
+  const groups = groupAndSortKbFiles(
+    asInfos([
+      '/app/docs/release-notes.md',
+      '/app/kb_external/b.pdf',
+      '/app/kb_external/a.pdf',
+      '/app/storage/zim/devdocs.zim',
+    ])
+  )
+  assert.deepEqual(
+    groups.map((g) => [g.bucket, g.displayName]),
+    [
+      ['zim', 'devdocs.zim'],
+      ['external', 'a.pdf'],
+      ['external', 'b.pdf'],
+      ['admin_docs', 'Project NOMAD documentation · 1 file'],
+    ]
+  )
+})
+
 test('classifyKbFile does not match /app/READMEs that are not the bundled one', () => {
   assert.equal(classifyKbFile('/app/README.md.bak'), 'other')
 })

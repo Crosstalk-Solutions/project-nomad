@@ -12,11 +12,14 @@ import type { StoredFileInfo } from '../../types/rag.js'
  * server-emitted absolute paths work regardless of which Linux mount the admin
  * container uses.
  */
-export type KbFileBucket = 'zim' | 'upload' | 'admin_docs' | 'other'
+export type KbFileBucket = 'zim' | 'upload' | 'external' | 'admin_docs' | 'other'
 
 const ADMIN_DOCS_PREFIXES = ['/app/docs/', '/app/README.md']
 const ZIM_PREFIX = '/app/storage/zim/'
 const UPLOADS_PREFIX = '/app/storage/kb_uploads/'
+// Optional read-only source folder (#1422). Mirrors KB_EXTERNAL_STORAGE_PATH
+// in app/utils/kb_external_source.ts, resolved against the image's /app root.
+const EXTERNAL_PREFIX = '/app/kb_external/'
 
 export function classifyKbFile(source: string): KbFileBucket {
   if (ADMIN_DOCS_PREFIXES.some((p) => (p.endsWith('/') ? source.startsWith(p) : source === p))) {
@@ -24,6 +27,7 @@ export function classifyKbFile(source: string): KbFileBucket {
   }
   if (source.startsWith(ZIM_PREFIX)) return 'zim'
   if (source.startsWith(UPLOADS_PREFIX)) return 'upload'
+  if (source.startsWith(EXTERNAL_PREFIX)) return 'external'
   return 'other'
 }
 
@@ -81,7 +85,7 @@ export interface KbFileGroup {
  * header, and as the header row's `collection` lookup key from the UI. */
 export const UNCATEGORIZED_COLLECTION_KEY = ''
 
-const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'admin_docs', 'other']
+const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'external', 'admin_docs', 'other']
 
 export type KbFileSortKey = 'name' | 'size' | 'uploadedAt'
 export type KbFileSortDirection = 'asc' | 'desc'
@@ -145,6 +149,7 @@ export function groupAndSortKbFiles(
   const buckets: Record<KbFileBucket, StoredFileInfo[]> = {
     zim: [],
     upload: [],
+    external: [],
     admin_docs: [],
     other: [],
   }
