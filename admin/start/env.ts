@@ -27,6 +27,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   NOMAD_STORAGE_PATH: Env.schema.string.optional(),
+  DOCKER_HOST: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------

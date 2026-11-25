@@ -21,7 +21,7 @@ export default class QdrantRestartPolicyProvider {
       try {
         const Service = (await import('#models/service')).default
         const { SERVICE_NAMES } = await import('../constants/service_names.js')
-        const Docker = (await import('dockerode')).default
+        const { createDockerClient } = await import('../app/utils/docker_client.js')
 
         const qdrantService = await Service.query()
           .where('service_name', SERVICE_NAMES.QDRANT)
@@ -32,7 +32,7 @@ export default class QdrantRestartPolicyProvider {
           return
         }
 
-        const docker = new Docker({ socketPath: '/var/run/docker.sock' })
+        const docker = createDockerClient()
         const containers = await docker.listContainers({ all: true })
         const containerInfo = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.QDRANT}`))
 
