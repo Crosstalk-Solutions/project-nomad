@@ -25,6 +25,7 @@ import {
   installedModelsFromOpenAIResponse,
   resolveModelCapabilities,
 } from '../utils/model_capabilities.js'
+import { normalizeOpenAiMessages } from '../utils/message_normalization.js'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
@@ -614,7 +615,11 @@ export class OllamaService {
   private _compatParams(chatRequest: ChatInput, stream: boolean): any {
     const params: any = {
       model: chatRequest.model,
-      messages: chatRequest.messages as ChatCompletionMessageParam[],
+      // Strict OpenAI-compatible backends (Qwen-family GGUFs via llama.cpp/vLLM)
+      // reject a `system` message that is not the very first entry, or more than
+      // one of them. The pipeline emits several (stable blocks + a tail RAG block),
+      // so normalise before the wire. No-op on the well-formed path.
+      messages: normalizeOpenAiMessages(chatRequest.messages as ChatCompletionMessageParam[]),
       stream,
     }
     if (chatRequest.think) {
