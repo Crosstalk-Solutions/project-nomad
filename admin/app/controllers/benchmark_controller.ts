@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { BenchmarkService } from '#services/benchmark_service'
 import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
+import { resolveBenchmarkStatus } from '../utils/benchmark_status.js'
 import type { BenchmarkType } from '../../types/benchmark.js'
 import { randomUUID } from 'node:crypto'
 import logger from '@adonisjs/core/services/logger'
@@ -19,8 +20,9 @@ export default class BenchmarkController {
     const benchmarkType: BenchmarkType = payload.benchmark_type || 'full'
     const runSync = request.input('sync') === 'true' || request.input('sync') === true
 
-    // Check if a benchmark is already running
-    const status = this.benchmarkService.getStatus()
+    // Check if a benchmark is already running. A sync run is the no-Redis path, and
+    // an unreachable Redis makes a queue read wait rather than fail, so it doesn't ask.
+    const status = runSync ? this.benchmarkService.getStatus() : await this.currentStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
         success: false,
@@ -83,7 +85,7 @@ export default class BenchmarkController {
    * Run a system-only benchmark (CPU, memory, disk)
    */
   async runSystem({ response }: HttpContext) {
-    const status = this.benchmarkService.getStatus()
+    const status = await this.currentStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
         success: false,
@@ -109,7 +111,7 @@ export default class BenchmarkController {
    * Run an AI-only benchmark
    */
   async runAI({ response }: HttpContext) {
-    const status = this.benchmarkService.getStatus()
+    const status = await this.currentStatus()
     if (status.status !== 'idle') {
       return response.status(409).send({
         success: false,
@@ -258,7 +260,22 @@ export default class BenchmarkController {
    * Get current benchmark status
    */
   async status({}: HttpContext) {
-    return this.benchmarkService.getStatus()
+    return this.currentStatus()
+  }
+
+  /**
+   * The run status as both processes see it: benchmarks execute in the queue
+   * worker, so it comes from the queue, not this process's BenchmarkService (#1326).
+   * A queue read that errors falls back to the local status, as before this change.
+   */
+  private async currentStatus() {
+    const local = this.benchmarkService.getStatus()
+    try {
+      return resolveBenchmarkStatus(await RunBenchmarkJob.getInFlight(), local)
+    } catch (error) {
+      logger.warn({ err: error }, '[BenchmarkController] Could not read the benchmark queue')
+      return local
+    }
   }
 
   /**
