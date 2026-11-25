@@ -26,7 +26,7 @@ const Link = ({
     <a
       href={href}
       title={title}
-      className="text-desert-orange font-medium hover:text-desert-orange-dark underline decoration-desert-orange-lighter/50 underline-offset-2 hover:decoration-desert-orange transition-colors"
+      className="text-desert-orange font-medium hover:text-desert-orange-dark underline decoration-desert-orange-light/50 underline-offset-2 hover:decoration-desert-orange transition-colors"
       {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
       {children}
