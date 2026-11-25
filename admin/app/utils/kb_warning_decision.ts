@@ -6,13 +6,16 @@
  * - `zero_chunks`   — a non-trivial file produced 0 embedding chunks. Common
  *                     cause: video-only or image-only ZIMs that the pipeline
  *                     completes "successfully" with no extractable text.
- *                     AI Assistant cannot reference this content.
+ *                     AI Assistant cannot reference this content. Only for
+ *                     files that were indexed; a file waiting for the user's
+ *                     decision has 0 chunks for a different reason.
  * - `partial_stall` — the file has embedded chunks but well below the count
  *                     expected from the ratio registry. Likely a mid-batch
  *                     stall (which the binary "any chunks ⇒ embedded" check
  *                     used to mask). Surfaces a Retry affordance.
  */
 import type { FileWarning } from '../../types/rag.js'
+import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 
 export type { FileWarning }
 
@@ -36,6 +39,13 @@ export interface WarningInputs {
    *  configured — Warning B is suppressed in that case (we'd rather be silent
    *  than wrong). */
   expectedChunks: number | null
+  /** The file's `kb_ingest_state` row state; null when it has no row (a
+   *  legacy install whose chunks predate the state table, shown as Indexed).
+   *  Warning A is about a file that was embedded and produced nothing, so it
+   *  stays quiet for rows that were never indexed: `pending_decision` under
+   *  Manual policy, `browse_only`, `failed`, `stalled` (those carry their own
+   *  pill). Omitted means indexed, for callers that predate this field. */
+  state?: KbIngestStateValue | null
 }
 
 export function decideWarnings(inputs: WarningInputs): FileWarning[] {
@@ -43,7 +53,9 @@ export function decideWarnings(inputs: WarningInputs): FileWarning[] {
 
   // Warning A: file is large but produced nothing. Almost always a video-only
   // or image-only ZIM; AI Assistant literally cannot reference this content.
+  const wasIndexed = (inputs.state ?? 'indexed') === 'indexed'
   if (
+    wasIndexed &&
     inputs.chunksInQdrant === 0 &&
     inputs.fileSizeBytes > ZERO_CHUNKS_MIN_SIZE_BYTES
   ) {
