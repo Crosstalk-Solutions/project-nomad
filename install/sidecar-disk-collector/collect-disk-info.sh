@@ -6,6 +6,25 @@
 # No special capabilities required. Writes JSON to /storage/nomad-disk-info.json, which is read by the admin container.
 # Runs continually and updates the JSON data every 2 minutes.
 
+if [[ -n "${UMASK:-}" ]]; then
+    umask "$UMASK"
+fi
+
+if [[ "$(id -u)" -eq 0 && -z "${_NOMAD_PRIVS_DROPPED:-}" && ( -n "${PUID:-}" || -n "${PGID:-}" ) ]]; then
+    TARGET_UID="${PUID:-0}"
+    TARGET_GID="${PGID:-0}"
+    if [[ ! "$TARGET_UID" =~ ^[0-9]+$ || ! "$TARGET_GID" =~ ^[0-9]+$ ]]; then
+        echo "Invalid PUID/PGID: '${PUID:-}' / '${PGID:-}' (expected non-negative integers)" >&2
+        exit 1
+    fi
+
+    if [[ "$TARGET_UID" -ne 0 || "$TARGET_GID" -ne 0 ]]; then
+        chown "${TARGET_UID}:${TARGET_GID}" /storage 2>/dev/null || true
+        [[ -e /storage/nomad-disk-info.json ]] && chown "${TARGET_UID}:${TARGET_GID}" /storage/nomad-disk-info.json 2>/dev/null || true
+        exec env _NOMAD_PRIVS_DROPPED=1 setpriv --reuid="$TARGET_UID" --regid="$TARGET_GID" --clear-groups "$0" "$@"
+    fi
+fi
+
 log() {
     echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"
 }

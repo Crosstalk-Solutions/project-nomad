@@ -23,10 +23,13 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
-  | Variables for configuring storage paths
+  | Variables for configuring storage paths and file ownership
   |----------------------------------------------------------
   */
   NOMAD_STORAGE_PATH: Env.schema.string.optional(),
+  PUID: Env.schema.number.optional(),
+  PGID: Env.schema.number.optional(),
+  UMASK: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------

@@ -323,7 +323,7 @@ export default class ServiceSeeder extends BaseSeeder {
           ],
         },
         ExposedPorts: { '8083/tcp': {} },
-        Env: ['PUID=1000', 'PGID=1000'],
+        Env: [`PUID=${process.env.PUID || '1000'}`, `PGID=${process.env.PGID || '1000'}`],
       }),
       ui_location: '8420',
       installed: false,
