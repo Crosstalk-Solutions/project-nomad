@@ -31,10 +31,10 @@ Reimplementing or wrapping the Kiwix reading view is explicitly out of scope.
 | `proxy.py` | The proxy, the language control, and the rewrite step |
 | `blocks.py` | Finds translatable blocks; decides HTML mode versus plain text |
 | `fetch_models.py` | Pulls models from Firefox Remote Settings on first start |
-| `engine_check.py` | Checks at startup that this CPU can load Bergamot at all |
+| `engine_check.py` | Checks at startup that this CPU can load Bergamot at all, and imports it without needing the network |
 | `test_blocks.py` | Tests for the block planner. No Bergamot, no network |
 | `test_fetch_models.py` | Tests for which model files get downloaded. No network |
-| `test_engine_check.py` | Tests for the startup CPU check. No Bergamot |
+| `test_engine_check.py` | Tests for the startup CPU check and the offline import. No Bergamot, no network |
 | `entrypoint.sh` | Fetch models, then serve. Fetch failure is non-fatal |
 
 Run the tests with `python3 install/nomad-translate/test_blocks.py`,
@@ -85,6 +85,17 @@ crash-loop the container on every translated page
 At startup the proxy now tries the import once in a child process; if that
 fails it offers no languages, forwards the library untranslated, and shows
 "translation unavailable" with the reason in the bar and the container log.
+
+## Starting offline
+
+`import bergamot` (0.4.5) downloads the translateLocally and OPUS-MT model
+indexes as a side effect, with no timeout and no error handling, so with no
+internet the import used to fail and translation was disabled even with every
+model already on disk
+([#1673](https://github.com/Crosstalk-Solutions/project-nomad/issues/1673)).
+NOMAD loads models by path from `/models` and never reads those indexes, so
+`engine_check.import_bergamot()` lets the import continue with an empty index
+when the download fails (and gives it a 15 s timeout).
 
 ## Known gaps
 
