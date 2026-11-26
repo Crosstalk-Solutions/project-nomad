@@ -1,4 +1,4 @@
-import { IconPhoto, IconSend, IconWand, IconX } from '@tabler/icons-react'
+import { IconPhoto, IconPlayerStopFilled, IconSend, IconWand, IconX } from '@tabler/icons-react'
 import { useState, useRef, useEffect } from 'react'
 import classNames from '~/lib/classNames'
 import { ChatImageAttachment, ChatMessage } from '../../../types/chat'
@@ -15,6 +15,9 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string, images: ChatImageAttachment[]) => void
   visionCapability: ModelVisionCapability
   isLoading?: boolean
+  // A reply is being generated; the send button turns into Stop.
+  isGenerating?: boolean
+  onStop?: () => void
   chatSuggestions?: string[]
   chatSuggestionsEnabled?: boolean
   chatSuggestionsLoading?: boolean
@@ -34,6 +37,8 @@ export default function ChatInterface({
   onSendMessage,
   visionCapability,
   isLoading = false,
+  isGenerating = false,
+  onStop,
   chatSuggestions = [],
   chatSuggestionsEnabled = false,
   chatSuggestionsLoading = false,
@@ -64,6 +69,16 @@ export default function ChatInterface({
       return []
     })
   }, [visionCapability])
+
+  // Esc stops a running reply, wherever the focus is inside the page.
+  useEffect(() => {
+    if (!isGenerating || !onStop) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onStop()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isGenerating, onStop])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -311,6 +326,17 @@ export default function ChatInterface({
               style={{ maxHeight: '200px' }}
             />
           </div>
+          {isGenerating && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              title="Stop (Esc)"
+              aria-label="Stop generating"
+              className="p-3 rounded-lg transition-all duration-200 flex-shrink-0 mb-2 bg-red-600 text-white hover:bg-red-700 hover:scale-105"
+            >
+              <IconPlayerStopFilled className="h-6 w-6" />
+            </button>
+          ) : (
           <button
             type="submit"
             disabled={(!input.trim() && images.length === 0) || isLoading}
@@ -327,6 +353,7 @@ export default function ChatInterface({
               <IconSend className="h-6 w-6" />
             )}
           </button>
+          )}
         </form>
         <p className="mt-2 text-xs text-text-muted" aria-live="polite">
           {visionAttachmentGuidance(visionCapability)}

@@ -30,6 +30,15 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Kiwix endpoints for the chat agent: internal (compose network)
+  | for search/read, public (browser) for links in answers
+  |----------------------------------------------------------
+  */
+  KIWIX_INTERNAL_URL: Env.schema.string.optional(),
+  KIWIX_PUBLIC_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring session package
   |----------------------------------------------------------
   */
