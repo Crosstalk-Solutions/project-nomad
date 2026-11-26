@@ -202,6 +202,58 @@ export function diagnoseAmdCpuFallback(
   }
 }
 
+/** How long one startup-log read may take before callers give up on it (#1450). */
+export const OLLAMA_STARTUP_LOG_TIMEOUT_MS = 5_000
+
+/** Length of the startup window, in seconds, the "inference compute" line is read from. */
+const STARTUP_WINDOW_SEC = 300
+
+/**
+ * Whether a startup-log read is final and can be reused for the rest of the
+ * container's life. The window is fixed once it has closed, so the read cannot
+ * change until the container restarts (which changes StartedAt and so the cache
+ * key). A read that already holds the "inference compute" line is final too.
+ * An open window without the line is not: Ollama may still be starting up.
+ */
+export function isStartupLogReadFinal(
+  logText: string,
+  startedAtSec: number,
+  nowMs: number = Date.now()
+): boolean {
+  if (logText.includes(INFERENCE_LINE_MARKER)) return true
+  return nowMs >= (startedAtSec + STARTUP_WINDOW_SEC) * 1000
+}
+
+/**
+ * Race `promise` against a timer. Resolves to `fallback` when the timer wins;
+ * the promise keeps running and is not cancelled.
+ */
+export async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * Startup-log reads keyed by container id + StartedAt. Holds the in-flight
+ * promise, not just the result, so a slow read started by one page load is
+ * awaited by the next instead of starting a second scan of the same log.
+ */
+const startupLogReads = new Map<string, Promise<string>>()
+
+/** Test hook: forget every cached startup-log read. */
+export function clearOllamaStartupLogCache(): void {
+  startupLogReads.clear()
+}
+
 /**
  * Read nomad_ollama's logs from its startup window (the five minutes after it
  * booted), where the "inference compute" line is emitted. A tail:N read is
@@ -210,36 +262,68 @@ export function diagnoseAmdCpuFallback(
  * startup window is bounded and never ages out. Falls back to tail:500 when
  * StartedAt is missing. Returns '' on any error so callers classify the backend
  * as 'unknown' rather than throwing.
+ *
+ * With the json-file log driver Docker scans the log file from the start to
+ * serve a since/until window, so on a multi-GB Ollama log a single read took
+ * close to a minute and hung Settings > System, which awaits it (#1450). Two
+ * guards keep that off the request path:
+ *   - the read is bounded by OLLAMA_STARTUP_LOG_TIMEOUT_MS; a timeout returns ''
+ *     ('unknown'), the same as any other failed read, and
+ *   - a final read (see isStartupLogReadFinal) is cached per container start, so
+ *     the log is scanned once per container life rather than on every page load.
+ *     A read that times out keeps running and lands in the cache when it finishes.
  */
 export async function readOllamaStartupLogs(
   container: Docker.Container,
-  inspect?: { State?: { StartedAt?: string } }
+  inspect?: { Id?: string; State?: { StartedAt?: string } },
+  timeoutMs: number = OLLAMA_STARTUP_LOG_TIMEOUT_MS
 ): Promise<string> {
   try {
     const state = inspect ?? (await container.inspect())
     const startedAtRaw = state?.State?.StartedAt
     const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
 
-    const logsOpts: {
-      stdout: true
-      stderr: true
-      follow: false
-      since?: number
-      until?: number
-      tail?: number
-    } = { stdout: true, stderr: true, follow: false }
-
-    if (Number.isFinite(startedAtMs) && startedAtMs > 0) {
-      const startedAtSec = Math.floor(startedAtMs / 1000)
-      logsOpts.since = startedAtSec
-      logsOpts.until = startedAtSec + 300
-    } else {
-      logsOpts.tail = 500
+    if (!Number.isFinite(startedAtMs) || startedAtMs <= 0) {
+      const read = readLogs(container, { tail: 500 }).catch(() => '')
+      return await withTimeout(read, timeoutMs, '')
     }
 
-    const buf = (await container.logs(logsOpts)) as unknown as Buffer
-    return buf.toString('utf8')
+    const startedAtSec = Math.floor(startedAtMs / 1000)
+    const key = `${state?.Id ?? container.id}:${startedAtSec}`
+    let read = startupLogReads.get(key)
+    if (!read) {
+      read = readLogs(container, {
+        since: startedAtSec,
+        until: startedAtSec + STARTUP_WINDOW_SEC,
+      }).then(
+        (text) => {
+          // Only a final read is worth keeping; anything else is retried next call.
+          if (!isStartupLogReadFinal(text, startedAtSec)) startupLogReads.delete(key)
+          return text
+        },
+        () => {
+          startupLogReads.delete(key)
+          return ''
+        }
+      )
+      startupLogReads.set(key, read)
+    }
+    return await withTimeout(read, timeoutMs, '')
   } catch {
     return ''
   }
+}
+
+/** One non-following Docker logs call over the given window. */
+async function readLogs(
+  container: Docker.Container,
+  window: { since: number; until: number } | { tail: number }
+): Promise<string> {
+  const buf = (await container.logs({
+    stdout: true,
+    stderr: true,
+    follow: false,
+    ...window,
+  })) as unknown as Buffer
+  return buf.toString('utf8')
 }

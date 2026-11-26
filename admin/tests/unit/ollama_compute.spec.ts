@@ -3,6 +3,10 @@ import { test } from 'node:test'
 
 import {
   classifyOllamaComputeBackend,
+  clearOllamaStartupLogCache,
+  isStartupLogReadFinal,
+  readOllamaStartupLogs,
+  withTimeout,
   diagnoseAmdCpuFallback,
   diffAmdOllamaConfig,
   parseAmdGfxTargetFromLogs,
@@ -245,4 +249,117 @@ test('diagnoseAmdCpuFallback on the #1377 box: keeps the hand-set override, flag
     currentHsaOverride: '11.0.0',
     suggestedHsaOverride: '11.0.0',
   })
+})
+
+// --- Startup-log read: bounded and cached (#1450) ---
+
+const INFERENCE_LINE = 'msg="inference compute" id=0 library=ROCm compute=gfx1030 name=ROCm0'
+
+/** Fake dockerode container whose logs() resolves after `delayMs` with `text`. */
+function fakeContainer(text: string, delayMs = 0, id = 'abc') {
+  const calls: Array<Record<string, unknown>> = []
+  const container = {
+    id,
+    calls,
+    logs: async (opts: Record<string, unknown>) => {
+      calls.push(opts)
+      await new Promise((r) => setTimeout(r, delayMs))
+      return Buffer.from(text, 'utf8')
+    },
+  }
+  return container as unknown as import('dockerode').Container & { calls: typeof calls }
+}
+
+/** Inspect payload for a container that started `agoSec` seconds ago. */
+const startedAgo = (agoSec: number, id = 'abc') => ({
+  Id: id,
+  State: { StartedAt: new Date(Date.now() - agoSec * 1000).toISOString() },
+})
+
+test('isStartupLogReadFinal: a read holding the inference line is final', () => {
+  const now = Date.now()
+  assert.equal(isStartupLogReadFinal(INFERENCE_LINE, Math.floor(now / 1000), now), true)
+})
+
+test('isStartupLogReadFinal: an empty read is final only once the window has closed', () => {
+  const startedAtSec = 1_000_000
+  assert.equal(isStartupLogReadFinal('', startedAtSec, (startedAtSec + 60) * 1000), false)
+  assert.equal(isStartupLogReadFinal('', startedAtSec, (startedAtSec + 300) * 1000), true)
+})
+
+test('withTimeout resolves to the fallback when the promise is slower', async () => {
+  const slow = new Promise<string>((r) => setTimeout(() => r('late'), 200))
+  assert.equal(await withTimeout(slow, 10, 'fallback'), 'fallback')
+  assert.equal(await withTimeout(Promise.resolve('fast'), 1000, 'fallback'), 'fast')
+})
+
+test('a slow log read times out as empty instead of hanging the caller', async () => {
+  clearOllamaStartupLogCache()
+  const container = fakeContainer(INFERENCE_LINE, 200)
+  const started = Date.now()
+  const text = await readOllamaStartupLogs(container, startedAgo(3600), 20)
+  assert.equal(text, '')
+  assert.ok(Date.now() - started < 150, 'returned before the slow read finished')
+})
+
+test('a timed-out read keeps running and serves the next call from cache', async () => {
+  clearOllamaStartupLogCache()
+  const container = fakeContainer(INFERENCE_LINE, 50)
+  const inspect = startedAgo(3600)
+  assert.equal(await readOllamaStartupLogs(container, inspect, 5), '')
+  await new Promise((r) => setTimeout(r, 80))
+  assert.equal(await readOllamaStartupLogs(container, inspect, 5), INFERENCE_LINE)
+  assert.equal(container.calls.length, 1, 'the log was scanned once')
+})
+
+test('a final read is reused for the same container start', async () => {
+  clearOllamaStartupLogCache()
+  const container = fakeContainer(INFERENCE_LINE)
+  const inspect = startedAgo(3600)
+  await readOllamaStartupLogs(container, inspect)
+  await readOllamaStartupLogs(container, inspect)
+  assert.equal(container.calls.length, 1)
+})
+
+test('a restart (new StartedAt) reads the log again', async () => {
+  clearOllamaStartupLogCache()
+  const container = fakeContainer(INFERENCE_LINE)
+  await readOllamaStartupLogs(container, startedAgo(3600))
+  await readOllamaStartupLogs(container, startedAgo(10))
+  assert.equal(container.calls.length, 2)
+})
+
+test('an open window without the inference line is not cached', async () => {
+  clearOllamaStartupLogCache()
+  const container = fakeContainer('starting up...')
+  const inspect = startedAgo(10)
+  await readOllamaStartupLogs(container, inspect)
+  await readOllamaStartupLogs(container, inspect)
+  assert.equal(container.calls.length, 2)
+})
+
+test('a failed read returns empty and is retried', async () => {
+  clearOllamaStartupLogCache()
+  let calls = 0
+  const container = {
+    id: 'abc',
+    logs: async () => {
+      calls++
+      throw new Error('docker down')
+    },
+  } as unknown as import('dockerode').Container
+  const inspect = startedAgo(3600)
+  assert.equal(await readOllamaStartupLogs(container, inspect), '')
+  assert.equal(await readOllamaStartupLogs(container, inspect), '')
+  assert.equal(calls, 2)
+})
+
+test('the startup window is requested as since/until around StartedAt', async () => {
+  clearOllamaStartupLogCache()
+  const container = fakeContainer(INFERENCE_LINE)
+  const inspect = startedAgo(3600)
+  await readOllamaStartupLogs(container, inspect)
+  const since = Math.floor(new Date(inspect.State.StartedAt).getTime() / 1000)
+  assert.equal(container.calls[0].since, since)
+  assert.equal(container.calls[0].until, since + 300)
 })
