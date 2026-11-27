@@ -1,4 +1,6 @@
 import urlJoin from 'url-join'
+import { open } from 'node:fs/promises'
+import { bytesToHeader } from 'pmtiles'
 
 import type { FileEntry } from '../../types/files.js'
 import type {
@@ -23,6 +25,64 @@ const SAFE_REGION_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/
 const SHA256_DIGEST = /^[a-f0-9]{64}$/i
 const HTTPS_URL = /^https:\/\//i
 const RESERVED_RASTER_FILENAME = /^raster[-_]/i
+const PMTILES_HEADER_LENGTH = 127
+const MAX_CACHED_HEADERS = 256
+const legacyHeaderCache = new Map<string, { identity: string; zoom: Promise<number | null> }>()
+
+async function readLegacyMaxZoom(filepath: string): Promise<number | null> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined
+  try {
+    handle = await open(filepath, 'r')
+    const info = await handle.stat({ bigint: true })
+    if (!info.isFile() || info.size < BigInt(PMTILES_HEADER_LENGTH)) return null
+    const identity = `${info.dev}/${info.ino}/${info.size}/${info.mtimeNs}/${info.ctimeNs}`
+    const cached = legacyHeaderCache.get(filepath)
+    if (cached?.identity === identity) {
+      legacyHeaderCache.delete(filepath)
+      legacyHeaderCache.set(filepath, cached)
+      return await cached.zoom
+    }
+    const file = handle
+    const zoom = (async () => {
+      const buffer = Buffer.alloc(PMTILES_HEADER_LENGTH)
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, 0)
+      if (bytesRead !== PMTILES_HEADER_LENGTH || buffer.toString('ascii', 0, 7) !== 'PMTiles' || buffer[7] !== 3) return null
+      const header = bytesToHeader(Uint8Array.from(buffer).buffer)
+      // Only a readable vector v3 header can refine legacy vector metadata.
+      if (header.tileType !== 1 || !validZoom(header.minZoom) || !validZoom(header.maxZoom) || header.minZoom > header.maxZoom) return null
+      return header.maxZoom
+    })().catch(() => null)
+    legacyHeaderCache.delete(filepath)
+    legacyHeaderCache.set(filepath, { identity, zoom })
+    while (legacyHeaderCache.size > MAX_CACHED_HEADERS) legacyHeaderCache.delete(legacyHeaderCache.keys().next().value!)
+    return await zoom
+  } catch {
+    // Missing, replaced or unreadable files keep the legacy unknown-zoom fallback.
+    return null
+  } finally {
+    await handle?.close().catch(() => {})
+  }
+}
+
+/** Read just the fixed headers of selected legacy vectors, never raster or rejected files.
+ * Cache identity follows the opened inode and timestamps, not a filename/version guess.
+ */
+export async function readLegacyMapMaxZooms(
+  regions: FileEntry[], parsedManifest?: ParsedMapArchiveManifest,
+): Promise<ReadonlyMap<string, number | null>> {
+  const explicit = new Set(parsedManifest?.archives.map((archive) => archive.filename) ?? [])
+  const paths = new Map(regions.filter((entry): entry is Extract<FileEntry, { type: 'file' }> => entry.type === 'file')
+    .map((entry) => [entry.name, entry.key]))
+  const selected = buildMapSourceDefinitions('', regions, parsedManifest)
+    .filter(({ archive }) => archive.kind === 'vector' && !explicit.has(archive.filename))
+  const zooms = new Map<string, number | null>()
+  for (let offset = 0; offset < selected.length; offset += 8) {
+    const batch = selected.slice(offset, offset + 8)
+    const values = await Promise.all(batch.map(({ archive }) => readLegacyMaxZoom(paths.get(archive.filename)!)))
+    batch.forEach(({ archive }, index) => zooms.set(archive.filename, values[index]))
+  }
+  return zooms
+}
 
 function optionalNonNegativeNumber(value: unknown): value is number | undefined {
   return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0)
@@ -272,7 +332,8 @@ export function buildMapSourceDefinitions(
     status: 'absent',
     archives: [],
     rejectedFilenames: [],
-  }
+  },
+  legacyMaxZooms: ReadonlyMap<string, number | null> = new Map()
 ): MapSourceDefinition[] {
   const metadataByFilename = new Map(
     parsedManifest.archives.map((archive) => [archive.filename, archive])
@@ -326,6 +387,8 @@ export function buildMapSourceDefinitions(
       tileFormat: 'mvt',
       attribution: DEFAULT_VECTOR_MAP_ATTRIBUTION,
     }
+    const maxzoom = legacyMaxZooms.get(region.name)
+    if (typeof maxzoom === 'number' && validZoom(maxzoom)) archive.maxzoom = maxzoom
     definitions.push({
       id: resourceId,
       source: sourceFromArchive(baseUrl, archive),
@@ -333,7 +396,18 @@ export function buildMapSourceDefinitions(
     })
   }
 
-  return definitions
+  // Vector groups draw back-to-front. Keep explicit raster ordering intact, while
+  // ensuring a coarse vector extract cannot overzoom-paint a finer one.
+  const vectors = definitions.filter(({ archive }) => archive.kind === 'vector').sort((a, b) => {
+    const az = a.archive.maxzoom ?? Number.POSITIVE_INFINITY
+    const bz = b.archive.maxzoom ?? Number.POSITIVE_INFINITY
+    if (az !== bz) return az < bz ? -1 : 1
+    const an = a.archive.filename, bn = b.archive.filename
+    if (an !== bn) return an < bn ? -1 : 1
+    return a.id === b.id ? 0 : a.id < b.id ? -1 : 1
+  })
+  let vectorIndex = 0
+  return definitions.map((definition) => definition.archive.kind === 'vector' ? vectors[vectorIndex++] : definition)
 }
 
 /**

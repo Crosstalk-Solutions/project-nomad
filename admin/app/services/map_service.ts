@@ -46,6 +46,7 @@ import {
   DEFAULT_VECTOR_MAP_ATTRIBUTION,
   MAP_ARCHIVE_MANIFEST_FILENAME,
   parseMapArchiveManifestJson,
+  readLegacyMapMaxZooms,
 } from '../utils/map_styles.js'
 
 const execFileAsync = promisify(execFile)
@@ -381,7 +382,8 @@ export class MapService implements IMapService {
     * fail to load.
     */
     const pmtilesBaseUrl = this.getPublicFileBaseUrl(host, 'pmtiles', protocol)
-    const sources = buildMapSourceDefinitions(pmtilesBaseUrl, regions, archiveManifest)
+    const legacyMaxZooms = await readLegacyMapMaxZooms(regions, archiveManifest)
+    const sources = buildMapSourceDefinitions(pmtilesBaseUrl, regions, archiveManifest, legacyMaxZooms)
     if (this.worldBasemapReady) {
       const worldSource: MapSourceDefinition = {
         id: WORLD_BASEMAP_SOURCE_NAME,

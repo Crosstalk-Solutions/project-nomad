@@ -1,11 +1,15 @@
 import * as assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { mkdtemp, readdir, rename, rmdir, unlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import {
   buildMapSourceDefinitions,
   composeMapStyle,
   parseMapArchiveManifest,
   parseMapArchiveManifestJson,
+  readLegacyMapMaxZooms,
 } from '../../app/utils/map_styles.js'
 import type { BaseStylesFile, MapArchiveMetadata, MapSourceDefinition } from '../../types/maps.js'
 import type { FileEntry } from '../../types/files.js'
@@ -288,4 +292,118 @@ test('does not guess reserved unmanifested raster archives as vector maps', () =
     sources.map((source) => source.id),
     ['oklahoma']
   )
+})
+
+function vectorHeader(maxZoom: number, minZoom = 0, tileType = 1) {
+  const bytes = Buffer.alloc(127)
+  bytes.write('PMTiles', 0, 'ascii')
+  bytes[7] = 3
+  bytes[99] = tileType
+  bytes[100] = minZoom
+  bytes[101] = maxZoom
+  return bytes
+}
+
+async function withHeaderFiles(run: (directory: string) => Promise<void>) {
+  const directory = await mkdtemp(join(tmpdir(), 'nomad-vector-headers-'))
+  try {
+    await run(directory)
+  } finally {
+    // These fixtures contain only our explicitly generated flat files.
+    for (const filename of await readdir(directory)) await unlink(join(directory, filename))
+    await rmdir(directory)
+  }
+}
+
+test('reads bounded legacy vector headers including maxzoom zero and ignores unusable headers', async () => {
+  await withHeaderFiles(async (directory) => {
+    const valid = vectorHeader(15)
+    const wrongVersion = vectorHeader(15); wrongVersion[7] = 2
+    const entries = [
+      ['detail.pmtiles', valid], ['zero.pmtiles', vectorHeader(0)],
+      ['truncated.pmtiles', valid.subarray(0, 126)], ['invalid.pmtiles', Buffer.alloc(127, 65)],
+      ['version.pmtiles', wrongVersion], ['out-of-range.pmtiles', vectorHeader(31)],
+      ['inverted.pmtiles', vectorHeader(15, 16)], ['unmanifested-aerial.pmtiles', vectorHeader(12, 0, 2)],
+    ] as const
+    for (const [name, header] of entries) await writeFile(join(directory, name), header)
+    const regions: FileEntry[] = [...entries.map(([name]) => ({ type: 'file' as const, name, key: join(directory, name) })),
+      { type: 'file', name: 'missing.pmtiles', key: join(directory, 'missing.pmtiles') }]
+    const zooms = await readLegacyMapMaxZooms(regions)
+    assert.equal(zooms.get('detail.pmtiles'), 15)
+    assert.equal(zooms.get('zero.pmtiles'), 0)
+    for (const [name] of entries.slice(2)) assert.equal(zooms.get(name), null, name)
+    assert.equal(zooms.get('missing.pmtiles'), null)
+    const zero = buildMapSourceDefinitions('http://nomad.test/pmtiles', regions, undefined, zooms)
+      .find(({ id }) => id === 'zero')!
+    assert.equal(zero.source.maxzoom, 0)
+  })
+})
+
+test('header reading follows exact selected versions and leaves manifests, rejected files and raster names alone', async () => {
+  await withHeaderFiles(async (directory) => {
+    const metadata = rasterMetadata('us-ok')
+    const regions: FileEntry[] = ['region_2025-11.pmtiles', 'region_2025-12.pmtiles', metadata.filename,
+      'raster-unverified.pmtiles', 'rejected.pmtiles'].map((name) => ({ type: 'file', name, key: join(directory, name) }))
+    for (const region of regions) if (region.type === 'file') await writeFile(region.key, vectorHeader(15))
+    const explicit: MapArchiveMetadata = {
+      filename: 'manifest-vector.pmtiles', resourceId: 'manifest-vector', kind: 'vector', role: 'street', tileFormat: 'mvt', maxzoom: 13,
+    }
+    regions.push({ type: 'file', name: explicit.filename, key: join(directory, explicit.filename) })
+    const manifest = { status: 'valid' as const, archives: [metadata, explicit], rejectedFilenames: ['rejected.pmtiles'] }
+    const zooms = await readLegacyMapMaxZooms(regions, manifest)
+    assert.deepEqual([...zooms], [['region_2025-12.pmtiles', 15]])
+    assert.equal((await readLegacyMapMaxZooms(regions, { status: 'invalid', archives: [], rejectedFilenames: [] })).size, 0)
+  })
+})
+
+test('replacing a legacy archive invalidates its bounded header cache and concurrent reads agree', async () => {
+  await withHeaderFiles(async (directory) => {
+    const filename = 'region.pmtiles'
+    const key = join(directory, filename)
+    const regions: FileEntry[] = [{ type: 'file', name: filename, key }]
+    await writeFile(key, vectorHeader(12))
+    const initial = await Promise.all([readLegacyMapMaxZooms(regions), readLegacyMapMaxZooms(regions)])
+    assert.deepEqual(initial.map((result) => result.get(filename)), [12, 12])
+    const replacement = join(directory, 'replacement.tmp')
+    await writeFile(replacement, vectorHeader(15))
+    await rename(replacement, key)
+    assert.equal((await readLegacyMapMaxZooms(regions)).get(filename), 15)
+  })
+})
+
+test('stacks coarse vectors before fine vectors regardless of input order, without changing raster metadata', () => {
+  const raster = rasterMetadata('us-ok')
+  const explicit: MapArchiveMetadata = {
+    filename: 'explicit.pmtiles', resourceId: 'street-explicit', kind: 'vector', role: 'street', tileFormat: 'mvt', minzoom: 3, maxzoom: 14,
+  }
+  const zooms = new Map<string, number | null>([['country.pmtiles', 12], ['city.pmtiles', 15], ['overview.pmtiles', 0]])
+  const files = ['city.pmtiles', raster.filename, 'country.pmtiles', explicit.filename, 'overview.pmtiles']
+  const manifest = { status: 'valid' as const, archives: [raster, explicit], rejectedFilenames: [] }
+  const first = buildMapSourceDefinitions('http://nomad.test/pmtiles', files.map(file), manifest, zooms)
+  const reversed = buildMapSourceDefinitions('http://nomad.test/pmtiles', [...files].reverse().map(file), manifest, zooms)
+  const vectors = (sources: MapSourceDefinition[]) => sources.filter(({ archive }) => archive.kind === 'vector').map(({ id }) => id)
+  assert.deepEqual(vectors(first), ['overview', 'country', 'street-explicit', 'city'])
+  assert.deepEqual(vectors(reversed), vectors(first))
+  assert.deepEqual(first.find(({ id }) => id === raster.resourceId)?.archive, raster)
+  assert.deepEqual(first.find(({ id }) => id === 'street-explicit')?.source.minzoom, 3)
+  const style = composeMapStyle(vectorTemplate(), first, '/sprites', '/fonts')
+  const roads = style.layers.filter((layer) => layer.id.startsWith('roads-')).map((layer) => layer.source)
+  assert.deepEqual(roads, ['overview', 'country', 'street-explicit', 'city'])
+  assert.ok(style.layers.findIndex((layer) => layer.type === 'raster') < style.layers.findIndex((layer) => layer.source === 'overview'))
+})
+
+test('vector ties and unknown headers have deterministic fallback order, while explicit source IDs keep precedence', () => {
+  const metadata: MapArchiveMetadata = {
+    filename: 'explicit.pmtiles', resourceId: 'region', kind: 'vector', role: 'street', tileFormat: 'mvt', maxzoom: 15,
+  }
+  const manifest = { status: 'valid' as const, archives: [metadata], rejectedFilenames: [] }
+  const filenames = ['unknown-z.pmtiles', 'region.pmtiles', 'b.pmtiles', metadata.filename, 'a.pmtiles', 'unknown-a.pmtiles']
+  const zooms = new Map<string, number | null>([['region.pmtiles', 30], ['a.pmtiles', 15], ['b.pmtiles', 15], ['unknown-a.pmtiles', null]])
+  const definitions = buildMapSourceDefinitions('/pmtiles', filenames.map(file), manifest, zooms)
+  const reversed = buildMapSourceDefinitions('/pmtiles', [...filenames].reverse().map(file), manifest, zooms)
+  assert.deepEqual(definitions.map(({ id }) => id), ['a', 'b', 'region', 'unknown-a', 'unknown-z'])
+  assert.deepEqual(reversed.map(({ id }) => id), definitions.map(({ id }) => id))
+  assert.equal(definitions.filter(({ id }) => id === 'region').length, 1)
+  assert.equal(definitions.find(({ id }) => id === 'region')?.archive.filename, metadata.filename)
+  assert.equal(definitions.find(({ id }) => id === 'unknown-a')?.source.maxzoom, undefined)
 })
