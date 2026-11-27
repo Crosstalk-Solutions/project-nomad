@@ -1,0 +1,100 @@
+name: Test World Offline Worker
+
+on:
+  pull_request:
+    paths:
+      - 'world-offline-worker/**'
+      - 'install/regional_maps_compose.yaml'
+      - 'install/prepare_regional_maps.py'
+      - 'install/tests/regional_maps_provision_test.py'
+      - 'install/tests/regional_maps_clean_install.py'
+      - 'admin/types/elevation_coverage.ts'
+      - 'install/world_offline_compose.yaml'
+      - 'install/management_compose.yaml'
+      - 'admin/resources/world-offline/catalog.json'
+      - 'admin/app/services/world_elevation*.ts'
+      - 'admin/app/controllers/world_elevation_controller.ts'
+      - 'admin/app/validators/world_offline.ts'
+      - 'admin/types/world_offline.ts'
+      - 'admin/types/local_detail.ts'
+      - 'admin/app/services/local_detail_service.ts'
+      - 'admin/app/services/map_service.ts'
+      - 'admin/app/jobs/run_extract_pmtiles_job.ts'
+      - 'admin/app/utils/map_styles.ts'
+      - 'admin/app/utils/pmtiles_progress.ts'
+      - 'admin/app/controllers/local_detail_controller.ts'
+      - 'admin/app/validators/local_detail.ts'
+      - 'admin/start/routes.ts'
+      - 'admin/inertia/components/maps/**'
+      - 'admin/inertia/pages/maps.tsx'
+      - 'admin/inertia/pages/settings/maps.tsx'
+      - 'admin/tests/standalone/local_detail_styles.spec.ts'
+      - 'admin/tests/standalone/map_detail_model.spec.ts'
+      - 'admin/tests/standalone/map_detail_headers.spec.ts'
+      - 'admin/tests/standalone/regional_download_completion.spec.ts'
+      - 'admin/tests/standalone/map_base_assets.spec.ts'
+      - 'admin/tests/unit/map_style_generation.spec.ts'
+      - 'admin/tests/unit/pmtiles_progress.spec.ts'
+      - 'admin/tests/unit/world_elevation.spec.ts'
+      - '.github/workflows/world-offline-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  elevation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.23.5'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Install application dependencies
+        run: npm ci
+        working-directory: admin
+      - name: Verify elevation with synthetic local archives
+        run: node --import ts-node-maintained/register/esm --test tests/unit/world_elevation.spec.ts
+        working-directory: admin
+      - name: Verify regional state, map ordering and extraction progress
+        env:
+          TS_NODE_TRANSPILE_ONLY: 'true'
+        run: >-
+          node --experimental-test-module-mocks --import ts-node-maintained/register/esm --test
+          tests/standalone/local_detail_styles.spec.ts tests/standalone/map_detail_model.spec.ts
+          tests/standalone/map_detail_headers.spec.ts
+          tests/standalone/regional_download_completion.spec.ts tests/standalone/map_base_assets.spec.ts
+          tests/unit/map_style_generation.spec.ts tests/unit/pmtiles_progress.spec.ts
+        working-directory: admin
+
+  isolated-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build the Linux AMD64 worker
+        run: docker build --platform linux/amd64 -t nomad-world-offline-worker:test ./world-offline-worker
+      - name: Validate generated fallback catalog
+        run: |
+          docker run --rm --network none --entrypoint python nomad-world-offline-worker:test /app/export_catalog.py > /tmp/world-offline-catalog.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          repository = Path("admin/resources/world-offline/catalog.json")
+          generated = Path("/tmp/world-offline-catalog.json")
+          if json.loads(repository.read_text()) != json.loads(generated.read_text()):
+              raise SystemExit("Regenerate the fallback catalog using world-offline-worker/export_catalog.py.")
+          PY
+      - name: Verify world archives and state with networking disabled
+        run: |
+          docker run --rm -i --network none --entrypoint python nomad-world-offline-worker:test - < world-offline-worker/test_worker.py
+      - name: Verify regional downloads and deletion with networking disabled
+        run: |
+          docker run --rm -i --network none --entrypoint python nomad-world-offline-worker:test - < world-offline-worker/test_local_detail.py
+      - name: Verify opt-in regional provisioning with empty offline storage
+        env:
+          NOMAD_REGIONAL_FIXTURE_IMAGE: nomad-world-offline-worker:test
+        run: python3 install/tests/regional_maps_provision_test.py

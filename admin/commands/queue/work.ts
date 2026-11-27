@@ -1,6 +1,6 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
-import { Worker } from 'bullmq'
+import { Worker, type Job } from 'bullmq'
 import queueConfig from '#config/queue'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
@@ -14,11 +14,14 @@ import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
 import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
 import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
 import { IngestDrugDataJob } from '#jobs/ingest_drug_data_job'
+import { RunWorldOfflineJob } from '#jobs/run_world_offline_job'
 import { stallOptionsForQueue, type StallOptions } from '../../app/utils/queue_stall_options.js'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
   static description = 'Start processing jobs from the queue'
+
+  private worldOfflineShutdown = new AbortController()
 
   @flags.string({ description: 'Queue name to process' })
   declare queue: string
@@ -179,6 +182,7 @@ export default class QueueWork extends BaseCommand {
     // Graceful shutdown for all workers
     process.on('SIGTERM', async () => {
       this.logger.info('SIGTERM received. Shutting down workers...')
+      this.worldOfflineShutdown.abort()
       await Promise.all(workers.map((worker) => worker.close()))
       this.logger.info('All workers shut down gracefully.')
       process.exit(0)
@@ -201,6 +205,10 @@ export default class QueueWork extends BaseCommand {
     handlers.set(ContentAutoUpdateJob.key, new ContentAutoUpdateJob())
     handlers.set(DownloadDrugDataJob.key, new DownloadDrugDataJob())
     handlers.set(IngestDrugDataJob.key, new IngestDrugDataJob())
+    const worldOfflineJob = new RunWorldOfflineJob()
+    handlers.set(RunWorldOfflineJob.key, {
+      handle: (job: Job) => worldOfflineJob.handle(job, this.worldOfflineShutdown.signal),
+    })
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
@@ -214,6 +222,7 @@ export default class QueueWork extends BaseCommand {
     queues.set(ContentAutoUpdateJob.key, ContentAutoUpdateJob.queue)
     queues.set(DownloadDrugDataJob.key, DownloadDrugDataJob.queue)
     queues.set(IngestDrugDataJob.key, IngestDrugDataJob.queue)
+    queues.set(RunWorldOfflineJob.key, RunWorldOfflineJob.queue)
 
     return [handlers, queues]
   }
@@ -252,6 +261,7 @@ export default class QueueWork extends BaseCommand {
       // Drug ingest: one heavy stream at a time — unzipping + parsing ~150 MB
       // of JSON into batched DB inserts; serial keeps memory bounded.
       [IngestDrugDataJob.queue]: 1,
+      [RunWorldOfflineJob.queue]: 1,
       default: 3,
     }
 

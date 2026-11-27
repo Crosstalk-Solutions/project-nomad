@@ -54,6 +54,8 @@ NOMAD is a management UI ("Command Center") and API that orchestrates a collecti
 
 NOMAD also includes built-in tools like a Wikipedia content selector, ZIM library manager, and content explorer.
 
+Source builds can opt into worldwide imagery, relief and regional map downloads. See the [World offline operator notes](admin/docs/world-offline-maintainers.md) and [regional setup guide](admin/docs/regional-setup.md) for the optional overlays, persistent storage and offline verification. The regional extension reuses the existing map downloader.
+
 ## What's Included
 
 | Capability | Powered By | What You Get |

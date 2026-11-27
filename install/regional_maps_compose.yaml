@@ -1,0 +1,41 @@
+# Optional regional maps + native-detail indicator. Load AFTER the existing
+# management and world_offline_compose.yaml files. No additional service.
+# Prepare the persistent directories with prepare_regional_maps.py first.
+services:
+  admin:
+    environment:
+      LOCAL_DETAIL_ENABLED: 'true'
+      LOCAL_DETAIL_WORKER_URL: http://world-offline-worker:8083
+      LOCAL_DETAIL_WORKER_TOKEN: ${WORLD_OFFLINE_TOKEN:?Set the same private token as the World Offline worker}
+      LOCAL_DETAIL_STORAGE_PATH: /app/local-detail
+      MAP_DETAIL_INDICATOR_ENABLED: 'true'
+    volumes:
+      - type: bind
+        source: ${NOMAD_STORAGE_PATH:?Use the existing NOMAD storage path}/local-detail
+        target: /app/local-detail
+        read_only: true
+        bind:
+          create_host_path: false
+      # /app/storage remains writable for the original content tools. Mask its
+      # alternate path to these same regional files as read-only as well.
+      - type: bind
+        source: ${NOMAD_STORAGE_PATH:?Use the existing NOMAD storage path}/local-detail
+        target: /app/storage/local-detail
+        read_only: true
+        bind:
+          create_host_path: false
+  world-offline-worker:
+    build:
+      # Compose resolves relative build paths from the FIRST Compose file.
+      # An absolute context also works with an existing installed compose.yml.
+      context: ${NOMAD_WORLD_WORKER_CONTEXT:?Set the absolute checkout path to world-offline-worker}
+    environment:
+      WORLD_WORKER_LOCAL_ONLY: 'false'
+      LOCAL_DETAIL_MAPS_DIR: /data/local-detail/pmtiles
+      LOCAL_DETAIL_STATE_DIR: /data/local-detail/.state
+    volumes:
+      - type: bind
+        source: ${NOMAD_STORAGE_PATH:?Use the existing NOMAD storage path}/local-detail
+        target: /data/local-detail
+        bind:
+          create_host_path: false

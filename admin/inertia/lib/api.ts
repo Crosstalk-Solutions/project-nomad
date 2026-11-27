@@ -690,8 +690,8 @@ class API {
     }
   }
 
-  async getGlobalMapInfo() {
-    return catchInternal(async () => {
+  async getGlobalMapInfo({ quiet = false } = {}) {
+    const fetchInfo = async () => {
       const response = await this.client.get<{
         url: string
         date: string
@@ -699,7 +699,8 @@ class API {
         key: string
       }>('/maps/global-map-info')
       return response.data
-    })()
+    }
+    return quiet ? fetchInfo().catch(() => null) : catchInternal(fetchInfo)()
   }
 
   async downloadGlobalMap() {

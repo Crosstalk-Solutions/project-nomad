@@ -2,6 +2,7 @@ import KVStore from '#models/kv_store'
 import { BenchmarkService } from '#services/benchmark_service'
 import { ContextWindowService } from '#services/context_window_service'
 import { MapService } from '#services/map_service'
+import { WorldOfflineService, worldOfflineEnabled } from '#services/world_offline_service'
 import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
 import { getSettingSchema, updateSettingSchema, validateSettingValue } from '#validators/settings'
@@ -55,11 +56,15 @@ export default class SettingsController {
       this.mapService.listRegions(),
       this.mapService.checkWorldBasemapExists(),
     ])
+    const enabled = worldOfflineEnabled()
+    const managed = enabled ? await new WorldOfflineService().managedFiles() : new Set<string>()
     return inertia.render('settings/maps', {
+      localDetailEnabled: env.get('LOCAL_DETAIL_ENABLED') ?? false,
+      worldOfflineEnabled: enabled,
       maps: {
         baseAssetsExist: baseAssetsCheck,
         worldBasemapExists,
-        regionFiles: regionFiles.files,
+        regionFiles: regionFiles.files.filter((file) => !managed.has(file.name)),
       },
     })
   }

@@ -4,6 +4,8 @@ import {
   MapPreflightTimeoutError,
 } from '#services/map_service'
 import MapMarker from '#models/map_marker'
+import env from '#start/env'
+import { WorldOfflineService, worldOfflineEnabled } from '#services/world_offline_service'
 import {
   assertNotPrivateUrl,
   downloadCollectionValidator,
@@ -28,6 +30,10 @@ export default class MapsController {
       this.mapService.checkWorldBasemapExists(),
     ])
     return inertia.render('maps', {
+      localDetailEnabled: env.get('LOCAL_DETAIL_ENABLED') ?? false,
+      mapDetailIndicatorEnabled: env.get('MAP_DETAIL_INDICATOR_ENABLED') ?? false,
+      worldOfflineEnabled: worldOfflineEnabled(),
+      worldOfflineNorthLocked: env.get('WORLD_OFFLINE_NORTH_LOCKED') ?? false,
       maps: {
         baseAssetsExist: baseAssetsCheck,
         worldBasemapExists,
@@ -185,6 +191,10 @@ export default class MapsController {
 
   async delete({ request, response }: HttpContext) {
     const payload = await request.validateUsing(filenameParamValidator)
+
+    if ((await new WorldOfflineService().managedFiles()).has(payload.params.filename)) {
+      return response.status(409).send({ message: 'Manage this archive from World offline.' })
+    }
 
     try {
       await this.mapService.delete(payload.params.filename)
