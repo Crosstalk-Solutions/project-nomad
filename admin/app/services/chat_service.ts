@@ -5,9 +5,12 @@ import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 import { inject } from '@adonisjs/core'
 import { OllamaService } from './ollama_service.js'
+import { ContextWindowService } from './context_window_service.js'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 import { resolveTasksModel } from '../utils/tasks_model.js'
+import { resolveKeepAlive } from '../utils/keep_alive.js'
+import { sideCallResidency, type SideCallResidency } from '../utils/side_call.js'
 import {
   SUGGESTIONS_SCHEMA,
   TITLE_SCHEMA,
@@ -26,7 +29,10 @@ function truncateTitle(value: string): string {
 
 @inject()
 export class ChatService {
-  constructor(private ollamaService: OllamaService) {}
+  constructor(
+    private ollamaService: OllamaService,
+    private contextWindowService: ContextWindowService
+  ) {}
 
   /**
    * The model to use for ancillary work — chat titles and chat suggestions.
@@ -94,8 +100,19 @@ export class ChatService {
       // reasoning_effort:'none' rather than sending nothing. Memoized per model name.
       const thinkingCapable = await this.ollamaService.checkModelHasThinking(model)
 
+      // On the chat model itself (no tasks model set), ask for the chat's own
+      // num_ctx/keep_alive so Ollama does not reload it (see side_call.ts).
+      const residency =
+        model === lastModel
+          ? sideCallResidency(model, lastModel, {
+              numCtx: await this.contextWindowService.windowFor(model),
+              keepAlive: await resolveKeepAlive(),
+            })
+          : {}
+
       const response = await this.ollamaService.chat({
         model,
+        ...residency,
         messages: [
           {
             role: 'user',
@@ -228,7 +245,9 @@ export class ChatService {
 
   async updateSession(sessionId: number, data: { title?: string; model?: string }) {
     try {
-      const session = await ChatSession.findOrFail(sessionId)
+      // Null, not a throw, so the controller can answer 404 for an unknown id.
+      const session = await ChatSession.find(sessionId)
+      if (!session) return null
 
       if (data.title) {
         session.title = data.title
@@ -318,7 +337,17 @@ export class ChatService {
     }
   }
 
-  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string, model: string) {
+  /**
+   * `chatResidency` is the num_ctx/keep_alive the chat just used. Sent along only
+   * when the title runs on that same model, so Ollama does not reload it.
+   */
+  async generateTitle(
+    sessionId: number,
+    userMessage: string,
+    assistantMessage: string,
+    model: string,
+    chatResidency: SideCallResidency = {}
+  ) {
     try {
       // Titles are aesthetic work; route them to the tasks model when one is
       // configured rather than the chat model that just answered.
@@ -340,6 +369,7 @@ export class ChatService {
         // See the note on suggestions: naming a chat is not a creative task, and
         // the backend default of 0.8 makes the format wobble.
         temperature: 0,
+        ...sideCallResidency(titleModel, model, chatResidency),
       })
 
       const content = response?.message?.content?.trim() ?? ''

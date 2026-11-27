@@ -29,6 +29,32 @@ export const MIN_CONTEXT = 4096
 export const UNKNOWN_BACKEND_CONTEXT = 8192
 
 /**
+ * Budget for an OpenAI-compatible backend that does not report the context it loaded the model
+ * with (e.g. LM Studio before a just-in-time load). 4096 is the default of both LM Studio and
+ * llama.cpp's server; budgeting above what the server loaded makes it truncate the prompt.
+ */
+export const UNREPORTED_BACKEND_CONTEXT = 4096
+
+/**
+ * The context size an OpenAI-compatible server actually loaded the model with, from LM Studio's
+ * `/api/v0/models/<id>` (`loaded_context_length`, present only while loaded) or llama.cpp's
+ * `/props` (`default_generation_settings.n_ctx`). Undefined when neither reports one.
+ */
+export function readServedContextLength(lmStudioModel: unknown, llamaProps: unknown): number | undefined {
+  const positive = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined)
+  const lm = lmStudioModel as { loaded_context_length?: unknown } | null | undefined
+  const props = llamaProps as
+    | { n_ctx?: unknown; default_generation_settings?: { n_ctx?: unknown } }
+    | null
+    | undefined
+  return (
+    positive(lm?.loaded_context_length) ??
+    positive(props?.default_generation_settings?.n_ctx) ??
+    positive(props?.n_ctx)
+  )
+}
+
+/**
  * Read the trained context length out of an /api/show `model_info` blob.
  *
  * Keys are architecture-prefixed (`llama.context_length`, `qwen3.context_length`,
@@ -213,6 +239,8 @@ export type ContextWindowDecision = {
   /** Which constraint actually bound the result — surfaced in logs and the UI. */
   limitedBy: 'user' | 'model' | 'memory' | 'floor' | 'default'
   affordableTokens?: number
+  /** False when the answer can change without a restart (non-Ollama backend reloads), so it must not be memoized */
+  stable?: boolean
 }
 
 /**

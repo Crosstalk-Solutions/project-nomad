@@ -181,3 +181,19 @@ test('parses the user context cap setting', () => {
   // Below the floor is meaningless; treat it as unset rather than crippling chat.
   assert.equal(parseUserContextCap('512'), undefined)
 })
+
+test('readServedContextLength reads what LM Studio or llama.cpp actually loaded', async () => {
+  const { readServedContextLength } = await import('../../app/utils/context_window.js')
+  // LM Studio /api/v0/models/<id> for a loaded model (max is the trained limit, not what is loaded)
+  assert.equal(
+    readServedContextLength({ state: 'loaded', max_context_length: 32768, loaded_context_length: 8192 }, undefined),
+    8192
+  )
+  // LM Studio before a just-in-time load reports no loaded size
+  assert.equal(readServedContextLength({ state: 'not-loaded', max_context_length: 32768 }, undefined), undefined)
+  // llama.cpp server /props
+  assert.equal(readServedContextLength(undefined, { default_generation_settings: { n_ctx: 4096 } }), 4096)
+  assert.equal(readServedContextLength(undefined, { n_ctx: 16384 }), 16384)
+  assert.equal(readServedContextLength(undefined, { n_ctx: 0 }), undefined)
+  assert.equal(readServedContextLength('<html>', null), undefined)
+})

@@ -70,6 +70,8 @@ export type BudgetInputs = {
   /** Overrides for the response reserve and RAG share; mostly for tests. */
   responseReserve?: number
   ragShare?: number
+  /** Images attached to the current question; each costs IMAGE_TOKENS_PER_IMAGE. */
+  imageCount?: number
 }
 
 export type BudgetTrace = {
@@ -79,6 +81,7 @@ export type BudgetTrace = {
   estimatedPromptTokens: number
   systemTokens: number
   queryTokens: number
+  imageTokens: number
   ragTokens: number
   historyTokens: number
   chunksKept: number
@@ -87,6 +90,7 @@ export type BudgetTrace = {
   turnsDropped: number
   historyElided: boolean
   queryTruncated: boolean
+  systemTruncated: boolean
   ragPlacement: RagPlacement
   numPredict: number
 }
@@ -121,6 +125,38 @@ export const NUM_PREDICT_SAFETY_FRACTION = 0.05
 export const NUM_PREDICT_SAFETY_MIN = 64
 /** Share of the remaining budget the retrieved context may claim. */
 export const DEFAULT_RAG_SHARE = 0.35
+
+/**
+ * Tokens held back per attached image. The backend counts image tokens in
+ * prompt_eval_count but the text estimator cannot see them. The real cost
+ * depends on the vision encoder (LLaVA 576, Gemma 3 256, Qwen2.5-VL scales
+ * with resolution); 768 covers the common fixed-size encoders with margin.
+ */
+export const IMAGE_TOKENS_PER_IMAGE = 768
+
+/**
+ * Most of the window the system blocks (NOMAD.md plus the formatting prompt)
+ * may take. Past it the largest block is cut, visibly, so an oversized NOMAD.md
+ * cannot push the prompt past the window.
+ */
+export const SYSTEM_MAX_SHARE = 0.5
+export const SYSTEM_TRUNCATION_MARKER = '\n\n[truncated]'
+
+/**
+ * Longest prefix of `content` that, with SYSTEM_TRUNCATION_MARKER appended,
+ * is estimated at no more than `maxTokens`. Binary search: the estimator is not
+ * linear in characters, so a single proportional cut can overshoot.
+ */
+export function truncateToTokens(content: string, maxTokens: number, ratio = 1): string {
+  let lo = 0
+  let hi = content.length
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (estimateTokens(content.slice(0, mid) + SYSTEM_TRUNCATION_MARKER, ratio) <= maxTokens) lo = mid
+    else hi = mid - 1
+  }
+  return (content.slice(0, lo) + SYSTEM_TRUNCATION_MARKER).trimStart()
+}
 
 /**
  * Marker inserted where turns were dropped.
@@ -184,7 +220,25 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
   const cost = (messages: BudgetMessage[]) => estimateMessagesTokens(messages, ratio)
 
   // --- Fixed blocks: system prompts and the question --------------------
-  const systemTokens = cost(inputs.systemBlocks)
+  // System blocks are capped first: if they alone filled the budget, nothing
+  // below could be truncated and the prompt would overrun the window. The
+  // largest block is cut first, so the short formatting prompt usually survives.
+  const systemCap = Math.min(promptBudget, Math.floor(contextWindow * SYSTEM_MAX_SHARE))
+  const systemBlocks = inputs.systemBlocks.map((block) => ({ ...block }))
+  let systemTruncated = false
+  if (cost(systemBlocks) > systemCap) {
+    const largestFirst = systemBlocks
+      .map((block, i) => ({ i, tokens: estimateTokens(block.content, ratio) }))
+      .sort((a, b) => b.tokens - a.tokens)
+    for (const { i, tokens } of largestFirst) {
+      const excess = cost(systemBlocks) - systemCap
+      if (excess <= 0) break
+      systemBlocks[i].content = truncateToTokens(systemBlocks[i].content, tokens - excess, ratio)
+      systemTruncated = true
+    }
+  }
+  const systemTokens = cost(systemBlocks)
+  const imageTokens = Math.max(0, inputs.imageCount ?? 0) * IMAGE_TOKENS_PER_IMAGE
   let query = inputs.query
   let queryTokens = cost([query])
   let queryTruncated = false
@@ -192,8 +246,8 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
   // Degenerate case: the system prompts plus the question alone overflow the
   // window. Truncating here is a bad outcome, but it is a *visible* one — the
   // alternative is the backend silently cutting the question in half.
-  if (systemTokens + queryTokens > promptBudget) {
-    const available = Math.max(0, promptBudget - systemTokens)
+  if (systemTokens + queryTokens + imageTokens > promptBudget) {
+    const available = Math.max(0, promptBudget - systemTokens - imageTokens)
     if (available > 0) {
       const perToken = query.content.length / Math.max(1, estimateTokens(query.content, ratio))
       const keepChars = Math.max(0, Math.floor(available * perToken) - ELISION_MARKER.length)
@@ -208,7 +262,7 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
     }
   }
 
-  let remaining = promptBudget - systemTokens - queryTokens
+  let remaining = promptBudget - systemTokens - queryTokens - imageTokens
 
   // --- Retrieved context: whole chunks, best first ----------------------
   //
@@ -271,14 +325,14 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
 
   // --- Assemble, stability-descending -----------------------------------
   const messages: BudgetMessage[] = []
-  messages.push(...inputs.systemBlocks)
+  messages.push(...systemBlocks)
   if (historyElided) {
     messages.push({ role: 'system', content: ELISION_MARKER })
   }
 
   if (placement === 'front' && ragMessage) {
     // Historical ordering, kept only so the two can be compared under eval.
-    messages.splice(inputs.systemBlocks.length, 0, ragMessage)
+    messages.splice(systemBlocks.length, 0, ragMessage)
     messages.push(...historyMessages)
   } else {
     messages.push(...historyMessages)
@@ -286,7 +340,7 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
   }
   messages.push(query)
 
-  const estimatedPromptTokens = cost(messages)
+  const estimatedPromptTokens = cost(messages) + imageTokens
 
   // The planner already kept the prompt within `contextWindow - responseReserve`,
   // so the reserve floor can never push generation past the window.
@@ -306,6 +360,7 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
       estimatedPromptTokens,
       systemTokens,
       queryTokens,
+      imageTokens,
       ragTokens,
       historyTokens,
       chunksKept: keptChunks.length,
@@ -314,6 +369,7 @@ export function planPrompt(inputs: BudgetInputs): BudgetResult {
       turnsDropped: turns.length - keptTurns.length,
       historyElided,
       queryTruncated,
+      systemTruncated,
       ragPlacement: placement,
       numPredict,
     },
