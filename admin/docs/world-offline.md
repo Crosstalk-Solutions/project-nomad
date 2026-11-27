@@ -74,3 +74,7 @@ To restore a removed or reduced level, select that level again. If you maintain 
 | Different seasons look similar | Use a location with visible seasonal changes and compare two months at the same zoom. Blue Marble depicts historical composites from 2004. |
 
 Source and attribution details live in the [operator and maintainer notes](/docs/world-offline-maintainers). Local automation can use the [World offline API notes](/docs/world-offline-api).
+
+## Optional regional detail
+
+When an operator enables **Regional offline maps**, you can add detailed squares without replacing worldwide packages. See [regional selection and downloads](/docs/local-detail), [native detail and mixed coverage](/docs/map-detail), and the [source installation guide](/docs/regional-setup). Installed squares remain usable without internet access; new calculations and downloads need a connection.

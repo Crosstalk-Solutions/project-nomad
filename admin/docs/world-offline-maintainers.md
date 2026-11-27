@@ -6,6 +6,8 @@ The standard deployment keeps World offline disabled until an operator adds the 
 
 Create the `maps/pmtiles` and `maps/.world-offline` subdirectories before starting the worker. Ensure the worker UID/GID 65532 can use both directories and the admin can read the resulting maps. Keep them on the same mounted filesystem. Review the local deployment settings before starting the two services. The worker has no published port. Only the worker needs to reach the public providers during acquisition. The panel serves installed maps from disk.
 
+For optional regional downloads and the native-detail indicator, follow the [regional setup guide](/docs/regional-setup). Its additional overlay reuses the same worker and leaves the existing storage permissions and services in place.
+
 ## Source data and attribution
 
 Each installation downloads from the selected public provider and generates or prepares its PMTiles archives locally. Ship the catalog, tooling, documentation, and small test fixtures with the code. Data revisions are separate from the application release.
@@ -43,6 +45,7 @@ Use a fresh checkout of the target base and small generated or reusable licensed
 | --- | --- | --- |
 | App build and API contract | Existing Node workflow and functional OpenAPI suite | Native build and route completeness. Request validation, amounts in bytes, available and degraded inventory, operation transitions, errors, and access policy. |
 | Worker and storage | Version-controlled tests with fixture HTTP sources and temporary volumes | Range and source identity checks, interrupted transfer and checkpoint restart, low disk, digest mismatch, no change to installed packages on failure, atomic commit, remove, discard, and local reduction. |
+| Regional maintenance | Temporary worker state and a controlled clock | Startup and daily idle pruning, protected interrupted/offline preparation, deferral during calculations and download cancellation, nonfatal cleanup failures, contextual discard confirmation and unchanged installed map ownership. |
 | Browser flows | Small PMTiles fixture set and isolated application | Common table order and keyboard controls, install/upgrade feedback, only one active tier per family, Blue Marble month changes, attributions, viewport at 320 px, and preservation of the existing vector map. |
 | Offline runtime | Same fixture packs after queue stop and app restart | Local tiles load with provider traffic blocked. A failed or unavailable worker leaves the prior installation readable. |
 | Elevation contours | Synthetic DEM fixtures and an installed local package | Automatic fixed 100 m contours, zero and negative levels, missing samples, tile seams, antimeridian handling, bounded dense views and caches, package revision invalidation, request cancellation, retained lines during pan, and local labels after offline restart. |

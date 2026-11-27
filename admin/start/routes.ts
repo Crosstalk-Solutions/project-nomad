@@ -15,6 +15,8 @@ import DownloadsController from '#controllers/downloads_controller'
 import EasySetupController from '#controllers/easy_setup_controller'
 import HomeController from '#controllers/home_controller'
 import MapsController from '#controllers/maps_controller'
+import LocalDetailController from '#controllers/local_detail_controller'
+import { localCalculateRequest, localDownloadRequest, localJobRequest, localInventoryResponse, localQuoteResponse, localOperationResponse, localDeleteRequest, localDeleteResponse, localQueueRequest, localCleanupRequest, localRecalculateResponse, localCleanupResponse } from '#validators/local_detail'
 import WorldElevationController from '#controllers/world_elevation_controller'
 import WorldOfflineController from '#controllers/world_offline_controller'
 import NomadMdController from '#controllers/nomad_md_controller'
@@ -316,6 +318,44 @@ router.group(() => {
     })
   }
 }).prefix('/api/maps/world-offline')
+
+router.group(() => {
+  documented(router.get('/', [LocalDetailController, 'index']), {
+    summary: 'List verified regional map squares and their download activity', tags: ['maps'],
+    description: 'Fixed XYZ z8 squares. Ready requires all four local archives. Available without the downloader.',
+    responses: { 200: localInventoryResponse, 404: worldErrorResponse },
+  })
+  documented(router.post('/delete', [LocalDetailController, 'delete']), {
+    summary: 'Delete selected regional offline map squares', tags: ['maps'], request: localDeleteRequest,
+    description: 'JSON cells: [{x,y}], up to 64. Local same-origin requests only. Removes only owned regional archives; worldwide maps and Pins are preserved. Requires the download thread to stop first (409). Works offline. Repeat the same request to finish cleanupPending after a storage failure. Old estimates are invalidated after deletion.',
+    responses: { 200: localDeleteResponse, ...worldWriteErrors },
+  })
+  documented(router.post('/queue', [LocalDetailController, 'queue']), {
+    summary: 'Queue a reviewed regional selection in sequential batches', tags: ['maps'], request: localQueueRequest,
+    description: 'Calculate batches of up to 64 squares first. Submit their quoteId values and optional excludedCells (canonical 8/x/y IDs) in one confirmation. All estimates are validated before persistent admission. At most 1024 batches cover the finite z8 grid. Only this worker endpoint accepts up to 1 MiB JSON. No fixed download-size ceiling. Use requestId to retry admission safely.',
+    responses: { 202: localOperationResponse, ...worldWriteErrors },
+  })
+  documented(router.post('/recalculate', [LocalDetailController, 'recalculate']), {
+    summary: 'Recover the remaining squares from a stopped preparation', tags: ['maps'], request: localJobRequest,
+    description: 'Returns authoritative remaining coordinates and invalidates in-memory provider discovery. Calculate the returned coordinates in batches of 64, review new totals and submit a new queue. Installed squares are excluded. This operation starts no download and does not delete saved ranges.',
+    responses: { 200: localRecalculateResponse, ...worldWriteErrors },
+  })
+  documented(router.post('/cleanup', [LocalDetailController, 'cleanup']), {
+    summary: 'Discard reviewed regional temporary data', tags: ['maps'], request: localCleanupRequest,
+    description: 'Obtain temporaryStorage from inventory. saved-preparation requires its current discardId as id and explicit confirmation of loss of resume data. expired-metadata removes only unreferenced expired quotes and provider indexes older than seven days. Active work and source calculation are protected (409). No installed regional/world archive or Pin is removed.',
+    responses: { 200: localCleanupResponse, ...worldWriteErrors },
+  })
+  for (const action of ['calculate', 'download', 'cancel', 'retry'] as const) {
+    documented(router.post('/' + action, [LocalDetailController, action]), {
+      summary: `${action[0].toUpperCase() + action.slice(1)} regional offline map squares`, tags: ['maps'],
+      request: action === 'calculate' ? localCalculateRequest : action === 'download' ? localDownloadRequest : localJobRequest,
+      responses: { [action === 'download' || action === 'retry' ? 202 : 200]: action === 'calculate' ? localQuoteResponse : localOperationResponse, ...worldWriteErrors },
+      description: action === 'calculate' ? 'JSON cells: [{x,y}]. Retrieves source-index transfer estimates before confirmation.'
+        : action === 'download' ? 'JSON cells: [{x,y}], quoteId. Accepts a subset of the current calculation; queues all mandatory layers.'
+        : 'JSON id: task identifier. Local same-origin requests only.',
+    })
+  }
+}).prefix('/api/maps/local-detail')
 
 router
   .group(() => {

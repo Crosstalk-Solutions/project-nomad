@@ -39,6 +39,9 @@ export function validateWorldElevationContoursQuery(query: Record<string, unknow
 export const worldElevationContoursResponse = vine.compile(vine.object({
   status: vine.enum(['ok', 'not-installed', 'no-data', 'zoom-in']),
   dataZoom: zoom().optional(),
+  sourceCount: vine.number().min(1).max(64).optional(),
+  regionalSourceCount: vine.number().min(0).max(64).optional(),
+  coverage: vine.enum(['full', 'partial']).optional(),
   intervalMeters: vine.number().min(100).max(100).optional(),
   geojson: vine.object({
     type: vine.enum(['FeatureCollection']),

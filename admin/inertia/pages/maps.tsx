@@ -16,6 +16,8 @@ type MapCommand = {
 }
 
 export default function Maps(props: {
+  localDetailEnabled?: boolean
+  mapDetailIndicatorEnabled?: boolean
   worldOfflineEnabled?: boolean
   worldOfflineNorthLocked?: boolean
   maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
@@ -159,6 +161,8 @@ export default function Maps(props: {
         <div className="absolute inset-0">
           <MapComponent
             worldOfflineEnabled={props.worldOfflineEnabled}
+            localDetailEnabled={props.localDetailEnabled}
+            mapDetailIndicatorEnabled={props.mapDetailIndicatorEnabled}
             worldOfflineNorthLocked={props.worldOfflineNorthLocked}
             mapCommand={mapCommand}
             isHoveringUI={isHoveringUI}

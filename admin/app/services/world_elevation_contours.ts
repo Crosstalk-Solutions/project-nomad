@@ -1,8 +1,10 @@
 import { setImmediate } from 'node:timers/promises'
+import { createHash } from 'node:crypto'
 import {
-  withElevationTiles, type ElevationTile, type LocalElevationArchive, type ReadElevationTile,
+  withElevationMosaic, type ElevationTile, type LocalElevationArchive, type ReadElevationTile,
 } from './world_elevation_service.js'
 import type { ElevationContourGeoJSON, ElevationContoursLookup } from '../../types/world_offline.js'
+import { chooseElevationCoverage } from '../../types/elevation_coverage.js'
 
 const intervalMeters = 100
 const minimumCameraZoom = 8
@@ -303,18 +305,20 @@ export async function lookupElevationContours(
   if (span === 0 || viewport.north <= viewport.south) return { status: 'no-data' }
   const west = wrap(viewport.west + 180, 360) - 180
   const east = west + wrap(span, 360)
-  const installedMax = Math.max(...archives.map(({ archive }) => archive.maxzoom))
-  const dataZoom = Math.min(Math.floor(viewport.zoom), installedMax)
-  const entry = archives.find(({ archive }) => archive.minzoom <= dataZoom && archive.maxzoom >= dataZoom)
-  if (!entry) return { status: 'no-data' }
-  const { archive } = entry
-  const [westLimit, southLimit, eastLimit, northLimit] = archive.bounds
-  const north = Math.min(viewport.north, maximumMercatorLatitude, northLimit)
-  const south = Math.max(viewport.south, -maximumMercatorLatitude, southLimit)
+  const plan = chooseElevationCoverage(archives.map((entry) => ({ ...entry.archive, entry })),
+    [west, viewport.south, east, viewport.north], viewport.zoom)
+  if (!plan) return { status: 'no-data' }
+  const { dataZoom, tileSize: size } = plan
+  const selected = plan.sources.map(({ entry }) => entry)
+  const north = Math.min(viewport.north, maximumMercatorLatitude)
+  const south = Math.max(viewport.south, -maximumMercatorLatitude)
   if (north <= south) return { status: 'no-data' }
+  const westLimit = selected.length === 1 ? selected[0].archive.bounds[0] : -180
+  const eastLimit = selected.length === 1 ? selected[0].archive.bounds[2] : 180
+  const identity = createHash('sha256').update(JSON.stringify(plan.sources.map((source) =>
+    [source.filename, source.sha256, source.bounds, source.minzoom, source.maxzoom]))).digest('hex')
 
   const tileCount = 2 ** dataZoom
-  const size = archive.tileSize
   const width = size * tileCount
   const left = longitudeX(west, width)
   const right = longitudeX(east, width)
@@ -326,7 +330,7 @@ export async function lookupElevationContours(
   const lastY = Math.min(tileCount - 1, Math.floor((bottom - 0.5) / size))
   if ((lastX - firstX + 1) * (lastY - firstY + 1) > maximumOwnerTiles) return { status: 'zoom-in' }
 
-  const result = await withElevationTiles(entry, async (readTile): Promise<ElevationContoursLookup> => {
+  const result = await withElevationMosaic(selected, async (readTile): Promise<ElevationContoursLookup> => {
     const grid = loadGrid(readTile, dataZoom, size)
     const byElevation = new Map<number, Point[][]>()
     let visibleData = false
@@ -334,7 +338,7 @@ export async function lookupElevationContours(
     for (let y = firstY; y <= lastY; y += 1) {
       for (let x = firstX; x <= lastX; x += 1) {
         signal?.throwIfAborted()
-        const key = `${archive.sha256}/${dataZoom}/${size}/${wrap(x, tileCount)}/${y}`
+        const key = `${identity}/${dataZoom}/${size}/${wrap(x, tileCount)}/${y}`
         let currentGrid: Promise<Float32Array | null> | undefined
         const nativeGrid = () => currentGrid ??= grid(x, y)
         const originX = x * size
@@ -396,7 +400,10 @@ export async function lookupElevationContours(
           : { type: 'MultiLineString', coordinates: lines },
       })
     }
-    return { status: 'ok', dataZoom, intervalMeters, geojson }
+    return { status: 'ok', dataZoom, intervalMeters, geojson,
+      ...(selected.length > 1 ? { sourceCount: selected.length,
+        regionalSourceCount: selected.filter(({ archive }) => archive.filename.startsWith('partial-z8-')).length,
+        coverage: plan.complete ? 'full' as const : 'partial' as const } : {}) }
   }, signal)
   return result ?? { status: 'no-data' }
 }

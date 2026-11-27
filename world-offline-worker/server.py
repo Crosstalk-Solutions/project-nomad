@@ -11,13 +11,16 @@ from pathlib import Path
 import shutil
 import signal
 from tempfile import NamedTemporaryFile
+from threading import Event, Thread
 from urllib.parse import urlsplit
 
 from world_pack import WorldPackError, WorldPacks
+from local_detail import API as LOCAL_DETAIL, LocalDetailError, LocalDetails
 
 
 WORLD = "/api/lab-imagery/world"
 ACTIONS = {"cancel", "discard", "download", "pause", "remove", "resume", "retry"}
+LOCAL_ACTIONS = {"calculate", "download", "queue", "cancel", "retry", "delete", "recalculate", "cleanup"}
 MAX_BODY = 8192
 
 
@@ -50,8 +53,18 @@ class WorldHandler(BaseHTTPRequestHandler):
         if path == "/health":
             self.send_json(200, {"status": "ok"})
         elif self.authorized():
+            if path == LOCAL_DETAIL and self.server.local_detail is not None:
+                try:
+                    self.send_json(200, self.server.local_detail.snapshot())
+                except (OSError, ValueError) as error:
+                    print(f"Local-detail inventory: {error}", flush=True)
+                    self.send_json(503, {"message": "The local-detail inventory is unavailable."})
+                return
             if path != WORLD:
                 self.send_json(404, {"message": "Unknown world worker endpoint."})
+                return
+            if self.server.world is None:
+                self.send_json(503, {"message": "Worldwide downloads are not enabled on this worker."})
                 return
             try:
                 self.send_json(200, self.server.world.snapshot())
@@ -63,23 +76,55 @@ class WorldHandler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
-        action = path.removeprefix(WORLD + "/")
-        if action == path or action not in ACTIONS:
+        local = path.startswith(LOCAL_DETAIL + "/")
+        action = path.removeprefix((LOCAL_DETAIL if local else WORLD) + "/")
+        if action == path or action not in (LOCAL_ACTIONS if local else ACTIONS):
             self.send_json(404, {"message": "Unknown world worker endpoint."})
             return
         try:
             size = int(self.headers.get("Content-Length", "0"))
-            if not 0 < size <= MAX_BODY or self.headers.get_content_type() != "application/json":
+            limit = 1024 * 1024 if local and action == "queue" else MAX_BODY
+            if not 0 < size <= limit or self.headers.get_content_type() != "application/json":
                 raise ValueError
             payload = json.loads(self.rfile.read(size))
             if not isinstance(payload, dict):
                 raise ValueError
         except (ValueError, UnicodeError, TimeoutError):
-            self.send_json(400, {"message": "Send a JSON world map selection of at most 8 KiB."})
+            self.send_json(400, {"message": "Send a bounded JSON map operation (queue up to 1 MiB; other operations up to 8 KiB)."})
             self.close_connection = True
             return
 
+        if local:
+            if self.server.local_detail is None:
+                self.send_json(503, {"message": "Local-detail downloads are not enabled on this worker."})
+                return
+            detail = self.server.local_detail
+            try:
+                if action == "calculate":
+                    result = detail.calculate(payload.get("cells"))
+                elif action == "download":
+                    result = detail.submit(payload.get("cells"), payload.get("quoteId"), payload.get("requestId"))
+                elif action == "delete":
+                    result = detail.delete(payload.get("cells"))
+                elif action == "queue":
+                    result = detail.enqueue(payload.get("batches"), payload.get("requestId"))
+                elif action == "cleanup":
+                    result = detail.cleanup(payload.get("scope"), payload.get("id"))
+                else:
+                    result = getattr(detail, action)(payload.get("id"))
+                self.send_json(202 if action in {"download", "queue", "retry"} else 200, result)
+            except LocalDetailError as error:
+                self.send_json(error.status, {"message": str(error)})
+            except (OSError, ValueError, RuntimeError) as error:
+                print(f"Local-detail {action}: {error}", flush=True)
+                self.send_json(503, {"message": "Regional files could not be deleted from local storage. Refresh and retry; worldwide maps are unchanged."}
+                               if action == "delete" else {"message": "The selected public map source or local storage is unavailable. Try again when connected."})
+            return
+
         world = self.server.world
+        if world is None:
+            self.send_json(503, {"message": "Worldwide downloads are not enabled on this worker."})
+            return
         try:
             if action == "download":
                 result = world.submit(payload.get("packIds"), payload.get("requestId"))
@@ -137,7 +182,15 @@ def main():
     pmtiles = Path(os.environ.get("WORLD_PMTILES_BIN", "/usr/local/bin/pmtiles"))
     if not pmtiles.is_absolute() or not pmtiles.is_file() or not os.access(pmtiles, os.X_OK):
         raise ValueError("Set WORLD_PMTILES_BIN to an executable installed in the worker image.")
-    maps, state = workspace()
+    local_only = os.environ.get("WORLD_WORKER_LOCAL_ONLY", "").lower() in {"true", "1"}
+    local_enabled = local_only or bool(os.environ.get("LOCAL_DETAIL_MAPS_DIR"))
+    if local_only:
+        maps = Path(os.environ.get("LOCAL_DETAIL_MAPS_DIR", "/data/local-detail/pmtiles")).resolve()
+        state = Path(os.environ.get("LOCAL_DETAIL_STATE_DIR", "/data/local-detail/.state")).resolve()
+        for directory in (maps, state):
+            directory.mkdir(parents=True, exist_ok=True)
+    else:
+        maps, state = workspace()
     host_disk = os.environ.get("WORLD_HOST_DISK")
 
     def free_bytes():
@@ -155,9 +208,24 @@ def main():
             raise ValueError("This storage already has a world map worker.") from error
         with ThreadingHTTPServer((str(host), port), WorldHandler) as server:
             server.world_token = token
-            server.world = WorldPacks(maps, state, pmtiles, free_bytes)
-            print(f"World Offline worker listening on {host}:{port}", flush=True)
-            server.serve_forever()
+            server.world = None if local_only else WorldPacks(maps, state, pmtiles, free_bytes)
+            server.local_detail = LocalDetails(
+                Path(os.environ.get("LOCAL_DETAIL_MAPS_DIR", "/data/local-detail/pmtiles")),
+                Path(os.environ.get("LOCAL_DETAIL_STATE_DIR", "/data/local-detail/.state")), pmtiles,
+                free_bytes if local_only else None) if local_enabled else None
+            maintenance_stop = Event()
+            maintenance_thread = None
+            try:
+                if server.local_detail:
+                    maintenance_thread = Thread(target=server.local_detail.maintenance_loop,
+                                                args=(maintenance_stop,), daemon=True)
+                    maintenance_thread.start()
+                print(f"World Offline worker listening on {host}:{port}", flush=True)
+                server.serve_forever()
+            finally:
+                maintenance_stop.set()
+                if maintenance_thread:
+                    maintenance_thread.join(timeout=2)
 
 
 if __name__ == "__main__":

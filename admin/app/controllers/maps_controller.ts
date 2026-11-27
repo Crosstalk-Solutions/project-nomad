@@ -30,6 +30,8 @@ export default class MapsController {
       this.mapService.checkWorldBasemapExists(),
     ])
     return inertia.render('maps', {
+      localDetailEnabled: env.get('LOCAL_DETAIL_ENABLED') ?? false,
+      mapDetailIndicatorEnabled: env.get('MAP_DETAIL_INDICATOR_ENABLED') ?? false,
       worldOfflineEnabled: worldOfflineEnabled(),
       worldOfflineNorthLocked: env.get('WORLD_OFFLINE_NORTH_LOCKED') ?? false,
       maps: {

@@ -11,6 +11,7 @@ import { withElevationTiles, type LocalElevationArchive } from '../../app/servic
 import {
   validateWorldElevationContoursQuery,
 } from '../../app/validators/world_offline.js'
+import { chooseElevationCoverage } from '../../types/elevation_coverage.js'
 
 function varint(value: number) {
   const bytes = []
@@ -85,6 +86,58 @@ test('validates decimal viewport bounds and preserves antimeridian wraps', async
   await assert.rejects(validateWorldElevationContoursQuery({ ...query, zoom: '' }))
   await assert.rejects(validateWorldElevationContoursQuery({ ...query, east: ['180', '181'] }))
   await assert.rejects(validateWorldElevationContoursQuery({ ...query, north: 'Infinity' }))
+})
+
+test('plans a coherent grid across adjacent regions and falls back when a neighbour is absent', () => {
+  const sources = [
+    { filename: 'left', bounds: [-2, -2, 0, 2] as [number, number, number, number], minzoom: 0, maxzoom: 12, tileSize: 512 },
+    { filename: 'right', bounds: [0, -2, 2, 2] as [number, number, number, number], minzoom: 0, maxzoom: 12, tileSize: 512 },
+    { filename: 'world', bounds: [-180, -85, 180, 85] as [number, number, number, number], minzoom: 0, maxzoom: 8, tileSize: 512 },
+  ]
+  const bounds: [number, number, number, number] = [-.2, -.2, .2, .2]
+  const composite = chooseElevationCoverage(sources, bounds, 12.5)!
+  assert.equal(composite.dataZoom, 12); assert.equal(composite.complete, true)
+  assert.deepEqual(composite.sources.map(({ filename }) => filename), ['left', 'right'])
+  assert.deepEqual(chooseElevationCoverage([...sources].reverse(), bounds, 12.5), composite)
+  const fallback = chooseElevationCoverage([sources[0], sources[2]], bounds, 12.5)!
+  assert.equal(fallback.dataZoom, 8); assert.deepEqual(fallback.sources.map(({ filename }) => filename), ['world'])
+  assert.equal(chooseElevationCoverage([sources[0]], bounds, 12.5)?.complete, false)
+  const wrapped = [{ ...sources[0], bounds: [170, -2, 180, 2] as [number, number, number, number] },
+    { ...sources[1], bounds: [-180, -2, -170, 2] as [number, number, number, number] }]
+  assert.equal(chooseElevationCoverage(wrapped, [179, -.2, -179, .2], 12)?.complete, true)
+  assert.deepEqual(chooseElevationCoverage(wrapped, [179, -.2, -179, .2], 12),
+    chooseElevationCoverage(wrapped, [539, -.2, 541, .2], 12))
+})
+
+test('reads real seam samples across separate PMTiles and invalidates contours when a source changes', async (context) => {
+  const fixture = await fixtureDirectory(context)
+  const left = await fixture('partial-z8-127-128-elevation.pmtiles', 9, 255, 256,
+    (x, y) => (x - 500) * .15 + y * .8 - 180)
+  left.archive.bounds = [-1.40625, -1.4061088354351565, 0, 0]
+  const right = await fixture('partial-z8-128-128-elevation.pmtiles', 9, 256, 256,
+    (x, y) => (x + 12) * .15 + y * .8 - 180)
+  right.archive.bounds = [0, -1.4061088354351565, 1.40625, 0]
+  const world = await fixture('world-low.pmtiles', 8, 128, 128, 1000)
+  const view = { west: -.05, south: -.4, east: .05, north: -.2, zoom: 9.5 }
+  const joined = await lookupElevationContours([left, right, world], view)
+  assert.equal(joined.status, 'ok'); assert.equal(joined.dataZoom, 9)
+  assert.equal(joined.sourceCount, 2); assert.equal(joined.regionalSourceCount, 2); assert.equal(joined.coverage, 'full')
+  const zero = joined.geojson.features.find(({ properties }) => properties.elevationMeters === 0)!
+  assert.ok(zero)
+  const lines = zero.geometry.type === 'LineString' ? [zero.geometry.coordinates] : zero.geometry.coordinates
+  const seam = 360 / (512 * 2 ** 9) / 2
+  const ends = lines.flatMap((line) => [line[0], line[line.length - 1]])
+    .filter(([longitude]) => Math.abs(longitude - seam) < 1e-10)
+  assert.ok(ends.length >= 2, 'Separate archives retain matching sample-centered seam endpoints')
+  assert.ok(ends.some((a, i) => ends.some((b, j) => i !== j && Math.abs(a[1] - b[1]) < 1e-10)))
+  const fallback = await lookupElevationContours([left, world], view)
+  assert.equal(fallback.status, 'ok'); assert.equal(fallback.dataZoom, 8)
+  assert.deepEqual(fallback.geojson.features, [])
+  const changed = await fixture('partial-z8-128-128-elevation-new.pmtiles', 9, 256, 256,
+    (x, y) => (x + 12) * .15 + y * .8 - 80)
+  changed.archive.bounds = right.archive.bounds
+  const revised = await lookupElevationContours([left, changed, world], view)
+  assert.equal(revised.status, 'ok'); assert.notDeepEqual(revised.geojson, joined.geojson)
 })
 
 test('matches contour endpoints across both tile borders and keeps negative and zero intervals', () => {

@@ -3,6 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import { lookupElevationContours } from '#services/world_elevation_contours'
 import { WorldOfflineService } from '#services/world_offline_service'
+import { LocalDetailService } from '#services/local_detail_service'
 import { validateWorldElevationContoursQuery } from '#validators/world_offline'
 
 @inject()
@@ -20,7 +21,10 @@ export default class WorldElevationController {
     response.response.once('close', cancel)
     try {
       const archives = await this.world.localElevationArchives()
-      return await lookupElevationContours(archives, viewport, abort.signal)
+      const local = await new LocalDetailService().localElevationArchives().catch(() => [])
+      // The renderer chooses one coherent native grid across all downloaded
+      // neighbours. Incomplete regional coverage retains the world fallback.
+      return await lookupElevationContours([...local, ...archives], viewport, abort.signal)
     } catch (error) {
       if (abort.signal.aborted) return
       logger.warn({ err: error }, 'The installed data could not be read for elevation contours.')

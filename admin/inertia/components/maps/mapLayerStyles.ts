@@ -14,6 +14,7 @@ type OfflineLayer = {
   maxZoom: number
   worldCover: boolean
   overview: boolean
+  detail?: boolean
 }
 
 export type MapCamera = { longitude: number; latitude: number; zoom: number; view?: Bounds }
@@ -27,7 +28,7 @@ function offlineLayerRole(layer: LayerSpecification) {
 }
 
 export const localArchiveUrl = (archive: WorldArchive) =>
-  `pmtiles://${window.location.origin}/pmtiles/${encodeURIComponent(archive.filename)}` +
+  `pmtiles://${window.location.origin}/${archive.filename.startsWith('partial-z8-') ? 'local-detail/pmtiles' : 'pmtiles'}/${encodeURIComponent(archive.filename)}` +
   (archive.sha256 ? '?rev=' + encodeURIComponent(archive.sha256) : '')
 
 export function withWorldRaster(style: StyleSpecification, mode: RasterMode, archive: WorldArchive): StyleSpecification {
@@ -114,6 +115,7 @@ export function readOfflineLayers(style: StyleSpecification | null) {
     if (!source.bounds.every(Number.isFinite) || minZoom > maxZoom) continue
     result[role].push({ id: layer.id, bounds: source.bounds, minZoom, maxZoom,
       overview: metadata?.['nomad:world-overview'] === true,
+      detail: metadata?.['nomad:local-detail'] === true,
       worldCover: typeof metadata?.['nomad:regionId'] === 'string' && /^br(?:-|$)/.test(metadata['nomad:regionId']) })
   }
   return result
@@ -125,7 +127,7 @@ export function hasCoverage(layer: OfflineLayer, camera: MapCamera) {
   const insideLongitude = west <= east ? west <= lng && lng <= east : lng >= west || lng <= east
   const zoom = Math.floor(camera.zoom + 1e-6)
   return insideLongitude && south <= camera.latitude && camera.latitude <= north &&
-    layer.minZoom <= zoom && (layer.overview || zoom <= layer.maxZoom)
+    layer.minZoom <= zoom && (layer.overview || layer.detail || zoom <= layer.maxZoom)
 }
 
 export function inVisibleView(layer: OfflineLayer, camera: MapCamera) {
@@ -133,7 +135,7 @@ export function inVisibleView(layer: OfflineLayer, camera: MapCamera) {
   const [west, south, east, north] = layer.bounds
   const [viewWest, viewSouth, viewEast, viewNorth] = camera.view
   const zoom = Math.floor(camera.zoom + 1e-6)
-  if (zoom < layer.minZoom || (!layer.overview && zoom > layer.maxZoom) || north < viewSouth || south > viewNorth) return false
+  if (zoom < layer.minZoom || (!layer.overview && !layer.detail && zoom > layer.maxZoom) || north < viewSouth || south > viewNorth) return false
   const spans = west <= east ? [[west, east]] : [[west, 180], [-180, east]]
   return spans.some(([start, end]) => [-360, 0, 360].some((offset) =>
     end + offset >= viewWest && start + offset <= viewEast))
@@ -194,7 +196,7 @@ export function styleWithOfflineLayer(
   const imagery: LayerSpecification[] = []
   const overlay: LayerSpecification[] = []
   const ids = new Set(layerIds.map(({ id }) => id))
-  const earthRelief = mode === 'topographic' && layerIds.some(({ id }) => id.startsWith('lab-earth-relief-z'))
+  const earthRelief = mode === 'topographic' && layerIds.some(({ id }) => id.startsWith('lab-earth-relief-'))
   const showVectorLabels = mode !== 'topographic' || keepStreetLabels
   if (earthRelief) {
     underlay.push({ id: 'lab-earth-relief-land', type: 'background', paint: { 'background-color': TOPOGRAPHIC_PALETTE.land } })

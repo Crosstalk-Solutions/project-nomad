@@ -59,6 +59,7 @@ export default class SettingsController {
     const enabled = worldOfflineEnabled()
     const managed = enabled ? await new WorldOfflineService().managedFiles() : new Set<string>()
     return inertia.render('settings/maps', {
+      localDetailEnabled: env.get('LOCAL_DETAIL_ENABLED') ?? false,
       worldOfflineEnabled: enabled,
       maps: {
         baseAssetsExist: baseAssetsCheck,

@@ -17,6 +17,7 @@ import CountryPickerModal from '~/components/CountryPickerModal'
 import type { CollectionWithStatus } from '../../../types/collections'
 import ActiveDownloads from '~/components/ActiveDownloads'
 import WorldOffline, { WorldOfflineDownloads } from '~/components/maps/WorldOffline'
+import LocalDetailDownloads from '~/components/maps/LocalDetailDownloads'
 import Alert from '~/components/Alert'
 import { formatBytes } from '~/lib/util'
 import { hasDownloadedGlobalMap } from '~/lib/global_map_banner'
@@ -27,6 +28,7 @@ const GLOBAL_MAP_INFO_KEY = 'global-map-info'
 export default function MapsManager(props: {
   maps: { baseAssetsExist: boolean; worldBasemapExists: boolean; regionFiles: FileEntry[] }
   worldOfflineEnabled?: boolean
+  localDetailEnabled?: boolean
 }) {
   const queryClient = useQueryClient()
   const { openModal, closeAllModals } = useModals()
@@ -396,6 +398,7 @@ export default function MapsManager(props: {
               <WorldOffline />
             </section>
           )}
+          {props.localDetailEnabled && <LocalDetailDownloads />}
           <div className="mt-8 mb-6 flex items-center justify-between">
             <StyledSectionHeader title="Curated Map Regions" className="!mb-0" />
             <StyledButton

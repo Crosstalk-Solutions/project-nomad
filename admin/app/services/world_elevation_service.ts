@@ -3,6 +3,7 @@ import { open, type FileHandle } from 'node:fs/promises'
 import { PMTiles, TileType, type Source } from 'pmtiles'
 import sharp from 'sharp'
 import type { WorldArchive } from '../../types/world_offline.js'
+import { elevationContains } from '../../types/elevation_coverage.js'
 
 export type LocalElevationArchive = { path: string; archive: WorldArchive }
 
@@ -96,4 +97,38 @@ export async function withElevationTiles<T>(
   } finally {
     await file.close()
   }
+}
+
+/** Open a bounded set of immutable archives and read one native XYZ grid.
+ * Adjacent regions supply each other's seam samples; revisions never resample
+ * a coarse world tile into a purported fine regional tile.
+ */
+export async function withElevationMosaic<T>(
+  entries: LocalElevationArchive[], read: (tile: ReadElevationTile) => Promise<T>, signal?: AbortSignal,
+): Promise<T | null> {
+  if (!entries.length || entries.length > 64) return null
+  const readers: { entry: LocalElevationArchive; tile: ReadElevationTile }[] = []
+  async function opened(index: number): Promise<T | null> {
+    signal?.throwIfAborted()
+    if (index === entries.length) return read(async (zoom, x, y) => {
+      const count = 2 ** zoom
+      if (y < 0 || y >= count) return null
+      const longitude = (x + .5) / count * 360 - 180
+      const latitude = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + .5) / count))) * 180 / Math.PI
+      for (const source of readers) {
+        if (!elevationContains(source.entry.archive.bounds, longitude, latitude)) continue
+        const tile = await source.tile(zoom, x, y)
+        // An absent tile or transparent sample is genuine no-data, not an
+        // invitation to stitch unrelated revisions at a lower native level.
+        if (tile) return tile
+      }
+      return null
+    })
+    return withElevationTiles(entries[index], async (tile) => {
+      readers.push({ entry: entries[index], tile })
+      try { return await opened(index + 1) }
+      finally { readers.pop() }
+    }, signal)
+  }
+  return opened(0)
 }

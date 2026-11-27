@@ -26,7 +26,8 @@ export type ElevationContourGeoJSON = {
 }
 
 export type ElevationContoursLookup =
-  | { status: 'ok'; dataZoom: number; intervalMeters: 100; geojson: ElevationContourGeoJSON }
+  | { status: 'ok'; dataZoom: number; intervalMeters: 100; geojson: ElevationContourGeoJSON
+      sourceCount?: number; regionalSourceCount?: number; coverage?: 'full' | 'partial' }
   | { status: 'not-installed' | 'no-data' | 'zoom-in' }
 
 export type WorldArchive = {

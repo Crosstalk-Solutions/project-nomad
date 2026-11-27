@@ -46,7 +46,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir --require-hashes --only-binary=:all: -r requirements.txt \
     && python -c "import ctypes, numpy, PIL, rasterio; ctypes.CDLL('libbrotlidec.so.1'); ctypes.CDLL('libbrotlienc.so.1')"
-COPY server.py world_pack.py world_provider.py satellite_provider.py blue_marble_source_sizes.json export_catalog.py ./
+COPY server.py world_pack.py world_provider.py satellite_provider.py local_detail.py blue_marble_source_sizes.json export_catalog.py ./
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     WORLD_PMTILES_BIN=/usr/local/bin/pmtiles \

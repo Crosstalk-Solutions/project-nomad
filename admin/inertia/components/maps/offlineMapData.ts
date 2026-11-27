@@ -2,6 +2,7 @@ import type { StyleSpecification } from 'maplibre-gl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { WORLD_OFFLINE_API, type WorldInventory, type WorldPack } from '../../../types/world_offline'
+import { LOCAL_DETAIL_API, type LocalDetailInventory } from '../../../types/local_detail'
 
 type InstalledPack = Pick<WorldPack, 'id' | 'role' | 'archives'> & { generation?: string }
 type Resource<T> = { value: T | null; failed: boolean }
@@ -24,7 +25,7 @@ function readInstalledPacks(value: unknown): InstalledPack[] {
   if (!Array.isArray(data?.packs)) throw new Error('Offline map inventory unavailable')
   return data.packs.filter((pack) => pack.installed && (pack.role === 'elevation' || Array.isArray(pack.archives)))
     .map(({ id, role, archives }) => role === 'elevation'
-      ? { id, role, generation: archives?.length
+      ? { id, role, archives, generation: archives?.length
         ? archives.map(({ filename, sha256 }) => filename + ':' + sha256).sort().join('|')
         : data.generation }
       : { id, role, archives })
@@ -94,10 +95,17 @@ function useLocalMapResource<T>(enabled: boolean, url: string, decode: (data: un
   return { ...resource, refresh }
 }
 
-export function useOfflineMapData(enabled: boolean) {
+function readLocalDetails(value: unknown) {
+  const inventory = value as LocalDetailInventory
+  if (inventory.schemaVersion !== 1 || !Array.isArray(inventory.cells)) throw new Error('Regional inventory unavailable')
+  return inventory
+}
+
+export function useOfflineMapData(enabled: boolean, localDetailEnabled = false) {
   const style = useLocalMapResource(enabled, '/api/maps/styles', readStyle)
   const world = useLocalMapResource(enabled, WORLD_OFFLINE_API, readInstalledPacks, INVENTORY_POLL_MS)
-  return { style, world }
+  const local = useLocalMapResource(localDetailEnabled, LOCAL_DETAIL_API, readLocalDetails, INVENTORY_POLL_MS)
+  return { style, world, local }
 }
 
 export function archiveRequestUrl(url: string) {
