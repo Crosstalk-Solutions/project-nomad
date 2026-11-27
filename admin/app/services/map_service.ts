@@ -94,7 +94,10 @@ export class MapService implements IMapService {
   private readonly baseDirPath = join(process.cwd(), this.mapStoragePath)
   private baseAssetsExistCache: boolean | null = null
   private worldBasemapReady = false
-  private worldBasemapInFlight: Promise<void> | null = null
+  // Controllers create separate instances. Share only pending work so concurrent
+  // collection requests cannot write the same tarball or world archive twice.
+  private static baseAssetFilesInFlight: Promise<boolean> | null = null
+  private static worldBasemapInFlight: Promise<void> | null = null
 
   async listRegions() {
     const files = (await this.listAllMapStorageItems()).filter(
@@ -184,7 +187,6 @@ export class MapService implements IMapService {
         continue
       }
 
-      downloadFilenames.push(filename)
       const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
       await RunDownloadJob.dispatch({
@@ -201,6 +203,16 @@ export class MapService implements IMapService {
           collection_ref: slug,
         },
       })
+      downloadFilenames.push(filename)
+
+      if (downloadFilenames.length === 1) {
+        // Easy setup may download collections before anyone visits the map.
+        // Start provisioning after the first real admission, without making a
+        // base-map failure delay or reject the regional collection downloads.
+        void this.ensureBaseAssets().catch((err) => {
+          logger.warn(`[MapService] Base map provisioning for collection ${slug} failed: ${err}`)
+        })
+      }
     }
 
     return downloadFilenames.length > 0 ? downloadFilenames : null
@@ -497,18 +509,29 @@ export class MapService implements IMapService {
    */
   private async ensureWorldBasemap(): Promise<void> {
     if (this.worldBasemapReady) return
-    if (this.worldBasemapInFlight) return this.worldBasemapInFlight
-    this.worldBasemapInFlight = this._setupWorldBasemap().finally(() => {
-      this.worldBasemapInFlight = null
-    })
-    return this.worldBasemapInFlight
+    if (!MapService.worldBasemapInFlight) {
+      MapService.worldBasemapInFlight = this._setupWorldBasemap().finally(() => {
+        MapService.worldBasemapInFlight = null
+      })
+    }
+    await MapService.worldBasemapInFlight
+    // The instance that joined another request also needs the world source.
+    this.worldBasemapReady = true
   }
 
   /** Download the style/sprite/font base assets if missing. Does not touch the world basemap. */
   private async ensureBaseAssetFiles(): Promise<boolean> {
     const exists = await this.checkBaseAssetsExist()
     if (exists) return true
-    return this.downloadBaseAssets()
+    if (!MapService.baseAssetFilesInFlight) {
+      MapService.baseAssetFilesInFlight = this.downloadBaseAssets().finally(() => {
+        MapService.baseAssetFilesInFlight = null
+      })
+    }
+    const downloaded = await MapService.baseAssetFilesInFlight
+    // Joining instances may have cached false before the shared download.
+    if (downloaded) this.baseAssetsExistCache = true
+    return downloaded
   }
 
   private async _setupWorldBasemap(): Promise<void> {
@@ -552,10 +575,9 @@ export class MapService implements IMapService {
   }
 
   private async checkBaseAssetsExist(useCache: boolean = true): Promise<boolean> {
-    // Return cached result if available and caching is enabled
-    if (useCache && this.baseAssetsExistCache !== null) {
-      return this.baseAssetsExistCache
-    }
+    // Another request may finish provisioning after this instance saw missing
+    // assets, so only a positive result can skip a fresh filesystem check.
+    if (useCache && this.baseAssetsExistCache === true) return true
 
     await ensureDirectoryExists(this.baseDirPath)
 
