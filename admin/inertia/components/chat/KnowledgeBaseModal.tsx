@@ -563,8 +563,8 @@ export default function KnowledgeBaseModal({
           modal width, which is the exact defect #1198 fixed (the Delete button falls
           off the right edge at every viewport). Measured on NOMAD3: table 1018px
           against 961px of usable width at 5xl. */}
-      <div className="bg-surface-primary rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-border-subtle shrink-0">
+      <div className="bg-surface-primary rounded-lg shadow-xl max-w-6xl w-full max-h-[90dvh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-3 sm:p-6 border-b border-border-subtle shrink-0">
           <h2 className="text-2xl font-semibold text-text-primary">Knowledge Base</h2>
           <button
             onClick={onClose}
@@ -573,7 +573,7 @@ export default function KnowledgeBaseModal({
             <IconX className="h-6 w-6 text-text-muted" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-6">
+        <div className="overflow-y-auto flex-1 min-h-0 p-3 sm:p-6">
           {qdrantOffline && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950 dark:border-red-800 dark:text-red-300 flex items-center justify-between gap-4">
               <span>
@@ -680,7 +680,7 @@ export default function KnowledgeBaseModal({
           </div>
           <div className="my-8 p-4 rounded-lg border border-border-subtle bg-surface-secondary">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex-1 min-w-[14rem]">
+              <div className="flex-1 min-w-0 basis-56">
                 <p className="text-sm font-medium text-text-primary">
                   Auto-index new content for AI?
                 </p>

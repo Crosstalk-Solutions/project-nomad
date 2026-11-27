@@ -342,7 +342,7 @@ export default function Home(props: {
                     </button>
                   </div>
                 ) : (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="absolute top-2 right-2 flex items-center gap-1 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={() => {
@@ -351,7 +351,7 @@ export default function Home(props: {
                       }}
                       title="Edit this link"
                       aria-label="Edit this link"
-                      className="rounded p-1 text-text-muted hover:bg-surface-secondary hover:text-text-primary"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-text-muted hover:bg-surface-secondary [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:min-w-0 hover:text-text-primary"
                     >
                       <IconPencil size={16} />
                     </button>
@@ -360,7 +360,7 @@ export default function Home(props: {
                       onClick={() => setPendingDelete(tile.service_name)}
                       title="Remove this link"
                       aria-label="Remove this link"
-                      className="rounded p-1 text-text-muted hover:bg-surface-secondary hover:text-desert-red"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-text-muted hover:bg-surface-secondary [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:min-w-0 hover:text-desert-red"
                     >
                       <IconTrash size={16} />
                     </button>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from '@headlessui/react'
+import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import classNames from '~/lib/classNames'
 import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import { Link, usePage } from '@inertiajs/react'
@@ -105,35 +105,34 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
     <>
       <button
         type="button"
-        className="absolute left-4 top-4 z-50 xl:hidden"
+        className="m-2 inline-flex size-11 shrink-0 self-start items-center justify-center rounded-lg xl:hidden"
+        aria-label={`Open ${title} navigation`}
+        aria-expanded={sidebarOpen}
         onClick={() => setSidebarOpen(true)}
       >
         <IconMenu2 aria-hidden="true" className="size-8" />
       </button>
       {/* Mobile sidebar */}
-      <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 xl:hidden">
-        <DialogBackdrop
-          transition
-          className="fixed inset-0 bg-black/10 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
-        />
+      <Dialog
+        open={sidebarOpen}
+        onClose={setSidebarOpen}
+        className="relative z-50 xl:hidden"
+        aria-label={`${title} navigation`}
+      >
+        <DialogBackdrop className="fixed inset-0 bg-black/10" />
 
         <div className="fixed inset-0 flex">
-          <DialogPanel
-            transition
-            className="relative mr-16 flex w-full max-w-xs flex-1 transform transition duration-300 ease-in-out data-[closed]:-translate-x-full"
-          >
-            <TransitionChild>
-              <div className="absolute left-full top-0 flex w-16 justify-center pt-5 duration-300 ease-in-out data-[closed]:opacity-0">
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(false)}
-                  className="-m-2.5 p-2.5"
-                >
-                  <span className="sr-only">Close sidebar</span>
-                  <IconX aria-hidden="true" className="size-6 text-white" />
-                </button>
-              </div>
-            </TransitionChild>
+          <DialogPanel className="relative mr-16 flex w-full max-w-xs flex-1">
+            <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="inline-flex size-11 items-center justify-center"
+              >
+                <span className="sr-only">Close sidebar</span>
+                <IconX aria-hidden="true" className="size-6 text-white" />
+              </button>
+            </div>
             <Sidebar />
           </DialogPanel>
         </div>

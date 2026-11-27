@@ -62,7 +62,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   ]
 
   return (
-    <div className="min-h-screen flex flex-row bg-surface-secondary/90">
+    <div className="min-h-screen flex flex-col xl:flex-row bg-surface-secondary/90">
       <StyledSidebar title="Settings" items={navigation} />
       {children}
     </div>

@@ -344,7 +344,7 @@ export default function MapComponent({
   return (
     <MapProvider>
       <div
-        style={{ position: 'relative', width: '100%', height: '100vh' }}
+        className="absolute inset-0"
         onMouseLeave={() => {
           setIsDraggingMap(false)
           hideCoordinates()
@@ -364,7 +364,7 @@ export default function MapComponent({
         <Map
           ref={mapRef}
           reuseMaps
-          style={{ width: '100%', height: '100vh' }}
+          style={{ width: '100%', height: '100%' }}
           cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
           mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
           mapLib={maplibregl}
@@ -401,8 +401,8 @@ export default function MapComponent({
           onMouseMove={handleMouseMove}
           onMouseLeave={hideCoordinates}
         >
-          <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
-          <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
+          <NavigationControl style={{ marginTop: 'var(--nomad-map-navigation-top, 10px)', marginRight: 'var(--nomad-map-control-right, 10px)' }} />
+          <FullscreenControl style={{ marginTop: 'var(--nomad-map-fullscreen-top, 10px)', marginRight: 'var(--nomad-map-control-right, 10px)' }} />
           <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
 
           {showCoordinates && cursorLngLat && (

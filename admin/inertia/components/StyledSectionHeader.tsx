@@ -12,11 +12,11 @@ const StyledSectionHeader = ({ title, level = 2, className }: StyledSectionHeade
   return (
     <Heading
       className={classNames(
-        'text-2xl font-bold text-desert-green mb-6 flex items-center gap-2',
+        'text-2xl font-bold text-desert-green mb-6 min-w-0 [overflow-wrap:anywhere] flex items-center gap-2',
         className
       )}
     >
-      <div className="w-1 h-6 bg-desert-green" />
+      <div className="w-1 h-6 shrink-0 bg-desert-green" />
       {title}
     </Heading>
   )

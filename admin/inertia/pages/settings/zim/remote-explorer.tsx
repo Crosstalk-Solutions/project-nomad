@@ -496,8 +496,8 @@ export default function ZimRemoteExplorer() {
   return (
     <SettingsLayout>
       <Head title="Content Explorer | Project NOMAD" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
           <div className="flex justify-between items-center">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Content Explorer</h1>
@@ -521,7 +521,7 @@ export default function ZimRemoteExplorer() {
               className="!mt-6"
             />
           )}
-          <div className="mt-8 mb-6 flex items-center justify-between">
+          <div className="mt-8 mb-6 flex flex-wrap items-center justify-between gap-3">
             <StyledSectionHeader title="Curated Content" className="!mb-0" />
             <StyledButton
               onClick={() => refreshManifests.mutate()}
@@ -594,7 +594,7 @@ export default function ZimRemoteExplorer() {
           )}
 
           {/* Kiwix Library / Custom Library Browser */}
-          <div className="mt-12 mb-4 flex items-center justify-between">
+          <div className="mt-12 mb-4 flex flex-wrap items-center justify-between gap-3">
             <StyledSectionHeader title="Browse the Kiwix Library" className="!mb-0" />
             <StyledButton
               onClick={() => setManageModalOpen(true)}
@@ -612,7 +612,7 @@ export default function ZimRemoteExplorer() {
               <select
                 value={selectedSource === 'default' ? 'default' : String(selectedSource)}
                 onChange={(e) => handleSourceChange(e.target.value)}
-                className="rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green"
+                className="min-w-0 max-w-full rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green"
               >
                 <option value="default">Default (Kiwix)</option>
                 {customLibraries.map((lib) => (
@@ -654,7 +654,7 @@ export default function ZimRemoteExplorer() {
                       id="zim-language"
                       value={language}
                       onChange={(e) => handleLanguageChange(e.target.value)}
-                      className="rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green"
+                      className="min-w-0 max-w-full rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-desert-green"
                     >
                       <option value="all">All languages</option>
                       {catalogLanguages.map((lang) => (
@@ -727,7 +727,7 @@ export default function ZimRemoteExplorer() {
                     return (
                       <div className="py-4 px-6">
                         <p className="text-sm text-text-primary mb-4">{record.summary}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm [overflow-wrap:anywhere]">
                           {record.author && (
                             <div>
                               <span className="text-text-muted">Author: </span>
@@ -810,7 +810,7 @@ export default function ZimRemoteExplorer() {
                     )
                   },
                 }}
-                className="overflow-y-auto h-[600px] w-full mt-4"
+                className="overflow-y-auto h-[min(600px,70dvh)] sm:h-[600px] w-full mt-4"
                 containerProps={{
                   onScroll: (e) => fetchOnBottomReached(e.currentTarget as HTMLDivElement),
                 }}
@@ -858,7 +858,7 @@ export default function ZimRemoteExplorer() {
               )}
 
               {!isBrowsing && !browseError && browseData && (
-                <div className="bg-surface-primary rounded-lg border border-border-subtle overflow-hidden relative" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                <div className="bg-surface-primary rounded-lg border border-border-subtle overflow-auto relative max-h-[min(600px,70dvh)] sm:max-h-[600px]">
                   {browseData.directories.length === 0 && browseData.files.length === 0 ? (
                     <p className="text-text-muted p-6 text-center">
                       No directories or ZIM files found at this location.

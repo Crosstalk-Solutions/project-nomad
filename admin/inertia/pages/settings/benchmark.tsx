@@ -214,8 +214,8 @@ export default function BenchmarkPage(props: {
   return (
     <SettingsLayout>
       <Head title="System Benchmark" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-6 lg:px-12 py-6 lg:py-8">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Benchmark</h1>
             <p className="text-desert-stone-dark">
@@ -241,7 +241,7 @@ export default function BenchmarkPage(props: {
                 return ready ? (
                   <ScoreReveal result={latestResult} onDone={() => setRevealing(false)} />
                 ) : (
-                  <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
+                  <div className="bg-desert-white rounded-lg p-4 sm:p-8 border border-desert-stone-light shadow-sm">
                     <div className="flex items-center justify-center gap-3 text-desert-green animate-pulse">
                       <div className="animate-spin h-6 w-6 border-2 border-desert-green border-t-transparent rounded-full" />
                       <span className="text-lg font-medium">Compiling report...</span>
@@ -250,7 +250,7 @@ export default function BenchmarkPage(props: {
                 )
               })()
             ) : (
-              <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
+              <div className="bg-desert-white rounded-lg p-4 sm:p-8 border border-desert-stone-light shadow-sm">
                 <div className="space-y-6">
                   {errorMsg && (
                     <Alert
@@ -345,7 +345,7 @@ export default function BenchmarkPage(props: {
                   )}
                 </h2>
 
-                <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
+                <div className="bg-desert-white rounded-lg p-4 sm:p-8 border border-desert-stone-light shadow-sm">
                   <div className="flex flex-col md:flex-row items-center gap-8">
                     <div className="shrink-0">
                       <CircularGauge
@@ -646,7 +646,7 @@ export default function BenchmarkPage(props: {
                     onClick={() => setShowDetails(!showDetails)}
                     className="w-full p-6 flex items-center justify-between hover:bg-desert-stone-lighter/30 transition-colors"
                   >
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-left flex-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm text-left flex-1">
                       <div>
                         <div className="text-desert-stone-dark">Benchmark ID</div>
                         <div className="font-mono text-xs">

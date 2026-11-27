@@ -27,7 +27,7 @@ export default function DrugReferenceShow({ label, situations = [] }: PageProps)
     <AppLayout compact>
       <Head title={label.brand_name ?? label.generic_name ?? 'Drug Detail'} />
 
-      <div className="p-4 max-w-3xl mx-auto">
+      <div className="p-4 max-w-3xl mx-auto [overflow-wrap:anywhere]">
         {/* Back nav + comparison entry */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <Link

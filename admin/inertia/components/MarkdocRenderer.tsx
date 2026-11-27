@@ -128,7 +128,7 @@ interface MarkdocRendererProps {
 
 const MarkdocRenderer: React.FC<MarkdocRendererProps> = ({ content }) => {
   return (
-    <div className="text-base tracking-wide">{Markdoc.renderers.react(content, React, { components })}</div>
+    <div className="min-w-0 text-base tracking-wide [overflow-wrap:anywhere]">{Markdoc.renderers.react(content, React, { components })}</div>
   )
 }
 
