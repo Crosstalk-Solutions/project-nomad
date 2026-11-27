@@ -19,6 +19,7 @@ import Fuse, { IFuseOptions } from 'fuse.js'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import env from '#start/env'
 import { NOMAD_API_DEFAULT_BASE_URL } from '../../constants/misc.js'
+import { shouldPaceEmbedding } from '../utils/embedding_pacing.js'
 import KVStore from '#models/kv_store'
 import type { ModelCapabilities } from '../utils/model_capabilities.js'
 import {
@@ -1141,6 +1142,16 @@ export class OllamaService {
       options: { num_ctx: 8192 },
     } as any)
     return { embeddings: results.data.map((e) => e.embedding as number[]) }
+  }
+
+  /** See shouldPaceEmbedding: pause between ZIM batches only for NOMAD's own CPU-bound Ollama. */
+  public async shouldPaceEmbeddings(): Promise<boolean> {
+    await this._ensureDependencies()
+    if (!this.baseUrl) return true
+    await this._isNativeBackend()
+    // null = probe could not reach the backend; its identity is still unknown
+    if (this.isOllamaNative !== true) return shouldPaceEmbedding(this.isOllamaNative, false)
+    return shouldPaceEmbedding(true, await this.isEmbeddingGpuAccelerated())
   }
 
   /**
