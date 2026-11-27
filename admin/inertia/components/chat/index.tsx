@@ -595,7 +595,7 @@ export default function Chat({
       <div
         className={classNames(
           'flex border border-border-subtle overflow-hidden shadow-sm w-full',
-          isInModal ? 'h-full rounded-lg' : 'h-screen'
+          isInModal ? 'h-full rounded-lg' : 'h-full'
         )}
       >
         <ChatSidebar
@@ -618,7 +618,7 @@ export default function Chat({
         )}
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           <KbPolicyPromptBanner />
-          <div className="px-3 sm:px-6 py-3 border-b border-border-subtle bg-surface-secondary flex flex-wrap items-center justify-between gap-2 min-h-[75px] flex-shrink-0">
+          <div className="px-3 sm:px-6 py-3 border-b border-border-subtle bg-surface-secondary flex flex-wrap items-center justify-between gap-2 max-h-[45%] overflow-y-auto md:max-h-none md:overflow-visible md:min-h-[75px] flex-shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <button
                 type="button"
@@ -634,7 +634,7 @@ export default function Chat({
                 {activeSession?.title || 'New Chat'}
               </h2>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
               {remoteOllamaUrlSetting?.value && (
                 <span
                   className={classNames(
@@ -648,7 +648,7 @@ export default function Chat({
                 </span>
               )}
               {ragEnabled && (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <label htmlFor="collection-select" className="text-sm text-text-secondary">
                     Search in:
                   </label>
@@ -656,7 +656,7 @@ export default function Chat({
                     id="collection-select"
                     value={collectionFilter}
                     onChange={(e) => setCollectionFilter(e.target.value)}
-                    className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                    className="min-w-0 max-w-44 px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
                   >
                     <option value="">All</option>
                     {knownCollections.map((c) => (

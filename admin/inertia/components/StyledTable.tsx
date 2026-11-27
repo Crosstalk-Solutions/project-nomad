@@ -79,7 +79,7 @@ function StyledTable<T extends { [key: string]: any }>({
   return (
     <div
       className={classNames(
-        'w-full overflow-x-auto bg-surface-primary ring-1 ring-border-default sm:mx-0 sm:rounded-lg p-1 shadow-md',
+        'w-full min-w-0 max-w-full overflow-x-auto bg-surface-primary ring-1 ring-border-default sm:mx-0 sm:rounded-lg p-1 shadow-md',
         className
       )}
       ref={ref}

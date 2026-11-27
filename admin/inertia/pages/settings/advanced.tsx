@@ -126,8 +126,8 @@ export default function AdvancedPage(props: {
   return (
     <SettingsLayout>
       <Head title="Advanced Settings | Project NOMAD" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">Advanced</h1>
           <p className="text-text-muted mb-4">
             Advanced configuration for operators. These settings are optional — the defaults work
@@ -152,8 +152,8 @@ export default function AdvancedPage(props: {
               />
             )}
 
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
                 <Input
                   name="internetStatusTestUrl"
                   label="Internet Status Test URL"
@@ -189,8 +189,8 @@ export default function AdvancedPage(props: {
               (port 9999 on this server).
             </p>
 
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
                 <Input
                   name="serviceLogsUrl"
                   label="Service Logs & Metrics URL"

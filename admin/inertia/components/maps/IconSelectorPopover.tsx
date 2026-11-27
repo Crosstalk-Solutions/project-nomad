@@ -20,7 +20,7 @@ export default function IconSelectorPopover({
 }: IconSelectorPopoverProps) {
   return (
     <div
-      className="absolute left-0 top-7 z-50 w-72 rounded-md border border-border-subtle bg-surface-primary p-2 shadow-lg"
+      className="z-50 max-h-36 basis-full overflow-y-auto md:absolute md:left-0 md:top-7 md:w-72 md:max-h-none rounded-md border border-border-subtle bg-surface-primary p-2 shadow-lg"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
@@ -36,7 +36,7 @@ export default function IconSelectorPopover({
               onSelect(name)
               onClose()
             }}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded transition-colors hover:bg-surface-secondary ${
+            className={`flex h-8 w-full max-w-8 shrink-0 items-center justify-center rounded transition-colors hover:bg-surface-secondary ${
               selectedIcon === name ? 'bg-desert-green text-white' : 'text-text-secondary'
             }`}
           >

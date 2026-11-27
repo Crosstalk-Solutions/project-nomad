@@ -457,7 +457,7 @@ export default function DrugReferenceIndex({
     return (
       <AppLayout compact>
         <Head title="Drug Reference" />
-        <div className="p-4 max-w-4xl mx-auto">
+        <div className="p-4 max-w-4xl mx-auto max-sm:[overflow-wrap:anywhere]">
           <PageHeader rowCount={rowCount} />
           <DrugDisclaimerModal open={showDisclaimer} onAcknowledge={() => setShowDisclaimer(false)} />
           <div className="border-2 border-dashed border-desert-stone-lighter rounded-2xl p-8 text-center bg-desert-white">
@@ -509,12 +509,12 @@ export default function DrugReferenceIndex({
   return (
     <AppLayout compact>
       <Head title="Drug Reference" />
-      <div className="p-4 max-w-4xl mx-auto">
+      <div className="p-4 max-w-4xl mx-auto max-sm:[overflow-wrap:anywhere]">
         <PageHeader rowCount={rowCount} />
         <DrugDisclaimerModal open={showDisclaimer} onAcknowledge={() => setShowDisclaimer(false)} />
 
         <TabGroup selectedIndex={tabIndex} onChange={setTabIndex}>
-          <TabList className="mb-5 flex gap-1 border-b border-desert-stone-lighter/50">
+          <TabList className="mb-5 flex flex-wrap gap-1 border-b border-desert-stone-lighter/50">
             <Tab className={tabClass}>
               <IconSearch size={16} /> Search by drug
             </Tab>
@@ -553,7 +553,7 @@ export default function DrugReferenceIndex({
 
               {/* Collapsible filter drawer */}
               <div className="mb-6">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <FilterPill active={productType === null} onClick={() => handleFilterChange(null)}>
                     All
                   </FilterPill>

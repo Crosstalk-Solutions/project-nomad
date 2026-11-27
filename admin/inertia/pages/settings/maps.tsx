@@ -298,8 +298,8 @@ export default function MapsManager(props: {
   return (
     <SettingsLayout>
       <Head title="Maps Manager" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Maps Manager</h1>
@@ -388,7 +388,7 @@ export default function MapsManager(props: {
             }}
           />
 
-          <div className="mt-8 mb-6 flex items-center justify-between">
+          <div className="mt-8 mb-6 flex flex-wrap items-center justify-between gap-3">
             <StyledSectionHeader title="Curated Map Regions" className="!mb-0" />
             <StyledButton
               onClick={() => refreshManifests.mutate()}
@@ -410,7 +410,7 @@ export default function MapsManager(props: {
               <p className="text-text-muted">No curated collections available.</p>
             )}
           </div>
-          <div className="mt-12 mb-6 flex items-center justify-between">
+          <div className="mt-12 mb-6 flex flex-wrap items-center justify-between gap-3">
             <StyledSectionHeader title="Stored Map Files" className="!mb-0" />
             <StyledButton
               variant="primary"

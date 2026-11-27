@@ -52,18 +52,18 @@ const StyledModal: React.FC<StyledModalProps> = ({
         transition
         className="fixed inset-0 bg-black/50 transition-opacity data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"
       />
-      <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
+      <div className="fixed inset-0 z-10 overflow-y-auto overscroll-contain">
         <div
           className={classNames(
-            'flex min-h-full items-end justify-center p-4 text-center sm:items-center !w-screen',
+            'flex min-h-full items-end justify-center p-4 text-center sm:items-center',
             large ? 'sm:px-4' : 'sm:p-0'
           )}
         >
           <DialogPanel
             transition
             className={classNames(
-              'relative transform overflow-hidden rounded-lg bg-surface-primary px-4 pb-4 pt-5 text-left shadow-xl transition-all data-[closed]:translate-y-4 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in sm:my-8  sm:p-6 data-[closed]:sm:translate-y-0 data-[closed]:sm:scale-95',
-              large ? 'sm:max-w-7xl !w-full' : 'sm:max-w-lg'
+              'relative min-w-0 max-sm:w-full transform overflow-hidden rounded-lg bg-surface-primary px-4 pb-4 pt-5 text-left shadow-xl transition-all data-[closed]:translate-y-4 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in sm:my-8  sm:p-6 data-[closed]:sm:translate-y-0 data-[closed]:sm:scale-95',
+              large ? 'w-full sm:max-w-7xl' : 'sm:max-w-lg'
             )}
           >
             <div>
@@ -72,10 +72,10 @@ const StyledModal: React.FC<StyledModalProps> = ({
                 <DialogTitle as="h3" className="text-base font-semibold text-text-primary">
                   {title}
                 </DialogTitle>
-                <div className="mt-2 !h-fit">{children}</div>
+                <div className="mt-2 min-w-0 [overflow-wrap:anywhere]">{children}</div>
               </div>
             </div>
-            <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+            <div className="mt-5 grid gap-2 sm:mt-6 sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
               {cancelText && onCancel && (
                 <StyledButton
                   variant="outline"

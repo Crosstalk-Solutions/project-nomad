@@ -223,3 +223,22 @@ body {
 .themed-scrollbar:focus::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-text-muted);
 }
+
+/* Keep the pin form inside the map even when the selected point is near an edge. */
+@media (width < 48rem) {
+  .maplibregl-popup.nomad-map-marker-form {
+    inset: auto 0.5rem 2.5rem;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  .nomad-map-marker-form .maplibregl-popup-tip {
+    display: none;
+  }
+
+  .nomad-map-marker-form .maplibregl-popup-content {
+    width: 100%;
+    max-height: min(14rem, 65dvh);
+    overflow-y: auto;
+  }
+}

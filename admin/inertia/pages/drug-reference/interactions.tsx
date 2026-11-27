@@ -174,7 +174,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
           <>
             {/* ── Drug picker ───────────────────────────────────────────────── */}
             <div className="mb-6 border border-border-subtle rounded-lg p-4 bg-surface-secondary">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h2 className="text-sm font-semibold text-text-primary">Select drugs to compare</h2>
                 {atMax && (
                   <span className="text-xs text-amber-700 bg-amber-100 border border-amber-200 rounded px-2 py-0.5">
@@ -189,7 +189,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
                   {entries.map((entry) => (
                     <span
                       key={entry.id}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-desert-green text-white"
+                      className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 [overflow-wrap:anywhere] rounded-full text-xs font-medium bg-desert-green text-white"
                     >
                       {entry.brand_name ?? entry.generic_name ?? `ID ${entry.id}`}
                       <button
@@ -208,7 +208,7 @@ export default function DrugReferenceInteractions({ ingestStatus, rowCount }: Pa
                     .map((id) => (
                       <span
                         key={id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-elevated text-text-secondary animate-pulse"
+                        className="inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 [overflow-wrap:anywhere] rounded-full text-xs font-medium bg-surface-elevated text-text-secondary animate-pulse"
                       >
                         #{id}
                         <button

@@ -11,7 +11,7 @@ export default function Footer() {
 
   return (
     <footer>
-      <div className="flex items-center justify-center gap-3 border-t border-border-subtle py-4">
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border-subtle px-4 py-4 text-center">
         <p className="text-sm/6 text-text-secondary">
           Project NOMAD&trade; Command Center v{appVersion}
         </p>

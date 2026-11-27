@@ -509,13 +509,13 @@ export default function EasySetupWizard(props: {
       <nav aria-label="Progress" className="px-6 pt-6">
         <ol
           role="list"
-          className="divide-y divide-border-default rounded-md md:flex md:divide-y-0 md:justify-between border border-desert-green"
+          className="divide-y divide-border-default rounded-md lg:flex lg:divide-y-0 lg:justify-between border border-desert-green"
         >
           {steps.map((step, stepIdx) => (
-            <li key={step.step} className="relative md:flex-1 md:flex md:justify-center">
+            <li key={step.step} className="relative lg:flex-1 lg:flex lg:justify-center">
               {currentStep > step.step ? (
-                <div className="group flex w-full items-center md:justify-center">
-                  <span className="flex items-center px-6 py-2 text-sm font-medium">
+                <div className="group flex w-full items-center lg:justify-center">
+                  <span className="flex items-center px-3 py-2 text-sm font-medium sm:px-6">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green">
                       <IconCheck aria-hidden="true" className="size-6 text-white" />
                     </span>
@@ -525,7 +525,7 @@ export default function EasySetupWizard(props: {
               ) : currentStep === step.step ? (
                 <div
                   aria-current="step"
-                  className="flex items-center px-6 py-2 text-sm font-medium md:justify-center"
+                  className="flex items-center px-3 py-2 text-sm font-medium sm:px-6 lg:justify-center"
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-desert-green border-2 border-desert-green">
                     <span className="text-white">{step.displayNumber}</span>
@@ -533,8 +533,8 @@ export default function EasySetupWizard(props: {
                   <span className="ml-4 text-lg font-medium text-desert-green">{step.label}</span>
                 </div>
               ) : (
-                <div className="group flex items-center md:justify-center">
-                  <span className="flex items-center px-6 py-2 text-sm font-medium">
+                <div className="group flex items-center lg:justify-center">
+                  <span className="flex items-center px-3 py-2 text-sm font-medium sm:px-6">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border-default">
                       <span className="text-text-muted">{step.displayNumber}</span>
                     </span>
@@ -548,7 +548,7 @@ export default function EasySetupWizard(props: {
                   {/* Arrow separator for lg screens and up */}
                   <div
                     aria-hidden="true"
-                    className="absolute top-0 right-0 hidden h-full w-5 md:block"
+                    className="absolute top-0 right-0 hidden h-full w-5 lg:block"
                   >
                     <svg
                       fill="none"
@@ -1427,7 +1427,7 @@ export default function EasySetupWizard(props: {
               />
             </div>
           )}
-          <div className="p-6 min-h-fit">
+          <div className="p-3 sm:p-6 min-h-fit">
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
@@ -1435,8 +1435,8 @@ export default function EasySetupWizard(props: {
             {currentStep === 5 && isAiInSetup && renderStep4()}
             {currentStep === 6 && renderStep5()}
 
-            <div className="flex justify-between mt-8 pt-4 border-t border-desert-stone-light">
-              <div className="flex space-x-4 items-center">
+            <div className="flex flex-col gap-3 lg:flex-row lg:justify-between mt-8 pt-4 border-t border-desert-stone-light">
+              <div className="flex min-w-0 gap-3 items-center sm:gap-4">
                 {currentStep > 1 && (
                   <StyledButton
                     onClick={handleBack}
@@ -1468,7 +1468,7 @@ export default function EasySetupWizard(props: {
                 </p>
               </div>
 
-              <div className="flex space-x-4">
+              <div className="flex flex-wrap gap-2 sm:gap-4">
                 <StyledButton
                   onClick={() => router.visit('/home')}
                   disabled={isProcessing}

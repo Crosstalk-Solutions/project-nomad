@@ -129,16 +129,16 @@ export default function ZimPage() {
   return (
     <SettingsLayout>
       <Head title="Content Manager | Project NOMAD" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
-          <div className="flex items-center justify-between gap-4">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
               <p className="text-text-muted">
                 Manage your stored content files.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <StyledButton
                 variant="secondary"
                 icon={showUploader ? 'IconX' : 'IconUpload'}

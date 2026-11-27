@@ -260,7 +260,7 @@ export default function MarkerPanel({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="absolute left-4 top-[72px] z-40 flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-primary/95 px-3 py-2 shadow-lg backdrop-blur-sm transition-colors hover:bg-surface-secondary"
+        className="absolute left-2 top-2 md:left-4 md:top-[72px] z-40 flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-primary/95 px-3 py-2 shadow-lg backdrop-blur-sm transition-colors hover:bg-surface-secondary"
         title="Show saved locations"
       >
         <IconMapPin size={18} className="text-desert-orange" />
@@ -276,7 +276,7 @@ export default function MarkerPanel({
   }
 
   return (
-    <div className="absolute left-4 top-[72px] z-40 w-72 rounded-lg border border-border-subtle bg-surface-primary/95 shadow-lg backdrop-blur-sm">
+    <div className="absolute left-2 top-2 md:left-4 md:top-[72px] z-40 flex max-h-[calc(100%-1rem)] w-72 max-w-[calc(100%-4rem)] flex-col rounded-lg md:max-h-[calc(100%-5.5rem)] border border-border-subtle bg-surface-primary/95 shadow-lg backdrop-blur-sm">
       {/* The whole title bar closes the panel, mirroring the "Pins" button that
           opens it -- clicking the title to open but having to find the X to
           close is the kind of asymmetry that makes a panel feel fiddly. The X
@@ -358,7 +358,7 @@ export default function MarkerPanel({
         )}
       </div>
 
-      <div className="max-h-[calc(100vh-244px)] overflow-y-auto">
+      <div className="min-h-0 overflow-y-auto md:max-h-[calc(100dvh-244px)]">
         {markers.length === 0 ? (
           <div className="px-3 py-6 text-center">
             <IconMapPinFilled size={24} className="mx-auto mb-2 text-text-muted" />

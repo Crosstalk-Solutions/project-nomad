@@ -80,7 +80,7 @@ export default function ConditionsShow({ condition, drugs, remedies, drugRowCoun
           </div>
         ) : (
           <>
-            <div className="flex items-baseline justify-between mb-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
               <h2 className="text-base font-semibold">Over-the-counter options</h2>
               <span className="text-xs text-gray-500">
                 {drugs.length} result{drugs.length !== 1 ? 's' : ''}
