@@ -48,7 +48,7 @@ export default function ChatSidebar({
     <aside
       id="chat-sidebar"
       className={classNames(
-        'w-64 bg-surface-secondary border-r border-border-subtle flex-col h-full shrink-0',
+        'w-64 max-w-[calc(100%-3rem)] bg-surface-secondary border-r border-border-subtle flex-col h-full shrink-0',
         'fixed inset-y-0 left-0 z-50 md:static md:z-auto md:flex',
         isMobileOpen ? 'flex' : 'hidden'
       )}
@@ -114,7 +114,7 @@ export default function ChatSidebar({
         )}
       </div>
       <div className="p-4 flex flex-col items-center justify-center gap-y-2">
-        <img src="/nomad-primary.svg" alt="Project NOMAD Logo" className="h-28 w-28 mb-6 object-contain" />
+        <img src="/nomad-primary.svg" alt="Project NOMAD Logo" className="mb-6 hidden size-28 object-contain [@media(min-height:520px)]:block" />
         <StyledButton
           onClick={() => {
             // /chat is served by the admin app itself, so navigate in place rather than

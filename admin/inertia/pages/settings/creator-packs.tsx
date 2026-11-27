@@ -10,8 +10,8 @@ export default function CreatorPacksPage() {
   return (
     <SettingsLayout>
       <Head title="Creator Packs" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
           <h1 className="text-4xl font-semibold mb-2">Creator Packs</h1>
           <p className="text-text-muted mb-4">
             Install branded video collections from creators. Packs download in the background and

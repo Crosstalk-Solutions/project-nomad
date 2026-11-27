@@ -274,8 +274,8 @@ export default function ModelsPage(props: {
   return (
     <SettingsLayout>
       <Head title={`${aiAssistantName} Settings | Project NOMAD`} />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
           <p className="text-text-muted mb-4">
             Easily manage the {aiAssistantName}'s settings and installed models. We recommend
@@ -419,7 +419,7 @@ export default function ModelsPage(props: {
           </div>
 
           <StyledSectionHeader title="Installed Models" className="mt-12 mb-4" />
-          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle overflow-x-auto p-3 sm:p-6">
             {props.models.installedModels.length === 0 ? (
               <p className="text-text-muted">
                 No models installed. Browse the model catalog below to get started.
@@ -481,8 +481,8 @@ export default function ModelsPage(props: {
               Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
               For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
                 <Input
                   name="remoteOllamaUrl"
                   label="Remote Ollama/OpenAI API URL"
@@ -530,7 +530,7 @@ export default function ModelsPage(props: {
             message="If you are connected to an OpenAI API host (e.g. LM Studio), please download models directly in that application."
             className="mb-4"
           />
-          <div className="flex justify-start items-center gap-3 mt-4">
+          <div className="flex flex-wrap justify-start items-center gap-3 mt-4">
             <Input
               name="search"
               label=""
@@ -540,7 +540,7 @@ export default function ModelsPage(props: {
                 setQueryUI(e.target.value)
                 debouncedSetQuery(e.target.value)
               }}
-              className="w-1/3"
+              className="w-full sm:w-1/3"
               leftIcon={<IconSearch className="w-5 h-5 text-text-muted" />}
             />
             <StyledButton
@@ -583,7 +583,7 @@ export default function ModelsPage(props: {
             expandable={{
               expandedRowRender: (record) => (
                 <div className="pl-14">
-                  <div className="bg-surface-primary overflow-hidden">
+                  <div className="bg-surface-primary overflow-x-auto">
                     <table className="min-w-full divide-y divide-border-subtle">
                       <thead className="bg-surface-primary">
                         <tr>

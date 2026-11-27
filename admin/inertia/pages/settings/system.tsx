@@ -48,8 +48,8 @@ export default function SettingsPage(props: {
   return (
     <SettingsLayout>
       <Head title="System Information" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-6 lg:px-12 py-6 lg:py-8">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Information</h1>
             <p className="text-desert-stone-dark">
@@ -179,7 +179,7 @@ export default function SettingsPage(props: {
               <div className="w-1 h-6 bg-desert-green" />
               Memory Allocation
             </h2>
-            <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+            <div className="bg-desert-white rounded-lg p-4 sm:p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-desert-green mb-1">
@@ -225,7 +225,7 @@ export default function SettingsPage(props: {
               Storage Devices
             </h2>
 
-            <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+            <div className="bg-desert-white rounded-lg p-4 sm:p-8 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
               {storageItems.length > 0 ? (
                 <HorizontalBarChart
                   items={storageItems}

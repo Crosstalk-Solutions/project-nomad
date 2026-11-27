@@ -22,7 +22,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
   }, [data, isLoading])
 
   return (
-    <div className="min-h-screen flex flex-row bg-desert-white">
+    <div className="min-h-screen flex flex-col xl:flex-row bg-desert-white">
       <StyledSidebar title="Documentation" items={items} />
       {children}
     </div>

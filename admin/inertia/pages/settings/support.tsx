@@ -6,8 +6,8 @@ export default function SupportPage() {
   return (
     <SettingsLayout>
       <Head title="Support the Project | Project NOMAD" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6 max-w-4xl">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6 max-w-4xl">
           <h1 className="text-4xl font-semibold mb-4">Support the Project</h1>
           <p className="text-text-muted mb-10 text-lg">
             Project NOMAD is 100% free and open source — no subscriptions, no paywalls, no catch.

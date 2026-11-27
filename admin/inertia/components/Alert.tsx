@@ -166,13 +166,13 @@ export default function Alert({
   }
 
   return (
-    <div {...props} className={classNames(getVariantStyles(), 'p-5', props.className)} role="alert">
-      <div className="flex gap-4 items-center">
+    <div {...props} className={classNames(getVariantStyles(), 'p-3 sm:p-5', props.className)} role="alert">
+      <div className="flex flex-wrap gap-3 sm:flex-nowrap sm:gap-4 items-center">
         <div className="flex-shrink-0 mt-0.5">
           <DynamicIcon icon={icon || getDefaultIcon()} className={classNames(getIconColor(), 'size-6')} />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 [overflow-wrap:anywhere]">
           <h3 className={classNames('text-base font-semibold leading-tight', getTitleColor())}>{title}</h3>
           {message && (
             <div className={classNames('mt-2 text-sm leading-relaxed', getMessageColor())}>
@@ -183,7 +183,7 @@ export default function Alert({
         </div>
 
         {buttonProps && (
-          <div className="flex-shrink-0 ml-auto">
+          <div className="w-full sm:w-auto sm:shrink-0 sm:ml-auto">
             <StyledButton {...buttonProps} />
           </div>
         )}

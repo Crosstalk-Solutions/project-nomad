@@ -919,8 +919,8 @@ function AppCard({
       ) : null}
 
       {/* Top row: icon + status badge */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="w-12 h-12 rounded-lg bg-desert-green-lighter border border-desert-green-light flex items-center justify-center flex-shrink-0">
             {service.icon ? (
               <DynamicIcon icon={service.icon as DynamicIconName} className="h-7 w-7 text-desert-green" />
@@ -928,7 +928,7 @@ function AppCard({
               <IconBrandDocker className="h-7 w-7 text-text-muted" />
             )}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 [overflow-wrap:anywhere]">
             <p className="font-semibold text-text-primary text-sm leading-tight truncate">
               {service.friendly_name ?? service.service_name}
             </p>
@@ -1047,7 +1047,7 @@ function AppCard({
               </StyledButton>
 
               {isDropdownOpen && (
-                <div className="absolute right-0 bottom-full mb-1 w-44 bg-surface-primary border border-surface-secondary rounded-lg shadow-xl z-20 overflow-hidden">
+                <div className={`absolute bottom-full mb-1 w-44 bg-surface-primary border border-surface-secondary rounded-lg shadow-xl z-20 overflow-hidden ${service.ui_location || service.custom_url ? "right-0" : "left-0 sm:left-auto sm:right-0"}`}>
                   {docLink && (
                     <a
                       href={docLink}

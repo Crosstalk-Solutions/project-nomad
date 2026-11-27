@@ -234,8 +234,8 @@ export default function SystemUpdatePage(props: { system: Props }) {
   return (
     <SettingsLayout>
       <Head title="System Update" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-6 lg:px-12 py-6 lg:py-8">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Update</h1>
             <p className="text-desert-stone-dark">
@@ -277,7 +277,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
             </div>
           )}
           <div className="bg-surface-primary rounded-lg border shadow-md overflow-hidden">
-            <div className="p-8 text-center">
+            <div className="p-4 sm:p-8 text-center">
               <div className="flex justify-center mb-4">{getStatusIcon()}</div>
 
               {!isUpdating && (
@@ -302,7 +302,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                 </>
               )}
 
-              <div className="flex justify-center gap-8 mb-6">
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-8 mb-6">
                 <div className="text-center">
                   <p className="text-sm text-desert-stone mb-1">Current Version</p>
                   <p className="text-xl font-bold text-desert-green">
@@ -349,7 +349,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                 </div>
               )}
               {!isUpdating && (
-                <div className="flex justify-center gap-4">
+                <div className="flex flex-wrap justify-center gap-4">
                   <StyledButton
                     variant="primary"
                     size="lg"
@@ -496,7 +496,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
 
           {showLogs && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-surface-primary rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col">
+              <div className="bg-surface-primary rounded-lg shadow-2xl max-w-4xl w-full max-h-[80dvh] flex min-w-0 flex-col">
                 <div className="p-6 border-b border-desert-stone-light flex justify-between items-center">
                   <h3 className="text-xl font-bold text-desert-green">Update Logs</h3>
                   <button
@@ -513,7 +513,7 @@ export default function SystemUpdatePage(props: { system: Props }) {
                     </svg>
                   </button>
                 </div>
-                <div className="p-6 overflow-auto flex-1">
+                <div className="min-h-0 p-3 sm:p-6 overflow-auto flex-1">
                   <pre className="bg-black text-green-400 p-4 rounded text-xs font-mono whitespace-pre-wrap">
                     {logs || 'No logs available yet...'}
                   </pre>

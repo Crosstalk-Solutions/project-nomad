@@ -25,19 +25,6 @@ export default function AppLayout({
 
   return (
     <div className="min-h-screen flex flex-col">
-      {
-        window.location.pathname !== '/home' && (
-          <Link
-            href="/home"
-            className={classNames(
-              'absolute left-4 flex items-center',
-              compact ? 'top-4' : 'top-60 md:top-48'
-            )}
-          >
-            <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
-          </Link>
-        )}
       <div
         className={classNames(
           'flex cursor-pointer items-center justify-center',
@@ -48,23 +35,36 @@ export default function AppLayout({
         <img
           src="/nomad-primary.svg"
           alt="Project NOMAD Logo"
-          className={compact ? 'h-12 w-12 object-contain' : 'h-40 w-40 object-contain'}
+          className={compact ? 'h-12 w-12 object-contain' : 'size-24 object-contain sm:size-40'}
         />
         <h1
           className={classNames(
             'font-bold text-desert-green',
-            compact ? 'text-2xl' : 'text-5xl'
+            compact ? 'text-2xl' : 'text-center text-3xl sm:text-5xl'
           )}
         >
           Command Center
         </h1>
       </div>
-      <hr className={
-        classNames(
-          "text-desert-green font-semibold h-[1.5px] bg-desert-green border-none",
-          !compact && window.location.pathname !== '/home' ? "mt-12 md:mt-0" : "mt-0"
-        )} />
-      <div className="flex-1 w-full bg-desert">{children}</div>
+      {window.location.pathname !== '/home' && (
+        <Link
+          href="/home"
+          className={classNames(
+            'mx-4 mb-2 inline-flex min-h-11 w-fit items-center sm:absolute sm:left-4 sm:m-0 sm:min-h-0',
+            compact ? 'sm:top-4' : 'sm:top-60 md:top-48'
+          )}
+        >
+          <IconArrowLeft className="mr-2" size={24} />
+          <p className="text-lg text-text-secondary">Back to Home</p>
+        </Link>
+      )}
+      <hr
+        className={classNames(
+          'text-desert-green font-semibold h-[1.5px] bg-desert-green border-none',
+          !compact && window.location.pathname !== '/home' && 'sm:mt-12 md:mt-0'
+        )}
+      />
+      <div className="flex-1 w-full min-w-0 bg-desert">{children}</div>
       <Footer />
 
       {aiAssistantInstalled && (

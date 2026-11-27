@@ -104,6 +104,7 @@ export default function MapMarkerFormPopup({
             longitude={longitude}
             latitude={latitude}
             anchor="bottom"
+            className="nomad-map-marker-form"
             offset={[0, -36] as [number, number]}
             onClose={onCancel}
             closeOnClick={false}
@@ -147,7 +148,7 @@ export default function MapMarkerFormPopup({
                     {notes.length}/{MAX_MARKER_NOTES_LENGTH}
                 </div>
 
-                <div className="mt-1.5 flex gap-1 items-center">
+                <div className="mt-1.5 flex flex-wrap gap-1 items-center">
                     {PIN_COLORS.map((pinColor) => (
                         <button
                             key={pinColor.id}
@@ -189,7 +190,7 @@ export default function MapMarkerFormPopup({
             </span>
                     </button>
 
-                    <div className="relative">
+                    <div className="contents md:relative md:block">
                         <button
                             type="button"
                             title="Choose custom marker icon"

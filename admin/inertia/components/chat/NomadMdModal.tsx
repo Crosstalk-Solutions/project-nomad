@@ -71,7 +71,7 @@ export default function NomadMdModal({ aiAssistantName, onClose }: NomadMdModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity">
-      <div className="bg-surface-primary rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-surface-primary rounded-lg shadow-xl max-w-4xl w-full max-h-[90dvh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-border-subtle shrink-0">
           <div>
             <h2 className="text-2xl font-semibold text-text-primary">NOMAD.md</h2>

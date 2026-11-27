@@ -351,9 +351,9 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
   return (
     <SettingsLayout>
       <Head title="App Settings" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
-          <div className="flex items-center justify-between mb-4">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6">
+          <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
             <div>
               <h1 className="text-4xl font-semibold">Apps</h1>
               <p className="text-text-muted mt-1">

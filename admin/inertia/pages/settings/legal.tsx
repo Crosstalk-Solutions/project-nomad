@@ -5,8 +5,8 @@ export default function LegalPage() {
   return (
     <SettingsLayout>
       <Head title="Legal Notices | Project NOMAD" />
-      <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6 max-w-4xl">
+      <div className="xl:pl-72 w-full min-w-0">
+        <main className="px-4 lg:px-12 py-6 max-w-4xl max-sm:[overflow-wrap:anywhere]">
           <h1 className="text-4xl font-semibold mb-8">Legal Notices</h1>
 
           {/* License Agreement */}
