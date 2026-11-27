@@ -239,11 +239,11 @@
             },
             {
               "id": "100r.co_en_all",
-              "version": "2026-06",
+              "version": "2026-11",
               "title": "Hundred Rabbits",
               "description": "Field notes on low-tech living - solar power, water, food, and repair from a decade off-grid",
-              "url": "https://download.kiwix.org/zim/zimit/100r.co_en_all_2026-06.zim",
-              "size_mb": 172
+              "url": "https://download.kiwix.org/zim/zimit/100r.co_en_all_2026-11.zim",
+              "size_mb": 177
             },
             {
               "id": "gutenberg_en_lcc-u",
@@ -643,10 +643,10 @@
             },
             {
               "id": "devdocs_en_react",
-              "version": "2026-02",
+              "version": "2026-11",
               "title": "React Documentation",
               "description": "React library reference and tutorials",
-              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_react_2026-02.zim",
+              "url": "https://download.kiwix.org/zim/devdocs/devdocs_en_react_2026-11.zim",
               "size_mb": 3
             },
             {
